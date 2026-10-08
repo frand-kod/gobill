@@ -143,7 +143,13 @@ type SearchVouchersParams struct {
 }
 
 func (q *Queries) SearchVouchers(ctx context.Context, arg SearchVouchersParams) ([]Voucher, error) {
-	rows, err := q.db.QueryContext(ctx, searchVouchers, arg.Q, arg.Status, arg.PlanID, arg.PageOffset, arg.PageLimit)
+	rows, err := q.db.QueryContext(ctx, searchVouchers,
+		arg.Q,
+		arg.Status,
+		arg.PlanID,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
