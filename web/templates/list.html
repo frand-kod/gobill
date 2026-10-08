@@ -1,0 +1,39 @@
+{{define "content"}}
+{{with .Data}}
+{{$d := .}}
+<div class="toolbar">
+  <h1>{{T .Heading}}</h1>
+  {{if .CanCreate}}<a class="btn btn-primary" href="{{.Base}}/new">{{T "Add"}}</a>{{end}}
+</div>
+{{if .Searchable}}
+<form class="toolbar" method="get" action="{{.Base}}" role="search">
+  <input type="search" name="q" value="{{.Q}}" aria-label="{{T "Search"}}">
+  <button class="btn btn-ghost" type="submit">{{T "Search"}}</button>
+</form>
+{{end}}
+<div class="card table-wrap">
+  <table class="table">
+    <thead><tr>{{range .Cols}}<th>{{T .}}</th>{{end}}{{if .CanEdit}}<th></th>{{end}}</tr></thead>
+    <tbody>
+    {{range $r := .Rows}}
+      <tr>
+        {{range $i, $c := $r.Cells}}<td>{{if and (eq $i 0) $d.ViewLink}}<a href="{{$d.Base}}/{{$r.ID}}">{{$c}}</a>{{else}}{{$c}}{{end}}</td>{{end}}
+        {{if $d.CanEdit}}<td class="row-actions">
+          <a class="btn btn-ghost" href="{{$d.Base}}/{{$r.ID}}/edit">{{T "Edit"}}</a>
+          <form method="post" action="{{$d.Base}}/{{$r.ID}}/delete" onsubmit="return confirm({{T "Delete"}} + '?')">
+            <button class="btn btn-ghost" type="submit">{{T "Delete"}}</button>
+          </form>
+        </td>{{end}}
+      </tr>
+    {{else}}
+      <tr><td colspan="{{len .Cols}}">{{T "No data"}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+</div>
+<p class="pager">
+  {{if .Prev}}<a class="btn btn-ghost" href="{{.Base}}?q={{.Q}}&amp;page={{.Prev}}">{{T "Previous"}}</a>{{end}}
+  {{if .Next}}<a class="btn btn-ghost" href="{{.Base}}?q={{.Q}}&amp;page={{.Next}}">{{T "Next"}}</a>{{end}}
+</p>
+{{end}}
+{{end}}

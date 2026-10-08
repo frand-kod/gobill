@@ -1,0 +1,30 @@
+{{define "content"}}
+{{with .Data}}
+<h1>{{T .Heading}}</h1>
+<form class="card form" method="post" action="{{.Action}}" novalidate>
+  <div class="card-body">
+    {{range .Fields}}
+    <div class="field{{if eq .Type "checkbox"}} field-check{{end}}">
+      {{if eq .Type "checkbox"}}
+      <label><input type="checkbox" name="{{.Name}}" value="1"{{if .Checked}} checked{{end}}> {{T .Label}}</label>
+      {{else}}
+      <label for="{{.Name}}">{{T .Label}}</label>
+      {{if eq .Type "select"}}
+      <select id="{{.Name}}" name="{{.Name}}"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
+        {{$cur := .Value}}
+        {{range .Options}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+      {{else}}
+      <input id="{{.Name}}" name="{{.Name}}" type="{{.Type}}" value="{{.Value}}"{{if .Required}} required{{end}}{{if eq .Type "password"}} autocomplete="new-password"{{end}}{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
+      {{end}}
+      {{end}}
+      {{with .Hint}}<p class="hint">{{T .}}</p>{{end}}
+      {{if .Error}}<p class="field-error" id="{{.Name}}-err">{{T .Error}}</p>{{end}}
+    </div>
+    {{end}}
+    <button class="btn btn-primary" type="submit">{{T "Save"}}</button>
+    <a class="btn btn-ghost" href="{{.Cancel}}">{{T "Cancel"}}</a>
+  </div>
+</form>
+{{end}}
+{{end}}

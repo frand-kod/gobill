@@ -9,7 +9,12 @@
     </div>
     <nav class="sidebar-menu" aria-label="Main">
       <a href="/admin"{{if eq .Path "/admin"}} aria-current="page"{{end}}>{{icon "layout-dashboard"}}<span>{{T "Dashboard"}}</span></a>
+      <a href="/admin/customers"{{if hasPrefix .Path "/admin/customers"}} aria-current="page"{{end}}>{{icon "users"}}<span>{{T "Customer"}}</span></a>
       {{if or (eq .Admin.Role "SuperAdmin") (eq .Admin.Role "Admin")}}
+      <a href="/admin/bandwidth"{{if hasPrefix .Path "/admin/bandwidth"}} aria-current="page"{{end}}>{{icon "wifi"}}<span>{{T "Bandwidth"}}</span></a>
+      <a href="/admin/routers"{{if hasPrefix .Path "/admin/routers"}} aria-current="page"{{end}}>{{icon "router"}}<span>{{T "Routers"}}</span></a>
+      <a href="/admin/pool"{{if hasPrefix .Path "/admin/pool"}} aria-current="page"{{end}}>{{icon "package"}}<span>{{T "Pool"}}</span></a>
+      <a href="/admin/logs"{{if hasPrefix .Path "/admin/logs"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Logs"}}</span></a>
       <a href="/admin/settings"{{if eq .Path "/admin/settings"}} aria-current="page"{{end}}>{{icon "settings"}}<span>{{T "Settings"}}</span></a>
       {{end}}
       <form method="post" action="/logout">
@@ -19,6 +24,7 @@
   </header>
   <main class="main">
     {{if .Flash}}<p class="alert alert-ok" role="status">{{icon "circle-check"}}<span>{{.Flash}}</span></p>{{end}}
+    {{if .Error}}<p class="alert alert-error" role="alert">{{icon "circle-alert"}}<span>{{.Error}}</span></p>{{end}}
     {{template "content" .}}
   </main>
 </div>
