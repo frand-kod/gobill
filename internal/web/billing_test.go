@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -20,6 +21,7 @@ type billEnv struct {
 	cust   db.Customer
 	bw, rt int64
 	calls  *[]string
+	srv    *Server
 }
 
 type recDev struct {
@@ -37,9 +39,14 @@ func (d recDev) AddCustomer(_ context.Context, c device.Customer, _ device.Plan)
 	return nil
 }
 
+// onlineDev reports every customer as connected.
+type onlineDev struct{ device.Dummy }
+
+func (onlineDev) IsOnline(context.Context, device.Customer, string) (bool, error) { return true, nil }
+
 func billApp(t *testing.T) *billEnv {
 	s, h, q, c := crudApp(t)
-	e := &billEnv{h: h, q: q, c: c, calls: new([]string)}
+	e := &billEnv{h: h, q: q, c: c, calls: new([]string), srv: s}
 	s.Billing = &billing.Service{DB: s.conn, Q: q, Key: s.SecretKey,
 		DeviceFor: func(db.Plan, db.Router) (device.Device, error) { return recDev{calls: e.calls}, nil }}
 	ctx := t.Context()
@@ -214,5 +221,26 @@ func TestReportRoleBillingReadOnly(t *testing.T) {
 	}
 	if n, _ := e.q.ListVouchers(t.Context(), db.ListVouchersParams{Limit: 5}); len(n) != 0 {
 		t.Fatal("report role created vouchers")
+	}
+}
+
+func TestCustomerOnlineBadge(t *testing.T) {
+	e := billApp(t)
+	p := e.plan(t, "Hot", "Hotspot", 1000)
+	if _, err := e.q.CreateSubscription(t.Context(), db.CreateSubscriptionParams{CustomerID: e.cust.ID, PlanID: p.ID,
+		RouterID: sql.NullInt64{Int64: e.rt, Valid: true}, Type: "Hotspot", StartedAt: 100, ExpiresAt: 1 << 40}); err != nil {
+		t.Fatal(err)
+	}
+	url := fmt.Sprint("/admin/customers/", e.cust.ID)
+	if w := do(e.h, "GET", url, nil, e.c); strings.Contains(w.Body.String(), "Connection") {
+		t.Fatal("badge shown while check_customer_online is unset")
+	}
+	setting(t, e, "check_customer_online", "yes")
+	if w := do(e.h, "GET", url, nil, e.c); !strings.Contains(w.Body.String(), "Offline") {
+		t.Fatal("offline badge missing")
+	}
+	e.srv.Billing.DeviceFor = func(db.Plan, db.Router) (device.Device, error) { return onlineDev{}, nil }
+	if w := do(e.h, "GET", url, nil, e.c); !strings.Contains(w.Body.String(), "Online") {
+		t.Fatal("online badge missing")
 	}
 }

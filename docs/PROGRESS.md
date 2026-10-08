@@ -86,6 +86,7 @@ Status per 2026-10-08: 121 field ada, 63 berbeda, dan 148 belum. Layar: 20 ada, 
 
 Ditandai dengan komentar `ponytail:` di kode. Daftar lengkapnya: `grep -rn "ponytail:" --include=*.go .`
 Terpenting: RouterOS tanpa pooling, TLS RouterOS tidak diverifikasi, kunci MPPE belum dikirim.
+Penanda perpanjang sekali sebulan (`extend_last_<id>`) disimpan sebagai satu baris `settings` per pelanggan yang pernah memperpanjang; pindahkan ke kolom `customers` saat migrasi boleh ditambah.
 
 ## Perbedaan perilaku dari PHP lama (disengaja)
 

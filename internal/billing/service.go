@@ -446,6 +446,18 @@ func (s *Service) prepare(ctx context.Context, c db.Customer, p db.Plan) (dev de
 	return dev, dc, dp, router.Name, err
 }
 
+// CustomerOnline asks the plan's device whether the customer is connected (old check_customer_online).
+// ponytail: one device call per page view, no cache; the 5s cap matches the old socket timeout.
+func (s *Service) CustomerOnline(ctx context.Context, c db.Customer, p db.Plan) (bool, error) {
+	dev, dc, _, router, err := s.prepare(ctx, c, p)
+	if err != nil {
+		return false, err
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	return dev.IsOnline(ctx, dc, router)
+}
+
 func (s *Service) devicePlan(ctx context.Context, p db.Plan, withExpired bool) (device.Plan, error) {
 	dp := device.Plan{Name: p.Name, Type: p.Type, SharedUsers: int(p.SharedUsers.Int64), Limited: p.Limited == 1,
 		LimitType: p.LimitType.String, TimeLimit: int(p.TimeLimit.Int64), TimeUnit: p.TimeUnit.String,

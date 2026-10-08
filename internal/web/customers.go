@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"database/sql"
 	"encoding/csv"
 	"errors"
@@ -190,6 +191,7 @@ type custDetail struct {
 	Usage     *radiusUsage
 	Trx       []db.Transaction
 	Custom    []field // custom fields with this customer's values
+	Online    string  // "" unless check_customer_online is yes; else Online, Offline or Error
 }
 
 func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
@@ -224,12 +226,40 @@ func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "custom fields", err)
 		return
 	}
+	d.Online = s.customerOnline(ctx, c, subs)
 	s.render(w, r, 200, "customer", Page{
 		Title: c.Username,
 		Flash: s.sessions.PopString(ctx, "flash"),
 		Error: s.sessions.PopString(ctx, "error"),
 		Data:  d,
 	})
+}
+
+// customerOnline asks the device of the first active plan (old check_customer_online). Device
+// errors show as Error, as the old red dot did.
+func (s *Server) customerOnline(ctx context.Context, c db.Customer, subs []db.Subscription) string {
+	st, err := s.loadSettings(ctx)
+	if err != nil || s.Billing == nil || st["check_customer_online"] != "yes" {
+		return ""
+	}
+	for _, x := range subs {
+		if x.Status != "active" {
+			continue
+		}
+		p, err := s.queries.GetPlan(ctx, x.PlanID)
+		if err != nil {
+			return "Error"
+		}
+		on, err := s.Billing.CustomerOnline(ctx, c, p)
+		switch {
+		case err != nil:
+			return "Error"
+		case on:
+			return "Online"
+		}
+		return "Offline"
+	}
+	return ""
 }
 
 type rechargeConfirm struct {

@@ -23,6 +23,7 @@
         <dt>{{T "Balance"}}</dt><dd>{{money .C.Balance}}</dd>
         <dt>{{T "Billing Day"}}</dt><dd>{{if .C.BillingDay.Valid}}{{.C.BillingDay.Int64}}{{end}}</dd>
         <dt>{{T "Auto Renewal"}}</dt><dd>{{if eq .C.AutoRenewal 1}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd>
+        {{with .Online}}<dt>{{T "Connection"}}</dt><dd><span class="badge {{badge .}}">{{T .}}</span></dd>{{end}}
         <dt>{{T "Created"}}</dt><dd>{{.Created}}</dd>
         {{range .Custom}}<dt>{{T .Label}}</dt><dd>{{.Value}}</dd>{{end}}
       </dl>

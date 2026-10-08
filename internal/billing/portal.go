@@ -136,6 +136,8 @@ func (s *Service) ExtendExpired(ctx context.Context, customerID, subID int64) (t
 			ExpiresAt: until.Unix(), Status: "active", AdminID: sub.AdminID, ID: sub.ID}); err != nil {
 			return err
 		}
+		// ponytail: one settings row per customer that has extended (extend_last_<id>). Ceiling: the
+		// settings table grows with customers; move to a customers column once a migration is allowed.
 		if err = q.UpsertSetting(ctx, db.UpsertSettingParams{Key: key, Value: month}); err != nil {
 			return err
 		}

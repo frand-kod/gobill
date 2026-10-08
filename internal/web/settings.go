@@ -212,6 +212,8 @@ func (s *Server) settingsFields(tab string, v, e map[string]string) []field {
 			chk("maintenance_mode", "Maintenance Mode"),
 			text("maintenance_date", "Maintenance Date", v, e).as("date"),
 			sel("clock_guard", "Clock Guard", settingsOnOff...).hint("Off disables the clock check"),
+			sel("router_check", "Router Check", settingsYesNo...).hint("Pings enabled routers every 5 minutes and alerts when one goes down"),
+			sel("check_customer_online", "Check Customer Online", option{"no", "No"}, option{"yes", "Yes"}).hint("Shows on the customer page whether the customer is connected"),
 		}, "System", "")...)
 	}
 	return nil
@@ -524,7 +526,8 @@ func (fp formPage) HasFile() bool {
 	return false
 }
 
-// brand returns the branding the layouts show: logo file and login page text.
+// brand returns the branding the layouts show: logo, favicon and login page text, plus
+// disable_registration for the portal's register link.
 func (s *Server) brand(ctx context.Context) map[string]string {
 	out := map[string]string{}
 	m, err := s.loadSettings(ctx)
@@ -532,7 +535,7 @@ func (s *Server) brand(ctx context.Context) map[string]string {
 		slog.Error("load branding", "err", err)
 		return out
 	}
-	for _, k := range []string{"logo", "login_page_logo", "login_page_head", "login_page_description"} {
+	for _, k := range []string{"logo", "login_page_logo", "login_page_favicon", "login_page_head", "login_page_description", "disable_registration"} {
 		out[k] = m[k]
 	}
 	return out

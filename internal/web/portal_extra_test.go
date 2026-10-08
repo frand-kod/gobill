@@ -145,3 +145,18 @@ func TestPortalShowBandwidth(t *testing.T) {
 		t.Fatalf("bandwidth missing: %s", w.Body.String())
 	}
 }
+
+func TestPortalLoginBrandingAndRegisterLink(t *testing.T) {
+	e := billApp(t)
+	if body := do(e.h, "GET", "/portal/login", nil, nil).Body.String(); !strings.Contains(body, "/portal/register") {
+		t.Fatal("register link missing")
+	}
+	setting(t, e, "disable_registration", "noreg", "login_page_favicon", "fav.png")
+	body := do(e.h, "GET", "/portal/login", nil, nil).Body.String()
+	if strings.Contains(body, "/portal/register") {
+		t.Fatal("register link shown while registration is disabled")
+	}
+	if !strings.Contains(body, `<link rel="icon" href="/uploads/fav.png">`) {
+		t.Fatal("favicon link missing")
+	}
+}
