@@ -126,7 +126,7 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 
 **Hitungan baris tabel ringkasan (92 baris, dihitung ulang 2026-10-09):** Ada 36 · Sebagian 42 · Non-goal 5 · Ditunda 7 · Belum 2.
 
-**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 94 · ⚠️ 54 · ❌ 30; Settings ✅ 43 · ⚠️ 29 · ❌ 41; Portal pelanggan ✅ 25 · ⚠️ 4 · ❌ 14. Total ✅ 162 · ⚠️ 87 · ❌ 85. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
+**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 100 · ⚠️ 54 · ❌ 24; Settings ✅ 58 · ⚠️ 28 · ❌ 27; Portal pelanggan ✅ 30 · ⚠️ 4 · ❌ 9. Total ✅ 188 · ⚠️ 86 · ❌ 60. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
 
 ---
 
