@@ -28,6 +28,10 @@ import (
 	"github.com/frand-kod/nuxbill-go/internal/secret"
 )
 
+// staleAfter: an open session not updated for this long no longer counts toward shared_users.
+// ponytail: fixed 2x a 5-minute interim; make it a setting if NAS interim differs.
+const staleAfter = 600
+
 type Server struct {
 	Q        *db.Queries
 	Key      []byte
@@ -145,7 +149,13 @@ func (s *Server) HandleAuth(w radius.ResponseWriter, r *radius.Request) {
 	}
 	// Old PHP: Hotspot only, count of logged-in sessions >= shared_users is refused.
 	if pl.PlanType == "Hotspot" && pl.SharedUsers.Valid {
-		n, _ := s.Q.CountOpenRadiusSessions(ctx, user)
+		fip := ""
+		if ip := rfc2865.FramedIPAddress_Get(r.Packet); ip != nil {
+			fip = ip.String()
+		}
+		mac := rfc2865.CallingStationID_GetString(r.Packet)
+		n, _ := s.Q.CountOtherOpenRadiusSessions(ctx, db.CountOtherOpenRadiusSessionsParams{
+			Username: user, UpdatedAt: s.now().Unix() - staleAfter, FramedIp: fip, Column4: fip, Mac: mac, Column6: mac})
 		if n >= pl.SharedUsers.Int64 {
 			reject(w, r, "You are already logged in - access denied")
 			return

@@ -13,6 +13,7 @@ import (
 	"layeh.com/radius/rfc2759"
 	"layeh.com/radius/rfc2865"
 	"layeh.com/radius/rfc2866"
+	"layeh.com/radius/rfc2869"
 	"layeh.com/radius/vendors/microsoft"
 	"layeh.com/radius/vendors/mikrotik"
 
@@ -27,6 +28,7 @@ type rec struct{ p *radius.Packet }
 func (r *rec) Write(p *radius.Packet) error { r.p = p; return nil }
 
 type env struct {
+	conn    *sql.DB
 	s       *Server
 	q       *db.Queries
 	now     time.Time
@@ -47,7 +49,7 @@ func setup(t *testing.T) *env {
 	}
 	q := db.New(conn)
 	key := make([]byte, 32)
-	e := &env{q: q, now: time.Unix(1_000_000, 0), trusted: true}
+	e := &env{q: q, conn: conn, now: time.Unix(1_000_000, 0), trusted: true}
 	e.s = &Server{Q: q, Key: key, Now: func() time.Time { return e.now }, Trusted: func() bool { return e.trusted }}
 
 	sealed, _ := secret.Seal(key, nasSecret)
@@ -190,18 +192,128 @@ func TestAccounting(t *testing.T) {
 		e.now = e.now.Add(time.Minute)
 	}
 	acct(rfc2866.AcctStatusType_Value_Start, 0, 0)
-	n, _ := e.q.CountOpenRadiusSessions(context.Background(), "alice")
+	n, _ := e.openSessions()
 	if n != 1 {
 		t.Fatalf("open %d", n)
 	}
 	acct(rfc2866.AcctStatusType_Value_InterimUpdate, 100, 200)
 	acct(rfc2866.AcctStatusType_Value_Stop, 300, 400)
-	n, _ = e.q.CountOpenRadiusSessions(context.Background(), "alice")
+	n, _ = e.openSessions()
 	if n != 0 {
 		t.Fatalf("still open: %d", n)
 	}
 	used, _ := e.q.SumRadiusUsage(context.Background(), db.SumRadiusUsageParams{Username: "alice"})
 	if used != 700 {
 		t.Fatalf("usage %d, want 700 from one row", used)
+	}
+}
+
+func (e *env) openSessions() (int64, error) {
+	var n int64
+	err := e.conn.QueryRow("SELECT COUNT(*) FROM radius_sessions WHERE stopped_at IS NULL").Scan(&n)
+	return n, err
+}
+
+func (e *env) sendAcct(t *testing.T, typ rfc2866.AcctStatusType, sid, ip, mac string) {
+	t.Helper()
+	p := radius.New(radius.CodeAccountingRequest, nasSecret)
+	rfc2866.AcctStatusType_Set(p, typ)
+	rfc2866.AcctSessionID_SetString(p, sid)
+	rfc2865.UserName_SetString(p, "alice")
+	if ip != "" {
+		rfc2865.FramedIPAddress_Set(p, net.ParseIP(ip))
+	}
+	rfc2865.CallingStationID_SetString(p, mac)
+	e.s.HandleAcct(&rec{}, &radius.Request{Packet: p, RemoteAddr: &net.UDPAddr{IP: net.ParseIP("10.0.0.1")}})
+}
+
+func (e *env) authFrom(t *testing.T, ip, mac string) *radius.Packet {
+	p := pap("alice", "pw")
+	if ip != "" {
+		rfc2865.FramedIPAddress_Set(p, net.ParseIP(ip))
+	}
+	rfc2865.CallingStationID_SetString(p, mac)
+	return e.auth(t, p)
+}
+
+func (e *env) setShared(t *testing.T, n int) {
+	if _, err := e.conn.Exec("UPDATE plans SET shared_users = ?", n); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSharedUsers(t *testing.T) {
+	e := setup(t)
+	e.setShared(t, 1)
+	e.sendAcct(t, rfc2866.AcctStatusType_Value_Start, "s1", "172.16.0.5", "AA:AA")
+	if r := e.authFrom(t, "172.16.0.5", "AA:AA"); r.Code != radius.CodeAccessAccept {
+		t.Fatal("reconnect from same IP must be accepted")
+	}
+	if r := e.authFrom(t, "", "AA:AA"); r.Code != radius.CodeAccessAccept {
+		t.Fatal("reconnect with same MAC must be accepted")
+	}
+	if r := e.authFrom(t, "172.16.0.9", "BB:BB"); r.Code != radius.CodeAccessReject {
+		t.Fatal("different device at the limit must be rejected")
+	}
+	e.now = e.now.Add(staleAfter*time.Second + time.Second)
+	if r := e.authFrom(t, "172.16.0.9", "BB:BB"); r.Code != radius.CodeAccessAccept {
+		t.Fatal("stale session must be ignored")
+	}
+	if n, _ := e.openSessions(); n != 1 {
+		t.Fatalf("stale row must not be deleted/closed, open=%d", n)
+	}
+}
+
+func TestAccountingOnClosesSessions(t *testing.T) {
+	e := setup(t)
+	e.sendAcct(t, rfc2866.AcctStatusType_Value_Start, "s1", "172.16.0.5", "AA")
+	e.sendAcct(t, rfc2866.AcctStatusType_Value_Start, "s2", "172.16.0.6", "BB")
+	e.sendAcct(t, rfc2866.AcctStatusType_Value_AccountingOn, "", "", "")
+	if n, _ := e.openSessions(); n != 0 {
+		t.Fatalf("open %d", n)
+	}
+}
+
+func TestDataLimit(t *testing.T) {
+	e := setup(t)
+	if _, err := e.conn.Exec("UPDATE plans SET limited=1, limit_type='Data_Limit', data_limit=1, data_unit='MB'"); err != nil {
+		t.Fatal(err)
+	}
+	r := e.auth(t, pap("alice", "pw"))
+	if r.Code != radius.CodeAccessAccept {
+		t.Fatal("under limit must accept")
+	}
+	if got, _ := mikrotik.MikrotikTotalLimit_Lookup(r); got != 1048576 {
+		t.Fatalf("total limit %d", got)
+	}
+	e.sendAcct(t, rfc2866.AcctStatusType_Value_Stop, "s1", "", "")
+	if _, err := e.conn.Exec("UPDATE radius_sessions SET input_octets = 1048576"); err != nil {
+		t.Fatal(err)
+	}
+	if r := e.auth(t, pap("alice", "pw")); r.Code != radius.CodeAccessReject {
+		t.Fatal("over limit must reject")
+	}
+}
+
+func TestPPPoEAttrs(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	rt, _ := e.q.ListRouters(ctx, db.ListRoutersParams{Limit: 1})
+	pool, err := e.q.CreatePool(ctx, db.CreatePoolParams{Name: "pppoe-pool", RangeIp: "10.9.0.2-10.9.0.9", RouterID: rt[0].ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.conn.Exec("UPDATE plans SET type='PPPoE', pool_id=?; UPDATE customers SET pppoe_ip='10.9.0.7'", pool.ID); err != nil {
+		t.Fatal(err)
+	}
+	r := e.auth(t, pap("alice", "pw"))
+	if r.Code != radius.CodeAccessAccept {
+		t.Fatal("reject")
+	}
+	if got := rfc2869.FramedPool_GetString(r); got != "pppoe-pool" {
+		t.Fatalf("pool %q", got)
+	}
+	if got := rfc2865.FramedIPAddress_Get(r).String(); got != "10.9.0.7" {
+		t.Fatalf("ip %s", got)
 	}
 }

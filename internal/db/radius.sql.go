@@ -24,12 +24,32 @@ func (q *Queries) CloseRadiusSessionsByNAS(ctx context.Context, arg CloseRadiusS
 	return err
 }
 
-const countOpenRadiusSessions = `-- name: CountOpenRadiusSessions :one
-SELECT COUNT(*) FROM radius_sessions WHERE username = ? AND stopped_at IS NULL
+const countOtherOpenRadiusSessions = `-- name: CountOtherOpenRadiusSessions :one
+SELECT COUNT(*) FROM radius_sessions
+WHERE username = ? AND stopped_at IS NULL AND updated_at >= ?
+  AND (framed_ip <> ? OR ? = '')
+  AND (mac <> ? OR ? = '')
 `
 
-func (q *Queries) CountOpenRadiusSessions(ctx context.Context, username string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countOpenRadiusSessions, username)
+type CountOtherOpenRadiusSessionsParams struct {
+	Username  string
+	UpdatedAt int64
+	FramedIp  string
+	Column4   interface{}
+	Mac       string
+	Column6   interface{}
+}
+
+// Open, recently updated sessions of the user that are not the requesting device (same framed IP or MAC).
+func (q *Queries) CountOtherOpenRadiusSessions(ctx context.Context, arg CountOtherOpenRadiusSessionsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countOtherOpenRadiusSessions,
+		arg.Username,
+		arg.UpdatedAt,
+		arg.FramedIp,
+		arg.Column4,
+		arg.Mac,
+		arg.Column6,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
