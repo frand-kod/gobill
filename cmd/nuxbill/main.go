@@ -91,6 +91,7 @@ func run() error {
 		}
 	}
 	svc := &billing.Service{DB: conn, Q: db.New(conn), Key: key, Loc: loc}
+	app.Billing = svc
 	go job.Run(ctx, "expiry", time.Minute, svc.ExpiryJob(guard.Trusted))
 
 	errCh := make(chan error, 1)

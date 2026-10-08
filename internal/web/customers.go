@@ -2,14 +2,16 @@ package web
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/mail"
 	"strconv"
-	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/frand-kod/nuxbill-go/internal/billing"
 	"github.com/frand-kod/nuxbill-go/internal/db"
 	"github.com/frand-kod/nuxbill-go/internal/secret"
 )
@@ -96,11 +98,17 @@ func (s *Server) custEdit(w http.ResponseWriter, r *http.Request) {
 	s.renderForm(w, r, 200, formPage{"Edit Contact: " + c.Username, fmt.Sprint("/admin/customers/", c.ID), "/admin/customers", custFields(v, nil, true)})
 }
 
+type subRow struct{ Plan, Router, Expires, Status string }
+
 type custDetail struct {
 	C         db.Customer
 	Created   string
 	SecretSet bool
 	CanEdit   bool
+	CanSell   bool // may recharge
+	Plans     []option
+	Subs      []subRow
+	Trx       []db.Transaction
 }
 
 func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
@@ -108,12 +116,76 @@ func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	ctx := r.Context()
+	role := adminFrom(r).Role
+	d := custDetail{C: c, Created: s.ts(c.CreatedAt), SecretSet: len(c.SecretEnc) > 0,
+		CanEdit: oneOf(role, "SuperAdmin", "Admin"), CanSell: oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales")}
+	opts, plans, err := s.planOptions(r, true)
+	if err != nil {
+		s.fail(w, "list plans", err)
+		return
+	}
+	d.Plans = opts
+	subs, err := s.queries.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 50})
+	if err != nil {
+		s.fail(w, "list subscriptions", err)
+		return
+	}
+	for _, x := range subs {
+		d.Subs = append(d.Subs, subRow{plans[x.PlanID].Name, x.Type, s.ts(x.ExpiresAt), x.Status})
+	}
+	if d.Trx, err = s.queries.ListTransactionsByCustomer(ctx, db.ListTransactionsByCustomerParams{CustomerID: c.ID, Limit: 10}); err != nil {
+		s.fail(w, "list transactions", err)
+		return
+	}
 	s.render(w, r, 200, "customer", Page{
 		Title: c.Username,
-		Flash: s.sessions.PopString(r.Context(), "flash"),
-		Data: custDetail{C: c, Created: time.Unix(c.CreatedAt, 0).UTC().Format("2006-01-02 15:04"),
-			SecretSet: len(c.SecretEnc) > 0, CanEdit: oneOf(adminFrom(r).Role, "SuperAdmin", "Admin")},
+		Flash: s.sessions.PopString(ctx, "flash"),
+		Error: s.sessions.PopString(ctx, "error"),
+		Data:  d,
 	})
+}
+
+// custRecharge activates a plan for the customer, paid in cash or from their balance.
+func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
+	c, ok := s.custGet(w, r)
+	if !ok {
+		return
+	}
+	back := fmt.Sprint("/admin/customers/", c.ID)
+	fail := func(msg string) {
+		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), msg))
+		http.Redirect(w, r, back, http.StatusSeeOther)
+	}
+	if s.Billing == nil {
+		s.fail(w, "recharge", errors.New("billing service not configured"))
+		return
+	}
+	planID, _ := posInt(r.PostFormValue("plan"))
+	plan, err := s.queries.GetPlan(r.Context(), planID)
+	if err != nil || plan.Enabled != 1 {
+		fail("Invalid plan")
+		return
+	}
+	admin := adminFrom(r).ID
+	switch r.PostFormValue("method") {
+	case "Cash":
+		err = s.Billing.Recharge(r.Context(), c.ID, plan.ID, "Admin - Cash", admin)
+	case "Balance":
+		err = s.Billing.RechargeWithBalance(r.Context(), c.ID, plan.ID, admin)
+	default:
+		fail("Invalid payment method")
+		return
+	}
+	if errors.Is(err, billing.ErrInsufficientBalance) {
+		fail("Insufficient balance")
+		return
+	} else if err != nil {
+		slog.Error("recharge", "customer", c.Username, "plan", plan.Name, "err", err)
+		fail("Recharge failed")
+		return
+	}
+	s.done(w, r, back, "Recharge Successful", "customer.recharge", c.Username+" ["+plan.Name+"]")
 }
 
 // custSave serves both create (no {id} in the path) and update.

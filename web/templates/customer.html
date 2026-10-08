@@ -16,11 +16,36 @@
     <dt>{{T "PPPoE Username"}}</dt><dd>{{.C.PppoeUsername}}</dd>
     <dt>{{T "PPPoE IP"}}</dt><dd>{{.C.PppoeIp}}</dd>
     <dt>{{T "Router Secret"}}</dt><dd>{{if .SecretSet}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd>
-    <dt>{{T "Balance"}}</dt><dd>{{.C.Balance}}</dd>
+    <dt>{{T "Balance"}}</dt><dd>{{money .C.Balance}}</dd>
     <dt>{{T "Billing Day"}}</dt><dd>{{if .C.BillingDay.Valid}}{{.C.BillingDay.Int64}}{{end}}</dd>
     <dt>{{T "Auto Renewal"}}</dt><dd>{{if eq .C.AutoRenewal 1}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd>
     <dt>{{T "Created"}}</dt><dd>{{.Created}}</dd>
   </dl>
 </div></div>
+{{if .CanSell}}
+<h2>{{T "Recharge Account"}}</h2>
+<form class="card form" method="post" action="/admin/customers/{{.C.ID}}/recharge">
+  <div class="card-body">
+    <div class="field"><label for="plan">{{T "Service Plan"}}</label>
+      <select id="plan" name="plan">{{range .Plans}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</select></div>
+    <div class="field"><label for="method">{{T "Payment Method"}}</label>
+      <select id="method" name="method"><option value="Cash">{{T "Cash"}}</option><option value="Balance">{{T "Balance"}}</option></select></div>
+    <button class="btn btn-primary" type="submit">{{T "Recharge"}}</button>
+    <a class="btn btn-ghost" href="/admin/vouchers/redeem?customer={{.C.Username}}">{{T "Redeem Voucher"}}</a>
+  </div>
+</form>
+{{end}}
+<h2>{{T "Service Plan"}}</h2>
+<div class="card table-wrap"><table class="table">
+  <thead><tr><th>{{T "Plan Name"}}</th><th>{{T "Type"}}</th><th>{{T "Expires"}}</th><th>{{T "Status"}}</th></tr></thead>
+  <tbody>{{range .Subs}}<tr><td>{{.Plan}}</td><td>{{.Router}}</td><td>{{.Expires}}</td><td>{{.Status}}</td></tr>
+  {{else}}<tr><td colspan="4">{{T "No data"}}</td></tr>{{end}}</tbody>
+</table></div>
+<h2>{{T "Transactions"}}</h2>
+<div class="card table-wrap"><table class="table">
+  <thead><tr><th>{{T "Invoice"}}</th><th>{{T "Date"}}</th><th>{{T "Plan Name"}}</th><th>{{T "Method"}}</th><th>{{T "Plan Price"}}</th></tr></thead>
+  <tbody>{{range .Trx}}<tr><td>{{.Invoice}}</td><td>{{ts .CreatedAt}}</td><td>{{.PlanName}}</td><td>{{.Method}}</td><td>{{money .Price}}</td></tr>
+  {{else}}<tr><td colspan="5">{{T "No data"}}</td></tr>{{end}}</tbody>
+</table></div>
 {{end}}
 {{end}}

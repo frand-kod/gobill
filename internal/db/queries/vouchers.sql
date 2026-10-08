@@ -12,7 +12,10 @@ SELECT * FROM vouchers WHERE code = ?;
 SELECT * FROM vouchers ORDER BY id DESC LIMIT ? OFFSET ?;
 
 -- name: SearchVouchers :many
-SELECT * FROM vouchers WHERE code LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' ORDER BY id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+SELECT * FROM vouchers WHERE code LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
+  AND (CAST(sqlc.arg(status) AS TEXT) = '' OR status = sqlc.arg(status))
+  AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR plan_id = sqlc.arg(plan_id))
+ORDER BY id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 -- name: UseVoucher :execrows
 -- Returns 1 if claimed, 0 if already used or missing.

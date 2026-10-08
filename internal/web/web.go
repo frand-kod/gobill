@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -22,6 +23,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	nuxbill "github.com/frand-kod/nuxbill-go"
+	"github.com/frand-kod/nuxbill-go/internal/billing"
 	"github.com/frand-kod/nuxbill-go/internal/db"
 	"github.com/frand-kod/nuxbill-go/internal/i18n"
 )
@@ -45,6 +47,8 @@ type Server struct {
 	ClockWarning func() string
 	// SecretKey encrypts router passwords and customer secrets (see package secret).
 	SecretKey []byte
+	// Billing recharges customers and syncs plans to routers; nil disables both.
+	Billing *billing.Service
 
 	// ponytail: in-memory limiter, resets on restart; persist if needed
 	mu     sync.Mutex
@@ -138,6 +142,7 @@ func (s *Server) Handler() http.Handler {
 	crud("/admin/bandwidth", s.bwList, s.bwNew, s.bwEdit, s.bwSave, s.bwDelete)
 	crud("/admin/routers", s.routerList, s.routerNew, s.routerEdit, s.routerSave, s.routerDelete)
 	crud("/admin/pool", s.poolList, s.poolNew, s.poolEdit, s.poolSave, s.poolDelete)
+	crud("/admin/plans", s.planList, s.planNew, s.planEdit, s.planSave, s.planDelete)
 	mux.Handle("GET /admin/logs", managers(http.HandlerFunc(s.logList)))
 	mux.Handle("GET /admin/customers", all(http.HandlerFunc(s.custList)))
 	mux.Handle("GET /admin/customers/new", staff(http.HandlerFunc(s.custNew)))
@@ -146,8 +151,48 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/customers/{id}/edit", managers(http.HandlerFunc(s.custEdit)))
 	mux.Handle("POST /admin/customers/{id}", managers(http.HandlerFunc(s.custSave)))
 	mux.Handle("POST /admin/customers/{id}/delete", managers(http.HandlerFunc(s.custDelete)))
+	mux.Handle("POST /admin/customers/{id}/recharge", staff(http.HandlerFunc(s.custRecharge)))
+
+	// Old PHP plan.php: voucher list is open to all admins, generate/redeem to staff, delete to managers.
+	mux.Handle("GET /admin/vouchers", all(http.HandlerFunc(s.vchList)))
+	mux.Handle("GET /admin/vouchers/new", staff(http.HandlerFunc(s.vchNew)))
+	mux.Handle("POST /admin/vouchers", staff(http.HandlerFunc(s.vchGenerate)))
+	mux.Handle("GET /admin/vouchers/print", all(http.HandlerFunc(s.vchPrint)))
+	mux.Handle("GET /admin/vouchers/redeem", staff(http.HandlerFunc(s.vchRedeemForm)))
+	mux.Handle("POST /admin/vouchers/redeem", staff(http.HandlerFunc(s.vchRedeem)))
+	mux.Handle("POST /admin/vouchers/{id}/delete", managers(http.HandlerFunc(s.vchDelete)))
+	mux.Handle("GET /admin/transactions", all(http.HandlerFunc(s.trxList)))
 
 	return http.NewCrossOriginProtection().Handler(s.sessions.LoadAndSave(mux))
+}
+
+// location is the billing zone; UTC until a billing service is set.
+func (s *Server) location() *time.Location {
+	if s.Billing != nil && s.Billing.Loc != nil {
+		return s.Billing.Loc
+	}
+	return time.UTC
+}
+
+// ts formats a unix time in the billing zone.
+func (s *Server) ts(unix int64) string {
+	return time.Unix(unix, 0).In(s.location()).Format("2006-01-02 15:04")
+}
+
+// money formats rupiah with dot thousands separators: Rp 1.234.000.
+func money(n int64) string {
+	neg := n < 0
+	if neg {
+		n = -n
+	}
+	d := strconv.FormatInt(n, 10)
+	for i := len(d) - 3; i > 0; i -= 3 {
+		d = d[:i] + "." + d[i:]
+	}
+	if neg {
+		d = "-" + d
+	}
+	return "Rp " + d
 }
 
 // language returns the current app language.
@@ -233,6 +278,8 @@ func (s *Server) parseTemplates() error {
 	funcs := template.FuncMap{
 		"T":         func(text string) string { return s.catalog.T(s.language(), text) },
 		"hasPrefix": strings.HasPrefix,
+		"money":     money,
+		"ts":        s.ts,
 		"icon": func(name string) (template.HTML, error) {
 			svg, ok := icons[name]
 			if !ok {
@@ -248,6 +295,7 @@ func (s *Server) parseTemplates() error {
 		"list":      {"base.html", "app.html", "list.html"},
 		"form":      {"base.html", "app.html", "form.html"},
 		"customer":  {"base.html", "app.html", "customer.html"},
+		"print":     {"print.html"},
 	}
 	s.templates = map[string]*template.Template{}
 	for name, files := range pages {

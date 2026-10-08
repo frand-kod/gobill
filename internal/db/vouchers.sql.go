@@ -128,17 +128,22 @@ func (q *Queries) ListVouchers(ctx context.Context, arg ListVouchersParams) ([]V
 }
 
 const searchVouchers = `-- name: SearchVouchers :many
-SELECT id, code, plan_id, status, used_by, used_at, generated_by, created_at FROM vouchers WHERE code LIKE '%' || CAST(?1 AS TEXT) || '%' ORDER BY id DESC LIMIT ?3 OFFSET ?2
+SELECT id, code, plan_id, status, used_by, used_at, generated_by, created_at FROM vouchers WHERE code LIKE '%' || CAST(?1 AS TEXT) || '%'
+  AND (CAST(?2 AS TEXT) = '' OR status = ?2)
+  AND (CAST(?3 AS INTEGER) = 0 OR plan_id = ?3)
+ORDER BY id DESC LIMIT ?5 OFFSET ?4
 `
 
 type SearchVouchersParams struct {
 	Q          string
+	Status     string
+	PlanID     int64
 	PageOffset int64
 	PageLimit  int64
 }
 
 func (q *Queries) SearchVouchers(ctx context.Context, arg SearchVouchersParams) ([]Voucher, error) {
-	rows, err := q.db.QueryContext(ctx, searchVouchers, arg.Q, arg.PageOffset, arg.PageLimit)
+	rows, err := q.db.QueryContext(ctx, searchVouchers, arg.Q, arg.Status, arg.PlanID, arg.PageOffset, arg.PageLimit)
 	if err != nil {
 		return nil, err
 	}

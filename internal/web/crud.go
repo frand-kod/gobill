@@ -39,7 +39,12 @@ type listPage struct {
 	CanEdit          bool // shows edit and delete
 	ViewLink         bool // first cell links to Base/ID instead of Base/ID/edit
 	Searchable       bool
-	Prev, Next       int // page numbers, 0 = none
+	Prev, Next       int      // page numbers, 0 = none
+	DeleteOnly       bool     // rows have no edit page
+	Links            []option // extra toolbar buttons: Value = href
+	FilterName       string   // optional select next to the search box, e.g. "status"
+	FilterVal        string
+	FilterOpts       []option
 }
 
 func text(name, label string, v, e map[string]string) field {
