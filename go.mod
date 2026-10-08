@@ -11,6 +11,11 @@ require (
 )
 
 require (
+	golang.org/x/text v0.42.0 // indirect
+	layeh.com/radius v0.0.0-20231213012653-1006025d24f8 // indirect
+)
+
+require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect

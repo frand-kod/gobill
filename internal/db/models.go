@@ -60,6 +60,14 @@ type Customer struct {
 	LastLoginAt   sql.NullInt64
 }
 
+type Na struct {
+	ID          int64
+	Name        string
+	Ip          string
+	SecretEnc   []byte
+	Description string
+}
+
 type Plan struct {
 	ID            int64
 	Name          string
@@ -92,6 +100,20 @@ type Pool struct {
 	LocalIp  string
 	RangeIp  string
 	RouterID int64
+}
+
+type RadiusSession struct {
+	ID           int64
+	SessionID    string
+	Username     string
+	NasIp        string
+	FramedIp     string
+	Mac          string
+	StartedAt    int64
+	UpdatedAt    int64
+	StoppedAt    sql.NullInt64
+	InputOctets  int64
+	OutputOctets int64
 }
 
 type Router struct {
