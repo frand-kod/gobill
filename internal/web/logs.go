@@ -16,7 +16,8 @@ func (s *Server) logList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp := listPage{Heading: "Logs", Base: "/admin/logs", Q: q, Searchable: true,
-		Cols: []string{"Date", "Actor", "Action", "Description", "IP"}}
+		Cols:  []string{"Date", "Actor", "Action", "Description", "IP"},
+		Links: []option{{"/admin/logs/radius", "Radius Logs"}, {"/admin/logs/messages", "Message Logs"}}}
 	for _, l := range rows {
 		// ponytail: times shown in UTC; apply the timezone setting if operators ask
 		when := time.Unix(l.CreatedAt, 0).UTC().Format("2006-01-02 15:04:05")

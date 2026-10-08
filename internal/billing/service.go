@@ -497,3 +497,40 @@ func (s *Service) defaultDevice(p db.Plan, r db.Router) (device.Device, error) {
 	}
 	return nil, fmt.Errorf("unknown device %q", p.Device)
 }
+
+// RechargePreview is what a recharge would do, computed without writing anything.
+type RechargePreview struct {
+	Plan    db.Plan
+	Price   int64
+	Expiry  time.Time // zero for Balance plans
+	Extends bool
+}
+
+// Preview mirrors the expiry and price steps of recharge for the admin confirm page.
+func (s *Service) Preview(ctx context.Context, customerID, planID int64) (RechargePreview, error) {
+	plan, err := s.Q.GetPlan(ctx, planID)
+	if err != nil {
+		return RechargePreview{}, err
+	}
+	c, err := s.Q.GetCustomer(ctx, customerID)
+	if err != nil {
+		return RechargePreview{}, err
+	}
+	pv := RechargePreview{Plan: plan, Price: plan.Price}
+	if plan.Type == "Balance" {
+		return pv, nil
+	}
+	active, found, err := activeSub(ctx, s.Q, customerID, plan.RouterID, plan.Type)
+	if err != nil {
+		return pv, err
+	}
+	from := s.now()
+	if pv.Extends = found && active.PlanID == plan.ID && setting(ctx, s.Q, "extend_expiry") != "no"; pv.Extends {
+		from = time.Unix(active.ExpiresAt, 0).In(from.Location())
+	}
+	pv.Expiry = NewExpiry(from, int(plan.Validity), Unit(plan.ValidityUnit), Options{Extend: pv.Extends, BillingDay: billingDay(c, plan)})
+	if plan.ValidityUnit == "Period" && !found {
+		pv.Price = 0
+	}
+	return pv, nil
+}

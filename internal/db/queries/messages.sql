@@ -23,3 +23,15 @@ WHERE (CAST(sqlc.arg(service_type) AS TEXT) = '' OR c.service_type = sqlc.arg(se
           AND (CAST(sqlc.arg(router_id) AS INTEGER) = 0 OR s.router_id = CAST(sqlc.arg(router_id) AS INTEGER))
           AND (CAST(sqlc.arg(sub_status) AS TEXT) = '' OR s.status = sqlc.arg(sub_status))))
 ORDER BY c.id;
+
+-- name: CreateMessageLog :exec
+INSERT INTO message_logs (channel, recipient, subject, body, status, error) VALUES (?, ?, ?, ?, ?, ?);
+
+-- name: SearchMessageLogs :many
+-- created_at range: from_ts/to_ts 0 = open. page_limit -1 = all (CSV).
+SELECT * FROM message_logs
+WHERE (recipient LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR subject LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
+       OR body LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR channel LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%')
+  AND (CAST(sqlc.arg(from_ts) AS INTEGER) = 0 OR created_at >= sqlc.arg(from_ts))
+  AND (CAST(sqlc.arg(to_ts) AS INTEGER) = 0 OR created_at < sqlc.arg(to_ts))
+ORDER BY id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);

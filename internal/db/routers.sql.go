@@ -7,12 +7,13 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
 const createRouter = `-- name: CreateRouter :one
 INSERT INTO routers (name, host, port, username, password_enc, description, enabled, coordinates, coverage)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, host, port, username, password_enc, description, enabled, coordinates, coverage
+RETURNING id, name, host, port, username, password_enc, description, enabled, coordinates, coverage, last_seen_at, online
 `
 
 type CreateRouterParams struct {
@@ -51,6 +52,8 @@ func (q *Queries) CreateRouter(ctx context.Context, arg CreateRouterParams) (Rou
 		&i.Enabled,
 		&i.Coordinates,
 		&i.Coverage,
+		&i.LastSeenAt,
+		&i.Online,
 	)
 	return i, err
 }
@@ -65,7 +68,7 @@ func (q *Queries) DeleteRouter(ctx context.Context, id int64) error {
 }
 
 const getRouter = `-- name: GetRouter :one
-SELECT id, name, host, port, username, password_enc, description, enabled, coordinates, coverage FROM routers WHERE id = ?
+SELECT id, name, host, port, username, password_enc, description, enabled, coordinates, coverage, last_seen_at, online FROM routers WHERE id = ?
 `
 
 func (q *Queries) GetRouter(ctx context.Context, id int64) (Router, error) {
@@ -82,12 +85,14 @@ func (q *Queries) GetRouter(ctx context.Context, id int64) (Router, error) {
 		&i.Enabled,
 		&i.Coordinates,
 		&i.Coverage,
+		&i.LastSeenAt,
+		&i.Online,
 	)
 	return i, err
 }
 
 const listEnabledRouters = `-- name: ListEnabledRouters :many
-SELECT id, name, host, port, username, password_enc, description, enabled, coordinates, coverage FROM routers WHERE enabled = 1 ORDER BY name
+SELECT id, name, host, port, username, password_enc, description, enabled, coordinates, coverage, last_seen_at, online FROM routers WHERE enabled = 1 ORDER BY name
 `
 
 func (q *Queries) ListEnabledRouters(ctx context.Context) ([]Router, error) {
@@ -110,6 +115,48 @@ func (q *Queries) ListEnabledRouters(ctx context.Context) ([]Router, error) {
 			&i.Enabled,
 			&i.Coordinates,
 			&i.Coverage,
+			&i.LastSeenAt,
+			&i.Online,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOfflineRouters = `-- name: ListOfflineRouters :many
+SELECT id, name, host, port, username, password_enc, description, enabled, coordinates, coverage, last_seen_at, online FROM routers WHERE enabled = 1 AND online = 0 ORDER BY name
+`
+
+func (q *Queries) ListOfflineRouters(ctx context.Context) ([]Router, error) {
+	rows, err := q.db.QueryContext(ctx, listOfflineRouters)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Router
+	for rows.Next() {
+		var i Router
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Host,
+			&i.Port,
+			&i.Username,
+			&i.PasswordEnc,
+			&i.Description,
+			&i.Enabled,
+			&i.Coordinates,
+			&i.Coverage,
+			&i.LastSeenAt,
+			&i.Online,
 		); err != nil {
 			return nil, err
 		}
@@ -125,7 +172,7 @@ func (q *Queries) ListEnabledRouters(ctx context.Context) ([]Router, error) {
 }
 
 const listRouters = `-- name: ListRouters :many
-SELECT id, name, host, port, username, password_enc, description, enabled, coordinates, coverage FROM routers ORDER BY name LIMIT ? OFFSET ?
+SELECT id, name, host, port, username, password_enc, description, enabled, coordinates, coverage, last_seen_at, online FROM routers ORDER BY name LIMIT ? OFFSET ?
 `
 
 type ListRoutersParams struct {
@@ -153,6 +200,8 @@ func (q *Queries) ListRouters(ctx context.Context, arg ListRoutersParams) ([]Rou
 			&i.Enabled,
 			&i.Coordinates,
 			&i.Coverage,
+			&i.LastSeenAt,
+			&i.Online,
 		); err != nil {
 			return nil, err
 		}
@@ -168,7 +217,7 @@ func (q *Queries) ListRouters(ctx context.Context, arg ListRoutersParams) ([]Rou
 }
 
 const searchRouters = `-- name: SearchRouters :many
-SELECT id, name, host, port, username, password_enc, description, enabled, coordinates, coverage FROM routers
+SELECT id, name, host, port, username, password_enc, description, enabled, coordinates, coverage, last_seen_at, online FROM routers
 WHERE name LIKE '%' || CAST(?1 AS TEXT) || '%' OR host LIKE '%' || CAST(?1 AS TEXT) || '%'
 ORDER BY name LIMIT ?3 OFFSET ?2
 `
@@ -199,6 +248,8 @@ func (q *Queries) SearchRouters(ctx context.Context, arg SearchRoutersParams) ([
 			&i.Enabled,
 			&i.Coordinates,
 			&i.Coverage,
+			&i.LastSeenAt,
+			&i.Online,
 		); err != nil {
 			return nil, err
 		}
@@ -211,6 +262,21 @@ func (q *Queries) SearchRouters(ctx context.Context, arg SearchRoutersParams) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const setRouterStatus = `-- name: SetRouterStatus :exec
+UPDATE routers SET online = ?, last_seen_at = COALESCE(?, last_seen_at) WHERE id = ?
+`
+
+type SetRouterStatusParams struct {
+	Online     sql.NullInt64
+	LastSeenAt sql.NullInt64
+	ID         int64
+}
+
+func (q *Queries) SetRouterStatus(ctx context.Context, arg SetRouterStatusParams) error {
+	_, err := q.db.ExecContext(ctx, setRouterStatus, arg.Online, arg.LastSeenAt, arg.ID)
+	return err
 }
 
 const updateRouter = `-- name: UpdateRouter :exec

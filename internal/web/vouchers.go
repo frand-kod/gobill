@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/skip2/go-qrcode"
 
@@ -166,7 +167,7 @@ func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	back := "/admin/vouchers"
+	back := fmt.Sprintf("/admin/vouchers/view?plan=%d&limit=%d", planID, count)
 	if v["print_now"] == "1" {
 		back = fmt.Sprintf("/admin/vouchers/print?plan=%d&limit=%d", planID, count)
 	}
@@ -243,6 +244,33 @@ func (s *Server) vchPrint(w http.ResponseWriter, r *http.Request) {
 			template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))})
 	}
 	s.render(w, r, 200, "print", Page{Title: "Voucher", Data: pp})
+}
+
+// vchView shows the newest unused codes of a plan as plain text after generating (old voucher/view).
+func (s *Server) vchView(w http.ResponseWriter, r *http.Request) {
+	planID, _ := strconv.ParseInt(r.URL.Query().Get("plan"), 10, 64)
+	limit, ok := posInt(r.URL.Query().Get("limit"))
+	if !ok || limit > maxVouchers {
+		limit = 36
+	}
+	plan, err := s.queries.GetPlan(r.Context(), planID)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	rows, err := s.queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Status: "unused", PlanID: planID, PageLimit: limit})
+	if err != nil {
+		s.fail(w, "view vouchers", err)
+		return
+	}
+	codes := make([]string, len(rows))
+	for i, v := range rows {
+		codes[i] = v.Code
+	}
+	s.render(w, r, 200, "voucher_view", Page{Title: "Voucher", Flash: s.sessions.PopString(r.Context(), "flash"), Data: struct {
+		Plan, Codes, PrintURL string
+		Count                 int
+	}{plan.Name, strings.Join(codes, "\n"), fmt.Sprintf("/admin/vouchers/print?plan=%d&limit=%d", planID, limit), len(codes)}})
 }
 
 func (s *Server) vchRedeemForm(w http.ResponseWriter, r *http.Request) {

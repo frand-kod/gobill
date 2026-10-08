@@ -51,3 +51,8 @@ RETURNING session_version;
 DELETE FROM admins WHERE admins.id = ?
   AND (NOT (admins.role = 'SuperAdmin' AND admins.status = 'Active')
     OR (SELECT count(*) FROM admins AS sa WHERE sa.role = 'SuperAdmin' AND sa.status = 'Active') > 1);
+
+-- Ends every other session of the admin (single_session login).
+-- name: BumpAdminSession :one
+UPDATE admins SET session_version = admins.session_version + 1 WHERE admins.id = ?
+RETURNING session_version;

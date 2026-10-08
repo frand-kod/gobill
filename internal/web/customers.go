@@ -232,6 +232,54 @@ func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type rechargeConfirm struct {
+	C                      db.Customer
+	Plan, Method           string
+	PlanID                 int64
+	Price, Expiry, Extends string
+	Balance, After         string
+	Insufficient           bool
+}
+
+// custRechargeConfirm shows what the recharge will do (old recharge-confirm); it writes nothing.
+func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
+	c, ok := s.custGet(w, r)
+	if !ok {
+		return
+	}
+	back := fmt.Sprint("/admin/customers/", c.ID)
+	fail := func(msg string) {
+		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), msg))
+		http.Redirect(w, r, back, http.StatusSeeOther)
+	}
+	if s.Billing == nil {
+		s.fail(w, "recharge", errors.New("billing service not configured"))
+		return
+	}
+	planID, _ := posInt(r.PostFormValue("plan"))
+	method := r.PostFormValue("method")
+	if method != "Cash" && method != "Balance" {
+		fail("Invalid payment method")
+		return
+	}
+	pv, err := s.Billing.Preview(r.Context(), c.ID, planID)
+	if err != nil || pv.Plan.Enabled != 1 {
+		fail("Invalid plan")
+		return
+	}
+	d := rechargeConfirm{C: c, Plan: pv.Plan.Name, PlanID: planID, Method: method, Price: money(pv.Price), Balance: money(c.Balance), After: money(c.Balance)}
+	if !pv.Expiry.IsZero() {
+		d.Expiry = pv.Expiry.In(s.location()).Format("2006-01-02 15:04")
+	}
+	if pv.Plan.Type == "Balance" {
+		d.After = money(c.Balance + pv.Price)
+	}
+	if method == "Balance" {
+		d.After, d.Insufficient = money(c.Balance-pv.Price), c.Balance < pv.Price
+	}
+	s.render(w, r, 200, "recharge_confirm", Page{Title: "Recharge Account", Data: d})
+}
+
 // custRecharge activates a plan for the customer, paid in cash or from their balance.
 func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 	c, ok := s.custGet(w, r)

@@ -26,7 +26,7 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | A3 | `admin/admin/list.tpl` | `settings/users` | `GET /admin/users` | Sebagian | F5 |
 | A4 | `admin/admin/add.tpl` | `settings/users-add`, `users-post` | `GET /admin/users/new`, `POST /admin/users` | Sebagian | F5 |
 | A5 | `admin/admin/edit.tpl` | `settings/users-edit`, `users-edit-post`, `users-delete` | `GET /admin/users/{id}/edit`, `POST /admin/users/{id}`, `POST /admin/users/{id}/delete` | Sebagian | F5 |
-| A6 | `admin/admin/view.tpl` | `settings/users-view` | — (diganti halaman edit) | Belum | F5 |
+| A6 | `admin/admin/view.tpl` | `settings/users-view` | — (diganti halaman edit) | Non-goal (digabung ke edit) | F5 |
 | A7 | `admin/change-password.tpl` | `settings/change-password(-post)` | `GET/POST /admin/password` | Sebagian | F5 |
 | A8 | `admin/customers/list.tpl` | `customers/list`, `csv`, `sync`, `delete` | `GET /admin/customers`, `GET /admin/customers/export` | Sebagian | F1 |
 | A9 | `admin/customers/add.tpl` | `customers/add`, `add-post` | `GET /admin/customers/new`, `POST /admin/customers` | Sebagian | F1 |
@@ -61,10 +61,10 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | A38 | `admin/radius/nas-edit.tpl` | `radius/nas-edit(-post)` | `/admin/nas/{id}/edit` | Ada | F3 |
 | A39 | `admin/voucher/list.tpl` | `plan/voucher`, `remove-voucher` | `GET /admin/vouchers` | Sebagian | F1 |
 | A40 | `admin/voucher/add.tpl` | `plan/add-voucher`, `voucher-post` | `GET /admin/vouchers/new`, `POST /admin/vouchers` | Sebagian | F1 |
-| A41 | `admin/voucher/view.tpl` | `plan/voucher-view` | — | Belum | F5 |
+| A41 | `admin/voucher/view.tpl` | `plan/voucher-view` | `GET /admin/vouchers/view` (`voucher_view.html`) | Ada | F5 |
 | A42 | `admin/print/voucher.tpl` | `plan/print-voucher` | `GET /admin/vouchers/print` (`print.html`) | Sebagian | F1 |
 | A43 | `admin/plan/recharge.tpl` | `plan/recharge`, `recharge-post` | `POST /admin/customers/{id}/recharge` (form di `customer.html`) | Sebagian | F1 |
-| A44 | `admin/plan/recharge-confirm.tpl` | `plan/recharge-confirm`, `customers/recharge` | — | Belum | F1 |
+| A44 | `admin/plan/recharge-confirm.tpl` | `plan/recharge-confirm`, `customers/recharge` | `POST /admin/customers/{id}/recharge/confirm` (`recharge_confirm.html`) | Ada | F1 |
 | A45 | `admin/plan/refill.tpl` | `plan/refill`, `refill-post` | `GET/POST /admin/vouchers/redeem` | Ada | F1 |
 | A46 | `admin/plan/deposit.tpl` | `plan/deposit`, `deposit-post` | `GET/POST /admin/deposit` | Ada | F1 |
 | A47 | `admin/plan/active.tpl` | `plan/list`, `sync`, `csv`, `extend` | `GET /admin/subscriptions`, `GET /admin/subscriptions/export`, `POST .../{id}/extend`, `POST .../{id}/deactivate`, `POST .../{id}/sync` | Ada | F1 |
@@ -78,9 +78,9 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | A55 | `admin/print/by-date.tpl` | `export/print-by-date` | `GET /admin/reports/print?date=` (`report_print.html`) | Ada | F5 |
 | A56 | `admin/print/by-period.tpl` | `export/print-by-period` | `GET /admin/reports/print?from=&to=` | Ada | F5 |
 | A57 | `admin/logs/system.tpl` | `logs/list`, `list-csv` | `GET /admin/logs` | Sebagian | F1 |
-| A58 | `admin/logs/radius.tpl` | `logs/radius`, `radius-csv` | — | Belum | F3 |
+| A58 | `admin/logs/radius.tpl` | `logs/radius`, `radius-csv` | `GET /admin/logs/radius`, `GET /admin/logs/radius/export` | Ada | F3 |
 | A58b | — (baru, tanpa padanan lama) | — | `GET /admin/radius/sessions`, `POST /admin/radius/sessions/{id}/disconnect` | Ada | F3 |
-| A59 | `admin/logs/message.tpl` | `logs/message`, `message-csv` | — | Belum | F4 |
+| A59 | `admin/logs/message.tpl` | `logs/message`, `message-csv` | `GET /admin/logs/messages`, `GET /admin/logs/messages/export` | Ada | F4 |
 | A60 | `admin/coupons/list.tpl` | `coupons` | `/admin/coupons` | Ada | F5 |
 | A61 | `admin/coupons/add.tpl` | `coupons/add`, `add-post` | `/admin/coupons` | Ada | F5 |
 | A62 | `admin/coupons/edit.tpl` | `coupons/edit`, `edit-post` | `/admin/coupons` | Ada | F5 |
@@ -124,9 +124,9 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 - `admin/community.tpl`/`rollback.tpl`: hanya tautan komunitas dan tombol update GitHub.
 - `admin/autoload/*.tpl`: hanya dipanggil lewat AJAX dari form paket/voucher.
 
-**Hitungan baris tabel ringkasan (92 baris, dihitung ulang 2026-10-08):** Ada 30 · Sebagian 38 · Belum 13 · Ditunda 7 · Non-goal 4.
+**Hitungan baris tabel ringkasan (92 baris, dihitung ulang 2026-10-08):** Ada 34 · Sebagian 41 · Non-goal 5 · Ditunda 7 · Belum 5.
 
-**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 91 · ⚠️ 53 · ❌ 34; Settings ✅ 37 · ⚠️ 8 · ❌ 68; Portal pelanggan ✅ 24 · ⚠️ 3 · ❌ 16. Total ✅ 152 · ⚠️ 64 · ❌ 118. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
+**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 92 · ⚠️ 53 · ❌ 33; Settings ✅ 42 · ⚠️ 29 · ❌ 42; Portal pelanggan ✅ 24 · ⚠️ 3 · ❌ 16. Total ✅ 158 · ⚠️ 85 · ❌ 91. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
 
 ---
 
@@ -341,7 +341,7 @@ Kolom lama: Name Pool, Local IP, Range IP, Routers, Manage, ID. Baru: Pool Name,
 | `id` (edit) | — | hidden | — | `{id}` di URL | ✅ | |
 
 Kolom lama: Router Name, IP Address, Username, Description, Online Status, Last Seen, Status, Manage, ID. Baru: Name, Host, Username, Enabled.
-- Belum: Description, Online Status, Last Seen (`router_check` = F2 monitoring).
+- Belum: Description. Online Status dan Last Seen ada (kolom Status dan Last Seen; job `router_check` tiap 5 menit lewat `billing.Service.Ping`, peringatan di dashboard, alert Telegram sekali per perubahan status). Kunci `router_check` = no mematikan job; kosong = aktif.
 - Aksi: "Cek Now" (link ke miscellaneous#router_check) -> baru tombol baris "Test connection" (`POST /admin/routers/{id}/test`). Tambah, Edit, Delete, cari ada.
 
 ### A36-A38. NAS RADIUS (`radius/nas*`)
@@ -380,7 +380,7 @@ Kolom lama: Name, IP, Type, Port, Server, Community, Routers, Manage, ID. Baru: 
 
 **Aksi:** filter lama `search`, `router`, `plan`, `status`, `customer`; baru: `q` + `status`. Tombol lama: Vouchers (add), Print, "Delete > 3 Months" (`remove-voucher`), View per baris, Delete Selected. Baru: Add, Redeem Voucher, Print, Delete per baris. Belum: View, bulk delete, hapus > 3 bulan.
 
-**A41 `voucher/view.tpl`** (setelah generate: textarea `content`, `id`, tombol Print, WhatsApp, NuxPrint, Finish): belum ada. Baru: setelah generate langsung ke print (`print_now`).
+**A41 `voucher/view.tpl`** (setelah generate: textarea `content`, `id`, tombol Print, WhatsApp, NuxPrint, Finish): ada. Setelah generate masuk ke `GET /admin/vouchers/view` (textarea kode, Print, Finish); `print_now` langsung ke print. Belum: WhatsApp, NuxPrint.
 
 **A42 `print/voucher.tpl`**
 
@@ -406,7 +406,7 @@ QR code di voucher cetak baru (`print.html`, `.QR`) = fitur tambahan.
 | `plan` | Service Plan | select (AJAX) | required | `plan` | ✅ | hanya paket `enabled` |
 | `using` | Using | select (`payment_usings`, mis. cash/transfer; `balance`; `zero`) | required | `method` Cash/Balance | ⚠️ | Hanya dua metode. `zero` dan metode kustom belum |
 | `stoken` | — | hidden | token anti-ganda | — | ⚠️ | Diganti CSRF stdlib |
-| (halaman konfirmasi: ringkasan paket, harga, pajak, kupon) | — | — | — | — | ❌ | A44 tidak ada; recharge langsung dieksekusi |
+| (halaman konfirmasi: ringkasan paket, harga, kupon) | — | — | — | `recharge/confirm` | ✅ | A44: pelanggan, paket, harga, kedaluwarsa baru (`billing.NewExpiry`), saldo sesudah; tidak menulis data. Pajak belum |
 
 **A45 `plan/refill.tpl`** (baru: `GET/POST /admin/vouchers/redeem`)
 
@@ -478,7 +478,7 @@ Kolom: Username, Type, Plan Name, Plan Price, Created On, Expires On, Method, Ro
 
 Kolom lama (tanpa `<th>`): ID, Date, Type, IP, Description. Baru: Date, Actor, Action, Description, IP (Actor/Action menggantikan Type/User ID). Aksi: CSV (`logs/list-csv`) belum, Clean up belum.
 
-**A58 `logs/radius.tpl`:** `q`, `keep`, CSV, Clean Logs. Belum (log riwayat); sesi terbuka tampil di A58b `/admin/radius/sessions` (cari `q`, paging, tombol Disconnect, badge Stale), dan kartu "RADIUS usage" (total byte sejak paket aktif + 10 sesi terakhir) ada di detail pelanggan. **A59 `logs/message.tpl`:** `q`, `keep`; kolom ID, Date Sent, Type, Status, Message; belum, tabel log pesan tidak ada.
+**A58 `logs/radius.tpl`:** `GET /admin/logs/radius` memuat semua sesi `radius_sessions` (terbuka dan selesai): User, NAS, IP, MAC, Start, Stop, Duration, Upload, Download; cari `q` (username/NAS), `from`/`to` (tanggal mulai), paging, CSV (`/export`, dengan penjaga formula). Belum: Clean Logs (`keep`). Sesi terbuka juga di A58b `/admin/radius/sessions`; kartu "RADIUS usage" di detail pelanggan. **A59 `logs/message.tpl`:** `GET /admin/logs/messages` (tabel `message_logs`, diisi `internal/notify` lewat hook `Log` di tiap percobaan kirim Telegram/SMS/WA/Email): Date, Type, Recipient, Subject, Status, Message (galat bila gagal); cari, tanggal, paging, CSV. Belum: `keep` (hapus log lama).
 
 ### A60-A62. Kupon
 
@@ -696,7 +696,7 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | Key lama | Label | Tipe | Key baru | St | Catatan / Fase |
 |---|---|---|---|---|---|
 | `new_version_notify` | New Version Notification | select | — | ❌ | Non-goal (updater) |
-| `router_check` | Router Check | select | — | ❌ | F2 (monitor online/last seen) |
+| `router_check` | Router Check | select | `router_check` | ⚠️ | Dibaca job router (`no` mematikan, kosong = aktif); belum ada input di form settings |
 | `allow_phone_otp` | Phone OTP Required | select | — | ❌ | F4 |
 | `phone_otp_type` | OTP Method | select | `phone_otp_type` | ⚠️ | F4. Settings saja, sms/wa; portal belum membaca |
 | `allow_email_otp` | Email OTP Required | select | — | ❌ | F4 |

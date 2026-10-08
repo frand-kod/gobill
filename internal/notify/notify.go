@@ -42,6 +42,37 @@ type Notifier struct {
 	HTTP        *http.Client
 	TelegramAPI string // default https://api.telegram.org
 	Timeout     time.Duration
+	// Log, if set, is called after every send attempt (channel: telegram, sms, wa, email);
+	// it records the attempt without notify knowing about the database.
+	Log func(channel, recipient, subject, body string, err error)
+}
+
+func (n *Notifier) logged(ch, to, subject, body string, err error) error {
+	if n.Log != nil {
+		rec := err
+		if bot := n.get("telegram_bot"); err != nil && bot != "" { // http errors embed the request URL
+			rec = errors.New(strings.ReplaceAll(err.Error(), bot, "***"))
+		}
+		n.Log(ch, to, subject, body, rec)
+	}
+	return err
+}
+
+// LogTo returns a Log hook that stores each attempt in message_logs (body cut to 500 runes).
+func LogTo(q *db.Queries) func(ch, to, subject, body string, err error) {
+	return func(ch, to, subject, body string, err error) {
+		status, msg := "ok", ""
+		if err != nil {
+			status, msg = "error", err.Error()
+		}
+		if r := []rune(body); len(r) > 500 {
+			body = string(r[:500])
+		}
+		if e := q.CreateMessageLog(context.Background(), db.CreateMessageLogParams{Channel: ch, Recipient: to,
+			Subject: subject, Body: body, Status: status, Error: msg}); e != nil {
+			slog.Error("message log", "err", e)
+		}
+	}
 }
 
 // Load reads all settings.
@@ -99,8 +130,8 @@ func (n *Notifier) Telegram(ctx context.Context, text string) error {
 	if n.get("telegram_bot") == "" || text == "" {
 		return nil
 	}
-	return n.getURL(ctx, n.TelegramAPI+"/bot"+n.get("telegram_bot")+"/sendMessage?chat_id="+
-		url.QueryEscape(n.get("telegram_target_id"))+"&text="+url.QueryEscape(text))
+	return n.logged("telegram", n.get("telegram_target_id"), "", text, n.getURL(ctx, n.TelegramAPI+"/bot"+n.get("telegram_bot")+"/sendMessage?chat_id="+
+		url.QueryEscape(n.get("telegram_target_id"))+"&text="+url.QueryEscape(text)))
 }
 
 func gateway(tpl, phone, text string) string {
@@ -113,7 +144,7 @@ func (n *Notifier) SMS(ctx context.Context, phone, text string) error {
 	if n.get("sms_url") == "" || text == "" {
 		return nil
 	}
-	return n.getURL(ctx, gateway(n.get("sms_url"), phone, text))
+	return n.logged("sms", phone, "", text, n.getURL(ctx, gateway(n.get("sms_url"), phone, text)))
 }
 
 // WhatsApp calls wa_url (GET); the number gets country_code_phone like Lang::phoneFormat.
@@ -121,7 +152,7 @@ func (n *Notifier) WhatsApp(ctx context.Context, phone, text string) error {
 	if n.get("wa_url") == "" || text == "" {
 		return nil
 	}
-	return n.getURL(ctx, gateway(n.get("wa_url"), n.phoneFormat(phone), text))
+	return n.logged("wa", phone, "", text, n.getURL(ctx, gateway(n.get("wa_url"), n.phoneFormat(phone), text)))
 }
 
 var digits = regexp.MustCompile(`^[0-9]+$`)
@@ -139,10 +170,10 @@ func (n *Notifier) Email(ctx context.Context, to, subject, body string) error {
 		return nil
 	}
 	c, m, err := n.mailer(to, subject, body)
-	if err != nil {
-		return err
+	if err == nil {
+		err = c.DialAndSendWithContext(ctx, m)
 	}
-	return c.DialAndSendWithContext(ctx, m)
+	return n.logged("email", to, subject, body, err)
 }
 
 func (n *Notifier) mailer(to, subject, body string) (*mail.Client, *mail.Msg, error) {

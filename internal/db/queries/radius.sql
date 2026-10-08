@@ -66,3 +66,11 @@ SELECT * FROM radius_sessions WHERE username = ? AND stopped_at IS NULL;
 
 -- name: ListRecentRadiusSessionsByUser :many
 SELECT * FROM radius_sessions WHERE username = ? ORDER BY started_at DESC LIMIT 10;
+
+-- name: SearchRadiusLogs :many
+-- All sessions, open and closed. from_ts/to_ts filter started_at (0 = open). page_limit -1 = all (CSV).
+SELECT * FROM radius_sessions
+WHERE (username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR nas_ip LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%')
+  AND (CAST(sqlc.arg(from_ts) AS INTEGER) = 0 OR started_at >= sqlc.arg(from_ts))
+  AND (CAST(sqlc.arg(to_ts) AS INTEGER) = 0 OR started_at < sqlc.arg(to_ts))
+ORDER BY started_at DESC, id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);

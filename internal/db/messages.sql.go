@@ -41,6 +41,31 @@ func (q *Queries) CreateInboxMessage(ctx context.Context, arg CreateInboxMessage
 	return err
 }
 
+const createMessageLog = `-- name: CreateMessageLog :exec
+INSERT INTO message_logs (channel, recipient, subject, body, status, error) VALUES (?, ?, ?, ?, ?, ?)
+`
+
+type CreateMessageLogParams struct {
+	Channel   string
+	Recipient string
+	Subject   string
+	Body      string
+	Status    string
+	Error     string
+}
+
+func (q *Queries) CreateMessageLog(ctx context.Context, arg CreateMessageLogParams) error {
+	_, err := q.db.ExecContext(ctx, createMessageLog,
+		arg.Channel,
+		arg.Recipient,
+		arg.Subject,
+		arg.Body,
+		arg.Status,
+		arg.Error,
+	)
+	return err
+}
+
 const getInboxMessage = `-- name: GetInboxMessage :one
 SELECT id, customer_id, from_name, subject, body, read_at, created_at FROM customers_inbox WHERE id = ? AND customer_id = ?
 `
@@ -178,4 +203,60 @@ type MarkInboxReadParams struct {
 func (q *Queries) MarkInboxRead(ctx context.Context, arg MarkInboxReadParams) error {
 	_, err := q.db.ExecContext(ctx, markInboxRead, arg.ID, arg.CustomerID)
 	return err
+}
+
+const searchMessageLogs = `-- name: SearchMessageLogs :many
+SELECT id, channel, recipient, subject, body, status, error, created_at FROM message_logs
+WHERE (recipient LIKE '%' || CAST(?1 AS TEXT) || '%' OR subject LIKE '%' || CAST(?1 AS TEXT) || '%'
+       OR body LIKE '%' || CAST(?1 AS TEXT) || '%' OR channel LIKE '%' || CAST(?1 AS TEXT) || '%')
+  AND (CAST(?2 AS INTEGER) = 0 OR created_at >= ?2)
+  AND (CAST(?3 AS INTEGER) = 0 OR created_at < ?3)
+ORDER BY id DESC LIMIT ?5 OFFSET ?4
+`
+
+type SearchMessageLogsParams struct {
+	Q          string
+	FromTs     int64
+	ToTs       int64
+	PageOffset int64
+	PageLimit  int64
+}
+
+// created_at range: from_ts/to_ts 0 = open. page_limit -1 = all (CSV).
+func (q *Queries) SearchMessageLogs(ctx context.Context, arg SearchMessageLogsParams) ([]MessageLog, error) {
+	rows, err := q.db.QueryContext(ctx, searchMessageLogs,
+		arg.Q,
+		arg.FromTs,
+		arg.ToTs,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MessageLog
+	for rows.Next() {
+		var i MessageLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.Channel,
+			&i.Recipient,
+			&i.Subject,
+			&i.Body,
+			&i.Status,
+			&i.Error,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

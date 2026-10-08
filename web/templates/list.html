@@ -15,6 +15,7 @@
       <span class="pointer-events-none absolute inset-y-0 start-3 flex items-center text-slate-400">{{icon "search"}}</span>
       <input class="input ps-10" type="search" name="q" value="{{.Q}}" placeholder="{{T "Search"}}" aria-label="{{T "Search"}}">
     </div>
+    {{if .Dates}}<input class="input w-auto" type="date" name="from" value="{{.From}}" aria-label="{{T "From"}}"><input class="input w-auto" type="date" name="to" value="{{.To}}" aria-label="{{T "To"}}">{{end}}
     {{range .Filters}}{{$cur := .Val}}<select class="input w-auto" name="{{.Name}}" aria-label="{{T .Name}}">{{range .Opts}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{T .Label}}</option>{{end}}</select>{{end}}
     <button class="btn btn-ghost" type="submit">{{T "Search"}}</button>
   </form>
