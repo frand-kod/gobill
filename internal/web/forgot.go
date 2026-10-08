@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
-
 )
 
 // Old forgot.php: OTP by WA/SMS, then a new password. The OTP state lives in the
