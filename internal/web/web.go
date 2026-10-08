@@ -43,6 +43,8 @@ type Server struct {
 
 	// ClockWarning, if set, returns a non-empty reason while the clock is untrusted.
 	ClockWarning func() string
+	// SecretKey encrypts router passwords and customer secrets (see package secret).
+	SecretKey []byte
 
 	// ponytail: in-memory limiter, resets on restart; persist if needed
 	mu     sync.Mutex

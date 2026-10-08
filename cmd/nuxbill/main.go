@@ -16,6 +16,7 @@ import (
 
 	"github.com/frand-kod/nuxbill-go/internal/db"
 	"github.com/frand-kod/nuxbill-go/internal/job"
+	"github.com/frand-kod/nuxbill-go/internal/secret"
 	"github.com/frand-kod/nuxbill-go/internal/web"
 )
 
@@ -44,10 +45,19 @@ func run() error {
 		return err
 	}
 
+	key, created, err := secret.LoadKey(os.Getenv("NUXBILL_SECRET_KEY"), dbPath+".key")
+	if err != nil {
+		return err
+	}
+	if created {
+		slog.Warn("generated a new secret key; back it up with the database", "path", dbPath+".key")
+	}
+
 	app, err := web.New(conn, secure)
 	if err != nil {
 		return err
 	}
+	app.SecretKey = key
 	guard := job.NewClockGuard(db.New(conn))
 	app.ClockWarning = guard.Reason
 	srv := &http.Server{
