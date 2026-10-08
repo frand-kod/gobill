@@ -1,6 +1,6 @@
 # Jurnal Progres Refactor
 
-Jurnal ini mencatat apa yang sudah, sedang, dan akan dikerjakan. Panjangnya dijaga di bawah 1000 kata, dan isinya diperbarui setiap ada perkembangan.
+Jurnal progres, dijaga di bawah 1000 kata.
 
 Rencana lengkap ada di [plan/](plan/README.md).
 
@@ -80,7 +80,7 @@ Tidak ada. Pekerjaan dijeda atas permintaan pengguna.
    - Widget dashboard lama yang belum ada: pelanggan expired, stok voucher, log aktivitas, monitor cron, monitor cron MikroTik, dan grafik insight pelanggan.
    - Peta dan ODP, kupon, custom field, pesan massal, halaman statis, ganti password admin, dan backup harian (`VACUUM INTO`).
 6. **F6:** perintah `nuxbill import` dari MySQL lama, unit systemd, script install, dan panduan instalasi di STB.
-7. **Build ARM** dijalankan di CI saja, karena build lokal di amd64 terlalu lama.
+7. **Build ARM** hanya di CI.
 
 ## Selisih UI dengan PHPNuxBill lama
 
@@ -104,12 +104,11 @@ Template lama ada di `../phpnuxbill/ui/ui`, sekitar 157 file. Perbandingan per f
 - CI di GitHub, karena belum ada remote.
 - Koneksi ke MikroTik nyata, RADIUS lewat socket UDP sungguhan, dan Tripay sandbox.
 - Email SMTP. Yang sudah dites baru validasi config-nya.
-- Tampilan UI baru di browser (menunggu screenshot pengguna).
 
 ## Utang teknis yang disengaja
 
 Ditandai dengan komentar `ponytail:` di kode. Daftar lengkapnya: `grep -rn "ponytail:" --include=*.go .`
-Yang paling penting: koneksi RouterOS tanpa pooling, sertifikat TLS RouterOS tidak diverifikasi, dan kunci MPPE untuk PPPoE belum dikirim.
+Terpenting: RouterOS tanpa pooling, TLS RouterOS tidak diverifikasi, kunci MPPE belum dikirim.
 
 ## Perbedaan perilaku dari PHP lama (disengaja)
 
@@ -125,12 +124,10 @@ Yang paling penting: koneksi RouterOS tanpa pooling, sertifikat TLS RouterOS tid
   - Apakah default `extend_expiry` dan `enable_balance` tetap aktif saat belum diisi?
   - Apakah aktivasi pertama paket postpaid tetap Rp0?
   - Apakah paket nonaktif tetap boleh di-recharge admin?
-- **Remote GitHub:** URL untuk push dan menjalankan CI.
-- **Akses uji:** MikroTik/CHR dan kredensial sandbox Tripay.
+- **Remote GitHub dan akses uji:** URL remote, MikroTik/CHR, dan kredensial sandbox Tripay.
 
 ## Cara kerja
 
-- Opus berperan sebagai orkestrator. Agent Sonnet menulis kode, masing-masing di git worktree terpisah, dan paralel hanya jika package-nya tidak saling bergantung.
 - Setiap merge harus lolos `go vet ./...` dan `go test ./...`.
 - Kode `sqlc` selalu di-generate ulang, tidak boleh diedit manual. CSS di-build ulang dengan `sh tools/tailwind.sh`.
 - Jika alur bisnis tidak jelas, ikuti kode di `../phpnuxbill`.
