@@ -1,0 +1,12 @@
+.git
+.github
+.claude
+docs
+deploy
+*.db
+*.db-wal
+*.db-shm
+*.db.key
+dist
+bin
+nuxbill

@@ -40,3 +40,32 @@ jobs:
         with:
           name: nuxbill-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && 'v' }}${{ matrix.goarm }}
           path: dist/
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Cross-build
+        env:
+          CGO_ENABLED: "0"
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/nuxbill-linux-amd64 ./cmd/nuxbill
+          GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/nuxbill-linux-arm64 ./cmd/nuxbill
+          GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/nuxbill-linux-armv7 ./cmd/nuxbill
+          cd dist && sha256sum nuxbill-linux-* > sha256sums.txt
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --generate-notes
+          gh release upload "$TAG" dist/* --clobber

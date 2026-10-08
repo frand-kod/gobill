@@ -27,7 +27,14 @@ import (
 	"github.com/frand-kod/nuxbill-go/internal/web"
 )
 
+// version is set at build time with -ldflags "-X main.version=...".
+var version = "dev"
+
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "--version" {
+		fmt.Println(version)
+		return
+	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 	if err := run(); err != nil {
 		slog.Error("fatal", "err", err)

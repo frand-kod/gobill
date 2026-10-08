@@ -10,6 +10,22 @@ Status: fase F0 (login, dashboard kosong, pengaturan dasar).
 
 Buka http://localhost:8080.
 
+## Instalasi
+
+Untuk STB Armbian dan server Linux dengan systemd, lihat [docs/INSTALL-STB.md](docs/INSTALL-STB.md). Ringkasnya:
+
+    sudo sh deploy/install.sh ./nuxbill-linux-arm64
+
+Rilis dengan binary `amd64`, `arm64`, dan `armv7` ada di halaman Releases. Setiap rilis menyertakan `sha256sums.txt`.
+
+## Docker
+
+    docker build --build-arg VERSION=dev -t nuxbill .
+    docker run -d --name nuxbill -p 8080:8080 -p 1812:1812/udp -p 1813:1813/udp \
+      -v nuxbill-data:/data nuxbill
+
+Data SQLite dan `nuxbill.db.key` ada di volume `/data`. Berikan `NUXBILL_SECRET_KEY` lewat `-e` bila ingin mengelola kunci sendiri. Lihat password admin pertama dengan `docker logs nuxbill | grep "first admin"`.
+
 ## Variabel lingkungan
 
 | Variabel | Bawaan | Fungsi |
