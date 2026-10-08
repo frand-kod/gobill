@@ -90,6 +90,7 @@ Jalankan perintah ini di terminal MikroTik. Ganti `192.168.88.10` dengan IP STB 
     /radius incoming set accept=yes port=3799
 
 - `/radius incoming` membuka CoA di port 3799. NuxBill memakai ini untuk memutus sesi atau mengubah paket tanpa menunggu reconnect.
+- Login voucher di halaman hotspot (kode sebagai username, password kosong atau sama dengan kode) langsung diaktifkan lewat RADIUS. Percobaan voucher gagal dibatasi 10 kali per 15 menit untuk tiap NAS dan MAC.
 
 **Hotspot:**
 

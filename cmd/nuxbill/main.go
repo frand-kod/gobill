@@ -130,7 +130,7 @@ func run() error {
 		if err != nil || perr != nil {
 			return fmt.Errorf("NUXBILL_RADIUS %q: want host:port", ra)
 		}
-		rs := &radius.Server{Q: db.New(conn), Key: key, Trusted: guard.Trusted,
+		rs := &radius.Server{Q: db.New(conn), Key: key, Trusted: guard.Trusted, Redeem: svc.RedeemVoucher,
 			AuthAddr: ra, AcctAddr: net.JoinHostPort(host, strconv.Itoa(p+1))}
 		go func() {
 			slog.Info("radius listening", "auth", rs.AuthAddr, "acct", rs.AcctAddr)

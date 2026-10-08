@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
 	"layeh.com/radius"
 	"layeh.com/radius/rfc2759"
 	"layeh.com/radius/rfc2865"
@@ -39,6 +40,9 @@ type Server struct {
 	AuthAddr string           // e.g. ":1812"
 	AcctAddr string           // e.g. ":1813"
 	Now      func() time.Time // default time.Now
+	// Redeem activates an unused voucher for a customer (billing.Service.RedeemVoucher).
+	// nil disables hotspot voucher login.
+	Redeem func(ctx context.Context, code string, customerID int64) error
 }
 
 func (s *Server) now() time.Time {
@@ -119,6 +123,7 @@ type AuthRequest struct {
 	Check    func(pw []byte) (ok bool, success string) // verifies the offered credential against the stored password
 	FramedIP string
 	MAC      string
+	NAS      string // NAS address, for the voucher-guess limiter
 }
 
 // Decision is the outcome of Authorize. Reject != "" means Access-Reject with that message.
@@ -137,22 +142,57 @@ type Decision struct {
 // Authorize is the shared decision: customer lookup, password, active and unexpired plan
 // (clock-guarded), shared_users, time and data limits. Old PHP radius.php semantics.
 func (s *Server) Authorize(ctx context.Context, rq AuthRequest) Decision {
+	// Old radius.php: password == username (or empty, or CHAP of either) means "voucher login".
+	vl := rq.User != "" && (func() bool { ok, _ := rq.Check([]byte(rq.User)); return ok }() ||
+		func() bool { ok, _ := rq.Check(nil); return ok }())
+	if !vl {
+		return s.authorize(ctx, rq, false)
+	}
+	key, now := rq.NAS+"|"+rq.MAC, s.now().Unix()
+	if voucherFails.blocked(key, now) {
+		return Decision{Reject: "Too many attempts, try again later"}
+	}
+	d := s.authorize(ctx, rq, true)
+	if d.Reject != "" {
+		voucherFails.fail(key, now)
+	}
+	return d
+}
+
+func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decision {
 	user := rq.User
 	c, err := s.Q.GetCustomerForRadius(ctx, user)
-	if err != nil || user == "" || len(c.SecretEnc) == 0 {
+	found := err == nil
+	if user == "" || (!found && !vl) || (found && len(c.SecretEnc) == 0) {
 		return Decision{Reject: "Login invalid......"}
 	}
-	pw, err := secret.Open(s.Key, c.SecretEnc)
-	if err != nil {
-		slog.Error("radius: decrypt customer secret", "user", user, "err", err)
-		return Decision{Reject: "Login invalid......"}
+	var ok bool
+	var success string
+	if found {
+		pw, err := secret.Open(s.Key, c.SecretEnc)
+		if err != nil {
+			slog.Error("radius: decrypt customer secret", "user", user, "err", err)
+			return Decision{Reject: "Login invalid......"}
+		}
+		ok, success = rq.Check(pw)
 	}
-	ok, success := rq.Check(pw)
-	if !ok {
+	if !ok && vl {
+		var msg string
+		if c, msg = s.voucherLogin(ctx, user, c, found); msg != "" {
+			if found && msg == "Invalid Voucher.." {
+				msg = "Username or Password is wrong"
+			}
+			return Decision{Reject: msg}
+		}
+		ok = true
+	} else if !ok {
 		return Decision{Reject: "Username or Password is wrong"}
 	}
 	pl, err := s.Q.GetRadiusPlan(ctx, c.ID)
 	if err != nil {
+		if vl {
+			return Decision{Reject: "Voucher Expired..."}
+		}
 		return Decision{Reject: "No active plan"}
 	}
 	left := pl.ExpiresAt - s.now().Unix()
@@ -210,10 +250,97 @@ func (s *Server) Authorize(ctx context.Context, rq AuthRequest) Decision {
 	return d
 }
 
+// voucherLogin is the old radius.php voucher branch for a username that is a voucher code.
+// Unused: create the customer (secret = code) if missing and redeem atomically; a concurrent
+// loser of the UseVoucher race still gets in when the winner used the same customer.
+// Used: only the redeeming customer passes. Returns a reject message, "" = authenticated.
+func (s *Server) voucherLogin(ctx context.Context, code string, c db.Customer, found bool) (db.Customer, string) {
+	v, err := s.Q.GetVoucherByCode(ctx, code)
+	if err != nil {
+		return c, "Invalid Voucher.."
+	}
+	if v.Status == "used" {
+		if found && v.UsedBy.Valid && v.UsedBy.Int64 == c.ID {
+			return c, ""
+		}
+		return c, "Voucher Expired..."
+	}
+	fail := "Voucher activation failed"
+	pl, err := s.Q.GetPlan(ctx, v.PlanID)
+	if err != nil || s.Redeem == nil || pl.Type == "Balance" || (found && c.Username != code) {
+		return c, fail
+	}
+	if !found {
+		hash, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
+		enc, err2 := secret.Seal(s.Key, []byte(code))
+		if err != nil || err2 != nil {
+			return c, fail
+		}
+		c, err = s.Q.CreateCustomer(ctx, db.CreateCustomerParams{Username: code, PasswordHash: string(hash),
+			ServiceType: pl.Type, SecretEnc: enc, AutoRenewal: 1, Status: "Active"})
+		if err != nil { // lost the creation race
+			if c, err = s.Q.GetCustomerByUsername(ctx, code); err != nil {
+				return c, fail
+			}
+		}
+	}
+	if err := s.Redeem(ctx, code, c.ID); err != nil {
+		if v2, e := s.Q.GetVoucherByCode(ctx, code); e != nil || v2.Status != "used" || !v2.UsedBy.Valid || v2.UsedBy.Int64 != c.ID {
+			return c, fail
+		}
+		return c, "" // concurrent first login by the same code: already activated
+	}
+	slog.Info("radius: voucher activated", "voucher_id", v.ID, "customer_id", c.ID) // never log the code
+	return c, ""
+}
+
+// failLimiter counts failed voucher-like attempts per key inside a sliding window.
+// ponytail: in-memory, per process, empty MAC shares one bucket per NAS; use a DB table if
+// several instances or restarts must share the count.
+type failLimiter struct {
+	mu sync.Mutex
+	m  map[string][]int64
+}
+
+const (
+	voucherMaxFails = 10
+	voucherWindow   = 15 * 60
+)
+
+var voucherFails = &failLimiter{m: map[string][]int64{}}
+
+func (l *failLimiter) recent(key string, now int64) []int64 {
+	t := l.m[key]
+	i := 0
+	for i < len(t) && t[i] <= now-voucherWindow {
+		i++
+	}
+	return t[i:]
+}
+
+func (l *failLimiter) blocked(key string, now int64) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return len(l.recent(key, now)) >= voucherMaxFails
+}
+
+func (l *failLimiter) fail(key string, now int64) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if len(l.m) > 10000 { // bound memory: drop idle keys
+		for k := range l.m {
+			if len(l.recent(k, now)) == 0 {
+				delete(l.m, k)
+			}
+		}
+	}
+	l.m[key] = append(l.recent(key, now), now)
+}
+
 // HandleAuth is Access-Request over UDP: a thin packet adapter over Authorize.
 func (s *Server) HandleAuth(w radius.ResponseWriter, r *radius.Request) {
 	user := rfc2865.UserName_GetString(r.Packet)
-	rq := AuthRequest{User: user, MAC: rfc2865.CallingStationID_GetString(r.Packet),
+	rq := AuthRequest{User: user, NAS: addrIP(r.RemoteAddr).String(), MAC: rfc2865.CallingStationID_GetString(r.Packet),
 		Check: func(pw []byte) (bool, string) { return checkPassword(r.Packet, user, pw) }}
 	if ip := rfc2865.FramedIPAddress_Get(r.Packet); ip != nil {
 		rq.FramedIP = ip.String()

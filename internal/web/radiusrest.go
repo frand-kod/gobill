@@ -103,6 +103,9 @@ func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
 		action = r.FormValue("action")
 	}
 	rs := &radius.Server{Q: s.queries, Key: s.SecretKey, Trusted: func() bool { return s.ClockWarning == nil || s.ClockWarning() == "" }}
+	if s.Billing != nil {
+		rs.Redeem = s.Billing.RedeemVoucher
+	}
 	user := r.FormValue("username")
 	switch action {
 	case "authorize", "authenticate":
@@ -119,11 +122,11 @@ func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
 				ch, e2 := hex.DecodeString(strings.TrimPrefix(chapCh, "0x"))
 				return e1 == nil && e2 == nil && len(resp) == 17 && radius.CHAPOK(pw, resp[0], ch, resp[1:]), ""
 			}
-			return pass != "" && subtle.ConstantTimeCompare([]byte(pass), pw) == 1, ""
+			return subtle.ConstantTimeCompare([]byte(pass), pw) == 1, ""
 		}
-		// ponytail: voucher-as-username (empty password) login is not supported here; use portal vouchers.
+		// Voucher login (user == password, or empty password) is handled inside Authorize.
 		d := rs.Authorize(r.Context(), radius.AuthRequest{User: user, Check: check,
-			FramedIP: r.FormValue("framedIPAddress"), MAC: r.FormValue("macAddr")})
+			FramedIP: r.FormValue("framedIPAddress"), MAC: r.FormValue("macAddr"), NAS: r.FormValue("nasIpAddress")})
 		if d.Reject != "" {
 			jsonOut(w, 401, rejectBody(d.Reject))
 			return
