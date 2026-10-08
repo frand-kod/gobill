@@ -316,6 +316,16 @@ func (s *Server) plansPage(w http.ResponseWriter, r *http.Request, code int, err
 	s.prender(w, r, code, "p_plans", Page{Title: "Order Package", Error: errMsg, Data: plansData{plans, st["enable_balance"] != "no"}})
 }
 
+// couponErr returns the user-facing message of a coupon validation error, or "".
+func couponErr(err error) string {
+	for _, e := range []error{billing.ErrCouponNotFound, billing.ErrCouponInactive, billing.ErrCouponDate, billing.ErrCouponUsed, billing.ErrCouponMin, billing.ErrCouponTooBig} {
+		if errors.Is(err, e) {
+			return e.Error()
+		}
+	}
+	return ""
+}
+
 // pBuyBalance pays a plan from the customer's balance.
 // ponytail: online gateway (Tripay) not wired; add an `if gateway configured` branch here later.
 func (s *Server) pBuyBalance(w http.ResponseWriter, r *http.Request) {
@@ -336,7 +346,15 @@ func (s *Server) pBuyBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err == nil {
-		err = s.Billing.RechargeWithBalance(r.Context(), c.ID, p.ID, 0)
+		if code := strings.TrimSpace(r.PostFormValue("coupon")); code != "" {
+			err = s.Billing.RechargeWithBalanceCoupon(r.Context(), c.ID, p.ID, code)
+		} else {
+			err = s.Billing.RechargeWithBalance(r.Context(), c.ID, p.ID, 0)
+		}
+	}
+	if m := couponErr(err); m != "" {
+		s.plansPage(w, r, 200, s.catalog.T(s.language(), m))
+		return
 	}
 	if errors.Is(err, billing.ErrInsufficientBalance) {
 		s.plansPage(w, r, 200, "Insufficient balance")
