@@ -24,7 +24,3 @@ DELETE FROM coupons WHERE id = ?;
 
 -- name: UseCoupon :execrows
 UPDATE coupons SET used = used + 1 WHERE id = ? AND (max_usage = 0 OR used < max_usage);
-
--- name: LockCouponByCode :execrows
--- no-op write: takes the SQLite write lock first so a deferred tx never upgrades from a stale read (SQLITE_BUSY)
-UPDATE coupons SET used = used WHERE code = ?;

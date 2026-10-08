@@ -22,7 +22,8 @@ func Open(path string) (*sql.DB, error) {
 		"?_pragma=journal_mode(WAL)" +
 		"&_pragma=synchronous(FULL)" +
 		"&_pragma=foreign_keys(1)" +
-		"&_pragma=busy_timeout(5000)"
+		"&_pragma=busy_timeout(5000)" +
+		"&_txlock=immediate"
 	conn, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err

@@ -175,10 +175,13 @@ type invoiceData struct {
 
 // invoice renders one transaction as a printable invoice (admin and portal share it).
 func (s *Server) invoice(w http.ResponseWriter, r *http.Request, t db.Transaction) {
-	c, err := s.queries.GetCustomer(r.Context(), t.CustomerID)
-	if err != nil {
-		s.fail(w, "invoice customer", err)
-		return
+	c := db.Customer{Username: t.Username, Fullname: t.Username} // deleted customer: snapshot only
+	if t.CustomerID.Valid {
+		var err error
+		if c, err = s.queries.GetCustomer(r.Context(), t.CustomerID.Int64); err != nil {
+			s.fail(w, "invoice customer", err)
+			return
+		}
 	}
 	set, err := s.loadSettings(r.Context())
 	if err != nil {

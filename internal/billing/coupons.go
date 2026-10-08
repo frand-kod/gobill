@@ -55,11 +55,6 @@ func Discount(c db.Coupon, price int64, today string) (int64, error) {
 func (s *Service) RechargeWithBalanceCoupon(ctx context.Context, customerID, planID int64, code string) error {
 	var p *pending
 	err := s.tx(ctx, func(q *db.Queries) error {
-		if n, err := q.LockCouponByCode(ctx, code); err != nil {
-			return err
-		} else if n == 0 {
-			return ErrCouponNotFound
-		}
 		plan, err := q.GetPlan(ctx, planID)
 		if err != nil {
 			return err

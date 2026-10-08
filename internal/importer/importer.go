@@ -69,6 +69,7 @@ type imp struct {
 	// old name/id lookups
 	routers, pools, plans, customers map[string]int64
 	admins                           map[int64]bool
+	custIDs                          map[int64]bool
 }
 
 // each runs q on MySQL and calls fn with every row as strings ("" for NULL).
@@ -147,7 +148,7 @@ func Run(ctx context.Context, my, lite *sql.DB, o Options) (*Report, error) {
 	}
 	m := &imp{my: my, tx: tx, ctx: ctx, o: o, rep: &Report{},
 		routers: map[string]int64{}, pools: map[string]int64{}, plans: map[string]int64{},
-		customers: map[string]int64{}, admins: map[int64]bool{}}
+		customers: map[string]int64{}, admins: map[int64]bool{}, custIDs: map[int64]bool{}}
 	for _, step := range []func() error{m.settings, m.admin, m.router, m.bandwidth, m.pool, m.plan,
 		m.customer, m.subscription, m.transaction, m.voucher, m.logs, m.nas} {
 		if err := step(); err != nil {
@@ -378,6 +379,7 @@ func (m *imp) customer() error {
 			r.i(0), r[1], string(hash), r[3], r[4], phone, email, bal, svc, r[9], r[11], enc, r.i(12) != 0, r[13],
 			orNil(r.i(14), m.admins[r.i(14)]), created, last) {
 			m.customers[r[1]] = r.i(0)
+			m.custIDs[r.i(0)] = true
 		}
 	})
 }
@@ -396,6 +398,10 @@ func (m *imp) subscription() error {
 		typ, err := PlanType(r[10])
 		if err != nil || typ == "Balance" {
 			t.skip(r[0], "unsupported type "+r[10])
+			return
+		}
+		if !m.custIDs[r.i(1)] {
+			t.skip(r[0], "customer deleted in old system")
 			return
 		}
 		rid, ok := m.routerID(r[9])
@@ -418,7 +424,8 @@ func (m *imp) subscription() error {
 
 func (m *imp) transaction() error {
 	t := m.table("transactions")
-	return m.each(t, `SELECT id, invoice, username, user_id, plan_name, price, recharged_on, recharged_time, expiration, time,
+	orphans := 0
+	err := m.each(t, `SELECT id, invoice, username, user_id, plan_name, price, recharged_on, recharged_time, expiration, time,
 		method, routers, type, note, admin_id FROM tbl_transactions ORDER BY id`, 15, func(r row) {
 		price, err := ParsePrice(r[5])
 		if err != nil {
@@ -441,10 +448,19 @@ func (m *imp) transaction() error {
 			return
 		}
 		pid, ok := m.plans[r[4]]
+		var cust any = cid
+		if !m.custIDs[cid] {
+			cust = nil
+			orphans++
+		}
 		m.put(t, r[0], `INSERT INTO transactions (id, invoice, customer_id, plan_id, username, plan_name, router_name, type, price, method, note,
 			admin_id, created_at, period_start, period_end) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			r.i(0), r[1], cid, orNil(pid, ok), r[2], r[4], r[11], typ, price, r[10], r[13], orNil(r.i(14), m.admins[r.i(14)]), start, start, max(start, end))
+			r.i(0), r[1], cust, orNil(pid, ok), r[2], r[4], r[11], typ, price, r[10], r[13], orNil(r.i(14), m.admins[r.i(14)]), start, start, max(start, end))
 	})
+	if orphans > 0 {
+		t.Notes = append(t.Notes, fmt.Sprintf("%d transactions kept without a customer (customer deleted in old system)", orphans))
+	}
+	return err
 }
 
 func (m *imp) voucher() error {

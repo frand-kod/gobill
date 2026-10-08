@@ -1,6 +1,7 @@
 package web
 
 import (
+	"database/sql"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -86,7 +87,7 @@ func TestPortalBalanceOrder(t *testing.T) {
 		t.Fatalf("buy: %d %s", w.Code, w.Body.String())
 	}
 	cu, _ := e.q.GetCustomer(t.Context(), e.cust.ID)
-	trx, _ := e.q.ListTransactionsByCustomer(t.Context(), db.ListTransactionsByCustomerParams{CustomerID: e.cust.ID, Limit: 10})
+	trx, _ := e.q.ListTransactionsByCustomer(t.Context(), db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: e.cust.ID, Valid: true}, Limit: 10})
 	if cu.Balance != 0 || len(trx) != 1 {
 		t.Fatalf("balance %d trx %d", cu.Balance, len(trx))
 	}

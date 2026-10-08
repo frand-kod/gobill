@@ -197,7 +197,7 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		return nil, err
 	}
 	trx := db.CreateTransactionParams{
-		Invoice: invoice, CustomerID: customerID,
+		Invoice: invoice, CustomerID: sql.NullInt64{Int64: customerID, Valid: true},
 		PlanID: sql.NullInt64{Int64: plan.ID, Valid: true}, Username: c.Username, PlanName: plan.Name,
 		Type: plan.Type, Price: plan.Price, Method: method, AdminID: nullID(adminID),
 		PeriodStart: now.Unix(), PeriodEnd: now.Unix(),

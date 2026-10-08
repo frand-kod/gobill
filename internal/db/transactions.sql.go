@@ -19,7 +19,7 @@ RETURNING id, invoice, customer_id, plan_id, username, plan_name, router_name, t
 
 type CreateTransactionParams struct {
 	Invoice     string
-	CustomerID  int64
+	CustomerID  sql.NullInt64
 	PlanID      sql.NullInt64
 	Username    string
 	PlanName    string
@@ -177,7 +177,7 @@ SELECT id, invoice, customer_id, plan_id, username, plan_name, router_name, type
 `
 
 type ListTransactionsByCustomerParams struct {
-	CustomerID int64
+	CustomerID sql.NullInt64
 	Limit      int64
 	Offset     int64
 }

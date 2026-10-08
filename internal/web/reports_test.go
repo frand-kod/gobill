@@ -1,6 +1,7 @@
 package web
 
 import (
+	"database/sql"
 	"strings"
 	"testing"
 	"time"
@@ -12,7 +13,7 @@ import (
 // seedTrx inserts a transaction at the given instant.
 func seedTrx(t *testing.T, s *Server, q *db.Queries, cust int64, inv, typ, method string, price int64, at time.Time) db.Transaction {
 	t.Helper()
-	tx, err := q.CreateTransaction(t.Context(), db.CreateTransactionParams{Invoice: inv, CustomerID: cust, Username: "u1", PlanName: "P",
+	tx, err := q.CreateTransaction(t.Context(), db.CreateTransactionParams{Invoice: inv, CustomerID: sql.NullInt64{Int64: cust, Valid: true}, Username: "u1", PlanName: "P",
 		Type: typ, Price: price, Method: method, PeriodStart: at.Unix(), PeriodEnd: at.Unix() + 86400})
 	if err != nil {
 		t.Fatal(err)

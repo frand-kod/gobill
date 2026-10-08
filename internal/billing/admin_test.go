@@ -2,6 +2,7 @@ package billing
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 	"time"
@@ -21,7 +22,7 @@ func TestDeposit(t *testing.T) {
 	if e.balance() != 57000 {
 		t.Fatalf("balance %d", e.balance())
 	}
-	trx, _ := e.q.ListTransactionsByCustomer(ctx, db.ListTransactionsByCustomerParams{CustomerID: e.cust.ID, Limit: 10})
+	trx, _ := e.q.ListTransactionsByCustomer(ctx, db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: e.cust.ID, Valid: true}, Limit: 10})
 	if len(trx) != 2 || trx[1].Note != "cash in" || trx[1].Type != "Balance" || trx[1].Price != 7000 {
 		t.Fatalf("trx %+v", trx)
 	}

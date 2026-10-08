@@ -11,6 +11,7 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	_ "modernc.org/sqlite"
 
 	"github.com/frand-kod/nuxbill-go/internal/db"
 )
@@ -99,9 +100,11 @@ INSERT INTO tbl_plans (id, name_plan, id_bw, price, type, typebp, validity, vali
 INSERT INTO tbl_customers (id, username, password, fullname, phonenumber, balance, service_type, pppoe_password, created_by) VALUES
  (1, 'budi', 'pw1', 'Budi', '0812', 2500.00, 'PPPoE', 'ppw', 1);
 INSERT INTO tbl_user_recharges (id, customer_id, username, plan_id, namebp, recharged_on, recharged_time, expiration, time, status, routers, type) VALUES
- (1, 1, 'budi', 1, 'Gold', '2024-01-01', '08:00:00', '2024-02-01', '23:59:00', 'on', 'r1', 'PPPOE');
+ (1, 1, 'budi', 1, 'Gold', '2024-01-01', '08:00:00', '2024-02-01', '23:59:00', 'on', 'r1', 'PPPOE'),
+ (2, 99, 'gone', 1, 'Gold', '2024-01-01', '08:00:00', '2024-02-01', '23:59:00', 'on', 'r1', 'PPPOE');
 INSERT INTO tbl_transactions (id, invoice, username, user_id, plan_name, price, recharged_on, expiration, time, method, routers, type) VALUES
  (1, 'INV1', 'budi', 1, 'Gold', '10.000', '2024-01-01', '2024-02-01', '23:59:00', 'cash', 'r1', 'PPPOE'),
+ (3, 'INV3', 'gone', 99, 'Gold', '5.000', '2024-01-01', '2024-02-01', '23:59:00', 'cash', 'r1', 'PPPOE'),
  (2, 'INV2', 'budi', 1, 'Gold', 'oops', '2024-01-01', '2024-02-01', '23:59:00', 'cash', 'r1', 'PPPOE');`
 	if _, err := my.Exec(string(ddl)); err != nil {
 		t.Fatal(err)
@@ -130,14 +133,15 @@ INSERT INTO tbl_transactions (id, invoice, username, user_id, plan_name, price, 
 
 	count := func(q string) (n int) { lite.QueryRow(q).Scan(&n); return }
 	for q, want := range map[string]int{
-		"SELECT count(*) FROM admins":        1, // 'bad' has no sha1
-		"SELECT count(*) FROM plans":         1, // 'Broken' has an unparsable price
-		"SELECT count(*) FROM transactions":  1,
-		"SELECT count(*) FROM subscriptions": 1,
-		"SELECT count(*) FROM pools":         1,
-		"SELECT balance FROM customers":      2500,
-		"SELECT price FROM plans":            10000,
-		"SELECT port FROM routers":           8729,
+		"SELECT count(*) FROM admins":       1, // 'bad' has no sha1
+		"SELECT count(*) FROM plans":        1, // 'Broken' has an unparsable price
+		"SELECT count(*) FROM transactions": 2,
+		"SELECT count(*) FROM transactions WHERE customer_id IS NULL AND username = 'gone'":  1,
+		"SELECT count(*) FROM subscriptions":                                                 1,
+		"SELECT count(*) FROM pools":                                                         1,
+		"SELECT balance FROM customers":                                                      2500,
+		"SELECT price FROM plans":                                                            10000,
+		"SELECT port FROM routers":                                                           8729,
 		"SELECT count(*) FROM settings WHERE key = 'CompanyName' AND value = 'ACME'":         1,
 		"SELECT count(*) FROM admins WHERE password_hash = '!' AND length(legacy_sha1) = 40": 1,
 		"SELECT expires_at - started_at FROM subscriptions":                                  31*24*3600 + 15*3600 + 59*60,
@@ -152,5 +156,44 @@ INSERT INTO tbl_transactions (id, invoice, username, user_id, plan_name, price, 
 	opts.Force = true
 	if _, err := Run(ctx, my, lite, opts); err != nil {
 		t.Errorf("--force: %v", err)
+	}
+}
+
+// TestOrphans runs the subscription/transaction steps against a stand-in "MySQL" (SQLite) holding rows of a deleted customer.
+func TestOrphans(t *testing.T) {
+	ctx := context.Background()
+	my, _ := sql.Open("sqlite", ":memory:")
+	my.SetMaxOpenConns(1)
+	defer my.Close()
+	if _, err := my.Exec(`CREATE TABLE tbl_user_recharges (id, customer_id, plan_id, recharged_on, recharged_time, expiration, time, status, method, routers, type, admin_id);
+		INSERT INTO tbl_user_recharges VALUES (1, 99, 1, '2024-01-01', '08:00:00', '2024-02-01', '23:59:00', 'on', '', '', 'Hotspot', 0);
+		CREATE TABLE tbl_transactions (id, invoice, username, user_id, plan_name, price, recharged_on, recharged_time, expiration, time, method, routers, type, note, admin_id);
+		INSERT INTO tbl_transactions VALUES (1, 'INV1', 'gone', 99, 'Gold', '5000', '2024-01-01', '08:00:00', '2024-02-01', '23:59:00', 'cash', '', 'Hotspot', '', 0);`); err != nil {
+		t.Fatal(err)
+	}
+	lite, err := db.Open(filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lite.Close()
+	if err := db.Migrate(lite); err != nil {
+		t.Fatal(err)
+	}
+	tx, _ := lite.BeginTx(ctx, nil)
+	defer tx.Rollback()
+	loc, _ := time.LoadLocation("Asia/Jakarta")
+	m := &imp{my: my, tx: tx, ctx: ctx, o: Options{Loc: loc}, rep: &Report{}, plans: map[string]int64{}, admins: map[int64]bool{}, custIDs: map[int64]bool{}}
+	if err := m.subscription(); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.transaction(); err != nil {
+		t.Fatal(err)
+	}
+	sub, trx := m.rep.Tables[0], m.rep.Tables[1]
+	if len(sub.Skips) != 1 || !strings.Contains(sub.Skips[0], "customer deleted in old system") {
+		t.Errorf("subscription skips: %v", sub.Skips)
+	}
+	if trx.Loaded != 1 || len(trx.Notes) != 1 || !strings.HasPrefix(trx.Notes[0], "1 ") {
+		t.Errorf("transactions: loaded %d notes %v skips %v", trx.Loaded, trx.Notes, trx.Skips)
 	}
 }

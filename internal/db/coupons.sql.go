@@ -118,19 +118,6 @@ func (q *Queries) GetCouponByCode(ctx context.Context, code string) (Coupon, err
 	return i, err
 }
 
-const lockCouponByCode = `-- name: LockCouponByCode :execrows
-UPDATE coupons SET used = used WHERE code = ?
-`
-
-// no-op write: takes the SQLite write lock first so a deferred tx never upgrades from a stale read (SQLITE_BUSY)
-func (q *Queries) LockCouponByCode(ctx context.Context, code string) (int64, error) {
-	result, err := q.db.ExecContext(ctx, lockCouponByCode, code)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
 const searchCoupons = `-- name: SearchCoupons :many
 SELECT id, code, type, value, description, max_usage, used, min_order, max_discount, start_date, end_date, status, created_at FROM coupons WHERE code LIKE '%' || CAST(?1 AS TEXT) || '%' OR description LIKE '%' || CAST(?1 AS TEXT) || '%'
 ORDER BY id DESC LIMIT ?3 OFFSET ?2

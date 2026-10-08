@@ -107,7 +107,7 @@ CREATE INDEX subscriptions_customer_idx ON subscriptions (customer_id);
 CREATE TABLE transactions (
     id           INTEGER PRIMARY KEY,
     invoice      TEXT    NOT NULL UNIQUE,
-    customer_id  INTEGER NOT NULL REFERENCES customers (id) ON DELETE RESTRICT,
+    customer_id  INTEGER REFERENCES customers (id) ON DELETE RESTRICT, -- NULL: customer deleted in the old system (imported history)
     plan_id      INTEGER REFERENCES plans (id) ON DELETE SET NULL,
     username     TEXT    NOT NULL, -- snapshots: survive customer/plan edits
     plan_name    TEXT    NOT NULL,

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"database/sql"
 	"net/http"
 	"net/url"
 	"strings"
@@ -55,7 +56,7 @@ func TestCouponAdminAndPortal(t *testing.T) {
 		t.Fatalf("unknown coupon: %d", w.Code)
 	}
 	wantCode(t, do(e.h, "POST", buy, url.Values{"coupon": {"TEN"}}, c), http.StatusSeeOther, "buy with coupon")
-	trx, _ := e.q.ListTransactionsByCustomer(ctx, db.ListTransactionsByCustomerParams{CustomerID: e.cust.ID, Limit: 10})
+	trx, _ := e.q.ListTransactionsByCustomer(ctx, db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: e.cust.ID, Valid: true}, Limit: 10})
 	cu, _ := e.q.GetCustomer(ctx, e.cust.ID)
 	if len(trx) != 1 || trx[0].Price != 9000 || trx[0].Note != "Coupon TEN" || cu.Balance != 0 {
 		t.Fatalf("trx %+v balance %d", trx, cu.Balance)

@@ -282,7 +282,7 @@ func (s *Server) pDashboard(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) pOrders(w http.ResponseWriter, r *http.Request) {
-	trx, err := s.queries.ListTransactionsByCustomer(r.Context(), db.ListTransactionsByCustomerParams{CustomerID: customerFrom(r).ID, Limit: 100})
+	trx, err := s.queries.ListTransactionsByCustomer(r.Context(), db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: customerFrom(r).ID, Valid: true}, Limit: 100})
 	if err != nil {
 		s.fail(w, "portal orders", err)
 		return
@@ -293,7 +293,7 @@ func (s *Server) pOrders(w http.ResponseWriter, r *http.Request) {
 // pInvoice shows the invoice only for the customer's own transaction.
 func (s *Server) pInvoice(w http.ResponseWriter, r *http.Request) {
 	t, err := s.queries.GetTransaction(r.Context(), pathID(r))
-	if err != nil || t.CustomerID != customerFrom(r).ID {
+	if err != nil || !t.CustomerID.Valid || t.CustomerID.Int64 != customerFrom(r).ID {
 		http.NotFound(w, r)
 		return
 	}

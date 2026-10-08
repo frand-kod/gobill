@@ -187,7 +187,7 @@ func TestCustomerCRUD(t *testing.T) {
 	}
 
 	// delete refused while a transaction exists
-	_, err = q.CreateTransaction(t.Context(), db.CreateTransactionParams{Invoice: "INV1", CustomerID: cu.ID, Username: "budi",
+	_, err = q.CreateTransaction(t.Context(), db.CreateTransactionParams{Invoice: "INV1", CustomerID: sql.NullInt64{Int64: cu.ID, Valid: true}, Username: "budi",
 		PlanName: "p", Type: "Balance", PeriodStart: 1, PeriodEnd: 1})
 	if err != nil {
 		t.Fatal(err)

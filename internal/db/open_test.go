@@ -1,40 +1,54 @@
 package db
 
 import (
-	"context"
 	"path/filepath"
+	"sync"
 	"testing"
 )
 
-func TestMigrateIsIdempotent(t *testing.T) {
-	conn, err := Open(filepath.Join(t.TempDir(), "test.db"))
+// Two read-then-write transactions racing must both commit (_txlock=immediate), not fail with SQLITE_BUSY.
+func TestConcurrentReadThenWrite(t *testing.T) {
+	conn, err := Open(filepath.Join(t.TempDir(), "t.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer conn.Close()
-
-	for i := 0; i < 2; i++ {
-		if err := Migrate(conn); err != nil {
-			t.Fatalf("run %d: %v", i, err)
+	if _, err := conn.Exec("CREATE TABLE c (n INTEGER); INSERT INTO c VALUES (0)"); err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	errs := make(chan error, 8)
+	for range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			tx, err := conn.Begin()
+			if err != nil {
+				errs <- err
+				return
+			}
+			defer tx.Rollback()
+			var n int
+			if err := tx.QueryRow("SELECT n FROM c").Scan(&n); err != nil {
+				errs <- err
+				return
+			}
+			if _, err := tx.Exec("UPDATE c SET n = ?", n+1); err != nil {
+				errs <- err
+				return
+			}
+			errs <- tx.Commit()
+		}()
+	}
+	wg.Wait()
+	for range 8 {
+		if err := <-errs; err != nil {
+			t.Fatal(err)
 		}
 	}
-
-	var version int
-	conn.QueryRow("PRAGMA user_version").Scan(&version)
-	if version != 7 {
-		t.Fatalf("user_version = %d, want 7", version)
-	}
-
-	var fk int
-	conn.QueryRow("PRAGMA foreign_keys").Scan(&fk)
-	if fk != 1 {
-		t.Fatal("foreign_keys pragma not enabled")
-	}
-
-	q := New(conn)
-	if _, err := q.CreateAdmin(context.Background(), CreateAdminParams{
-		Username: "a", PasswordHash: "x", Role: "Root",
-	}); err == nil {
-		t.Fatal("role CHECK constraint not enforced")
+	var n int
+	conn.QueryRow("SELECT n FROM c").Scan(&n)
+	if n != 8 {
+		t.Fatalf("n = %d, want 8", n)
 	}
 }

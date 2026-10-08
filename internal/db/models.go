@@ -222,7 +222,7 @@ type Subscription struct {
 type Transaction struct {
 	ID          int64
 	Invoice     string
-	CustomerID  int64
+	CustomerID  sql.NullInt64
 	PlanID      sql.NullInt64
 	Username    string
 	PlanName    string

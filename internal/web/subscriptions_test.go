@@ -61,7 +61,7 @@ func TestDepositForm(t *testing.T) {
 	wantCode(t, do(e.h, "POST", "/admin/deposit", f, e.c), 303, "amount deposit")
 	wantCode(t, do(e.h, "POST", "/admin/deposit", url.Values{"customer": {"u1"}, "plan": {itoa(top.ID)}}, e.c), 303, "plan deposit")
 	c, _ := e.q.GetCustomer(t.Context(), e.cust.ID)
-	trx, _ := e.q.ListTransactionsByCustomer(t.Context(), db.ListTransactionsByCustomerParams{CustomerID: c.ID, Limit: 10})
+	trx, _ := e.q.ListTransactionsByCustomer(t.Context(), db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, Limit: 10})
 	if c.Balance != 57000 || len(trx) != 2 || trx[1].Note != "cash in" || trx[1].Type != "Balance" {
 		t.Fatalf("balance %d trx %+v", c.Balance, trx)
 	}

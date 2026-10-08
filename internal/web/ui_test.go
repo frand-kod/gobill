@@ -14,7 +14,7 @@ func TestDashboardTiles(t *testing.T) {
 	ctx := t.Context()
 	p := e.plan(t, "p1", "PPPoE", 25000)
 	now := time.Now().Unix()
-	if _, err := e.q.CreateTransaction(ctx, db.CreateTransactionParams{Invoice: "INV1", CustomerID: e.cust.ID,
+	if _, err := e.q.CreateTransaction(ctx, db.CreateTransactionParams{Invoice: "INV1", CustomerID: sql.NullInt64{Int64: e.cust.ID, Valid: true},
 		PlanID: sql.NullInt64{Int64: p.ID, Valid: true}, Username: "u1", PlanName: "p1", Type: "PPPoE", Price: 25000, Method: "Cash",
 		PeriodStart: now, PeriodEnd: now + 86400}); err != nil {
 		t.Fatal(err)
