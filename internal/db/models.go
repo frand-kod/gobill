@@ -19,14 +19,19 @@ type ActivityLog struct {
 }
 
 type Admin struct {
-	ID           int64
-	Username     string
-	Fullname     string
-	PasswordHash string
-	Role         string
-	Status       string
-	LastLoginAt  sql.NullInt64
-	CreatedAt    int64
+	ID             int64
+	Username       string
+	Fullname       string
+	PasswordHash   string
+	Role           string
+	Status         string
+	Email          string
+	Phone          string
+	City           string
+	RootID         sql.NullInt64
+	SessionVersion int64
+	LastLoginAt    sql.NullInt64
+	CreatedAt      int64
 }
 
 type Bandwidth struct {
