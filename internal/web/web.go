@@ -141,6 +141,8 @@ func (s *Server) Handler() http.Handler {
 	}
 	crud("/admin/bandwidth", s.bwList, s.bwNew, s.bwEdit, s.bwSave, s.bwDelete)
 	crud("/admin/routers", s.routerList, s.routerNew, s.routerEdit, s.routerSave, s.routerDelete)
+	mux.Handle("POST /admin/routers/{id}/test", managers(http.HandlerFunc(s.routerTest)))
+	crud("/admin/nas", s.nasList, s.nasNew, s.nasEdit, s.nasSave, s.nasDelete)
 	crud("/admin/pool", s.poolList, s.poolNew, s.poolEdit, s.poolSave, s.poolDelete)
 	crud("/admin/plans", s.planList, s.planNew, s.planEdit, s.planSave, s.planDelete)
 	mux.Handle("GET /admin/logs", managers(http.HandlerFunc(s.logList)))

@@ -11,14 +11,13 @@ import (
 var bwNames = []string{"name", "rate_down", "rate_down_unit", "rate_up", "rate_up_unit", "burst"}
 
 func bwFields(v, e map[string]string) []field {
-	return []field{
-		text("name", "Bandwidth Name", v, e).req(),
+	return append(section([]field{text("name", "Bandwidth Name", v, e).req()}, "Basic", ""), section([]field{
 		text("rate_down", "Rate Download", v, e).as("number").req(),
 		text("rate_down_unit", "Unit", v, e).opts("Kbps", "Mbps"),
 		text("rate_up", "Rate Upload", v, e).as("number").req(),
 		text("rate_up_unit", "Unit", v, e).opts("Kbps", "Mbps"),
 		text("burst", "Burst", v, e).hint("MikroTik burst limit, optional"),
-	}
+	}, "Speed", "")...)
 }
 
 func (s *Server) bwList(w http.ResponseWriter, r *http.Request) {

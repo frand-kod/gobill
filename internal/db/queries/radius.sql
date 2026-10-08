@@ -4,6 +4,12 @@ INSERT INTO nas (name, ip, secret_enc, description) VALUES (?, ?, ?, ?) RETURNIN
 -- name: ListNAS :many
 SELECT * FROM nas ORDER BY name;
 
+-- name: GetNAS :one
+SELECT * FROM nas WHERE id = ?;
+
+-- name: UpdateNAS :exec
+UPDATE nas SET name = ?, ip = ?, secret_enc = ?, description = ? WHERE id = ?;
+
 -- name: DeleteNAS :exec
 DELETE FROM nas WHERE id = ?;
 
