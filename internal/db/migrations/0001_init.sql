@@ -3,7 +3,9 @@ CREATE TABLE admins (
     username      TEXT    NOT NULL UNIQUE,
     fullname      TEXT    NOT NULL DEFAULT '',
     password_hash TEXT    NOT NULL,
-    role          TEXT    NOT NULL CHECK (role IN ('SuperAdmin', 'Admin', 'Report', 'Agent', 'Sales')),
+    -- Imported PHPNuxBill sha1; password_hash is '!' until the first login rehashes it to bcrypt.
+    legacy_sha1   TEXT    NOT NULL DEFAULT '',
+    role         TEXT    NOT NULL CHECK (role IN ('SuperAdmin', 'Admin', 'Report', 'Agent', 'Sales')),
     status        TEXT    NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
     email         TEXT    NOT NULL DEFAULT '',
     phone         TEXT    NOT NULL DEFAULT '',

@@ -38,6 +38,14 @@ Data SQLite dan `nuxbill.db.key` ada di volume `/data`. Berikan `NUXBILL_SECRET_
 
 Saat database masih kosong, aplikasi membuat user `admin` (SuperAdmin) dengan kata sandi acak 16 karakter. Kata sandi itu dicetak satu kali di log (level WARN) saat start pertama. Catat, lalu ganti.
 
+## Impor dari PHPNuxBill
+
+```
+nuxbill import --mysql-dsn='user:pass@tcp(127.0.0.1:3306)/phpnuxbill' --db=./nuxbill.db [--timezone=Asia/Jakarta] [--dry-run] [--force]
+```
+
+Semuanya berjalan dalam satu transaksi SQLite. Target harus kosong (`--force` menghapus isinya). `--dry-run` hanya membuat laporan. Laporan menampilkan baris yang dibaca, diimpor, dan dilewati beserta alasannya. Harga yang gagal dikonversi dilewati. Zona waktu default diambil dari setting lama. Kata sandi admin (sha1) ditandai `legacy_sha1` dan diganti ke bcrypt saat login pertama. Kupon, ODP, dan inbox belum diimpor.
+
 ## Build untuk STB
 
     CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o nuxbill ./cmd/nuxbill

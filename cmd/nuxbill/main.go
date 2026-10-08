@@ -36,6 +36,10 @@ func main() {
 		return
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
+	run := run
+	if len(os.Args) > 1 && os.Args[1] == "import" {
+		run = func() error { return runImport(os.Args[2:]) }
+	}
 	if err := run(); err != nil {
 		slog.Error("fatal", "err", err)
 		os.Exit(1)

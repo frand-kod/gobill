@@ -40,6 +40,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		hash = []byte(admin.PasswordHash)
 	}
 	passOK := bcrypt.CompareHashAndPassword(hash, []byte(password)) == nil
+	passOK = passOK || (err == nil && s.legacyLogin(r.Context(), admin.ID, password))
 	if err != nil || !passOK || admin.Status != "Active" {
 		s.recordFailure(ip)
 		s.render(w, r, http.StatusOK, "login", Page{

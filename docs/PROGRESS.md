@@ -16,7 +16,7 @@ Rencana lengkap ada di [plan/](plan/README.md).
 | F3 RADIUS built-in | Selesai di level kode: paket RADIUS, Disconnect-Request (RFC 5176), sesi online, dan pemakaian data. Belum diuji dengan NAS nyata |
 | F4 Portal & notifikasi | Portal (order via saldo), halaman setting, dan notifikasi tersambung. Tripay opsional, dikerjakan paling akhir |
 | F5 Pelengkap | Sebagian: laporan + CSV/cetak, invoice, widget dashboard, user admin, ganti password, backup harian, mode maintenance. Belum: kupon, peta/ODP, pesan, custom field, halaman statis |
-| F6 Migrasi data & rilis | Belum dimulai |
+| F6 Migrasi data & rilis | Sebagian: `nuxbill import` (MySQL lama ke SQLite, tabel inti; kupon, ODP, inbox menyusul). Belum: unit systemd, script install, panduan STB |
 
 ## Sudah selesai
 
