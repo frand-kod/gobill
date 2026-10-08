@@ -125,7 +125,7 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 
 **Hitungan baris tabel ringkasan (91 baris):** Ada 9 · Sebagian 29 · Belum 42 · Ditunda 7 · Non-goal 4.
 
-**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 54 · ⚠️ 39 · ❌ 84; Settings ✅ 1 · ⚠️ 8 · ❌ 94; Portal pelanggan ❌ 41. Total ✅ 55 · ⚠️ 47 · ❌ 219. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
+**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 54 · ⚠️ 40 · ❌ 84; Settings ✅ 1 · ⚠️ 8 · ❌ 101; Portal pelanggan ❌ 41. Total ✅ 55 · ⚠️ 48 · ❌ 226. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
 
 ---
 
@@ -333,6 +333,7 @@ Kolom lama: Name Pool, Local IP, Range IP, Routers, Manage, ID. Baru: Pool Name,
 | `description` | Description | textarea | — | `description` | ⚠️ | Input satu baris |
 | `coordinates` (edit) | Coordinates | text (peta) | — | — | ❌ | Tidak ada kolom (maps F5) |
 | `coverage` (edit) | Coverage | number | — | — | ❌ | Tidak ada kolom |
+| `testIt` (add) | Test Connection | checkbox (default checked, `yes`) | tes koneksi sebelum simpan | `POST /admin/routers/{id}/test` | ⚠️ | Tes jadi tombol baris terpisah setelah simpan, bukan checkbox di form add |
 | (list "Status" Enabled/Disabled) | — | — | — | `enabled` | ✅ | Checkbox di baru |
 | `id` (edit) | — | hidden | — | `{id}` di URL | ✅ | |
 
@@ -587,6 +588,9 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | `sms_otp_registration` | SMS OTP Registration | select | — | ❌ | F4 |
 | `phone_otp_type` | OTP Method | select | — | ❌ | F4 |
 | `reg_nofify_admin` | Notify Admin | select | — | ❌ | F4 |
+| `man_fields_email` | Mandatory field: Email | checkbox `yes` | — | ❌ | F4 (field wajib di registrasi) |
+| `man_fields_fname` | Mandatory field: Full Name | checkbox `yes` | — | ❌ | F4 |
+| `man_fields_address` | Mandatory field: Address | checkbox `yes` | — | ❌ | F4 |
 
 **Keamanan**
 
@@ -595,6 +599,7 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | `session_timeout_duration` | Timeout Duration | number min 1 | — | ❌ | F5 (durasi sesi `scs` tetap di kode) |
 | `single_session` | Single Admin Session | select | — | ❌ | F5 |
 | `csrf_enabled` | Enable CSRF Validation | select | — | ⚠️ | Disengaja hilang: CSRF selalu aktif (`CrossOriginProtection`) |
+| `enable_session_timeout` | Enable Session Timeout | checkbox `1` | — | ❌ | F5 (bersama `session_timeout_duration`) |
 
 **Voucher, RADIUS, extend, balance**
 
@@ -697,10 +702,11 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | Sub-halaman lama | Field/aksi | Key baru | St | Catatan / Fase |
 |---|---|---|---|---|
 | `settings/maintenance-mode` | `maintenance_date` (date) + Save | — | ❌ | F5 |
+| `settings/maintenance-mode` | `maintenance_mode` (checkbox `1`, aktifkan), `maintenance_mode_logout` (checkbox `1`, paksa logout pelanggan), tombol `save` | — | ❌ | F5 |
 | `settings/dbstatus` | `tables[]` (checkbox), Download Backup Database, `json` (file) + Restore Database | — | ❌ | F5: backup harian `VACUUM INTO`; restore JSON per tabel tidak dipakai (SQLite satu file) |
 | `settings/language-add` | satu input per kunci bahasa (`{$lang@key}`) | — | ❌ | Ditunda; bahasa = file JSON di `internal/i18n` |
 | `settings/customfield` | `order[]`, `name[]`, `placeholder[]`, `type[]`, `value[]` (opsi), `register[]`, `required[]` | — | ❌ | F5; tidak ada tabel custom field |
-| `settings/page` | `html` (editor) + `template_name` (Save as template) | — | ❌ | F5 (halaman statis) |
+| `settings/page` | `html` (editor) + `template_name` (Save as template) + `template_save` (checkbox `yes`, simpan sebagai template) | — | ❌ | F5 (halaman statis) |
 | `settings/devices` | tanpa input | — | ❌ | Non-goal |
 | `settings/widgets` | `orders[]`, `id[]`, `dashboard`, tombol Add/Edit | — | ❌ | Non-goal |
 | `settings/widgets_add_edit` | `widget`, `title`, `orders`, `position`, `tipeUser`, `enabled`, `content` | — | ❌ | Non-goal |
@@ -832,6 +838,21 @@ Semua belum ada: tidak ada route portal (`web.go` hanya `/login` admin dan `/adm
 | `orderView`: Pay Now, Check for Payment (`/check`), Cancel (`/cancel`) | | | | | ❌ | Perlu simpan `reference` Tripay |
 
 ### C10. Halaman statis dan galat: `pages.tpl` (ditampilkan `page/{nama}`), `404.tpl`, `error.tpl` -> ❌.
+
+---
+
+### Lampiran: nama input tombol/submit/meta (bukan field data)
+
+| Nama | Template | Jenis | Keterangan |
+|---|---|---|---|
+| `export` (value `csv`) | `admin/customers/list.tpl` | Aksi | Tombol export CSV pelanggan (A8); belum ada (F5) |
+| `general` | `admin/settings/app.tpl` | Aksi | Tombol submit Save per kartu S1; baru satu tombol Save di `/admin/settings` |
+| `save` | `paymentgateway/list`, `settings/widgets`, `maintenance-mode`, `miscellaneous` | Aksi | Tombol submit Save; pada baru satu tombol submit standar `form.html` |
+| `nux` | `admin/plan/invoice-print.tpl` | Aksi | Tombol NuxPrint (printer Android); Ditunda |
+| `add_coupon` | `customer/selectGateway.tpl` | Aksi | Tombol Apply Coupon (C9); belum, bergantung kupon F5 |
+| `pay` | `customer/selectGateway.tpl` | Aksi | Tombol Pay Now (C9); belum (F4) |
+| `send` | `customer/sendPlan.tpl` | Aksi | Tombol kirim paket ke teman (C9); belum (F4) |
+| `viewport` | `admin/header.tpl`, `maintenance.tpl`, `error.tpl`, `alert.tpl` | Meta | Ignored: tag `<meta>`, bukan input. Baru: `base.html` punya viewport sendiri |
 
 ---
 
