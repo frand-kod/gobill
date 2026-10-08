@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/frand-kod/nuxbill-go/internal/billing"
 	"github.com/frand-kod/nuxbill-go/internal/db"
 	"github.com/frand-kod/nuxbill-go/internal/job"
 	"github.com/frand-kod/nuxbill-go/internal/secret"
@@ -77,6 +78,20 @@ func run() error {
 		defer close(guardDone)
 		guard.Run(ctx)
 	}()
+
+	loc := time.FixedZone("WIB", 7*3600)
+	if l, err := time.LoadLocation("Asia/Jakarta"); err == nil {
+		loc = l
+	}
+	if rows, err := db.New(conn).ListSettings(ctx); err == nil {
+		for _, r := range rows {
+			if l, err := time.LoadLocation(r.Value); r.Key == "timezone" && err == nil {
+				loc = l
+			}
+		}
+	}
+	svc := &billing.Service{DB: conn, Q: db.New(conn), Key: key, Loc: loc}
+	go job.Run(ctx, "expiry", time.Minute, svc.ExpiryJob(guard.Trusted))
 
 	errCh := make(chan error, 1)
 	go func() {
