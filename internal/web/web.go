@@ -57,14 +57,15 @@ type Server struct {
 
 // Page is the data every template receives.
 type Page struct {
-	Title string
-	Admin *db.Admin
-	Flash string
-	Error string
-	Path  string
-	Dir   string // "rtl" or "ltr"
-	Lang  string
-	Data  any
+	Title    string
+	Admin    *db.Admin
+	Customer *db.Customer // portal customer, if any
+	Flash    string
+	Error    string
+	Path     string
+	Dir      string // "rtl" or "ltr"
+	Lang     string
+	Data     any
 }
 
 type ctxKey struct{}
@@ -164,6 +165,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/vouchers/redeem", staff(http.HandlerFunc(s.vchRedeem)))
 	mux.Handle("POST /admin/vouchers/{id}/delete", managers(http.HandlerFunc(s.vchDelete)))
 	mux.Handle("GET /admin/transactions", all(http.HandlerFunc(s.trxList)))
+
+	s.portalRoutes(mux)
 
 	return http.NewCrossOriginProtection().Handler(s.sessions.LoadAndSave(mux))
 }
@@ -318,6 +321,13 @@ func (s *Server) parseTemplates() error {
 		"form":      {"base.html", "app.html", "form.html"},
 		"customer":  {"base.html", "app.html", "customer.html"},
 		"print":     {"print.html"},
+
+		"p_login":     {"base.html", "portal/login.html"},
+		"p_register":  {"base.html", "portal/register.html"},
+		"p_dashboard": {"base.html", "portal/layout.html", "portal/dashboard.html"},
+		"p_profile":   {"base.html", "portal/layout.html", "portal/profile.html"},
+		"p_orders":    {"base.html", "portal/layout.html", "portal/orders.html"},
+		"p_plans":     {"base.html", "portal/layout.html", "portal/plans.html"},
 	}
 	s.templates = map[string]*template.Template{}
 	for name, files := range pages {

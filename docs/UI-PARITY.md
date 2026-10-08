@@ -125,7 +125,7 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 
 **Hitungan baris tabel ringkasan (91 baris):** Ada 9 · Sebagian 29 · Belum 42 · Ditunda 7 · Non-goal 4.
 
-**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 54 · ⚠️ 40 · ❌ 84; Settings ✅ 1 · ⚠️ 8 · ❌ 101; Portal pelanggan ❌ 41. Total ✅ 55 · ⚠️ 48 · ❌ 226. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
+**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 54 · ⚠️ 40 · ❌ 84; Settings ✅ 1 · ⚠️ 8 · ❌ 101; Portal pelanggan ✅ 15 · ⚠️ 4 · ❌ 22. Total ✅ 70 · ⚠️ 52 · ❌ 207. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
 
 ---
 
@@ -754,14 +754,14 @@ Baru: `dashboard.html` + `dashboardData` (`handlers.go`), 4 kotak + 2 grafik Cha
 
 ## 5. Bagian Portal pelanggan
 
-Semua belum ada: tidak ada route portal (`web.go` hanya `/login` admin dan `/admin/*`). Tabel `customers.password_hash` (bcrypt) dan `last_login_at` sudah disiapkan. Seluruh field ❌ (fase F4 kecuali dinyatakan lain). Field "Field baru" = rencana, belum ada.
+Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, dashboard, profil, ganti password, riwayat order, order dari saldo. Belum: lupa password (OTP wajib di PHP), gateway Tripay, inbox, aktivasi voucher, kupon, kirim paket.
 
 ### C1. Login `customer/login.tpl`, `login-noreg.tpl`, `login-custom-moon.tpl`
 
 | Field lama | Label | Tipe | Wajib | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
-| `username` | Phone Number / Email / Username | text | required | `customers.username` | ❌ | |
-| `password` | Password | password | required | `customers.password_hash` | ❌ | |
+| `username` | Phone Number / Email / Username | text | required | ✅ | `/portal/login` | |
+| `password` | Password | password | required | ✅ | `/portal/login` | |
 | `voucher` (noreg) | Voucher code (login+aktivasi) | text | required | `vouchers.code` | ❌ | |
 | `voucher_only` (noreg) | Voucher code | text | required | — | ❌ | |
 | Aksi: Login, Register, Forgot Password, tema moon | | | | | ❌ | Tema moon Non-goal |
@@ -770,14 +770,14 @@ Semua belum ada: tidak ada route portal (`web.go` hanya `/login` admin dan `/adm
 
 | Field lama | Label | Tipe | Wajib | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
-| `username` | Phone/Email/Username | text | required | — | ❌ | |
-| `fullname` | Full Name | text | required | — | ❌ | |
-| `email` | Email | text | required | — | ❌ | |
-| `address` | Home Address | text | required | — | ❌ | |
-| `password`, `cpassword` | Password / Confirm | password | required | — | ❌ | |
+| `username` | Phone/Email/Username | text | required | ✅ | `/portal/register`; OTP hanya bila `sms_otp_registration=yes` dan gateway WA/SMS ada | |
+| `fullname` | Full Name | text | required | ✅ | `/portal/register`; OTP hanya bila `sms_otp_registration=yes` dan gateway WA/SMS ada | |
+| `email` | Email | text | required | ✅ | `/portal/register`; OTP hanya bila `sms_otp_registration=yes` dan gateway WA/SMS ada | |
+| `address` | Home Address | text | required | ✅ | `/portal/register`; OTP hanya bila `sms_otp_registration=yes` dan gateway WA/SMS ada | |
+| `password`, `cpassword` | Password / Confirm | password | required | ✅ | `/portal/register`; OTP hanya bila `sms_otp_registration=yes` dan gateway WA/SMS ada | |
 | `photo` | Photo | file | required | — | ❌ | Ditunda |
-| `phone_number` (rotp) | Phone Number | text `[0-9]*` | required | — | ❌ | Request OTP |
-| `otp_code` (otp) | SMS Verification Code | text | required | — | ❌ | |
+| `phone_number` (rotp) | Phone Number | text `[0-9]*` | required | ✅ | `/portal/register`; OTP hanya bila `sms_otp_registration=yes` dan gateway WA/SMS ada | Request OTP |
+| `otp_code` (otp) | SMS Verification Code | text | required | ✅ | `/portal/register`; OTP hanya bila `sms_otp_registration=yes` dan gateway WA/SMS ada | |
 | Aksi: Register, Cancel, Request OTP | | | | | ❌ | |
 
 ### C3. Lupa password `forgot.tpl`
@@ -796,11 +796,11 @@ Semua belum ada: tidak ada route portal (`web.go` hanya `/login` admin dan `/adm
 | Field lama | Label | Tipe | Wajib | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
 | `photo` | Photo | file | — | — | ❌ | Ditunda |
-| `username` | Usernames | text (readonly) | — | — | ❌ | |
-| `fullname` | Full Name | text | — | — | ❌ | |
-| `address` | Home Address | textarea | — | — | ❌ | |
-| `phonenumber` | Phone Number | text (readonly) | — | — | ❌ | |
-| `email` | Email Address | text (readonly) | — | — | ❌ | |
+| `username` | Usernames | text (readonly) | — | ✅ | `/portal/profile` | |
+| `fullname` | Full Name | text | — | ✅ | `/portal/profile` | |
+| `address` | Home Address | textarea | — | ✅ | `/portal/profile` | |
+| `phonenumber` | Phone Number | text (readonly) | — | ⚠️ | Bisa diedit langsung tanpa OTP | |
+| `email` | Email Address | text (readonly) | — | ⚠️ | Bisa diedit langsung tanpa OTP | |
 | `phone` / `email` (update) | New Number / New Email | number / text | required | — | ❌ | Request OTP |
 | `otp` | OTP | number | required | — | ❌ | |
 | field kustom `{$field['name']}` | select / file / tipe dinamis | — | required bila diset | — | ❌ | Bergantung customfield F5 |
@@ -810,9 +810,9 @@ Semua belum ada: tidak ada route portal (`web.go` hanya `/login` admin dan `/adm
 
 | Field lama | Label | Tipe | Wajib | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
-| `password` | Current Password | password | required | — | ❌ | |
-| `npass` | New Password | password | required | — | ❌ | |
-| `cnpass` | Confirm New Password | password | required | — | ❌ | |
+| `password` | Current Password | password | required | ✅ | `POST /portal/password` | |
+| `npass` | New Password | password | required | ✅ | `POST /portal/password` | |
+| `cnpass` | Confirm New Password | password | required | ✅ | `POST /portal/password` | |
 
 ### C7. Inbox `inbox.tpl`
 `q` (cari), daftar pesan, Previous/Next, Back, Delete, Share (WhatsApp). Tabel `messages` tidak ada. ❌ (F4/F5).
@@ -834,7 +834,7 @@ Semua belum ada: tidak ada route portal (`web.go` hanya `/login` admin dan `/adm
 | `coupon` | Coupon Code | text maxlength 50 | required (Apply) | — | ❌ | Kupon A60-62 belum |
 | `gateway` | Payment Gateway | select | required | — | ❌ | `internal/payment` Tripay siap |
 | `username` (`sendPlan`) | Friend username | text | required | — | ❌ | |
-| `orderHistory`: kolom Package Name, Payment Method, Routers, Type, Package Price, Created on, Expires on, Date, Status | | | | | ❌ | |
+| `orderHistory`: kolom Package Name, Payment Method, Routers, Type, Package Price, Created on, Expires on, Date, Status | | | | ⚠️ | `/portal/orders` dari transaksi; tanpa kolom Routers/Status | |
 | `orderView`: Pay Now, Check for Payment (`/check`), Cancel (`/cancel`) | | | | | ❌ | Perlu simpan `reference` Tripay |
 
 ### C10. Halaman statis dan galat: `pages.tpl` (ditampilkan `page/{nama}`), `404.tpl`, `error.tpl` -> ❌.

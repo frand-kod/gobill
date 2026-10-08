@@ -1,0 +1,14 @@
+{{define "content"}}
+<h1 class="mb-4 text-2xl font-semibold">{{T "Order Package"}}</h1>
+<div class="grid gap-4 sm:grid-cols-2">
+{{$bal := .Data.Balance}}
+{{range .Data.Plans}}
+<div class="card"><div class="card-body space-y-2">
+  <h2 class="font-semibold">{{.Name}}</h2>
+  <p class="text-sm text-slate-500">{{.Type}} - {{.Validity}} {{.ValidityUnit}}</p>
+  <p class="text-xl font-semibold">{{money .Price}}</p>
+  {{if $bal}}<form method="post" action="/portal/plans/{{.ID}}/balance"><button class="btn btn-primary" type="submit">{{T "Pay with Balance"}}</button></form>{{end}}
+</div></div>
+{{else}}<p>{{T "No data"}}</p>{{end}}
+</div>
+{{end}}

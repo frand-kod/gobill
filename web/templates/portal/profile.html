@@ -1,0 +1,19 @@
+{{define "content"}}
+<h1 class="mb-4 text-2xl font-semibold">{{T "Profile"}}</h1>
+{{with .Customer}}
+<form class="card mb-4" method="post" action="/portal/profile"><div class="card-body grid gap-4 md:grid-cols-2">
+  <div><label class="label" for="username">{{T "Username"}}</label><input class="input" id="username" value="{{.Username}}" readonly></div>
+  <div><label class="label" for="fullname">{{T "Full Name"}}</label><input class="input" id="fullname" name="fullname" required value="{{.Fullname}}"></div>
+  <div><label class="label" for="phone">{{T "Phone Number"}}</label><input class="input" id="phone" name="phone" inputmode="tel" value="{{.Phone}}"></div>
+  <div><label class="label" for="email">{{T "Email"}}</label><input class="input" id="email" name="email" type="email" value="{{.Email}}"></div>
+  <div class="md:col-span-2"><label class="label" for="address">{{T "Home Address"}}</label><input class="input" id="address" name="address" value="{{.Address}}"></div>
+  <div><button class="btn btn-primary" type="submit">{{T "Save Changes"}}</button></div>
+</div></form>
+{{end}}
+<form class="card" method="post" action="/portal/password"><h2 class="card-title">{{T "Change Password"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">
+  <div><label class="label" for="cur">{{T "Current Password"}}</label><input class="input" id="cur" name="password" type="password" autocomplete="current-password" required></div>
+  <div><label class="label" for="npass">{{T "New Password"}}</label><input class="input" id="npass" name="npass" type="password" autocomplete="new-password" required></div>
+  <div><label class="label" for="cnpass">{{T "Confirm New Password"}}</label><input class="input" id="cnpass" name="cnpass" type="password" autocomplete="new-password" required></div>
+  <div><button class="btn btn-primary" type="submit">{{T "Change Password"}}</button></div>
+</div></form>
+{{end}}
