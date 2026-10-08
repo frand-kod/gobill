@@ -1,0 +1,25 @@
+{{define "body"}}
+<div class="shell">
+  <input type="checkbox" id="nav-toggle" class="nav-toggle">
+  <header class="sidebar">
+    <div class="fiber-stripe" aria-hidden="true"></div>
+    <div class="sidebar-head">
+      <span class="brand">NuxBill</span>
+      <label for="nav-toggle" class="menu-btn" aria-label="Menu">{{icon "menu"}}</label>
+    </div>
+    <nav class="sidebar-menu" aria-label="Main">
+      <a href="/admin"{{if eq .Path "/admin"}} aria-current="page"{{end}}>{{icon "layout-dashboard"}}<span>{{T "Dashboard"}}</span></a>
+      {{if or (eq .Admin.Role "SuperAdmin") (eq .Admin.Role "Admin")}}
+      <a href="/admin/settings"{{if eq .Path "/admin/settings"}} aria-current="page"{{end}}>{{icon "settings"}}<span>{{T "Settings"}}</span></a>
+      {{end}}
+      <form method="post" action="/logout">
+        <button type="submit">{{icon "log-out"}}<span>{{T "Logout"}}</span></button>
+      </form>
+    </nav>
+  </header>
+  <main class="main">
+    {{if .Flash}}<p class="alert alert-ok" role="status">{{icon "circle-check"}}<span>{{.Flash}}</span></p>{{end}}
+    {{template "content" .}}
+  </main>
+</div>
+{{end}}

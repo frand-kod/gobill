@@ -1,0 +1,13 @@
+{{define "base"}}<!doctype html>
+<html lang="{{if eq .Lang "indonesia"}}id{{else if eq .Lang "english"}}en{{else if eq .Lang "arabic"}}ar{{else if eq .Lang "spanish"}}es{{else if eq .Lang "turkish"}}tr{{else}}id{{end}}" dir="{{.Dir}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{T .Title}} - NuxBill</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+{{block "body" .}}{{end}}
+</body>
+</html>
+{{end}}

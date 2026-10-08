@@ -1,0 +1,20 @@
+{{define "body"}}
+<main class="login">
+  <form class="card login-card" method="post" action="/login">
+    <div class="fiber-stripe" aria-hidden="true"></div>
+    <div class="card-body">
+      <h1>{{T "Sign in"}}</h1>
+      {{if .Error}}<p class="alert alert-error" role="alert">{{icon "circle-alert"}}<span>{{T .Error}}</span></p>{{end}}
+      <div class="field">
+        <label for="username">{{T "Username"}}</label>
+        <input id="username" name="username" type="text" autocomplete="username" required autofocus value="{{with .Data}}{{.Username}}{{end}}">
+      </div>
+      <div class="field">
+        <label for="password">{{T "Password"}}</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button class="btn btn-primary" type="submit">{{T "Sign in"}}</button>
+    </div>
+  </form>
+</main>
+{{end}}

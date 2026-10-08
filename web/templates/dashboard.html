@@ -1,0 +1,11 @@
+{{define "content"}}
+<h1>{{T "Hello"}}, {{if .Admin.Fullname}}{{.Admin.Fullname}}{{else}}{{.Admin.Username}}{{end}}</h1>
+<section class="empty">
+  {{icon "package"}}
+  <h2>{{T "Nothing to show yet"}}</h2>
+  <p>{{T "Customer and package data arrive in the next phase."}}</p>
+  {{if or (eq .Admin.Role "SuperAdmin") (eq .Admin.Role "Admin")}}
+  <a class="btn btn-ghost" href="/admin/settings">{{icon "settings"}}<span>{{T "Open settings"}}</span></a>
+  {{end}}
+</section>
+{{end}}
