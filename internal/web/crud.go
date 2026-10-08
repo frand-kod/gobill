@@ -89,6 +89,7 @@ type listPage struct {
 	FilterName       string   // optional select next to the search box, e.g. "status"
 	FilterVal        string
 	FilterOpts       []option
+	RowAction        option // optional per-row POST button: Value = path suffix, Label = caption
 }
 
 func text(name, label string, v, e map[string]string) field {

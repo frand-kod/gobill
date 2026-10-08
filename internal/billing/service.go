@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"strconv"
 	"time"
 
@@ -29,6 +28,8 @@ type Service struct {
 	Now func() time.Time
 	// DeviceFor builds the driver for a plan; nil means the default (by plans.device).
 	DeviceFor func(plan db.Plan, router db.Router) (device.Device, error)
+	// RouterFor builds the connection for a router (ping, pool sync); nil means from the stored row.
+	RouterFor func(router db.Router) (device.Router, error)
 }
 
 func (s *Service) now() time.Time {
@@ -398,11 +399,10 @@ func (s *Service) defaultDevice(p db.Plan, r db.Router) (device.Device, error) {
 	if p.Device == "" || p.Device == "Dummy" {
 		return device.Dummy{}, nil
 	}
-	pw, err := secret.Open(s.Key, r.PasswordEnc)
+	rt, err := s.routerConn(r)
 	if err != nil {
-		return nil, fmt.Errorf("decrypt router password: %w", err)
+		return nil, err
 	}
-	rt := device.Router{Addr: net.JoinHostPort(r.Host, strconv.FormatInt(r.Port, 10)), User: r.Username, Pass: string(pw), TLS: r.Port == 8729}
 	switch p.Device {
 	case "MikrotikHotspot":
 		return device.NewMikrotikHotspot(rt), nil

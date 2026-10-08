@@ -18,15 +18,13 @@ func routerFields(v, e map[string]string, editing bool) []field {
 	pw.Value = "" // never rendered back
 	en := text("enabled", "Enabled", v, e).as("checkbox")
 	en.Checked = v["enabled"] == "1"
-	return []field{
+	out := section([]field{
 		text("name", "Router Name", v, e).req(),
 		text("host", "Host", v, e).req().hint("IP address or hostname"),
 		text("port", "Port", v, e).as("number").req(),
-		text("username", "Username", v, e).req(),
-		pw,
-		text("description", "Description", v, e),
-		en,
-	}
+	}, "Connection", "")
+	out = append(out, section([]field{text("username", "Username", v, e).req(), pw}, "Login", "")...)
+	return append(out, section([]field{text("description", "Description", v, e), en}, "Other", "")...)
 }
 
 func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
@@ -37,7 +35,8 @@ func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp := listPage{Heading: "Routers", Base: "/admin/routers", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
-		Cols: []string{"Name", "Host", "Username", "Enabled"}}
+		Cols:      []string{"Name", "Host", "Username", "Enabled"},
+		RowAction: option{"test", "Test connection"}}
 	for _, x := range rows {
 		on := "No"
 		if x.Enabled == 1 {
@@ -139,6 +138,27 @@ func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 		action, head = fmt.Sprint("/admin/routers/", id), "Edit Router"
 	}
 	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{head, action, "/admin/routers", routerFields(v, e, id != 0)})
+}
+
+// routerTest connects to the router and flashes the identity or the error.
+func (s *Server) routerTest(w http.ResponseWriter, r *http.Request) {
+	x, err := s.queries.GetRouter(r.Context(), pathID(r))
+	if err == sql.ErrNoRows {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.fail(w, "get router", err)
+		return
+	}
+	lang := s.language()
+	if s.Billing == nil {
+		s.sessions.Put(r.Context(), "error", s.catalog.T(lang, "Router connection is not configured"))
+	} else if id, err := s.Billing.Ping(r.Context(), x); err != nil {
+		s.sessions.Put(r.Context(), "error", s.catalog.T(lang, "Connection failed")+": "+x.Name+": "+err.Error())
+	} else {
+		s.sessions.Put(r.Context(), "flash", s.catalog.T(lang, "Connection successful")+": "+x.Name+" ("+id+")")
+	}
+	http.Redirect(w, r, "/admin/routers", http.StatusSeeOther)
 }
 
 func (s *Server) routerDelete(w http.ResponseWriter, r *http.Request) {

@@ -18,6 +18,7 @@ type Router struct {
 	User string
 	Pass string
 	TLS  bool
+	Exec execFunc // test seam; nil means dial the router
 }
 
 // execFunc is the test seam: send one sentence, get the !re replies back.
@@ -25,6 +26,9 @@ type execFunc func(ctx context.Context, sentence []string) ([]map[string]string,
 
 // ponytail: dials a new connection per call; add pooling if call volume ever matters.
 func (r Router) exec(ctx context.Context, sentence []string) ([]map[string]string, error) {
+	if r.Exec != nil {
+		return r.Exec(ctx, sentence)
+	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	var c *routeros.Client

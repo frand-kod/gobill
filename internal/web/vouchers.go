@@ -112,8 +112,9 @@ func (s *Server) vchFields(r *http.Request, v, e map[string]string) ([]field, er
 	format.Options = []option{{"up", "UPPERCASE"}, {"low", "lowercase"}, {"rand", "Random case"}, {"numbers", "Numbers"}}
 	pn := text("print_now", "Print Now", v, e).as("checkbox")
 	pn.Checked = v["print_now"] == "1"
-	return []field{plan, text("numbervoucher", "Number of Vouchers", v, e).as("number").req(), format,
-		text("prefix", "Prefix", v, e), text("lengthcode", "Length Code", v, e).as("number").req().hint("4-32, numbers: 6-32"), pn}, nil
+	out := section([]field{plan, text("numbervoucher", "Number of Vouchers", v, e).as("number").req()}, "Voucher", "")
+	return append(out, section([]field{format, text("prefix", "Prefix", v, e),
+		text("lengthcode", "Length Code", v, e).as("number").req().hint("4-32, numbers: 6-32"), pn}, "Code", "")...), nil
 }
 
 func (s *Server) vchForm(w http.ResponseWriter, r *http.Request, status int, v, e map[string]string) {

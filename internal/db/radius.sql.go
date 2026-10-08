@@ -125,6 +125,23 @@ func (q *Queries) GetCustomerForRadius(ctx context.Context, name string) (Custom
 	return i, err
 }
 
+const getNAS = `-- name: GetNAS :one
+SELECT id, name, ip, secret_enc, description FROM nas WHERE id = ?
+`
+
+func (q *Queries) GetNAS(ctx context.Context, id int64) (Na, error) {
+	row := q.db.QueryRowContext(ctx, getNAS, id)
+	var i Na
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Ip,
+		&i.SecretEnc,
+		&i.Description,
+	)
+	return i, err
+}
+
 const getRadiusPlan = `-- name: GetRadiusPlan :one
 SELECT s.started_at, s.expires_at, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
@@ -231,6 +248,29 @@ func (q *Queries) SumRadiusUsage(ctx context.Context, arg SumRadiusUsageParams) 
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const updateNAS = `-- name: UpdateNAS :exec
+UPDATE nas SET name = ?, ip = ?, secret_enc = ?, description = ? WHERE id = ?
+`
+
+type UpdateNASParams struct {
+	Name        string
+	Ip          string
+	SecretEnc   []byte
+	Description string
+	ID          int64
+}
+
+func (q *Queries) UpdateNAS(ctx context.Context, arg UpdateNASParams) error {
+	_, err := q.db.ExecContext(ctx, updateNAS,
+		arg.Name,
+		arg.Ip,
+		arg.SecretEnc,
+		arg.Description,
+		arg.ID,
+	)
+	return err
 }
 
 const upsertRadiusSession = `-- name: UpsertRadiusSession :exec

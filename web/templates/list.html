@@ -32,6 +32,7 @@
           </td>{{end}}
           {{if $d.CanEdit}}<td class="whitespace-nowrap text-end">
             <div class="flex justify-end gap-1">
+              {{with $d.RowAction.Value}}<form method="post" action="{{$d.Base}}/{{$r.ID}}/{{.}}"><button class="btn btn-ghost btn-sm" type="submit">{{icon "circle-check"}}<span>{{T $d.RowAction.Label}}</span></button></form>{{end}}
               {{if not $d.DeleteOnly}}<a class="btn btn-ghost btn-sm" href="{{$d.Base}}/{{$r.ID}}/edit">{{icon "pencil"}}<span>{{T "Edit"}}</span></a>{{end}}
               <form method="post" action="{{$d.Base}}/{{$r.ID}}/delete" onsubmit="return confirm({{T "Delete"}} + '?')">
                 <button class="btn btn-danger btn-sm" type="submit">{{icon "trash-2"}}<span>{{T "Delete"}}</span></button>
