@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/frand-kod/nuxbill-go/internal/db"
 	"github.com/frand-kod/nuxbill-go/internal/secret"
@@ -24,7 +25,11 @@ func routerFields(v, e map[string]string, editing bool) []field {
 		text("port", "Port", v, e).as("number").req(),
 	}, "Connection", "")
 	out = append(out, section([]field{text("username", "Username", v, e).req(), pw}, "Login", "")...)
-	return append(out, section([]field{text("description", "Description", v, e), en}, "Other", "")...)
+	return append(out, section([]field{
+		text("coordinates", "Coordinates", v, e).as("coords").hint("lat,lng, e.g. -6.2,106.8. Optional; shown on the router map."),
+		text("coverage", "Coverage (m)", v, e).as("number").hint("Radius of the wireless coverage in meters. Optional."),
+		text("description", "Description", v, e), en,
+	}, "Other", "")...)
 }
 
 func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
@@ -64,13 +69,13 @@ func (s *Server) routerEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := map[string]string{"name": x.Name, "host": x.Host, "port": fmt.Sprint(x.Port), "username": x.Username,
-		"description": x.Description, "enabled": fmt.Sprint(x.Enabled)}
+		"description": x.Description, "enabled": fmt.Sprint(x.Enabled), "coordinates": x.Coordinates, "coverage": fmt.Sprint(x.Coverage)}
 	s.renderForm(w, r, 200, formPage{"Edit Router", fmt.Sprint("/admin/routers/", id), "/admin/routers", routerFields(v, nil, true)})
 }
 
 func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
-	v := formVals(r, "name", "host", "port", "username", "description", "enabled")
+	v := formVals(r, "name", "host", "port", "username", "description", "enabled", "coordinates", "coverage")
 	pass := r.PostFormValue("password")
 	e := map[string]string{}
 	for _, k := range []string{"name", "host", "username"} {
@@ -81,6 +86,14 @@ func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 	port, ok := posInt(v["port"])
 	if !ok || port > 65535 {
 		e["port"] = "Enter a port between 1 and 65535"
+	}
+	coords, ok := checkCoords(v["coordinates"])
+	if !ok {
+		e["coordinates"] = "Enter coordinates as lat,lng, e.g. -6.2,106.8"
+	}
+	coverage, err := strconv.ParseInt(orZero(v["coverage"]), 10, 64)
+	if err != nil || coverage < 0 {
+		e["coverage"] = "Enter meters, 0 or more"
 	}
 	var current []byte
 	if id != 0 {
@@ -113,10 +126,10 @@ func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 		var err error
 		if id == 0 {
 			_, err = s.queries.CreateRouter(r.Context(), db.CreateRouterParams{Name: v["name"], Host: v["host"], Port: port,
-				Username: v["username"], PasswordEnc: enc, Description: v["description"], Enabled: enabled})
+				Username: v["username"], PasswordEnc: enc, Description: v["description"], Enabled: enabled, Coordinates: coords, Coverage: coverage})
 		} else {
 			err = s.queries.UpdateRouter(r.Context(), db.UpdateRouterParams{Name: v["name"], Host: v["host"], Port: port,
-				Username: v["username"], PasswordEnc: enc, Description: v["description"], Enabled: enabled, ID: id})
+				Username: v["username"], PasswordEnc: enc, Description: v["description"], Enabled: enabled, Coordinates: coords, Coverage: coverage, ID: id})
 		}
 		switch {
 		case isUnique(err):

@@ -10,9 +10,9 @@ import (
 )
 
 const createRouter = `-- name: CreateRouter :one
-INSERT INTO routers (name, host, port, username, password_enc, description, enabled)
-VALUES (?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, host, port, username, password_enc, description, enabled
+INSERT INTO routers (name, host, port, username, password_enc, description, enabled, coordinates, coverage)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, name, host, port, username, password_enc, description, enabled, coordinates, coverage
 `
 
 type CreateRouterParams struct {
@@ -23,6 +23,8 @@ type CreateRouterParams struct {
 	PasswordEnc []byte
 	Description string
 	Enabled     int64
+	Coordinates string
+	Coverage    int64
 }
 
 func (q *Queries) CreateRouter(ctx context.Context, arg CreateRouterParams) (Router, error) {
@@ -34,6 +36,8 @@ func (q *Queries) CreateRouter(ctx context.Context, arg CreateRouterParams) (Rou
 		arg.PasswordEnc,
 		arg.Description,
 		arg.Enabled,
+		arg.Coordinates,
+		arg.Coverage,
 	)
 	var i Router
 	err := row.Scan(
@@ -45,6 +49,8 @@ func (q *Queries) CreateRouter(ctx context.Context, arg CreateRouterParams) (Rou
 		&i.PasswordEnc,
 		&i.Description,
 		&i.Enabled,
+		&i.Coordinates,
+		&i.Coverage,
 	)
 	return i, err
 }
@@ -59,7 +65,7 @@ func (q *Queries) DeleteRouter(ctx context.Context, id int64) error {
 }
 
 const getRouter = `-- name: GetRouter :one
-SELECT id, name, host, port, username, password_enc, description, enabled FROM routers WHERE id = ?
+SELECT id, name, host, port, username, password_enc, description, enabled, coordinates, coverage FROM routers WHERE id = ?
 `
 
 func (q *Queries) GetRouter(ctx context.Context, id int64) (Router, error) {
@@ -74,12 +80,14 @@ func (q *Queries) GetRouter(ctx context.Context, id int64) (Router, error) {
 		&i.PasswordEnc,
 		&i.Description,
 		&i.Enabled,
+		&i.Coordinates,
+		&i.Coverage,
 	)
 	return i, err
 }
 
 const listEnabledRouters = `-- name: ListEnabledRouters :many
-SELECT id, name, host, port, username, password_enc, description, enabled FROM routers WHERE enabled = 1 ORDER BY name
+SELECT id, name, host, port, username, password_enc, description, enabled, coordinates, coverage FROM routers WHERE enabled = 1 ORDER BY name
 `
 
 func (q *Queries) ListEnabledRouters(ctx context.Context) ([]Router, error) {
@@ -100,6 +108,8 @@ func (q *Queries) ListEnabledRouters(ctx context.Context) ([]Router, error) {
 			&i.PasswordEnc,
 			&i.Description,
 			&i.Enabled,
+			&i.Coordinates,
+			&i.Coverage,
 		); err != nil {
 			return nil, err
 		}
@@ -115,7 +125,7 @@ func (q *Queries) ListEnabledRouters(ctx context.Context) ([]Router, error) {
 }
 
 const listRouters = `-- name: ListRouters :many
-SELECT id, name, host, port, username, password_enc, description, enabled FROM routers ORDER BY name LIMIT ? OFFSET ?
+SELECT id, name, host, port, username, password_enc, description, enabled, coordinates, coverage FROM routers ORDER BY name LIMIT ? OFFSET ?
 `
 
 type ListRoutersParams struct {
@@ -141,6 +151,8 @@ func (q *Queries) ListRouters(ctx context.Context, arg ListRoutersParams) ([]Rou
 			&i.PasswordEnc,
 			&i.Description,
 			&i.Enabled,
+			&i.Coordinates,
+			&i.Coverage,
 		); err != nil {
 			return nil, err
 		}
@@ -156,7 +168,7 @@ func (q *Queries) ListRouters(ctx context.Context, arg ListRoutersParams) ([]Rou
 }
 
 const searchRouters = `-- name: SearchRouters :many
-SELECT id, name, host, port, username, password_enc, description, enabled FROM routers
+SELECT id, name, host, port, username, password_enc, description, enabled, coordinates, coverage FROM routers
 WHERE name LIKE '%' || CAST(?1 AS TEXT) || '%' OR host LIKE '%' || CAST(?1 AS TEXT) || '%'
 ORDER BY name LIMIT ?3 OFFSET ?2
 `
@@ -185,6 +197,8 @@ func (q *Queries) SearchRouters(ctx context.Context, arg SearchRoutersParams) ([
 			&i.PasswordEnc,
 			&i.Description,
 			&i.Enabled,
+			&i.Coordinates,
+			&i.Coverage,
 		); err != nil {
 			return nil, err
 		}
@@ -200,7 +214,7 @@ func (q *Queries) SearchRouters(ctx context.Context, arg SearchRoutersParams) ([
 }
 
 const updateRouter = `-- name: UpdateRouter :exec
-UPDATE routers SET name = ?, host = ?, port = ?, username = ?, password_enc = ?, description = ?, enabled = ?
+UPDATE routers SET name = ?, host = ?, port = ?, username = ?, password_enc = ?, description = ?, enabled = ?, coordinates = ?, coverage = ?
 WHERE id = ?
 `
 
@@ -212,6 +226,8 @@ type UpdateRouterParams struct {
 	PasswordEnc []byte
 	Description string
 	Enabled     int64
+	Coordinates string
+	Coverage    int64
 	ID          int64
 }
 
@@ -224,6 +240,8 @@ func (q *Queries) UpdateRouter(ctx context.Context, arg UpdateRouterParams) erro
 		arg.PasswordEnc,
 		arg.Description,
 		arg.Enabled,
+		arg.Coordinates,
+		arg.Coverage,
 		arg.ID,
 	)
 	return err

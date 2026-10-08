@@ -1,6 +1,6 @@
 -- name: CreateRouter :one
-INSERT INTO routers (name, host, port, username, password_enc, description, enabled)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO routers (name, host, port, username, password_enc, description, enabled, coordinates, coverage)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetRouter :one
@@ -18,7 +18,7 @@ WHERE name LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR host LIKE '%' || CAST
 ORDER BY name LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 -- name: UpdateRouter :exec
-UPDATE routers SET name = ?, host = ?, port = ?, username = ?, password_enc = ?, description = ?, enabled = ?
+UPDATE routers SET name = ?, host = ?, port = ?, username = ?, password_enc = ?, description = ?, enabled = ?, coordinates = ?, coverage = ?
 WHERE id = ?;
 
 -- name: DeleteRouter :exec

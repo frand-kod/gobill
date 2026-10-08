@@ -193,6 +193,15 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/deposit", staff(http.HandlerFunc(s.depositSave)))
 	mux.Handle("GET /admin/transactions", all(http.HandlerFunc(s.trxList)))
 
+	// F5 maps and ODP (maps.go, odp.go). Old PHP: customer map is open to all admins; router, ODP and their maps are managers only.
+	crud("/admin/odp", s.odpList, s.odpNew, s.odpEdit, s.odpSave, s.odpDelete)
+	mux.Handle("GET /admin/maps/customers", all(s.mapPage("Customer Geo Location Information", "/admin/maps/customers/data")))
+	mux.Handle("GET /admin/maps/customers/data", all(http.HandlerFunc(s.mapCustomerData)))
+	mux.Handle("GET /admin/maps/routers", managers(s.mapPage("Routers Geo Location Information", "/admin/maps/routers/data")))
+	mux.Handle("GET /admin/maps/routers/data", managers(http.HandlerFunc(s.mapRouterData)))
+	mux.Handle("GET /admin/maps/odp", managers(s.mapPage("ODP Geo Location Information", "/admin/maps/odp/data")))
+	mux.Handle("GET /admin/maps/odp/data", managers(http.HandlerFunc(s.mapODPData)))
+
 	s.reportRoutes(mux, all)
 	s.portalRoutes(mux)
 
@@ -360,6 +369,7 @@ func (s *Server) parseTemplates() error {
 		"report":          {"base.html", "app.html", "report.html"},
 		"report_print":    {"report_print.html"},
 		"invoice":         {"invoice.html"},
+		"maps":            {"base.html", "app.html", "maps.html"},
 
 		"p_login":     {"base.html", "portal/login.html"},
 		"p_register":  {"base.html", "portal/register.html"},

@@ -86,12 +86,12 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | A62 | `admin/coupons/edit.tpl` | `coupons/edit`, `edit-post` | — | Belum | F5 |
 | A63 | `admin/message/single.tpl` | `message/send`, `send-post` | — | Belum | F4 |
 | A64 | `admin/message/bulk.tpl` | `message/send_bulk`, `send_bulk_ajax` | — | Belum | F5 |
-| A65 | `admin/odp/list.tpl` | `odp/list` | — | Belum | F5 |
-| A66 | `admin/odp/add.tpl` | `odp/add`, `add-post` | — | Belum | F5 |
-| A67 | `admin/odp/edit.tpl` | `odp/edit`, `edit-post` | — | Belum | F5 |
-| A68 | `admin/maps/customers.tpl` | `maps/customer` | — | Belum | F5 |
-| A69 | `admin/maps/routers.tpl` | `maps/routers` | — | Belum | F5 |
-| A70 | `admin/maps/odps.tpl` | `maps/odp` | — | Belum | F5 |
+| A65 | `admin/odp/list.tpl` | `odp/list` | `GET /admin/odp` | Ada | F5 |
+| A66 | `admin/odp/add.tpl` | `odp/add`, `add-post` | `GET /admin/odp/new`, `POST /admin/odp` | Ada | F5 |
+| A67 | `admin/odp/edit.tpl` | `odp/edit`, `edit-post` | `GET /admin/odp/{id}/edit`, `POST /admin/odp/{id}` | Ada | F5 |
+| A68 | `admin/maps/customers.tpl` | `maps/customer` | `GET /admin/maps/customers` (+ `/data`) | Ada | F5 |
+| A69 | `admin/maps/routers.tpl` | `maps/routers` | `GET /admin/maps/routers` (+ `/data`), lingkaran coverage | Ada | F5 |
+| A70 | `admin/maps/odps.tpl` | `maps/odp` | `GET /admin/maps/odp` (+ `/data`) | Ada | F5 |
 | A71 | `admin/paymentgateway/list.tpl` | `paymentgateway` | — | Belum | F4 |
 | A72 | `admin/paymentgateway/audit.tpl` | `paymentgateway/audit` | — | Belum | F4 |
 | A73 | `admin/paymentgateway/audit-view.tpl` | `paymentgateway/auditview` | — | Belum | F4 |
@@ -201,7 +201,7 @@ Kolom daftar `admin/list.tpl`: Username, Full Name, Phone, Email, Type, Location
 | `address` | Home Address | textarea | — | `address` | ✅ | |
 | `service_type` | Service Type | select Hotspot/PPPoE/VPN/Others | — | `service_type` | ⚠️ | Opsi `VPN` tidak ada (VPN Ditunda) |
 | `account_type` | Account Type | select Personal/Business | — | — | ❌ | Tidak ada kolom `account_type` |
-| `coordinates` | Coordinates | text (peta) | — | — | ❌ | Tidak ada kolom; terkait maps F5 |
+| `coordinates` | Coordinates | text (peta) | — | — | ✅ | Kolom `coordinates` (lat,lng), migrasi 0005; picker peta di form |
 | `status` (edit saja) | Status | select | — | `status` | ✅ | Add juga punya `status` di baru. Opsi sama (Active/Banned/Disabled/Inactive/Limited/Suspended) |
 | `pppoe_username` | Usernames | text | harus unik | `pppoe_username` | ✅ | |
 | `pppoe_password` | Password | password | — | `secret` -> `secret_enc` | ⚠️ | Disengaja: plaintext diganti AES-GCM; label "Router Secret"; kosong = tidak diubah |
@@ -334,8 +334,8 @@ Kolom lama: Name Pool, Local IP, Range IP, Routers, Manage, ID. Baru: Pool Name,
 | `username` | Username | text | required | `username` | ✅ | |
 | `password` | Router Secret | text (add) / password (edit) | required | `password` -> `password_enc` | ⚠️ | Disengaja: AES-GCM, tidak dirender balik; kosong saat edit = tetap |
 | `description` | Description | textarea | — | `description` | ⚠️ | Input satu baris |
-| `coordinates` (edit) | Coordinates | text (peta) | — | — | ❌ | Tidak ada kolom (maps F5) |
-| `coverage` (edit) | Coverage | number | — | — | ❌ | Tidak ada kolom |
+| `coordinates` (edit) | Coordinates | text (peta) | — | — | ✅ | Kolom `coordinates` (lat,lng), migrasi 0005 |
+| `coverage` (edit) | Coverage | number | — | — | ✅ | Kolom `coverage` (meter), migrasi 0005 |
 | `testIt` (add) | Test Connection | checkbox (default checked, `yes`) | tes koneksi sebelum simpan | `POST /admin/routers/{id}/test` | ⚠️ | Tes jadi tombol baris terpisah setelah simpan, bukan checkbox di form add |
 | (list "Status" Enabled/Disabled) | — | — | — | `enabled` | ✅ | Checkbox di baru |
 | `id` (edit) | — | hidden | — | `{id}` di URL | ✅ | |

@@ -94,7 +94,7 @@ func (q *Queries) DeleteNAS(ctx context.Context, id int64) error {
 }
 
 const getCustomerForRadius = `-- name: GetCustomerForRadius :one
-SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at FROM customers
+SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at, coordinates FROM customers
 WHERE (username = ?1 OR (pppoe_username <> '' AND pppoe_username = ?1)) AND status = 'Active'
 LIMIT 1
 `
@@ -121,6 +121,7 @@ func (q *Queries) GetCustomerForRadius(ctx context.Context, name string) (Custom
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.LastLoginAt,
+		&i.Coordinates,
 	)
 	return i, err
 }

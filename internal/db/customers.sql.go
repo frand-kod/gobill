@@ -30,9 +30,9 @@ func (q *Queries) AdjustBalance(ctx context.Context, arg AdjustBalanceParams) (i
 
 const createCustomer = `-- name: CreateCustomer :one
 INSERT INTO customers (username, password_hash, fullname, address, phone, email, service_type,
-                       pppoe_username, pppoe_ip, secret_enc, auto_renewal, status, created_by, billing_day)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at
+                       pppoe_username, pppoe_ip, secret_enc, auto_renewal, status, created_by, billing_day, coordinates)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at, coordinates
 `
 
 type CreateCustomerParams struct {
@@ -50,6 +50,7 @@ type CreateCustomerParams struct {
 	Status        string
 	CreatedBy     sql.NullInt64
 	BillingDay    sql.NullInt64
+	Coordinates   string
 }
 
 func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error) {
@@ -68,6 +69,7 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 		arg.Status,
 		arg.CreatedBy,
 		arg.BillingDay,
+		arg.Coordinates,
 	)
 	var i Customer
 	err := row.Scan(
@@ -89,6 +91,7 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.LastLoginAt,
+		&i.Coordinates,
 	)
 	return i, err
 }
@@ -103,7 +106,7 @@ func (q *Queries) DeleteCustomer(ctx context.Context, id int64) error {
 }
 
 const filterCustomers = `-- name: FilterCustomers :many
-SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, CAST(COALESCE((SELECT group_concat(p.name, ', ') FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, c.coordinates, CAST(COALESCE((SELECT group_concat(p.name, ', ') FROM subscriptions s JOIN plans p ON p.id = s.plan_id
                            WHERE s.customer_id = c.id AND s.status = 'active'), '') AS TEXT) AS packages,
        CAST(?1 AS TEXT) AS sort_key -- e.g. username_desc; anything else = newest first
 FROM customers c
@@ -152,6 +155,7 @@ type FilterCustomersRow struct {
 	CreatedBy     sql.NullInt64
 	CreatedAt     int64
 	LastLoginAt   sql.NullInt64
+	Coordinates   string
 	Packages      string
 	SortKey       string
 }
@@ -192,6 +196,7 @@ func (q *Queries) FilterCustomers(ctx context.Context, arg FilterCustomersParams
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.LastLoginAt,
+			&i.Coordinates,
 			&i.Packages,
 			&i.SortKey,
 		); err != nil {
@@ -209,7 +214,7 @@ func (q *Queries) FilterCustomers(ctx context.Context, arg FilterCustomersParams
 }
 
 const getCustomer = `-- name: GetCustomer :one
-SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at FROM customers WHERE id = ?
+SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at, coordinates FROM customers WHERE id = ?
 `
 
 func (q *Queries) GetCustomer(ctx context.Context, id int64) (Customer, error) {
@@ -234,12 +239,13 @@ func (q *Queries) GetCustomer(ctx context.Context, id int64) (Customer, error) {
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.LastLoginAt,
+		&i.Coordinates,
 	)
 	return i, err
 }
 
 const getCustomerByUsername = `-- name: GetCustomerByUsername :one
-SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at FROM customers WHERE username = ?
+SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at, coordinates FROM customers WHERE username = ?
 `
 
 func (q *Queries) GetCustomerByUsername(ctx context.Context, username string) (Customer, error) {
@@ -264,12 +270,13 @@ func (q *Queries) GetCustomerByUsername(ctx context.Context, username string) (C
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.LastLoginAt,
+		&i.Coordinates,
 	)
 	return i, err
 }
 
 const listCustomers = `-- name: ListCustomers :many
-SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at FROM customers ORDER BY id DESC LIMIT ? OFFSET ?
+SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at, coordinates FROM customers ORDER BY id DESC LIMIT ? OFFSET ?
 `
 
 type ListCustomersParams struct {
@@ -305,6 +312,7 @@ func (q *Queries) ListCustomers(ctx context.Context, arg ListCustomersParams) ([
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.LastLoginAt,
+			&i.Coordinates,
 		); err != nil {
 			return nil, err
 		}
@@ -320,7 +328,7 @@ func (q *Queries) ListCustomers(ctx context.Context, arg ListCustomersParams) ([
 }
 
 const searchCustomers = `-- name: SearchCustomers :many
-SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at FROM customers
+SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at, coordinates FROM customers
 WHERE username LIKE '%' || CAST(?1 AS TEXT) || '%'
    OR fullname LIKE '%' || CAST(?1 AS TEXT) || '%'
    OR phone LIKE '%' || CAST(?1 AS TEXT) || '%'
@@ -361,6 +369,7 @@ func (q *Queries) SearchCustomers(ctx context.Context, arg SearchCustomersParams
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.LastLoginAt,
+			&i.Coordinates,
 		); err != nil {
 			return nil, err
 		}
@@ -400,7 +409,7 @@ func (q *Queries) TouchCustomerLogin(ctx context.Context, id int64) error {
 
 const updateCustomer = `-- name: UpdateCustomer :exec
 UPDATE customers SET fullname = ?, address = ?, phone = ?, email = ?, service_type = ?,
-    pppoe_username = ?, pppoe_ip = ?, secret_enc = ?, auto_renewal = ?, status = ?, billing_day = ?
+    pppoe_username = ?, pppoe_ip = ?, secret_enc = ?, auto_renewal = ?, status = ?, billing_day = ?, coordinates = ?
 WHERE id = ?
 `
 
@@ -416,6 +425,7 @@ type UpdateCustomerParams struct {
 	AutoRenewal   int64
 	Status        string
 	BillingDay    sql.NullInt64
+	Coordinates   string
 	ID            int64
 }
 
@@ -432,6 +442,7 @@ func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) 
 		arg.AutoRenewal,
 		arg.Status,
 		arg.BillingDay,
+		arg.Coordinates,
 		arg.ID,
 	)
 	return err

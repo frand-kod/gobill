@@ -63,6 +63,7 @@ type Customer struct {
 	CreatedBy     sql.NullInt64
 	CreatedAt     int64
 	LastLoginAt   sql.NullInt64
+	Coordinates   string
 }
 
 type Na struct {
@@ -71,6 +72,18 @@ type Na struct {
 	Ip          string
 	SecretEnc   []byte
 	Description string
+}
+
+type Odp struct {
+	ID          int64
+	Name        string
+	Coordinates string
+	Address     string
+	PortAmount  int64
+	Attenuation string
+	Coverage    int64
+	Description string
+	RouterID    sql.NullInt64
 }
 
 type Plan struct {
@@ -130,6 +143,8 @@ type Router struct {
 	PasswordEnc []byte
 	Description string
 	Enabled     int64
+	Coordinates string
+	Coverage    int64
 }
 
 type Session struct {
