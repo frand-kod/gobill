@@ -49,7 +49,7 @@ func (onlineDev) IsOnline(context.Context, device.Customer, string) (bool, error
 func billApp(t *testing.T) *billEnv {
 	s, h, q, c := crudApp(t)
 	e := &billEnv{s: s, h: h, q: q, c: c, calls: new([]string), srv: s}
-	s.Billing = &billing.Service{DB: s.conn, Q: q, Key: s.SecretKey,
+	s.Billing = &billing.Service{DB: s.conn, Q: q, Key: s.SecretKey, Loc: time.UTC,
 		DeviceFor: func(db.Plan, db.Router) (device.Device, error) { return recDev{calls: e.calls}, nil }}
 	ctx := t.Context()
 	bw, err := q.CreateBandwidth(ctx, db.CreateBandwidthParams{Name: "b", RateDown: 1, RateDownUnit: "Mbps", RateUp: 1, RateUpUnit: "Mbps"})

@@ -45,6 +45,19 @@ func (s *Service) Reload(n *notify.Notifier, loc *time.Location) {
 	s.mu.Unlock()
 }
 
+// Location returns the billing zone, or Asia/Jakarta (WIB) when none is set.
+func (s *Service) Location() *time.Location {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.Loc != nil {
+		return s.Loc
+	}
+	if l, err := time.LoadLocation("Asia/Jakarta"); err == nil {
+		return l
+	}
+	return time.FixedZone("WIB", 7*3600)
+}
+
 func (s *Service) notifier() *notify.Notifier {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

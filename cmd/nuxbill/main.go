@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -104,14 +105,8 @@ func run() error {
 			return
 		}
 		n.Log = notify.LogTo(svc.Q)
-		loc := time.FixedZone("WIB", 7*3600)
-		if l, err := time.LoadLocation("Asia/Jakarta"); err == nil {
-			loc = l
-		}
-		if l, err := time.LoadLocation(n.Settings["timezone"]); err == nil {
-			loc = l
-		}
-		svc.Reload(n, loc)
+		loc := loadZone("Asia/Jakarta", time.FixedZone("WIB", 7*3600))
+		svc.Reload(n, loadZone(n.Settings["timezone"], loc))
 	}
 	reload(ctx)
 	app.SettingsChanged = func(ctx context.Context) { reload(ctx); app.ReloadSessionSettings(ctx) }
@@ -205,4 +200,17 @@ func randomPassword(n int) string {
 		b[i] = chars[int(b[i])%len(chars)] // slight modulo bias is fine for 54 chars
 	}
 	return string(b)
+}
+
+// loadZone returns the named zone, or def when name is blank or unknown.
+// time.LoadLocation("") would return UTC, so blank must not reach it.
+func loadZone(name string, def *time.Location) *time.Location {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return def
+	}
+	if l, err := time.LoadLocation(name); err == nil {
+		return l
+	}
+	return def
 }

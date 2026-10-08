@@ -252,8 +252,8 @@ func (s *Server) Handler() http.Handler {
 
 // location is the billing zone; UTC until a billing service is set.
 func (s *Server) location() *time.Location {
-	if s.Billing != nil && s.Billing.Loc != nil {
-		return s.Billing.Loc
+	if s.Billing != nil {
+		return s.Billing.Location()
 	}
 	return time.UTC
 }
