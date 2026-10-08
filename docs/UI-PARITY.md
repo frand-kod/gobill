@@ -434,7 +434,7 @@ Menulis transaksi (tipe Balance, metode `Admin - Deposit`), menaikkan saldo, act
 | `expiration` + `time` | Expires On | date + time | required | `expires_at` | ⚠️ | Satu input `datetime-local` (zona waktu billing), disimpan UTC; status mengikuti (lewat = expired) |
 | `id` | — | hidden | — | `{id}` di URL | ⚠️ | Activity log `subscription.update` |
 
-**A47 `plan/active.tpl`** (baru: `GET /admin/subscriptions`) — Kolom: Username, Plan Name, Type, Created On, Expires On, Method, Location (router), Status; filter `q`, `status`, `type`, `router`; paging. Aksi: Edit (A48), Extend N hari (`POST .../extend`, input `days`), Deactivate (kedaluwarsa sekarang + `RemoveCustomer`, idempoten, `POST .../deactivate`). Belum: Sync, CSV, filter `plan`, Delete.
+**A47 `plan/active.tpl`** (baru: `GET /admin/subscriptions`) — Kolom: Username, Plan Name, Type, Created On, Expires On, Method, Location (router), Status; filter `q`, `status`, `type`, `router`; paging. Aksi: Edit (A48), Extend N hari (`POST .../extend`, input `days`), Deactivate (kedaluwarsa sekarang + `RemoveCustomer`, idempoten, `POST .../deactivate`). Sync (`POST .../sync`), CSV (`GET /admin/subscriptions/export`), dan filter `plan` sudah ada. Belum: Delete.
 
 **A49 `plan/invoice.tpl` / A50 `invoice-print.tpl`:** tampilan invoice (textarea `content`, tombol Finish, Download, WhatsApp, Resend, Print HTML, Print Text, NuxPrint). Belum ada (PROGRESS: "invoice yang bisa dicetak", F5). `transactions.invoice` ada dan tampil di daftar.
 
