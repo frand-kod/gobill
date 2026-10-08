@@ -5,10 +5,13 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -17,6 +20,7 @@ import (
 	"github.com/frand-kod/nuxbill-go/internal/billing"
 	"github.com/frand-kod/nuxbill-go/internal/db"
 	"github.com/frand-kod/nuxbill-go/internal/job"
+	"github.com/frand-kod/nuxbill-go/internal/radius"
 	"github.com/frand-kod/nuxbill-go/internal/secret"
 	"github.com/frand-kod/nuxbill-go/internal/web"
 )
@@ -93,7 +97,22 @@ func run() error {
 	svc := &billing.Service{DB: conn, Q: db.New(conn), Key: key, Loc: loc}
 	go job.Run(ctx, "expiry", time.Minute, svc.ExpiryJob(guard.Trusted))
 
-	errCh := make(chan error, 1)
+	errCh := make(chan error, 2)
+	if ra := env("NUXBILL_RADIUS", ":1812"); ra != "" {
+		host, port, err := net.SplitHostPort(ra)
+		p, perr := strconv.Atoi(port)
+		if err != nil || perr != nil {
+			return fmt.Errorf("NUXBILL_RADIUS %q: want host:port", ra)
+		}
+		rs := &radius.Server{Q: db.New(conn), Key: key, Trusted: guard.Trusted,
+			AuthAddr: ra, AcctAddr: net.JoinHostPort(host, strconv.Itoa(p+1))}
+		go func() {
+			slog.Info("radius listening", "auth", rs.AuthAddr, "acct", rs.AcctAddr)
+			if err := rs.ListenAndServe(ctx); err != nil {
+				errCh <- err
+			}
+		}()
+	}
 	go func() {
 		slog.Info("listening", "addr", addr, "db", dbPath)
 		errCh <- srv.ListenAndServe()
