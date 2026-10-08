@@ -14,7 +14,7 @@ Rencana lengkap ada di [plan/](plan/README.md).
 | F1 Billing inti | Selesai di level kode dan test unit. Belum diuji manual dari awal sampai akhir |
 | F2 Driver MikroTik | Kode dan test dengan router palsu sudah ada. Belum diuji di router nyata |
 | F3 RADIUS built-in | Kode dan test sudah ada. Belum diuji dengan `radtest` atau NAS nyata |
-| F4 Portal & pembayaran | Package Tripay dan notifikasi sudah ada. Portal pelanggan belum dibuat |
+| F4 Portal & notifikasi | Portal (order via saldo), halaman setting, dan notifikasi tersambung. Tripay opsional, dikerjakan paling akhir |
 | F5 Pelengkap | Baru dashboard dasar |
 | F6 Migrasi data & rilis | Belum dimulai |
 
@@ -51,53 +51,32 @@ Rencana lengkap ada di [plan/](plan/README.md).
   - Recharge dari halaman detail pelanggan.
   - Dashboard dengan 4 kotak angka dan 2 grafik.
   - Mode terang dan gelap.
-- **Pembayaran:** package `internal/payment` berisi interface gateway dan implementasi Tripay (buat transaksi, cek status, daftar channel, verifikasi signature callback).
-- **Notifikasi:** package `internal/notify` untuk Telegram, WA/SMS lewat URL gateway, email (go-mail), dan webhook keluar bertanda tangan HMAC.
+- **Pembayaran (belum dipakai):** package `internal/payment` berisi interface gateway dan implementasi Tripay (buat transaksi, cek status, daftar channel, verifikasi signature callback).
+- **Notifikasi:** Telegram, WA/SMS (URL gateway), email, dan webhook HMAC. Tersambung ke recharge, expiry, dan auto-renewal gagal. Ada job reminder harian H-1/3/7.
+- **Setting:** sub-halaman umum, lokalisasi, template notifikasi, integrasi, dan lain-lain. Perubahan langsung berlaku tanpa restart.
+- **Portal pelanggan:** login, registrasi (OTP jika gateway WA/SMS ada), dashboard, profil, riwayat, dan order paket via saldo.
 
 ## Sedang dikerjakan
 
-Tidak ada. Pekerjaan dijeda atas permintaan pengguna.
+Tidak ada.
 
 ## Akan dikerjakan (urutan)
 
-1. **Sambungkan notifikasi ke billing**
-   - Recharge berhasil: kirim notifikasi ke pelanggan dan webhook `payment.paid`.
-   - Langganan expired: kirim notifikasi dan webhook `recharge.expired`.
-   - Auto-renewal gagal: kirim pesan ke Telegram admin.
-   - Tambah job reminder harian (H-1, H-3, H-7) sebagai pengganti `cron_reminder.php`.
-2. **Halaman setting yang belum ada:** notifikasi, SMTP, webhook, Tripay, dan timezone. Saat ini timezone hanya dibaca saat start.
-3. **Portal pelanggan (F4)**
-   - Login, dashboard, riwayat, ganti password, dan inbox.
-   - Order paket, pilih channel Tripay, callback, lalu aktivasi otomatis.
-   - Simpan `reference` Tripay di transaksi.
-   - Registrasi dengan OTP.
-4. **Uji lapangan**
-   - MikroTik CHR atau perangkat fisik: aktivasi, expiry, disconnect, dan sinkronisasi profil dan pool.
-   - `radtest`/`radclient` untuk PAP dan CHAP, lalu login hotspot dan PPPoE via RADIUS.
-   - Tripay sandbox.
-5. **F5**
-   - Laporan dan export CSV, invoice yang bisa dicetak.
-   - Widget dashboard lama yang belum ada: pelanggan expired, stok voucher, log aktivitas, monitor cron, monitor cron MikroTik, dan grafik insight pelanggan.
-   - Peta dan ODP, kupon, custom field, pesan massal, halaman statis, ganti password admin, dan backup harian (`VACUUM INTO`).
-6. **F6:** perintah `nuxbill import` dari MySQL lama, unit systemd, script install, dan panduan instalasi di STB.
+Prioritas: fitur inti (billing, MikroTik, RADIUS). Tripay opsional dan dikerjakan paling akhir.
+
+1. **Kekurangan F1:** top-up saldo oleh admin (`plan/deposit`), daftar langganan aktif dengan edit dan perpanjang, kolom saldo/paket/PPPoE plus filter dan export CSV di daftar pelanggan, field `on_login`/`on_logout` di form paket, dan notifikasi untuk top-up Balance.
+2. **RADIUS di admin:** daftar sesi online dengan tombol disconnect, opsi paket berbasis RADIUS, dan pemakaian data per pelanggan.
+3. **Uji lapangan:** MikroTik (CHR atau fisik) dan `radtest`/`radclient`, lalu login hotspot dan PPPoE via RADIUS.
+4. **F5:** laporan dan export CSV, invoice yang bisa dicetak, widget dashboard yang belum ada, user admin dan ganti password, peta/ODP, kupon, custom field, pesan massal, halaman statis, mode maintenance, dan backup harian.
+5. **F6:** `nuxbill import` dari MySQL lama, unit systemd, script install, dan panduan STB.
+6. **Tripay:** setting pembayaran, order, dan callback (package-nya sudah siap).
 7. **Build ARM** hanya di CI.
 
 ## Selisih UI dengan PHPNuxBill lama
 
 Template lama ada di `../phpnuxbill/ui/ui`, sekitar 157 file. Perbandingan per field: [UI-PARITY.md](UI-PARITY.md).
 
-- **Admin, sudah ada padanannya:** dashboard, customers, plan (hotspot, pppoe, balance), bandwidth, pool, routers, voucher, print, logs, settings dasar, dan radius (NAS).
-- **Admin, belum ada:**
-  - coupons, maps, odp, message, dan reports
-  - paymentgateway (halaman setting)
-  - change-password, maintenance, dan community
-  - port dan vpn (VPN ditunda)
-  - halaman 404 dan error yang rapi
-- **Portal pelanggan:** belum ada sama sekali. Template lama yang perlu dipadankan:
-  - login, register (dengan atau tanpa OTP), forgot
-  - dashboard, profile, inbox, activation
-  - orderPlan, orderBalance, orderHistory, orderView, selectGateway
-  - invoice, sendPlan, phone-update, email-update
+Status per 2026-10-08: 106 field ada, 50 berbeda, dan 178 belum. Kekurangan terbesar ada di laporan, kupon, peta/ODP, pesan, user admin, dan sebagian portal (lupa password, inbox, invoice).
 
 ## Belum pernah diuji di dunia nyata
 
