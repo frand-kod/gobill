@@ -243,8 +243,9 @@ func money(n int64) string {
 		n = -n
 	}
 	d := strconv.FormatInt(n, 10)
+	sep := groupSep()
 	for i := len(d) - 3; i > 0; i -= 3 {
-		d = d[:i] + "." + d[i:]
+		d = d[:i] + sep + d[i:]
 	}
 	if neg {
 		d = "-" + d
@@ -284,6 +285,7 @@ func (s *Server) loadSettings(ctx context.Context) (map[string]string, error) {
 	for _, row := range rows {
 		m[row.Key] = row.Value
 	}
+	setThousandsSep(m["thousands_sep"]) // money reads it; loaded at start and on each settings page
 	return m, nil
 }
 
