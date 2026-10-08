@@ -57,8 +57,9 @@ type Server struct {
 	chanCache  paymentCache
 
 	// ponytail: in-memory limiter, resets on restart; persist if needed
-	mu     sync.Mutex
-	failed map[string][]time.Time // client IP -> times of recent failed logins
+	mu      sync.Mutex
+	otpSent map[string][]time.Time // "ip:x" / "ph:y" -> OTP send times, see otpAllow
+	failed  map[string][]time.Time // client IP -> times of recent failed logins
 
 	idle   atomic.Int64 // admin idle timeout in ns, see ReloadSessionSettings
 	single atomic.Bool  // single_session

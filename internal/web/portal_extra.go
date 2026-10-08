@@ -59,8 +59,18 @@ func (s *Server) pVoucher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	code := strings.TrimSpace(r.PostFormValue("code"))
+	keys := []string{"vip:" + clientIP(r), "vc:" + strconv.FormatInt(customerFrom(r).ID, 10)}
+	for _, k := range keys {
+		if s.tooManyFailures(k) {
+			s.prender(w, r, http.StatusTooManyRequests, "p_voucher", Page{Title: "Voucher Activation", Error: "Too many failed attempts. Try again in 15 minutes."})
+			return
+		}
+	}
 	switch err := s.Billing.RedeemVoucher(r.Context(), code, customerFrom(r).ID); {
 	case code == "" || errors.Is(err, billing.ErrVoucherInvalid):
+		for _, k := range keys {
+			s.recordFailure(k)
+		}
 		s.prender(w, r, 200, "p_voucher", Page{Title: "Voucher Activation", Error: "Voucher Not Valid"})
 	case err != nil:
 		s.fail(w, "portal voucher", err)

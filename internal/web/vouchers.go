@@ -33,6 +33,12 @@ var (
 	prefixRe    = regexp.MustCompile(`^[A-Za-z0-9\-_.,]*$`) // old PHP alphanumeric(x, "-_.,")
 )
 
+// Minimum generated code lengths (brute-force resistance); shorter existing codes still redeem.
+const (
+	minVoucherLen        = 8
+	minVoucherLenNumbers = 10
+)
+
 // randomCode draws n characters from charset using crypto/rand (rejection sampling, no modulo bias).
 func randomCode(charset string, n int) (string, error) {
 	out := make([]byte, 0, n)
@@ -115,7 +121,7 @@ func (s *Server) vchFields(r *http.Request, v, e map[string]string) ([]field, er
 	pn.Checked = v["print_now"] == "1"
 	out := section([]field{plan, text("numbervoucher", "Number of Vouchers", v, e).as("number").req()}, "Voucher", "")
 	return append(out, section([]field{format, text("prefix", "Prefix", v, e),
-		text("lengthcode", "Length Code", v, e).as("number").req().hint("4-32, numbers: 6-32"), pn}, "Code", "")...), nil
+		text("lengthcode", "Length Code", v, e).as("number").req().hint("8-32, numbers: 10-32"), pn}, "Code", "")...), nil
 }
 
 func (s *Server) vchForm(w http.ResponseWriter, r *http.Request, status int, v, e map[string]string) {
@@ -146,9 +152,9 @@ func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {
 	if charset == "" {
 		e["voucher_format"] = "Invalid value"
 	}
-	minLen := int64(4)
+	minLen := int64(minVoucherLen)
 	if v["voucher_format"] == "numbers" {
-		minLen = 6
+		minLen = minVoucherLenNumbers
 	}
 	length, ok := posInt(v["lengthcode"])
 	if !ok || length < minLen || length > 32 {
