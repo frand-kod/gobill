@@ -11,9 +11,9 @@ Rencana lengkap ada di [plan/](plan/README.md).
 | Fase | Status |
 |---|---|
 | F0 Fondasi | Selesai. CI belum pernah jalan karena belum ada remote |
-| F1 Billing inti | Selesai di level kode dan test unit. Belum diuji manual dari awal sampai akhir |
+| F1 Billing inti | Selesai, termasuk top-up saldo admin, daftar dan edit langganan, serta daftar pelanggan dengan CSV. Belum diuji manual dari awal sampai akhir |
 | F2 Driver MikroTik | Kode dan test dengan router palsu sudah ada. Belum diuji di router nyata |
-| F3 RADIUS built-in | Kode dan test sudah ada. Belum diuji dengan `radtest` atau NAS nyata |
+| F3 RADIUS built-in | Selesai di level kode: paket RADIUS, Disconnect-Request (RFC 5176), sesi online, dan pemakaian data. Belum diuji dengan NAS nyata |
 | F4 Portal & notifikasi | Portal (order via saldo), halaman setting, dan notifikasi tersambung. Tripay opsional, dikerjakan paling akhir |
 | F5 Pelengkap | Baru dashboard dasar |
 | F6 Migrasi data & rilis | Belum dimulai |
@@ -64,19 +64,18 @@ Tidak ada.
 
 Prioritas: fitur inti (billing, MikroTik, RADIUS). Tripay opsional dan dikerjakan paling akhir.
 
-1. **Kekurangan F1:** top-up saldo oleh admin (`plan/deposit`), daftar langganan aktif dengan edit dan perpanjang, kolom saldo/paket/PPPoE plus filter dan export CSV di daftar pelanggan, field `on_login`/`on_logout` di form paket, dan notifikasi untuk top-up Balance.
-2. **RADIUS di admin:** daftar sesi online dengan tombol disconnect, opsi paket berbasis RADIUS, dan pemakaian data per pelanggan.
-3. **Uji lapangan:** MikroTik (CHR atau fisik) dan `radtest`/`radclient`, lalu login hotspot dan PPPoE via RADIUS.
-4. **F5:** laporan dan export CSV, invoice yang bisa dicetak, widget dashboard yang belum ada, user admin dan ganti password, peta/ODP, kupon, custom field, pesan massal, halaman statis, mode maintenance, dan backup harian.
-5. **F6:** `nuxbill import` dari MySQL lama, unit systemd, script install, dan panduan STB.
-6. **Tripay:** setting pembayaran, order, dan callback (package-nya sudah siap).
-7. **Build ARM** hanya di CI.
+1. **Rapikan kecil:** form paket RADIUS masih mewajibkan router walau tidak dipakai. Sinkronisasi dan CSV di daftar langganan belum ada.
+2. **Uji lapangan:** MikroTik (CHR atau fisik) dan `radtest`/`radclient`, lalu login hotspot dan PPPoE via RADIUS.
+3. **F5:** laporan dan export CSV, invoice yang bisa dicetak, widget dashboard yang belum ada, user admin dan ganti password, peta/ODP, kupon, custom field, pesan massal, halaman statis, mode maintenance, dan backup harian.
+4. **F6:** `nuxbill import` dari MySQL lama, unit systemd, script install, dan panduan STB.
+5. **Tripay:** setting pembayaran, order, dan callback (package-nya sudah siap).
+6. **Build ARM** hanya di CI.
 
 ## Selisih UI dengan PHPNuxBill lama
 
 Template lama ada di `../phpnuxbill/ui/ui`, sekitar 157 file. Perbandingan per field: [UI-PARITY.md](UI-PARITY.md).
 
-Status per 2026-10-08: 106 field ada, 50 berbeda, dan 178 belum. Kekurangan terbesar ada di laporan, kupon, peta/ODP, pesan, user admin, dan sebagian portal (lupa password, inbox, invoice).
+Status per 2026-10-08: 112 field ada, 55 berbeda, dan 167 belum. Layar: 12 ada, 30 sebagian, dan 39 belum. Kekurangan terbesar ada di laporan, kupon, peta/ODP, pesan, user admin, dan sebagian portal (lupa password, inbox, invoice).
 
 ## Belum pernah diuji di dunia nyata
 
@@ -110,3 +109,4 @@ Terpenting: RouterOS tanpa pooling, TLS RouterOS tidak diverifikasi, kunci MPPE 
 - Setiap merge harus lolos `go vet ./...` dan `go test ./...`.
 - Kode `sqlc` selalu di-generate ulang, tidak boleh diedit manual. CSS di-build ulang dengan `sh tools/tailwind.sh`.
 - Jika alur bisnis tidak jelas, ikuti kode di `../phpnuxbill`.
+- Sebelum rilis, file migrasi boleh diedit langsung. Akibatnya DB dev harus dihapus dan dibuat ulang setelah ada perubahan schema.
