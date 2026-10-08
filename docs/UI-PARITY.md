@@ -610,17 +610,17 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 
 | Key lama | Label | Tipe | Key baru | St | Catatan / Fase |
 |---|---|---|---|---|---|
-| `disable_voucher` | Disable Voucher | select | — | ❌ | F4 (portal) |
+| `disable_voucher` | Disable Voucher | select | — | ✅ | Input di Miscellaneous > Portal (`yes`/`no`); portal membaca |
 | `voucher_format` | Voucher Format (default) | select | `voucher_format` | ⚠️ | F5. Tersimpan dan divalidasi; form generate belum membaca nilai default ini |
-| `voucher_redirect` | Redirect URL after Activation | text | — | ❌ | F4 |
+| `voucher_redirect` | Redirect URL after Activation | text | — | ✅ | Input di Miscellaneous > Portal; http/https atau kosong, portal membaca |
 | `radius_enable` | Enable Radius | select | — | ⚠️ | Disengaja: RADIUS built-in, aktif jika server dijalankan dan NAS ada |
-| `extend_expired` | Allow Extend | select | — | ❌ | F4 (extend mandiri pelanggan) |
-| `extend_days` | Extend Days | text | — | ❌ | F4 |
-| `extend_confirmation` | Confirmation Message | text | — | ❌ | F4 |
+| `extend_expired` | Allow Extend | select | — | ✅ | Input di Miscellaneous > Extend (`1`/`0`); portal membaca |
+| `extend_days` | Extend Days | number | — | ✅ | Input di Miscellaneous > Extend; bilangan bulat 0 atau lebih |
+| `extend_confirmation` | Confirmation Message | textarea | — | ✅ | Input di Miscellaneous > Extend |
 | `enable_balance` | Enable System (saldo) | select | `enable_balance` | ✅ | Dibaca `internal/billing/service.go:290` (default aktif), tapi tidak ada input di UI. Keputusan default menunggu pengguna |
-| `allow_balance_transfer` | Allow Transfer | select | — | ❌ | F4 |
-| `minimum_transfer` | Minimum Balance Transfer | number | — | ❌ | F4 |
-| `allow_balance_custom` | Allow Balance Custom Amount | select | — | ❌ | F4 |
+| `allow_balance_transfer` | Allow Transfer | select | — | ✅ | Input di Miscellaneous > Balance; portal membaca |
+| `minimum_transfer` | Minimum Balance Transfer | number | — | ✅ | Input di Miscellaneous > Balance; bilangan bulat 0 atau lebih |
+| `allow_balance_custom` | Allow Balance Custom Amount | select | — | ⚠️ | Input di Miscellaneous > Balance. Belum ada pembaca di kode |
 
 **Notifikasi kanal**
 
@@ -696,14 +696,14 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | Key lama | Label | Tipe | Key baru | St | Catatan / Fase |
 |---|---|---|---|---|---|
 | `new_version_notify` | New Version Notification | select | — | ❌ | Non-goal (updater) |
-| `router_check` | Router Check | select | `router_check` | ⚠️ | Dibaca job router (`no` mematikan, kosong = aktif); belum ada input di form settings |
-| `allow_phone_otp` | Phone OTP Required | select | — | ❌ | F4 |
+| `router_check` | Router Check | select | `router_check` | ✅ | Dibaca job router (`no` mematikan, kosong = aktif); input di Miscellaneous > System |
+| `allow_phone_otp` | Phone OTP Required | select | — | ✅ | Input di Miscellaneous > OTP; portal membaca (`yes`) |
 | `phone_otp_type` | OTP Method | select | `phone_otp_type` | ⚠️ | F4. Settings saja, sms/wa; portal belum membaca |
-| `allow_email_otp` | Email OTP Required | select | — | ❌ | F4 |
-| `show_bandwidth_plan` | Show Bandwidth Plan | select | — | ❌ | F4 (tampil di portal) |
-| `hs_auth_method` | Hotspot Auth Method | select | — | ❌ | F3 (PAP/CHAP; RADIUS mendukung PAP, CHAP, MS-CHAPv2) |
+| `allow_email_otp` | Email OTP Required | select | — | ✅ | Input di Miscellaneous > OTP; portal membaca (`yes`) |
+| `show_bandwidth_plan` | Show Bandwidth Plan | select | — | ✅ | Input di Miscellaneous > Portal; portal membaca (`yes`) |
+| `hs_auth_method` | Hotspot Auth Method | select | `hs_auth_method` | ⚠️ | Input di Miscellaneous > Hotspot (PAP/CHAP, nilai `pap`/`chap`). Belum ada pembaca: RADIUS built-in menerima PAP, CHAP dan MS-CHAPv2 tanpa setting ini |
 | `frrest_interim_update` | Radius Rest Interim-Update | number | — | ❌ | Non-goal (FreeRADIUS REST diganti RADIUS built-in) |
-| `check_customer_online` | Check if Customer Online | select | — | ❌ | F2 |
+| `check_customer_online` | Check if Customer Online | select | `check_customer_online` | ✅ | F2. Input di Miscellaneous > System; dibaca halaman pelanggan |
 | `extend_expiry` | Extend Package Expiry | select | `extend_expiry` | ✅ | Dibaca `internal/billing/service.go:203` (default aktif), tidak ada input. Keputusan default menunggu pengguna |
 | `clock_guard` | Clock Guard | select on/off | `clock_guard` | ✅ | Baru di UI; dibaca `internal/job/clock.go` (`off` mematikan) |
 
@@ -711,8 +711,8 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 
 | Sub-halaman lama | Field/aksi | Key baru | St | Catatan / Fase |
 |---|---|---|---|---|
-| `settings/maintenance-mode` | `maintenance_date` (date) + Save | `maintenance_date` (Miscellaneous > System) | ⚠️ | F5. Field ada; sub-halaman maintenance belum |
-| `settings/maintenance-mode` | `maintenance_mode` (checkbox `1`, aktifkan), `maintenance_mode_logout` (checkbox `1`, paksa logout pelanggan), tombol `save` | — | ❌ | F5 |
+| `settings/maintenance-mode` | `maintenance_date` (date) + Save | `maintenance_date` (Miscellaneous > System) | ✅ | F5. Input ada; sub-halaman maintenance terpisah belum |
+| `settings/maintenance-mode` | `maintenance_mode` (checkbox `1`, aktifkan), `maintenance_mode_logout` (checkbox `1`, paksa logout pelanggan), tombol `save` | `maintenance_mode`, `maintenance_mode_logout` (Miscellaneous > System) | ✅ | F5. Kedua checkbox ada di Miscellaneous > System; tombol save memakai form settings |
 | `settings/dbstatus` | Download Backup Database | — | ⚠️ | F5. Handler `dbBackup` (`VACUUM INTO`, SuperAdmin) ada di `settings.go`; rute dan tombol di Miscellaneous belum dipasang. Restore tidak diimplementasikan: restore = stop service, replace file. `json` + Restore Database: non-goal |
 | `settings/language-add` | satu input per kunci bahasa (`{$lang@key}`) | — | ❌ | Ditunda; bahasa = file JSON di `internal/i18n` |
 | `settings/customfield` | `order[]`, `name[]`, `placeholder[]`, `type[]`, `value[]` (opsi), `register[]`, `required[]` | `sort_order`, `name`, `type`, `options`, `required` | ⚠️ | `placeholder`, `value` (default), `register` belum; urutan lewat angka, bukan drag |

@@ -218,13 +218,36 @@ func (s *Server) settingsFields(tab string, v, e map[string]string) []field {
 			text("session_timeout_duration", "Timeout Duration", v, e).as("number").hint("Minutes"),
 			sel("single_session", "Single Admin Session", settingsYesNo...),
 		}, "Session", "")...)
-		return append(out, section([]field{
+		out = append(out, section([]field{
 			chk("maintenance_mode", "Maintenance Mode"),
+			chk("maintenance_mode_logout", "Log Out Customers During Maintenance"),
 			text("maintenance_date", "Maintenance Date", v, e).as("date"),
 			sel("clock_guard", "Clock Guard", settingsOnOff...).hint("Off disables the clock check"),
 			sel("router_check", "Router Check", settingsYesNo...).hint("Pings enabled routers every 5 minutes and alerts when one goes down"),
 			sel("check_customer_online", "Check Customer Online", option{"no", "No"}, option{"yes", "Yes"}).hint("Shows on the customer page whether the customer is connected"),
 		}, "System", "")...)
+		out = append(out, section([]field{
+			sel("disable_voucher", "Disable Voucher", settingsYesNo...),
+			text("voucher_redirect", "Redirect URL after Activation", v, e).hint("Optional. http or https, e.g. https://192.168.88.1/status"),
+			sel("show_bandwidth_plan", "Show Bandwidth Plan", settingsYesNo...).hint("Displays the bandwidth plan to the customer"),
+		}, "Portal", "")...)
+		out = append(out, section([]field{
+			sel("extend_expired", "Allow Extend", option{"0", "No"}, option{"1", "Yes"}).hint("Customer can request to extend expiry"),
+			text("extend_days", "Extend Days", v, e).as("number").hint("Days added per extend, 0 or more"),
+			area("extend_confirmation", "Confirmation Message"),
+		}, "Extend", "")...)
+		out = append(out, section([]field{
+			sel("allow_balance_transfer", "Allow Transfer", settingsYesNo...).hint("Allow balance transfer between customers"),
+			text("minimum_transfer", "Minimum Balance Transfer", v, e).as("number").hint("0 or more"),
+			sel("allow_balance_custom", "Allow Balance Custom Amount", settingsYesNo...).hint("Customer can buy balance with any amount"),
+		}, "Balance", "")...)
+		out = append(out, section([]field{
+			sel("allow_phone_otp", "Phone OTP Required", settingsYesNo...),
+			sel("allow_email_otp", "Email OTP Required", settingsYesNo...),
+		}, "OTP", "")...)
+		return append(out, section([]field{
+			sel("hs_auth_method", "Hotspot Auth Method", option{"pap", "PAP"}, option{"chap", "CHAP"}),
+		}, "Hotspot", "")...)
 	}
 	return nil
 }
@@ -301,6 +324,19 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 		if u, err := url.Parse(x); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 			e["webhook_url"] = "Use an http or https URL"
 		}
+	}
+	if x := v["voucher_redirect"]; x != "" {
+		if u, err := url.Parse(x); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			e["voucher_redirect"] = "Use an http or https URL"
+		}
+	}
+	for _, k := range []string{"extend_days", "minimum_transfer"} {
+		if n, err := strconv.ParseInt(v[k], 10, 64); v[k] != "" && (err != nil || n < 0) {
+			e[k] = "Enter a whole number, 0 or more"
+		}
+	}
+	if x := v["hs_auth_method"]; x != "" && !oneOf(x, "pap", "chap") {
+		e["hs_auth_method"] = "Choose PAP or CHAP"
 	}
 	return e
 }

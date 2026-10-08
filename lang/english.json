@@ -1396,5 +1396,19 @@
     "Code Voucher": "Code Voucher",
     "Recharge Account": "Recharge Account",
     "Payment Method": "Payment Method",
-    "Service Plan": "Service Plan"
+    "Service Plan": "Service Plan",
+    "Log Out Customers During Maintenance": "Log Out Customers During Maintenance",
+    "Portal": "Portal",
+    "Disable Voucher": "Disable Voucher",
+    "Redirect URL after Activation": "Redirect URL after Activation",
+    "Show Bandwidth Plan": "Show Bandwidth Plan",
+    "Allow Extend": "Allow Extend",
+    "Extend Days": "Extend Days",
+    "Confirmation Message": "Confirmation Message",
+    "Allow Transfer": "Allow Transfer",
+    "Minimum Balance Transfer": "Minimum Balance Transfer",
+    "Allow Balance Custom Amount": "Allow Balance Custom Amount",
+    "Phone OTP Required": "Phone OTP Required",
+    "Email OTP Required": "Email OTP Required",
+    "Hotspot Auth Method": "Hotspot Auth Method"
 }
