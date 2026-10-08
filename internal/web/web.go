@@ -238,10 +238,13 @@ func (s *Server) Handler() http.Handler {
 	s.portalRoutes(mux)
 	s.paymentRoutes(mux)
 	s.paymentAdminRoutes(mux, managers)
+	s.radiusRestRoutes(mux)
 
 	// the Tripay server posts the callback without our origin; its HMAC signature authenticates it
 	cop := http.NewCrossOriginProtection()
 	cop.AddInsecureBypassPattern("POST /callback/tripay")
+	cop.AddInsecureBypassPattern("POST /radius.php")
+	cop.AddInsecureBypassPattern("POST /radius/rest")
 	return cop.Handler(s.sessions.LoadAndSave(s.idleGuard(s.maintenance(mux))))
 }
 
