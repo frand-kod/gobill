@@ -1,0 +1,43 @@
+{{define "content"}}
+{{with .Data}}
+{{$d := .}}
+<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+  <h1 class="text-2xl font-semibold">{{if .Period}}{{T "Period Report"}}{{else}}{{T "Daily Report"}}{{end}}</h1>
+  <div class="flex flex-wrap gap-2">
+    <a class="btn btn-ghost" href="/admin/reports/export?{{.Query}}">{{T "Export CSV"}}</a>
+    <a class="btn btn-ghost" href="/admin/reports/print?{{.Query}}" target="_blank">{{T "Print"}}</a>
+  </div>
+</div>
+<div class="card overflow-hidden">
+  <form class="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3 dark:border-slate-800" method="get" action="{{if .Period}}/admin/reports/period{{else}}/admin/reports{{end}}">
+    {{if .Period}}
+    <input class="input w-auto" type="date" name="from" value="{{.From}}" aria-label="{{T "From"}}">
+    <input class="input w-auto" type="date" name="to" value="{{.To}}" aria-label="{{T "To"}}">
+    {{else}}
+    <input class="input w-auto" type="date" name="date" value="{{.From}}" aria-label="{{T "Date"}}">
+    {{end}}
+    <select class="input w-auto" name="type" aria-label="{{T "Type"}}">{{range .Types}}<option value="{{.Value}}"{{if eq .Value $d.Type}} selected{{end}}>{{T .Label}}</option>{{end}}</select>
+    <input class="input w-auto" type="text" name="method" value="{{.Method}}" placeholder="{{T "Method"}}" aria-label="{{T "Method"}}">
+    <select class="input w-auto" name="router" aria-label="{{T "Routers"}}">{{range .Routers}}<option value="{{.Value}}"{{if eq .Value $d.Router}} selected{{end}}>{{T .Label}}</option>{{end}}</select>
+    <select class="input w-auto" name="plan" aria-label="{{T "Plan"}}">{{range .Plans}}<option value="{{.Value}}"{{if eq .Value $d.PlanID}} selected{{end}}>{{T .Label}}</option>{{end}}</select>
+    <button class="btn btn-primary" type="submit">{{T "Show"}}</button>
+  </form>
+  <div class="grid gap-4 p-3 sm:grid-cols-2">
+    <table class="table"><thead><tr><th>{{T "Type"}}</th><th>{{T "Count"}}</th><th>{{T "Total"}}</th></tr></thead><tbody>
+      {{range .ByType}}<tr><td>{{.Name}}</td><td>{{.Count}}</td><td>{{money .Sum}}</td></tr>{{end}}
+      <tr class="font-semibold"><td>{{T "Total"}}</td><td>{{.Count}}</td><td>{{money .Sum}}</td></tr></tbody></table>
+    <table class="table"><thead><tr><th>{{T "Method"}}</th><th>{{T "Count"}}</th><th>{{T "Total"}}</th></tr></thead><tbody>
+      {{range .ByMethod}}<tr><td>{{.Name}}</td><td>{{.Count}}</td><td>{{money .Sum}}</td></tr>{{end}}</tbody></table>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead><tr><th>{{T "Invoice"}}</th><th>{{T "Username"}}</th><th>{{T "Plan Name"}}</th><th>{{T "Type"}}</th><th>{{T "Plan Price"}}</th><th>{{T "Method"}}</th><th>{{T "Routers"}}</th><th>{{T "Created On"}}</th><th>{{T "Expires On"}}</th></tr></thead>
+      <tbody>
+      {{range .Rows}}<tr><td><a class="font-medium text-brand-600 hover:underline dark:text-brand-500" href="/admin/transactions/{{.ID}}/invoice">{{.Invoice}}</a></td><td>{{.Username}}</td><td>{{.PlanName}}</td><td>{{.Type}}</td><td>{{money .Price}}</td><td>{{.Method}}</td><td>{{.RouterName}}</td><td>{{ts .CreatedAt}}</td><td>{{ts .PeriodEnd}}</td></tr>
+      {{else}}<tr><td class="py-8 text-center text-slate-500" colspan="9">{{T "No data"}}</td></tr>{{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}
+{{end}}

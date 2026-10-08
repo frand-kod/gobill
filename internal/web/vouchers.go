@@ -294,7 +294,7 @@ func (s *Server) trxList(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "list transactions", err)
 		return
 	}
-	lp := listPage{Heading: "Transactions", Base: "/admin/transactions", Q: q, Searchable: true,
+	lp := listPage{Heading: "Transactions", Base: "/admin/transactions", Q: q, Searchable: true, InvoiceLink: true,
 		Cols: []string{"Invoice", "Date", "Username", "Plan Name", "Type", "Method", "Plan Price"}}
 	for _, t := range rows {
 		lp.Rows = append(lp.Rows, listRow{t.ID, []string{t.Invoice, s.ts(t.CreatedAt), t.Username, t.PlanName, t.Type, t.Method, money(t.Price)}})

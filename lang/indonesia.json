@@ -1173,5 +1173,11 @@
     "Choose a Balance package or enter an amount": "Pilih paket saldo atau isi jumlah",
     "Script run on the router when the customer logs in": "Skrip yang dijalankan di router saat pelanggan login",
     "Script run on the router when the customer logs out": "Skrip yang dijalankan di router saat pelanggan logout",
-    "Pick a package, or leave empty and enter an amount": "Pilih paket, atau kosongkan dan isi jumlah"
+    "Pick a package, or leave empty and enter an amount": "Pilih paket, atau kosongkan dan isi jumlah",
+    "Daily Report": "Laporan Harian",
+    "Period Report": "Laporan Periode",
+    "Show": "Tampilkan",
+    "Print Invoice": "Cetak Invoice",
+    "Invoice No": "No. Invoice",
+    "Count": "Jumlah"
 }

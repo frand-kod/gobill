@@ -53,6 +53,7 @@ func (s *Server) portalRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /portal/profile", s.requireCustomer(s.pProfile))
 	mux.Handle("POST /portal/password", s.requireCustomer(s.pPassword))
 	mux.Handle("GET /portal/orders", s.requireCustomer(s.pOrders))
+	mux.Handle("GET /portal/orders/{id}/invoice", s.requireCustomer(s.pInvoice))
 	mux.Handle("GET /portal/plans", s.requireCustomer(s.pPlans))
 	mux.Handle("POST /portal/plans/{id}/balance", s.requireCustomer(s.pBuyBalance))
 }
@@ -267,6 +268,16 @@ func (s *Server) pOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.prender(w, r, 200, "p_orders", Page{Title: "Order History", Data: trx})
+}
+
+// pInvoice shows the invoice only for the customer's own transaction.
+func (s *Server) pInvoice(w http.ResponseWriter, r *http.Request) {
+	t, err := s.queries.GetTransaction(r.Context(), pathID(r))
+	if err != nil || t.CustomerID != customerFrom(r).ID {
+		http.NotFound(w, r)
+		return
+	}
+	s.invoice(w, r, t)
 }
 
 type plansData struct {

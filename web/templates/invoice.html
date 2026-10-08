@@ -1,0 +1,35 @@
+{{define "base"}}<!doctype html>
+<html lang="{{.Lang}}" dir="{{.Dir}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{T .Title}}</title>
+<style>
+@page { size: A4; margin: 15mm; }
+body { font-family: sans-serif; max-width: 700px; margin: 1rem auto; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border-bottom: 1px solid #ccc; padding: 6px; text-align: start; }
+.noprint button { margin-bottom: 1rem; }
+@media print { .noprint { display: none; } body { margin: 0; } }
+</style>
+</head>
+<body>
+{{with .Data}}{{$t := .T}}
+<p class="noprint"><button onclick="window.print()">{{T "Print"}}</button></p>
+<h2>{{.Company}}</h2>
+<div style="white-space:pre-line">{{.Address}}</div>
+<h3>{{T "Invoice"}} {{$t.Invoice}}</h3>
+<p>{{ts $t.CreatedAt}}<br>{{.Customer.Fullname}} ({{.Customer.Username}})</p>
+<table>
+<tr><th>{{T "Plan Name"}}</th><td>{{$t.PlanName}}</td></tr>
+<tr><th>{{T "Type"}}</th><td>{{$t.Type}}</td></tr>
+<tr><th>{{T "Created On"}}</th><td>{{ts $t.PeriodStart}}</td></tr>
+<tr><th>{{T "Expires On"}}</th><td>{{ts $t.PeriodEnd}}</td></tr>
+<tr><th>{{T "Method"}}</th><td>{{$t.Method}}</td></tr>
+<tr><th>{{T "Plan Price"}}</th><td><strong>{{money $t.Price}}</strong></td></tr>
+</table>
+<p style="white-space:pre-line">{{.Footer}}</p>
+{{end}}
+</body>
+</html>
+{{end}}

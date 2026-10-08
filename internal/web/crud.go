@@ -90,6 +90,7 @@ type listPage struct {
 	Filters          []filter    // selects next to the search box
 	SortKeys         []string    // parallel to Cols; "" = not sortable
 	Sort, Dir        string      // current sort key and "asc"/"desc"
+	InvoiceLink      bool        // first cell links to Base/ID/invoice
 	NoDelete         bool        // rows have no delete button
 	Actions          []rowAction // per-row POST buttons
 }
