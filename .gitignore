@@ -6,3 +6,7 @@
 /nuxbill
 /.claude/worktrees/
 *.db.key
+
+# Real production dumps: never commit
+docs/*.sql
+*.sql.gz
