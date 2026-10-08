@@ -1,41 +1,56 @@
 {{define "content"}}
 {{with .Data}}
 {{$d := .}}
-<div class="toolbar">
-  <h1>{{T .Heading}}</h1>
-  {{range .Links}}<a class="btn btn-ghost" href="{{.Value}}">{{T .Label}}</a>{{end}}
-  {{if .CanCreate}}<a class="btn btn-primary" href="{{.Base}}/new">{{T "Add"}}</a>{{end}}
+<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+  <h1 class="text-2xl font-semibold">{{T .Heading}}</h1>
+  <div class="flex flex-wrap gap-2">
+    {{range .Links}}<a class="btn btn-ghost" href="{{.Value}}">{{T .Label}}</a>{{end}}
+    {{if .CanCreate}}<a class="btn btn-primary" href="{{.Base}}/new">{{icon "plus"}}<span>{{T "Add"}}</span></a>{{end}}
+  </div>
 </div>
-{{if .Searchable}}
-<form class="toolbar" method="get" action="{{.Base}}" role="search">
-  <input type="search" name="q" value="{{.Q}}" aria-label="{{T "Search"}}">
-  {{if .FilterName}}<select name="{{.FilterName}}" aria-label="{{T .FilterName}}">{{$cur := .FilterVal}}{{range .FilterOpts}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{T .Label}}</option>{{end}}</select>{{end}}
-  <button class="btn btn-ghost" type="submit">{{T "Search"}}</button>
-</form>
-{{end}}
-<div class="card table-wrap">
-  <table class="table">
-    <thead><tr>{{range .Cols}}<th>{{T .}}</th>{{end}}{{if .CanEdit}}<th></th>{{end}}</tr></thead>
-    <tbody>
-    {{range $r := .Rows}}
-      <tr>
-        {{range $i, $c := $r.Cells}}<td>{{if and (eq $i 0) $d.ViewLink}}<a href="{{$d.Base}}/{{$r.ID}}">{{$c}}</a>{{else}}{{$c}}{{end}}</td>{{end}}
-        {{if $d.CanEdit}}<td class="row-actions">
-          {{if not $d.DeleteOnly}}<a class="btn btn-ghost" href="{{$d.Base}}/{{$r.ID}}/edit">{{T "Edit"}}</a>{{end}}
-          <form method="post" action="{{$d.Base}}/{{$r.ID}}/delete" onsubmit="return confirm({{T "Delete"}} + '?')">
-            <button class="btn btn-ghost" type="submit">{{T "Delete"}}</button>
-          </form>
-        </td>{{end}}
-      </tr>
-    {{else}}
-      <tr><td colspan="{{len .Cols}}">{{T "No data"}}</td></tr>
-    {{end}}
-    </tbody>
-  </table>
+<div class="card overflow-hidden">
+  {{if .Searchable}}
+  <form class="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3 dark:border-slate-800" method="get" action="{{.Base}}" role="search">
+    <div class="relative min-w-48 flex-1 sm:max-w-xs">
+      <span class="pointer-events-none absolute inset-y-0 start-3 flex items-center text-slate-400">{{icon "search"}}</span>
+      <input class="input ps-10" type="search" name="q" value="{{.Q}}" placeholder="{{T "Search"}}" aria-label="{{T "Search"}}">
+    </div>
+    {{if .FilterName}}<select class="input w-auto" name="{{.FilterName}}" aria-label="{{T .FilterName}}">{{$cur := .FilterVal}}{{range .FilterOpts}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{T .Label}}</option>{{end}}</select>{{end}}
+    <button class="btn btn-ghost" type="submit">{{T "Search"}}</button>
+  </form>
+  {{end}}
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead><tr>{{range .Cols}}<th>{{T .}}</th>{{end}}{{if .CanEdit}}<th></th>{{end}}</tr></thead>
+      <tbody>
+      {{range $r := .Rows}}
+        <tr>
+          {{range $i, $c := $r.Cells}}<td>
+            {{if eq (index $d.Cols $i) "Status"}}<span class="badge {{badge $c}}">{{T $c}}</span>
+            {{else if and (eq $i 0) $d.ViewLink}}<a class="font-medium text-brand-600 hover:underline dark:text-brand-500" href="{{$d.Base}}/{{$r.ID}}">{{$c}}</a>
+            {{else}}{{$c}}{{end}}
+          </td>{{end}}
+          {{if $d.CanEdit}}<td class="whitespace-nowrap text-end">
+            <div class="flex justify-end gap-1">
+              {{if not $d.DeleteOnly}}<a class="btn btn-ghost btn-sm" href="{{$d.Base}}/{{$r.ID}}/edit">{{icon "pencil"}}<span>{{T "Edit"}}</span></a>{{end}}
+              <form method="post" action="{{$d.Base}}/{{$r.ID}}/delete" onsubmit="return confirm({{T "Delete"}} + '?')">
+                <button class="btn btn-danger btn-sm" type="submit">{{icon "trash-2"}}<span>{{T "Delete"}}</span></button>
+              </form>
+            </div>
+          </td>{{end}}
+        </tr>
+      {{else}}
+        <tr><td class="py-8 text-center text-slate-500" colspan="{{len .Cols}}">{{T "No data"}}</td></tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
 </div>
-<p class="pager">
+{{if or .Prev .Next}}
+<p class="mt-4 flex justify-end gap-2">
   {{if .Prev}}<a class="btn btn-ghost" href="{{.Base}}?q={{.Q}}&amp;{{if .FilterName}}{{.FilterName}}={{.FilterVal}}&amp;{{end}}page={{.Prev}}">{{T "Previous"}}</a>{{end}}
   {{if .Next}}<a class="btn btn-ghost" href="{{.Base}}?q={{.Q}}&amp;{{if .FilterName}}{{.FilterName}}={{.FilterVal}}&amp;{{end}}page={{.Next}}">{{T "Next"}}</a>{{end}}
 </p>
+{{end}}
 {{end}}
 {{end}}

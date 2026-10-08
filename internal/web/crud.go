@@ -16,6 +16,9 @@ type field struct {
 	Name, Label, Type, Value, Error, Hint string
 	Options                               []option
 	Required, Checked                     bool
+	Section, SectionShow                  string // form card title, and the Alpine condition showing the whole card
+	Show                                  string // Alpine condition showing this field
+	Bind                                  bool   // field feeds the form's Alpine state (x-model)
 }
 
 type option struct{ Value, Label string }
@@ -23,6 +26,47 @@ type option struct{ Value, Label string }
 type formPage struct {
 	Heading, Action, Cancel string
 	Fields                  []field
+}
+
+// group is a titled card of fields on the form page.
+type group struct {
+	Title, Show string
+	Fields      []field
+}
+
+// Groups splits the fields into cards by consecutive Section.
+func (fp formPage) Groups() []group {
+	var gs []group
+	for _, f := range fp.Fields {
+		if n := len(gs); n == 0 || gs[n-1].Title != f.Section {
+			gs = append(gs, group{Title: f.Section, Show: f.SectionShow})
+		}
+		gs[len(gs)-1].Fields = append(gs[len(gs)-1].Fields, f)
+	}
+	return gs
+}
+
+// XData is the Alpine state: the current value of every Bind field.
+func (fp formPage) XData() string {
+	m := map[string]any{}
+	for _, f := range fp.Fields {
+		if f.Bind {
+			if f.Type == "checkbox" {
+				m[f.Name] = f.Checked
+			} else {
+				m[f.Name] = f.Value
+			}
+		}
+	}
+	return jsonStr(m)
+}
+
+// section puts fields in one titled card; show is an optional Alpine condition for the card.
+func section(fs []field, title, show string) []field {
+	for i := range fs {
+		fs[i].Section, fs[i].SectionShow = title, show
+	}
+	return fs
 }
 
 type listRow struct {
@@ -53,6 +97,8 @@ func text(name, label string, v, e map[string]string) field {
 
 func (f field) as(typ string) field { f.Type = typ; return f }
 func (f field) req() field          { f.Required = true; return f }
+func (f field) show(c string) field { f.Show = c; return f }
+func (f field) bind() field         { f.Bind = true; return f }
 func (f field) hint(h string) field { f.Hint = h; return f }
 func (f field) opts(o ...string) field {
 	f.Type = "select"

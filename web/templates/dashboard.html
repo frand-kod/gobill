@@ -1,12 +1,36 @@
 {{define "content"}}
-{{with .Data}}<p class="alert alert-error" role="alert">{{icon "circle-alert"}}<span>{{.}}</span></p>{{end}}
-<h1>{{T "Hello"}}, {{if .Admin.Fullname}}{{.Admin.Fullname}}{{else}}{{.Admin.Username}}{{end}}</h1>
-<section class="empty">
-  {{icon "package"}}
-  <h2>{{T "Nothing to show yet"}}</h2>
-  <p>{{T "Customer and package data arrive in the next phase."}}</p>
-  {{if or (eq .Admin.Role "SuperAdmin") (eq .Admin.Role "Admin")}}
-  <a class="btn btn-ghost" href="/admin/settings">{{icon "settings"}}<span>{{T "Open settings"}}</span></a>
-  {{end}}
-</section>
+{{with .Data}}
+{{if .Warn}}<p class="alert alert-warn" role="alert">{{icon "triangle-alert"}}<span>{{.Warn}}</span></p>{{end}}
+<h1 class="mb-4 text-2xl font-semibold">{{T "Dashboard"}}</h1>
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+  <a href="/admin/transactions" class="flex items-center justify-between rounded-xl bg-sky-600 p-5 text-white shadow-sm hover:bg-sky-700">
+    <div><p class="text-2xl font-bold" id="tile-today">{{money .IncomeToday}}</p><p class="text-sm opacity-90">{{T "Income Today"}}</p></div>
+    {{icon "banknote"}}
+  </a>
+  <a href="/admin/transactions" class="flex items-center justify-between rounded-xl bg-emerald-600 p-5 text-white shadow-sm hover:bg-emerald-700">
+    <div><p class="text-2xl font-bold" id="tile-month">{{money .IncomeMonth}}</p><p class="text-sm opacity-90">{{T "Income This Month"}}</p></div>
+    {{icon "circle-dollar-sign"}}
+  </a>
+  <div class="flex items-center justify-between rounded-xl bg-amber-500 p-5 text-white shadow-sm">
+    <div><p class="text-2xl font-bold" id="tile-subs">{{.ActiveSubs}} / {{.ExpiredSubs}}</p><p class="text-sm opacity-90">{{T "Active"}} / {{T "Expired"}}</p></div>
+    {{icon "clock"}}
+  </div>
+  <a href="/admin/customers" class="flex items-center justify-between rounded-xl bg-rose-600 p-5 text-white shadow-sm hover:bg-rose-700">
+    <div><p class="text-2xl font-bold" id="tile-customers">{{.Customers}}</p><p class="text-sm opacity-90">{{T "Customer"}}</p></div>
+    {{icon "users"}}
+  </a>
+</div>
+<div class="mt-4 grid gap-4 lg:grid-cols-2">
+  <section class="card">
+    <h2 class="card-title">{{T "Registered Members"}} {{.Year}}</h2>
+    <div class="card-body"><div class="h-64"><canvas data-chart="bar" data-label="{{T "Customer"}}" data-labels="{{.Labels}}" data-values="{{.Regs}}" role="img" aria-label="{{T "Registered Members"}} {{.Year}}"></canvas></div></div>
+  </section>
+  <section class="card">
+    <h2 class="card-title">{{T "Total Monthly Sales"}} {{.Year}}</h2>
+    <div class="card-body"><div class="h-64"><canvas data-chart="bar" data-money="1" data-label="{{T "Sales"}}" data-labels="{{.Labels}}" data-values="{{.Sales}}" role="img" aria-label="{{T "Total Monthly Sales"}} {{.Year}}"></canvas></div></div>
+  </section>
+</div>
+<script src="/static/vendor/chart-4.4.9.umd.js"></script>
+<script src="/static/dashboard.js"></script>
+{{end}}
 {{end}}

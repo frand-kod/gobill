@@ -1,6 +1,8 @@
 package web
 
 import (
+	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -105,25 +107,78 @@ func (s *Server) recent(ip string) []time.Time {
 
 // ---- dashboard ----
 
+type dashData struct {
+	Warn                     string
+	IncomeToday, IncomeMonth int64
+	ActiveSubs, ExpiredSubs  int64
+	Customers                int64
+	Year                     int
+	Labels, Regs, Sales      string // JSON arrays for the charts
+}
+
 func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
-	warn := ""
+	d, err := s.dashboardData(r.Context(), time.Now())
+	if err != nil {
+		s.fail(w, "dashboard", err)
+		return
+	}
 	if s.ClockWarning != nil {
-		warn = s.ClockWarning()
+		d.Warn = s.ClockWarning()
 	}
 	s.render(w, r, http.StatusOK, "dashboard", Page{
 		Title: "Dashboard",
-		Data:  warn,
+		Data:  d,
 		Flash: s.sessions.PopString(r.Context(), "flash"),
 	})
 }
 
-// ---- settings ----
-
-type settingsData struct {
-	Values    map[string]string
-	Errors    map[string]string
-	Languages []string
+// dashboardData gathers the tiles and the per-month series of the current year in the app location.
+func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, err error) {
+	loc := s.location()
+	now = now.In(loc)
+	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	month := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+	sum := func(from, to time.Time) (int64, error) {
+		return s.queries.SumTransactionsBetween(ctx, db.SumTransactionsBetweenParams{CreatedAt: from.Unix(), CreatedAt_2: to.Unix()})
+	}
+	if d.IncomeToday, err = sum(day, day.AddDate(0, 0, 1)); err != nil {
+		return
+	}
+	if d.IncomeMonth, err = sum(month, month.AddDate(0, 1, 0)); err != nil {
+		return
+	}
+	if d.ActiveSubs, err = s.queries.CountSubscriptionsByStatus(ctx, "active"); err != nil {
+		return
+	}
+	if d.ExpiredSubs, err = s.queries.CountSubscriptionsByStatus(ctx, "expired"); err != nil {
+		return
+	}
+	if d.Customers, err = s.queries.CountCustomers(ctx); err != nil {
+		return
+	}
+	d.Year = now.Year()
+	labels, regs, sales := make([]string, 12), make([]int64, 12), make([]int64, 12)
+	for m := 0; m < 12; m++ {
+		from := time.Date(d.Year, time.Month(m+1), 1, 0, 0, 0, 0, loc)
+		to := from.AddDate(0, 1, 0)
+		labels[m] = s.catalog.T(s.language(), from.Month().String()[:3])
+		if regs[m], err = s.queries.CountCustomersBetween(ctx, db.CountCustomersBetweenParams{CreatedAt: from.Unix(), CreatedAt_2: to.Unix()}); err != nil {
+			return
+		}
+		if sales[m], err = sum(from, to); err != nil {
+			return
+		}
+	}
+	d.Labels, d.Regs, d.Sales = jsonStr(labels), jsonStr(regs), jsonStr(sales)
+	return
 }
+
+func jsonStr(v any) string {
+	b, _ := json.Marshal(v)
+	return string(b)
+}
+
+// ---- settings ----
 
 func (s *Server) settingsForm(w http.ResponseWriter, r *http.Request) {
 	values, err := s.loadSettings(r.Context())
@@ -135,12 +190,14 @@ func (s *Server) settingsForm(w http.ResponseWriter, r *http.Request) {
 	s.renderSettings(w, r, http.StatusOK, values, nil)
 }
 
-func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status int, values, errs map[string]string) {
-	s.render(w, r, status, "settings", Page{
-		Title: "Settings",
-		Flash: s.sessions.PopString(r.Context(), "flash"),
-		Data:  settingsData{Values: values, Errors: errs, Languages: s.catalog.Languages()},
-	})
+func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status int, v, e map[string]string) {
+	fp := formPage{Heading: "Settings", Action: "/admin/settings", Cancel: "/admin", Fields: section([]field{
+		text("company_name", "Company name", v, e).req(),
+		text("language", "Language", v, e).opts(s.catalog.Languages()...),
+		text("timezone", "Timezone", v, e).req().hint("Use a name like Asia/Jakarta."),
+		text("currency_code", "Currency_Code", v, e).req(),
+	}, "General", "")}
+	s.render(w, r, status, "form", Page{Title: "Settings", Flash: s.sessions.PopString(r.Context(), "flash"), Data: fp})
 }
 
 func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {

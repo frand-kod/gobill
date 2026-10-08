@@ -1,19 +1,20 @@
 {{define "body"}}
-<main class="login">
-  <form class="card login-card" method="post" action="/login">
+<main class="grid min-h-screen place-items-center p-4">
+  <form class="card w-full max-w-sm overflow-hidden" method="post" action="/login">
     <div class="fiber-stripe" aria-hidden="true"></div>
-    <div class="card-body">
-      <h1>{{T "Sign in"}}</h1>
+    <div class="card-body space-y-4">
+      <div class="flex items-center gap-2 text-brand-600 dark:text-brand-500">{{icon "wifi"}}<span class="text-lg font-semibold">NuxBill</span></div>
+      <h1 class="text-2xl font-semibold">{{T "Sign in"}}</h1>
       {{if .Error}}<p class="alert alert-error" role="alert">{{icon "circle-alert"}}<span>{{T .Error}}</span></p>{{end}}
-      <div class="field">
-        <label for="username">{{T "Username"}}</label>
-        <input id="username" name="username" type="text" autocomplete="username" required autofocus value="{{with .Data}}{{.Username}}{{end}}">
+      <div>
+        <label class="label" for="username">{{T "Username"}}</label>
+        <input class="input" id="username" name="username" type="text" autocomplete="username" required autofocus value="{{with .Data}}{{.Username}}{{end}}">
       </div>
-      <div class="field">
-        <label for="password">{{T "Password"}}</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      <div>
+        <label class="label" for="password">{{T "Password"}}</label>
+        <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
       </div>
-      <button class="btn btn-primary" type="submit">{{T "Sign in"}}</button>
+      <button class="btn btn-primary w-full" type="submit">{{T "Sign in"}}</button>
     </div>
   </form>
 </main>

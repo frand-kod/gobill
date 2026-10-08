@@ -9,6 +9,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: app.css is up to date
+        run: |
+          sh tools/tailwind.sh
+          git diff --exit-code web/static/app.css
       - run: go vet ./...
       - run: go test ./...
 

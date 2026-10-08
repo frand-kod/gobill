@@ -195,6 +195,19 @@ func money(n int64) string {
 	return "Rp " + d
 }
 
+// badge maps a status value to its badge colour class.
+func badge(v string) string {
+	switch strings.ToLower(v) {
+	case "active", "enable", "enabled", "unused", "yes":
+		return "badge-ok"
+	case "disable", "disabled", "banned", "suspended", "expired", "inactive", "no":
+		return "badge-bad"
+	case "limited":
+		return "badge-warn"
+	}
+	return "badge-muted"
+}
+
 // language returns the current app language.
 func (s *Server) language() string { return s.lang.Load().(string) }
 
@@ -276,9 +289,17 @@ func (s *Server) parseTemplates() error {
 		return err
 	}
 	funcs := template.FuncMap{
-		"T":         func(text string) string { return s.catalog.T(s.language(), text) },
+		"T": func(text string) string { return s.catalog.T(s.language(), text) },
+		// TT translates the part before ": ", so headings like "Edit Contact: budi" work.
+		"TT": func(text string) string {
+			if head, rest, ok := strings.Cut(text, ": "); ok {
+				return s.catalog.T(s.language(), head) + ": " + rest
+			}
+			return s.catalog.T(s.language(), text)
+		},
 		"hasPrefix": strings.HasPrefix,
 		"money":     money,
+		"badge":     badge,
 		"ts":        s.ts,
 		"icon": func(name string) (template.HTML, error) {
 			svg, ok := icons[name]
@@ -291,7 +312,6 @@ func (s *Server) parseTemplates() error {
 	pages := map[string][]string{
 		"login":     {"base.html", "login.html"},
 		"dashboard": {"base.html", "app.html", "dashboard.html"},
-		"settings":  {"base.html", "app.html", "settings.html"},
 		"list":      {"base.html", "app.html", "list.html"},
 		"form":      {"base.html", "app.html", "form.html"},
 		"customer":  {"base.html", "app.html", "customer.html"},

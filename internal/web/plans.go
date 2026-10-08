@@ -66,24 +66,30 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 		return f
 	}
 	dev := text("device", "Device", v, e).opts("", "MikrotikHotspot", "MikrotikPppoe", "Dummy").hint("Empty = by plan type")
-	return []field{
+	const notBalance, hotspot = "type !== 'Balance'", "type === 'Hotspot'"
+	out := section([]field{
 		text("name", "Plan Name", v, e).req(),
-		text("type", "Type", v, e).opts("Hotspot", "PPPoE", "Balance"),
-		text("billing", "Plan Type", v, e).opts("prepaid", "postpaid"),
-		text("price", "Plan Price", v, e).as("number").req(),
-		text("validity", "Plan Validity", v, e).as("number").hint("Balance plans: leave empty"),
-		text("validity_unit", "Validity Unit", v, e).opts("Mins", "Hrs", "Days", "Months", "Period"),
-		text("billing_day", "Billing Day", v, e).as("number").hint("Postpaid: day of month, 1-31"),
-		check("limited", "Limited"),
-		text("limit_type", "Limit Type", v, e).opts("", "Time_Limit", "Data_Limit", "Both_Limit"),
-		text("time_limit", "Time Limit", v, e).as("number"),
-		text("time_unit", "Time Unit", v, e).opts("Mins", "Hrs"),
-		text("data_limit", "Data Limit", v, e).as("number"),
-		text("data_unit", "Data Unit", v, e).opts("MB", "GB"),
-		text("shared_users", "Shared Users", v, e).as("number"),
-		bw, rt, pool, exp, dev,
+		text("type", "Type", v, e).opts("Hotspot", "PPPoE", "Balance").bind(),
+		text("billing", "Plan Type", v, e).opts("prepaid", "postpaid").bind(),
 		check("enabled", "Enable"),
-	}
+	}, "Basic", "")
+	out = append(out, section([]field{
+		text("price", "Plan Price", v, e).as("number").req(),
+		text("validity", "Plan Validity", v, e).as("number").show(notBalance),
+		text("validity_unit", "Validity Unit", v, e).opts("Mins", "Hrs", "Days", "Months", "Period").show(notBalance),
+		text("billing_day", "Billing Day", v, e).as("number").hint("Postpaid: day of month, 1-31").show("billing === 'postpaid'"),
+		exp.show(notBalance),
+	}, "Price & validity", "")...)
+	out = append(out, section([]field{
+		check("limited", "Limited").bind(),
+		text("limit_type", "Limit Type", v, e).opts("", "Time_Limit", "Data_Limit", "Both_Limit").bind().show("limited"),
+		text("time_limit", "Time Limit", v, e).as("number").show("limited && limit_type !== 'Data_Limit'"),
+		text("time_unit", "Time Unit", v, e).opts("Mins", "Hrs").show("limited && limit_type !== 'Data_Limit'"),
+		text("data_limit", "Data Limit", v, e).as("number").show("limited && limit_type !== 'Time_Limit'"),
+		text("data_unit", "Data Unit", v, e).opts("MB", "GB").show("limited && limit_type !== 'Time_Limit'"),
+		text("shared_users", "Shared Users", v, e).as("number"),
+	}, "Limits", hotspot)...)
+	return append(out, section([]field{bw, rt, pool, dev}, "Network & device", notBalance)...)
 }
 
 func planFormValues(p db.Plan) map[string]string {

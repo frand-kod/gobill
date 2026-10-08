@@ -34,19 +34,21 @@ func custFields(v, e map[string]string, editing bool) []field {
 		pw.Required = true
 		fs = append(fs, text("username", "Username", v, e).req())
 	}
-	return append(fs, pw,
-		text("fullname", "Full Name", v, e).req(),
-		text("address", "Address", v, e),
+	acct := section(append(fs, pw, text("fullname", "Full Name", v, e).req(), text("status", "Status", v, e).opts(custStatuses...)), "Account", "")
+	contact := section([]field{
 		text("phone", "Phone Number", v, e),
 		text("email", "Email", v, e).as("email"),
+		text("address", "Address", v, e),
+	}, "Contact", "")
+	svc := section([]field{
 		text("service_type", "Service Type", v, e).opts("Hotspot", "PPPoE", "Others"),
 		text("pppoe_username", "PPPoE Username", v, e),
 		text("pppoe_ip", "PPPoE IP", v, e),
 		sec,
 		text("billing_day", "Billing Day", v, e).as("number").hint("Day of month, 1-31. Optional; overrides the plan."),
 		ar,
-		text("status", "Status", v, e).opts(custStatuses...),
-	)
+	}, "Service & billing", "")
+	return append(append(acct, contact...), svc...)
 }
 
 func (s *Server) custList(w http.ResponseWriter, r *http.Request) {

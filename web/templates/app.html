@@ -1,34 +1,82 @@
 {{define "body"}}
-<div class="shell">
-  <input type="checkbox" id="nav-toggle" class="nav-toggle">
-  <header class="sidebar">
+{{$mgr := or (eq .Admin.Role "SuperAdmin") (eq .Admin.Role "Admin")}}
+{{$staff := or $mgr (eq .Admin.Role "Agent") (eq .Admin.Role "Sales")}}
+<div x-data="{drawer:false}" class="min-h-screen lg:flex">
+  <div x-show="drawer" x-cloak @click="drawer=false" class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
+  <aside :class="drawer ? '' : 'max-lg:hidden'" class="flex w-64 shrink-0 flex-col overflow-y-auto bg-sidebar text-slate-200 max-lg:fixed max-lg:inset-y-0 max-lg:start-0 max-lg:z-40 lg:sticky lg:top-0 lg:h-screen">
     <div class="fiber-stripe" aria-hidden="true"></div>
-    <div class="sidebar-head">
-      <span class="brand">NuxBill</span>
-      <label for="nav-toggle" class="menu-btn" aria-label="Menu">{{icon "menu"}}</label>
-    </div>
-    <nav class="sidebar-menu" aria-label="Main">
-      <a href="/admin"{{if eq .Path "/admin"}} aria-current="page"{{end}}>{{icon "layout-dashboard"}}<span>{{T "Dashboard"}}</span></a>
-      <a href="/admin/customers"{{if hasPrefix .Path "/admin/customers"}} aria-current="page"{{end}}>{{icon "users"}}<span>{{T "Customer"}}</span></a>
-      <a href="/admin/vouchers"{{if hasPrefix .Path "/admin/vouchers"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Voucher"}}</span></a>
-      <a href="/admin/transactions"{{if hasPrefix .Path "/admin/transactions"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Transactions"}}</span></a>
-      {{if or (eq .Admin.Role "SuperAdmin") (eq .Admin.Role "Admin")}}
-      <a href="/admin/plans"{{if hasPrefix .Path "/admin/plans"}} aria-current="page"{{end}}>{{icon "package"}}<span>{{T "Service Plan"}}</span></a>
-      <a href="/admin/bandwidth"{{if hasPrefix .Path "/admin/bandwidth"}} aria-current="page"{{end}}>{{icon "wifi"}}<span>{{T "Bandwidth"}}</span></a>
-      <a href="/admin/routers"{{if hasPrefix .Path "/admin/routers"}} aria-current="page"{{end}}>{{icon "router"}}<span>{{T "Routers"}}</span></a>
-      <a href="/admin/pool"{{if hasPrefix .Path "/admin/pool"}} aria-current="page"{{end}}>{{icon "package"}}<span>{{T "Pool"}}</span></a>
-      <a href="/admin/logs"{{if hasPrefix .Path "/admin/logs"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Logs"}}</span></a>
-      <a href="/admin/settings"{{if eq .Path "/admin/settings"}} aria-current="page"{{end}}>{{icon "settings"}}<span>{{T "Settings"}}</span></a>
+    <a href="/admin" class="flex items-center gap-2 px-5 py-4 text-lg font-semibold text-white">{{icon "wifi"}}<span>NuxBill</span></a>
+    <nav class="flex-1 px-3 pb-6" aria-label="Main">
+      <a class="nav-item" href="/admin"{{if eq .Path "/admin"}} aria-current="page"{{end}}>{{icon "layout-dashboard"}}<span>{{T "Dashboard"}}</span></a>
+      <a class="nav-item" href="/admin/customers"{{if hasPrefix .Path "/admin/customers"}} aria-current="page"{{end}}>{{icon "users"}}<span>{{T "Customer"}}</span></a>
+
+      <div x-data="{o:true}">
+        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o"><span>{{T "Services"}}</span>{{icon "chevron-down"}}</button>
+        <div x-show="o" class="space-y-1">
+          {{if $mgr}}<a class="nav-item" href="/admin/plans"{{if hasPrefix .Path "/admin/plans"}} aria-current="page"{{end}}>{{icon "package"}}<span>{{T "Service Plan"}}</span></a>{{end}}
+          <a class="nav-item" href="/admin/vouchers"{{if or (eq .Path "/admin/vouchers") (eq .Path "/admin/vouchers/new") (eq .Path "/admin/vouchers/print")}} aria-current="page"{{end}}>{{icon "ticket"}}<span>{{T "Voucher"}}</span></a>
+          {{if $staff}}<a class="nav-item" href="/admin/vouchers/redeem"{{if eq .Path "/admin/vouchers/redeem"}} aria-current="page"{{end}}>{{icon "wallet"}}<span>{{T "Recharge Account"}} / {{T "Redeem Voucher"}}</span></a>{{end}}
+        </div>
+      </div>
+
+      {{if $mgr}}
+      <div x-data="{o:true}">
+        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o"><span>{{T "Network"}}</span>{{icon "chevron-down"}}</button>
+        <div x-show="o" class="space-y-1">
+          <a class="nav-item" href="/admin/routers"{{if hasPrefix .Path "/admin/routers"}} aria-current="page"{{end}}>{{icon "router"}}<span>{{T "Routers"}}</span></a>
+          <a class="nav-item" href="/admin/pool"{{if hasPrefix .Path "/admin/pool"}} aria-current="page"{{end}}>{{icon "network"}}<span>{{T "Pool"}}</span></a>
+          <a class="nav-item" href="/admin/bandwidth"{{if hasPrefix .Path "/admin/bandwidth"}} aria-current="page"{{end}}>{{icon "gauge"}}<span>{{T "Bandwidth"}}</span></a>
+        </div>
+      </div>
       {{end}}
-      <form method="post" action="/logout">
-        <button type="submit">{{icon "log-out"}}<span>{{T "Logout"}}</span></button>
-      </form>
+
+      <div x-data="{o:true}">
+        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o"><span>{{T "Reports"}}</span>{{icon "chevron-down"}}</button>
+        <div x-show="o" class="space-y-1">
+          <a class="nav-item" href="/admin/transactions"{{if hasPrefix .Path "/admin/transactions"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Transactions"}}</span></a>
+          {{if $mgr}}<a class="nav-item" href="/admin/logs"{{if hasPrefix .Path "/admin/logs"}} aria-current="page"{{end}}>{{icon "scroll-text"}}<span>{{T "Logs"}}</span></a>{{end}}
+        </div>
+      </div>
+
+      {{if $mgr}}
+      <div class="mt-4 border-t border-white/10 pt-3">
+        <a class="nav-item" href="/admin/settings"{{if eq .Path "/admin/settings"}} aria-current="page"{{end}}>{{icon "settings"}}<span>{{T "Settings"}}</span></a>
+      </div>
+      {{end}}
     </nav>
-  </header>
-  <main class="main">
-    {{if .Flash}}<p class="alert alert-ok" role="status">{{icon "circle-check"}}<span>{{.Flash}}</span></p>{{end}}
-    {{if .Error}}<p class="alert alert-error" role="alert">{{icon "circle-alert"}}<span>{{.Error}}</span></p>{{end}}
-    {{template "content" .}}
-  </main>
+  </aside>
+
+  <div class="min-w-0 flex-1">
+    <div class="fiber-stripe lg:hidden" aria-hidden="true"></div>
+    <header class="sticky top-0 z-20 flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-2 dark:border-slate-800 dark:bg-slate-900">
+      <button type="button" class="btn btn-ghost lg:hidden" @click="drawer=true" aria-label="Menu">{{icon "menu"}}</button>
+      <form method="get" action="/admin/customers" role="search" class="relative max-w-sm flex-1">
+        <span class="pointer-events-none absolute inset-y-0 start-3 flex items-center text-slate-400">{{icon "search"}}</span>
+        <input class="input ps-10" type="search" name="q" placeholder="{{T "Search"}}: {{T "Customer"}}" aria-label="{{T "Search"}}">
+      </form>
+      <div class="ms-auto flex items-center gap-2">
+        <button type="button" class="btn btn-ghost" x-data="{dark:document.documentElement.classList.contains('dark')}"
+          @click="dark=!dark;document.documentElement.classList.toggle('dark',dark);try{localStorage.setItem('theme',dark?'dark':'light')}catch(e){}"
+          aria-label="{{T "Theme"}}" title="{{T "Theme"}}">
+          <span x-show="!dark">{{icon "moon"}}</span><span x-show="dark" x-cloak>{{icon "sun"}}</span>
+        </button>
+        <div class="relative" x-data="{o:false}" @click.outside="o=false" @keydown.escape="o=false">
+          <button type="button" class="btn btn-ghost" @click="o=!o" :aria-expanded="o">
+            {{icon "user-round"}}<span class="hidden sm:inline">{{if .Admin.Fullname}}{{.Admin.Fullname}}{{else}}{{.Admin.Username}}{{end}}</span>{{icon "chevron-down"}}
+          </button>
+          <div x-show="o" x-cloak class="absolute end-0 mt-2 w-48 rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+            <p class="px-4 py-2 text-xs text-slate-500 dark:text-slate-400">{{.Admin.Role}}</p>
+            {{if $mgr}}<a class="flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700" href="/admin/settings">{{icon "settings"}}<span>{{T "Settings"}}</span></a>{{end}}
+            <form method="post" action="/logout"><button type="submit" class="flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700">{{icon "log-out"}}<span>{{T "Logout"}}</span></button></form>
+          </div>
+        </div>
+      </div>
+    </header>
+    <main class="p-4 lg:p-6">
+      {{if .Flash}}<p class="alert alert-ok" role="status">{{icon "circle-check"}}<span>{{.Flash}}</span></p>{{end}}
+      {{if .Error}}<p class="alert alert-error" role="alert">{{icon "circle-alert"}}<span>{{.Error}}</span></p>{{end}}
+      {{template "content" .}}
+    </main>
+  </div>
 </div>
 {{end}}

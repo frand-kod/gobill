@@ -127,7 +127,7 @@ func TestRechargeForm(t *testing.T) {
 	if !strings.Contains(body, "Insufficient balance") {
 		t.Fatalf("no insufficient balance error:\n%s", body)
 	}
-	if !strings.Contains(body, "Rp 10.000") || !strings.Contains(body, "active") {
+	if !strings.Contains(body, "Rp 10.000") || !strings.Contains(body, "Aktif") {
 		t.Fatal("detail should list the transaction and subscription")
 	}
 	if trx, _ = e.q.ListTransactionsByCustomer(t.Context(), db.ListTransactionsByCustomerParams{CustomerID: e.cust.ID, Limit: 10}); len(trx) != 1 {
@@ -160,7 +160,7 @@ func TestVouchers(t *testing.T) {
 	code := vs[0].Code
 	red := url.Values{"customer": {"u1"}, "code": {code}}
 	wantCode(t, do(e.h, "POST", "/admin/vouchers/redeem", red, e.c), 303, "redeem")
-	if w := do(e.h, "POST", "/admin/vouchers/redeem", red, e.c); w.Code != 422 || !strings.Contains(w.Body.String(), "Voucher not valid or already used") {
+	if w := do(e.h, "POST", "/admin/vouchers/redeem", red, e.c); w.Code != 422 || !strings.Contains(w.Body.String(), "Voucher tidak valid atau sudah dipakai") {
 		t.Fatalf("second redeem: %d", w.Code)
 	}
 	if trx, _ := e.q.ListTransactionsByCustomer(t.Context(), db.ListTransactionsByCustomerParams{CustomerID: e.cust.ID, Limit: 10}); len(trx) != 1 {
