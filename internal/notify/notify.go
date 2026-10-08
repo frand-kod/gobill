@@ -56,6 +56,9 @@ func Load(ctx context.Context, q *db.Queries) (*Notifier, error) {
 
 func (n *Notifier) get(k string) string { return n.Settings[k] }
 
+// DefaultTemplate is the built-in message for name, shown in the settings form while empty.
+func DefaultTemplate(name string) string { return defaults[name] }
+
 // Go runs fn in a goroutine with a timeout; errors are only logged.
 func (n *Notifier) Go(name string, fn func(context.Context) error) {
 	go func() {

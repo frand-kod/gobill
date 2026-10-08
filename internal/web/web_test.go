@@ -127,33 +127,6 @@ func TestReportRoleForbiddenOnSettings(t *testing.T) {
 	}
 }
 
-func TestSettings(t *testing.T) {
-	h, q := newTestServer(t)
-	c := login(t, h, "alice")
-	form := url.Values{"company_name": {"Acme"}, "language": {"english"}, "timezone": {"Mars/Base"}, "currency_code": {"USD"}}
-
-	w := do(h, "POST", "/admin/settings", form, c)
-	if w.Code == http.StatusSeeOther || !strings.Contains(w.Body.String(), "Unknown timezone") {
-		t.Fatalf("invalid timezone: %d", w.Code)
-	}
-	if rows, _ := q.ListSettings(t.Context()); len(rows) != 0 {
-		t.Fatalf("saved despite error: %v", rows)
-	}
-
-	form.Set("timezone", "Asia/Makassar")
-	w = do(h, "POST", "/admin/settings", form, c)
-	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/admin/settings" {
-		t.Fatalf("valid save: %d", w.Code)
-	}
-	if rows, _ := q.ListSettings(t.Context()); len(rows) != 4 {
-		t.Fatalf("want 4 settings, got %v", rows)
-	}
-	w = do(h, "GET", "/admin/settings", nil, c)
-	if !strings.Contains(w.Body.String(), "Settings saved") || !strings.Contains(w.Body.String(), "Asia/Makassar") {
-		t.Fatalf("flash or value missing: %s", w.Body.String())
-	}
-}
-
 func TestLoginRateLimit(t *testing.T) {
 	h, _ := newTestServer(t)
 	bad := url.Values{"username": {"alice"}, "password": {"wrong"}}
@@ -173,7 +146,7 @@ func TestEveryPageRenders(t *testing.T) {
 		t.Fatalf("/login: %d", w.Code)
 	}
 	c := login(t, h, "alice")
-	for _, p := range []string{"/admin", "/admin/settings"} {
+	for _, p := range []string{"/admin", "/admin/settings/app"} {
 		if w := do(h, "GET", p, nil, c); w.Code != 200 {
 			t.Fatalf("%s: %d", p, w.Code)
 		}

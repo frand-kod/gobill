@@ -125,7 +125,7 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 
 **Hitungan baris tabel ringkasan (91 baris):** Ada 9 · Sebagian 29 · Belum 42 · Ditunda 7 · Non-goal 4.
 
-**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 54 · ⚠️ 40 · ❌ 84; Settings ✅ 1 · ⚠️ 8 · ❌ 101; Portal pelanggan ❌ 41. Total ✅ 55 · ⚠️ 48 · ❌ 226. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
+**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 54 · ⚠️ 40 · ❌ 84; Settings ✅ 37 · ⚠️ 6 · ❌ 72; Portal pelanggan ❌ 41. Total ✅ 91 · ⚠️ 46 · ❌ 197. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
 
 ---
 
@@ -543,7 +543,7 @@ Kolom hasil: Customer, Phone, Status, Message, Router, Service Type. Aksi: Start
 
 ## 3. Bagian Settings
 
-Baru: satu halaman `GET/POST /admin/settings` (`settingsForm`/`settingsSave` di `handlers.go`) dengan 4 key di tabel `settings (key, value)`: `company_name`, `language`, `timezone`, `currency_code`. Hanya SuperAdmin/Admin. Tabel di bawah dikelompokkan per sub-halaman lama. Semua key lama disimpan di `tbl_appconfig` (`setting`, `value`); di baru `settings.key`.
+Baru: sub-halaman `GET/POST /admin/settings/{tab}` (`internal/web/settings.go`): app, localisation, notifications, integrations, miscellaneous. Key di tabel `settings (key, value)`. Integrations hanya SuperAdmin; sisanya SuperAdmin/Admin. Payment ditunda (Tripay di akhir). Tabel di bawah dikelompokkan per sub-halaman lama. Semua key lama disimpan di `tbl_appconfig` (`setting`, `value`); di baru `settings.key`.
 
 Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 
@@ -555,10 +555,10 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 |---|---|---|---|---|---|---|
 | `CompanyName` | Application Name / Company Name | text | required | `company_name` | ⚠️ | Nama key beda |
 | `logo` | Company Logo | file | — | — | ❌ | F5 |
-| `CompanyFooter` | Company Footer | text | — | — | ❌ | F5 |
-| `address` | Address | textarea | — | — | ❌ | F5 (dipakai invoice) |
-| `phone` | Phone Number | text | — | — | ❌ | F5 |
-| `note` | Invoice Footer | textarea | — | — | ❌ | F5 (invoice) |
+| `CompanyFooter` | Company Footer | text | — | `company_footer` | ✅ | F5 |
+| `address` | Address | textarea | — | `address` | ✅ | F5 (dipakai invoice) |
+| `phone` | Phone Number | text | — | `phone` | ✅ | F5 |
+| `note` | Invoice Footer | textarea | — | `note` | ✅ | F5 (invoice) |
 | `printer_cols` | Print Max Char | number | required | — | ❌ | Ditunda (printer thermal NuxPrint) |
 | `theme` | Theme | select | — | toggle terang/gelap di header | ⚠️ | Disengaja: tema AdminLTE diganti Tailwind + mode gelap per pengguna |
 | `payment_usings` | Recharge Using | text | — | — | ❌ | F1: daftar metode bayar admin (baru hanya Cash/Balance) |
@@ -588,9 +588,9 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | `sms_otp_registration` | SMS OTP Registration | select | — | ❌ | F4 |
 | `phone_otp_type` | OTP Method | select | — | ❌ | F4 |
 | `reg_nofify_admin` | Notify Admin | select | — | ❌ | F4 |
-| `man_fields_email` | Mandatory field: Email | checkbox `yes` | — | ❌ | F4 (field wajib di registrasi) |
-| `man_fields_fname` | Mandatory field: Full Name | checkbox `yes` | — | ❌ | F4 |
-| `man_fields_address` | Mandatory field: Address | checkbox `yes` | — | ❌ | F4 |
+| `man_fields_email` | Mandatory field: Email | checkbox `yes` | `man_fields_email` | ✅ | F4 (field wajib di registrasi) |
+| `man_fields_fname` | Mandatory field: Full Name | checkbox `yes` | `man_fields_fname` | ✅ | F4 |
+| `man_fields_address` | Mandatory field: Address | checkbox `yes` | `man_fields_address` | ✅ | F4 |
 
 **Keamanan**
 
@@ -599,7 +599,7 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | `session_timeout_duration` | Timeout Duration | number min 1 | — | ❌ | F5 (durasi sesi `scs` tetap di kode) |
 | `single_session` | Single Admin Session | select | — | ❌ | F5 |
 | `csrf_enabled` | Enable CSRF Validation | select | — | ⚠️ | Disengaja hilang: CSRF selalu aktif (`CrossOriginProtection`) |
-| `enable_session_timeout` | Enable Session Timeout | checkbox `1` | — | ❌ | F5 (bersama `session_timeout_duration`) |
+| `enable_session_timeout` | Enable Session Timeout | checkbox `1` | `enable_session_timeout` | ✅ | F5 (bersama `session_timeout_duration`) |
 
 **Voucher, RADIUS, extend, balance**
 
@@ -612,7 +612,7 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | `extend_expired` | Allow Extend | select | — | ❌ | F4 (extend mandiri pelanggan) |
 | `extend_days` | Extend Days | text | — | ❌ | F4 |
 | `extend_confirmation` | Confirmation Message | text | — | ❌ | F4 |
-| `enable_balance` | Enable System (saldo) | select | `enable_balance` | ⚠️ | Dibaca `internal/billing/service.go:290` (default aktif), tapi tidak ada input di UI. Keputusan default menunggu pengguna |
+| `enable_balance` | Enable System (saldo) | select | `enable_balance` | ✅ | Dibaca `internal/billing/service.go:290` (default aktif), tapi tidak ada input di UI. Keputusan default menunggu pengguna |
 | `allow_balance_transfer` | Allow Transfer | select | — | ❌ | F4 |
 | `minimum_transfer` | Minimum Balance Transfer | number | — | ❌ | F4 |
 | `allow_balance_custom` | Allow Balance Custom Amount | select | — | ❌ | F4 |
@@ -621,23 +621,23 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 
 | Key lama | Label | Tipe | Key baru | St | Catatan / Fase |
 |---|---|---|---|---|---|
-| `telegram_bot` | Telegram Bot Token | password | — | ❌ | F4; `internal/notify` ada, halaman setting belum |
-| `telegram_target_id` | Telegram User/Channel/Group ID | text | — | ❌ | F4 |
-| `sms_url` | SMS Server URL | text | — | ❌ | F4 |
+| `telegram_bot` | Telegram Bot Token | password | `telegram_bot` | ✅ | F4; `internal/notify` ada, halaman setting belum |
+| `telegram_target_id` | Telegram User/Channel/Group ID | text | `telegram_target_id` | ✅ | F4 |
+| `sms_url` | SMS Server URL | text | `sms_url` | ✅ | F4 |
 | `mikrotik_sms_command` | Mikrotik SMS Command | text | — | ❌ | F4 |
-| `wa_url` | WhatsApp Server URL | text | — | ❌ | F4 |
-| `smtp_host` | SMTP Host | text | — | ❌ | F4 |
-| `smtp_port` | SMTP Port | number | — | ❌ | F4 |
-| `smtp_user` | SMTP Username | text | — | ❌ | F4 |
-| `smtp_pass` | SMTP Password | password | — | ❌ | F4 (simpan terenkripsi `internal/secret`) |
-| `smtp_ssltls` | SMTP Security | select | — | ❌ | F4 |
-| `mail_from` | Mail From | text | — | ❌ | F4 |
+| `wa_url` | WhatsApp Server URL | text | `wa_url` | ✅ | F4 |
+| `smtp_host` | SMTP Host | text | `smtp_host` | ✅ | F4 |
+| `smtp_port` | SMTP Port | number | `smtp_port` | ✅ | F4 |
+| `smtp_user` | SMTP Username | text | `smtp_user` | ✅ | F4 |
+| `smtp_pass` | SMTP Password | password | `smtp_pass` | ✅ | F4 (simpan terenkripsi `internal/secret`) |
+| `smtp_ssltls` | SMTP Security | select | `smtp_ssltls` | ✅ | F4 |
+| `mail_from` | Mail From | text | `mail_from` | ✅ | F4 |
 | `mail_reply_to` | Mail Reply To | text | — | ❌ | F4 |
-| `user_notification_expired` | Expired Notification | select | — | ❌ | F4 |
-| `user_notification_payment` | Payment Notification | select | — | ❌ | F4 |
-| `user_notification_reminder` | Reminder Notification | select | — | ❌ | F4 |
-| (baru, tidak ada di lama) | Webhook keluar HMAC | — | — | ❌ | F4 (PROGRESS: halaman setting webhook) |
-| (baru) | Tripay key/merchant/mode | — | — | ❌ | F4 |
+| `user_notification_expired` | Expired Notification | select | `user_notification_expired` | ✅ | F4 |
+| `user_notification_payment` | Payment Notification | select | `user_notification_payment` | ✅ | F4 |
+| `user_notification_reminder` | Reminder Notification | select | `user_notification_reminder` | ✅ | F4 |
+| (baru) | Webhook keluar HMAC | text, password | `webhook_url`, `webhook_secret` | ✅ | Baru di Settings > Integrations; tanda tangan X-Signature |
+| (baru) | Tripay key/merchant/mode | — | — | ❌ | Ditunda (Tripay di akhir) |
 
 **Lain-lain**
 
@@ -656,12 +656,12 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | Key lama | Label | Tipe | Wajib | Key baru | St | Catatan / Fase |
 |---|---|---|---|---|---|---|
 | `tzone` | Timezone | select | required | `timezone` | ⚠️ | Divalidasi `time.LoadLocation`; saat ini hanya dibaca saat start (PROGRESS item 2) |
-| `date_format` | Date Format | select | required | — | ❌ | F5 |
+| `date_format` | Date Format | select | required | `date_format` | ✅ | F5 |
 | `lan` | Default Language | select | required | `language` | ⚠️ | Nama beda; opsi dari katalog JSON |
 | `dec_point` | Decimal Point | text | required | — | ❌ | F5 |
 | `thousands_sep` | Thousands Separator | text | required | — | ❌ | F5 (helper `money` ada) |
 | `currency_code` | Currency Code | text | required | `currency_code` | ✅ | Default "Rp" |
-| `country_code_phone` | Country Code Phone | text | — | — | ❌ | F4 (normalisasi nomor) |
+| `country_code_phone` | Country Code Phone | text | — | `country_code_phone` | ✅ | F4 (normalisasi nomor) |
 | `radius_plan` | Radius Package (label menu) | text | — | — | ❌ | Non-goal |
 | `hotspot_plan` | Hotspot Package (label) | text | — | — | ❌ | Non-goal |
 | `pppoe_plan` | PPPOE Package (label) | text | — | — | ❌ | Non-goal |
@@ -671,11 +671,15 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 
 | Key lama | Label | Tipe | Key baru | St | Catatan / Fase |
 |---|---|---|---|---|---|
-| `expired` | Expired Notification Message | textarea | — | ❌ | F4 |
-| `reminder_7_day` | Reminder 7 days | textarea | — | ❌ | F4 (job reminder H-7) |
-| `reminder_3_day` | Reminder 3 days | textarea | — | ❌ | F4 |
-| `reminder_1_day` | Reminder 1 day | textarea | — | ❌ | F4 |
-| `invoice_paid` | Invoice Notification Payment | textarea | — | ❌ | F4 |
+| `expired` | Expired Notification Message | textarea | `notif_expired` | ✅ | F4 |
+| `reminder_7_day` | Reminder 7 days | textarea | `notif_reminder_7_day` | ✅ | F4 (job reminder H-7) |
+| `reminder_3_day` | Reminder 3 days | textarea | `notif_reminder_3_day` | ✅ | F4 |
+| `reminder_1_day` | Reminder 1 day | textarea | `notif_reminder_1_day` | ✅ | F4 |
+| `invoice_paid` | Invoice Notification Payment | textarea | `notif_invoice_paid` | ✅ | F4 |
+| `notification_reminder_7day` | Send 7-day reminder | select yes/no | `notification_reminder_7day` | ✅ | Baru: `no` mematikan pengingat 7 hari (dibaca `internal/notify`) |
+| `notification_reminder_3day` | Send 3-day reminder | select yes/no | `notification_reminder_3day` | ✅ | Baru: `no` mematikan pengingat 3 hari |
+| `notification_reminder_1day` | Send 1-day reminder | select yes/no | `notification_reminder_1day` | ✅ | Baru: `no` mematikan pengingat 1 hari |
+| `reminder_hour` | Reminder Hour | number 0-23 | `reminder_hour` | ✅ | Baru: jam kirim pengingat, default 7 |
 | `invoice_balance` | Balance Notification Payment | textarea | — | ❌ | F4 |
 | `welcome_message` | Welcome Message | textarea | — | ❌ | F4 |
 | `balance_send` | Send Balance | textarea | — | ❌ | F4 |
@@ -695,7 +699,8 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | `hs_auth_method` | Hotspot Auth Method | select | — | ❌ | F3 (PAP/CHAP; RADIUS mendukung PAP, CHAP, MS-CHAPv2) |
 | `frrest_interim_update` | Radius Rest Interim-Update | number | — | ❌ | Non-goal (FreeRADIUS REST diganti RADIUS built-in) |
 | `check_customer_online` | Check if Customer Online | select | — | ❌ | F2 |
-| `extend_expiry` | Extend Package Expiry | select | `extend_expiry` | ⚠️ | Dibaca `internal/billing/service.go:203` (default aktif), tidak ada input. Keputusan default menunggu pengguna |
+| `extend_expiry` | Extend Package Expiry | select | `extend_expiry` | ✅ | Dibaca `internal/billing/service.go:203` (default aktif), tidak ada input. Keputusan default menunggu pengguna |
+| `clock_guard` | Clock Guard | select on/off | `clock_guard` | ✅ | Baru di UI; dibaca `internal/job/clock.go` (`off` mematikan) |
 
 ### S5-S12. Sub-halaman lain
 
