@@ -124,9 +124,9 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 - `admin/community.tpl`/`rollback.tpl`: hanya tautan komunitas dan tombol update GitHub.
 - `admin/autoload/*.tpl`: hanya dipanggil lewat AJAX dari form paket/voucher.
 
-**Hitungan baris tabel ringkasan (92 baris, dihitung ulang 2026-10-08):** Ada 34 · Sebagian 41 · Non-goal 5 · Ditunda 7 · Belum 5.
+**Hitungan baris tabel ringkasan (92 baris, dihitung ulang 2026-10-09):** Ada 36 · Sebagian 42 · Non-goal 5 · Ditunda 7 · Belum 2.
 
-**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 92 · ⚠️ 53 · ❌ 33; Settings ✅ 42 · ⚠️ 29 · ❌ 42; Portal pelanggan ✅ 24 · ⚠️ 3 · ❌ 16. Total ✅ 158 · ⚠️ 85 · ❌ 91. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
+**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 94 · ⚠️ 54 · ❌ 30; Settings ✅ 43 · ⚠️ 29 · ❌ 41; Portal pelanggan ✅ 25 · ⚠️ 4 · ❌ 14. Total ✅ 162 · ⚠️ 87 · ❌ 85. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
 
 ---
 
