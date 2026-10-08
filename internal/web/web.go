@@ -393,6 +393,7 @@ func (s *Server) parseTemplates() error {
 		"p_orders":    {"base.html", "portal/layout.html", "portal/orders.html"},
 		"p_plans":     {"base.html", "portal/layout.html", "portal/plans.html"},
 		"p_inbox":     {"base.html", "portal/layout.html", "portal/inbox.html"},
+		"p_voucher":   {"base.html", "portal/layout.html", "portal/voucher.html"},
 		"p_forgot":    {"base.html", "portal/forgot.html"},
 		"p_page":      {"base.html", "portal/page.html"},
 	}

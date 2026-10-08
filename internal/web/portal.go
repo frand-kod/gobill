@@ -57,6 +57,7 @@ func (s *Server) portalRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /portal/plans", s.requireCustomer(s.pPlans))
 	mux.Handle("POST /portal/plans/{id}/balance", s.requireCustomer(s.pBuyBalance))
 	s.inboxRoutes(mux)
+	s.portalRoutes2(mux)
 	mux.HandleFunc("GET /portal/forgot", s.pForgotForm)
 	mux.HandleFunc("POST /portal/forgot", s.pForgotSend)
 	mux.HandleFunc("POST /portal/forgot/verify", s.pForgotVerify)
@@ -135,6 +136,10 @@ func (s *Server) pRegisterForm(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "register", err)
 		return
 	}
+	if st["disable_registration"] == "noreg" {
+		s.flashTo(w, r, "/portal/login", "Registration Disabled")
+		return
+	}
 	s.prender(w, r, 200, "p_register", Page{Title: "Register", Data: regFlags(regData{}, st)})
 }
 
@@ -151,6 +156,10 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "register", err)
 		return
 	}
+	if st["disable_registration"] == "noreg" {
+		s.flashTo(w, r, "/portal/login", "Registration Disabled")
+		return
+	}
 	f := r.PostFormValue
 	d := regFlags(regData{Username: strings.TrimSpace(f("username")), Fullname: strings.TrimSpace(f("fullname")),
 		Email: strings.TrimSpace(f("email")), Address: strings.TrimSpace(f("address")), Phone: strings.TrimSpace(f("phone_number"))}, st)
@@ -162,6 +171,14 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	if l := len(d.Username); l < 3 || l > 55 {
 		show("Username should be between 3 to 55 characters")
+		return
+	}
+	if st["registration_username"] == "phone" && (len(normPhone(d.Username)) < 6 || normPhone(d.Username) != d.Username) {
+		show("Phone Number is required")
+		return
+	}
+	if st["registration_username"] == "email" && !strings.Contains(d.Username, "@") {
+		show("Email is not Valid")
 		return
 	}
 	if d.Fname && (len(d.Fullname) < 3 || len(d.Fullname) > 25) {
@@ -218,16 +235,36 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(f("password")), bcrypt.DefaultCost)
+	var nc db.Customer
 	if err == nil {
-		_, err = s.queries.CreateCustomer(ctx, db.CreateCustomerParams{Username: d.Username, PasswordHash: string(hash),
+		nc, err = s.queries.CreateCustomer(ctx, db.CreateCustomerParams{Username: d.Username, PasswordHash: string(hash),
 			Fullname: d.Fullname, Address: d.Address, Phone: d.Phone, Email: d.Email, ServiceType: "Others", AutoRenewal: 1, Status: "Active"})
 	}
 	if err != nil {
 		s.fail(w, "register", err)
 		return
 	}
+	s.registered(ctx, st, nc)
 	s.sessions.Put(ctx, "flash", s.catalog.T(s.language(), "Register Success! You can login now"))
 	http.Redirect(w, r, "/portal/login", http.StatusSeeOther)
+}
+
+// registered sends the welcome message and, when reg_nofify_admin is on, tells the admin (Telegram).
+func (s *Server) registered(ctx context.Context, st map[string]string, c db.Customer) {
+	n, err := notify.Load(ctx, s.queries)
+	if err != nil {
+		slog.Error("register notify", "err", err)
+		return
+	}
+	n.Go("welcome", func(ctx context.Context) error {
+		return n.Custom(ctx, c, "welcome_message", "Welcome", map[string]string{"company": st["company_name"], "Username": c.Username, "url": st["app_url"], "Password": "********"})
+	})
+	if st["reg_nofify_admin"] == "yes" {
+		n.Go("telegram", func(ctx context.Context) error {
+			return n.Telegram(ctx, fmt.Sprintf("%s - New User Registration\n\nFull Name: %s\nUsername: %s\nEmail: %s\nPhone Number: %s\nAddress: %s",
+				st["company_name"], c.Fullname, c.Username, c.Email, c.Phone, c.Address))
+		})
+	}
 }
 
 func (s *Server) sendOTP(ctx context.Context, st map[string]string, phone, label, otp string) error {
@@ -251,26 +288,39 @@ func (s *Server) sendOTP(ctx context.Context, st map[string]string, phone, label
 // ---- dashboard, orders ----
 
 type pSubRow struct {
+	ID                 int64
 	Plan, Type, Status string
 	Expires            int64
+	CanExtend          bool
 }
 
 type pDashData struct {
-	Subs   []pSubRow
-	Notice string // the announcement page, plain text
+	Subs     []pSubRow
+	Notice   string // the announcement page, plain text
+	Transfer bool   // allow_balance_transfer
+	Minimum  string
+	Voucher  bool
 }
 
-func (s *Server) pDashboard(w http.ResponseWriter, r *http.Request) {
+func (s *Server) pDashboard(w http.ResponseWriter, r *http.Request) { s.pDash(w, r, 200, "") }
+
+func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg string) {
 	c := customerFrom(r)
+	st, err := s.loadSettings(r.Context())
+	if err != nil {
+		s.fail(w, "portal dashboard", err)
+		return
+	}
 	subs, err := s.queries.ListSubscriptionsByCustomer(r.Context(), db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 50})
 	if err != nil {
 		s.fail(w, "portal dashboard", err)
 		return
 	}
-	var d pDashData
+	d := pDashData{Transfer: st["enable_balance"] != "no" && st["allow_balance_transfer"] == "yes", Minimum: st["minimum_transfer"], Voucher: st["disable_voucher"] != "yes"}
+	canExtend := (st["extend_expired"] == "1" || st["extend_expired"] == "yes") && c.Status == "Active"
 	for _, sub := range subs {
 		p, _ := s.queries.GetPlan(r.Context(), sub.PlanID)
-		d.Subs = append(d.Subs, pSubRow{p.Name, sub.Type, sub.Status, sub.ExpiresAt})
+		d.Subs = append(d.Subs, pSubRow{sub.ID, p.Name, sub.Type, sub.Status, sub.ExpiresAt, canExtend && sub.Status != "active"})
 	}
 	ann, err := s.queries.GetPage(r.Context(), "announcement")
 	if err != nil {
@@ -278,7 +328,7 @@ func (s *Server) pDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d.Notice = ann.Body
-	s.prender(w, r, 200, "p_dashboard", Page{Title: "Dashboard", Data: d})
+	s.prender(w, r, code, "p_dashboard", Page{Title: "Dashboard", Error: errMsg, Data: d})
 }
 
 func (s *Server) pOrders(w http.ResponseWriter, r *http.Request) {
@@ -300,8 +350,13 @@ func (s *Server) pInvoice(w http.ResponseWriter, r *http.Request) {
 	s.invoice(w, r, t)
 }
 
+type planRow struct {
+	db.Plan
+	Bandwidth string // shown when show_bandwidth_plan == yes
+}
+
 type plansData struct {
-	Plans   []db.Plan
+	Plans   []planRow
 	Balance bool
 }
 
@@ -320,7 +375,7 @@ func (s *Server) plansPage(w http.ResponseWriter, r *http.Request, code int, err
 	if c.ServiceType != "Others" {
 		types = []string{c.ServiceType}
 	}
-	var plans []db.Plan
+	var plans []planRow
 	for _, t := range types {
 		l, err := s.queries.ListEnabledPlansByType(r.Context(), t)
 		if err != nil {
@@ -329,7 +384,11 @@ func (s *Server) plansPage(w http.ResponseWriter, r *http.Request, code int, err
 		}
 		for _, p := range l {
 			if p.Billing == "prepaid" {
-				plans = append(plans, p)
+				row := planRow{Plan: p}
+				if bw, err := s.queries.GetBandwidth(r.Context(), p.BandwidthID.Int64); st["show_bandwidth_plan"] == "yes" && p.BandwidthID.Valid && err == nil {
+					row.Bandwidth = bw.Name
+				}
+				plans = append(plans, row)
 			}
 		}
 	}
@@ -391,20 +450,30 @@ func (s *Server) pBuyBalance(w http.ResponseWriter, r *http.Request) {
 // ---- profile ----
 
 func (s *Server) pProfileForm(w http.ResponseWriter, r *http.Request) {
-	s.prender(w, r, 200, "p_profile", Page{Title: "Profile"})
+	s.profilePage(w, r, 200, "")
 }
 
 func (s *Server) pProfile(w http.ResponseWriter, r *http.Request) {
 	c := customerFrom(r)
 	fullname := strings.TrimSpace(r.PostFormValue("fullname"))
 	if fullname == "" {
-		s.prender(w, r, 200, "p_profile", Page{Title: "Profile", Error: "Full Name is required"})
+		s.profilePage(w, r, 200, "Full Name is required")
 		return
 	}
-	// ponytail: phone/email change has no OTP confirmation (old flow had one).
-	err := s.queries.UpdateCustomer(r.Context(), db.UpdateCustomerParams{
-		Fullname: fullname, Address: strings.TrimSpace(r.PostFormValue("address")),
-		Phone: strings.TrimSpace(r.PostFormValue("phone")), Email: strings.TrimSpace(r.PostFormValue("email")),
+	st, err := s.loadSettings(r.Context())
+	if err != nil {
+		s.fail(w, "portal profile", err)
+		return
+	}
+	phone, email := strings.TrimSpace(r.PostFormValue("phone")), strings.TrimSpace(r.PostFormValue("email"))
+	if st["allow_phone_otp"] == "yes" { // changed only through the OTP flow
+		phone = c.Phone
+	}
+	if st["allow_email_otp"] == "yes" {
+		email = c.Email
+	}
+	err = s.queries.UpdateCustomer(r.Context(), db.UpdateCustomerParams{
+		Fullname: fullname, Address: strings.TrimSpace(r.PostFormValue("address")), Phone: phone, Email: email, Coordinates: c.Coordinates,
 		ServiceType: c.ServiceType, PppoeUsername: c.PppoeUsername, PppoeIp: c.PppoeIp, SecretEnc: c.SecretEnc,
 		AutoRenewal: c.AutoRenewal, Status: c.Status, BillingDay: c.BillingDay, ID: c.ID})
 	if err != nil {
@@ -428,7 +497,7 @@ func (s *Server) pPassword(w http.ResponseWriter, r *http.Request) {
 		msg = "Passwords does not match"
 	}
 	if msg != "" {
-		s.prender(w, r, 200, "p_profile", Page{Title: "Profile", Error: msg})
+		s.profilePage(w, r, 200, msg)
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(npass), bcrypt.DefaultCost)

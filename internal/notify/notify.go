@@ -27,11 +27,14 @@ import (
 
 // Default templates, from notifications.default.json (override with settings notif_<name>).
 var defaults = map[string]string{
-	"expired":        "Hello [[name]], your internet package [[package]] has been expired.",
-	"reminder_7_day": "Hello *[[name]]*, \r\nyour internet package *[[package]]* will be expired in 7 days.",
-	"reminder_3_day": "Hello *[[name]]*, \r\nyour internet package *[[package]]* will be expired in 3 days.",
-	"reminder_1_day": "Hello *[[name]]*,\r\n your internet package *[[package]]* will be expired tomorrow.",
-	"invoice_paid":   "*[[company_name]]*\r\n[[address]]\r\n[[phone]]\r\n\r\nINVOICE: *[[invoice]]*\r\nDate : [[date]]\r\n[[payment_gateway]] [[payment_channel]]\r\n\r\nType : *[[type]]*\r\nPackage : *[[plan_name]]*\r\nPrice : *[[plan_price]]*\r\n\r\nUsername : *[[user_name]]*\r\n\r\nExpired : *[[expired_date]]*\r\n\r\n====================\r\n[[footer]]",
+	"expired":          "Hello [[name]], your internet package [[package]] has been expired.",
+	"reminder_7_day":   "Hello *[[name]]*, \r\nyour internet package *[[package]]* will be expired in 7 days.",
+	"reminder_3_day":   "Hello *[[name]]*, \r\nyour internet package *[[package]]* will be expired in 3 days.",
+	"reminder_1_day":   "Hello *[[name]]*,\r\n your internet package *[[package]]* will be expired tomorrow.",
+	"balance_send":     "You sent [[balance]] to [[name]].",
+	"balance_received": "You have received [[balance]] from [[name]].",
+	"welcome_message":  "Welcome aboard, [[name]]! \r\nWe're excited to have you as a new [[company]] customer. \r\nPortal: [[url]]\r\nYour login is [[Username]]\r\nWelcome to the [[company]] family!",
+	"invoice_paid":     "*[[company_name]]*\r\n[[address]]\r\n[[phone]]\r\n\r\nINVOICE: *[[invoice]]*\r\nDate : [[date]]\r\n[[payment_gateway]] [[payment_channel]]\r\n\r\nType : *[[type]]*\r\nPackage : *[[plan_name]]*\r\nPrice : *[[plan_price]]*\r\n\r\nUsername : *[[user_name]]*\r\n\r\nExpired : *[[expired_date]]*\r\n\r\n====================\r\n[[footer]]",
 }
 
 type Notifier struct {
@@ -260,6 +263,11 @@ func (n *Notifier) Expired(ctx context.Context, c db.Customer, pkg string, vars 
 	v := custVars(c, vars)
 	v["package"], v["plan"] = pkg, pkg
 	return n.send(ctx, c, n.get("user_notification_expired"), "Internet Plan Expired", Render(n.template("expired"), v))
+}
+
+// Custom sends template `name` (settings notif_<name>) via user_notification_payment.
+func (n *Notifier) Custom(ctx context.Context, c db.Customer, name, subject string, vars map[string]string) error {
+	return n.send(ctx, c, n.get("user_notification_payment"), subject, Render(n.template(name), custVars(c, vars)))
 }
 
 // Reminder sends the 7/3/1-day message via user_notification_reminder (cron_reminder.php);

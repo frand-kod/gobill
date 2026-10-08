@@ -6,6 +6,7 @@
 <div class="card"><div class="card-body space-y-2">
   <h2 class="font-semibold">{{.Name}}</h2>
   <p class="text-sm text-slate-500">{{.Type}} - {{.Validity}} {{.ValidityUnit}}</p>
+  {{with .Bandwidth}}<p class="text-sm text-slate-500">{{T "Bandwidth"}}: {{.}}</p>{{end}}
   <p class="text-xl font-semibold">{{money .Price}}</p>
   {{if $bal}}<form method="post" action="/portal/plans/{{.ID}}/balance" class="space-y-2"><input class="input" type="text" name="coupon" maxlength="50" placeholder="{{T "Coupon Code"}}" aria-label="{{T "Coupon Code"}}"><button class="btn btn-primary" type="submit">{{T "Pay with Balance"}}</button></form>{{end}}
 </div></div>

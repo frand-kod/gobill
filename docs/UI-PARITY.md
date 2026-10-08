@@ -126,7 +126,7 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 
 **Hitungan baris tabel ringkasan (92 baris, dihitung ulang 2026-10-08):** Ada 30 · Sebagian 38 · Belum 13 · Ditunda 7 · Non-goal 4.
 
-**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 91 · ⚠️ 53 · ❌ 34; Settings ✅ 37 · ⚠️ 8 · ❌ 68; Portal pelanggan ✅ 19 · ⚠️ 5 · ❌ 19. Total ✅ 147 · ⚠️ 66 · ❌ 121. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
+**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 91 · ⚠️ 53 · ❌ 34; Settings ✅ 37 · ⚠️ 8 · ❌ 68; Portal pelanggan ✅ 24 · ⚠️ 3 · ❌ 16. Total ✅ 152 · ⚠️ 64 · ❌ 118. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
 
 ---
 
@@ -764,7 +764,7 @@ Baru: `dashboard.html` + `dashboardData` (`handlers.go`), 4 kotak + 2 grafik Cha
 
 ## 5. Bagian Portal pelanggan
 
-Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, dashboard, profil, ganti password, riwayat order, order dari saldo. Belum: lupa password (OTP wajib di PHP), gateway Tripay, inbox, aktivasi voucher, kupon, kirim paket.
+Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, dashboard, profil, ganti password, riwayat order, order dari saldo. Sudah juga: lupa password, inbox, aktivasi voucher (`/portal/voucher`), kirim saldo antar pelanggan (`POST /portal/transfer`; `allow_balance_transfer`, `minimum_transfer`, notifikasi `balance_send`/`balance_received`, atomik satu tx), perpanjang paket kedaluwarsa (`POST /portal/extend/{id}`; `extend_expired`, `extend_days`, sekali per bulan kalender), registrasi menghormati `disable_registration=noreg`, `registration_username` (phone/email), `sms_otp_registration`, `reg_nofify_admin` (Telegram) dan mengirim `welcome_message`, daftar paket menampilkan bandwidth bila `show_bandwidth_plan=yes`. Belum: gateway Tripay, kirim paket ke teman.
 
 ### C1. Login `customer/login.tpl`, `login-noreg.tpl`, `login-custom-moon.tpl`
 
@@ -811,10 +811,10 @@ Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, das
 | `username` | Usernames | text (readonly) | — | ✅ | `/portal/profile` | |
 | `fullname` | Full Name | text | — | ✅ | `/portal/profile` | |
 | `address` | Home Address | textarea | — | ✅ | `/portal/profile` | |
-| `phonenumber` | Phone Number | text (readonly) | — | ⚠️ | Bisa diedit langsung tanpa OTP | |
-| `email` | Email Address | text (readonly) | — | ⚠️ | Bisa diedit langsung tanpa OTP | |
-| `phone` / `email` (update) | New Number / New Email | number / text | required | — | ❌ | Request OTP |
-| `otp` | OTP | number | required | — | ❌ | |
+| `phonenumber` | Phone Number | text (readonly) | — | ✅ | Readonly bila `allow_phone_otp=yes`, selain itu bisa diedit langsung (seperti lama) | |
+| `email` | Email Address | text (readonly) | — | ✅ | Readonly bila `allow_email_otp=yes` | |
+| `phone` / `email` (update) | New Number / New Email | number / text | required | `value` (`POST /portal/contact/{phone\|email}/otp`) | ✅ | Request OTP; telepon via gateway SMS/WA (`phone_otp_type`), email via SMTP; unik antar pelanggan |
+| `otp` | OTP | number | required | `otp` (`POST /portal/contact/{kind}/verify`) | ✅ | Hash bcrypt di session, 10 menit, 5 percobaan |
 | field kustom `{$field['name']}` | select / file / tipe dinamis | — | required bila diset | — | ❌ | Bergantung customfield F5 |
 | Aksi: Save Changes, Cancel, Change (phone/email), Request OTP, Update | | | | | ❌ | |
 
@@ -833,7 +833,7 @@ Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, das
 
 | Field lama | Label | Tipe | Wajib | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
-| `code` | Voucher code | text | required | — | ❌ | Logika redeem sudah ada di `internal/billing` |
+| `code` | Voucher code | text | required | `code` (`POST /portal/voucher`) | ✅ | `RedeemVoucher` sekali pakai; `disable_voucher=yes` memblokir (403); `voucher_redirect` hanya URL http/https |
 | `activation-list`: kolom Invoice, Package Name, Package Price, Type, Created On, Expires On, Method | | | | | ❌ | |
 | `invoice-customer`: `id`, Finish, Download, WhatsApp | | | | | ⚠️ | `GET /portal/orders/{id}/invoice` (hanya transaksi sendiri, selain itu 404); tanpa Download/WhatsApp |
 
