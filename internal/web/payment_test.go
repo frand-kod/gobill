@@ -265,3 +265,20 @@ func TestPaymentAdminPages(t *testing.T) {
 		t.Fatalf("view: %d", w.Code)
 	}
 }
+
+func TestTripayPaidAfterClosed(t *testing.T) {
+	for _, closed := range []string{"expired", "failed"} {
+		e := payApp(t)
+		e.order(t, url.Values{"channel": {"QRIS"}})
+		pr := e.pending(t)
+		if _, err := e.s.conn.Exec("UPDATE payment_requests SET status = ? WHERE id = ?", closed, pr.ID); err != nil {
+			t.Fatal(err)
+		}
+		body := fmt.Sprintf(`{"merchant_ref":%q,"status":"PAID"}`, pr.Ref)
+		postCallback(e.h, body, signed(body))
+		postCallback(e.h, body, signed(body))
+		if e.pending(t).Status != "paid" || e.trxCount(t) != 1 {
+			t.Fatalf("%s: status=%s trx=%d", closed, e.pending(t).Status, e.trxCount(t))
+		}
+	}
+}

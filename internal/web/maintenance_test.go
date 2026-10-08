@@ -58,3 +58,11 @@ func TestMaintenanceMode(t *testing.T) {
 		t.Errorf("customer should be logged out, got %d %s", w.Code, w.Header().Get("Location"))
 	}
 }
+
+func TestMaintenanceAllowsCallback(t *testing.T) {
+	e := payApp(t)
+	e.q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "maintenance_mode", Value: "yes"})
+	if w := postCallback(e.h, `{}`, "x"); w.Code == http.StatusServiceUnavailable {
+		t.Fatal("callback blocked by maintenance")
+	}
+}

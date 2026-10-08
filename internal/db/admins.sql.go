@@ -255,7 +255,7 @@ func (q *Queries) SearchAdmins(ctx context.Context, arg SearchAdminsParams) ([]A
 }
 
 const setAdminPassword = `-- name: SetAdminPassword :one
-UPDATE admins SET password_hash = ?, session_version = admins.session_version + 1 WHERE admins.id = ?
+UPDATE admins SET password_hash = ?, legacy_sha1 = '', session_version = admins.session_version + 1 WHERE admins.id = ?
 RETURNING session_version
 `
 
@@ -286,6 +286,7 @@ UPDATE admins SET username = ?1, fullname = ?2, email = ?3,
   phone = ?4, city = ?5, role = ?6, status = ?7,
   root_id = ?8,
   password_hash = CASE WHEN ?9 <> '' THEN ?9 ELSE admins.password_hash END,
+  legacy_sha1 = CASE WHEN ?9 <> '' THEN '' ELSE admins.legacy_sha1 END,
   session_version = admins.session_version + ?10
 WHERE admins.id = ?11
   AND (NOT (admins.role = 'SuperAdmin' AND admins.status = 'Active')

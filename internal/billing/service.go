@@ -365,6 +365,13 @@ func (s *Service) ExpireDue(ctx context.Context) error {
 }
 
 func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew bool) error {
+	// The job works from a snapshot: a renewal since then must not be expired.
+	now := s.now().Unix()
+	cur, err := s.Q.GetSubscription(ctx, sub.ID)
+	if err != nil || cur.Status != "active" || cur.ExpiresAt > now {
+		return err
+	}
+	sub = cur
 	plan, err := s.Q.GetPlan(ctx, sub.PlanID)
 	if err != nil {
 		return err
@@ -380,7 +387,7 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 	if err := dev.RemoveCustomer(ctx, dc, dp); err != nil {
 		return fmt.Errorf("remove from router: %w", err)
 	}
-	n, err := s.Q.ExpireSubscription(ctx, sub.ID)
+	n, err := s.Q.ExpireSubscription(ctx, db.ExpireSubscriptionParams{ID: sub.ID, Now: now})
 	if err != nil || n == 0 {
 		return err
 	}

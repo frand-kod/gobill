@@ -53,7 +53,7 @@ func TestBillingSchema(t *testing.T) {
 		t.Fatal("should be expired")
 	}
 	for i, want := range []int64{1, 0} {
-		if n, err := q.ExpireSubscription(ctx, sub.ID); err != nil || n != want {
+		if n, err := q.ExpireSubscription(ctx, ExpireSubscriptionParams{ID: sub.ID, Now: 200}); err != nil || n != want {
 			t.Fatalf("expire #%d: n=%d err=%v", i, n, err)
 		}
 	}

@@ -24,7 +24,7 @@ SELECT * FROM subscriptions WHERE status = 'active' AND expires_at <= sqlc.arg(n
 SELECT * FROM subscriptions WHERE status = 'active' AND expires_at >= sqlc.arg(from_ts) AND expires_at < sqlc.arg(to_ts) ORDER BY expires_at;
 
 -- name: ExpireSubscription :execrows
-UPDATE subscriptions SET status = 'expired' WHERE id = ? AND status = 'active';
+UPDATE subscriptions SET status = 'expired' WHERE id = sqlc.arg(id) AND status = 'active' AND expires_at <= sqlc.arg(now);
 
 -- name: RenewSubscription :exec
 UPDATE subscriptions SET plan_id = ?, router_id = ?, type = ?, started_at = ?, expires_at = ?,

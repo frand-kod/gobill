@@ -82,11 +82,16 @@ func (q *Queries) DeleteSubscription(ctx context.Context, id int64) error {
 }
 
 const expireSubscription = `-- name: ExpireSubscription :execrows
-UPDATE subscriptions SET status = 'expired' WHERE id = ? AND status = 'active'
+UPDATE subscriptions SET status = 'expired' WHERE id = ?1 AND status = 'active' AND expires_at <= ?2
 `
 
-func (q *Queries) ExpireSubscription(ctx context.Context, id int64) (int64, error) {
-	result, err := q.db.ExecContext(ctx, expireSubscription, id)
+type ExpireSubscriptionParams struct {
+	ID  int64
+	Now int64
+}
+
+func (q *Queries) ExpireSubscription(ctx context.Context, arg ExpireSubscriptionParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, expireSubscription, arg.ID, arg.Now)
 	if err != nil {
 		return 0, err
 	}

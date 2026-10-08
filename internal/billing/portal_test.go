@@ -88,7 +88,7 @@ func TestExtendExpired(t *testing.T) {
 	if _, err := e.s.ExtendExpired(ctx, e.cust.ID, sub.ID); !errors.Is(err, ErrNotExpired) {
 		t.Fatalf("active sub: %v", err)
 	}
-	e.q.ExpireSubscription(ctx, sub.ID)
+	e.q.ExpireSubscription(ctx, db.ExpireSubscriptionParams{ID: sub.ID, Now: 1 << 40})
 	other, _ := e.q.CreateCustomer(ctx, db.CreateCustomerParams{Username: "u2", PasswordHash: "h", Fullname: "Two", ServiceType: "PPPoE", Status: "Active"})
 	if _, err := e.s.ExtendExpired(ctx, other.ID, sub.ID); !errors.Is(err, ErrPlanNotFound) {
 		t.Fatalf("foreign sub: %v", err)
@@ -101,7 +101,7 @@ func TestExtendExpired(t *testing.T) {
 		t.Fatalf("sub %+v", got)
 	}
 	// expired again in the same month: refused; next month: allowed
-	e.q.ExpireSubscription(ctx, sub.ID)
+	e.q.ExpireSubscription(ctx, db.ExpireSubscriptionParams{ID: sub.ID, Now: 1 << 40})
 	if _, err := e.s.ExtendExpired(ctx, e.cust.ID, sub.ID); !errors.Is(err, ErrExtendAlready) {
 		t.Fatalf("second extend: %v", err)
 	}

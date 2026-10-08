@@ -71,25 +71,26 @@ type CustomField struct {
 }
 
 type Customer struct {
-	ID            int64
-	Username      string
-	PasswordHash  string
-	Fullname      string
-	Address       string
-	Phone         string
-	Email         string
-	Balance       int64
-	ServiceType   string
-	PppoeUsername string
-	PppoeIp       string
-	SecretEnc     []byte
-	BillingDay    sql.NullInt64
-	AutoRenewal   int64
-	Status        string
-	CreatedBy     sql.NullInt64
-	CreatedAt     int64
-	LastLoginAt   sql.NullInt64
-	Coordinates   string
+	ID             int64
+	Username       string
+	PasswordHash   string
+	Fullname       string
+	Address        string
+	Phone          string
+	Email          string
+	Balance        int64
+	ServiceType    string
+	PppoeUsername  string
+	PppoeIp        string
+	SecretEnc      []byte
+	BillingDay     sql.NullInt64
+	AutoRenewal    int64
+	Status         string
+	CreatedBy      sql.NullInt64
+	CreatedAt      int64
+	LastLoginAt    sql.NullInt64
+	SessionVersion int64
+	Coordinates    string
 }
 
 type CustomerFieldValue struct {

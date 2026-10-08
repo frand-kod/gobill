@@ -248,3 +248,20 @@ func TestExpiryJobSkipsUntrusted(t *testing.T) {
 		t.Fatal("not expired on trusted clock")
 	}
 }
+
+func TestExpireOneSkipsRenewedSnapshot(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0)
+	e.now = e.now.Add(36 * time.Hour)
+	stale := e.sub(t)                                                                 // the job's snapshot
+	if err := e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0); err != nil { // renewed before expireOne
+		t.Fatal(err)
+	}
+	*e.calls = nil
+	if err := e.s.expireOne(ctx, stale, false); err != nil {
+		t.Fatal(err)
+	}
+	if len(*e.calls) != 0 || e.sub(t).Status != "active" {
+		t.Fatalf("renewed sub was expired: calls %v", *e.calls)
+	}
+}

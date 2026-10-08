@@ -13,7 +13,7 @@ SELECT * FROM payment_requests WHERE ref = ?;
 
 -- name: ClaimPaymentPaid :execrows
 -- The idempotent claim: 0 rows = already handled.
-UPDATE payment_requests SET status = 'paid', paid_at = unixepoch() WHERE ref = ? AND status = 'pending';
+UPDATE payment_requests SET status = 'paid', paid_at = unixepoch() WHERE ref = ? AND status IN ('pending', 'expired', 'failed');
 
 -- name: ClosePaymentRequest :execrows
 UPDATE payment_requests SET status = ? WHERE ref = ? AND status = 'pending';

@@ -26,7 +26,7 @@ UPDATE customers SET fullname = ?, address = ?, phone = ?, email = ?, service_ty
 WHERE id = ?;
 
 -- name: SetCustomerPassword :exec
-UPDATE customers SET password_hash = ? WHERE id = ?;
+UPDATE customers SET password_hash = ?, session_version = session_version + 1 WHERE id = ?;
 
 -- name: TouchCustomerLogin :exec
 UPDATE customers SET last_login_at = unixepoch() WHERE id = ?;

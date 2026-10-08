@@ -81,7 +81,8 @@ CREATE TABLE customers (
     status        TEXT    NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Banned', 'Disabled', 'Inactive', 'Limited', 'Suspended')),
     created_by    INTEGER REFERENCES admins (id) ON DELETE SET NULL,
     created_at    INTEGER NOT NULL DEFAULT (unixepoch()),
-    last_login_at INTEGER
+    last_login_at INTEGER,
+    session_version INTEGER NOT NULL DEFAULT 0 -- bumped on password change/reset, ends old portal sessions
 );
 CREATE INDEX customers_fullname_idx ON customers (fullname);
 CREATE INDEX customers_phone_idx ON customers (phone);

@@ -121,3 +121,26 @@ func TestPortalBalanceOrderWhenSettingUnset(t *testing.T) {
 		t.Fatalf("buy with unset setting: %d %s", w.Code, w.Body.String())
 	}
 }
+
+func TestPortalSessionRevokedOnPasswordChange(t *testing.T) {
+	e := billApp(t)
+	portalCust(t, e, 0)
+	old, _ := custLogin(t, e, "u1", "pw12345")
+	other, _ := custLogin(t, e, "u1", "pw12345")
+	w := do(e.h, "POST", "/portal/password", url.Values{"password": {"pw12345"}, "npass": {"newpw1"}, "cnpass": {"newpw1"}}, old)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("change: %d", w.Code)
+	}
+	cur := old
+	for _, c := range w.Result().Cookies() {
+		if c.Name == "nuxbill_session" {
+			cur = c
+		}
+	}
+	if w := do(e.h, "GET", "/portal", nil, cur); w.Code != 200 {
+		t.Errorf("acting session: %d", w.Code)
+	}
+	if w := do(e.h, "GET", "/portal", nil, other); w.Code != http.StatusSeeOther {
+		t.Errorf("old session still valid: %d", w.Code)
+	}
+}

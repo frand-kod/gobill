@@ -225,6 +225,9 @@ func (s *Server) settlePayment(ctx context.Context, pr db.PaymentRequest, st pay
 		if s.Billing == nil {
 			return errors.New("billing not configured")
 		}
+		if pr.Status == "expired" || pr.Status == "failed" {
+			slog.Warn("payment paid after request was closed", "ref", pr.Ref)
+		}
 		return s.Billing.RechargePaid(ctx, func(q *db.Queries) (bool, error) {
 			n, err := q.ClaimPaymentPaid(ctx, pr.Ref)
 			return n > 0, err

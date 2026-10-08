@@ -36,7 +36,7 @@ func (s *Server) requireCustomer(next http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := s.sessions.GetInt64(r.Context(), "customer_id")
 		c, err := s.queries.GetCustomer(r.Context(), id)
-		if id == 0 || err != nil || c.Status == "Banned" || c.Status == "Disabled" {
+		if id == 0 || err != nil || c.Status == "Banned" || c.Status == "Disabled" || c.SessionVersion != s.sessions.GetInt64(r.Context(), "csv") {
 			s.sessions.Remove(r.Context(), "customer_id")
 			http.Redirect(w, r, "/portal/login", http.StatusSeeOther)
 			return
@@ -110,10 +110,24 @@ func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.sessions.Put(r.Context(), "customer_id", c.ID)
+	s.sessions.Put(r.Context(), "csv", c.SessionVersion)
 	if err := s.queries.TouchCustomerLogin(r.Context(), c.ID); err != nil {
 		slog.Error("touch login", "err", err)
 	}
 	http.Redirect(w, r, "/portal", http.StatusSeeOther)
+}
+
+// keepSession re-stamps the acting session with the customer's bumped session_version.
+func (s *Server) keepSession(r *http.Request, id int64) error {
+	c, err := s.queries.GetCustomer(r.Context(), id)
+	if err != nil {
+		return err
+	}
+	if err := s.sessions.RenewToken(r.Context()); err != nil {
+		return err
+	}
+	s.sessions.Put(r.Context(), "csv", c.SessionVersion)
+	return nil
 }
 
 func (s *Server) pLogout(w http.ResponseWriter, r *http.Request) {
@@ -580,6 +594,9 @@ func (s *Server) pPassword(w http.ResponseWriter, r *http.Request) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(npass), bcrypt.DefaultCost)
 	if err == nil {
 		err = s.queries.SetCustomerPassword(r.Context(), db.SetCustomerPasswordParams{PasswordHash: string(hash), ID: c.ID})
+	}
+	if err == nil {
+		err = s.keepSession(r, c.ID)
 	}
 	if err != nil {
 		s.fail(w, "portal password", err)

@@ -131,7 +131,7 @@ func (q *Queries) ListInboxByCustomer(ctx context.Context, arg ListInboxByCustom
 }
 
 const listMessageRecipients = `-- name: ListMessageRecipients :many
-SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, c.coordinates FROM customers c
+SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, c.session_version, c.coordinates FROM customers c
 WHERE (CAST(?1 AS TEXT) = '' OR c.service_type = ?1)
   AND ((CAST(?2 AS INTEGER) = 0 AND CAST(?3 AS TEXT) = '') OR EXISTS (
         SELECT 1 FROM subscriptions s
@@ -176,6 +176,7 @@ func (q *Queries) ListMessageRecipients(ctx context.Context, arg ListMessageReci
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.LastLoginAt,
+			&i.SessionVersion,
 			&i.Coordinates,
 		); err != nil {
 			return nil, err

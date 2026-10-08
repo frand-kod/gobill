@@ -35,6 +35,7 @@ UPDATE admins SET username = sqlc.arg(username), fullname = sqlc.arg(fullname), 
   phone = sqlc.arg(phone), city = sqlc.arg(city), role = sqlc.arg(role), status = sqlc.arg(status),
   root_id = sqlc.arg(root_id),
   password_hash = CASE WHEN sqlc.arg(password_hash) <> '' THEN sqlc.arg(password_hash) ELSE admins.password_hash END,
+  legacy_sha1 = CASE WHEN sqlc.arg(password_hash) <> '' THEN '' ELSE admins.legacy_sha1 END,
   session_version = admins.session_version + sqlc.arg(bump)
 WHERE admins.id = sqlc.arg(id)
   AND (NOT (admins.role = 'SuperAdmin' AND admins.status = 'Active')
@@ -43,7 +44,7 @@ WHERE admins.id = sqlc.arg(id)
 
 -- Sets the password and bumps session_version, ending every other session.
 -- name: SetAdminPassword :one
-UPDATE admins SET password_hash = ?, session_version = admins.session_version + 1 WHERE admins.id = ?
+UPDATE admins SET password_hash = ?, legacy_sha1 = '', session_version = admins.session_version + 1 WHERE admins.id = ?
 RETURNING session_version;
 
 -- Refuses (0 rows) to delete the last active SuperAdmin.
