@@ -185,7 +185,7 @@ func (s *Server) Handler() http.Handler {
 
 	s.portalRoutes(mux)
 
-	return http.NewCrossOriginProtection().Handler(s.sessions.LoadAndSave(mux))
+	return http.NewCrossOriginProtection().Handler(s.sessions.LoadAndSave(s.maintenance(mux)))
 }
 
 // location is the billing zone; UTC until a billing service is set.

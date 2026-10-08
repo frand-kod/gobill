@@ -409,6 +409,7 @@ func (s *Service) ExpiryJob(trusted func() bool) func(context.Context) error {
 			slog.Warn("expiry skipped: system clock not trusted")
 			return nil
 		}
+		_ = s.Q.UpsertSetting(ctx, db.UpsertSettingParams{Key: "expiry_last_run", Value: s.now().Format(time.DateTime)}) // dashboard job monitor
 		return s.ExpireDue(ctx)
 	}
 }

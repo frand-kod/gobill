@@ -30,6 +30,50 @@
     <div class="card-body"><div class="h-64"><canvas data-chart="bar" data-money="1" data-label="{{T "Sales"}}" data-labels="{{.Labels}}" data-values="{{.Sales}}" role="img" aria-label="{{T "Total Monthly Sales"}} {{.Year}}"></canvas></div></div>
   </section>
 </div>
+<div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+  <section class="card overflow-hidden md:col-span-2">
+    <h2 class="card-title">{{T "Expiring Soon"}}</h2>
+    <div class="overflow-x-auto"><table class="table">
+      <thead><tr><th>{{T "Username"}}</th><th>{{T "Full Name"}}</th><th>{{T "Internet Package"}}</th><th>{{T "Expires"}}</th><th>{{T "Status"}}</th></tr></thead>
+      <tbody>
+      {{range .Expiring}}<tr>
+        <td><a class="font-medium text-brand-600 hover:underline dark:text-brand-500" href="/admin/customers/{{.CustomerID}}">{{.Username}}</a></td>
+        <td>{{.Fullname}}</td><td>{{.Plan}}</td><td>{{.Expires}}</td>
+        <td><span class="badge {{if .Expired}}badge-bad{{else}}badge-warn{{end}}">{{if .Expired}}{{T "Expired"}}{{else}}{{T "Expiring"}}{{end}}</span></td>
+      </tr>{{else}}<tr><td colspan="5">{{T "No data"}}</td></tr>{{end}}
+      </tbody>
+    </table></div>
+  </section>
+  <section class="card">
+    <h2 class="card-title">{{T "All Users Insights"}}</h2>
+    <div class="card-body"><div class="h-64"><canvas data-chart="pie" data-labels="{{.Insight}}" data-values="{{.InsightVals}}" role="img" aria-label="{{T "All Users Insights"}}"></canvas></div></div>
+  </section>
+  <section class="card overflow-hidden">
+    <h2 class="card-title">{{T "Voucher Stock"}}</h2>
+    <div class="overflow-x-auto"><table class="table">
+      <thead><tr><th>{{T "Package Name"}}</th><th>{{T "Unused"}}</th><th>{{T "Used"}}</th></tr></thead>
+      <tbody>
+      {{range .Vouchers}}<tr><td>{{.Name}}</td><td>{{.Unused}}</td><td>{{.Used}}</td></tr>{{else}}<tr><td colspan="3">{{T "No data"}}</td></tr>{{end}}
+      </tbody>
+    </table></div>
+  </section>
+  <section class="card">
+    <h2 class="card-title">{{T "Job Monitor"}}</h2>
+    <dl class="card-body grid gap-3 text-sm">
+      <div><dt class="text-slate-500">{{T "Expiry Job Last Run"}}</dt><dd class="font-medium" id="job-expiry">{{if .ExpiryRun}}{{.ExpiryRun}}{{else}}-{{end}}</dd></div>
+      <div><dt class="text-slate-500">{{T "Reminder Job Last Run"}}</dt><dd class="font-medium" id="job-reminder">{{if .ReminderRun}}{{.ReminderRun}}{{else}}-{{end}}</dd></div>
+    </dl>
+  </section>
+  <section class="card md:col-span-2 xl:col-span-3">
+    <h2 class="card-title">{{T "Activity Log"}}</h2>
+    <div class="overflow-x-auto"><table class="table">
+      <thead><tr><th>{{T "Date"}}</th><th>{{T "Action"}}</th><th>{{T "Description"}}</th></tr></thead>
+      <tbody>
+      {{range .Logs}}<tr><td class="whitespace-nowrap">{{ts .CreatedAt}}</td><td>{{.Action}}</td><td>{{.Description}}</td></tr>{{else}}<tr><td colspan="3">{{T "No data"}}</td></tr>{{end}}
+      </tbody>
+    </table></div>
+  </section>
+</div>
 <script src="/static/vendor/chart-4.4.9.umd.js"></script>
 <script src="/static/dashboard.js"></script>
 {{end}}

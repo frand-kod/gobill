@@ -114,6 +114,7 @@ type dashData struct {
 	Customers                int64
 	Year                     int
 	Labels, Regs, Sales      string // JSON arrays for the charts
+	dashWidgets
 }
 
 func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
@@ -170,6 +171,7 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 		}
 	}
 	d.Labels, d.Regs, d.Sales = jsonStr(labels), jsonStr(regs), jsonStr(sales)
+	d.dashWidgets, err = s.widgetData(ctx, now, d.ActiveSubs, d.ExpiredSubs)
 	return
 }
 

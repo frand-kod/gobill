@@ -1173,5 +1173,17 @@
     "Choose a Balance package or enter an amount": "Pilih paket saldo atau isi jumlah",
     "Script run on the router when the customer logs in": "Skrip yang dijalankan di router saat pelanggan login",
     "Script run on the router when the customer logs out": "Skrip yang dijalankan di router saat pelanggan logout",
-    "Pick a package, or leave empty and enter an amount": "Pilih paket, atau kosongkan dan isi jumlah"
+    "Pick a package, or leave empty and enter an amount": "Pilih paket, atau kosongkan dan isi jumlah",
+    "Expiring Soon": "Segera Berakhir",
+    "Expiring": "Akan Berakhir",
+    "Voucher Stock": "Stok Voucher",
+    "Package Name": "Nama Paket",
+    "Internet Package": "Paket Internet",
+    "Job Monitor": "Monitor Job",
+    "Expiry Job Last Run": "Job Kedaluwarsa Terakhir Jalan",
+    "Reminder Job Last Run": "Job Pengingat Terakhir Jalan",
+    "Activity Log": "Log Aktivitas",
+    "All Users Insights": "Insight Semua Pengguna",
+    "Under Maintenance": "Sedang Pemeliharaan",
+    "We are performing maintenance. Please try again later.": "Sistem sedang dalam pemeliharaan. Silakan coba lagi nanti."
 }
