@@ -1,0 +1,7 @@
+{{define "content"}}
+<h1 class="mb-4 text-2xl font-semibold">{{T "Activation History"}}</h1>
+<div class="card"><div class="overflow-x-auto"><table class="w-full text-sm">
+<thead><tr><th class="p-2 text-start">{{T "Invoice"}}</th><th class="p-2 text-start">{{T "Package Name"}}</th><th class="p-2 text-start">{{T "Package Price"}}</th><th class="p-2 text-start">{{T "Type"}}</th><th class="p-2 text-start">{{T "Created On"}}</th><th class="p-2 text-start">{{T "Expires On"}}</th><th class="p-2 text-start">{{T "Method"}}</th></tr></thead>
+<tbody>{{range .Data}}<tr><td class="p-2"><a class="underline" href="/portal/orders/{{.ID}}/invoice">{{.Invoice}}</a></td><td class="p-2">{{.PlanName}}</td><td class="p-2">{{money .Price}}</td><td class="p-2">{{.Type}}</td><td class="p-2">{{ts .CreatedAt}}</td><td class="p-2">{{ts .PeriodEnd}}</td><td class="p-2">{{.Method}}</td></tr>
+{{else}}<tr><td class="p-2" colspan="7">{{T "No data"}}</td></tr>{{end}}</tbody></table></div></div>
+{{end}}

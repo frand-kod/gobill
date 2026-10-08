@@ -308,6 +308,15 @@ func (n *Notifier) Custom(ctx context.Context, c db.Customer, name, subject stri
 	return n.send(ctx, c, n.get("user_notification_payment"), subject, Render(n.template(name), custVars(c, vars)))
 }
 
+// CustomOn is Custom on explicit channels (sms, wa, email) instead of user_notification_payment.
+func (n *Notifier) CustomOn(ctx context.Context, c db.Customer, vias []string, name, subject string, vars map[string]string) error {
+	msg, err := Render(n.template(name), custVars(c, vars)), error(nil)
+	for _, v := range vias {
+		err = errors.Join(err, n.send(ctx, c, v, subject, msg))
+	}
+	return err
+}
+
 // Reminder sends the 7/3/1-day message via user_notification_reminder (cron_reminder.php);
 // notification_reminder_<N>day == "no" disables that day.
 func (n *Notifier) Reminder(ctx context.Context, c db.Customer, days int, pkg string, vars map[string]string) error {

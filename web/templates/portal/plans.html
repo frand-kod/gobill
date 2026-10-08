@@ -9,8 +9,14 @@
   {{with .Bandwidth}}<p class="text-sm text-slate-500">{{T "Bandwidth"}}: {{.}}</p>{{end}}
   <p class="text-xl font-semibold">{{money .Price}}</p>
   {{if $bal}}<form method="post" action="/portal/plans/{{.ID}}/balance" class="space-y-2"><input class="input" type="text" name="coupon" maxlength="50" placeholder="{{T "Coupon Code"}}" aria-label="{{T "Coupon Code"}}"><button class="btn btn-primary" type="submit">{{T "Pay with Balance"}}</button></form>{{end}}
+  {{if $bal}}<a class="btn btn-ghost" href="/portal/plans/{{.ID}}/friend">{{T "Buy for friend"}}</a>{{end}}
   {{if $ch}}<form method="post" action="/portal/plans/{{.ID}}/pay" class="space-y-2"><input class="input" type="text" name="coupon" maxlength="50" placeholder="{{T "Coupon Code"}}" aria-label="{{T "Coupon Code"}}"><select class="input" name="channel" required aria-label="{{T "Payment Gateway"}}">{{range $ch}}<option value="{{.Code}}">{{.Name}}</option>{{end}}</select><button class="btn btn-primary" type="submit">{{T "Pay Now"}}</button></form>{{end}}
 </div></div>
 {{else}}<p>{{T "No data"}}</p>{{end}}
 </div>
+{{if and .Data.Custom $ch}}<form class="card mt-4" method="post" action="/portal/topup"><h2 class="card-title">{{T "Custom Balance"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">
+  <div><label class="label" for="ta">{{T "Input Desired Amount"}}</label><input class="input" id="ta" name="amount" type="number" min="1" required></div>
+  <div><label class="label" for="tc">{{T "Payment Gateway"}}</label><select class="input" id="tc" name="channel" required>{{range $ch}}<option value="{{.Code}}">{{.Name}}</option>{{end}}</select></div>
+  <div class="self-end"><button class="btn btn-primary" type="submit">{{T "Buy"}}</button></div>
+</div></form>{{end}}
 {{end}}

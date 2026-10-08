@@ -9,5 +9,12 @@ SELECT * FROM activity_logs
 WHERE action LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR description LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
 ORDER BY id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
--- name: DeleteActivityLogsBefore :exec
+-- name: DeleteActivityLogsBefore :execrows
 DELETE FROM activity_logs WHERE created_at < ?;
+
+-- name: DeleteRadiusSessionsClosedBefore :execrows
+-- Open sessions (stopped_at NULL) are never deleted.
+DELETE FROM radius_sessions WHERE stopped_at IS NOT NULL AND stopped_at < ?;
+
+-- name: DeleteMessageLogsBefore :execrows
+DELETE FROM message_logs WHERE created_at < ?;

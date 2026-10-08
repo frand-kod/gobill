@@ -95,6 +95,7 @@ type listPage struct {
 	Actions          []rowAction // per-row POST buttons
 	Dates            bool        // from/to date inputs next to the search box
 	From, To         string      // YYYY-MM-DD
+	Clean            string      // POST URL of the "keep N days / Clean logs" form; "" = none
 }
 
 type filter struct {
