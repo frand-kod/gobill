@@ -15,6 +15,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/nuxbill-go/internal/job"
 	"github.com/frand-kod/nuxbill-go/internal/web"
 )
 
@@ -47,6 +48,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	guard := job.NewClockGuard(db.New(conn))
+	app.ClockWarning = guard.Reason
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           app.Handler(),
@@ -58,6 +61,12 @@ func run() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	guardDone := make(chan struct{})
+	go func() {
+		defer close(guardDone)
+		guard.Run(ctx)
+	}()
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -71,6 +80,8 @@ func run() error {
 	case <-ctx.Done():
 	}
 	slog.Info("shutting down")
+	stop()
+	<-guardDone
 	shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {

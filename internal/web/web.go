@@ -41,6 +41,9 @@ type Server struct {
 	lang      atomic.Value // string: current language, a global app setting
 	dummyHash []byte       // compared against when the username does not exist
 
+	// ClockWarning, if set, returns a non-empty reason while the clock is untrusted.
+	ClockWarning func() string
+
 	// ponytail: in-memory limiter, resets on restart; persist if needed
 	mu     sync.Mutex
 	failed map[string][]time.Time // client IP -> times of recent failed logins

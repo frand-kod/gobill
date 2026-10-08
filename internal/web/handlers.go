@@ -106,8 +106,13 @@ func (s *Server) recent(ip string) []time.Time {
 // ---- dashboard ----
 
 func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
+	warn := ""
+	if s.ClockWarning != nil {
+		warn = s.ClockWarning()
+	}
 	s.render(w, r, http.StatusOK, "dashboard", Page{
 		Title: "Dashboard",
+		Data:  warn,
 		Flash: s.sessions.PopString(r.Context(), "flash"),
 	})
 }

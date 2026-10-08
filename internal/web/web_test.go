@@ -16,6 +16,11 @@ import (
 // newTestServer returns a handler over a temp DB with admin "alice"/"secret123" (SuperAdmin)
 // and "rita"/"secret123" (Report).
 func newTestServer(t *testing.T) (http.Handler, *db.Queries) {
+	s, q := newTestApp(t)
+	return s.Handler(), q
+}
+
+func newTestApp(t *testing.T) (*Server, *db.Queries) {
 	t.Helper()
 	conn, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
@@ -39,7 +44,7 @@ func newTestServer(t *testing.T) (http.Handler, *db.Queries) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return s.Handler(), q
+	return s, q
 }
 
 func do(h http.Handler, method, target string, form url.Values, cookie *http.Cookie, hdr ...string) *httptest.ResponseRecorder {
@@ -175,5 +180,18 @@ func TestEveryPageRenders(t *testing.T) {
 	}
 	if w := do(h, "GET", "/static/app.css", nil, nil); w.Code != 200 {
 		t.Fatalf("css: %d", w.Code)
+	}
+}
+
+func TestClockBanner(t *testing.T) {
+	s, _ := newTestApp(t)
+	h := s.Handler()
+	c := login(t, h, "alice")
+	if w := do(h, "GET", "/admin", nil, c); strings.Contains(w.Body.String(), "NTP") {
+		t.Fatal("banner without warning")
+	}
+	s.ClockWarning = func() string { return "clock not synced with NTP" }
+	if w := do(h, "GET", "/admin", nil, c); !strings.Contains(w.Body.String(), "clock not synced with NTP") {
+		t.Fatal("banner missing")
 	}
 }
