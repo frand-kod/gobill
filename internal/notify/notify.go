@@ -48,12 +48,19 @@ type Notifier struct {
 }
 
 func (n *Notifier) logged(ch, to, subject, body string, err error) error {
+	err = clean(err)
 	if n.Log != nil {
-		rec := err
-		if bot := n.get("telegram_bot"); err != nil && bot != "" { // http errors embed the request URL
-			rec = errors.New(strings.ReplaceAll(err.Error(), bot, "***"))
-		}
-		n.Log(ch, to, subject, body, rec)
+		n.Log(ch, to, subject, body, err)
+	}
+	return err
+}
+
+// clean drops the request URL from transport errors: gateway URLs carry API keys, the bot
+// token and the message text.
+func clean(err error) error {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		return fmt.Errorf("%s: %w", ue.Op, ue.Err)
 	}
 	return err
 }
@@ -107,7 +114,7 @@ func (n *Notifier) Go(name string, fn func(context.Context) error) {
 func (n *Notifier) do(ctx context.Context, req *http.Request) error {
 	resp, err := n.HTTP.Do(req.WithContext(ctx))
 	if err != nil {
-		return err
+		return clean(err)
 	}
 	defer resp.Body.Close()
 	io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
@@ -120,7 +127,7 @@ func (n *Notifier) do(ctx context.Context, req *http.Request) error {
 func (n *Notifier) getURL(ctx context.Context, u string) error {
 	req, err := http.NewRequest(http.MethodGet, u, nil)
 	if err != nil {
-		return err
+		return clean(err)
 	}
 	return n.do(ctx, req)
 }

@@ -127,11 +127,7 @@ func (s *Server) custExport(w http.ResponseWriter, r *http.Request) {
 	cw.Write([]string{"Username", "Full Name", "Phone Number", "Email", "Balance", "Package", "Service Type", "PPPoE Username", "Status", "Created"})
 	for _, c := range rows {
 		rec := []string{c.Username, c.Fullname, c.Phone, c.Email, fmt.Sprint(c.Balance), c.Packages, c.ServiceType, c.PppoeUsername, c.Status, s.ts(c.CreatedAt)}
-		for i, f := range rec { // spreadsheet formula injection
-			if f != "" && strings.ContainsRune("=+-@", rune(f[0])) {
-				rec[i] = "'" + f
-			}
-		}
+		csvSafe(rec)
 		cw.Write(rec)
 	}
 	cw.Flush()

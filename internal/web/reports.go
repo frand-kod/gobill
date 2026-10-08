@@ -143,7 +143,7 @@ func (s *Server) reportPrint(w http.ResponseWriter, r *http.Request) {
 // csvSafe defuses spreadsheet formula injection.
 func csvSafe(rec []string) {
 	for i, f := range rec {
-		if f != "" && strings.ContainsRune("=+-@", rune(f[0])) {
+		if f != "" && strings.ContainsRune("=+-@\t\r", rune(f[0])) {
 			rec[i] = "'" + f
 		}
 	}

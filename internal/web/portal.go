@@ -277,6 +277,10 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if f("send_otp") != "" {
+			if !s.otpAllow(clientIP(r), d.Phone) {
+				show("Too many verification code requests, please try again later")
+				return
+			}
 			n, _ := rand.Int(rand.Reader, big.NewInt(900000))
 			otp := strconv.FormatInt(n.Int64()+100000, 10)
 			s.sessions.Put(ctx, "reg_otp", otp)

@@ -101,6 +101,15 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 	s.sessions.Remove(ctx, "forgot_ok")
 
 	c, err := s.queries.GetCustomerByUsername(ctx, username)
+	phone := ""
+	if err == nil {
+		phone = c.Phone
+	}
+	if !s.otpAllow(clientIP(r), phone) { // counts unknown usernames too, so the answer stays uniform
+		s.forgotClear(r)
+		s.forgotRender(w, r, http.StatusTooManyRequests, "", "Too many verification code requests, please try again later")
+		return
+	}
 	if err == nil && c.Phone != "" {
 		if err := s.sendOTP(ctx, st, c.Phone, "Verification code", otp); err != nil {
 			slog.Error("send forgot otp", "err", err)
