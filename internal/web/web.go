@@ -64,7 +64,8 @@ type Page struct {
 	Flash    string
 	Error    string
 	Path     string
-	Dir      string // "rtl" or "ltr"
+	Tabs     []option // settings sub-page menu
+	Dir      string   // "rtl" or "ltr"
 	Lang     string
 	Data     any
 }
@@ -128,7 +129,8 @@ func (s *Server) Handler() http.Handler {
 	managers := s.requireAdmin("SuperAdmin", "Admin")
 	mux.Handle("GET /admin", all(http.HandlerFunc(s.dashboard)))
 	mux.Handle("GET /admin/settings", managers(http.HandlerFunc(s.settingsForm)))
-	mux.Handle("POST /admin/settings", managers(http.HandlerFunc(s.settingsSave)))
+	mux.Handle("GET /admin/settings/{tab}", managers(http.HandlerFunc(s.settingsForm)))
+	mux.Handle("POST /admin/settings/{tab}", managers(http.HandlerFunc(s.settingsSave)))
 
 	// Old PHP: bandwidth, routers, pool and logs are SuperAdmin/Admin only; customers are
 	// readable by everyone, creatable by Agent/Sales too, editable/deletable by managers.
@@ -228,6 +230,7 @@ func (s *Server) loadSettings(ctx context.Context) (map[string]string, error) {
 		"language":      "indonesia",
 		"timezone":      "Asia/Jakarta",
 		"currency_code": "Rp",
+		"reminder_hour": "7",
 	}
 	for _, row := range rows {
 		m[row.Key] = row.Value

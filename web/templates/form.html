@@ -1,4 +1,5 @@
 {{define "content"}}
+{{if .Tabs}}<nav class="mb-4 flex flex-wrap gap-2">{{range .Tabs}}<a class="btn {{if eq .Value $.Path}}btn-primary{{else}}btn-ghost{{end}}" href="{{.Value}}">{{T .Label}}</a>{{end}}</nav>{{end}}
 {{with .Data}}
 <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
   <h1 class="text-2xl font-semibold">{{TT .Heading}}</h1>
@@ -19,6 +20,8 @@
           {{$cur := .Value}}
           {{range .Options}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{T .Label}}</option>{{end}}
         </select>
+        {{else if eq .Type "textarea"}}
+        <textarea class="input" id="{{.Name}}" name="{{.Name}}" rows="4"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>{{.Value}}</textarea>
         {{else}}
         <input class="input" id="{{.Name}}" name="{{.Name}}" type="{{.Type}}" value="{{.Value}}"{{if .Required}} required{{end}}{{if eq .Type "password"}} autocomplete="new-password"{{end}}{{if eq .Type "number"}} min="0"{{end}}{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
         {{end}}

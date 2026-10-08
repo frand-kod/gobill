@@ -1,0 +1,281 @@
+package web
+
+import (
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/nuxbill-go/internal/notify"
+)
+
+// settingsTabs are the sub-pages in menu order. Integrations is SuperAdmin only; the rest
+// are SuperAdmin and Admin, as in the old settings controller. Payment waits for Tripay.
+var settingsTabs = []struct {
+	Slug, Label string
+	SuperOnly   bool
+}{
+	{"app", "General", false},
+	{"localisation", "Localisation", false},
+	{"notifications", "Notifications", false},
+	{"integrations", "Integrations", true},
+	{"miscellaneous", "Miscellaneous", false},
+}
+
+// settingsSecret are write-only: never rendered, and an empty post keeps the stored value.
+// ponytail: stored plaintext in settings, as the old app did; move to internal/secret if needed.
+var settingsSecret = map[string]bool{"telegram_bot": true, "smtp_pass": true, "webhook_secret": true}
+
+// settingsZones is the timezone select; the server still checks any value with time.LoadLocation.
+var settingsZones = []string{"Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura", "Asia/Singapore", "Asia/Kuala_Lumpur",
+	"Asia/Bangkok", "Asia/Kolkata", "Asia/Dubai", "Asia/Tokyo", "Asia/Shanghai", "Europe/London", "Europe/Paris",
+	"Europe/Berlin", "America/New_York", "America/Chicago", "America/Los_Angeles", "Australia/Sydney", "UTC"}
+
+var (
+	settingsYesNo    = []option{{"yes", "Yes"}, {"no", "No"}}
+	settingsOnOff    = []option{{"on", "On"}, {"off", "Off"}}
+	settingsChannels = []option{{"", "Disabled"}, {"sms", "SMS"}, {"wa", "WhatsApp"}, {"email", "Email"}}
+)
+
+// settingsFields builds one sub-page. With nil maps it only names the fields, which is how save finds the keys.
+func (s *Server) settingsFields(tab string, v, e map[string]string) []field {
+	sel := func(name, label string, opts ...option) field {
+		f := text(name, label, v, e).as("select")
+		f.Options = opts
+		return f
+	}
+	chk := func(name, label string) field {
+		f := text(name, label, v, e).as("checkbox")
+		f.Checked = v[name] == "1"
+		return f
+	}
+	area := func(name, label string) field { return text(name, label, v, e).as("textarea") }
+	// secrets are never filled from v, so they are never rendered back
+	sec := func(name, label string) field {
+		return text(name, label, nil, e).as("password").hint("Leave empty to keep the current secret")
+	}
+	// notif shows the built-in message while the stored template is empty
+	notif := func(name, label string) field {
+		f := area(name, label)
+		if f.Value == "" {
+			f.Value = notify.DefaultTemplate(strings.TrimPrefix(name, "notif_"))
+		}
+		return f
+	}
+	switch tab {
+	case "app":
+		return section([]field{
+			text("company_name", "Company Name", v, e).req(),
+			text("company_footer", "Company Footer", v, e),
+			area("address", "Address"),
+			text("phone", "Phone Number", v, e),
+			area("note", "Invoice Footer"),
+			text("currency_code", "Currency Code", v, e).req(),
+		}, "General", "")
+	case "localisation":
+		zones := append([]string(nil), settingsZones...)
+		if z := v["timezone"]; z != "" && !contains(zones, z) {
+			zones = append(zones, z)
+		}
+		return section([]field{
+			text("language", "Language", v, e).opts(s.catalog.Languages()...),
+			text("timezone", "Timezone", v, e).opts(zones...).req().hint("Use a name like Asia/Jakarta."),
+			text("date_format", "Date Format", v, e).opts("Y-m-d", "d-m-Y", "d/m/Y", "d M Y"),
+			text("country_code_phone", "Country Code Phone", v, e).hint("Country code for numbers that start with 0, e.g. 62"),
+		}, "Regional", "")
+	case "notifications":
+		out := section([]field{
+			notif("notif_expired", "Expired Notification Message"),
+			notif("notif_reminder_7_day", "Reminder Message (7 days)"),
+			notif("notif_reminder_3_day", "Reminder Message (3 days)"),
+			notif("notif_reminder_1_day", "Reminder Message (1 day)"),
+			notif("notif_invoice_paid", "Invoice Notification Payment"),
+		}, "Message templates", "")
+		out = append(out, section([]field{
+			sel("user_notification_expired", "Expired Notification", settingsChannels...),
+			sel("user_notification_payment", "Payment Notification", settingsChannels...),
+			sel("user_notification_reminder", "Reminder Notification", settingsChannels...),
+		}, "Channels", "")...)
+		return append(out, section([]field{
+			sel("notification_reminder_7day", "Send 7-day reminder", settingsYesNo...),
+			sel("notification_reminder_3day", "Send 3-day reminder", settingsYesNo...),
+			sel("notification_reminder_1day", "Send 1-day reminder", settingsYesNo...),
+			text("reminder_hour", "Reminder Hour", v, e).as("number").req().hint("Hour of day, 0-23, when reminders are sent"),
+		}, "Reminders", "")...)
+	case "integrations":
+		out := section([]field{
+			sec("telegram_bot", "Telegram Bot Token"),
+			text("telegram_target_id", "Telegram User/Channel/Group ID", v, e),
+		}, "Telegram", "")
+		out = append(out, section([]field{
+			text("sms_url", "SMS Server URL", v, e).hint("Must contain [number] and [text]"),
+			text("wa_url", "WhatsApp Server URL", v, e).hint("Must contain [number] and [text]"),
+		}, "SMS & WhatsApp", "")...)
+		out = append(out, section([]field{
+			text("smtp_host", "SMTP Host", v, e),
+			text("smtp_port", "SMTP Port", v, e).as("number").hint("1-65535"),
+			text("smtp_user", "SMTP Username", v, e),
+			sec("smtp_pass", "SMTP Password"),
+			sel("smtp_ssltls", "SMTP Security", option{"", "None"}, option{"ssl", "SSL"}, option{"tls", "TLS"}),
+			text("mail_from", "Mail From", v, e),
+		}, "Email (SMTP)", "")...)
+		return append(out, section([]field{
+			text("webhook_url", "Webhook URL", v, e).hint("http or https. Requests are signed with X-Signature"),
+			sec("webhook_secret", "Webhook Secret"),
+		}, "Webhook", "")...)
+	case "miscellaneous":
+		out := section([]field{
+			sel("extend_expiry", "Extend Package Expiry", settingsYesNo...),
+			sel("enable_balance", "Enable Balance System", settingsYesNo...),
+		}, "Billing", "")
+		out = append(out, section([]field{
+			chk("man_fields_email", "Mandatory field: Email"),
+			chk("man_fields_fname", "Mandatory field: Full Name"),
+			chk("man_fields_address", "Mandatory field: Address"),
+		}, "Registration", "")...)
+		out = append(out, section([]field{chk("enable_session_timeout", "Enable Session Timeout")}, "Session", "")...)
+		return append(out, section([]field{
+			chk("maintenance_mode", "Maintenance Mode"),
+			sel("clock_guard", "Clock Guard", settingsOnOff...).hint("Off disables the clock check"),
+		}, "System", "")...)
+	}
+	return nil
+}
+
+func fieldNames(fs []field) []string {
+	var out []string
+	for _, f := range fs {
+		out = append(out, f.Name)
+	}
+	return out
+}
+
+func inRange(x string, lo, hi int) bool {
+	n, err := strconv.Atoi(x)
+	return err == nil && n >= lo && n <= hi
+}
+
+// settingsErrors checks the posted values of one sub-page. Only keys present in v are checked.
+func (s *Server) settingsErrors(v map[string]string) map[string]string {
+	e := map[string]string{}
+	for _, k := range []string{"company_name", "currency_code", "timezone", "reminder_hour"} {
+		if x, ok := v[k]; ok && x == "" {
+			e[k] = "This field is required"
+		}
+	}
+	if x, ok := v["language"]; ok {
+		if _, ok := s.catalog[x]; !ok {
+			e["language"] = "Choose one of the listed languages"
+		}
+	}
+	if x, ok := v["timezone"]; ok && x != "" {
+		if _, err := time.LoadLocation(x); err != nil {
+			e["timezone"] = "Unknown timezone. Use a name like Asia/Jakarta."
+		}
+	}
+	if x, ok := v["reminder_hour"]; ok && x != "" && !inRange(x, 0, 23) {
+		e["reminder_hour"] = "Enter a whole number from 0 to 23"
+	}
+	if x, ok := v["smtp_port"]; ok && x != "" && !inRange(x, 1, 65535) {
+		e["smtp_port"] = "Enter a port from 1 to 65535"
+	}
+	for _, k := range []string{"sms_url", "wa_url"} {
+		if x := v[k]; x != "" && !(strings.Contains(x, "[number]") && strings.Contains(x, "[text]")) {
+			e[k] = "URL must contain [number] and [text]"
+		}
+	}
+	if x := v["webhook_url"]; x != "" {
+		if u, err := url.Parse(x); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			e["webhook_url"] = "Use an http or https URL"
+		}
+	}
+	return e
+}
+
+// settingsTab reads the sub-page from the path. It 404s an unknown page and 403s a role that may not open it.
+func settingsTab(w http.ResponseWriter, r *http.Request) (string, bool) {
+	tab := r.PathValue("tab")
+	for _, t := range settingsTabs {
+		if t.Slug == tab {
+			if t.SuperOnly && adminFrom(r).Role != "SuperAdmin" {
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return "", false
+			}
+			return tab, true
+		}
+	}
+	http.NotFound(w, r)
+	return "", false
+}
+
+func (s *Server) settingsForm(w http.ResponseWriter, r *http.Request) {
+	if r.PathValue("tab") == "" {
+		http.Redirect(w, r, "/admin/settings/app", http.StatusSeeOther)
+		return
+	}
+	tab, ok := settingsTab(w, r)
+	if !ok {
+		return
+	}
+	values, err := s.loadSettings(r.Context())
+	if err != nil {
+		s.fail(w, "load settings", err)
+		return
+	}
+	s.renderSettings(w, r, http.StatusOK, tab, values, nil)
+}
+
+func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status int, tab string, v, e map[string]string) {
+	var nav []option
+	for _, t := range settingsTabs {
+		if !t.SuperOnly || adminFrom(r).Role == "SuperAdmin" {
+			nav = append(nav, option{"/admin/settings/" + t.Slug, t.Label})
+		}
+	}
+	fp := formPage{Heading: "Settings", Action: "/admin/settings/" + tab, Cancel: "/admin", Fields: s.settingsFields(tab, v, e)}
+	s.render(w, r, status, "form", Page{Title: "Settings", Flash: s.sessions.PopString(r.Context(), "flash"), Tabs: nav, Data: fp})
+}
+
+func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
+	tab, ok := settingsTab(w, r)
+	if !ok {
+		return
+	}
+	keys := fieldNames(s.settingsFields(tab, nil, nil))
+	v := formVals(r, keys...)
+	if e := s.settingsErrors(v); len(e) > 0 {
+		s.renderSettings(w, r, http.StatusUnprocessableEntity, tab, v, e)
+		return
+	}
+
+	tx, err := s.conn.BeginTx(r.Context(), nil)
+	if err != nil {
+		s.fail(w, "begin", err)
+		return
+	}
+	defer tx.Rollback()
+	q := s.queries.WithTx(tx)
+	for _, k := range keys {
+		if settingsSecret[k] && v[k] == "" {
+			continue // empty secret keeps the stored value
+		}
+		if err := q.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: k, Value: v[k]}); err != nil {
+			s.fail(w, "save setting "+k, err)
+			return
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		s.fail(w, "commit settings", err)
+		return
+	}
+
+	if l, ok := v["language"]; ok {
+		s.lang.Store(l)
+	}
+	if s.SettingsChanged != nil {
+		s.SettingsChanged(r.Context())
+	}
+	s.done(w, r, "/admin/settings/"+tab, "Settings saved", "settings.save", tab)
+}
