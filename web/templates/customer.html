@@ -29,7 +29,7 @@
     </div>
   </section>
   {{if .CanSell}}
-  <form class="card self-start" method="post" action="/admin/customers/{{.C.ID}}/recharge">
+  <form class="card self-start" method="post" action="/admin/customers/{{.C.ID}}/recharge/confirm">
     <h2 class="card-title">{{T "Recharge Account"}}</h2>
     <div class="card-body space-y-4">
       <div><label class="label" for="plan">{{T "Service Plan"}}</label>

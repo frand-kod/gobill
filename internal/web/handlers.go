@@ -57,6 +57,13 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+	if s.single.Load() { // single_session: a new login invalidates the other sessions
+		if admin.SessionVersion, err = s.queries.BumpAdminSession(r.Context(), admin.ID); err != nil {
+			slog.Error("bump session", "err", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+	}
 	s.sessions.Put(r.Context(), "admin_id", admin.ID)
 	s.sessions.Put(r.Context(), "sv", admin.SessionVersion)
 	if err := s.queries.TouchAdminLogin(r.Context(), admin.ID); err != nil {
@@ -127,6 +134,17 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.ClockWarning != nil {
 		d.Warn = s.ClockWarning()
+	}
+	if off, err := s.queries.ListOfflineRouters(r.Context()); err == nil && len(off) > 0 {
+		names := make([]string, len(off))
+		for i, x := range off {
+			names[i] = x.Name
+		}
+		msg := s.catalog.T(s.language(), "Router offline") + ": " + strings.Join(names, ", ")
+		if d.Warn != "" {
+			msg = d.Warn + " | " + msg
+		}
+		d.Warn = msg
 	}
 	s.render(w, r, http.StatusOK, "dashboard", Page{
 		Title: "Dashboard",

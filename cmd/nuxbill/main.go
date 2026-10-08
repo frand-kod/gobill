@@ -103,6 +103,7 @@ func run() error {
 			slog.Error("reload settings", "err", err)
 			return
 		}
+		n.Log = notify.LogTo(svc.Q)
 		loc := time.FixedZone("WIB", 7*3600)
 		if l, err := time.LoadLocation("Asia/Jakarta"); err == nil {
 			loc = l
@@ -113,10 +114,11 @@ func run() error {
 		svc.Reload(n, loc)
 	}
 	reload(ctx)
-	app.SettingsChanged = reload
+	app.SettingsChanged = func(ctx context.Context) { reload(ctx); app.ReloadSessionSettings(ctx) }
 	app.Billing = svc
 	go job.Run(ctx, "expiry", time.Minute, svc.ExpiryJob(guard.Trusted))
 	go job.Run(ctx, "reminder", time.Minute, svc.ReminderJob(guard.Trusted))
+	go job.Run(ctx, "router_check", 5*time.Minute, svc.RouterCheck)
 	backup := &job.Backup{Conn: conn, Q: db.New(conn), Trusted: guard.Trusted,
 		Dir: env("NUXBILL_BACKUP_DIR", filepath.Join(filepath.Dir(dbPath), "backup"))}
 	go job.Run(ctx, "backup", time.Minute, backup.Run)

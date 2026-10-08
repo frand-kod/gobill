@@ -108,6 +108,17 @@ type CustomersInbox struct {
 	CreatedAt  int64
 }
 
+type MessageLog struct {
+	ID        int64
+	Channel   string
+	Recipient string
+	Subject   string
+	Body      string
+	Status    string
+	Error     string
+	CreatedAt int64
+}
+
 type Na struct {
 	ID          int64
 	Name        string
@@ -193,6 +204,8 @@ type Router struct {
 	Enabled     int64
 	Coordinates string
 	Coverage    int64
+	LastSeenAt  sql.NullInt64
+	Online      sql.NullInt64
 }
 
 type Session struct {

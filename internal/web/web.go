@@ -56,6 +56,9 @@ type Server struct {
 	// ponytail: in-memory limiter, resets on restart; persist if needed
 	mu     sync.Mutex
 	failed map[string][]time.Time // client IP -> times of recent failed logins
+
+	idle   atomic.Int64 // admin idle timeout in ns, see ReloadSessionSettings
+	single atomic.Bool  // single_session
 }
 
 // Page is the data every template receives.
@@ -80,7 +83,7 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	sm := scs.New()
 	sm.Store = store
 	sm.Lifetime = 12 * time.Hour
-	sm.IdleTimeout = 2 * time.Hour
+	// idle timeout is enforced by idleGuard so it can change at runtime
 	sm.Cookie.Name = "nuxbill_session"
 	sm.Cookie.HttpOnly = true
 	sm.Cookie.SameSite = http.SameSiteLaxMode
@@ -108,6 +111,7 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 		return nil, err
 	}
 	s.lang.Store(settings["language"])
+	s.ReloadSessionSettings(context.Background())
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
 	}
@@ -165,6 +169,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/password", all(http.HandlerFunc(s.passwordForm)))
 	mux.Handle("POST /admin/password", all(http.HandlerFunc(s.passwordSave)))
 	mux.Handle("GET /admin/logs", managers(http.HandlerFunc(s.logList)))
+	mux.Handle("GET /admin/logs/radius", managers(http.HandlerFunc(s.radiusLog)))
+	mux.Handle("GET /admin/logs/radius/export", managers(http.HandlerFunc(s.radiusLogExport)))
+	mux.Handle("GET /admin/logs/messages", managers(http.HandlerFunc(s.msgLog)))
+	mux.Handle("GET /admin/logs/messages/export", managers(http.HandlerFunc(s.msgLogExport)))
 	mux.Handle("GET /admin/customers", all(http.HandlerFunc(s.custList)))
 	mux.Handle("GET /admin/customers/export", all(http.HandlerFunc(s.custExport)))
 	mux.Handle("GET /admin/customers/new", staff(http.HandlerFunc(s.custNew)))
@@ -173,6 +181,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/customers/{id}/edit", managers(http.HandlerFunc(s.custEdit)))
 	mux.Handle("POST /admin/customers/{id}", managers(http.HandlerFunc(s.custSave)))
 	mux.Handle("POST /admin/customers/{id}/delete", managers(http.HandlerFunc(s.custDelete)))
+	mux.Handle("POST /admin/customers/{id}/recharge/confirm", staff(http.HandlerFunc(s.custRechargeConfirm)))
 	mux.Handle("POST /admin/customers/{id}/recharge", staff(http.HandlerFunc(s.custRecharge)))
 
 	// Old PHP plan.php: voucher list is open to all admins, generate/redeem to staff, delete to managers.
@@ -180,6 +189,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/vouchers/new", staff(http.HandlerFunc(s.vchNew)))
 	mux.Handle("POST /admin/vouchers", staff(http.HandlerFunc(s.vchGenerate)))
 	mux.Handle("GET /admin/vouchers/print", all(http.HandlerFunc(s.vchPrint)))
+	mux.Handle("GET /admin/vouchers/view", staff(http.HandlerFunc(s.vchView)))
 	mux.Handle("GET /admin/vouchers/redeem", staff(http.HandlerFunc(s.vchRedeemForm)))
 	mux.Handle("POST /admin/vouchers/redeem", staff(http.HandlerFunc(s.vchRedeem)))
 	mux.Handle("POST /admin/vouchers/{id}/delete", managers(http.HandlerFunc(s.vchDelete)))
@@ -220,7 +230,7 @@ func (s *Server) Handler() http.Handler {
 	s.messageRoutes(mux, staff)
 	s.portalRoutes(mux)
 
-	return http.NewCrossOriginProtection().Handler(s.sessions.LoadAndSave(s.maintenance(mux)))
+	return http.NewCrossOriginProtection().Handler(s.sessions.LoadAndSave(s.idleGuard(s.maintenance(mux))))
 }
 
 // location is the billing zone; UTC until a billing service is set.
@@ -255,9 +265,9 @@ func money(n int64) string {
 // badge maps a status value to its badge colour class.
 func badge(v string) string {
 	switch strings.ToLower(v) {
-	case "active", "enable", "enabled", "unused", "yes":
+	case "active", "enable", "enabled", "unused", "yes", "online", "ok":
 		return "badge-ok"
-	case "disable", "disabled", "banned", "suspended", "expired", "inactive", "no":
+	case "disable", "disabled", "banned", "suspended", "expired", "inactive", "no", "offline", "error":
 		return "badge-bad"
 	case "limited":
 		return "badge-warn"
@@ -374,17 +384,19 @@ func (s *Server) parseTemplates() error {
 		},
 	}
 	pages := map[string][]string{
-		"login":           {"base.html", "login.html"},
-		"dashboard":       {"base.html", "app.html", "dashboard.html"},
-		"list":            {"base.html", "app.html", "list.html"},
-		"form":            {"base.html", "app.html", "form.html"},
-		"customer":        {"base.html", "app.html", "customer.html", "radius_usage.html"},
-		"radius_sessions": {"base.html", "app.html", "radius_sessions.html"},
-		"print":           {"print.html"},
-		"report":          {"base.html", "app.html", "report.html"},
-		"report_print":    {"report_print.html"},
-		"invoice":         {"invoice.html"},
-		"maps":            {"base.html", "app.html", "maps.html"},
+		"login":            {"base.html", "login.html"},
+		"dashboard":        {"base.html", "app.html", "dashboard.html"},
+		"list":             {"base.html", "app.html", "list.html"},
+		"form":             {"base.html", "app.html", "form.html"},
+		"customer":         {"base.html", "app.html", "customer.html", "radius_usage.html"},
+		"radius_sessions":  {"base.html", "app.html", "radius_sessions.html"},
+		"print":            {"print.html"},
+		"voucher_view":     {"base.html", "app.html", "voucher_view.html"},
+		"recharge_confirm": {"base.html", "app.html", "recharge_confirm.html"},
+		"report":           {"base.html", "app.html", "report.html"},
+		"report_print":     {"report_print.html"},
+		"invoice":          {"invoice.html"},
+		"maps":             {"base.html", "app.html", "maps.html"},
 
 		"p_login":     {"base.html", "portal/login.html"},
 		"p_register":  {"base.html", "portal/register.html"},

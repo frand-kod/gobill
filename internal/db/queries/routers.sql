@@ -23,3 +23,9 @@ WHERE id = ?;
 
 -- name: DeleteRouter :exec
 DELETE FROM routers WHERE id = ?;
+
+-- name: SetRouterStatus :exec
+UPDATE routers SET online = ?, last_seen_at = COALESCE(?, last_seen_at) WHERE id = ?;
+
+-- name: ListOfflineRouters :many
+SELECT * FROM routers WHERE enabled = 1 AND online = 0 ORDER BY name;

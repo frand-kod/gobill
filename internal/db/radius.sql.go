@@ -383,6 +383,64 @@ func (q *Queries) SearchOpenRadiusSessions(ctx context.Context, arg SearchOpenRa
 	return items, nil
 }
 
+const searchRadiusLogs = `-- name: SearchRadiusLogs :many
+SELECT id, session_id, username, nas_ip, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions
+WHERE (username LIKE '%' || CAST(?1 AS TEXT) || '%' OR nas_ip LIKE '%' || CAST(?1 AS TEXT) || '%')
+  AND (CAST(?2 AS INTEGER) = 0 OR started_at >= ?2)
+  AND (CAST(?3 AS INTEGER) = 0 OR started_at < ?3)
+ORDER BY started_at DESC, id DESC LIMIT ?5 OFFSET ?4
+`
+
+type SearchRadiusLogsParams struct {
+	Q          string
+	FromTs     int64
+	ToTs       int64
+	PageOffset int64
+	PageLimit  int64
+}
+
+// All sessions, open and closed. from_ts/to_ts filter started_at (0 = open). page_limit -1 = all (CSV).
+func (q *Queries) SearchRadiusLogs(ctx context.Context, arg SearchRadiusLogsParams) ([]RadiusSession, error) {
+	rows, err := q.db.QueryContext(ctx, searchRadiusLogs,
+		arg.Q,
+		arg.FromTs,
+		arg.ToTs,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RadiusSession
+	for rows.Next() {
+		var i RadiusSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Username,
+			&i.NasIp,
+			&i.FramedIp,
+			&i.Mac,
+			&i.StartedAt,
+			&i.UpdatedAt,
+			&i.StoppedAt,
+			&i.InputOctets,
+			&i.OutputOctets,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const sumRadiusUsage = `-- name: SumRadiusUsage :one
 SELECT CAST(COALESCE(SUM(input_octets + output_octets), 0) AS INTEGER) FROM radius_sessions
 WHERE username = ? AND started_at >= ?

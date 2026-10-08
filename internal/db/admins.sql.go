@@ -10,6 +10,19 @@ import (
 	"database/sql"
 )
 
+const bumpAdminSession = `-- name: BumpAdminSession :one
+UPDATE admins SET session_version = admins.session_version + 1 WHERE admins.id = ?
+RETURNING session_version
+`
+
+// Ends every other session of the admin (single_session login).
+func (q *Queries) BumpAdminSession(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, bumpAdminSession, id)
+	var session_version int64
+	err := row.Scan(&session_version)
+	return session_version, err
+}
+
 const countAdmins = `-- name: CountAdmins :one
 SELECT count(*) FROM admins
 `

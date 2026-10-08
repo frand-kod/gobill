@@ -40,14 +40,21 @@ func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp := listPage{Heading: "Routers", Base: "/admin/routers", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
-		Cols:    []string{"Name", "Host", "Username", "Enabled"},
+		Cols:    []string{"Name", "Host", "Username", "Enabled", "Status", "Last Seen"},
 		Actions: []rowAction{{"test", "Test connection", ""}}}
 	for _, x := range rows {
 		on := "No"
 		if x.Enabled == 1 {
 			on = "Yes"
 		}
-		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Name, fmt.Sprint(x.Host, ":", x.Port), x.Username, on}})
+		status, seen := "Unknown", ""
+		if x.Online.Valid {
+			status = map[bool]string{true: "Online", false: "Offline"}[x.Online.Int64 == 1]
+		}
+		if x.LastSeenAt.Valid {
+			seen = s.ts(x.LastSeenAt.Int64)
+		}
+		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Name, fmt.Sprint(x.Host, ":", x.Port), x.Username, on, status, seen}})
 	}
 	lp.finish(page)
 	s.renderList(w, r, lp)

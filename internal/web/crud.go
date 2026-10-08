@@ -93,6 +93,8 @@ type listPage struct {
 	InvoiceLink      bool        // first cell links to Base/ID/invoice
 	NoDelete         bool        // rows have no delete button
 	Actions          []rowAction // per-row POST buttons
+	Dates            bool        // from/to date inputs next to the search box
+	From, To         string      // YYYY-MM-DD
 }
 
 type filter struct {
@@ -107,6 +109,12 @@ func (lp listPage) query() url.Values {
 	v := url.Values{}
 	if lp.Q != "" {
 		v.Set("q", lp.Q)
+	}
+	if lp.From != "" {
+		v.Set("from", lp.From)
+	}
+	if lp.To != "" {
+		v.Set("to", lp.To)
 	}
 	for _, f := range lp.Filters {
 		if f.Val != "" {
