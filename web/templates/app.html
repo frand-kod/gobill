@@ -10,7 +10,10 @@
     <nav class="sidebar-menu" aria-label="Main">
       <a href="/admin"{{if eq .Path "/admin"}} aria-current="page"{{end}}>{{icon "layout-dashboard"}}<span>{{T "Dashboard"}}</span></a>
       <a href="/admin/customers"{{if hasPrefix .Path "/admin/customers"}} aria-current="page"{{end}}>{{icon "users"}}<span>{{T "Customer"}}</span></a>
+      <a href="/admin/vouchers"{{if hasPrefix .Path "/admin/vouchers"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Voucher"}}</span></a>
+      <a href="/admin/transactions"{{if hasPrefix .Path "/admin/transactions"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Transactions"}}</span></a>
       {{if or (eq .Admin.Role "SuperAdmin") (eq .Admin.Role "Admin")}}
+      <a href="/admin/plans"{{if hasPrefix .Path "/admin/plans"}} aria-current="page"{{end}}>{{icon "package"}}<span>{{T "Service Plan"}}</span></a>
       <a href="/admin/bandwidth"{{if hasPrefix .Path "/admin/bandwidth"}} aria-current="page"{{end}}>{{icon "wifi"}}<span>{{T "Bandwidth"}}</span></a>
       <a href="/admin/routers"{{if hasPrefix .Path "/admin/routers"}} aria-current="page"{{end}}>{{icon "router"}}<span>{{T "Routers"}}</span></a>
       <a href="/admin/pool"{{if hasPrefix .Path "/admin/pool"}} aria-current="page"{{end}}>{{icon "package"}}<span>{{T "Pool"}}</span></a>

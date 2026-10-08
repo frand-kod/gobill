@@ -3,11 +3,13 @@
 {{$d := .}}
 <div class="toolbar">
   <h1>{{T .Heading}}</h1>
+  {{range .Links}}<a class="btn btn-ghost" href="{{.Value}}">{{T .Label}}</a>{{end}}
   {{if .CanCreate}}<a class="btn btn-primary" href="{{.Base}}/new">{{T "Add"}}</a>{{end}}
 </div>
 {{if .Searchable}}
 <form class="toolbar" method="get" action="{{.Base}}" role="search">
   <input type="search" name="q" value="{{.Q}}" aria-label="{{T "Search"}}">
+  {{if .FilterName}}<select name="{{.FilterName}}" aria-label="{{T .FilterName}}">{{$cur := .FilterVal}}{{range .FilterOpts}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{T .Label}}</option>{{end}}</select>{{end}}
   <button class="btn btn-ghost" type="submit">{{T "Search"}}</button>
 </form>
 {{end}}
@@ -19,7 +21,7 @@
       <tr>
         {{range $i, $c := $r.Cells}}<td>{{if and (eq $i 0) $d.ViewLink}}<a href="{{$d.Base}}/{{$r.ID}}">{{$c}}</a>{{else}}{{$c}}{{end}}</td>{{end}}
         {{if $d.CanEdit}}<td class="row-actions">
-          <a class="btn btn-ghost" href="{{$d.Base}}/{{$r.ID}}/edit">{{T "Edit"}}</a>
+          {{if not $d.DeleteOnly}}<a class="btn btn-ghost" href="{{$d.Base}}/{{$r.ID}}/edit">{{T "Edit"}}</a>{{end}}
           <form method="post" action="{{$d.Base}}/{{$r.ID}}/delete" onsubmit="return confirm({{T "Delete"}} + '?')">
             <button class="btn btn-ghost" type="submit">{{T "Delete"}}</button>
           </form>
@@ -32,8 +34,8 @@
   </table>
 </div>
 <p class="pager">
-  {{if .Prev}}<a class="btn btn-ghost" href="{{.Base}}?q={{.Q}}&amp;page={{.Prev}}">{{T "Previous"}}</a>{{end}}
-  {{if .Next}}<a class="btn btn-ghost" href="{{.Base}}?q={{.Q}}&amp;page={{.Next}}">{{T "Next"}}</a>{{end}}
+  {{if .Prev}}<a class="btn btn-ghost" href="{{.Base}}?q={{.Q}}&amp;{{if .FilterName}}{{.FilterName}}={{.FilterVal}}&amp;{{end}}page={{.Prev}}">{{T "Previous"}}</a>{{end}}
+  {{if .Next}}<a class="btn btn-ghost" href="{{.Base}}?q={{.Q}}&amp;{{if .FilterName}}{{.FilterName}}={{.FilterVal}}&amp;{{end}}page={{.Next}}">{{T "Next"}}</a>{{end}}
 </p>
 {{end}}
 {{end}}

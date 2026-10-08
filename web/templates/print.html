@@ -1,0 +1,36 @@
+{{define "base"}}<!doctype html>
+<html lang="{{.Lang}}" dir="{{.Dir}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{T .Title}}</title>
+<style>
+body { font-family: sans-serif; margin: 1rem; }
+.sheet { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+.v { border: 1px dashed #666; padding: .5rem; text-align: center; break-inside: avoid; }
+.v img { width: 96px; height: 96px; }
+.code { font: bold 1.1rem monospace; letter-spacing: .05em; }
+.noprint button { margin-bottom: 1rem; }
+@media print { .noprint { display: none; } body { margin: 0; } }
+</style>
+</head>
+<body>
+{{with .Data}}
+<p class="noprint"><button onclick="window.print()">{{T "Print"}}</button> <a href="/admin/vouchers">{{T "Voucher"}}</a></p>
+<div class="sheet">
+{{$co := .Company}}
+{{range .Items}}
+  <div class="v">
+    <strong>{{$co}}</strong>
+    <div>{{.Plan}} - {{.Price}}</div>
+    <img src="{{.QR}}" alt="">
+    <div class="code">{{.Code}}</div>
+  </div>
+{{else}}
+  <p>{{T "No data"}}</p>
+{{end}}
+</div>
+{{end}}
+</body>
+</html>
+{{end}}
