@@ -5,6 +5,7 @@ go 1.26.8
 require (
 	github.com/alexedwards/scs/sqlite3store v0.0.0-20251002162104-209de6e426de
 	github.com/alexedwards/scs/v2 v2.9.0
+	github.com/go-routeros/routeros/v3 v3.0.1
 	golang.org/x/crypto v0.57.0
 	modernc.org/sqlite v1.60.1
 )
