@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/frand-kod/nuxbill-go/internal/billing"
 	"github.com/frand-kod/nuxbill-go/internal/db"
@@ -243,5 +244,33 @@ func TestCustomerOnlineBadge(t *testing.T) {
 	e.srv.Billing.DeviceFor = func(db.Plan, db.Router) (device.Device, error) { return onlineDev{}, nil }
 	if w := do(e.h, "GET", url, nil, e.c); !strings.Contains(w.Body.String(), "Online") {
 		t.Fatal("online badge missing")
+	}
+}
+
+// pwDev records the password the router receives for a customer.
+type pwDev struct {
+	device.Dummy
+	got *string
+}
+
+func (d pwDev) AddCustomer(_ context.Context, c device.Customer, _ device.Plan) error {
+	*d.got = c.Password
+	return nil
+}
+
+func TestEditCustomerPasswordSyncsRouter(t *testing.T) {
+	e := billApp(t)
+	var got string
+	e.s.Billing.DeviceFor = func(db.Plan, db.Router) (device.Device, error) { return pwDev{got: &got}, nil }
+	p := e.plan(t, "gold", "PPPoE", 25000)
+	now := time.Now().Unix()
+	if _, err := e.q.CreateSubscription(t.Context(), db.CreateSubscriptionParams{CustomerID: e.cust.ID, PlanID: p.ID,
+		RouterID: sql.NullInt64{Int64: e.rt, Valid: true}, Type: "PPPoE", StartedAt: now, ExpiresAt: now + 86400, Method: "Cash"}); err != nil {
+		t.Fatal(err)
+	}
+	form := url.Values{"fullname": {"U One"}, "service_type": {"PPPoE"}, "status": {"Active"}, "password": {"newpass1"}}
+	wantCode(t, do(e.h, "POST", "/admin/customers/"+itoa(e.cust.ID), form, e.c), 303, "edit password")
+	if got != "newpass1" {
+		t.Fatalf("router got password %q, want newpass1", got)
 	}
 }

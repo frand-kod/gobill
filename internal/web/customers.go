@@ -480,6 +480,13 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 			act, msg := "customer.create", "Data Created Successfully"
 			if id != 0 {
 				act, msg = "customer.update", "Data Updated Successfully"
+				if (pass != "" || sec != "") && s.Billing != nil { // new password goes to the router, as the old app did
+					if _, serr := s.Billing.SyncCustomer(r.Context(), id, adminFrom(r).ID); serr != nil {
+						slog.Error("sync customer", "customer", v["username"], "err", serr)
+						s.logActivity(r, "customer.sync_failed", fmt.Sprintf("%s: %v", v["username"], serr))
+						s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Saved, but the router could not be updated")+": "+serr.Error())
+					}
+				}
 			}
 			s.done(w, r, "/admin/customers", msg, act, v["username"])
 			return
