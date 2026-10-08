@@ -46,7 +46,7 @@ CREATE TABLE plans (
     data_limit    INTEGER CHECK (data_limit > 0),
     data_unit     TEXT    CHECK (data_unit IN ('MB', 'GB')),
     shared_users  INTEGER CHECK (shared_users > 0),
-    -- bandwidth/router NULL only for Balance plans.
+    -- bandwidth NULL only for Balance plans; router NULL only for Radius plans (no router touched).
     bandwidth_id  INTEGER REFERENCES bandwidths (id) ON DELETE RESTRICT,
     router_id     INTEGER REFERENCES routers (id) ON DELETE RESTRICT,
     pool_id       INTEGER REFERENCES pools (id) ON DELETE RESTRICT,
@@ -59,7 +59,7 @@ CREATE TABLE plans (
     -- Driver name from system/devices; '' for Balance plans.
     device        TEXT    NOT NULL DEFAULT '' CHECK (device IN ('', 'MikrotikHotspot', 'MikrotikPppoe', 'Dummy', 'Radius')),
     enabled       INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
-    CHECK (type = 'Balance' OR (bandwidth_id IS NOT NULL AND router_id IS NOT NULL))
+    CHECK (type = 'Balance' OR (bandwidth_id IS NOT NULL AND (router_id IS NOT NULL OR device = 'Radius')))
 );
 CREATE INDEX plans_router_idx ON plans (router_id);
 
@@ -90,7 +90,7 @@ CREATE TABLE subscriptions (
     id          INTEGER PRIMARY KEY,
     customer_id INTEGER NOT NULL REFERENCES customers (id) ON DELETE CASCADE,
     plan_id     INTEGER NOT NULL REFERENCES plans (id) ON DELETE RESTRICT,
-    router_id   INTEGER NOT NULL REFERENCES routers (id) ON DELETE RESTRICT,
+    router_id   INTEGER REFERENCES routers (id) ON DELETE RESTRICT, -- NULL for Radius plans
     type        TEXT    NOT NULL CHECK (type IN ('Hotspot', 'PPPoE')),
     started_at  INTEGER NOT NULL,
     expires_at  INTEGER NOT NULL,
@@ -101,7 +101,7 @@ CREATE TABLE subscriptions (
 );
 CREATE INDEX subscriptions_status_expires_idx ON subscriptions (status, expires_at);
 -- Old Package.php: one row per customer + router + type; recharge updates it.
-CREATE UNIQUE INDEX subscriptions_active_uniq ON subscriptions (customer_id, router_id, type) WHERE status = 'active';
+CREATE UNIQUE INDEX subscriptions_active_uniq ON subscriptions (customer_id, COALESCE(router_id, 0), type) WHERE status = 'active';
 CREATE INDEX subscriptions_customer_idx ON subscriptions (customer_id);
 
 CREATE TABLE transactions (

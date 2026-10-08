@@ -1,6 +1,7 @@
 package web
 
 import (
+	"database/sql"
 	"net/url"
 	"strings"
 	"testing"
@@ -8,6 +9,49 @@ import (
 
 	"github.com/frand-kod/nuxbill-go/internal/db"
 )
+
+func TestRadiusPlanWithoutRouter(t *testing.T) {
+	e := billApp(t)
+	form := url.Values{"name": {"Radius"}, "type": {"PPPoE"}, "billing": {"prepaid"}, "price": {"1000"}, "validity": {"1"},
+		"validity_unit": {"Days"}, "bandwidth_id": {itoa(e.bw)}, "device": {"Radius"}, "enabled": {"1"}}
+	wantCode(t, do(e.h, "POST", "/admin/plans", form, e.c), 303, "radius plan without router")
+	pl, _ := e.q.ListPlans(t.Context(), db.ListPlansParams{Limit: 10})
+	if len(pl) != 1 || pl[0].RouterID.Valid || pl[0].Device != "Radius" {
+		t.Fatalf("plans %+v", pl)
+	}
+}
+
+func TestSubscriptionCSVAndSync(t *testing.T) {
+	e := billApp(t)
+	gold, silver := e.plan(t, "gold", "PPPoE", 10000), e.plan(t, "silver", "PPPoE", 20000)
+	u2, err := e.q.CreateCustomer(t.Context(), db.CreateCustomerParams{Username: "u2", PasswordHash: "h", Fullname: "U Two", ServiceType: "PPPoE", AutoRenewal: 1, Status: "Active"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().Unix()
+	for _, s := range []db.CreateSubscriptionParams{
+		{CustomerID: e.cust.ID, PlanID: gold.ID, RouterID: sql.NullInt64{Int64: e.rt, Valid: true}, Type: "PPPoE", StartedAt: now, ExpiresAt: now + 86400},
+		{CustomerID: u2.ID, PlanID: silver.ID, RouterID: sql.NullInt64{Int64: e.rt, Valid: true}, Type: "PPPoE", StartedAt: now, ExpiresAt: now + 86400},
+	} {
+		if _, err := e.q.CreateSubscription(t.Context(), s); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w := do(e.h, "GET", "/admin/subscriptions/export?plan="+itoa(gold.ID), nil, e.c)
+	if b := w.Body.String(); w.Code != 200 || !strings.HasPrefix(w.Header().Get("Content-Type"), "text/csv") ||
+		!strings.Contains(b, "gold") || strings.Contains(b, "silver") {
+		t.Fatalf("csv: %d\n%s", w.Code, b)
+	}
+
+	// sync re-sends the customer to the device (recDev records AddCustomer)
+	wantCode(t, do(e.h, "POST", "/admin/customers/"+itoa(e.cust.ID)+"/recharge", url.Values{"plan": {itoa(gold.ID)}, "method": {"Cash"}}, e.c), 303, "recharge")
+	subs, _ := e.q.ListSubscriptionsByCustomer(t.Context(), db.ListSubscriptionsByCustomerParams{CustomerID: e.cust.ID, Limit: 5})
+	*e.calls = nil
+	wantCode(t, do(e.h, "POST", "/admin/subscriptions/"+itoa(subs[0].ID)+"/sync", nil, e.c), 303, "sync")
+	if len(*e.calls) != 1 || (*e.calls)[0] != "customer u1" {
+		t.Fatalf("device calls: %v", *e.calls)
+	}
+}
 
 func TestDepositForm(t *testing.T) {
 	e := billApp(t)

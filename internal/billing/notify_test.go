@@ -115,7 +115,7 @@ func TestReminderPicksH137Once(t *testing.T) {
 			t.Fatal(err)
 		}
 		exp := time.Date(2025, 1, 10+d, 23, 0, 0, 0, jkt).Unix()
-		if _, err := e.q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: c.ID, PlanID: e.day.ID, RouterID: e.day.RouterID.Int64,
+		if _, err := e.q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: c.ID, PlanID: e.day.ID, RouterID: e.day.RouterID,
 			Type: "PPPoE", StartedAt: base.Unix(), ExpiresAt: exp, Method: "x"}); err != nil {
 			t.Fatal(err)
 		}

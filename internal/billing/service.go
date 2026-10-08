@@ -211,13 +211,16 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		}
 		pend = &pending{cust: c, plan: plan, trx: trx, first: false, expiry: now} // notify only, no router
 	} else {
-		router, err := q.GetRouter(ctx, plan.RouterID.Int64)
-		if err != nil {
-			return nil, fmt.Errorf("router of plan %q: %w", plan.Name, err)
+		rid := plan.RouterID // NULL for Radius plans: no router to name or touch
+		if rid.Valid {
+			router, err := q.GetRouter(ctx, rid.Int64)
+			if err != nil {
+				return nil, fmt.Errorf("router of plan %q: %w", plan.Name, err)
+			}
+			trx.RouterName = router.Name
 		}
-		trx.RouterName = router.Name
 
-		active, found, err := activeSub(ctx, q, customerID, router.ID, plan.Type)
+		active, found, err := activeSub(ctx, q, customerID, rid, plan.Type)
 		if err != nil {
 			return nil, err
 		}
@@ -234,10 +237,10 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		}
 
 		if found {
-			err = q.RenewSubscription(ctx, db.RenewSubscriptionParams{PlanID: plan.ID, RouterID: router.ID, Type: plan.Type,
+			err = q.RenewSubscription(ctx, db.RenewSubscriptionParams{PlanID: plan.ID, RouterID: rid, Type: plan.Type,
 				StartedAt: start, ExpiresAt: exp.Unix(), Method: method, AdminID: nullID(adminID), ID: active.ID})
 		} else {
-			_, err = q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: customerID, PlanID: plan.ID, RouterID: router.ID,
+			_, err = q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: customerID, PlanID: plan.ID, RouterID: rid,
 				Type: plan.Type, StartedAt: start, ExpiresAt: exp.Unix(), Method: method, AdminID: nullID(adminID)})
 		}
 		if err != nil {
@@ -270,7 +273,7 @@ func nextInvoice(ctx context.Context, q *db.Queries) (string, error) {
 
 // activeSub finds the customer's active subscription for (router, type); the partial unique
 // index guarantees at most one.
-func activeSub(ctx context.Context, q *db.Queries, customerID, routerID int64, typ string) (db.Subscription, bool, error) {
+func activeSub(ctx context.Context, q *db.Queries, customerID int64, routerID sql.NullInt64, typ string) (db.Subscription, bool, error) {
 	subs, err := q.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: customerID, Limit: 1000})
 	if err != nil {
 		return db.Subscription{}, false, err
@@ -412,9 +415,11 @@ func (s *Service) ExpiryJob(trusted func() bool) func(context.Context) error {
 
 // prepare resolves the driver and the device-side customer/plan for a plan's router.
 func (s *Service) prepare(ctx context.Context, c db.Customer, p db.Plan) (dev device.Device, dc device.Customer, dp device.Plan, routerName string, err error) {
-	router, err := s.Q.GetRouter(ctx, p.RouterID.Int64)
-	if err != nil {
-		return
+	var router db.Router // zero for Radius plans, whose device ignores it
+	if p.RouterID.Valid {
+		if router, err = s.Q.GetRouter(ctx, p.RouterID.Int64); err != nil {
+			return
+		}
 	}
 	mk := s.DeviceFor
 	if mk == nil {

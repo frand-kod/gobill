@@ -698,5 +698,7 @@
     "Duration": "Duration",
     "IP Address": "IP Address",
     "MAC Address": "MAC Address",
-    "Disconnect": "Disconnect"
+    "Disconnect": "Disconnect",
+    "Export CSV": "Export CSV",
+    "Plan": "Plan"
 }

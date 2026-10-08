@@ -39,7 +39,7 @@ func TestBillingSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 	sub, err := q.CreateSubscription(ctx, CreateSubscriptionParams{
-		CustomerID: cust.ID, PlanID: plan.ID, RouterID: rt.ID, Type: "Hotspot", StartedAt: 100, ExpiresAt: 200,
+		CustomerID: cust.ID, PlanID: plan.ID, RouterID: sql.NullInt64{Int64: rt.ID, Valid: true}, Type: "Hotspot", StartedAt: 100, ExpiresAt: 200,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -59,7 +59,7 @@ func TestBillingSchema(t *testing.T) {
 	}
 
 	// One active subscription per customer+router+type; allowed again once expired.
-	dup := CreateSubscriptionParams{CustomerID: cust.ID, PlanID: plan.ID, RouterID: rt.ID, Type: "Hotspot", StartedAt: 300, ExpiresAt: 400}
+	dup := CreateSubscriptionParams{CustomerID: cust.ID, PlanID: plan.ID, RouterID: sql.NullInt64{Int64: rt.ID, Valid: true}, Type: "Hotspot", StartedAt: 300, ExpiresAt: 400}
 	if _, err := q.CreateSubscription(ctx, dup); err != nil {
 		t.Fatalf("new sub after expiry: %v", err)
 	}

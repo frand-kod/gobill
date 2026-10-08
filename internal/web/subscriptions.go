@@ -2,11 +2,13 @@ package web
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/frand-kod/nuxbill-go/internal/billing"
@@ -15,10 +17,10 @@ import (
 
 const localTime = "2006-01-02T15:04" // <input type="datetime-local">
 
-func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
+// subQuery is the filter shared by the list and the CSV export; paging is added by the caller.
+func subQuery(r *http.Request) db.FilterSubscriptionsParams {
 	g := r.URL.Query().Get
-	p := db.FilterSubscriptionsParams{Q: q, Status: g("status"), Type: g("type"), PageLimit: limit, PageOffset: off}
+	p := db.FilterSubscriptionsParams{Q: strings.TrimSpace(g("q")), Status: g("status"), Type: g("type")}
 	if !oneOf(p.Status, "active", "expired") {
 		p.Status = ""
 	}
@@ -26,6 +28,15 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 		p.Type = ""
 	}
 	p.RouterID, _ = posInt(g("router"))
+	p.PlanID, _ = posInt(g("plan"))
+	return p
+}
+
+func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
+	_, page, limit, off := paging(r)
+	p := subQuery(r)
+	p.PageLimit, p.PageOffset = limit, off
+	g := r.URL.Query().Get
 	rts, err := s.routerNames(r)
 	if err != nil {
 		s.fail(w, "list routers", err)
@@ -40,17 +51,49 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "list subscriptions", err)
 		return
 	}
-	lp := listPage{Heading: "Subscriptions", Base: "/admin/subscriptions", Q: q, Searchable: true,
+	planOpts, _, err := s.planOptions(r, false)
+	if err != nil {
+		s.fail(w, "list plans", err)
+		return
+	}
+	plans := append([]option{{"", "Plan"}}, planOpts...)
+	lp := listPage{Heading: "Subscriptions", Base: "/admin/subscriptions", Q: p.Q, Searchable: true,
 		CanEdit: oneOf(adminFrom(r).Role, "SuperAdmin", "Admin"), NoDelete: true,
 		Cols: []string{"Username", "Plan Name", "Type", "Created On", "Expires On", "Method", "Location", "Status"},
 		Filters: []filter{{"status", p.Status, []option{{"", "Status"}, {"active", "active"}, {"expired", "expired"}}},
-			{"type", p.Type, anyOpts("Type", "Hotspot", "PPPoE")}, {"router", g("router"), routers}},
-		Actions: []rowAction{{"extend", "Extend", "days"}, {"deactivate", "Deactivate", ""}}}
+			{"type", p.Type, anyOpts("Type", "Hotspot", "PPPoE")}, {"router", g("router"), routers}, {"plan", g("plan"), plans}},
+		Actions: []rowAction{{"extend", "Extend", "days"}, {"deactivate", "Deactivate", ""}, {"sync", "Sync", ""}}}
 	for _, x := range rows {
 		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Username, x.PlanName, x.Type, s.ts(x.StartedAt), s.ts(x.ExpiresAt), x.Method, x.RouterName, x.Status}})
 	}
+	lp.Links = []option{{"/admin/subscriptions/export?" + lp.query().Encode(), "Export CSV"}}
 	lp.finish(page)
 	s.renderList(w, r, lp)
+}
+
+// subExport streams the current filter (all pages) as CSV, like custExport.
+func (s *Server) subExport(w http.ResponseWriter, r *http.Request) {
+	p := subQuery(r)
+	p.PageLimit = -1
+	rows, err := s.queries.FilterSubscriptions(r.Context(), p)
+	if err != nil {
+		s.fail(w, "export subscriptions", err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="subscriptions-`+time.Now().Format("20060102")+`.csv"`)
+	cw := csv.NewWriter(w)
+	cw.Write([]string{"Username", "Plan Name", "Type", "Created On", "Expires On", "Method", "Location", "Status"})
+	for _, x := range rows {
+		rec := []string{x.Username, x.PlanName, x.Type, s.ts(x.StartedAt), s.ts(x.ExpiresAt), x.Method, x.RouterName, x.Status}
+		for i, f := range rec { // spreadsheet formula injection
+			if f != "" && strings.ContainsRune("=+-@", rune(f[0])) {
+				rec[i] = "'" + f
+			}
+		}
+		cw.Write(rec)
+	}
+	cw.Flush()
 }
 
 func (s *Server) subFields(r *http.Request, v, e map[string]string) ([]field, error) {
@@ -166,6 +209,10 @@ func (s *Server) subExtend(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) subDeactivate(w http.ResponseWriter, r *http.Request) {
 	s.subAct(w, r, func(id int64) error { return s.Billing.DeactivateSubscription(r.Context(), id, adminFrom(r).ID) })
+}
+
+func (s *Server) subSync(w http.ResponseWriter, r *http.Request) {
+	s.subAct(w, r, func(id int64) error { return s.Billing.SyncSubscription(r.Context(), id, adminFrom(r).ID) })
 }
 
 func depositPage(v, e map[string]string, plans []option) formPage {

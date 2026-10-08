@@ -68,7 +68,7 @@ func setup(t *testing.T) *env {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: c.ID, PlanID: plan.ID, RouterID: rt.ID, Type: "Hotspot",
+	if _, err := q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: c.ID, PlanID: plan.ID, RouterID: sql.NullInt64{Int64: rt.ID, Valid: true}, Type: "Hotspot",
 		StartedAt: e.now.Unix() - 100, ExpiresAt: e.now.Unix() + 3600}); err != nil {
 		t.Fatal(err)
 	}

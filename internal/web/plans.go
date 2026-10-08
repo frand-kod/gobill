@@ -45,7 +45,7 @@ func (f field) none() field { f.Options = append([]option{{"", "-"}}, f.Options.
 
 func planFields(v, e map[string]string, x planRefs, self int64) []field {
 	sel := func(name, label string) field { return text(name, label, v, e).as("select") }
-	bw, rt, pool, exp := sel("bandwidth_id", "Bandwidth Name"), sel("router_id", "Router"), sel("pool_id", "Pool Name").none(), sel("expired_plan_id", "Expired Plan").none()
+	bw, rt, pool, exp := sel("bandwidth_id", "Bandwidth Name"), sel("router_id", "Router").none(), sel("pool_id", "Pool Name").none(), sel("expired_plan_id", "Expired Plan").none()
 	for _, b := range x.bw {
 		bw.Options = append(bw.Options, option{fmt.Sprint(b.ID), b.Name})
 	}
@@ -240,8 +240,8 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 		if p.BandwidthID = optInt(v["bandwidth_id"], e, "bandwidth_id"); !p.BandwidthID.Valid {
 			e["bandwidth_id"] = "This field is required"
 		}
-		if p.RouterID = optInt(v["router_id"], e, "router_id"); !p.RouterID.Valid {
-			e["router_id"] = "This field is required"
+		if p.RouterID = optInt(v["router_id"], e, "router_id"); !p.RouterID.Valid && p.Device != "Radius" {
+			e["router_id"] = "This field is required" // Radius plans are served by the RADIUS server, no router
 		}
 		p.PoolID = optInt(v["pool_id"], e, "pool_id")
 		p.ExpiredPlanID = optInt(v["expired_plan_id"], e, "expired_plan_id")

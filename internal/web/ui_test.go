@@ -19,7 +19,7 @@ func TestDashboardTiles(t *testing.T) {
 		PeriodStart: now, PeriodEnd: now + 86400}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: e.cust.ID, PlanID: p.ID, RouterID: e.rt,
+	if _, err := e.q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: e.cust.ID, PlanID: p.ID, RouterID: sql.NullInt64{Int64: e.rt, Valid: true},
 		Type: "PPPoE", StartedAt: now, ExpiresAt: now + 86400, Method: "Cash"}); err != nil {
 		t.Fatal(err)
 	}

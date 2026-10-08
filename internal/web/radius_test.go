@@ -101,7 +101,7 @@ func TestCustomerRadiusUsage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: cu.ID, PlanID: plan.ID, RouterID: rt.ID, Type: "Hotspot",
+	if _, err := q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: cu.ID, PlanID: plan.ID, RouterID: sql.NullInt64{Int64: rt.ID, Valid: true}, Type: "Hotspot",
 		StartedAt: now - 1000, ExpiresAt: now + 1000}); err != nil {
 		t.Fatal(err)
 	}

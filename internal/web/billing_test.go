@@ -32,6 +32,11 @@ func (d recDev) AddPlan(_ context.Context, p device.Plan) error {
 	return nil
 }
 
+func (d recDev) AddCustomer(_ context.Context, c device.Customer, _ device.Plan) error {
+	*d.calls = append(*d.calls, "customer "+c.Username)
+	return nil
+}
+
 func billApp(t *testing.T) *billEnv {
 	s, h, q, c := crudApp(t)
 	e := &billEnv{h: h, q: q, c: c, calls: new([]string)}

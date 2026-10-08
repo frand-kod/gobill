@@ -79,8 +79,8 @@ func (s *Service) EditSubscription(ctx context.Context, id, planID int64, expire
 		if cur, err = q.GetPlan(ctx, planID); err != nil {
 			return err
 		}
-		if cur.Type == "Balance" || !cur.RouterID.Valid {
-			return errors.New("plan has no router")
+		if cur.Type == "Balance" {
+			return errors.New("plan has no subscription")
 		}
 		if expires.Unix() < sub.StartedAt {
 			return errors.New("expiry is before the start")
@@ -91,7 +91,7 @@ func (s *Service) EditSubscription(ctx context.Context, id, planID int64, expire
 		if expires.After(s.now()) {
 			status = "active"
 		}
-		err = q.UpdateSubscription(ctx, db.UpdateSubscriptionParams{PlanID: cur.ID, RouterID: cur.RouterID.Int64, Type: cur.Type,
+		err = q.UpdateSubscription(ctx, db.UpdateSubscriptionParams{PlanID: cur.ID, RouterID: cur.RouterID, Type: cur.Type,
 			ExpiresAt: expires.Unix(), Status: status, AdminID: nullID(adminID), ID: id})
 		if err != nil {
 			return err

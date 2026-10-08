@@ -19,7 +19,7 @@ RETURNING id, customer_id, plan_id, router_id, type, started_at, expires_at, sta
 type CreateSubscriptionParams struct {
 	CustomerID int64
 	PlanID     int64
-	RouterID   int64
+	RouterID   sql.NullInt64
 	Type       string
 	StartedAt  int64
 	ExpiresAt  int64
@@ -94,14 +94,16 @@ func (q *Queries) ExpireSubscription(ctx context.Context, id int64) (int64, erro
 }
 
 const filterSubscriptions = `-- name: FilterSubscriptions :many
-SELECT s.id, s.type, s.started_at, s.expires_at, s.status, s.method, c.username, p.name AS plan_name, r.name AS router_name
-FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id JOIN routers r ON r.id = s.router_id
+SELECT s.id, s.type, s.started_at, s.expires_at, s.status, s.method, c.username, p.name AS plan_name,
+       CAST(COALESCE(r.name, '') AS TEXT) AS router_name
+FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id LEFT JOIN routers r ON r.id = s.router_id
 WHERE (c.username LIKE '%' || CAST(?1 AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(?1 AS TEXT) || '%'
        OR p.name LIKE '%' || CAST(?1 AS TEXT) || '%')
   AND (CAST(?2 AS TEXT) = '' OR s.status = ?2)
   AND (CAST(?3 AS TEXT) = '' OR s.type = ?3)
   AND (CAST(?4 AS INTEGER) = 0 OR s.router_id = ?4)
-ORDER BY s.expires_at DESC, s.id DESC LIMIT ?6 OFFSET ?5
+  AND (CAST(?5 AS INTEGER) = 0 OR s.plan_id = ?5)
+ORDER BY s.expires_at DESC, s.id DESC LIMIT ?7 OFFSET ?6
 `
 
 type FilterSubscriptionsParams struct {
@@ -109,6 +111,7 @@ type FilterSubscriptionsParams struct {
 	Status     string
 	Type       string
 	RouterID   int64
+	PlanID     int64
 	PageOffset int64
 	PageLimit  int64
 }
@@ -125,13 +128,14 @@ type FilterSubscriptionsRow struct {
 	RouterName string
 }
 
-// Empty status/type and router_id 0 = any.
+// Empty status/type and router_id/plan_id 0 = any.
 func (q *Queries) FilterSubscriptions(ctx context.Context, arg FilterSubscriptionsParams) ([]FilterSubscriptionsRow, error) {
 	rows, err := q.db.QueryContext(ctx, filterSubscriptions,
 		arg.Q,
 		arg.Status,
 		arg.Type,
 		arg.RouterID,
+		arg.PlanID,
 		arg.PageOffset,
 		arg.PageLimit,
 	)
@@ -364,7 +368,7 @@ WHERE id = ?
 
 type RenewSubscriptionParams struct {
 	PlanID    int64
-	RouterID  int64
+	RouterID  sql.NullInt64
 	Type      string
 	StartedAt int64
 	ExpiresAt int64
@@ -439,7 +443,7 @@ UPDATE subscriptions SET plan_id = ?, router_id = ?, type = ?, expires_at = ?, s
 
 type UpdateSubscriptionParams struct {
 	PlanID    int64
-	RouterID  int64
+	RouterID  sql.NullInt64
 	Type      string
 	ExpiresAt int64
 	Status    string

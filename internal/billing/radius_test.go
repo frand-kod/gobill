@@ -16,6 +16,21 @@ import (
 	"github.com/frand-kod/nuxbill-go/internal/secret"
 )
 
+func TestRadiusPlanRechargeWithoutRouter(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	plan, err := e.q.CreatePlan(ctx, db.CreatePlanParams{Name: "rad-nort", Type: "PPPoE", Billing: "prepaid", Price: 1, Validity: 1,
+		ValidityUnit: "Days", Device: "Radius", Enabled: 1, BandwidthID: e.day.BandwidthID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.s.Recharge(ctx, e.cust.ID, plan.ID, "Cash", 0); err != nil {
+		t.Fatal(err)
+	}
+	if s := e.sub(t); s.RouterID.Valid || s.PlanID != plan.ID {
+		t.Fatalf("sub %+v", s)
+	}
+}
+
 func TestExpireRadiusPlanDisconnects(t *testing.T) {
 	ctx, e := context.Background(), setup(t)
 	key, sec := make([]byte, 32), []byte("nas-secret")
@@ -59,7 +74,7 @@ func TestExpireRadiusPlanDisconnects(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: e.cust.ID, PlanID: plan.ID, RouterID: plan.RouterID.Int64,
+	if _, err := e.q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: e.cust.ID, PlanID: plan.ID, RouterID: plan.RouterID,
 		Type: "PPPoE", StartedAt: e.now.Unix() - 200, ExpiresAt: e.now.Unix() - 100}); err != nil {
 		t.Fatal(err)
 	}

@@ -67,7 +67,7 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | A44 | `admin/plan/recharge-confirm.tpl` | `plan/recharge-confirm`, `customers/recharge` | — | Belum | F1 |
 | A45 | `admin/plan/refill.tpl` | `plan/refill`, `refill-post` | `GET/POST /admin/vouchers/redeem` | Ada | F1 |
 | A46 | `admin/plan/deposit.tpl` | `plan/deposit`, `deposit-post` | `GET/POST /admin/deposit` | Ada | F1 |
-| A47 | `admin/plan/active.tpl` | `plan/list`, `sync`, `csv`, `extend` | `GET /admin/subscriptions`, `POST .../{id}/extend`, `POST .../{id}/deactivate` | Sebagian | F1 |
+| A47 | `admin/plan/active.tpl` | `plan/list`, `sync`, `csv`, `extend` | `GET /admin/subscriptions`, `GET /admin/subscriptions/export`, `POST .../{id}/extend`, `POST .../{id}/deactivate`, `POST .../{id}/sync` | Ada | F1 |
 | A48 | `admin/plan/edit.tpl` | `plan/edit`, `edit-post` | `GET /admin/subscriptions/{id}/edit`, `POST /admin/subscriptions/{id}` | Ada | F1 |
 | A49 | `admin/plan/invoice.tpl` | `plan/view`, `viewx` | — | Belum | F5 |
 | A50 | `admin/plan/invoice-print.tpl` | `plan/print` | — | Belum | F5 |
@@ -266,7 +266,7 @@ Satu form baru `planFields` (`internal/web/plans.go`) melayani tipe Hotspot/PPPo
 | `validity` | Package Validity | text | required, numerik | `validity` | ✅ | > 0 |
 | `validity_unit` | Validity unit | select | Mins/Hrs/Days/Months/Period | `validity_unit` | ✅ | |
 | `expired_date` | Expired Date | number maxlength 2 | hanya Period | `billing_day` | ⚠️ | Nama beda; 1-31 wajib bila postpaid |
-| `routers` | Router Name | select (add) / text (edit) | required | `router_id` | ⚠️ | FK ke `routers`, bukan nama |
+| `routers` | Router Name | select (add) / text (edit) | required | `router_id` | ⚠️ | FK ke `routers`, bukan nama; opsional bila `device` = Radius (NULL, router tidak disentuh) |
 | `pool_name` (P) | IP Pool | select | required (P) | `pool_id` | ⚠️ | FK ke `pools`; opsional di baru |
 | `plan_expired` (edit) | Expired Internet Package | select | — | `expired_plan_id` | ⚠️ | Nama beda; FK |
 | `on_login` (edit) | On Login script | textarea | — | `on_login` | ✅ | Bagian Network & device |

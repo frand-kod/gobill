@@ -35,14 +35,16 @@ WHERE id = ?;
 DELETE FROM subscriptions WHERE id = ?;
 
 -- name: FilterSubscriptions :many
--- Empty status/type and router_id 0 = any.
-SELECT s.id, s.type, s.started_at, s.expires_at, s.status, s.method, c.username, p.name AS plan_name, r.name AS router_name
-FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id JOIN routers r ON r.id = s.router_id
+-- Empty status/type and router_id/plan_id 0 = any.
+SELECT s.id, s.type, s.started_at, s.expires_at, s.status, s.method, c.username, p.name AS plan_name,
+       CAST(COALESCE(r.name, '') AS TEXT) AS router_name
+FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id LEFT JOIN routers r ON r.id = s.router_id
 WHERE (c.username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
        OR p.name LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%')
   AND (CAST(sqlc.arg(status) AS TEXT) = '' OR s.status = sqlc.arg(status))
   AND (CAST(sqlc.arg(type) AS TEXT) = '' OR s.type = sqlc.arg(type))
   AND (CAST(sqlc.arg(router_id) AS INTEGER) = 0 OR s.router_id = sqlc.arg(router_id))
+  AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR s.plan_id = sqlc.arg(plan_id))
 ORDER BY s.expires_at DESC, s.id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 -- name: UpdateSubscription :exec
