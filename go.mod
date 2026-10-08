@@ -6,16 +6,15 @@ require (
 	github.com/alexedwards/scs/sqlite3store v0.0.0-20251002162104-209de6e426de
 	github.com/alexedwards/scs/v2 v2.9.0
 	github.com/go-routeros/routeros/v3 v3.0.1
+	github.com/wneessen/go-mail v0.8.1
 	golang.org/x/crypto v0.57.0
+	layeh.com/radius v0.0.0-20231213012653-1006025d24f8
 	modernc.org/sqlite v1.60.1
 )
 
-require github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect
+require github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 
-require (
-	golang.org/x/text v0.42.0 // indirect
-	layeh.com/radius v0.0.0-20231213012653-1006025d24f8 // indirect
-)
+require golang.org/x/text v0.42.0 // indirect
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
