@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/frand-kod/nuxbill-go/internal/db"
 	"github.com/frand-kod/nuxbill-go/internal/notify"
 	"github.com/frand-kod/nuxbill-go/internal/payment"
+	"github.com/frand-kod/nuxbill-go/internal/secret"
 )
 
 // Customer portal. The session key "customer_id" is separate from the admin's "admin_id".
@@ -47,6 +49,7 @@ func (s *Server) portalRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /portal/login", s.pLoginForm)
 	mux.HandleFunc("POST /portal/login", s.pLogin)
 	mux.HandleFunc("POST /portal/logout", s.pLogout)
+	mux.HandleFunc("POST /portal/login/activation", s.pVoucherLogin)
 	mux.HandleFunc("GET /portal/register", s.pRegisterForm)
 	mux.HandleFunc("POST /portal/register", s.pRegister)
 	mux.Handle("GET /portal", s.requireCustomer(s.pDashboard))
@@ -120,6 +123,72 @@ func (s *Server) pLogout(w http.ResponseWriter, r *http.Request) {
 
 // ---- register ----
 
+// pVoucherLogin is the old login/activation: in "Voucher Only" mode a username plus a voucher code
+// creates the customer (password and PPPoE secret = the code) when missing, then redeems the voucher.
+// An existing customer keeps their password (old PHP overwrote it with the code).
+func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	st, err := s.loadSettings(ctx)
+	if err != nil || s.Billing == nil {
+		s.fail(w, "voucher login", errors.Join(err, errors.New("billing not configured")))
+		return
+	}
+	if st["disable_registration"] != "yes" {
+		s.flashTo(w, r, "/portal/login", "Registration Disabled")
+		return
+	}
+	ip := "c:" + clientIP(r)
+	bad := func() {
+		s.recordFailure(ip)
+		s.prender(w, r, 200, "p_login", Page{Title: "Sign in", Error: "Voucher Not Valid"})
+	}
+	code := strings.TrimSpace(r.PostFormValue("voucher"))
+	username := strings.Map(func(c rune) rune {
+		if c < 128 && (unicode.IsLetter(c) || unicode.IsDigit(c) || strings.ContainsRune("+_.@-", c)) {
+			return c
+		}
+		return -1
+	}, r.PostFormValue("username"))
+	if s.tooManyFailures(ip) || code == "" || len(username) < 3 || len(username) > 55 {
+		bad()
+		return
+	}
+	if v, err := s.queries.GetVoucherByCode(ctx, code); err != nil || v.Status != "unused" {
+		bad()
+		return
+	}
+	c, err := s.queries.GetCustomerByUsername(ctx, username)
+	if err != nil {
+		hash, herr := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
+		enc, serr := secret.Seal(s.SecretKey, []byte(code))
+		if herr != nil || serr != nil {
+			s.fail(w, "voucher login", errors.Join(herr, serr))
+			return
+		}
+		phone := ""
+		if len(username) < 21 {
+			phone = username
+		}
+		if c, err = s.queries.CreateCustomer(ctx, db.CreateCustomerParams{Username: username, PasswordHash: string(hash),
+			Phone: phone, ServiceType: "Others", SecretEnc: enc, AutoRenewal: 1, Status: "Active"}); err != nil {
+			s.fail(w, "voucher login", err)
+			return
+		}
+	}
+	switch err := s.Billing.RedeemVoucher(ctx, code, c.ID); {
+	case errors.Is(err, billing.ErrVoucherInvalid):
+		bad()
+	case err != nil:
+		s.fail(w, "voucher login", err)
+	default:
+		to := "/portal/login"
+		if u := safeRedirect(st["voucher_redirect"]); u != "" {
+			to = u
+		}
+		s.flashTo(w, r, to, "Voucher activation success, now you can login")
+	}
+}
+
 type regData struct {
 	Username, Fullname, Email, Address, Phone string
 	OTP                                       bool // OTP field shown
@@ -137,7 +206,7 @@ func (s *Server) pRegisterForm(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "register", err)
 		return
 	}
-	if st["disable_registration"] == "noreg" {
+	if st["disable_registration"] != "" && st["disable_registration"] != "no" {
 		s.flashTo(w, r, "/portal/login", "Registration Disabled")
 		return
 	}
@@ -157,7 +226,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "register", err)
 		return
 	}
-	if st["disable_registration"] == "noreg" {
+	if st["disable_registration"] != "" && st["disable_registration"] != "no" {
 		s.flashTo(w, r, "/portal/login", "Registration Disabled")
 		return
 	}

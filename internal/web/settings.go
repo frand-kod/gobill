@@ -207,7 +207,7 @@ func (s *Server) settingsFields(tab string, v, e map[string]string) []field {
 			chk("man_fields_email", "Mandatory field: Email"),
 			chk("man_fields_fname", "Mandatory field: Full Name"),
 			chk("man_fields_address", "Mandatory field: Address"),
-			sel("disable_registration", "Disable Registration", settingsYesNo...),
+			sel("disable_registration", "Disable Registration", option{"no", "No"}, option{"yes", "Voucher Only"}, option{"noreg", "No Registration"}),
 			sel("registration_username", "Registration Username", option{"username", "Username"}, option{"phone", "Phone"}),
 			sel("sms_otp_registration", "SMS OTP Registration", settingsYesNo...),
 			sel("phone_otp_type", "OTP Method", option{"sms", "SMS"}, option{"wa", "WhatsApp"}),

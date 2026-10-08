@@ -14,9 +14,19 @@
       <div><label class="label" for="password">{{T "Password"}}</label>
         <input class="input" id="password" name="password" type="password" autocomplete="current-password" required></div>
       <button class="btn btn-primary w-full" type="submit">{{T "Sign in"}}</button>
-      {{if ne .Brand.disable_registration "noreg"}}<a class="btn btn-ghost w-full" href="/portal/register">{{T "Register"}}</a>{{end}}
+      {{if or (eq .Brand.disable_registration "") (eq .Brand.disable_registration "no")}}<a class="btn btn-ghost w-full" href="/portal/register">{{T "Register"}}</a>{{end}}
       <a class="btn btn-ghost w-full" href="/portal/forgot">{{T "Forgot Password"}}</a>
     </div>
   </form>
+  {{if eq .Brand.disable_registration "yes"}}
+  <form class="card w-full max-w-sm mt-4" method="post" action="/portal/login/activation">
+    <div class="card-body space-y-4">
+      <h2 class="text-lg font-semibold">{{T "Login / Activate Voucher"}}</h2>
+      <div><label class="label" for="v_username">{{T "Username"}}</label><input class="input" id="v_username" name="username" required></div>
+      <div><label class="label" for="v_code">{{T "Enter voucher code here"}}</label><input class="input" id="v_code" name="voucher" required></div>
+      <button class="btn btn-primary w-full" type="submit">{{T "Login / Activate Voucher"}}</button>
+    </div>
+  </form>
+  {{end}}
 </main>
 {{end}}
