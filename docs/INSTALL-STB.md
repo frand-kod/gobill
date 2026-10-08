@@ -155,6 +155,123 @@ Cek apakah service berjalan:
     systemctl status nuxbill
     systemctl is-enabled nuxbill
 
+## 9. Keamanan RADIUS
+
+Lakukan bagian ini setelah NuxBill dan MikroTik sudah bekerja.
+
+### 9.1 Message-Authenticator (BlastRADIUS, CVE-2024-3596)
+
+NuxBill menambahkan Message-Authenticator pada semua balasan dan pada CoA. Di MikroTik, pastikan entry `/radius` mewajibkannya:
+
+    /radius set [find] require-message-auth=yes-for-request-resp
+    /radius print detail
+
+Di NuxBill, buka form NAS dan aktifkan opsi "require Message-Authenticator". Perangkat yang tidak mengirim Message-Authenticator akan ditolak, jadi perbarui firmware NAS lebih dulu.
+
+### 9.2 Shared secret
+
+- Minimal 16 karakter acak, unik untuk setiap NAS.
+- Buat dengan:
+
+        openssl rand -base64 24
+
+- Jangan pakai ulang password hotspot atau password admin.
+- Ganti secret di MikroTik, lalu samakan di form NAS NuxBill:
+
+        /radius set [find address=IP-STB] secret=SECRET-BARU
+
+### 9.3 Firewall
+
+**MikroTik.** Hanya NuxBill yang boleh mengirim CoA ke port 3799. Ganti `192.168.88.10` dengan IP NuxBill:
+
+    /ip firewall filter add chain=input protocol=udp dst-port=3799 src-address=192.168.88.10 action=accept
+    /ip firewall filter add chain=input protocol=udp dst-port=3799 action=drop
+
+Jika chain `input` sudah punya rule drop umum, pindahkan kedua rule di atasnya dengan `place-before=<nomor>`. Cek urutannya dengan `/ip firewall filter print`.
+
+**Host NuxBill (firewalld).** Izinkan RADIUS hanya dari IP NAS. Tambahkan satu rule per NAS:
+
+    sudo firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="192.168.88.1" port port="1812-1813" protocol="udp" accept'
+    sudo firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="192.168.1.0/24" port port="8080" protocol="tcp" accept'
+    sudo firewall-cmd --reload
+
+Jangan menambahkan `--add-port=1812/udp` atau `--add-port=8080/tcp`, karena port itu terbuka untuk semua IP.
+
+**Host NuxBill (nftables).** Contoh ini membuat input default drop. Pastikan SSH dari LAN admin ikut diizinkan agar tidak terkunci:
+
+    table inet nuxbill {
+        chain input {
+            type filter hook input priority 0; policy drop;
+            iif lo accept
+            ct state established,related accept
+            ip saddr 192.168.88.1 udp dport { 1812, 1813 } accept
+            ip saddr 192.168.1.0/24 tcp dport 8080 accept
+            ip saddr 192.168.1.0/24 tcp dport 22 accept
+        }
+    }
+
+Simpan ke `/etc/nftables.conf`, periksa dengan `sudo nft list ruleset`, lalu terapkan `sudo nft -f /etc/nftables.conf`. FreeRADIUS di host yang sama lewat loopback sudah diizinkan. Jika di host lain, tambahkan `ip saddr IP-FREERADIUS tcp dport 8080 accept`.
+
+**Batasi `/radius.php`.** Di pengaturan NuxBill, isi `radius_rest_allow` dengan IP FreeRADIUS, misalnya `192.168.1.20`. Jika kosong, semua IP boleh mengakses endpoint. Biarkan `trust_proxy` tetap `no` kecuali ada reverse proxy di depan NuxBill.
+
+### 9.4 Link jarak jauh (VPS)
+
+Jika NuxBill berjalan di VPS, jangan mengirim UDP RADIUS atau CoA lewat internet terbuka. Pilih salah satu.
+
+**WireGuard (disarankan, RouterOS 7).** Buat kunci dengan `wg genkey | tee privat.key | wg pubkey`, lalu di MikroTik:
+
+    /interface wireguard add name=wg-nuxbill listen-port=13231 private-key="KUNCI-PRIVAT-MIKROTIK"
+    /ip address add address=10.10.10.2/24 interface=wg-nuxbill
+    /interface wireguard peers add interface=wg-nuxbill public-key="KUNCI-PUBLIK-VPS" endpoint-address=IP-VPS endpoint-port=51820 allowed-address=10.10.10.1/32 persistent-keepalive=25s
+
+Di VPS, NuxBill memakai `10.10.10.1`. Daftarkan `10.10.10.1` sebagai alamat RADIUS dan NAS, lalu pakai `src-address=10.10.10.1` pada rule firewall CoA. RouterOS 6 tidak punya WireGuard. Gunakan L2TP/IPsec atau upgrade ke RouterOS 7.
+
+**RadSec.** RouterOS 7 bisa memakai `protocol=radsec` dengan sertifikat:
+
+    /radius add service=hotspot,ppp address=IP-VPS protocol=radsec certificate=nama-sertifikat
+
+NuxBill belum melayani RadSec secara native. Pasang proxy TLS seperti radsecproxy di VPS yang menerima RadSec lalu meneruskan RADIUS UDP ke `127.0.0.1:1812`. Jika tidak ingin mengelola proxy, gunakan WireGuard saja.
+
+### 9.5 Login hotspot
+
+`http-pap` mengirim password dalam teks biasa dari HP ke MikroTik lewat HTTP. Pilih salah satu:
+
+- Ganti ke CHAP (tanpa sertifikat):
+
+        /ip hotspot profile set [find] login-by=http-chap
+
+- Atau HTTPS (perlu sertifikat):
+
+        /certificate import file-name=hotspot.pem passphrase=""
+        /ip hotspot profile set [find] login-by=https,http-chap ssl-certificate=nama-sertifikat
+
+Trade-off: HTTPS memerlukan sertifikat yang dipercaya perangkat. Tanpa itu, captive portal menampilkan peringatan sertifikat. Gunakan sertifikat untuk nama host hotspot yang bisa diverifikasi, atau siapkan CA internal dan pasang di perangkat pelanggan.
+
+### 9.6 PPPoE (MS-CHAPv2)
+
+MS-CHAPv2 bisa dibongkar offline karena DES yang lemah. Di link yang tidak tepercaya (kabel bersama, kos, WiFi terbuka), jalankan PPPoE di dalam tunnel WireGuard di atas. Di jaringan akses lokal yang terkontrol, risiko ini bisa diterima.
+
+### 9.7 FreeRADIUS di jalur REST
+
+Jaga FreeRADIUS tetap terbaru. CVE-2019-11234/11235 (EAP-pwd, "Dragonblood") dan CVE-2022-41860/41861 (crash EAP-SIM/AKA) sudah diperbaiki di rilis baru:
+
+    sudo apt update && sudo apt -y upgrade freeradius
+    freeradius -v
+
+Jika EAP tidak dipakai, nonaktifkan modulnya:
+
+    sudo rm /etc/freeradius/3.0/mods-enabled/eap
+    sudo sed -i 's/^\(\s*\)eap$/\1#eap/' /etc/freeradius/3.0/sites-enabled/*
+    sudo freeradius -CX | tail -n 2
+
+Jalankan `grep -n "eap" /etc/freeradius/3.0/sites-enabled/*` dulu jika ingin memeriksa baris yang akan diberi komentar. Perintah `freeradius -CX` harus berakhir dengan pesan konfigurasi OK.
+
+Jika `connect_uri` memakai `https`, pastikan verifikasi sertifikat aktif di `/etc/freeradius/3.0/mods-enabled/rest`, pada blok `tls`:
+
+    check_cert = yes
+
+Cek dengan `grep -n check_cert /etc/freeradius/3.0/mods-enabled/rest`. Jika NuxBill memakai sertifikat self-signed, tambahkan CA-nya di `ca_file`.
+
 ## Migrasi dari PHPNuxBill + FreeRADIUS REST
 
 Plan `RadiusRest` dari PHPNuxBill diimpor sebagai plan `Radius`. Ada dua cara melanjutkan.
