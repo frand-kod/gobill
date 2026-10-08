@@ -24,7 +24,7 @@ func (q *Queries) CountAdmins(ctx context.Context) (int64, error) {
 const createAdmin = `-- name: CreateAdmin :one
 INSERT INTO admins (username, fullname, password_hash, role, email, phone, city, root_id)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, username, fullname, password_hash, role, status, email, phone, city, root_id, session_version, last_login_at, created_at
+RETURNING id, username, fullname, password_hash, legacy_sha1, role, status, email, phone, city, root_id, session_version, last_login_at, created_at
 `
 
 type CreateAdminParams struct {
@@ -55,6 +55,7 @@ func (q *Queries) CreateAdmin(ctx context.Context, arg CreateAdminParams) (Admin
 		&i.Username,
 		&i.Fullname,
 		&i.PasswordHash,
+		&i.LegacySha1,
 		&i.Role,
 		&i.Status,
 		&i.Email,
@@ -84,7 +85,7 @@ func (q *Queries) DeleteAdmin(ctx context.Context, id int64) (int64, error) {
 }
 
 const getAdmin = `-- name: GetAdmin :one
-SELECT id, username, fullname, password_hash, role, status, email, phone, city, root_id, session_version, last_login_at, created_at FROM admins WHERE id = ? LIMIT 1
+SELECT id, username, fullname, password_hash, legacy_sha1, role, status, email, phone, city, root_id, session_version, last_login_at, created_at FROM admins WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetAdmin(ctx context.Context, id int64) (Admin, error) {
@@ -95,6 +96,7 @@ func (q *Queries) GetAdmin(ctx context.Context, id int64) (Admin, error) {
 		&i.Username,
 		&i.Fullname,
 		&i.PasswordHash,
+		&i.LegacySha1,
 		&i.Role,
 		&i.Status,
 		&i.Email,
@@ -109,7 +111,7 @@ func (q *Queries) GetAdmin(ctx context.Context, id int64) (Admin, error) {
 }
 
 const getAdminByUsername = `-- name: GetAdminByUsername :one
-SELECT id, username, fullname, password_hash, role, status, email, phone, city, root_id, session_version, last_login_at, created_at FROM admins WHERE username = ? LIMIT 1
+SELECT id, username, fullname, password_hash, legacy_sha1, role, status, email, phone, city, root_id, session_version, last_login_at, created_at FROM admins WHERE username = ? LIMIT 1
 `
 
 func (q *Queries) GetAdminByUsername(ctx context.Context, username string) (Admin, error) {
@@ -120,6 +122,7 @@ func (q *Queries) GetAdminByUsername(ctx context.Context, username string) (Admi
 		&i.Username,
 		&i.Fullname,
 		&i.PasswordHash,
+		&i.LegacySha1,
 		&i.Role,
 		&i.Status,
 		&i.Email,
@@ -134,7 +137,7 @@ func (q *Queries) GetAdminByUsername(ctx context.Context, username string) (Admi
 }
 
 const listAgents = `-- name: ListAgents :many
-SELECT id, username, fullname, password_hash, role, status, email, phone, city, root_id, session_version, last_login_at, created_at FROM admins WHERE role = 'Agent' ORDER BY username
+SELECT id, username, fullname, password_hash, legacy_sha1, role, status, email, phone, city, root_id, session_version, last_login_at, created_at FROM admins WHERE role = 'Agent' ORDER BY username
 `
 
 func (q *Queries) ListAgents(ctx context.Context) ([]Admin, error) {
@@ -151,6 +154,7 @@ func (q *Queries) ListAgents(ctx context.Context) ([]Admin, error) {
 			&i.Username,
 			&i.Fullname,
 			&i.PasswordHash,
+			&i.LegacySha1,
 			&i.Role,
 			&i.Status,
 			&i.Email,
@@ -175,7 +179,7 @@ func (q *Queries) ListAgents(ctx context.Context) ([]Admin, error) {
 }
 
 const searchAdmins = `-- name: SearchAdmins :many
-SELECT id, username, fullname, password_hash, role, status, email, phone, city, root_id, session_version, last_login_at, created_at FROM admins
+SELECT id, username, fullname, password_hash, legacy_sha1, role, status, email, phone, city, root_id, session_version, last_login_at, created_at FROM admins
 WHERE (username LIKE '%' || ?1 || '%' OR fullname LIKE '%' || ?1 || '%')
   AND (?2 = 'all'
     OR (?2 = 'admin' AND (role IN ('Report', 'Agent', 'Sales') OR id = ?3))
@@ -213,6 +217,7 @@ func (q *Queries) SearchAdmins(ctx context.Context, arg SearchAdminsParams) ([]A
 			&i.Username,
 			&i.Fullname,
 			&i.PasswordHash,
+			&i.LegacySha1,
 			&i.Role,
 			&i.Status,
 			&i.Email,

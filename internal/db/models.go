@@ -23,6 +23,7 @@ type Admin struct {
 	Username       string
 	Fullname       string
 	PasswordHash   string
+	LegacySha1     string
 	Role           string
 	Status         string
 	Email          string
