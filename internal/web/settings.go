@@ -33,12 +33,13 @@ var settingsTabs = []struct {
 	{"localisation", "Localisation", false},
 	{"notifications", "Notifications", false},
 	{"integrations", "Integrations", true},
+	{"payment", "Payment Gateway", true},
 	{"miscellaneous", "Miscellaneous", false},
 }
 
 // settingsSecret are write-only: never rendered, and an empty post keeps the stored value.
 // ponytail: stored plaintext in settings, as the old app did; move to internal/secret if needed.
-var settingsSecret = map[string]bool{"telegram_bot": true, "smtp_pass": true, "webhook_secret": true}
+var settingsSecret = map[string]bool{"telegram_bot": true, "smtp_pass": true, "webhook_secret": true, "tripay_api_key": true, "tripay_private_key": true}
 
 // settingsFile are image uploads. The setting holds the stored filename; an empty post keeps it.
 var settingsFile = map[string]bool{"logo": true, "login_page_logo": true, "login_page_favicon": true, "login_page_wallpaper": true}
@@ -186,6 +187,15 @@ func (s *Server) settingsFields(tab string, v, e map[string]string) []field {
 			text("webhook_url", "Webhook URL", v, e).hint("http or https. Requests are signed with X-Signature"),
 			sec("webhook_secret", "Webhook Secret"),
 		}, "Webhook", "")...)
+	case "payment":
+		f := sel("payment_gateway", "Payment Gateway", option{"", "Disabled"}, option{"tripay", "Tripay"})
+		return section([]field{f,
+			sec("tripay_api_key", "Tripay API Key"),
+			sec("tripay_private_key", "Tripay Private Key"),
+			text("tripay_merchant_code", "Tripay Merchant Code", v, e),
+			sel("tripay_mode", "Tripay Mode", option{"sandbox", "Sandbox"}, option{"production", "Production"}),
+			text("tripay_channel", "Default Channel", v, e).hint("Optional channel code, e.g. QRIS"),
+		}, "Tripay", "")
 	case "miscellaneous":
 		out := section([]field{
 			sel("extend_expiry", "Extend Package Expiry", settingsYesNo...),
@@ -281,6 +291,12 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 			e[k] = "URL must contain [number] and [text]"
 		}
 	}
+	if x := v["payment_gateway"]; x != "" && x != "tripay" {
+		e["payment_gateway"] = "Choose one of the listed gateways"
+	}
+	if x := v["tripay_mode"]; x != "" && !oneOf(x, "sandbox", "production") {
+		e["tripay_mode"] = "Choose sandbox or production"
+	}
 	if x := v["webhook_url"]; x != "" {
 		if u, err := url.Parse(x); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 			e["webhook_url"] = "Use an http or https URL"
@@ -330,6 +346,9 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 		}
 	}
 	fp := formPage{Heading: "Settings", Action: "/admin/settings/" + tab, Cancel: "/admin", Fields: s.settingsFields(tab, v, e)}
+	if tab == "payment" { // the URL to paste into the Tripay merchant dashboard
+		fp.Fields[0].Hint = "Callback URL for Tripay: " + baseURL(r) + "/callback/tripay"
+	}
 	if tab == "miscellaneous" && adminFrom(r).Role == "SuperAdmin" { // backup is SuperAdmin only, as in the old dbstatus page
 		fp.Fields = append(fp.Fields, field{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/miscellaneous/backup", Section: "System"})
 	}

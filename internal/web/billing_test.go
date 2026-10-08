@@ -20,6 +20,7 @@ type billEnv struct {
 	c      *http.Cookie
 	cust   db.Customer
 	bw, rt int64
+	s      *Server
 	calls  *[]string
 	srv    *Server
 }
@@ -46,7 +47,7 @@ func (onlineDev) IsOnline(context.Context, device.Customer, string) (bool, error
 
 func billApp(t *testing.T) *billEnv {
 	s, h, q, c := crudApp(t)
-	e := &billEnv{h: h, q: q, c: c, calls: new([]string), srv: s}
+	e := &billEnv{s: s, h: h, q: q, c: c, calls: new([]string), srv: s}
 	s.Billing = &billing.Service{DB: s.conn, Q: q, Key: s.SecretKey,
 		DeviceFor: func(db.Plan, db.Router) (device.Device, error) { return recDev{calls: e.calls}, nil }}
 	ctx := t.Context()

@@ -145,6 +145,23 @@ type Page struct {
 	Body  string
 }
 
+type PaymentRequest struct {
+	ID         int64
+	Ref        string
+	Gateway    string
+	GatewayRef string
+	CustomerID int64
+	PlanID     int64
+	Amount     int64
+	Coupon     string
+	Channel    string
+	PayUrl     string
+	Status     string
+	CreatedAt  int64
+	PaidAt     sql.NullInt64
+	ExpiresAt  int64
+}
+
 type Plan struct {
 	ID            int64
 	Name          string

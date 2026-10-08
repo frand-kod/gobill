@@ -52,6 +52,9 @@ type Server struct {
 	Billing *billing.Service
 	// CoAPort is the NAS Disconnect-Request port; empty = 3799.
 	CoAPort string
+	// NewGateway builds the online gateway from tripay_* style config; nil = Tripay. Tests replace it.
+	NewGateway func(cfg map[string]string) (Gateway, error)
+	chanCache  paymentCache
 
 	// ponytail: in-memory limiter, resets on restart; persist if needed
 	mu     sync.Mutex
@@ -232,8 +235,13 @@ func (s *Server) Handler() http.Handler {
 	s.reportRoutes(mux, all)
 	s.messageRoutes(mux, staff)
 	s.portalRoutes(mux)
+	s.paymentRoutes(mux)
+	s.paymentAdminRoutes(mux, managers)
 
-	return http.NewCrossOriginProtection().Handler(s.sessions.LoadAndSave(s.idleGuard(s.maintenance(mux))))
+	// the Tripay server posts the callback without our origin; its HMAC signature authenticates it
+	cop := http.NewCrossOriginProtection()
+	cop.AddInsecureBypassPattern("POST /callback/tripay")
+	return cop.Handler(s.sessions.LoadAndSave(s.idleGuard(s.maintenance(mux))))
 }
 
 // location is the billing zone; UTC until a billing service is set.
@@ -402,6 +410,7 @@ func (s *Server) parseTemplates() error {
 		"report_print":     {"report_print.html"},
 		"invoice":          {"invoice.html"},
 		"maps":             {"base.html", "app.html", "maps.html"},
+		"pay_audit":        {"base.html", "app.html", "pay_audit.html"},
 
 		"p_login":     {"base.html", "portal/login.html"},
 		"p_register":  {"base.html", "portal/register.html"},
@@ -413,6 +422,7 @@ func (s *Server) parseTemplates() error {
 		"p_voucher":   {"base.html", "portal/layout.html", "portal/voucher.html"},
 		"p_forgot":    {"base.html", "portal/forgot.html"},
 		"p_page":      {"base.html", "portal/page.html"},
+		"p_payment":   {"base.html", "portal/layout.html", "portal/payment.html"},
 	}
 	s.templates = map[string]*template.Template{}
 	for name, files := range pages {

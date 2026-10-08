@@ -1,7 +1,7 @@
 {{define "content"}}
 <h1 class="mb-4 text-2xl font-semibold">{{T "Order Package"}}</h1>
 <div class="grid gap-4 sm:grid-cols-2">
-{{$bal := .Data.Balance}}
+{{$bal := .Data.Balance}}{{$ch := .Data.Channels}}
 {{range .Data.Plans}}
 <div class="card"><div class="card-body space-y-2">
   <h2 class="font-semibold">{{.Name}}</h2>
@@ -9,6 +9,7 @@
   {{with .Bandwidth}}<p class="text-sm text-slate-500">{{T "Bandwidth"}}: {{.}}</p>{{end}}
   <p class="text-xl font-semibold">{{money .Price}}</p>
   {{if $bal}}<form method="post" action="/portal/plans/{{.ID}}/balance" class="space-y-2"><input class="input" type="text" name="coupon" maxlength="50" placeholder="{{T "Coupon Code"}}" aria-label="{{T "Coupon Code"}}"><button class="btn btn-primary" type="submit">{{T "Pay with Balance"}}</button></form>{{end}}
+  {{if $ch}}<form method="post" action="/portal/plans/{{.ID}}/pay" class="space-y-2"><input class="input" type="text" name="coupon" maxlength="50" placeholder="{{T "Coupon Code"}}" aria-label="{{T "Coupon Code"}}"><select class="input" name="channel" required aria-label="{{T "Payment Gateway"}}">{{range $ch}}<option value="{{.Code}}">{{.Name}}</option>{{end}}</select><button class="btn btn-primary" type="submit">{{T "Pay Now"}}</button></form>{{end}}
 </div></div>
 {{else}}<p>{{T "No data"}}</p>{{end}}
 </div>

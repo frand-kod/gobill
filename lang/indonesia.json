@@ -1343,5 +1343,19 @@
     "Code Voucher": "Kode Voucher",
     "Recharge Account": "Isi Ulang Akun",
     "Payment Method": "Metode Pembayaran",
-    "Service Plan": "Paket Layanan"
+    "Service Plan": "Paket Layanan",
+    "Payment Gateway": "Gerbang Pembayaran",
+    "Payment Audit": "Audit Pembayaran",
+    "Pay Now": "Bayar Sekarang",
+    "Check for Payment": "Cek Pembayaran",
+    "Order Details": "Detail Pesanan",
+    "Gateway Ref": "Ref Gateway",
+    "Transaction ID": "ID Transaksi",
+    "Payment Link": "Tautan Pembayaran",
+    "Payment gateway error, try again later": "Gerbang pembayaran bermasalah, coba lagi nanti",
+    "Tripay API Key": "Kunci API Tripay",
+    "Tripay Private Key": "Kunci Privat Tripay",
+    "Tripay Merchant Code": "Kode Merchant Tripay",
+    "Tripay Mode": "Mode Tripay",
+    "Default Channel": "Kanal Bawaan"
 }

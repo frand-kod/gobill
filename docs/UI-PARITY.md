@@ -92,9 +92,9 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | A68 | `admin/maps/customers.tpl` | `maps/customer` | `GET /admin/maps/customers` (+ `/data`) | Ada | F5 |
 | A69 | `admin/maps/routers.tpl` | `maps/routers` | `GET /admin/maps/routers` (+ `/data`), lingkaran coverage | Ada | F5 |
 | A70 | `admin/maps/odps.tpl` | `maps/odp` | `GET /admin/maps/odp` (+ `/data`) | Ada | F5 |
-| A71 | `admin/paymentgateway/list.tpl` | `paymentgateway` | — | Belum | F4 |
-| A72 | `admin/paymentgateway/audit.tpl` | `paymentgateway/audit` | — | Belum | F4 |
-| A73 | `admin/paymentgateway/audit-view.tpl` | `paymentgateway/auditview` | — | Belum | F4 |
+| A71 | `admin/paymentgateway/list.tpl` | `paymentgateway` | `GET /admin/payment-gateway` | Sebagian | F4 |
+| A72 | `admin/paymentgateway/audit.tpl` | `paymentgateway/audit` | `GET /admin/payment-gateway/audit` (+ `/export` CSV) | Ada | F4 |
+| A73 | `admin/paymentgateway/audit-view.tpl` | `paymentgateway/auditview` | `GET /admin/payment-gateway/audit/{id}` | Ada | F4 |
 | A74 | `admin/maintenance.tpl` | `init.php` (saat maintenance mode) | `503` untuk portal/publik | Sebagian | F5 |
 | A75 | `admin/404.tpl`, `admin/error.tpl`, `admin/alert.tpl` | `boot.php`, banyak controller | respons teks `http.Error`; flash di `app.html` | Sebagian | F5 |
 | A76 | `admin/community.tpl`, `admin/rollback.tpl` | `community`, `community/rollback` | — | Non-goal | — (updater diganti install script) |
@@ -534,9 +534,9 @@ Kolom hasil: Customer, Phone, Status, Message, Router, Service Type. Baru: halam
 
 | Elemen lama | Elemen baru | St | Catatan |
 |---|---|---|---|
-| `pgs[]` (checkbox gateway aktif) + tombol Save Changes, link Audit per gateway | — | ❌ | Package `internal/payment` (Tripay) ada; konfigurasi gateway (key, channel) belum punya halaman setting (PROGRESS: Tripay setting menyusul) |
-| `audit.tpl`: `q`; kolom TRX ID, PG ID, Username, Plan Name, Routers, Price, Payment Link, Channel, Created, Expired, Paid, Invoice, Status; tombol open, back | — | ❌ | Tidak ada tabel `payment_transactions` (hanya `transactions`); `reference` Tripay belum disimpan |
-| `audit-view.tpl`: detail satu transaksi PG, tombol open | — | ❌ | |
+| `pgs[]` (checkbox gateway aktif) + tombol Save Changes, link Audit per gateway | — | ⚠️ | Daftar hanya Tripay + status Enabled/Disabled (diatur di Settings > Payment Gateway, `payment_gateway`), bukan checkbox `pgs[]` |
+| `audit.tpl`: `q`; kolom TRX ID, PG ID, Username, Plan Name, Routers, Price, Payment Link, Channel, Created, Expired, Paid, Invoice, Status; tombol open, back | `/admin/payment-gateway/audit` | ✅ | Tabel `payment_requests` (0009): ref, gateway_ref, pay_url, status, expires_at. Filter `q`, `status`, tanggal, CSV. Tanpa kolom Routers/Invoice |
+| `audit-view.tpl`: detail satu transaksi PG, tombol open | `/admin/payment-gateway/audit/{id}` | ✅ | Daftar bidang baca-saja |
 
 ### A74-A76. Halaman sistem
 
@@ -642,7 +642,7 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | `user_notification_payment` | Payment Notification | select | `user_notification_payment` | ✅ | F4 |
 | `user_notification_reminder` | Reminder Notification | select | `user_notification_reminder` | ✅ | F4 |
 | (baru) | Webhook keluar HMAC | text, password | `webhook_url`, `webhook_secret` | ✅ | Baru di Settings > Integrations; tanda tangan X-Signature |
-| (baru) | Tripay key/merchant/mode | — | — | ❌ | Ditunda (Tripay di akhir) |
+| (baru) | Tripay key/merchant/mode/channel | select, text, password | `payment_gateway`, `tripay_api_key`, `tripay_private_key`, `tripay_merchant_code`, `tripay_mode`, `tripay_channel` | ✅ | Settings > Payment Gateway (hanya SuperAdmin); rahasia tidak ditampilkan lagi; URL callback `/callback/tripay` ditampilkan |
 
 **Lain-lain**
 
@@ -844,10 +844,10 @@ Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, das
 | tombol Buy / Buy for friend per paket (`order/gateway/...`, `order/send/...`, `stoken`) | | link | | — | ❌ | `orderPlan` daftar paket per router/tipe |
 | `custom` (hidden), `amount` | Jumlah saldo kustom | number | — | — | ❌ | `allow_balance_custom` |
 | `coupon` | Coupon Code | text maxlength 50 | required (Apply) | `coupon` | ⚠️ | Di form bayar-saldo `/portal/plans` (tanpa gateway, tanpa pembatas percobaan 5x, tanpa gating `enable_coupons`); kupon tidak berlaku untuk paket Balance |
-| `gateway` | Payment Gateway | select | required | — | ❌ | `internal/payment` Tripay siap |
+| `gateway` | Payment Gateway | select (`channel`) | required | `channel` | ✅ | `selectGateway` digabung ke `/portal/plans`: pilih kanal Tripay + kupon per paket, `POST /portal/plans/{id}/pay`; hanya bila `payment_gateway=tripay`. Kupon dipotong dari jumlah, dipakai saat lunas |
 | `username` (`sendPlan`) | Friend username | text | required | — | ❌ | |
 | `orderHistory`: kolom Package Name, Payment Method, Routers, Type, Package Price, Created on, Expires on, Date, Status | | | | ⚠️ | `/portal/orders` dari transaksi; tanpa kolom Routers/Status | |
-| `orderView`: Pay Now, Check for Payment (`/check`), Cancel (`/cancel`) | | | | | ❌ | Perlu simpan `reference` Tripay |
+| `orderView`: Pay Now, Check for Payment (`/check`), Cancel (`/cancel`) | `GET /portal/payments/{id}`, `POST .../check` | | | ⚠️ | Pay Now + Check ada; Cancel belum (pesanan kedaluwarsa otomatis oleh job) |
 
 ### C10. Halaman statis dan galat: `pages.tpl` (ditampilkan `page/{nama}`) ✅ `GET /pages/{slug}` (teks biasa, di-escape, baris baru dijaga); `404.tpl`, `error.tpl` ❌.
 
