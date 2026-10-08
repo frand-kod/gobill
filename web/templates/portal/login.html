@@ -3,7 +3,9 @@
   <form class="card w-full max-w-sm overflow-hidden" method="post" action="/portal/login">
     <div class="fiber-stripe" aria-hidden="true"></div>
     <div class="card-body space-y-4">
+      {{with .Brand.login_page_head}}<p class="text-lg font-semibold text-brand-600">{{.}}</p>{{end}}
       <h1 class="text-2xl font-semibold">{{T "Sign in"}}</h1>
+      {{with .Brand.login_page_description}}<p class="text-sm text-slate-600 dark:text-slate-300">{{.}}</p>{{end}}
       {{if .Flash}}<p class="alert alert-ok" role="status">{{icon "circle-check"}}<span>{{.Flash}}</span></p>{{end}}
       {{if .Error}}<p class="alert alert-error" role="alert">{{icon "circle-alert"}}<span>{{T .Error}}</span></p>{{end}}
       <div><label class="label" for="username">{{T "Username"}}</label>

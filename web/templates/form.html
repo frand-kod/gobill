@@ -4,7 +4,7 @@
 <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
   <h1 class="text-2xl font-semibold">{{TT .Heading}}</h1>
 </div>
-<form method="post" action="{{.Action}}" novalidate x-data="{{.XData}}">
+<form method="post" action="{{.Action}}"{{if .HasFile}} enctype="multipart/form-data"{{end}} novalidate x-data="{{.XData}}">
   {{range .Groups}}
   <section class="card mb-4"{{with .Show}} x-show="{{.}}" x-cloak{{end}}>
     {{if .Title}}<h2 class="card-title">{{T .Title}}</h2>{{end}}
@@ -28,6 +28,8 @@
         <script src="/static/maps.js"></script>
         {{else if eq .Type "textarea"}}
         <textarea class="input" id="{{.Name}}" name="{{.Name}}" rows="4"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>{{.Value}}</textarea>
+        {{else if eq .Type "link"}}
+        <p><a class="btn btn-primary" href="{{.Value}}">{{T "Download backup"}}</a></p>
         {{else}}
         <input class="input" id="{{.Name}}" name="{{.Name}}" type="{{.Type}}" value="{{.Value}}"{{if .Required}} required{{end}}{{if eq .Type "password"}} autocomplete="new-password"{{end}}{{if eq .Type "number"}} min="0"{{end}}{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
         {{end}}

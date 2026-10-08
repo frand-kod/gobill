@@ -337,3 +337,35 @@ func TestMoneyUsesThousandsSep(t *testing.T) {
 		t.Fatalf("thousands_sep: %q", got)
 	}
 }
+
+func TestBrandingAndBackupRoutesReachable(t *testing.T) {
+	_, h, q := settingsSetup(t)
+	c := login(t, h, "alice")
+	if w := postLogo(t, h, c, uploadPNG); w.Code != http.StatusSeeOther {
+		t.Fatalf("upload: %d", w.Code)
+	}
+	name := settingValues(t, q)["logo"]
+	if w := do(h, "GET", "/uploads/"+name, nil, nil); w.Code != http.StatusOK || !bytes.HasPrefix(w.Body.Bytes(), uploadPNG[:8]) {
+		t.Fatalf("/uploads: %d", w.Code)
+	}
+	if w := do(h, "GET", "/uploads/../nuxbill.db", nil, nil); w.Code == http.StatusOK {
+		t.Fatal("traversal served")
+	}
+	do(h, "POST", "/admin/settings/app", url.Values{"company_name": {"Acme"}, "currency_code": {"Rp"},
+		"login_page_head": {"Acme Head"}, "login_page_description": {"Log in here"}}, c)
+	if w := do(h, "GET", "/login", nil, nil); !strings.Contains(w.Body.String(), "Acme Head") || !strings.Contains(w.Body.String(), "Log in here") || !strings.Contains(w.Body.String(), "/uploads/"+name) {
+		t.Fatal("branding missing on login page")
+	}
+	if w := do(h, "GET", "/admin/settings/miscellaneous/backup", nil, c); w.Code != http.StatusOK || !strings.HasPrefix(w.Body.String(), "SQLite format 3\x00") {
+		t.Fatalf("backup as SuperAdmin: %d", w.Code)
+	}
+	if w := do(h, "GET", "/admin/settings/miscellaneous/backup", nil, login(t, h, "bob")); w.Code != http.StatusForbidden {
+		t.Fatalf("backup as Admin: %d", w.Code)
+	}
+	if w := do(h, "GET", "/admin/settings/miscellaneous", nil, c); !strings.Contains(w.Body.String(), "/admin/settings/miscellaneous/backup") {
+		t.Fatal("backup button missing")
+	}
+	if w := do(h, "GET", "/admin/settings/app", nil, c); !strings.Contains(w.Body.String(), `enctype="multipart/form-data"`) {
+		t.Fatal("multipart form missing on the upload page")
+	}
+}

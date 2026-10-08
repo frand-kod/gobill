@@ -1,11 +1,13 @@
 package web
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -326,6 +328,9 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 		}
 	}
 	fp := formPage{Heading: "Settings", Action: "/admin/settings/" + tab, Cancel: "/admin", Fields: s.settingsFields(tab, v, e)}
+	if tab == "miscellaneous" && adminFrom(r).Role == "SuperAdmin" { // backup is SuperAdmin only, as in the old dbstatus page
+		fp.Fields = append(fp.Fields, field{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/miscellaneous/backup", Section: "System"})
+	}
 	s.render(w, r, status, "form", Page{Title: "Settings", Flash: s.sessions.PopString(r.Context(), "flash"), Tabs: nav, Data: fp})
 }
 
@@ -507,4 +512,28 @@ func (s *Server) dbBackup(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.FormatInt(st.Size(), 10))
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="nuxbill-%s.db"`, time.Now().Format("20060102-150405")))
 	io.Copy(w, f)
+}
+
+// HasFile reports whether a field posts a file, so the form needs multipart encoding.
+func (fp formPage) HasFile() bool {
+	for _, f := range fp.Fields {
+		if f.Type == "file" {
+			return true
+		}
+	}
+	return false
+}
+
+// brand returns the branding the layouts show: logo file and login page text.
+func (s *Server) brand(ctx context.Context) map[string]string {
+	out := map[string]string{}
+	m, err := s.loadSettings(ctx)
+	if err != nil {
+		slog.Error("load branding", "err", err)
+		return out
+	}
+	for _, k := range []string{"logo", "login_page_logo", "login_page_head", "login_page_description"} {
+		out[k] = m[k]
+	}
+	return out
 }

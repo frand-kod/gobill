@@ -5,7 +5,7 @@
   <div x-show="drawer" x-cloak @click="drawer=false" class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
   <aside :class="drawer ? '' : 'max-lg:hidden'" class="flex w-64 shrink-0 flex-col overflow-y-auto bg-sidebar text-slate-200 max-lg:fixed max-lg:inset-y-0 max-lg:start-0 max-lg:z-40 lg:sticky lg:top-0 lg:h-screen">
     <div class="fiber-stripe" aria-hidden="true"></div>
-    <a href="/admin" class="flex items-center gap-2 px-5 py-4 text-lg font-semibold text-white">{{icon "wifi"}}<span>NuxBill</span></a>
+    <a href="/admin" class="flex items-center gap-2 px-5 py-4 text-lg font-semibold text-white">{{with .Brand.logo}}<img src="/uploads/{{.}}" alt="" class="h-8 max-w-48 object-contain">{{else}}{{icon "wifi"}}<span>NuxBill</span>{{end}}</a>
     <nav class="flex-1 px-3 pb-6" aria-label="Main">
       <a class="nav-item" href="/admin"{{if eq .Path "/admin"}} aria-current="page"{{end}}>{{icon "layout-dashboard"}}<span>{{T "Dashboard"}}</span></a>
       <a class="nav-item" href="/admin/customers"{{if hasPrefix .Path "/admin/customers"}} aria-current="page"{{end}}>{{icon "users"}}<span>{{T "Customer"}}</span></a>

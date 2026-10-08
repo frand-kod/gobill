@@ -67,8 +67,9 @@ type Page struct {
 	Flash    string
 	Error    string
 	Path     string
-	Tabs     []option // settings sub-page menu
-	Dir      string   // "rtl" or "ltr"
+	Tabs     []option          // settings sub-page menu
+	Brand    map[string]string // logo and login page text, filled by render
+	Dir      string            // "rtl" or "ltr"
 	Lang     string
 	Data     any
 }
@@ -126,6 +127,7 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
 	mux.HandleFunc("GET /login", s.loginForm)
+	mux.HandleFunc("GET /uploads/{name}", s.serveUpload)
 	mux.HandleFunc("POST /login", s.loginSubmit)
 	mux.HandleFunc("POST /logout", s.logout)
 	all := s.requireAdmin()
@@ -134,6 +136,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/settings", managers(http.HandlerFunc(s.settingsForm)))
 	mux.Handle("GET /admin/settings/{tab}", managers(http.HandlerFunc(s.settingsForm)))
 	mux.Handle("POST /admin/settings/{tab}", managers(http.HandlerFunc(s.settingsSave)))
+	mux.Handle("GET /admin/settings/miscellaneous/backup", managers(http.HandlerFunc(s.dbBackup)))
 
 	// Old PHP: bandwidth, routers, pool and logs are SuperAdmin/Admin only; customers are
 	// readable by everyone, creatable by Agent/Sales too, editable/deletable by managers.
@@ -440,6 +443,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, name
 	p.Admin = adminFrom(r)
 	p.Path = r.URL.Path
 	p.Lang = s.language()
+	p.Brand = s.brand(r.Context())
 	p.Dir = "ltr"
 	if p.Lang == "arabic" {
 		p.Dir = "rtl"
