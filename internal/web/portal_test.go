@@ -109,3 +109,14 @@ func TestPortalRegister(t *testing.T) {
 		t.Fatal("duplicate accepted")
 	}
 }
+
+func TestPortalBalanceOrderWhenSettingUnset(t *testing.T) {
+	e := billApp(t)
+	portalCust(t, e, 10000)
+	p := e.plan(t, "Gold", "PPPoE", 10000)
+	c, _ := custLogin(t, e, "u1", "pw12345")
+	// enable_balance never saved: billing treats it as enabled, so the portal must too
+	if w := do(e.h, "POST", "/portal/plans/"+strconv.FormatInt(p.ID, 10)+"/balance", url.Values{}, c); w.Code != http.StatusSeeOther {
+		t.Fatalf("buy with unset setting: %d %s", w.Code, w.Body.String())
+	}
+}

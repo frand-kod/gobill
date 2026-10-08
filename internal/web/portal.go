@@ -302,7 +302,7 @@ func (s *Server) plansPage(w http.ResponseWriter, r *http.Request, code int, err
 			}
 		}
 	}
-	s.prender(w, r, code, "p_plans", Page{Title: "Order Package", Error: errMsg, Data: plansData{plans, st["enable_balance"] == "yes"}})
+	s.prender(w, r, code, "p_plans", Page{Title: "Order Package", Error: errMsg, Data: plansData{plans, st["enable_balance"] != "no"}})
 }
 
 // pBuyBalance pays a plan from the customer's balance.
@@ -314,7 +314,7 @@ func (s *Server) pBuyBalance(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal buy", errors.Join(err, errors.New("billing not configured")))
 		return
 	}
-	if st["enable_balance"] != "yes" {
+	if st["enable_balance"] == "no" {
 		s.plansPage(w, r, 200, "Balance not enabled")
 		return
 	}

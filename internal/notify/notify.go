@@ -230,7 +230,7 @@ func (n *Notifier) send(ctx context.Context, c db.Customer, via, subject, msg st
 		}
 		return n.WhatsApp(ctx, c.Phone, msg)
 	case "email":
-		return n.Email(ctx, c.Email, "["+n.get("CompanyName")+"] "+subject, msg)
+		return n.Email(ctx, c.Email, "["+n.get("company_name")+"] "+subject, msg)
 	}
 	return nil
 }
@@ -247,7 +247,7 @@ func custVars(c db.Customer, v map[string]string) map[string]string {
 // vars: invoice, date, payment_gateway, payment_channel, type, plan_name, plan_price, expired_date, ...
 func (n *Notifier) RechargeSuccess(ctx context.Context, c db.Customer, vars map[string]string) error {
 	v := custVars(c, vars)
-	for k, s := range map[string]string{"company_name": "CompanyName", "address": "address", "phone": "phone", "footer": "note"} {
+	for k, s := range map[string]string{"company_name": "company_name", "address": "address", "phone": "phone", "footer": "note"} {
 		if _, ok := v[k]; !ok {
 			v[k] = n.get(s)
 		}

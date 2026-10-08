@@ -48,7 +48,7 @@ func (s *Server) settingsFields(tab string, v, e map[string]string) []field {
 	}
 	chk := func(name, label string) field {
 		f := text(name, label, v, e).as("checkbox")
-		f.Checked = v[name] == "1"
+		f.Checked = v[name] == "yes"
 		return f
 	}
 	area := func(name, label string) field { return text(name, label, v, e).as("textarea") }
@@ -243,8 +243,14 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	keys := fieldNames(s.settingsFields(tab, nil, nil))
+	fields := s.settingsFields(tab, nil, nil)
+	keys := fieldNames(fields)
 	v := formVals(r, keys...)
+	for _, f := range fields {
+		if f.Type == "checkbox" { // stored as yes/no, the PHP convention every reader expects
+			v[f.Name] = map[bool]string{true: "yes", false: "no"}[v[f.Name] == "1"]
+		}
+	}
 	if e := s.settingsErrors(v); len(e) > 0 {
 		s.renderSettings(w, r, http.StatusUnprocessableEntity, tab, v, e)
 		return

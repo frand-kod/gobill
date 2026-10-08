@@ -151,3 +151,18 @@ func TestSettingsChangedCalledOnSave(t *testing.T) {
 		t.Fatalf("hook calls: %d", calls)
 	}
 }
+
+func TestSettingsCheckboxStoresYesNo(t *testing.T) {
+	_, h, q := settingsSetup(t)
+	c := login(t, h, "alice")
+	if w := do(h, "POST", "/admin/settings/miscellaneous", url.Values{"man_fields_email": {"1"}, "enable_balance": {"yes"}}, c); w.Code != http.StatusSeeOther {
+		t.Fatalf("save: %d", w.Code)
+	}
+	got := settingValues(t, q)
+	if got["man_fields_email"] != "yes" || got["man_fields_fname"] != "no" || got["maintenance_mode"] != "no" {
+		t.Fatalf("checkboxes not yes/no: %v", got)
+	}
+	if w := do(h, "GET", "/admin/settings/miscellaneous", nil, c); !strings.Contains(w.Body.String(), `checked`) {
+		t.Fatal("saved checkbox not rendered as checked")
+	}
+}
