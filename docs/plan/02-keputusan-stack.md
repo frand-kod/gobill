@@ -62,7 +62,9 @@ Aturan gaya kode supaya tetap mudah dipahami:
 | HTTP & routing | `net/http` stdlib | Sejak Go 1.22 mendukung pattern `GET /customers/{id}` |
 | CSRF | `http.CrossOriginProtection` (stdlib, Go 1.25) | Tanpa library tambahan |
 | Template | `html/template` stdlib | Auto-escape XSS. Konsepnya mirip Blade |
-| Interaktivitas | htmx (file JS statis, di-embed) | Tanpa build step JS dan tanpa SPA |
+| Interaktivitas | Alpine.js 3.14.9 (file JS statis, di-embed) | Menu, tema, dan form dinamis tanpa build step JS dan tanpa SPA. htmx hanya jika nanti dibutuhkan |
+| CSS | Tailwind CSS v4 (standalone CLI, `tools/tailwind.sh`) | Tanpa Node. `app.css` hasil build di-commit, CI mengecek hasilnya sama. Dipilih 2026-10-08 setelah UI CSS custom dinilai terlalu polos dibanding AdminLTE |
+| Grafik | Chart.js 4.4.9 (di-embed) | Widget dashboard |
 | Aset | `embed` stdlib | Template dan aset masuk ke binary |
 | Database | SQLite via `modernc.org/sqlite` | Pure Go tanpa CGO, sehingga cross-compile ARM mudah |
 | Query | `sqlc` | Tulis SQL biasa, lalu dapat fungsi Go yang type-safe. Mudah dibaca developer Laravel |
