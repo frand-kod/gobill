@@ -1,0 +1,26 @@
+{{define "content"}}
+{{with .Data}}
+<div class="toolbar">
+  <h1>{{.C.Username}}</h1>
+  {{if .CanEdit}}<a class="btn btn-ghost" href="/admin/customers/{{.C.ID}}/edit">{{T "Edit"}}</a>{{end}}
+  <a class="btn btn-ghost" href="/admin/customers">{{T "Customer"}}</a>
+</div>
+<div class="card"><div class="card-body">
+  <dl class="detail">
+    <dt>{{T "Full Name"}}</dt><dd>{{.C.Fullname}}</dd>
+    <dt>{{T "Phone Number"}}</dt><dd>{{.C.Phone}}</dd>
+    <dt>{{T "Email"}}</dt><dd>{{.C.Email}}</dd>
+    <dt>{{T "Address"}}</dt><dd>{{.C.Address}}</dd>
+    <dt>{{T "Status"}}</dt><dd>{{.C.Status}}</dd>
+    <dt>{{T "Service Type"}}</dt><dd>{{.C.ServiceType}}</dd>
+    <dt>{{T "PPPoE Username"}}</dt><dd>{{.C.PppoeUsername}}</dd>
+    <dt>{{T "PPPoE IP"}}</dt><dd>{{.C.PppoeIp}}</dd>
+    <dt>{{T "Router Secret"}}</dt><dd>{{if .SecretSet}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd>
+    <dt>{{T "Balance"}}</dt><dd>{{.C.Balance}}</dd>
+    <dt>{{T "Billing Day"}}</dt><dd>{{if .C.BillingDay.Valid}}{{.C.BillingDay.Int64}}{{end}}</dd>
+    <dt>{{T "Auto Renewal"}}</dt><dd>{{if eq .C.AutoRenewal 1}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd>
+    <dt>{{T "Created"}}</dt><dd>{{.Created}}</dd>
+  </dl>
+</div></div>
+{{end}}
+{{end}}

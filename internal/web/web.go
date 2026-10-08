@@ -124,6 +124,29 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/settings", managers(http.HandlerFunc(s.settingsForm)))
 	mux.Handle("POST /admin/settings", managers(http.HandlerFunc(s.settingsSave)))
 
+	// Old PHP: bandwidth, routers, pool and logs are SuperAdmin/Admin only; customers are
+	// readable by everyone, creatable by Agent/Sales too, editable/deletable by managers.
+	staff := s.requireAdmin("SuperAdmin", "Admin", "Agent", "Sales")
+	crud := func(base string, list, nw, edit, save, del http.HandlerFunc) {
+		mux.Handle("GET "+base, managers(list))
+		mux.Handle("GET "+base+"/new", managers(nw))
+		mux.Handle("POST "+base, managers(save))
+		mux.Handle("GET "+base+"/{id}/edit", managers(edit))
+		mux.Handle("POST "+base+"/{id}", managers(save))
+		mux.Handle("POST "+base+"/{id}/delete", managers(del))
+	}
+	crud("/admin/bandwidth", s.bwList, s.bwNew, s.bwEdit, s.bwSave, s.bwDelete)
+	crud("/admin/routers", s.routerList, s.routerNew, s.routerEdit, s.routerSave, s.routerDelete)
+	crud("/admin/pool", s.poolList, s.poolNew, s.poolEdit, s.poolSave, s.poolDelete)
+	mux.Handle("GET /admin/logs", managers(http.HandlerFunc(s.logList)))
+	mux.Handle("GET /admin/customers", all(http.HandlerFunc(s.custList)))
+	mux.Handle("GET /admin/customers/new", staff(http.HandlerFunc(s.custNew)))
+	mux.Handle("POST /admin/customers", staff(http.HandlerFunc(s.custSave)))
+	mux.Handle("GET /admin/customers/{id}", all(http.HandlerFunc(s.custView)))
+	mux.Handle("GET /admin/customers/{id}/edit", managers(http.HandlerFunc(s.custEdit)))
+	mux.Handle("POST /admin/customers/{id}", managers(http.HandlerFunc(s.custSave)))
+	mux.Handle("POST /admin/customers/{id}/delete", managers(http.HandlerFunc(s.custDelete)))
+
 	return http.NewCrossOriginProtection().Handler(s.sessions.LoadAndSave(mux))
 }
 
@@ -208,7 +231,8 @@ func (s *Server) parseTemplates() error {
 		return err
 	}
 	funcs := template.FuncMap{
-		"T": func(text string) string { return s.catalog.T(s.language(), text) },
+		"T":         func(text string) string { return s.catalog.T(s.language(), text) },
+		"hasPrefix": strings.HasPrefix,
 		"icon": func(name string) (template.HTML, error) {
 			svg, ok := icons[name]
 			if !ok {
@@ -221,6 +245,9 @@ func (s *Server) parseTemplates() error {
 		"login":     {"base.html", "login.html"},
 		"dashboard": {"base.html", "app.html", "dashboard.html"},
 		"settings":  {"base.html", "app.html", "settings.html"},
+		"list":      {"base.html", "app.html", "list.html"},
+		"form":      {"base.html", "app.html", "form.html"},
+		"customer":  {"base.html", "app.html", "customer.html"},
 	}
 	s.templates = map[string]*template.Template{}
 	for name, files := range pages {
