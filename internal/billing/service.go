@@ -413,6 +413,9 @@ func (s *Service) ExpiryJob(trusted func() bool) func(context.Context) error {
 			return nil
 		}
 		_ = s.Q.UpsertSetting(ctx, db.UpsertSettingParams{Key: "expiry_last_run", Value: s.now().Format(time.DateTime)}) // dashboard job monitor
+		if err := s.ExpirePayments(ctx); err != nil {
+			slog.Error("expire payments", "err", err)
+		}
 		return s.ExpireDue(ctx)
 	}
 }

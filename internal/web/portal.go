@@ -18,6 +18,7 @@ import (
 	"github.com/frand-kod/nuxbill-go/internal/billing"
 	"github.com/frand-kod/nuxbill-go/internal/db"
 	"github.com/frand-kod/nuxbill-go/internal/notify"
+	"github.com/frand-kod/nuxbill-go/internal/payment"
 )
 
 // Customer portal. The session key "customer_id" is separate from the admin's "admin_id".
@@ -356,8 +357,9 @@ type planRow struct {
 }
 
 type plansData struct {
-	Plans   []planRow
-	Balance bool
+	Plans    []planRow
+	Balance  bool
+	Channels []payment.Channel // online gateway channels; empty = gateway off
 }
 
 func (s *Server) pPlans(w http.ResponseWriter, r *http.Request) {
@@ -392,7 +394,13 @@ func (s *Server) plansPage(w http.ResponseWriter, r *http.Request, code int, err
 			}
 		}
 	}
-	s.prender(w, r, code, "p_plans", Page{Title: "Order Package", Error: errMsg, Data: plansData{plans, st["enable_balance"] != "no"}})
+	pd := plansData{Plans: plans, Balance: st["enable_balance"] != "no"}
+	if g, err := s.gateway(st); g != nil && err == nil {
+		if pd.Channels, err = s.activeChannels(r.Context(), g); err != nil {
+			slog.Error("portal plans: channels", "err", err)
+		}
+	}
+	s.prender(w, r, code, "p_plans", Page{Title: "Order Package", Error: errMsg, Data: pd})
 }
 
 // couponErr returns the user-facing message of a coupon validation error, or "".
@@ -406,7 +414,7 @@ func couponErr(err error) string {
 }
 
 // pBuyBalance pays a plan from the customer's balance.
-// ponytail: online gateway (Tripay) not wired; add an `if gateway configured` branch here later.
+// The online gateway (Tripay) order is pPay in payment.go.
 func (s *Server) pBuyBalance(w http.ResponseWriter, r *http.Request) {
 	c := customerFrom(r)
 	st, err := s.loadSettings(r.Context())

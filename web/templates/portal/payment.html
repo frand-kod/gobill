@@ -1,0 +1,21 @@
+{{define "content"}}
+{{with .Data}}{{$p := .P}}
+<h1 class="mb-4 text-2xl font-semibold">{{T "Order Details"}}</h1>
+<div class="card"><div class="card-body space-y-3">
+  <dl class="grid gap-2 sm:grid-cols-[12rem_1fr]">
+    <dt class="font-medium">{{T "Package Name"}}</dt><dd>{{.Plan}}</dd>
+    <dt class="font-medium">{{T "Total"}}</dt><dd>{{money $p.Amount}}</dd>
+    <dt class="font-medium">{{T "Payment Method"}}</dt><dd>{{$p.Channel}}</dd>
+    <dt class="font-medium">{{T "Status"}}</dt><dd><span class="badge {{badge $p.Status}}">{{T $p.Status}}</span></dd>
+    <dt class="font-medium">{{T "Created On"}}</dt><dd>{{ts $p.CreatedAt}}</dd>
+    <dt class="font-medium">{{T "Expires On"}}</dt><dd>{{ts $p.ExpiresAt}}</dd>
+  </dl>
+  {{if eq $p.Status "pending"}}
+  <div class="flex flex-wrap gap-2">
+    {{if $p.PayUrl}}<a class="btn btn-primary" href="{{$p.PayUrl}}" rel="noopener">{{T "Pay Now"}}</a>{{end}}
+    <form method="post" action="/portal/payments/{{$p.ID}}/check"><button class="btn btn-ghost" type="submit">{{T "Check for Payment"}}</button></form>
+  </div>
+  {{end}}
+</div></div>
+{{end}}
+{{end}}

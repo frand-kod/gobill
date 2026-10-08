@@ -1,0 +1,42 @@
+package billing
+
+import (
+	"context"
+
+	"github.com/frand-kod/nuxbill-go/internal/db"
+)
+
+// RechargePaid is Recharge for a confirmed online payment. claim runs first in the SAME
+// transaction (it flips payment_requests pending->paid); false means someone else already did,
+// so nothing is recharged. A crash can therefore never leave "paid" without the recharge.
+// With a coupon, price (what was charged) is recorded and the coupon usage is claimed; a coupon
+// that ran out meanwhile does not fail the recharge, the customer has already paid.
+func (s *Service) RechargePaid(ctx context.Context, claim func(*db.Queries) (bool, error), customerID, planID int64, method, coupon string, price int64) error {
+	var p *pending
+	err := s.tx(ctx, func(q *db.Queries) error {
+		if ok, err := claim(q); err != nil || !ok {
+			return err
+		}
+		var cp *couponUse
+		if coupon != "" {
+			if c, err := q.GetCouponByCode(ctx, coupon); err == nil {
+				_, _ = q.UseCoupon(ctx, c.ID)
+				cp = &couponUse{c.Code, price}
+			}
+		}
+		var err error
+		p, err = s.recharge(ctx, q, customerID, planID, method, 0, cp)
+		return err
+	})
+	if err != nil || p == nil {
+		return err
+	}
+	s.apply(ctx, p)
+	return nil
+}
+
+// ExpirePayments marks pending online payments past their expiry as expired.
+func (s *Service) ExpirePayments(ctx context.Context) error {
+	_, err := s.Q.ExpirePaymentRequests(ctx, s.now().Unix())
+	return err
+}

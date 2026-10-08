@@ -61,6 +61,7 @@
           <a class="nav-item" href="/admin/reports"{{if eq .Path "/admin/reports"}} aria-current="page"{{end}}>{{icon "chart-column"}}<span>{{T "Daily Report"}}</span></a>
           <a class="nav-item" href="/admin/reports/period"{{if eq .Path "/admin/reports/period"}} aria-current="page"{{end}}>{{icon "calendar-days"}}<span>{{T "Period Report"}}</span></a>
           <a class="nav-item" href="/admin/transactions"{{if hasPrefix .Path "/admin/transactions"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Transactions"}}</span></a>
+          {{if $mgr}}<a class="nav-item" href="/admin/payment-gateway"{{if hasPrefix .Path "/admin/payment-gateway"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Payment Gateway"}}</span></a>{{end}}
           {{if $mgr}}<a class="nav-item" href="/admin/logs"{{if hasPrefix .Path "/admin/logs"}} aria-current="page"{{end}}>{{icon "scroll-text"}}<span>{{T "Logs"}}</span></a>{{end}}
         </div>
       </div>
