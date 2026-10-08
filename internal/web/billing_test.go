@@ -124,7 +124,7 @@ func TestRechargeForm(t *testing.T) {
 	wantCode(t, do(e.h, "POST", pay, url.Values{"plan": {itoa(cash.ID)}, "method": {"Balance"}}, e.c), 303, "balance recharge")
 	w := do(e.h, "GET", "/admin/customers/"+itoa(e.cust.ID), nil, e.c)
 	body := w.Body.String()
-	if !strings.Contains(body, "Insufficient balance") {
+	if !strings.Contains(body, "Saldo tidak cukup") {
 		t.Fatalf("no insufficient balance error:\n%s", body)
 	}
 	if !strings.Contains(body, "Rp 10.000") || !strings.Contains(body, "Aktif") {
