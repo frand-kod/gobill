@@ -20,6 +20,12 @@
           {{$cur := .Value}}
           {{range .Options}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{T .Label}}</option>{{end}}
         </select>
+        {{else if eq .Type "coords"}}
+        <input class="input" id="{{.Name}}" name="{{.Name}}" value="{{.Value}}" placeholder="-6.2,106.8" inputmode="decimal"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
+        <div class="mt-2 h-64 w-full overflow-hidden rounded-lg border border-slate-200" data-pick="{{.Name}}" role="application" aria-label="{{T "Pick on map"}}"></div>
+        <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
+        <script src="/static/vendor/leaflet/leaflet.js"></script>
+        <script src="/static/maps.js"></script>
         {{else if eq .Type "textarea"}}
         <textarea class="input" id="{{.Name}}" name="{{.Name}}" rows="4"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>{{.Value}}</textarea>
         {{else}}

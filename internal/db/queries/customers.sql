@@ -1,7 +1,7 @@
 -- name: CreateCustomer :one
 INSERT INTO customers (username, password_hash, fullname, address, phone, email, service_type,
-                       pppoe_username, pppoe_ip, secret_enc, auto_renewal, status, created_by, billing_day)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                       pppoe_username, pppoe_ip, secret_enc, auto_renewal, status, created_by, billing_day, coordinates)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetCustomer :one
@@ -22,7 +22,7 @@ ORDER BY id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 -- name: UpdateCustomer :exec
 UPDATE customers SET fullname = ?, address = ?, phone = ?, email = ?, service_type = ?,
-    pppoe_username = ?, pppoe_ip = ?, secret_enc = ?, auto_renewal = ?, status = ?, billing_day = ?
+    pppoe_username = ?, pppoe_ip = ?, secret_enc = ?, auto_renewal = ?, status = ?, billing_day = ?, coordinates = ?
 WHERE id = ?;
 
 -- name: SetCustomerPassword :exec

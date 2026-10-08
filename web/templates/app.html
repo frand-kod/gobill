@@ -22,6 +22,18 @@
         </div>
       </div>
 
+      <div x-data="{o:true}">
+        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o"><span>{{T "Maps"}}</span>{{icon "chevron-down"}}</button>
+        <div x-show="o" class="space-y-1">
+          <a class="nav-item" href="/admin/maps/customers"{{if hasPrefix .Path "/admin/maps/customers"}} aria-current="page"{{end}}>{{icon "map"}}<span>{{T "Customer Map"}}</span></a>
+          {{if $mgr}}
+          <a class="nav-item" href="/admin/maps/routers"{{if hasPrefix .Path "/admin/maps/routers"}} aria-current="page"{{end}}>{{icon "router"}}<span>{{T "Router Map"}}</span></a>
+          <a class="nav-item" href="/admin/maps/odp"{{if hasPrefix .Path "/admin/maps/odp"}} aria-current="page"{{end}}>{{icon "map"}}<span>{{T "ODP Map"}}</span></a>
+          <a class="nav-item" href="/admin/odp"{{if hasPrefix .Path "/admin/odp"}} aria-current="page"{{end}}>{{icon "network"}}<span>{{T "ODP"}}</span></a>
+          {{end}}
+        </div>
+      </div>
+
       {{if $mgr}}
       <div x-data="{o:true}">
         <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o"><span>{{T "Network"}}</span>{{icon "chevron-down"}}</button>

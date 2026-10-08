@@ -22,7 +22,7 @@ import (
 var (
 	custStatuses = []string{"Active", "Banned", "Disabled", "Inactive", "Limited", "Suspended"}
 	custNames    = []string{"username", "fullname", "address", "phone", "email", "service_type", "pppoe_username",
-		"pppoe_ip", "billing_day", "auto_renewal", "status"}
+		"pppoe_ip", "billing_day", "auto_renewal", "status", "coordinates"}
 )
 
 func custFields(v, e map[string]string, editing bool) []field {
@@ -42,6 +42,7 @@ func custFields(v, e map[string]string, editing bool) []field {
 		text("phone", "Phone Number", v, e),
 		text("email", "Email", v, e).as("email"),
 		text("address", "Address", v, e),
+		text("coordinates", "Coordinates", v, e).as("coords").hint("lat,lng, e.g. -6.2,106.8. Optional; shown on the customer map."),
 	}, "Contact", "")
 	svc := section([]field{
 		text("service_type", "Service Type", v, e).opts("Hotspot", "PPPoE", "Others"),
@@ -157,7 +158,7 @@ func (s *Server) custEdit(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	v := map[string]string{"fullname": c.Fullname, "address": c.Address, "phone": c.Phone, "email": c.Email,
+	v := map[string]string{"fullname": c.Fullname, "address": c.Address, "phone": c.Phone, "email": c.Email, "coordinates": c.Coordinates,
 		"service_type": c.ServiceType, "pppoe_username": c.PppoeUsername, "pppoe_ip": c.PppoeIp,
 		"auto_renewal": fmt.Sprint(c.AutoRenewal), "status": c.Status}
 	if c.BillingDay.Valid {
@@ -293,6 +294,10 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 	if !oneOf(v["status"], custStatuses...) {
 		e["status"] = "Invalid value"
 	}
+	coords, ok := checkCoords(v["coordinates"])
+	if !ok {
+		e["coordinates"] = "Enter coordinates as lat,lng, e.g. -6.2,106.8"
+	}
 	bday := sql.NullInt64{}
 	if v["billing_day"] != "" {
 		n, err := strconv.ParseInt(v["billing_day"], 10, 64)
@@ -325,11 +330,11 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 			_, err = s.queries.CreateCustomer(ctx, db.CreateCustomerParams{Username: v["username"], PasswordHash: string(hash),
 				Fullname: v["fullname"], Address: v["address"], Phone: v["phone"], Email: v["email"], ServiceType: v["service_type"],
 				PppoeUsername: v["pppoe_username"], PppoeIp: v["pppoe_ip"], SecretEnc: enc, AutoRenewal: renew,
-				Status: v["status"], CreatedBy: sql.NullInt64{Int64: adminFrom(r).ID, Valid: true}, BillingDay: bday})
+				Status: v["status"], CreatedBy: sql.NullInt64{Int64: adminFrom(r).ID, Valid: true}, BillingDay: bday, Coordinates: coords})
 		} else {
 			err = s.queries.UpdateCustomer(ctx, db.UpdateCustomerParams{Fullname: v["fullname"], Address: v["address"],
 				Phone: v["phone"], Email: v["email"], ServiceType: v["service_type"], PppoeUsername: v["pppoe_username"],
-				PppoeIp: v["pppoe_ip"], SecretEnc: enc, AutoRenewal: renew, Status: v["status"], BillingDay: bday, ID: id})
+				PppoeIp: v["pppoe_ip"], SecretEnc: enc, AutoRenewal: renew, Status: v["status"], BillingDay: bday, Coordinates: coords, ID: id})
 			if err == nil && pass != "" {
 				var hash []byte
 				if hash, err = bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost); err == nil {
