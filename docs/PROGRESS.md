@@ -84,7 +84,7 @@ Tidak ada. Pekerjaan dijeda atas permintaan pengguna.
 
 ## Selisih UI dengan PHPNuxBill lama
 
-Template lama ada di `../phpnuxbill/ui/ui`, sekitar 157 file.
+Template lama ada di `../phpnuxbill/ui/ui`, sekitar 157 file. Perbandingan per field: [UI-PARITY.md](UI-PARITY.md).
 
 - **Admin, sudah ada padanannya:** dashboard, customers, plan (hotspot, pppoe, balance), bandwidth, pool, routers, voucher, print, logs, settings dasar, dan radius (NAS).
 - **Admin, belum ada:**
