@@ -144,7 +144,25 @@ func (s *Server) planNew(w http.ResponseWriter, r *http.Request) {
 	}
 	v := map[string]string{"type": "Hotspot", "billing": "prepaid", "validity": "1", "validity_unit": "Days", "enabled": "1",
 		"time_unit": "Hrs", "data_unit": "GB", "shared_users": "1"}
+	st, err := s.loadSettings(r.Context())
+	if err != nil {
+		s.fail(w, "load settings", err)
+		return
+	}
+	v["device"] = newPlanDevice(st["default_plan_device"], v["type"])
 	s.renderForm(w, r, 200, formPage{"Add Service Plan", "/admin/plans", "/admin/plans", planFields(v, nil, x, 0)})
+}
+
+// newPlanDevice is the device the new plan form preselects. A Mikrotik driver that does not match
+// the plan type gives the type's own driver; Balance plans have no device.
+func newPlanDevice(setting, typ string) string {
+	if typ == "Balance" {
+		return ""
+	}
+	if (setting == "MikrotikHotspot" || setting == "MikrotikPppoe") && setting != defaultDevices[typ] {
+		return defaultDevices[typ]
+	}
+	return setting
 }
 
 func (s *Server) planEdit(w http.ResponseWriter, r *http.Request) {

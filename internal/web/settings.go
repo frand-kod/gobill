@@ -245,9 +245,13 @@ func (s *Server) settingsFields(tab string, v, e map[string]string) []field {
 			sel("allow_phone_otp", "Phone OTP Required", settingsYesNo...),
 			sel("allow_email_otp", "Email OTP Required", settingsYesNo...),
 		}, "OTP", "")...)
-		return append(out, section([]field{
+		out = append(out, section([]field{
 			sel("hs_auth_method", "Hotspot Auth Method", option{"pap", "PAP"}, option{"chap", "CHAP"}),
 		}, "Hotspot", "")...)
+		return append(out, section([]field{
+			sel("default_plan_device", "Default Device for New Plans", option{"", "By plan type"}, option{"MikrotikHotspot", "MikrotikHotspot"},
+				option{"MikrotikPppoe", "MikrotikPppoe"}, option{"Dummy", "Dummy"}, option{"Radius", "Radius"}).hint("Preselected on the new plan form"),
+		}, "Plans", "")...)
 	}
 	return nil
 }
@@ -337,6 +341,9 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	}
 	if x := v["hs_auth_method"]; x != "" && !oneOf(x, "pap", "chap") {
 		e["hs_auth_method"] = "Choose PAP or CHAP"
+	}
+	if x, ok := v["default_plan_device"]; ok && !oneOf(x, "", "MikrotikHotspot", "MikrotikPppoe", "Dummy", "Radius") {
+		e["default_plan_device"] = "Choose one of the listed devices"
 	}
 	return e
 }
