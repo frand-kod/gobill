@@ -65,6 +65,16 @@ type Customer struct {
 	LastLoginAt   sql.NullInt64
 }
 
+type CustomersInbox struct {
+	ID         int64
+	CustomerID int64
+	FromName   string
+	Subject    string
+	Body       string
+	ReadAt     sql.NullInt64
+	CreatedAt  int64
+}
+
 type Na struct {
 	ID          int64
 	Name        string

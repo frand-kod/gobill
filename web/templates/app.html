@@ -10,6 +10,8 @@
       <a class="nav-item" href="/admin"{{if eq .Path "/admin"}} aria-current="page"{{end}}>{{icon "layout-dashboard"}}<span>{{T "Dashboard"}}</span></a>
       <a class="nav-item" href="/admin/customers"{{if hasPrefix .Path "/admin/customers"}} aria-current="page"{{end}}>{{icon "users"}}<span>{{T "Customer"}}</span></a>
 
+      {{if $staff}}<a class="nav-item" href="/admin/message/send"{{if hasPrefix .Path "/admin/message"}} aria-current="page"{{end}}>{{icon "pencil"}}<span>{{T "Send Message"}}</span></a>{{end}}
+
       <div x-data="{o:true}">
         <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o"><span>{{T "Services"}}</span>{{icon "chevron-down"}}</button>
         <div x-show="o" class="space-y-1">

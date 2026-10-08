@@ -63,6 +63,7 @@ type Page struct {
 	Title    string
 	Admin    *db.Admin
 	Customer *db.Customer // portal customer, if any
+	Unread   int64        // portal inbox badge
 	Flash    string
 	Error    string
 	Path     string
@@ -194,6 +195,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/transactions", all(http.HandlerFunc(s.trxList)))
 
 	s.reportRoutes(mux, all)
+	s.messageRoutes(mux, staff)
 	s.portalRoutes(mux)
 
 	return http.NewCrossOriginProtection().Handler(s.sessions.LoadAndSave(s.maintenance(mux)))
@@ -367,6 +369,7 @@ func (s *Server) parseTemplates() error {
 		"p_profile":   {"base.html", "portal/layout.html", "portal/profile.html"},
 		"p_orders":    {"base.html", "portal/layout.html", "portal/orders.html"},
 		"p_plans":     {"base.html", "portal/layout.html", "portal/plans.html"},
+		"p_inbox":     {"base.html", "portal/layout.html", "portal/inbox.html"},
 	}
 	s.templates = map[string]*template.Template{}
 	for name, files := range pages {
