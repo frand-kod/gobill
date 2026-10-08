@@ -21,7 +21,7 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 
 | # | Template lama | Controller/action | Route baru | Status | Fase |
 |---|---|---|---|---|---|
-| A1 | `admin/dashboard.tpl` | `dashboard` | `GET /admin` | Sebagian | F5 |
+| A1 | `admin/dashboard.tpl` | `dashboard` | `GET /admin` | Ada | F5 |
 | A2 | `admin/admin/login.tpl` | `admin/post` | `GET/POST /login`, `POST /logout` | Ada | F0 |
 | A3 | `admin/admin/list.tpl` | `settings/users` | — | Belum | F5 |
 | A4 | `admin/admin/add.tpl` | `settings/users-add`, `users-post` | — | Belum | F5 |
@@ -95,7 +95,7 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | A71 | `admin/paymentgateway/list.tpl` | `paymentgateway` | — | Belum | F4 |
 | A72 | `admin/paymentgateway/audit.tpl` | `paymentgateway/audit` | — | Belum | F4 |
 | A73 | `admin/paymentgateway/audit-view.tpl` | `paymentgateway/auditview` | — | Belum | F4 |
-| A74 | `admin/maintenance.tpl` | `init.php` (saat maintenance mode) | — | Belum | F5 |
+| A74 | `admin/maintenance.tpl` | `init.php` (saat maintenance mode) | `503` untuk portal/publik | Sebagian | F5 |
 | A75 | `admin/404.tpl`, `admin/error.tpl`, `admin/alert.tpl` | `boot.php`, banyak controller | respons teks `http.Error`; flash di `app.html` | Sebagian | F5 |
 | A76 | `admin/community.tpl`, `admin/rollback.tpl` | `community`, `community/rollback` | — | Non-goal | — (updater diganti install script) |
 | S1 | `admin/settings/app.tpl` | `settings/app(-post)` | `GET/POST /admin/settings` (4 key saja) | Sebagian | F0 dasar / F5 |
@@ -103,14 +103,14 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | S3 | `admin/settings/notifications.tpl` | `settings/notifications(-post)` | — | Belum | F4 |
 | S4 | `admin/settings/miscellaneous.tpl` | `settings/miscellaneous(-post)` | — | Belum | F4 / F5 |
 | S5 | `admin/settings/maintenance-mode.tpl` | `settings/maintenance` | — | Belum | F5 |
-| S6 | `admin/settings/dbstatus.tpl` | `settings/dbstatus`, `dbbackup`, `dbrestore` | — | Belum | F5 |
+| S6 | `admin/settings/dbstatus.tpl` | `settings/dbstatus`, `dbbackup`, `dbrestore` | — | Sebagian | F5 |
 | S7 | `admin/settings/language-add.tpl` | `settings/language`, `lang-post` | — (bahasa = file JSON `internal/i18n`) | Ditunda | Tunda |
 | S8 | `admin/settings/customfield.tpl` | `customfield` | — | Belum | F5 |
 | S9 | `admin/settings/page.tpl` | `pages/{nama}` | — | Belum | F5 |
 | S10 | `admin/settings/devices.tpl` | `settings/devices` | — (driver bawaan di kode) | Non-goal | — |
 | S11 | `admin/settings/widgets.tpl`, `widgets_add_edit.tpl` | `widgets` | — (widget tetap) | Non-goal | — (F5: widget tetap) |
 | S12 | `admin/settings/plugin-manager.tpl` | `pluginmanager` | — | Non-goal | — |
-| W1-W14 | `widget/*.tpl` (14 file) | `dashboard` | lihat bagian 4 | Sebagian (3 dari 14) | F5 |
+| W1-W14 | `widget/*.tpl` (14 file) | `dashboard` | lihat bagian 4 | Sebagian (8 dari 14) | F5 |
 | W15-W22 | `widget/customers/*.tpl` (8 file) | `home` | — | Belum | F4 |
 | C1-C27 | `customer/*.tpl` (lihat bagian 5) | `login`, `register`, `forgot`, `home`, `accounts`, `order`, `voucher`, `mail`, `page` | — | Belum | F4 |
 
@@ -733,11 +733,11 @@ Baru: `dashboard.html` + `dashboardData` (`handlers.go`), 4 kotak + 2 grafik Cha
 | W1 | `top_widget.tpl` | 4 kotak: Income Today, Income This Month, Active/Expired, Customers | Ada (⚠️ sebagian) | Baru: `tile-today`, `tile-month`, `tile-subs` ("Active / Expired" digabung satu kotak), `tile-customers`. Pendapatan bulan kalender (lama: sejak `reset_day`) |
 | W2 | `graph_monthly_registered_customers.tpl` | Grafik pendaftaran pelanggan per bulan | Ada | `Registered Members {Year}` |
 | W3 | `graph_monthly_sales.tpl` | Grafik penjualan per bulan | Ada | `Total Monthly Sales {Year}` |
-| W4 | `graph_customers_insight.tpl` | Grafik pie "All Users Insights" (status pelanggan) | Belum | F5 |
-| W5 | `customer_expired.tpl` | Tabel pelanggan expired hari ini (Username, Full Name, Internet Package, Created/Expired, Phone, Email, Location) | Belum | F5; data `subscriptions.expires_at` ada |
-| W6 | `voucher_stocks.tpl` | Stok voucher per paket (Package Name, jumlah unused/used + total) | Belum | F5; data `vouchers` ada |
-| W7 | `activity_log.tpl` | 5 log terakhir (`tbl_logs`) | Belum | F5; `activity_logs` ada |
-| W8 | `cron_monitor.tpl` | "Cron Job last ran on" | Belum | F5; baru: job expiry in-process + clock guard banner (⚠️ pengganti sebagian) |
+| W4 | `graph_customers_insight.tpl` | Grafik pie "All Users Insights" (status pelanggan) | Ada (⚠️) | Pie aktif vs expired saja; "Inactive" belum |
+| W5 | `customer_expired.tpl` | Tabel pelanggan expired hari ini (Username, Full Name, Internet Package, Created/Expired, Phone, Email, Location) | Sebagian | Baru: 20 langganan terdekat/baru expired (Username, Full Name, Paket, Expires, Status) dengan link; tanpa Phone/Email/Location |
+| W6 | `voucher_stocks.tpl` | Stok voucher per paket (Package Name, jumlah unused/used + total) | Ada (⚠️) | Unused dan Used per paket; kolom Total belum |
+| W7 | `activity_log.tpl` | 5 log terakhir (`tbl_logs`) | Ada (⚠️) | 10 log terakhir (lama 5) |
+| W8 | `cron_monitor.tpl` | "Cron Job last ran on" | Sebagian | Baru: "Job Monitor" menampilkan `expiry_last_run` dan `reminder_last_run`; clock guard banner (W14) |
 | W9 | `mikrotik_cron_monitor.tpl` | "Routers Offline" | Belum | F5 / F2 monitor router |
 | W10 | `default_info_row.tpl` | Total Customer Balance | Belum | F5 |
 | W11 | `info_payment_gateway.tpl` | Info gateway aktif | Belum | F4 |
@@ -923,10 +923,10 @@ Satu baris per item. Urutan prioritas dalam fase: atas = lebih dulu. Rujukan lay
 39. Peta + ODP (A65-A70): tabel `odp`, kolom `coordinates`/`coverage` di customers/routers.
 40. Pesan massal (A64) dengan filter router/service/group.
 41. Custom field (S8) + isi di form pelanggan (A9/A10) dan portal (C5).
-42. Halaman statis (S9, C10), maintenance mode (S5, A74), halaman 404/error rapi (A75).
-43. Backup/restore (S6): backup harian `VACUUM INTO` + unduh; restore.
+42. Halaman statis (S9, C10), halaman 404/error rapi (A75); UI setting maintenance mode (S5, tanggal `maintenance_date`); middleware 503 dan `maintenance_mode_logout` sudah ada.
+43. Backup/restore (S6): backup harian `VACUUM INTO` sudah ada (`NUXBILL_BACKUP_DIR`, `backup_keep`); unduh dan restore dari UI belum.
 44. Setting umum sisanya: `date_format`, `dec_point`, `thousands_sep`, `reset_day`, logo/alamat/telepon/footer, `session_timeout_duration`, `single_session`, `voucher_format` default.
-45. Widget dashboard sisa: W4 insight, W5 customer expired, W6 stok voucher, W7 activity log, W8/W9 monitor cron, W10 total saldo.
+45. Widget dashboard sisa: W9 monitor router, W10 total saldo.
 46. Setting timezone diterapkan tanpa restart (PROGRESS item 2).
 47. CSV export dan import pelanggan (A8), CSV log (A57), bersihkan log (`keep`) (A57).
 48. Log sistem: kolom Type/User ID setara; sudah ada `actor_type`, `actor_id`.

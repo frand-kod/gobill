@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -105,6 +106,9 @@ func run() error {
 	app.Billing = svc
 	go job.Run(ctx, "expiry", time.Minute, svc.ExpiryJob(guard.Trusted))
 	go job.Run(ctx, "reminder", time.Minute, svc.ReminderJob(guard.Trusted))
+	backup := &job.Backup{Conn: conn, Q: db.New(conn), Trusted: guard.Trusted,
+		Dir: env("NUXBILL_BACKUP_DIR", filepath.Join(filepath.Dir(dbPath), "backup"))}
+	go job.Run(ctx, "backup", time.Minute, backup.Run)
 
 	errCh := make(chan error, 2)
 	if ra := env("NUXBILL_RADIUS", ":1812"); ra != "" {
