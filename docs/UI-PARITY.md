@@ -11,7 +11,7 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 **Status layar:** `Ada` semua field penting ada (beda yang disengaja boleh) · `Sebagian` layar ada tapi ada field/aksi yang hilang · `Belum` tidak ada · `Ditunda` sengaja ditunda sampai ada permintaan nyata · `Non-goal` sengaja tidak di-port.
 
 **Konvensi sisi baru:**
-- Form dibuat dari `[]field` (`internal/web/crud.go`) dan dirender `web/templates/form.html`; daftar dari `listPage` + `list.html`. Semua daftar punya satu kotak cari `q` dan paging 20 baris (`perPage`); tidak ada filter lain kecuali voucher (`status`).
+- Form dibuat dari `[]field` (`internal/web/crud.go`) dan dirender `web/templates/form.html`; daftar dari `listPage` + `list.html`. Semua daftar punya satu kotak cari `q` dan paging 20 baris (`perPage`); filter select lewat `listPage.Filters` (voucher, pelanggan, langganan), kolom bisa diurut (`SortKeys`).
 - Hak akses: `managers` = SuperAdmin+Admin; `staff` = +Agent+Sales; `all` = semua admin yang login.
 - Uang = INTEGER rupiah (`price`, `balance`). Waktu = unix UTC (`expires_at`, `created_at`), tampil lewat `s.ts()`.
 - Password router/secret pelanggan/secret NAS = AES-GCM (`*_enc`), tidak pernah dirender balik. Password login = bcrypt (`password_hash`).
@@ -28,7 +28,7 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | A5 | `admin/admin/edit.tpl` | `settings/users-edit`, `users-edit-post`, `users-delete` | — | Belum | F5 |
 | A6 | `admin/admin/view.tpl` | `settings/users-view` | — | Belum | F5 |
 | A7 | `admin/change-password.tpl` | `settings/change-password(-post)` | — | Belum | F5 |
-| A8 | `admin/customers/list.tpl` | `customers/list`, `csv`, `sync`, `delete` | `GET /admin/customers` | Sebagian | F1 (CSV: F5) |
+| A8 | `admin/customers/list.tpl` | `customers/list`, `csv`, `sync`, `delete` | `GET /admin/customers`, `GET /admin/customers/export` | Sebagian | F1 |
 | A9 | `admin/customers/add.tpl` | `customers/add`, `add-post` | `GET /admin/customers/new`, `POST /admin/customers` | Sebagian | F1 |
 | A10 | `admin/customers/edit.tpl` | `customers/edit`, `edit-post` | `GET /admin/customers/{id}/edit`, `POST /admin/customers/{id}` | Sebagian | F1 |
 | A11 | `admin/customers/view.tpl` | `customers/view`, `recharge`, `deactivate`, `login` | `GET /admin/customers/{id}` (`customer.html`) | Sebagian | F1 |
@@ -66,9 +66,9 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | A43 | `admin/plan/recharge.tpl` | `plan/recharge`, `recharge-post` | `POST /admin/customers/{id}/recharge` (form di `customer.html`) | Sebagian | F1 |
 | A44 | `admin/plan/recharge-confirm.tpl` | `plan/recharge-confirm`, `customers/recharge` | — | Belum | F1 |
 | A45 | `admin/plan/refill.tpl` | `plan/refill`, `refill-post` | `GET/POST /admin/vouchers/redeem` | Ada | F1 |
-| A46 | `admin/plan/deposit.tpl` | `plan/deposit`, `deposit-post` | — | Belum | F1 |
-| A47 | `admin/plan/active.tpl` | `plan/list`, `sync`, `csv`, `extend` | — (langganan hanya tampil di A11) | Belum | F1 |
-| A48 | `admin/plan/edit.tpl` | `plan/edit`, `edit-post` | — | Belum | F1 |
+| A46 | `admin/plan/deposit.tpl` | `plan/deposit`, `deposit-post` | `GET/POST /admin/deposit` | Ada | F1 |
+| A47 | `admin/plan/active.tpl` | `plan/list`, `sync`, `csv`, `extend` | `GET /admin/subscriptions`, `POST .../{id}/extend`, `POST .../{id}/deactivate` | Sebagian | F1 |
+| A48 | `admin/plan/edit.tpl` | `plan/edit`, `edit-post` | `GET /admin/subscriptions/{id}/edit`, `POST /admin/subscriptions/{id}` | Ada | F1 |
 | A49 | `admin/plan/invoice.tpl` | `plan/view`, `viewx` | — | Belum | F5 |
 | A50 | `admin/plan/invoice-print.tpl` | `plan/print` | — | Belum | F5 |
 | A51 | `admin/reports/activation.tpl` | `reports/activation` | `GET /admin/transactions` | Sebagian | F5 |
@@ -123,9 +123,9 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 - `admin/community.tpl`/`rollback.tpl`: hanya tautan komunitas dan tombol update GitHub.
 - `admin/autoload/*.tpl`: hanya dipanggil lewat AJAX dari form paket/voucher.
 
-**Hitungan baris tabel ringkasan (91 baris):** Ada 9 · Sebagian 29 · Belum 42 · Ditunda 7 · Non-goal 4.
+**Hitungan baris tabel ringkasan (91 baris):** Ada 11 · Sebagian 30 · Belum 39 · Ditunda 7 · Non-goal 4.
 
-**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 54 · ⚠️ 40 · ❌ 84; Settings ✅ 37 · ⚠️ 6 · ❌ 72; Portal pelanggan ✅ 15 · ⚠️ 4 · ❌ 22. Total ✅ 106 · ⚠️ 50 · ❌ 178. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
+**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 60 · ⚠️ 45 · ❌ 73; Settings ✅ 37 · ⚠️ 6 · ❌ 72; Portal pelanggan ✅ 15 · ⚠️ 4 · ❌ 22. Total ✅ 112 · ⚠️ 55 · ❌ 167. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
 
 ---
 
@@ -216,11 +216,11 @@ Kolom daftar `admin/list.tpl`: Username, Full Name, Phone, Email, Type, Location
 | — | Auto Renewal | checkbox | — | `auto_renewal` | ✅ | Field baru; di lama ada di widget `account_info` pelanggan (`Disable auto renewal?`) |
 
 **Kolom daftar A8 `customers/list.tpl`:** checkbox (`customer_ids[]`), Username, Photo, Account Type, Full Name, Balance, Contact, Package, Service Type, PPPOE, Status, Created On, Manage.
-- Baru ada: Username (link ke view), Full Name, Phone Number, Service Type, Status.
-- Belum: Photo, Account Type, Balance, Package, PPPOE, Created On, checkbox.
+- Baru ada: Username (link ke view), Full Name, Balance, Package (langganan aktif), Service Type, PPPoE Username, Status.
+- Belum: Photo, Account Type, Contact, Created On, checkbox.
 
 **Aksi daftar:**
-- Filter lama: `order` (username/fullname/lastname/created_at/balance/status), `orderby` (asc/desc), `filter` (status), `search`. Baru: hanya `q`.
+- Filter lama: `order` (username/fullname/lastname/created_at/balance/status), `orderby` (asc/desc), `filter` (status), `search`. Baru: `q`, `service_type`, `status`, urut `sort`/`dir` (username, fullname, balance, status), tombol Export CSV (`/admin/customers/export`, mengikuti filter, semua halaman).
 - Per baris lama: View, Edit, Sync, Recharge, Delete. Baru: View (link username), Edit, Delete. Belum: Sync, Recharge langsung dari daftar (ada di view).
 - Massal lama: Delete Selected, Send Message (modal: email/inbox/sms/wa). Belum.
 - Export: `customers/csv` (tombol CSV). Belum (F5). Import CSV (F5) belum.
@@ -268,8 +268,8 @@ Satu form baru `planFields` (`internal/web/plans.go`) melayani tipe Hotspot/PPPo
 | `routers` | Router Name | select (add) / text (edit) | required | `router_id` | ⚠️ | FK ke `routers`, bukan nama |
 | `pool_name` (P) | IP Pool | select | required (P) | `pool_id` | ⚠️ | FK ke `pools`; opsional di baru |
 | `plan_expired` (edit) | Expired Internet Package | select | — | `expired_plan_id` | ⚠️ | Nama beda; FK |
-| `on_login` (edit) | On Login script | textarea | — | — | ❌ | Kolom `plans.on_login` ada di schema, tapi tidak ada input di form |
-| `on_logout` (edit) | On Logout script | textarea | — | — | ❌ | idem |
+| `on_login` (edit) | On Login script | textarea | — | `on_login` | ✅ | Bagian Network & device |
+| `on_logout` (edit) | On Logout script | textarea | — | `on_logout` | ✅ | idem |
 | `id` (edit) | — | hidden | — | `{id}` di URL | ✅ | |
 
 **Kolom daftar H:** Internet Package (Name), Limit, Expired, Name, Type, Bandwidth, Category, Price, Validity, Time, Data, Location (router), Device, Date, ID, Manage. **P:** Internet Plan, Expired, Name, Type, Bandwidth, Price, Validity, IP Pool, Date, Location, Device, ID, Manage.
@@ -412,26 +412,28 @@ QR code di voucher cetak baru (`print.html`, `.QR`) = fitur tambahan.
 | `id_customer` | Select Account | select | required | `customer` | ⚠️ | Baru: input username (teks), prefill `?customer=` |
 | `code` | Code Voucher | text | required | `code` | ✅ | |
 
-**A46 `plan/deposit.tpl`** (admin top-up saldo)
+**A46 `plan/deposit.tpl`** (baru: `GET/POST /admin/deposit`, `billing.Service.Deposit`; staff)
 
 | Field lama | Label | Tipe | Wajib | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
-| `id_customer` | Select Account | select | required | — | ❌ | Tidak ada top-up saldo oleh admin; `customers.balance` hanya berkurang lewat recharge |
-| `id_plan` | Balance Package | select | required | — | ❌ | |
-| `amount` | Balance Amount | number | — | — | ❌ | |
-| `note` | Note | textarea | — | `transactions.note` | ❌ | Kolom ada, belum ada form |
-| `stoken` | — | hidden | — | — | ❌ | |
+| `id_customer` | Select Account | select | required | `customer` | ⚠️ | Input username (teks), prefill `?customer=`, seperti redeem voucher |
+| `id_plan` | Balance Package | select | required | `plan` | ✅ | Paket tipe Balance yang aktif; kosong = pakai jumlah |
+| `amount` | Balance Amount | number | — | `amount` | ✅ | Dipakai bila paket kosong |
+| `note` | Note | textarea | — | `transactions.note` | ✅ | |
+| `stoken` | — | hidden | — | — | ⚠️ | Diganti CSRF stdlib |
 
-**A48 `plan/edit.tpl`** (ubah paket/kedaluwarsa langganan)
+Menulis transaksi (tipe Balance, metode `Admin - Deposit`), menaikkan saldo, activity log, dan mengirim notifikasi recharge. Recharge paket Balance (A43, voucher) kini juga mengirim notifikasi.
+
+**A48 `plan/edit.tpl`** (baru: `subscriptions.go`, `billing.Service.EditSubscription`; managers)
 
 | Field lama | Label | Tipe | Wajib | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
-| `username` | Select Account | text (readonly) | — | — | ❌ | |
-| `id_plan` | Service Plan | select | required | `subscriptions.plan_id` | ❌ | Tidak ada form edit langganan |
-| `expiration` + `time` | Expires On | date + time | required | `subscriptions.expires_at` | ❌ | Disengaja beda: tanggal+jam dipecah diganti satu `expires_at` UTC; form untuk mengeditnya belum ada |
-| `id` | — | hidden | — | — | ❌ | |
+| `username` | Select Account | text (readonly) | — | judul form | ⚠️ | Tampil di judul, bukan field |
+| `id_plan` | Service Plan | select | required | `plan` | ✅ | Paket non-Balance; ganti paket = hapus profil lama dari router lalu tambah yang baru |
+| `expiration` + `time` | Expires On | date + time | required | `expires_at` | ⚠️ | Satu input `datetime-local` (zona waktu billing), disimpan UTC; status mengikuti (lewat = expired) |
+| `id` | — | hidden | — | `{id}` di URL | ⚠️ | Activity log `subscription.update` |
 
-**A47 `plan/active.tpl`** (daftar langganan aktif) — Kolom lama: Username, Plan Name, Type, Created On, Expires On, Method, Location, Manage. Baru: tidak ada layar; data hanya per pelanggan di A11 (Plan Name, Type, Expires, Status). Aksi lama: Sync, CSV, Recharge Account, filter (`search`, `router`, `plan`, `status`), Edit, Extend (modal), Delete. Semua belum.
+**A47 `plan/active.tpl`** (baru: `GET /admin/subscriptions`) — Kolom: Username, Plan Name, Type, Created On, Expires On, Method, Location (router), Status; filter `q`, `status`, `type`, `router`; paging. Aksi: Edit (A48), Extend N hari (`POST .../extend`, input `days`), Deactivate (kedaluwarsa sekarang + `RemoveCustomer`, idempoten, `POST .../deactivate`). Belum: Sync, CSV, filter `plan`, Delete.
 
 **A49 `plan/invoice.tpl` / A50 `invoice-print.tpl`:** tampilan invoice (textarea `content`, tombol Finish, Download, WhatsApp, Resend, Print HTML, Print Text, NuxPrint). Belum ada (PROGRESS: "invoice yang bisa dicetak", F5). `transactions.invoice` ada dan tampil di daftar.
 
@@ -867,15 +869,15 @@ Satu baris per item. Urutan prioritas dalam fase: atas = lebih dulu. Rujukan lay
 
 ### F1 Billing inti (paritas operasional admin)
 
-1. Top-up saldo oleh admin (A46 `plan/deposit`: `id_customer`, `id_plan`, `amount`, `note`); simpan ke `transactions.note`, tipe Balance.
-2. Layar langganan aktif (A47): daftar `subscriptions` dengan filter router/plan/status, kolom Username/Plan/Type/Created/Expires/Method/Location.
-3. Edit langganan (A48): ubah `plan_id` dan `expires_at` dengan satu input datetime (bukan date+time terpisah).
+1. Top-up saldo oleh admin (A46 `plan/deposit`: `id_customer`, `id_plan`, `amount`, `note`); simpan ke `transactions.note`, tipe Balance. (SELESAI di F1)
+2. Layar langganan aktif (A47): daftar `subscriptions` dengan filter router/plan/status, kolom Username/Plan/Type/Created/Expires/Method/Location. (SELESAI di F1)
+3. Edit langganan (A48): ubah `plan_id` dan `expires_at` dengan satu input datetime (bukan date+time terpisah). (SELESAI di F1)
 4. Perpanjang (Extend) dan nonaktifkan (Deactivate) langganan dari A11/A47.
 5. Sinkron ke router per pelanggan dan per paket secara manual (tombol Sync A8/A11/A12).
 6. Daftar pelanggan: kolom Balance, Package, PPPOE, Created On, Photo; filter status + urut (`order`, `orderby`, `filter`); aksi baris Recharge.
 7. Hapus massal pelanggan (`customer_ids[]`) dan kirim pesan massal (butuh F4).
 8. Validasi panjang PHP yang hilang: username 3-54, fullname 2-25, password 3-35, router name 1-30, pool name 3-30, NAS 3-30 (opsional, putuskan).
-9. Field paket: `price_old` (harga coret), `plan_type` Personal/Business, `on_login`/`on_logout` (kolom sudah ada, tambahkan input textarea di `planFields`).
+9. Field paket: `price_old` (harga coret), `plan_type` Personal/Business, (`on_login`/`on_logout` sudah ada di form).
 10. Field pelanggan: `account_type`, `coordinates`, `city`, `district`, `state`, `zip`, `photo` (butuh migrasi 0004 + keputusan: pakai custom field F5 atau kolom).
 11. Metode bayar admin kustom (`payment_usings`) selain Cash/Balance; opsi `zero`; halaman konfirmasi recharge (A44) bila perlu.
 12. Filter daftar paket (tipe, billing, router, status, bandwidth) dan filter tipe di daftar Balance.

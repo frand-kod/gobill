@@ -38,3 +38,25 @@ RETURNING balance;
 
 -- name: DeleteCustomer :exec
 DELETE FROM customers WHERE id = ?;
+
+-- name: FilterCustomers :many
+-- Empty service_type/status = any. page_limit -1 = all rows (CSV).
+SELECT c.*, CAST(COALESCE((SELECT group_concat(p.name, ', ') FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+                           WHERE s.customer_id = c.id AND s.status = 'active'), '') AS TEXT) AS packages,
+       CAST(sqlc.arg(sort) AS TEXT) AS sort_key -- e.g. username_desc; anything else = newest first
+FROM customers c
+WHERE (c.username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
+       OR c.phone LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%')
+  AND (CAST(sqlc.arg(service_type) AS TEXT) = '' OR c.service_type = sqlc.arg(service_type))
+  AND (CAST(sqlc.arg(status) AS TEXT) = '' OR c.status = sqlc.arg(status))
+ORDER BY
+  CASE WHEN sort_key = 'username_asc' THEN c.username END ASC,
+  CASE WHEN sort_key = 'username_desc' THEN c.username END DESC,
+  CASE WHEN sort_key = 'fullname_asc' THEN c.fullname END ASC,
+  CASE WHEN sort_key = 'fullname_desc' THEN c.fullname END DESC,
+  CASE WHEN sort_key = 'balance_asc' THEN c.balance END ASC,
+  CASE WHEN sort_key = 'balance_desc' THEN c.balance END DESC,
+  CASE WHEN sort_key = 'status_asc' THEN c.status END ASC,
+  CASE WHEN sort_key = 'status_desc' THEN c.status END DESC,
+  c.id DESC
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);

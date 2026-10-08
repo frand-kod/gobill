@@ -85,8 +85,8 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 	role := adminFrom(r).Role
 	lp := listPage{Heading: "Voucher", Base: "/admin/vouchers", Q: q, Searchable: true, DeleteOnly: true,
 		CanCreate: oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), CanEdit: oneOf(role, "SuperAdmin", "Admin"),
-		FilterName: "status", FilterVal: status, FilterOpts: vchStatuses,
-		Cols: []string{"Code Voucher", "Plan Name", "Status", "Created", "Used"}}
+		Filters: []filter{{"status", status, vchStatuses}},
+		Cols:    []string{"Code Voucher", "Plan Name", "Status", "Created", "Used"}}
 	if lp.CanCreate {
 		lp.Links = []option{{"/admin/vouchers/redeem", "Redeem Voucher"}, {"/admin/vouchers/print?limit=36", "Print"}}
 	}

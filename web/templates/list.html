@@ -15,13 +15,13 @@
       <span class="pointer-events-none absolute inset-y-0 start-3 flex items-center text-slate-400">{{icon "search"}}</span>
       <input class="input ps-10" type="search" name="q" value="{{.Q}}" placeholder="{{T "Search"}}" aria-label="{{T "Search"}}">
     </div>
-    {{if .FilterName}}<select class="input w-auto" name="{{.FilterName}}" aria-label="{{T .FilterName}}">{{$cur := .FilterVal}}{{range .FilterOpts}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{T .Label}}</option>{{end}}</select>{{end}}
+    {{range .Filters}}{{$cur := .Val}}<select class="input w-auto" name="{{.Name}}" aria-label="{{T .Name}}">{{range .Opts}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{T .Label}}</option>{{end}}</select>{{end}}
     <button class="btn btn-ghost" type="submit">{{T "Search"}}</button>
   </form>
   {{end}}
   <div class="overflow-x-auto">
     <table class="table">
-      <thead><tr>{{range .Cols}}<th>{{T .}}</th>{{end}}{{if .CanEdit}}<th></th>{{end}}</tr></thead>
+      <thead><tr>{{range $i, $c := .Cols}}<th>{{with $d.SortKey $i}}<a class="hover:underline" href="{{$d.SortURL .}}">{{T $c}}{{if eq $d.Sort .}} {{if eq $d.Dir "asc"}}&uarr;{{else}}&darr;{{end}}{{end}}</a>{{else}}{{T $c}}{{end}}</th>{{end}}{{if .CanEdit}}<th></th>{{end}}</tr></thead>
       <tbody>
       {{range $r := .Rows}}
         <tr>
@@ -32,11 +32,11 @@
           </td>{{end}}
           {{if $d.CanEdit}}<td class="whitespace-nowrap text-end">
             <div class="flex justify-end gap-1">
-              {{with $d.RowAction.Value}}<form method="post" action="{{$d.Base}}/{{$r.ID}}/{{.}}"><button class="btn btn-ghost btn-sm" type="submit">{{icon "circle-check"}}<span>{{T $d.RowAction.Label}}</span></button></form>{{end}}
+              {{range $d.Actions}}<form class="flex items-center gap-1" method="post" action="{{$d.Base}}/{{$r.ID}}/{{.Path}}">{{with .Field}}<input class="input w-20 py-1" type="number" name="{{.}}" value="7" min="1" aria-label="{{T .}}">{{end}}<button class="btn btn-ghost btn-sm" type="submit">{{icon "circle-check"}}<span>{{T .Label}}</span></button></form>{{end}}
               {{if not $d.DeleteOnly}}<a class="btn btn-ghost btn-sm" href="{{$d.Base}}/{{$r.ID}}/edit">{{icon "pencil"}}<span>{{T "Edit"}}</span></a>{{end}}
-              <form method="post" action="{{$d.Base}}/{{$r.ID}}/delete" onsubmit="return confirm({{T "Delete"}} + '?')">
+              {{if not $d.NoDelete}}<form method="post" action="{{$d.Base}}/{{$r.ID}}/delete" onsubmit="return confirm({{T "Delete"}} + '?')">
                 <button class="btn btn-danger btn-sm" type="submit">{{icon "trash-2"}}<span>{{T "Delete"}}</span></button>
-              </form>
+              </form>{{end}}
             </div>
           </td>{{end}}
         </tr>
@@ -49,8 +49,8 @@
 </div>
 {{if or .Prev .Next}}
 <p class="mt-4 flex justify-end gap-2">
-  {{if .Prev}}<a class="btn btn-ghost" href="{{.Base}}?q={{.Q}}&amp;{{if .FilterName}}{{.FilterName}}={{.FilterVal}}&amp;{{end}}page={{.Prev}}">{{T "Previous"}}</a>{{end}}
-  {{if .Next}}<a class="btn btn-ghost" href="{{.Base}}?q={{.Q}}&amp;{{if .FilterName}}{{.FilterName}}={{.FilterVal}}&amp;{{end}}page={{.Next}}">{{T "Next"}}</a>{{end}}
+  {{if .Prev}}<a class="btn btn-ghost" href="{{.PageURL .Prev}}">{{T "Previous"}}</a>{{end}}
+  {{if .Next}}<a class="btn btn-ghost" href="{{.PageURL .Next}}">{{T "Next"}}</a>{{end}}
 </p>
 {{end}}
 {{end}}

@@ -102,6 +102,112 @@ func (q *Queries) DeleteCustomer(ctx context.Context, id int64) error {
 	return err
 }
 
+const filterCustomers = `-- name: FilterCustomers :many
+SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, CAST(COALESCE((SELECT group_concat(p.name, ', ') FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+                           WHERE s.customer_id = c.id AND s.status = 'active'), '') AS TEXT) AS packages,
+       CAST(?1 AS TEXT) AS sort_key -- e.g. username_desc; anything else = newest first
+FROM customers c
+WHERE (c.username LIKE '%' || CAST(?2 AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(?2 AS TEXT) || '%'
+       OR c.phone LIKE '%' || CAST(?2 AS TEXT) || '%')
+  AND (CAST(?3 AS TEXT) = '' OR c.service_type = ?3)
+  AND (CAST(?4 AS TEXT) = '' OR c.status = ?4)
+ORDER BY
+  CASE WHEN sort_key = 'username_asc' THEN c.username END ASC,
+  CASE WHEN sort_key = 'username_desc' THEN c.username END DESC,
+  CASE WHEN sort_key = 'fullname_asc' THEN c.fullname END ASC,
+  CASE WHEN sort_key = 'fullname_desc' THEN c.fullname END DESC,
+  CASE WHEN sort_key = 'balance_asc' THEN c.balance END ASC,
+  CASE WHEN sort_key = 'balance_desc' THEN c.balance END DESC,
+  CASE WHEN sort_key = 'status_asc' THEN c.status END ASC,
+  CASE WHEN sort_key = 'status_desc' THEN c.status END DESC,
+  c.id DESC
+LIMIT ?6 OFFSET ?5
+`
+
+type FilterCustomersParams struct {
+	Sort        string
+	Q           string
+	ServiceType string
+	Status      string
+	PageOffset  int64
+	PageLimit   int64
+}
+
+type FilterCustomersRow struct {
+	ID            int64
+	Username      string
+	PasswordHash  string
+	Fullname      string
+	Address       string
+	Phone         string
+	Email         string
+	Balance       int64
+	ServiceType   string
+	PppoeUsername string
+	PppoeIp       string
+	SecretEnc     []byte
+	BillingDay    sql.NullInt64
+	AutoRenewal   int64
+	Status        string
+	CreatedBy     sql.NullInt64
+	CreatedAt     int64
+	LastLoginAt   sql.NullInt64
+	Packages      string
+	SortKey       string
+}
+
+// Empty service_type/status = any. page_limit -1 = all rows (CSV).
+func (q *Queries) FilterCustomers(ctx context.Context, arg FilterCustomersParams) ([]FilterCustomersRow, error) {
+	rows, err := q.db.QueryContext(ctx, filterCustomers,
+		arg.Sort,
+		arg.Q,
+		arg.ServiceType,
+		arg.Status,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FilterCustomersRow
+	for rows.Next() {
+		var i FilterCustomersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.PasswordHash,
+			&i.Fullname,
+			&i.Address,
+			&i.Phone,
+			&i.Email,
+			&i.Balance,
+			&i.ServiceType,
+			&i.PppoeUsername,
+			&i.PppoeIp,
+			&i.SecretEnc,
+			&i.BillingDay,
+			&i.AutoRenewal,
+			&i.Status,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.LastLoginAt,
+			&i.Packages,
+			&i.SortKey,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getCustomer = `-- name: GetCustomer :one
 SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at FROM customers WHERE id = ?
 `

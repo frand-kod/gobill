@@ -16,6 +16,8 @@
           {{if $mgr}}<a class="nav-item" href="/admin/plans"{{if hasPrefix .Path "/admin/plans"}} aria-current="page"{{end}}>{{icon "package"}}<span>{{T "Service Plan"}}</span></a>{{end}}
           <a class="nav-item" href="/admin/vouchers"{{if or (eq .Path "/admin/vouchers") (eq .Path "/admin/vouchers/new") (eq .Path "/admin/vouchers/print")}} aria-current="page"{{end}}>{{icon "ticket"}}<span>{{T "Voucher"}}</span></a>
           {{if $staff}}<a class="nav-item" href="/admin/vouchers/redeem"{{if eq .Path "/admin/vouchers/redeem"}} aria-current="page"{{end}}>{{icon "wallet"}}<span>{{T "Recharge Account"}} / {{T "Redeem Voucher"}}</span></a>{{end}}
+          {{if $staff}}<a class="nav-item" href="/admin/deposit"{{if eq .Path "/admin/deposit"}} aria-current="page"{{end}}>{{icon "wallet"}}<span>{{T "Refill Balance"}}</span></a>{{end}}
+          <a class="nav-item" href="/admin/subscriptions"{{if hasPrefix .Path "/admin/subscriptions"}} aria-current="page"{{end}}>{{icon "circle-check"}}<span>{{T "Subscriptions"}}</span></a>
         </div>
       </div>
 

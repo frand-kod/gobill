@@ -192,16 +192,12 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 	}
 	now := s.now()
 
-	last, err := q.ListTransactions(ctx, db.ListTransactionsParams{Limit: 1}) // PHP _raid(): max(id)+1
+	invoice, err := nextInvoice(ctx, q)
 	if err != nil {
 		return nil, err
 	}
-	invoiceNo := int64(1)
-	if len(last) > 0 {
-		invoiceNo = last[0].ID + 1
-	}
 	trx := db.CreateTransactionParams{
-		Invoice: "INV-" + strconv.FormatInt(invoiceNo, 10), CustomerID: customerID,
+		Invoice: invoice, CustomerID: customerID,
 		PlanID: sql.NullInt64{Int64: plan.ID, Valid: true}, Username: c.Username, PlanName: plan.Name,
 		Type: plan.Type, Price: plan.Price, Method: method, AdminID: nullID(adminID),
 		PeriodStart: now.Unix(), PeriodEnd: now.Unix(),
@@ -213,6 +209,7 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		if _, err := q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: plan.Price, ID: customerID}); err != nil {
 			return nil, err
 		}
+		pend = &pending{cust: c, plan: plan, trx: trx, first: false, expiry: now} // notify only, no router
 	} else {
 		router, err := q.GetRouter(ctx, plan.RouterID.Int64)
 		if err != nil {
@@ -261,6 +258,16 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 	return pend, err
 }
 
+// nextInvoice is PHP _raid(): max(id)+1.
+func nextInvoice(ctx context.Context, q *db.Queries) (string, error) {
+	last, err := q.ListTransactions(ctx, db.ListTransactionsParams{Limit: 1})
+	n := int64(1)
+	if len(last) > 0 {
+		n = last[0].ID + 1
+	}
+	return "INV-" + strconv.FormatInt(n, 10), err
+}
+
 // activeSub finds the customer's active subscription for (router, type); the partial unique
 // index guarantees at most one.
 func activeSub(ctx context.Context, q *db.Queries, customerID, routerID int64, typ string) (db.Subscription, bool, error) {
@@ -292,16 +299,24 @@ func (s *Service) apply(ctx context.Context, p *pending) {
 	if p == nil {
 		return
 	}
+	var err error
+	if p.plan.Type != "Balance" {
+		err = s.activate(ctx, p)
+	}
+	if err != nil {
+		slog.Error("device: activate failed, sync manually", "customer", p.cust.Username, "plan", p.plan.Name, "err", err)
+	}
+	s.notifyRecharge(p)
+}
+
+func (s *Service) activate(ctx context.Context, p *pending) error {
 	dev, dc, dp, router, err := s.prepare(ctx, p.cust, p.plan)
 	if err == nil {
 		if err = dev.AddCustomer(ctx, dc, dp); err == nil && p.change && p.plan.Type == "PPPoE" {
 			err = dev.Disconnect(ctx, dc, router)
 		}
 	}
-	if err != nil {
-		slog.Error("device: activate failed, sync manually", "customer", p.cust.Username, "plan", p.plan.Name, "err", err)
-	}
-	s.notifyRecharge(p)
+	return err
 }
 
 func (s *Service) notifyRecharge(p *pending) {

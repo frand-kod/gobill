@@ -3,6 +3,7 @@ package web
 import (
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -83,13 +84,65 @@ type listPage struct {
 	CanEdit          bool // shows edit and delete
 	ViewLink         bool // first cell links to Base/ID instead of Base/ID/edit
 	Searchable       bool
-	Prev, Next       int      // page numbers, 0 = none
-	DeleteOnly       bool     // rows have no edit page
-	Links            []option // extra toolbar buttons: Value = href
-	FilterName       string   // optional select next to the search box, e.g. "status"
-	FilterVal        string
-	FilterOpts       []option
-	RowAction        option // optional per-row POST button: Value = path suffix, Label = caption
+	Prev, Next       int         // page numbers, 0 = none
+	DeleteOnly       bool        // rows have no edit page
+	Links            []option    // extra toolbar buttons: Value = href
+	Filters          []filter    // selects next to the search box
+	SortKeys         []string    // parallel to Cols; "" = not sortable
+	Sort, Dir        string      // current sort key and "asc"/"desc"
+	NoDelete         bool        // rows have no delete button
+	Actions          []rowAction // per-row POST buttons
+}
+
+type filter struct {
+	Name, Val string
+	Opts      []option
+}
+
+// rowAction is a per-row POST button to Base/ID/Path; Field adds a number input of that name.
+type rowAction struct{ Path, Label, Field string }
+
+func (lp listPage) query() url.Values {
+	v := url.Values{}
+	if lp.Q != "" {
+		v.Set("q", lp.Q)
+	}
+	for _, f := range lp.Filters {
+		if f.Val != "" {
+			v.Set(f.Name, f.Val)
+		}
+	}
+	if lp.Sort != "" {
+		v.Set("sort", lp.Sort)
+		v.Set("dir", lp.Dir)
+	}
+	return v
+}
+
+// SortKey is the sort key of column i, "" when it is not sortable.
+func (lp listPage) SortKey(i int) string {
+	if i < len(lp.SortKeys) {
+		return lp.SortKeys[i]
+	}
+	return ""
+}
+
+// PageURL is the list URL for a page, keeping the search, filters and sort.
+func (lp listPage) PageURL(page int) string {
+	v := lp.query()
+	v.Set("page", strconv.Itoa(page))
+	return lp.Base + "?" + v.Encode()
+}
+
+// SortURL is the header link for a column: the same sort flips direction.
+func (lp listPage) SortURL(key string) string {
+	v := lp.query()
+	v.Set("sort", key)
+	v.Set("dir", "asc")
+	if lp.Sort == key && lp.Dir == "asc" {
+		v.Set("dir", "desc")
+	}
+	return lp.Base + "?" + v.Encode()
 }
 
 func text(name, label string, v, e map[string]string) field {
