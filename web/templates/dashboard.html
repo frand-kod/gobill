@@ -1,4 +1,5 @@
 {{define "content"}}
+{{with .Data}}<p class="alert alert-error" role="alert">{{icon "circle-alert"}}<span>{{.}}</span></p>{{end}}
 <h1>{{T "Hello"}}, {{if .Admin.Fullname}}{{.Admin.Fullname}}{{else}}{{.Admin.Username}}{{end}}</h1>
 <section class="empty">
   {{icon "package"}}
