@@ -121,11 +121,12 @@ type MessageLog struct {
 }
 
 type Na struct {
-	ID          int64
-	Name        string
-	Ip          string
-	SecretEnc   []byte
-	Description string
+	ID                 int64
+	Name               string
+	Ip                 string
+	SecretEnc          []byte
+	Description        string
+	RequireMessageAuth int64
 }
 
 type Odp struct {

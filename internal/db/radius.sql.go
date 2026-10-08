@@ -56,14 +56,15 @@ func (q *Queries) CountOtherOpenRadiusSessions(ctx context.Context, arg CountOth
 }
 
 const createNAS = `-- name: CreateNAS :one
-INSERT INTO nas (name, ip, secret_enc, description) VALUES (?, ?, ?, ?) RETURNING id, name, ip, secret_enc, description
+INSERT INTO nas (name, ip, secret_enc, description, require_message_auth) VALUES (?, ?, ?, ?, ?) RETURNING id, name, ip, secret_enc, description, require_message_auth
 `
 
 type CreateNASParams struct {
-	Name        string
-	Ip          string
-	SecretEnc   []byte
-	Description string
+	Name               string
+	Ip                 string
+	SecretEnc          []byte
+	Description        string
+	RequireMessageAuth int64
 }
 
 func (q *Queries) CreateNAS(ctx context.Context, arg CreateNASParams) (Na, error) {
@@ -72,6 +73,7 @@ func (q *Queries) CreateNAS(ctx context.Context, arg CreateNASParams) (Na, error
 		arg.Ip,
 		arg.SecretEnc,
 		arg.Description,
+		arg.RequireMessageAuth,
 	)
 	var i Na
 	err := row.Scan(
@@ -80,6 +82,7 @@ func (q *Queries) CreateNAS(ctx context.Context, arg CreateNASParams) (Na, error
 		&i.Ip,
 		&i.SecretEnc,
 		&i.Description,
+		&i.RequireMessageAuth,
 	)
 	return i, err
 }
@@ -128,7 +131,7 @@ func (q *Queries) GetCustomerForRadius(ctx context.Context, name string) (Custom
 }
 
 const getNAS = `-- name: GetNAS :one
-SELECT id, name, ip, secret_enc, description FROM nas WHERE id = ?
+SELECT id, name, ip, secret_enc, description, require_message_auth FROM nas WHERE id = ?
 `
 
 func (q *Queries) GetNAS(ctx context.Context, id int64) (Na, error) {
@@ -140,6 +143,7 @@ func (q *Queries) GetNAS(ctx context.Context, id int64) (Na, error) {
 		&i.Ip,
 		&i.SecretEnc,
 		&i.Description,
+		&i.RequireMessageAuth,
 	)
 	return i, err
 }
@@ -226,7 +230,7 @@ func (q *Queries) GetRadiusSession(ctx context.Context, id int64) (RadiusSession
 }
 
 const listNAS = `-- name: ListNAS :many
-SELECT id, name, ip, secret_enc, description FROM nas ORDER BY name
+SELECT id, name, ip, secret_enc, description, require_message_auth FROM nas ORDER BY name
 `
 
 func (q *Queries) ListNAS(ctx context.Context) ([]Na, error) {
@@ -244,6 +248,7 @@ func (q *Queries) ListNAS(ctx context.Context) ([]Na, error) {
 			&i.Ip,
 			&i.SecretEnc,
 			&i.Description,
+			&i.RequireMessageAuth,
 		); err != nil {
 			return nil, err
 		}
@@ -460,15 +465,16 @@ func (q *Queries) SumRadiusUsage(ctx context.Context, arg SumRadiusUsageParams) 
 }
 
 const updateNAS = `-- name: UpdateNAS :exec
-UPDATE nas SET name = ?, ip = ?, secret_enc = ?, description = ? WHERE id = ?
+UPDATE nas SET name = ?, ip = ?, secret_enc = ?, description = ?, require_message_auth = ? WHERE id = ?
 `
 
 type UpdateNASParams struct {
-	Name        string
-	Ip          string
-	SecretEnc   []byte
-	Description string
-	ID          int64
+	Name               string
+	Ip                 string
+	SecretEnc          []byte
+	Description        string
+	RequireMessageAuth int64
+	ID                 int64
 }
 
 func (q *Queries) UpdateNAS(ctx context.Context, arg UpdateNASParams) error {
@@ -477,6 +483,7 @@ func (q *Queries) UpdateNAS(ctx context.Context, arg UpdateNASParams) error {
 		arg.Ip,
 		arg.SecretEnc,
 		arg.Description,
+		arg.RequireMessageAuth,
 		arg.ID,
 	)
 	return err

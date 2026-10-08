@@ -1,5 +1,5 @@
 -- name: CreateNAS :one
-INSERT INTO nas (name, ip, secret_enc, description) VALUES (?, ?, ?, ?) RETURNING *;
+INSERT INTO nas (name, ip, secret_enc, description, require_message_auth) VALUES (?, ?, ?, ?, ?) RETURNING *;
 
 -- name: ListNAS :many
 SELECT * FROM nas ORDER BY name;
@@ -8,7 +8,7 @@ SELECT * FROM nas ORDER BY name;
 SELECT * FROM nas WHERE id = ?;
 
 -- name: UpdateNAS :exec
-UPDATE nas SET name = ?, ip = ?, secret_enc = ?, description = ? WHERE id = ?;
+UPDATE nas SET name = ?, ip = ?, secret_enc = ?, description = ?, require_message_auth = ? WHERE id = ?;
 
 -- name: DeleteNAS :exec
 DELETE FROM nas WHERE id = ?;

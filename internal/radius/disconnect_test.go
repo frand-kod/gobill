@@ -1,6 +1,9 @@
 package radius
 
 import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/md5"
 	"net"
 	"strconv"
 	"testing"
@@ -57,6 +60,15 @@ func TestDisconnectRequest(t *testing.T) {
 		t.Fatal("request authenticator does not match the NAS secret")
 	}
 	p, _ := radius.Parse(raw, nasSecret)
+	// RFC 5176: M-A over the packet with a zero authenticator, first attribute
+	chk := append([]byte(nil), raw...)
+	clear(chk[4:20])
+	clear(chk[22:38])
+	m := hmac.New(md5.New, nasSecret)
+	m.Write(chk)
+	if raw[20] != 80 || !bytes.Equal(m.Sum(nil), raw[22:38]) {
+		t.Fatal("Disconnect-Request lacks a valid Message-Authenticator")
+	}
 	if p.Code != radius.CodeDisconnectRequest || rfc2865.UserName_GetString(p) != "alice" ||
 		rfc2866.AcctSessionID_GetString(p) != "abc123" || !rfc2865.NASIPAddress_Get(p).Equal(net.ParseIP("127.0.0.1")) {
 		t.Fatalf("bad packet: %+v", p)

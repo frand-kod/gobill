@@ -18,10 +18,13 @@ func nasFields(v, e map[string]string, editing bool) []field {
 		pw.Hint = "Leave empty to keep the current secret"
 	}
 	pw.Value = "" // never rendered back
+	ma := text("require_message_auth", "Require Message-Authenticator", v, e).as("checkbox")
+	ma.Checked = v["require_message_auth"] == "1"
+	ma.Hint = "Drop Access-Requests without Message-Authenticator (RouterOS: require-message-auth)"
 	out := section([]field{
 		text("name", "NAS Name", v, e).req(),
 		text("ip", "IP / CIDR", v, e).req().hint("e.g. 10.0.0.1 or 10.0.0.0/24"),
-		text("description", "Description", v, e),
+		text("description", "Description", v, e), ma,
 	}, "NAS", "")
 	return append(out, section([]field{pw}, "RADIUS secret", "")...)
 }
@@ -63,13 +66,13 @@ func (s *Server) nasEdit(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "get nas", err)
 		return
 	}
-	v := map[string]string{"name": n.Name, "ip": n.Ip, "description": n.Description}
+	v := map[string]string{"name": n.Name, "ip": n.Ip, "description": n.Description, "require_message_auth": fmt.Sprint(n.RequireMessageAuth)}
 	s.renderForm(w, r, 200, formPage{"Edit NAS", fmt.Sprint("/admin/nas/", id), "/admin/nas", nasFields(v, nil, true)})
 }
 
 func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
-	v := formVals(r, "name", "ip", "description")
+	v := formVals(r, "name", "ip", "description", "require_message_auth")
 	pass := r.PostFormValue("secret")
 	e := map[string]string{}
 	for _, k := range []string{"name", "ip"} {
@@ -103,10 +106,14 @@ func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		var err error
+		var rma int64
+		if v["require_message_auth"] == "1" {
+			rma = 1
+		}
 		if id == 0 {
-			_, err = s.queries.CreateNAS(r.Context(), db.CreateNASParams{Name: v["name"], Ip: v["ip"], SecretEnc: enc, Description: v["description"]})
+			_, err = s.queries.CreateNAS(r.Context(), db.CreateNASParams{Name: v["name"], Ip: v["ip"], SecretEnc: enc, Description: v["description"], RequireMessageAuth: rma})
 		} else {
-			err = s.queries.UpdateNAS(r.Context(), db.UpdateNASParams{Name: v["name"], Ip: v["ip"], SecretEnc: enc, Description: v["description"], ID: id})
+			err = s.queries.UpdateNAS(r.Context(), db.UpdateNASParams{Name: v["name"], Ip: v["ip"], SecretEnc: enc, Description: v["description"], RequireMessageAuth: rma, ID: id})
 		}
 		switch {
 		case isUnique(err):

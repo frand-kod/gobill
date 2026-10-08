@@ -5,7 +5,8 @@ CREATE TABLE nas (
     name        TEXT NOT NULL UNIQUE,
     ip          TEXT NOT NULL UNIQUE, -- single IP or CIDR
     secret_enc  BLOB NOT NULL,        -- AES-GCM
-    description TEXT NOT NULL DEFAULT ''
+    description TEXT NOT NULL DEFAULT '',
+    require_message_auth INTEGER NOT NULL DEFAULT 0 -- 1 = drop Access-Requests without Message-Authenticator
 );
 
 -- One row per accounting session; Interim updates the row in place.

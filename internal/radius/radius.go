@@ -114,7 +114,7 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 func reject(w radius.ResponseWriter, r *radius.Request, msg string) {
 	p := r.Response(radius.CodeAccessReject)
 	rfc2865.ReplyMessage_SetString(p, msg)
-	w.Write(p)
+	send(w, p)
 }
 
 // AuthRequest is the transport-neutral input of Authorize (UDP packet or rlm_rest form).
@@ -342,6 +342,20 @@ func (l *failLimiter) fail(key string, now int64) {
 
 // HandleAuth is Access-Request over UDP: a thin packet adapter over Authorize.
 func (s *Server) HandleAuth(w radius.ResponseWriter, r *radius.Request) {
+	required := false
+	ip := addrIP(r.RemoteAddr)
+	if rows, err := s.Q.ListNAS(r.Context()); err == nil {
+		for _, n := range rows {
+			if matchIP(n.Ip, ip) {
+				required = n.RequireMessageAuth == 1
+				break
+			}
+		}
+	}
+	if !checkMA(r.Packet, required) {
+		slog.Warn("radius: dropping Access-Request, bad or missing Message-Authenticator", "nas", ip)
+		return
+	}
 	user := rfc2865.UserName_GetString(r.Packet)
 	rq := AuthRequest{User: user, NAS: addrIP(r.RemoteAddr).String(), MAC: rfc2865.CallingStationID_GetString(r.Packet),
 		Check: func(pw []byte) (bool, string) { return checkPassword(r.Packet, user, pw) }}
@@ -377,7 +391,7 @@ func (s *Server) HandleAuth(w radius.ResponseWriter, r *radius.Request) {
 	if d.Timeout > 0 {
 		rfc2865.SessionTimeout_Set(p, rfc2865.SessionTimeout(d.Timeout))
 	}
-	w.Write(p)
+	send(w, p)
 }
 
 func unit(u string) string {

@@ -46,6 +46,7 @@ func Disconnect(ctx context.Context, q *db.Queries, key []byte, port string, s d
 		if ip4 := nasIP.To4(); ip4 != nil {
 			rfc2865.NASIPAddress_Set(p, ip4)
 		}
+		addMA(p)
 		ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
 		resp, err := radius.Exchange(ctx, p, net.JoinHostPort(s.NasIp, port))
