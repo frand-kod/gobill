@@ -56,10 +56,14 @@ func (s *Server) portalRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /portal/orders/{id}/invoice", s.requireCustomer(s.pInvoice))
 	mux.Handle("GET /portal/plans", s.requireCustomer(s.pPlans))
 	mux.Handle("POST /portal/plans/{id}/balance", s.requireCustomer(s.pBuyBalance))
+	s.inboxRoutes(mux)
 }
 
 func (s *Server) prender(w http.ResponseWriter, r *http.Request, status int, name string, p Page) {
 	p.Customer = customerFrom(r)
+	if p.Customer != nil {
+		p.Unread, _ = s.queries.CountUnreadInbox(r.Context(), p.Customer.ID)
+	}
 	if p.Flash == "" {
 		p.Flash = s.sessions.PopString(r.Context(), "flash")
 	}

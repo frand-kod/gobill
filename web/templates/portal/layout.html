@@ -6,6 +6,7 @@
     <a class="btn btn-ghost" href="/portal">{{T "Dashboard"}}</a>
     <a class="btn btn-ghost" href="/portal/plans">{{T "Order Package"}}</a>
     <a class="btn btn-ghost" href="/portal/orders">{{T "Order History"}}</a>
+    <a class="btn btn-ghost" href="/portal/inbox">{{T "Inbox"}}{{if .Unread}} <span class="badge badge-bad">{{.Unread}}</span>{{end}}</a>
     <a class="btn btn-ghost" href="/portal/profile">{{T "Profile"}}</a>
     <form class="ms-auto" method="post" action="/portal/logout"><button class="btn btn-ghost" type="submit">{{T "Logout"}}</button></form>
   </nav>

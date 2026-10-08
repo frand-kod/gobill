@@ -81,11 +81,11 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | A58 | `admin/logs/radius.tpl` | `logs/radius`, `radius-csv` | — | Belum | F3 |
 | A58b | — (baru, tanpa padanan lama) | — | `GET /admin/radius/sessions`, `POST /admin/radius/sessions/{id}/disconnect` | Ada | F3 |
 | A59 | `admin/logs/message.tpl` | `logs/message`, `message-csv` | — | Belum | F4 |
-| A60 | `admin/coupons/list.tpl` | `coupons` | `/admin/coupons` | Selesai | F5 |
-| A61 | `admin/coupons/add.tpl` | `coupons/add`, `add-post` | `/admin/coupons` | Selesai | F5 |
-| A62 | `admin/coupons/edit.tpl` | `coupons/edit`, `edit-post` | `/admin/coupons` | Selesai | F5 |
-| A63 | `admin/message/single.tpl` | `message/send`, `send-post` | — | Belum | F4 |
-| A64 | `admin/message/bulk.tpl` | `message/send_bulk`, `send_bulk_ajax` | — | Belum | F5 |
+| A60 | `admin/coupons/list.tpl` | `coupons` | `/admin/coupons` | Ada | F5 |
+| A61 | `admin/coupons/add.tpl` | `coupons/add`, `add-post` | `/admin/coupons` | Ada | F5 |
+| A62 | `admin/coupons/edit.tpl` | `coupons/edit`, `edit-post` | `/admin/coupons` | Ada | F5 |
+| A63 | `admin/message/single.tpl` | `message/send`, `send-post` | `GET/POST /admin/message/send` | Ada | F5 |
+| A64 | `admin/message/bulk.tpl` | `message/send_bulk`, `send_bulk_ajax` | `GET/POST /admin/message/bulk`, `GET /admin/message/bulk/status` | Sebagian | F5 |
 | A65 | `admin/odp/list.tpl` | `odp/list` | `GET /admin/odp` | Ada | F5 |
 | A66 | `admin/odp/add.tpl` | `odp/add`, `add-post` | `GET /admin/odp/new`, `POST /admin/odp` | Ada | F5 |
 | A67 | `admin/odp/edit.tpl` | `odp/edit`, `edit-post` | `GET /admin/odp/{id}/edit`, `POST /admin/odp/{id}` | Ada | F5 |
@@ -238,7 +238,7 @@ Kolom daftar `admin/list.tpl`: Username, Full Name, Phone, Email, Type, Location
 | Tombol Recharge per paket | Form "Recharge Account" (`plan`, `method` Cash/Balance) | ⚠️ | Di lama per-paket dan memakai halaman confirm (A44) |
 | Tombol Deactivate paket | — | ❌ | `customers/deactivate` belum |
 | Tombol Sync | — | ❌ | Sinkron ke router per pelanggan belum |
-| Tombol Send Message | — | ❌ | F4 |
+| Tombol Send Message | — | ❌ | Halaman `/admin/message/send` ada (F5); tombol di detail pelanggan belum |
 | Tombol Login as Customer | — | ❌ | Bergantung portal F4 |
 | Tombol Edit, Back | Edit, link ke daftar | ✅ | |
 | Link Redeem Voucher | `/admin/vouchers/redeem?customer=` | ✅ | Tambahan baru |
@@ -505,24 +505,24 @@ Daftar: Code, Type, Value, Max Usage, Used, Min Order, Start/End Date, Status; a
 
 | Field lama | Label | Tipe | Wajib | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
-| `id_customer` | Customer | select | required | — | ❌ | |
-| `via` | Send Via | select (sms/wa/inbox/email/all) | required | — | ❌ | |
-| `message` | Message | textarea | required (`All field is required`) | — | ❌ | `internal/notify` ada, UI belum |
+| `id_customer` | Customer | select | required | `customer_id` | ✅ | pilihan 500 pelanggan terbaru; belum ada pencarian |
+| `via` | Send Via | select (sms/wa/inbox/email/all) | required | `channel` | ✅ | sms/wa/email/inbox; `all` belum. Gateway belum diset = error, bukan diam |
+| `message` | Message | textarea | required (`All field is required`) | `message` | ✅ | placeholder `[[name]]`, `[[user_name]]`, `[[phone]]`, `[[company_name]]`; `[[payment_link]]` belum |
 
 **A64 `message/bulk.tpl`**
 
 | Field lama | Label | Tipe | Wajib | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
-| `router` | Router | select | — | — | ❌ | |
-| `service` | Service Type | select | — | — | ❌ | |
-| `group` | Group | select all/new/expired/active | — | — | ❌ | |
-| `via` | Send Via | select sms/wa/both | — | — | ❌ | |
-| `batch` | Message per time | select | — | — | ❌ | |
-| `message` | Message | textarea | required | — | ❌ | placeholder `[[name]]`, dll. |
-| `test` | Test mode | checkbox | — | — | ❌ | |
-| `page` | — | hidden | — | — | ❌ | |
+| `router` | Router | select | — | `router` | ✅ | semua router atau satu router |
+| `service` | Service Type | select | — | `service` | ✅ | all/PPPoE/Hotspot/VPN |
+| `group` | Group | select all/new/expired/active | — | `status` | ✅ | diganti status langganan all/active/expired; `new` belum |
+| `via` | Send Via | select sms/wa/both | — | `channel` | ✅ | sms/wa/email/inbox; `both` belum |
+| `batch` | Message per time | select | — | — | ❌ | tidak dipakai; kirim satu per satu dengan jeda `message_delay` (detik, default 1) |
+| `message` | Message | textarea | required | `message` | ✅ | placeholder sama dengan A63 |
+| `test` | Test mode | checkbox | — | — | ❌ | belum |
+| `page` | — | hidden | — | — | ❌ | tidak perlu; kirim di goroutine latar |
 
-Kolom hasil: Customer, Phone, Status, Message, Router, Service Type. Aksi: Start Bulk Messaging (AJAX `send_bulk_ajax`), Cancel.
+Kolom hasil: Customer, Phone, Status, Message, Router, Service Type. Baru: halaman status `/admin/message/bulk/status` (Customer, Phone, Status; progres dalam memori, reset saat restart). Belum: kolom Message dan Router/Service Type per baris, Test mode, Start AJAX (diganti POST biasa).
 
 ### A65-A67. ODP dan A68-A70 Peta
 
