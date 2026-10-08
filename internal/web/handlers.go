@@ -57,6 +57,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.sessions.Put(r.Context(), "admin_id", admin.ID)
+	s.sessions.Put(r.Context(), "sv", admin.SessionVersion)
 	if err := s.queries.TouchAdminLogin(r.Context(), admin.ID); err != nil {
 		slog.Error("touch login", "err", err)
 	}

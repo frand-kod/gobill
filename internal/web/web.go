@@ -153,6 +153,16 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/radius/sessions/{id}/disconnect", managers(http.HandlerFunc(s.radiusDisconnect)))
 	crud("/admin/pool", s.poolList, s.poolNew, s.poolEdit, s.poolSave, s.poolDelete)
 	crud("/admin/plans", s.planList, s.planNew, s.planEdit, s.planSave, s.planDelete)
+	// Old settings.php users-*: list/add/edit for SuperAdmin, Admin and Agent (scoped in admins.go); delete only SuperAdmin and Admin.
+	userMgr := s.requireAdmin("SuperAdmin", "Admin", "Agent")
+	mux.Handle("GET /admin/users", userMgr(http.HandlerFunc(s.adminList)))
+	mux.Handle("GET /admin/users/new", userMgr(http.HandlerFunc(s.adminNew)))
+	mux.Handle("POST /admin/users", userMgr(http.HandlerFunc(s.adminSave)))
+	mux.Handle("GET /admin/users/{id}/edit", userMgr(http.HandlerFunc(s.adminEdit)))
+	mux.Handle("POST /admin/users/{id}", userMgr(http.HandlerFunc(s.adminSave)))
+	mux.Handle("POST /admin/users/{id}/delete", managers(http.HandlerFunc(s.adminDelete)))
+	mux.Handle("GET /admin/password", all(http.HandlerFunc(s.passwordForm)))
+	mux.Handle("POST /admin/password", all(http.HandlerFunc(s.passwordSave)))
 	mux.Handle("GET /admin/logs", managers(http.HandlerFunc(s.logList)))
 	mux.Handle("GET /admin/customers", all(http.HandlerFunc(s.custList)))
 	mux.Handle("GET /admin/customers/export", all(http.HandlerFunc(s.custExport)))
@@ -268,6 +278,12 @@ func (s *Server) requireAdmin(roles ...string) func(http.Handler) http.Handler {
 				if err != nil && err != sql.ErrNoRows {
 					slog.Error("load admin", "err", err)
 				}
+				s.sessions.Destroy(r.Context())
+				http.Redirect(w, r, "/login", http.StatusSeeOther)
+				return
+			}
+			if admin.SessionVersion != s.sessions.GetInt64(r.Context(), "sv") {
+				// password, role or status changed since this session was created
 				s.sessions.Destroy(r.Context())
 				http.Redirect(w, r, "/login", http.StatusSeeOther)
 				return

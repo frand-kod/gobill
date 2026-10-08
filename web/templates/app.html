@@ -50,6 +50,11 @@
         </div>
       </div>
 
+      {{if or $mgr (eq .Admin.Role "Agent")}}
+      <div class="mt-4 border-t border-white/10 pt-3">
+        <a class="nav-item" href="/admin/users"{{if hasPrefix .Path "/admin/users"}} aria-current="page"{{end}}>{{icon "user-round"}}<span>{{T "Admin Users"}}</span></a>
+      </div>
+      {{end}}
       {{if $mgr}}
       <div class="mt-4 border-t border-white/10 pt-3">
         <a class="nav-item" href="/admin/settings"{{if eq .Path "/admin/settings"}} aria-current="page"{{end}}>{{icon "settings"}}<span>{{T "Settings"}}</span></a>
@@ -79,6 +84,7 @@
           <div x-show="o" x-cloak class="absolute end-0 mt-2 w-48 rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
             <p class="px-4 py-2 text-xs text-slate-500 dark:text-slate-400">{{.Admin.Role}}</p>
             {{if $mgr}}<a class="flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700" href="/admin/settings">{{icon "settings"}}<span>{{T "Settings"}}</span></a>{{end}}
+            <a class="flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700" href="/admin/password">{{icon "pencil"}}<span>{{T "Change Password"}}</span></a>
             <form method="post" action="/logout"><button type="submit" class="flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700">{{icon "log-out"}}<span>{{T "Logout"}}</span></button></form>
           </div>
         </div>

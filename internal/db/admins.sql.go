@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
 const countAdmins = `-- name: CountAdmins :one
@@ -21,9 +22,9 @@ func (q *Queries) CountAdmins(ctx context.Context) (int64, error) {
 }
 
 const createAdmin = `-- name: CreateAdmin :one
-INSERT INTO admins (username, fullname, password_hash, role)
-VALUES (?, ?, ?, ?)
-RETURNING id, username, fullname, password_hash, role, status, last_login_at, created_at
+INSERT INTO admins (username, fullname, password_hash, role, email, phone, city, root_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, username, fullname, password_hash, role, status, email, phone, city, root_id, session_version, last_login_at, created_at
 `
 
 type CreateAdminParams struct {
@@ -31,6 +32,10 @@ type CreateAdminParams struct {
 	Fullname     string
 	PasswordHash string
 	Role         string
+	Email        string
+	Phone        string
+	City         string
+	RootID       sql.NullInt64
 }
 
 func (q *Queries) CreateAdmin(ctx context.Context, arg CreateAdminParams) (Admin, error) {
@@ -39,6 +44,10 @@ func (q *Queries) CreateAdmin(ctx context.Context, arg CreateAdminParams) (Admin
 		arg.Fullname,
 		arg.PasswordHash,
 		arg.Role,
+		arg.Email,
+		arg.Phone,
+		arg.City,
+		arg.RootID,
 	)
 	var i Admin
 	err := row.Scan(
@@ -48,14 +57,34 @@ func (q *Queries) CreateAdmin(ctx context.Context, arg CreateAdminParams) (Admin
 		&i.PasswordHash,
 		&i.Role,
 		&i.Status,
+		&i.Email,
+		&i.Phone,
+		&i.City,
+		&i.RootID,
+		&i.SessionVersion,
 		&i.LastLoginAt,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
+const deleteAdmin = `-- name: DeleteAdmin :execrows
+DELETE FROM admins WHERE admins.id = ?
+  AND (NOT (admins.role = 'SuperAdmin' AND admins.status = 'Active')
+    OR (SELECT count(*) FROM admins AS sa WHERE sa.role = 'SuperAdmin' AND sa.status = 'Active') > 1)
+`
+
+// Refuses (0 rows) to delete the last active SuperAdmin.
+func (q *Queries) DeleteAdmin(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteAdmin, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getAdmin = `-- name: GetAdmin :one
-SELECT id, username, fullname, password_hash, role, status, last_login_at, created_at FROM admins WHERE id = ? LIMIT 1
+SELECT id, username, fullname, password_hash, role, status, email, phone, city, root_id, session_version, last_login_at, created_at FROM admins WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetAdmin(ctx context.Context, id int64) (Admin, error) {
@@ -68,6 +97,11 @@ func (q *Queries) GetAdmin(ctx context.Context, id int64) (Admin, error) {
 		&i.PasswordHash,
 		&i.Role,
 		&i.Status,
+		&i.Email,
+		&i.Phone,
+		&i.City,
+		&i.RootID,
+		&i.SessionVersion,
 		&i.LastLoginAt,
 		&i.CreatedAt,
 	)
@@ -75,7 +109,7 @@ func (q *Queries) GetAdmin(ctx context.Context, id int64) (Admin, error) {
 }
 
 const getAdminByUsername = `-- name: GetAdminByUsername :one
-SELECT id, username, fullname, password_hash, role, status, last_login_at, created_at FROM admins WHERE username = ? LIMIT 1
+SELECT id, username, fullname, password_hash, role, status, email, phone, city, root_id, session_version, last_login_at, created_at FROM admins WHERE username = ? LIMIT 1
 `
 
 func (q *Queries) GetAdminByUsername(ctx context.Context, username string) (Admin, error) {
@@ -88,10 +122,136 @@ func (q *Queries) GetAdminByUsername(ctx context.Context, username string) (Admi
 		&i.PasswordHash,
 		&i.Role,
 		&i.Status,
+		&i.Email,
+		&i.Phone,
+		&i.City,
+		&i.RootID,
+		&i.SessionVersion,
 		&i.LastLoginAt,
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listAgents = `-- name: ListAgents :many
+SELECT id, username, fullname, password_hash, role, status, email, phone, city, root_id, session_version, last_login_at, created_at FROM admins WHERE role = 'Agent' ORDER BY username
+`
+
+func (q *Queries) ListAgents(ctx context.Context) ([]Admin, error) {
+	rows, err := q.db.QueryContext(ctx, listAgents)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Admin
+	for rows.Next() {
+		var i Admin
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Fullname,
+			&i.PasswordHash,
+			&i.Role,
+			&i.Status,
+			&i.Email,
+			&i.Phone,
+			&i.City,
+			&i.RootID,
+			&i.SessionVersion,
+			&i.LastLoginAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchAdmins = `-- name: SearchAdmins :many
+SELECT id, username, fullname, password_hash, role, status, email, phone, city, root_id, session_version, last_login_at, created_at FROM admins
+WHERE (username LIKE '%' || ?1 || '%' OR fullname LIKE '%' || ?1 || '%')
+  AND (?2 = 'all'
+    OR (?2 = 'admin' AND (role IN ('Report', 'Agent', 'Sales') OR id = ?3))
+    OR (?2 = 'agent' AND (id = ?3 OR root_id = ?3)))
+ORDER BY id
+LIMIT ?5 OFFSET ?4
+`
+
+type SearchAdminsParams struct {
+	Q          sql.NullString
+	Scope      interface{}
+	Actor      int64
+	PageOffset int64
+	PageLimit  int64
+}
+
+// scope: 'all' (SuperAdmin), 'admin' (Admin: lower roles + self), 'agent' (self + own Sales).
+func (q *Queries) SearchAdmins(ctx context.Context, arg SearchAdminsParams) ([]Admin, error) {
+	rows, err := q.db.QueryContext(ctx, searchAdmins,
+		arg.Q,
+		arg.Scope,
+		arg.Actor,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Admin
+	for rows.Next() {
+		var i Admin
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Fullname,
+			&i.PasswordHash,
+			&i.Role,
+			&i.Status,
+			&i.Email,
+			&i.Phone,
+			&i.City,
+			&i.RootID,
+			&i.SessionVersion,
+			&i.LastLoginAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setAdminPassword = `-- name: SetAdminPassword :one
+UPDATE admins SET password_hash = ?, session_version = admins.session_version + 1 WHERE admins.id = ?
+RETURNING session_version
+`
+
+type SetAdminPasswordParams struct {
+	PasswordHash string
+	ID           int64
+}
+
+// Sets the password and bumps session_version, ending every other session.
+func (q *Queries) SetAdminPassword(ctx context.Context, arg SetAdminPasswordParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, setAdminPassword, arg.PasswordHash, arg.ID)
+	var session_version int64
+	err := row.Scan(&session_version)
+	return session_version, err
 }
 
 const touchAdminLogin = `-- name: TouchAdminLogin :exec
@@ -101,4 +261,52 @@ UPDATE admins SET last_login_at = unixepoch() WHERE id = ?
 func (q *Queries) TouchAdminLogin(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, touchAdminLogin, id)
 	return err
+}
+
+const updateAdmin = `-- name: UpdateAdmin :execrows
+UPDATE admins SET username = ?1, fullname = ?2, email = ?3,
+  phone = ?4, city = ?5, role = ?6, status = ?7,
+  root_id = ?8,
+  password_hash = CASE WHEN ?9 <> '' THEN ?9 ELSE admins.password_hash END,
+  session_version = admins.session_version + ?10
+WHERE admins.id = ?11
+  AND (NOT (admins.role = 'SuperAdmin' AND admins.status = 'Active')
+    OR (?6 = 'SuperAdmin' AND ?7 = 'Active')
+    OR (SELECT count(*) FROM admins AS sa WHERE sa.role = 'SuperAdmin' AND sa.status = 'Active') > 1)
+`
+
+type UpdateAdminParams struct {
+	Username     string
+	Fullname     string
+	Email        string
+	Phone        string
+	City         string
+	Role         string
+	Status       string
+	RootID       sql.NullInt64
+	PasswordHash interface{}
+	Bump         int64
+	ID           int64
+}
+
+// An empty password_hash keeps the current one. The last active SuperAdmin cannot be
+// demoted or deactivated: the row is then not updated (0 rows affected).
+func (q *Queries) UpdateAdmin(ctx context.Context, arg UpdateAdminParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateAdmin,
+		arg.Username,
+		arg.Fullname,
+		arg.Email,
+		arg.Phone,
+		arg.City,
+		arg.Role,
+		arg.Status,
+		arg.RootID,
+		arg.PasswordHash,
+		arg.Bump,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

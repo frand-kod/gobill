@@ -23,11 +23,11 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 |---|---|---|---|---|---|
 | A1 | `admin/dashboard.tpl` | `dashboard` | `GET /admin` | Ada | F5 |
 | A2 | `admin/admin/login.tpl` | `admin/post` | `GET/POST /login`, `POST /logout` | Ada | F0 |
-| A3 | `admin/admin/list.tpl` | `settings/users` | — | Belum | F5 |
-| A4 | `admin/admin/add.tpl` | `settings/users-add`, `users-post` | — | Belum | F5 |
-| A5 | `admin/admin/edit.tpl` | `settings/users-edit`, `users-edit-post`, `users-delete` | — | Belum | F5 |
-| A6 | `admin/admin/view.tpl` | `settings/users-view` | — | Belum | F5 |
-| A7 | `admin/change-password.tpl` | `settings/change-password(-post)` | — | Belum | F5 |
+| A3 | `admin/admin/list.tpl` | `settings/users` | `GET /admin/users` | Sebagian | F5 |
+| A4 | `admin/admin/add.tpl` | `settings/users-add`, `users-post` | `GET /admin/users/new`, `POST /admin/users` | Sebagian | F5 |
+| A5 | `admin/admin/edit.tpl` | `settings/users-edit`, `users-edit-post`, `users-delete` | `GET /admin/users/{id}/edit`, `POST /admin/users/{id}`, `POST /admin/users/{id}/delete` | Sebagian | F5 |
+| A6 | `admin/admin/view.tpl` | `settings/users-view` | — (diganti halaman edit) | Belum | F5 |
+| A7 | `admin/change-password.tpl` | `settings/change-password(-post)` | `GET/POST /admin/password` | Sebagian | F5 |
 | A8 | `admin/customers/list.tpl` | `customers/list`, `csv`, `sync`, `delete` | `GET /admin/customers`, `GET /admin/customers/export` | Sebagian | F1 |
 | A9 | `admin/customers/add.tpl` | `customers/add`, `add-post` | `GET /admin/customers/new`, `POST /admin/customers` | Sebagian | F1 |
 | A10 | `admin/customers/edit.tpl` | `customers/edit`, `edit-post` | `GET /admin/customers/{id}/edit`, `POST /admin/customers/{id}` | Sebagian | F1 |
@@ -124,9 +124,9 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 - `admin/community.tpl`/`rollback.tpl`: hanya tautan komunitas dan tombol update GitHub.
 - `admin/autoload/*.tpl`: hanya dipanggil lewat AJAX dari form paket/voucher.
 
-**Hitungan baris tabel ringkasan (92 baris):** Ada 12 · Sebagian 30 · Belum 39 · Ditunda 7 · Non-goal 4.
+**Hitungan baris tabel ringkasan (92 baris):** Ada 12 · Sebagian 34 · Belum 35 · Ditunda 7 · Non-goal 4.
 
-**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 60 · ⚠️ 45 · ❌ 73; Settings ✅ 37 · ⚠️ 6 · ❌ 72; Portal pelanggan ✅ 15 · ⚠️ 4 · ❌ 22. Total ✅ 112 · ⚠️ 55 · ❌ 167. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
+**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 69 · ⚠️ 47 · ❌ 62; Settings ✅ 37 · ⚠️ 6 · ❌ 72; Portal pelanggan ✅ 15 · ⚠️ 4 · ❌ 22. Total ✅ 121 · ⚠️ 57 · ❌ 156. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
 
 ---
 
@@ -157,33 +157,35 @@ Aksi: Login, Logout (`POST /logout`). Tidak ada link "lupa password" admin di la
 
 ### A3-A6. Admin user (`settings/users*`)
 
-Seluruh layar belum ada di UI. Tabel `admins` ada (`username`, `fullname`, `password_hash`, `role`, `status`, `last_login_at`), tapi hanya dipakai login/seed; tidak ada handler CRUD.
+Baru: `internal/web/admins.go`, `/admin/users` (SuperAdmin, Admin, Agent; Report/Sales = 403). Kolom baru di `admins`: `email`, `phone`, `city`, `root_id` (Agent pemilik Sales), `session_version`.
+
+**Aturan peran (lebih ketat dari lama):** SuperAdmin kelola semua; Admin hanya Report/Agent/Sales (lama: Admin bisa menetapkan peran apa saja); Agent hanya Sales miliknya (`root_id` dipaksa = Agent, peran dipaksa Sales; lama: peran dari form); hapus hanya SuperAdmin/Admin. Tak ada yang bisa menghapus diri, mengubah peran/status/password sendiri lewat form ini (password sendiri lewat A7). SuperAdmin aktif terakhir tidak bisa dihapus, diturunkan, atau dinonaktifkan (dijaga di SQL, atomik). Ganti password orang lain, ganti peran/status, atau hapus = sesi orang itu mati (`admins.session_version` dibandingkan dengan `sv` di sesi pada tiap request). Semua perubahan masuk activity log (`users.create|update|delete|password`).
 
 **A4 `admin/admin/add.tpl`**
 
 | Field lama | Label | Tipe | Wajib/validasi | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
-| `fullname` | Full Name | text | 3-45 karakter | `admins.fullname` | ❌ | Tidak ada form |
-| `phone` | Phone | number | — | — | ❌ | Tidak ada kolom `phone` di `admins` |
-| `email` | Email | text | — | — | ❌ | Tidak ada kolom |
-| `city`, `subdistrict`, `ward` | Location (label template salah, "Email") | text | — | — | ❌ | Tidak ada kolom |
-| `user_type` | User Type | select | SuperAdmin/Admin/Report/Agent/Sales | `admins.role` | ❌ | Kolom + CHECK ada, form belum |
-| `root` | Agent | select | admin induk bila Sales | — | ❌ | Tidak ada kolom `root`; Agent->Sales belum dimodelkan |
-| `username` | Username | text | 3-45, unik | `admins.username` | ❌ | |
-| `password` | Password | password | min 6 | `admins.password_hash` | ❌ | bcrypt |
-| `send_notif` | Send Notification | select | -/sms/wa | — | ❌ | Bergantung notifikasi F4 |
+| `fullname` | Full Name | text | 3-45 karakter | `admins.fullname` | ✅ | |
+| `phone` | Phone | number | — | `admins.phone` | ⚠️ | text, bukan number |
+| `email` | Email | text | — | `admins.email` | ✅ | divalidasi bila diisi |
+| `city`, `subdistrict`, `ward` | Location | text | — | `admins.city` | ⚠️ | hanya `city`; subdistrict/ward dibuang |
+| `user_type` | User Type | select | SuperAdmin/Admin/Report/Agent/Sales | `admins.role` | ✅ | pilihan dibatasi per peran pelaku |
+| `root` | Agent | select | admin induk bila Sales | `admins.root_id` | ✅ | harus Agent yang ada; Agent pelaku otomatis |
+| `username` | Username | text | 3-45, unik | `admins.username` | ✅ | |
+| `password` | Password | password | min 6 | `admins.password_hash` | ✅ | wajib saat buat, 6-72 byte, plus `cpassword`; bcrypt |
+| `send_notif` | Send Notification | select | -/sms/wa | — | ❌ | Bergantung notifikasi F4; password tidak dikirim lewat pesan |
 
-**A5 `admin/admin/edit.tpl`:** semua field A4 plus `id` (hidden), `photo` (file, face detect `faceDetect` = Tunda), `status` (Active/Inactive -> `admins.status`), `cpassword` (konfirmasi, harus sama). Semua ❌ (form belum ada).
+**A5 `admin/admin/edit.tpl`:** field A4; password kosong = tidak diubah (`cpassword` wajib sama bila diisi); `status` (Active/Inactive) ada untuk admin lain. Belum: `photo` (face detect = Tunda). Diri sendiri: hanya nama/email/telepon/kota.
 
-Kolom daftar `admin/list.tpl`: Username, Full Name, Phone, Email, Type, Location, Agent, Last Login, Manage, ID. Aksi: cari (`search`), "Add New Administrator", View, Edit, Delete. Semua belum ada; `last_login_at` sudah di schema.
+Kolom daftar `admin/list.tpl`: Username, Full Name, Phone, Email, Type, Location, Agent, Last Login, Manage, ID. Baru: Username, Full Name, User Type, Status, Last Login; cari `q` (username/nama) dan paging. Belum: kolom Phone/Email/Location/Agent, halaman View (A6).
 
 ### A7. Ganti password `admin/change-password.tpl`
 
 | Field lama | Label | Tipe | Wajib/validasi | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
-| `password` | Current Password | password | cocok dengan hash | — | ❌ | Belum ada handler |
-| `npass` | New Password | password | min 6 (settings.php) | — | ❌ | |
-| `cnpass` | Confirm New Password | password | harus sama | — | ❌ | |
+| `password` | Current Password | password | cocok dengan hash | `current` | ✅ | `POST /admin/password`; salah = 422 dan dihitung di throttle login; sukses = `session_version` naik (sesi lain mati) dan token sesi diputar (`RenewToken`) |
+| `npass` | New Password | password | min 6 (settings.php) | `password` | ✅ | 6-72 byte |
+| `cnpass` | Confirm New Password | password | harus sama | `cpassword` | ✅ | |
 
 ### A8-A11. Pelanggan
 
