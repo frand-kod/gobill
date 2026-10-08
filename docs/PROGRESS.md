@@ -15,7 +15,7 @@ Rencana lengkap ada di [plan/](plan/README.md).
 | F2 Driver MikroTik | Kode dan test dengan router palsu sudah ada. Belum diuji di router nyata |
 | F3 RADIUS built-in | Selesai di level kode: paket RADIUS, Disconnect-Request (RFC 5176), sesi online, dan pemakaian data. Belum diuji dengan NAS nyata |
 | F4 Portal & notifikasi | Portal (order via saldo), halaman setting, dan notifikasi tersambung. Tripay opsional, dikerjakan paling akhir |
-| F5 Pelengkap | Baru dashboard dasar |
+| F5 Pelengkap | Sebagian: laporan + CSV/cetak, invoice, widget dashboard, user admin, ganti password, backup harian, mode maintenance. Belum: kupon, peta/ODP, pesan, custom field, halaman statis |
 | F6 Migrasi data & rilis | Belum dimulai |
 
 ## Sudah selesai
@@ -64,18 +64,17 @@ Tidak ada.
 
 Prioritas: fitur inti (billing, MikroTik, RADIUS). Tripay opsional dan dikerjakan paling akhir.
 
-1. **Rapikan kecil:** form paket RADIUS masih mewajibkan router walau tidak dipakai. Sinkronisasi dan CSV di daftar langganan belum ada.
-2. **Uji lapangan:** MikroTik (CHR atau fisik) dan `radtest`/`radclient`, lalu login hotspot dan PPPoE via RADIUS.
-3. **F5:** laporan dan export CSV, invoice yang bisa dicetak, widget dashboard yang belum ada, user admin dan ganti password, peta/ODP, kupon, custom field, pesan massal, halaman statis, mode maintenance, dan backup harian.
-4. **F6:** `nuxbill import` dari MySQL lama, unit systemd, script install, dan panduan STB.
-5. **Tripay:** setting pembayaran, order, dan callback (package-nya sudah siap).
-6. **Build ARM** hanya di CI.
+1. **Uji lapangan:** MikroTik (CHR atau fisik) dan `radtest`/`radclient`, lalu login hotspot dan PPPoE via RADIUS.
+2. **Sisa F5:** kupon, peta/ODP, pesan massal dan inbox, custom field, halaman statis, lupa password portal.
+3. **F6:** `nuxbill import` dari MySQL lama, unit systemd, script install, dan panduan STB.
+4. **Tripay:** setting pembayaran, order, dan callback (package-nya sudah siap).
+5. **Build ARM** hanya di CI.
 
 ## Selisih UI dengan PHPNuxBill lama
 
 Template lama ada di `../phpnuxbill/ui/ui`, sekitar 157 file. Perbandingan per field: [UI-PARITY.md](UI-PARITY.md).
 
-Status per 2026-10-08: 112 field ada, 55 berbeda, dan 167 belum. Layar: 12 ada, 30 sebagian, dan 39 belum. Kekurangan terbesar ada di laporan, kupon, peta/ODP, pesan, user admin, dan sebagian portal (lupa password, inbox, invoice).
+Status per 2026-10-08: 121 field ada, 63 berbeda, dan 148 belum. Layar: 20 ada, 35 sebagian, dan 26 belum. Kekurangan terbesar ada di laporan, kupon, peta/ODP, pesan, user admin, dan sebagian portal (lupa password, inbox, invoice).
 
 ## Belum pernah diuji di dunia nyata
 
