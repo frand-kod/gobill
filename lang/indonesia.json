@@ -1357,5 +1357,19 @@
     "Tripay Private Key": "Kunci Privat Tripay",
     "Tripay Merchant Code": "Kode Merchant Tripay",
     "Tripay Mode": "Mode Tripay",
-    "Default Channel": "Kanal Bawaan"
+    "Default Channel": "Kanal Bawaan",
+    "Log Out Customers During Maintenance": "Keluarkan Pelanggan Saat Pemeliharaan",
+    "Portal": "Portal",
+    "Disable Voucher": "Nonaktifkan Voucher",
+    "Redirect URL after Activation": "URL Pengalihan setelah Aktivasi",
+    "Show Bandwidth Plan": "Tampilkan Paket Bandwidth",
+    "Allow Extend": "Izinkan Perpanjang",
+    "Extend Days": "Hari Perpanjangan",
+    "Confirmation Message": "Pesan Konfirmasi",
+    "Allow Transfer": "Izinkan Transfer",
+    "Minimum Balance Transfer": "Minimal Transfer Saldo",
+    "Allow Balance Custom Amount": "Izinkan Saldo Nominal Bebas",
+    "Phone OTP Required": "Wajib OTP Telepon",
+    "Email OTP Required": "Wajib OTP Email",
+    "Hotspot Auth Method": "Metode Autentikasi Hotspot"
 }

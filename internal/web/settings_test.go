@@ -369,3 +369,41 @@ func TestBrandingAndBackupRoutesReachable(t *testing.T) {
 		t.Fatal("multipart form missing on the upload page")
 	}
 }
+
+func TestSettingsPortalOptions(t *testing.T) {
+	_, h, q := settingsSetup(t)
+	c := login(t, h, "alice")
+	form := url.Values{"disable_voucher": {"yes"}, "voucher_redirect": {"https://192.168.88.1/status"},
+		"show_bandwidth_plan": {"yes"}, "extend_expired": {"1"}, "extend_days": {"3"}, "extend_confirmation": {"I agree"},
+		"allow_balance_transfer": {"yes"}, "minimum_transfer": {"5000"}, "allow_balance_custom": {"yes"},
+		"allow_phone_otp": {"yes"}, "allow_email_otp": {"no"}, "hs_auth_method": {"chap"}, "maintenance_mode_logout": {"1"}}
+	if w := do(h, "POST", "/admin/settings/miscellaneous", form, c); w.Code != http.StatusSeeOther {
+		t.Fatalf("save: %d %s", w.Code, w.Body.String())
+	}
+	got := settingValues(t, q)
+	for k, want := range map[string]string{"disable_voucher": "yes", "voucher_redirect": "https://192.168.88.1/status",
+		"show_bandwidth_plan": "yes", "extend_expired": "1", "extend_days": "3", "extend_confirmation": "I agree",
+		"allow_balance_transfer": "yes", "minimum_transfer": "5000", "allow_balance_custom": "yes",
+		"allow_phone_otp": "yes", "allow_email_otp": "no", "hs_auth_method": "chap", "maintenance_mode_logout": "yes"} {
+		if got[k] != want {
+			t.Errorf("%s = %q, want %q", k, got[k], want)
+		}
+	}
+	if w := do(h, "GET", "/admin/settings/miscellaneous", nil, c); !strings.Contains(w.Body.String(), "https://192.168.88.1/status") {
+		t.Fatal("saved voucher_redirect not rendered")
+	}
+	bad := []url.Values{
+		{"voucher_redirect": {"javascript:alert(1)"}},
+		{"voucher_redirect": {"ftp://192.168.88.1/x"}},
+		{"voucher_redirect": {"https://"}},
+		{"extend_days": {"-1"}},
+		{"extend_days": {"three"}},
+		{"minimum_transfer": {"-5000"}},
+		{"hs_auth_method": {"api"}},
+	}
+	for _, f := range bad {
+		if w := do(h, "POST", "/admin/settings/miscellaneous", f, c); w.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("%v: %d", f, w.Code)
+		}
+	}
+}
