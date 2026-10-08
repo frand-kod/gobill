@@ -2,6 +2,7 @@ package device
 
 import (
 	"context"
+	"errors"
 	"strings"
 )
 
@@ -24,13 +25,16 @@ func (d *MikrotikPPPoE) secretID(ctx context.Context, c Customer) (string, error
 }
 
 func (d *MikrotikPPPoE) AddCustomer(ctx context.Context, c Customer, p Plan) error {
-	id, err := d.secretID(ctx, c)
-	if err != nil {
-		return err
-	}
 	pass := c.Password
 	if c.PPPoEPassword != "" {
 		pass = c.PPPoEPassword
+	}
+	if pass == "" {
+		return errors.New("customer has no router password")
+	}
+	id, err := d.secretID(ctx, c)
+	if err != nil {
+		return err
 	}
 	useIP := c.PPPoEIP != "" && !p.IsExpiredProfile
 	comment := c.FullName + " | " + c.Email + " | " + strings.Join(c.Bills, ", ")

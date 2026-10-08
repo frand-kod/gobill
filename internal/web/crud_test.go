@@ -186,6 +186,10 @@ func TestCustomerCRUD(t *testing.T) {
 		t.Fatal("password not changed")
 	}
 
+	if p, err := secret.Open(s.SecretKey, cu3.SecretEnc); err != nil || string(p) != "newpw999" {
+		t.Fatal("edit with new password must update the router secret")
+	}
+
 	// delete refused while a transaction exists
 	_, err = q.CreateTransaction(t.Context(), db.CreateTransactionParams{Invoice: "INV1", CustomerID: sql.NullInt64{Int64: cu.ID, Valid: true}, Username: "budi",
 		PlanName: "p", Type: "Balance", PeriodStart: 1, PeriodEnd: 1})
@@ -247,5 +251,22 @@ func TestActivityLogWritten(t *testing.T) {
 	w := do(h, "GET", "/admin/logs?q=bandwidth.delete", nil, c)
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "bandwidth.delete") || strings.Contains(w.Body.String(), "bandwidth.create") {
 		t.Fatal("logs page search")
+	}
+}
+
+func TestCustomerPasswordSyncsSecret(t *testing.T) {
+	s, h, q, c := crudApp(t)
+	form := url.Values{"username": {"solo"}, "password": {"onlypw"}, "fullname": {"Solo"}, "service_type": {"Hotspot"}, "status": {"Active"}}
+	wantCode(t, do(h, "POST", "/admin/customers", form, c), 303, "create")
+	cu, _ := q.GetCustomerByUsername(t.Context(), "solo")
+	if p, err := secret.Open(s.SecretKey, cu.SecretEnc); err != nil || string(p) != "onlypw" {
+		t.Fatal("secret must default to the password")
+	}
+	form.Set("username", "diff")
+	form.Set("secret", "other")
+	wantCode(t, do(h, "POST", "/admin/customers", form, c), 303, "create")
+	cu, _ = q.GetCustomerByUsername(t.Context(), "diff")
+	if p, err := secret.Open(s.SecretKey, cu.SecretEnc); err != nil || string(p) != "other" {
+		t.Fatal("explicit secret must win")
 	}
 }

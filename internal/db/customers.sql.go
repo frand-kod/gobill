@@ -405,6 +405,20 @@ func (q *Queries) SetCustomerPassword(ctx context.Context, arg SetCustomerPasswo
 	return err
 }
 
+const setCustomerSecret = `-- name: SetCustomerSecret :exec
+UPDATE customers SET secret_enc = ? WHERE id = ?
+`
+
+type SetCustomerSecretParams struct {
+	SecretEnc []byte
+	ID        int64
+}
+
+func (q *Queries) SetCustomerSecret(ctx context.Context, arg SetCustomerSecretParams) error {
+	_, err := q.db.ExecContext(ctx, setCustomerSecret, arg.SecretEnc, arg.ID)
+	return err
+}
+
 const touchCustomerLogin = `-- name: TouchCustomerLogin :exec
 UPDATE customers SET last_login_at = unixepoch() WHERE id = ?
 `

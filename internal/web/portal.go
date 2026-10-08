@@ -325,9 +325,13 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(f("password")), bcrypt.DefaultCost)
+	var enc []byte
+	if err == nil {
+		enc, err = secret.Seal(s.SecretKey, []byte(f("password")))
+	}
 	var nc db.Customer
 	if err == nil {
-		nc, err = s.queries.CreateCustomer(ctx, db.CreateCustomerParams{Username: d.Username, PasswordHash: string(hash),
+		nc, err = s.queries.CreateCustomer(ctx, db.CreateCustomerParams{Username: d.Username, PasswordHash: string(hash), SecretEnc: enc,
 			Fullname: d.Fullname, Address: d.Address, Phone: d.Phone, Email: d.Email, ServiceType: "Others", AutoRenewal: 1, Status: "Active"})
 	}
 	if err != nil {
@@ -599,12 +603,12 @@ func (s *Server) pPassword(w http.ResponseWriter, r *http.Request) {
 		s.profilePage(w, r, 200, msg)
 		return
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(npass), bcrypt.DefaultCost)
-	if err == nil {
-		err = s.queries.SetCustomerPassword(r.Context(), db.SetCustomerPasswordParams{PasswordHash: string(hash), ID: c.ID})
-	}
+	err := s.setPassword(r.Context(), c.ID, npass)
 	if err == nil {
 		err = s.keepSession(r, c.ID)
+	}
+	if err == nil {
+		s.Billing.SyncCustomer(r.Context(), c.ID, 0) // old app pushes the new password to the router
 	}
 	if err != nil {
 		s.fail(w, "portal password", err)

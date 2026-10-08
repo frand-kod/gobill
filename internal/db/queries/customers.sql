@@ -28,6 +28,9 @@ WHERE id = ?;
 -- name: SetCustomerPassword :exec
 UPDATE customers SET password_hash = ?, session_version = session_version + 1 WHERE id = ?;
 
+-- name: SetCustomerSecret :exec
+UPDATE customers SET secret_enc = ? WHERE id = ?;
+
 -- name: TouchCustomerLogin :exec
 UPDATE customers SET last_login_at = unixepoch() WHERE id = ?;
 

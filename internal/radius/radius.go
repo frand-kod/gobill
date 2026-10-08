@@ -174,6 +174,9 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 			slog.Error("radius: decrypt customer secret", "user", user, "err", err)
 			return Decision{Reject: "Login invalid......"}
 		}
+		if len(pw) == 0 {
+			return Decision{Reject: "Login invalid......"} // never accept an empty router password
+		}
 		ok, success = rq.Check(pw)
 	}
 	if !ok && vl {

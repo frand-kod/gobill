@@ -245,3 +245,16 @@ var (
 	_ Device = (*MikrotikHotspot)(nil)
 	_ Device = (*MikrotikPPPoE)(nil)
 )
+
+func TestAddCustomerRefusesEmptyPassword(t *testing.T) {
+	c := cust
+	c.Password, c.PPPoEPassword = "", ""
+	d, f := hs(nil)
+	if d.AddCustomer(ctx, c, plan) == nil || len(f.sent) != 0 {
+		t.Fatal("hotspot must refuse empty password")
+	}
+	p, _ := pp(nil)
+	if p.AddCustomer(ctx, c, plan) == nil {
+		t.Fatal("pppoe must refuse empty password")
+	}
+}

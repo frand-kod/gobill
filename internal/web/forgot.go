@@ -13,7 +13,6 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
 )
 
 // Old forgot.php: OTP by WA/SMS, then a new password. The OTP state lives in the
@@ -181,14 +180,11 @@ func (s *Server) pForgotReset(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "forgot reset", err)
 		return
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(npass), bcrypt.DefaultCost)
-	if err == nil {
-		err = s.queries.SetCustomerPassword(ctx, db.SetCustomerPasswordParams{PasswordHash: string(hash), ID: c.ID})
-	}
-	if err != nil {
+	if err = s.setPassword(ctx, c.ID, npass); err != nil {
 		s.fail(w, "forgot reset", err)
 		return
 	}
+	s.Billing.SyncCustomer(ctx, c.ID, 0)
 	s.forgotClear(r)
 	s.sessions.Put(ctx, "flash", s.catalog.T(s.language(), "Password changed successfully"))
 	http.Redirect(w, r, "/portal/login", http.StatusSeeOther)

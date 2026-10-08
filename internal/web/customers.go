@@ -1,6 +1,7 @@
 package web
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"encoding/csv"
@@ -28,7 +29,7 @@ var (
 
 func custFields(v, e map[string]string, editing bool) []field {
 	pw := text("password", "Password", v, e).as("password")
-	sec := text("secret", "Router Secret", v, e).as("password").hint("Hotspot/PPPoE password on the router. Leave empty to keep the current one.")
+	sec := text("secret", "Router Secret", v, e).as("password").hint("Hotspot/PPPoE password on the router. Leave empty to use the Password above (or keep the current one when no new password is entered).")
 	ar := text("auto_renewal", "Auto Renewal", v, e).as("checkbox")
 	ar.Checked = v["auto_renewal"] == "1"
 	fs := []field{}
@@ -356,6 +357,23 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 }
 
 // custSave serves both create (no {id} in the path) and update.
+// setPassword stores a new portal password and, as in the old app (one password for portal and
+// router), the same value as the router secret.
+func (s *Server) setPassword(ctx context.Context, id int64, pass string) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	enc, err := secret.Seal(s.SecretKey, []byte(pass))
+	if err != nil {
+		return err
+	}
+	if err = s.queries.SetCustomerPassword(ctx, db.SetCustomerPasswordParams{PasswordHash: string(hash), ID: id}); err != nil {
+		return err
+	}
+	return s.queries.SetCustomerSecret(ctx, db.SetCustomerSecretParams{SecretEnc: enc, ID: id})
+}
+
 func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
 	v := formVals(r, custNames...)
@@ -409,9 +427,9 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(e) == 0 {
 		enc := cur.SecretEnc
-		if sec != "" {
+		if rs := cmp.Or(sec, pass); rs != "" { // one password like the old app; explicit secret wins
 			var err error
-			if enc, err = secret.Seal(s.SecretKey, []byte(sec)); err != nil {
+			if enc, err = secret.Seal(s.SecretKey, []byte(rs)); err != nil {
 				s.fail(w, "seal customer secret", err)
 				return
 			}

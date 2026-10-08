@@ -2,6 +2,7 @@ package device
 
 import (
 	"context"
+	"errors"
 	"strings"
 )
 
@@ -16,6 +17,9 @@ const (
 )
 
 func (d *MikrotikHotspot) AddCustomer(ctx context.Context, c Customer, p Plan) error {
+	if c.Password == "" {
+		return errors.New("customer has no router password")
+	}
 	if err := removeWhere(ctx, d.ex, hsUser, "name", c.Username); err != nil {
 		return err
 	}

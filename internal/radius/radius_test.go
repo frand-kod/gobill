@@ -317,3 +317,16 @@ func TestPPPoEAttrs(t *testing.T) {
 		t.Fatalf("ip %s", got)
 	}
 }
+
+func TestEmptySecretRejected(t *testing.T) {
+	e := setup(t)
+	empty, _ := secret.Seal(e.s.Key, []byte(""))
+	for name, enc := range map[string][]byte{"none": nil, "sealed-empty": empty} {
+		if _, err := e.q.CreateCustomer(context.Background(), db.CreateCustomerParams{Username: "e-" + name, PasswordHash: "h", Fullname: "E", ServiceType: "Hotspot", SecretEnc: enc, Status: "Active"}); err != nil {
+			t.Fatal(err)
+		}
+		if r := e.auth(t, pap("e-"+name, "")); r.Code != radius.CodeAccessReject {
+			t.Fatalf("%s: empty password accepted", name)
+		}
+	}
+}
