@@ -1185,5 +1185,11 @@
     "Activity Log": "Log Aktivitas",
     "All Users Insights": "Insight Semua Pengguna",
     "Under Maintenance": "Sedang Pemeliharaan",
-    "We are performing maintenance. Please try again later.": "Sistem sedang dalam pemeliharaan. Silakan coba lagi nanti."
+    "We are performing maintenance. Please try again later.": "Sistem sedang dalam pemeliharaan. Silakan coba lagi nanti.",
+    "Daily Report": "Laporan Harian",
+    "Period Report": "Laporan Periode",
+    "Show": "Tampilkan",
+    "Print Invoice": "Cetak Invoice",
+    "Invoice No": "No. Invoice",
+    "Count": "Jumlah"
 }

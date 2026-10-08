@@ -27,7 +27,7 @@
         <tr>
           {{range $i, $c := $r.Cells}}<td>
             {{if eq (index $d.Cols $i) "Status"}}<span class="badge {{badge $c}}">{{T $c}}</span>
-            {{else if and (eq $i 0) $d.ViewLink}}<a class="font-medium text-brand-600 hover:underline dark:text-brand-500" href="{{$d.Base}}/{{$r.ID}}">{{$c}}</a>
+            {{else if and (eq $i 0) (or $d.ViewLink $d.InvoiceLink)}}<a class="font-medium text-brand-600 hover:underline dark:text-brand-500" href="{{$d.Base}}/{{$r.ID}}{{if $d.InvoiceLink}}/invoice{{end}}">{{$c}}</a>
             {{else}}{{$c}}{{end}}
           </td>{{end}}
           {{if $d.CanEdit}}<td class="whitespace-nowrap text-end">

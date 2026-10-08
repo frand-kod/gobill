@@ -69,14 +69,14 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | A46 | `admin/plan/deposit.tpl` | `plan/deposit`, `deposit-post` | `GET/POST /admin/deposit` | Ada | F1 |
 | A47 | `admin/plan/active.tpl` | `plan/list`, `sync`, `csv`, `extend` | `GET /admin/subscriptions`, `GET /admin/subscriptions/export`, `POST .../{id}/extend`, `POST .../{id}/deactivate`, `POST .../{id}/sync` | Ada | F1 |
 | A48 | `admin/plan/edit.tpl` | `plan/edit`, `edit-post` | `GET /admin/subscriptions/{id}/edit`, `POST /admin/subscriptions/{id}` | Ada | F1 |
-| A49 | `admin/plan/invoice.tpl` | `plan/view`, `viewx` | — | Belum | F5 |
-| A50 | `admin/plan/invoice-print.tpl` | `plan/print` | — | Belum | F5 |
+| A49 | `admin/plan/invoice.tpl` | `plan/view`, `viewx` | `GET /admin/transactions/{id}/invoice` (`invoice.html`) | Sebagian | F5 |
+| A50 | `admin/plan/invoice-print.tpl` | `plan/print` | `GET /admin/transactions/{id}/invoice` (tombol Print) | Ada | F5 |
 | A51 | `admin/reports/activation.tpl` | `reports/activation` | `GET /admin/transactions` | Sebagian | F5 |
-| A52 | `admin/reports/list.tpl` | `reports/daily-report`, `by-date` | — | Belum | F5 |
-| A53 | `admin/reports/period.tpl` | `reports/period-report` | — | Belum | F5 |
-| A54 | `admin/reports/period-view.tpl` | `reports/period-view` | — | Belum | F5 |
-| A55 | `admin/print/by-date.tpl` | `export/print-by-date` | — | Belum | F5 |
-| A56 | `admin/print/by-period.tpl` | `export/print-by-period` | — | Belum | F5 |
+| A52 | `admin/reports/list.tpl` | `reports/daily-report`, `by-date` | `GET /admin/reports`, `GET /admin/reports/export` (`report.html`) | Ada | F5 |
+| A53 | `admin/reports/period.tpl` | `reports/period-report` | `GET /admin/reports/period` | Ada | F5 |
+| A54 | `admin/reports/period-view.tpl` | `reports/period-view` | `GET /admin/reports/period` (hasil di halaman yang sama) | Ada | F5 |
+| A55 | `admin/print/by-date.tpl` | `export/print-by-date` | `GET /admin/reports/print?date=` (`report_print.html`) | Ada | F5 |
+| A56 | `admin/print/by-period.tpl` | `export/print-by-period` | `GET /admin/reports/print?from=&to=` | Ada | F5 |
 | A57 | `admin/logs/system.tpl` | `logs/list`, `list-csv` | `GET /admin/logs` | Sebagian | F1 |
 | A58 | `admin/logs/radius.tpl` | `logs/radius`, `radius-csv` | — | Belum | F3 |
 | A58b | — (baru, tanpa padanan lama) | — | `GET /admin/radius/sessions`, `POST /admin/radius/sessions/{id}/disconnect` | Ada | F3 |
@@ -436,7 +436,7 @@ Menulis transaksi (tipe Balance, metode `Admin - Deposit`), menaikkan saldo, act
 
 **A47 `plan/active.tpl`** (baru: `GET /admin/subscriptions`) — Kolom: Username, Plan Name, Type, Created On, Expires On, Method, Location (router), Status; filter `q`, `status`, `type`, `router`; paging. Aksi: Edit (A48), Extend N hari (`POST .../extend`, input `days`), Deactivate (kedaluwarsa sekarang + `RemoveCustomer`, idempoten, `POST .../deactivate`). Sync (`POST .../sync`), CSV (`GET /admin/subscriptions/export`), dan filter `plan` sudah ada. Belum: Delete.
 
-**A49 `plan/invoice.tpl` / A50 `invoice-print.tpl`:** tampilan invoice (textarea `content`, tombol Finish, Download, WhatsApp, Resend, Print HTML, Print Text, NuxPrint). Belum ada (PROGRESS: "invoice yang bisa dicetak", F5). `transactions.invoice` ada dan tampil di daftar.
+**A49 `plan/invoice.tpl` / A50 `invoice-print.tpl`:** tampilan invoice (textarea `content`, tombol Finish, Download, WhatsApp, Resend, Print HTML, Print Text, NuxPrint). Sekarang: invoice cetak (perusahaan, alamat, pelanggan, paket, periode, harga, metode, footer `note`), ditautkan dari daftar transaksi dan detail pelanggan. Belum: Resend, WhatsApp, NuxPrint, versi teks.
 
 ### A51-A56. Laporan dan transaksi
 
@@ -452,16 +452,16 @@ Kolom lama: Invoice, Username, Plan Name, Plan Price, Type, Created On, Expires 
 
 | Field lama | Label | Tipe | Field baru | St | Catatan |
 |---|---|---|---|---|---|
-| `sd`, `ts` | Start Date, Start time | date, time | — | ❌ | |
-| `ed`, `te` | End Date, End Time | date, time | — | ❌ | |
-| `tps[]` | Type | multi-select | — | ❌ | |
-| `plns[]` | Internet Plans | multi-select | — | ❌ | |
-| `mts[]` | Methods | multi-select | — | ❌ | |
-| `rts[]` | Routers | multi-select | — | ❌ | |
+| `sd`, `ts` | Start Date, Start time | date, time | `date` / `from` | ⚠️ | Tanggal saja, batas hari = tengah malam zona app |
+| `ed`, `te` | End Date, End Time | date, time | `to` | ⚠️ | Inklusif, tanpa jam |
+| `tps[]` | Type | multi-select | `type` | ⚠️ | Satu nilai |
+| `plns[]` | Internet Plans | multi-select | `plan` | ⚠️ | Satu nilai |
+| `mts[]` | Methods | multi-select | `method` | ⚠️ | Teks, cocok persis |
+| `rts[]` | Routers | multi-select | `router` | ⚠️ | Satu nilai; total per tipe dan metode di atas tabel |
 
 Kolom: Username, Type, Plan Name, Plan Price, Created On, Expires On, Method, Routers, Total. Aksi: Show chart, Export (CSV; PDF diganti CSV + print HTML, 01-audit).
 
-**A53/A54 `reports/period*.tpl`:** `fdate`, `tdate` (date), `stype` (select) -> ❌ semua. Aksi: "Period Reports", "Export for Print", "Export to PDF" (PDF diganti print HTML, disengaja). Kolom sama dengan A52 tanpa Total.
+**A53/A54 `reports/period*.tpl`:** `from`, `to` (date) + filter yang sama dengan A52 -> ✅. Aksi: "Period Reports", "Export for Print", "Export to PDF" (PDF diganti print HTML, disengaja). Kolom sama dengan A52 tanpa Total.
 
 **A55/A56 `print/by-date.tpl`, `by-period.tpl`:** tabel cetak (Username, Plan Name, Type, Plan Price, Created On, Expires On, Method, Routers) + "Click Here to Print". Belum.
 
@@ -831,7 +831,7 @@ Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, das
 |---|---|---|---|---|---|---|
 | `code` | Voucher code | text | required | — | ❌ | Logika redeem sudah ada di `internal/billing` |
 | `activation-list`: kolom Invoice, Package Name, Package Price, Type, Created On, Expires On, Method | | | | | ❌ | |
-| `invoice-customer`: `id`, Finish, Download, WhatsApp | | | | | ❌ | |
+| `invoice-customer`: `id`, Finish, Download, WhatsApp | | | | | ⚠️ | `GET /portal/orders/{id}/invoice` (hanya transaksi sendiri, selain itu 404); tanpa Download/WhatsApp |
 
 ### C9. Order paket `orderPlan.tpl`, `orderBalance.tpl`, `orderHistory.tpl`, `orderView.tpl`, `selectGateway.tpl`, `sendPlan.tpl`
 

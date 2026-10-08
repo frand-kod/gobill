@@ -183,6 +183,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/deposit", staff(http.HandlerFunc(s.depositSave)))
 	mux.Handle("GET /admin/transactions", all(http.HandlerFunc(s.trxList)))
 
+	s.reportRoutes(mux, all)
 	s.portalRoutes(mux)
 
 	return http.NewCrossOriginProtection().Handler(s.sessions.LoadAndSave(s.maintenance(mux)))
@@ -340,6 +341,9 @@ func (s *Server) parseTemplates() error {
 		"customer":        {"base.html", "app.html", "customer.html", "radius_usage.html"},
 		"radius_sessions": {"base.html", "app.html", "radius_sessions.html"},
 		"print":           {"print.html"},
+		"report":          {"base.html", "app.html", "report.html"},
+		"report_print":    {"report_print.html"},
+		"invoice":         {"invoice.html"},
 
 		"p_login":     {"base.html", "portal/login.html"},
 		"p_register":  {"base.html", "portal/register.html"},

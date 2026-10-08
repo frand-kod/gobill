@@ -56,7 +56,7 @@
   <h2 class="card-title">{{T "Transactions"}}</h2>
   <div class="overflow-x-auto"><table class="table">
     <thead><tr><th>{{T "Invoice"}}</th><th>{{T "Date"}}</th><th>{{T "Plan Name"}}</th><th>{{T "Method"}}</th><th>{{T "Plan Price"}}</th></tr></thead>
-    <tbody>{{range .Trx}}<tr><td>{{.Invoice}}</td><td>{{ts .CreatedAt}}</td><td>{{.PlanName}}</td><td>{{.Method}}</td><td>{{money .Price}}</td></tr>
+    <tbody>{{range .Trx}}<tr><td><a class="text-brand-600 hover:underline" href="/admin/transactions/{{.ID}}/invoice">{{.Invoice}}</a></td><td>{{ts .CreatedAt}}</td><td>{{.PlanName}}</td><td>{{.Method}}</td><td>{{money .Price}}</td></tr>
     {{else}}<tr><td class="py-8 text-center text-slate-500" colspan="5">{{T "No data"}}</td></tr>{{end}}</tbody>
   </table></div>
 </section>

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"database/sql"
 	"strconv"
 	"strings"
 	"testing"
@@ -14,7 +15,7 @@ func TestDashboardWidgets(t *testing.T) {
 	ctx := t.Context()
 	p := e.plan(t, "p1", "PPPoE", 25000)
 	now := time.Now().Unix()
-	if _, err := e.q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: e.cust.ID, PlanID: p.ID, RouterID: e.rt,
+	if _, err := e.q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: e.cust.ID, PlanID: p.ID, RouterID: sql.NullInt64{Int64: e.rt, Valid: true},
 		Type: "PPPoE", StartedAt: now, ExpiresAt: now + 3600, Method: "Cash"}); err != nil {
 		t.Fatal(err)
 	}
