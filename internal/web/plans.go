@@ -13,7 +13,7 @@ import (
 var (
 	planNames = []string{"name", "type", "billing", "price", "validity", "validity_unit", "limited", "limit_type",
 		"time_limit", "time_unit", "data_limit", "data_unit", "shared_users", "bandwidth_id", "router_id", "pool_id",
-		"expired_plan_id", "billing_day", "device", "enabled"}
+		"expired_plan_id", "billing_day", "device", "enabled", "on_login", "on_logout"}
 	// the device driver an empty "device" field falls back to, by plan type
 	defaultDevices = map[string]string{"Hotspot": "MikrotikHotspot", "PPPoE": "MikrotikPppoe"}
 )
@@ -89,7 +89,9 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 		text("data_unit", "Data Unit", v, e).opts("MB", "GB").show("limited && limit_type !== 'Time_Limit'"),
 		text("shared_users", "Shared Users", v, e).as("number"),
 	}, "Limits", hotspot)...)
-	return append(out, section([]field{bw, rt, pool, dev}, "Network & device", notBalance)...)
+	return append(out, section([]field{bw, rt, pool, dev,
+		text("on_login", "On Login", v, e).as("textarea").hint("Script run on the router when the customer logs in"),
+		text("on_logout", "On Logout", v, e).as("textarea").hint("Script run on the router when the customer logs out")}, "Network & device", notBalance)...)
 }
 
 func planFormValues(p db.Plan) map[string]string {
@@ -104,7 +106,7 @@ func planFormValues(p db.Plan) map[string]string {
 		"limit_type": p.LimitType.String, "time_limit": n(p.TimeLimit), "time_unit": p.TimeUnit.String,
 		"data_limit": n(p.DataLimit), "data_unit": p.DataUnit.String, "shared_users": n(p.SharedUsers),
 		"bandwidth_id": n(p.BandwidthID), "router_id": n(p.RouterID), "pool_id": n(p.PoolID),
-		"expired_plan_id": n(p.ExpiredPlanID), "billing_day": n(p.BillingDay), "device": p.Device, "enabled": fmt.Sprint(p.Enabled)}
+		"expired_plan_id": n(p.ExpiredPlanID), "billing_day": n(p.BillingDay), "device": p.Device, "enabled": fmt.Sprint(p.Enabled), "on_login": p.OnLogin, "on_logout": p.OnLogout}
 }
 
 func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
@@ -223,7 +225,7 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	p := db.CreatePlanParams{Name: v["name"], Type: v["type"], Billing: v["billing"], Price: price, Validity: validity,
-		ValidityUnit: v["validity_unit"], Device: v["device"], OnLogin: old.OnLogin, OnLogout: old.OnLogout}
+		ValidityUnit: v["validity_unit"], Device: v["device"], OnLogin: v["on_login"], OnLogout: v["on_logout"]}
 	if v["enabled"] == "1" {
 		p.Enabled = 1
 	}

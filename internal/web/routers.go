@@ -35,8 +35,8 @@ func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp := listPage{Heading: "Routers", Base: "/admin/routers", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
-		Cols:      []string{"Name", "Host", "Username", "Enabled"},
-		RowAction: option{"test", "Test connection"}}
+		Cols:    []string{"Name", "Host", "Username", "Enabled"},
+		Actions: []rowAction{{"test", "Test connection", ""}}}
 	for _, x := range rows {
 		on := "No"
 		if x.Enabled == 1 {

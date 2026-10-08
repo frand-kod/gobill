@@ -54,6 +54,24 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 	return i, err
 }
 
+const deactivateSubscription = `-- name: DeactivateSubscription :execrows
+UPDATE subscriptions SET status = 'expired', expires_at = MAX(started_at, ?1) WHERE id = ?2 AND status = 'active'
+`
+
+type DeactivateSubscriptionParams struct {
+	Now interface{}
+	ID  int64
+}
+
+// Expires the subscription now (never before it started); 0 rows = already inactive.
+func (q *Queries) DeactivateSubscription(ctx context.Context, arg DeactivateSubscriptionParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deactivateSubscription, arg.Now, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteSubscription = `-- name: DeleteSubscription :exec
 DELETE FROM subscriptions WHERE id = ?
 `
@@ -73,6 +91,79 @@ func (q *Queries) ExpireSubscription(ctx context.Context, id int64) (int64, erro
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const filterSubscriptions = `-- name: FilterSubscriptions :many
+SELECT s.id, s.type, s.started_at, s.expires_at, s.status, s.method, c.username, p.name AS plan_name, r.name AS router_name
+FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id JOIN routers r ON r.id = s.router_id
+WHERE (c.username LIKE '%' || CAST(?1 AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(?1 AS TEXT) || '%'
+       OR p.name LIKE '%' || CAST(?1 AS TEXT) || '%')
+  AND (CAST(?2 AS TEXT) = '' OR s.status = ?2)
+  AND (CAST(?3 AS TEXT) = '' OR s.type = ?3)
+  AND (CAST(?4 AS INTEGER) = 0 OR s.router_id = ?4)
+ORDER BY s.expires_at DESC, s.id DESC LIMIT ?6 OFFSET ?5
+`
+
+type FilterSubscriptionsParams struct {
+	Q          string
+	Status     string
+	Type       string
+	RouterID   int64
+	PageOffset int64
+	PageLimit  int64
+}
+
+type FilterSubscriptionsRow struct {
+	ID         int64
+	Type       string
+	StartedAt  int64
+	ExpiresAt  int64
+	Status     string
+	Method     string
+	Username   string
+	PlanName   string
+	RouterName string
+}
+
+// Empty status/type and router_id 0 = any.
+func (q *Queries) FilterSubscriptions(ctx context.Context, arg FilterSubscriptionsParams) ([]FilterSubscriptionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, filterSubscriptions,
+		arg.Q,
+		arg.Status,
+		arg.Type,
+		arg.RouterID,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FilterSubscriptionsRow
+	for rows.Next() {
+		var i FilterSubscriptionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Type,
+			&i.StartedAt,
+			&i.ExpiresAt,
+			&i.Status,
+			&i.Method,
+			&i.Username,
+			&i.PlanName,
+			&i.RouterName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getSubscription = `-- name: GetSubscription :one
@@ -340,4 +431,31 @@ func (q *Queries) SearchSubscriptions(ctx context.Context, arg SearchSubscriptio
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateSubscription = `-- name: UpdateSubscription :exec
+UPDATE subscriptions SET plan_id = ?, router_id = ?, type = ?, expires_at = ?, status = ?, admin_id = ? WHERE id = ?
+`
+
+type UpdateSubscriptionParams struct {
+	PlanID    int64
+	RouterID  int64
+	Type      string
+	ExpiresAt int64
+	Status    string
+	AdminID   sql.NullInt64
+	ID        int64
+}
+
+func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscriptionParams) error {
+	_, err := q.db.ExecContext(ctx, updateSubscription,
+		arg.PlanID,
+		arg.RouterID,
+		arg.Type,
+		arg.ExpiresAt,
+		arg.Status,
+		arg.AdminID,
+		arg.ID,
+	)
+	return err
 }

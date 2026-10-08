@@ -2,12 +2,15 @@ package web
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/mail"
 	"strconv"
+	"strings"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -51,22 +54,85 @@ func custFields(v, e map[string]string, editing bool) []field {
 	return append(append(acct, contact...), svc...)
 }
 
+var custSorts = []string{"username", "fullname", "balance", "status"}
+
+// custQuery reads the list filters and sort; unknown values fall back to "any" / newest first.
+func custQuery(r *http.Request) (db.FilterCustomersParams, string, string) {
+	g := r.URL.Query().Get
+	p := db.FilterCustomersParams{Q: strings.TrimSpace(g("q")), ServiceType: g("service_type"), Status: g("status")}
+	if !oneOf(p.ServiceType, "Hotspot", "PPPoE", "Others") {
+		p.ServiceType = ""
+	}
+	if !oneOf(p.Status, custStatuses...) {
+		p.Status = ""
+	}
+	sort, dir := g("sort"), "asc"
+	if !oneOf(sort, custSorts...) {
+		sort = ""
+	} else if g("dir") == "desc" {
+		dir = "desc"
+	}
+	if sort != "" {
+		p.Sort = sort + "_" + dir
+	}
+	return p, sort, dir
+}
+
+func anyOpts(label string, o ...string) []option {
+	out := []option{{"", label}}
+	for _, x := range o {
+		out = append(out, option{x, x})
+	}
+	return out
+}
+
 func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
-	rows, err := s.queries.SearchCustomers(r.Context(), db.SearchCustomersParams{Q: q, PageLimit: limit, PageOffset: off})
+	p, sort, dir := custQuery(r)
+	_, page, limit, off := paging(r)
+	p.PageLimit, p.PageOffset = limit, off
+	rows, err := s.queries.FilterCustomers(r.Context(), p)
 	if err != nil {
 		s.fail(w, "list customers", err)
 		return
 	}
 	role := adminFrom(r).Role
-	lp := listPage{Heading: "Customer", Base: "/admin/customers", Q: q, Searchable: true, ViewLink: true,
+	lp := listPage{Heading: "Customer", Base: "/admin/customers", Q: p.Q, Searchable: true, ViewLink: true,
 		CanCreate: oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), CanEdit: oneOf(role, "SuperAdmin", "Admin"),
-		Cols: []string{"Username", "Full Name", "Phone Number", "Service Type", "Status"}}
+		Cols:     []string{"Username", "Full Name", "Balance", "Package", "Service Type", "PPPoE Username", "Status"},
+		SortKeys: []string{"username", "fullname", "balance", "", "", "", "status"}, Sort: sort, Dir: dir,
+		Filters: []filter{{"service_type", p.ServiceType, anyOpts("Service Type", "Hotspot", "PPPoE", "Others")},
+			{"status", p.Status, anyOpts("Status", custStatuses...)}}}
 	for _, c := range rows {
-		lp.Rows = append(lp.Rows, listRow{c.ID, []string{c.Username, c.Fullname, c.Phone, c.ServiceType, c.Status}})
+		lp.Rows = append(lp.Rows, listRow{c.ID, []string{c.Username, c.Fullname, money(c.Balance), c.Packages, c.ServiceType, c.PppoeUsername, c.Status}})
 	}
+	lp.Links = []option{{"/admin/customers/export?" + lp.query().Encode(), "Export CSV"}}
 	lp.finish(page)
 	s.renderList(w, r, lp)
+}
+
+// custExport streams the current filter (all pages) as CSV, like the old customers csv.
+func (s *Server) custExport(w http.ResponseWriter, r *http.Request) {
+	p, _, _ := custQuery(r)
+	p.PageLimit = -1
+	rows, err := s.queries.FilterCustomers(r.Context(), p)
+	if err != nil {
+		s.fail(w, "export customers", err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="customers-`+time.Now().Format("20060102")+`.csv"`)
+	cw := csv.NewWriter(w)
+	cw.Write([]string{"Username", "Full Name", "Phone Number", "Email", "Balance", "Package", "Service Type", "PPPoE Username", "Status", "Created"})
+	for _, c := range rows {
+		rec := []string{c.Username, c.Fullname, c.Phone, c.Email, fmt.Sprint(c.Balance), c.Packages, c.ServiceType, c.PppoeUsername, c.Status, s.ts(c.CreatedAt)}
+		for i, f := range rec { // spreadsheet formula injection
+			if f != "" && strings.ContainsRune("=+-@", rune(f[0])) {
+				rec[i] = "'" + f
+			}
+		}
+		cw.Write(rec)
+	}
+	cw.Flush()
 }
 
 func (s *Server) custNew(w http.ResponseWriter, r *http.Request) {
