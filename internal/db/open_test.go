@@ -21,8 +21,8 @@ func TestMigrateIsIdempotent(t *testing.T) {
 
 	var version int
 	conn.QueryRow("PRAGMA user_version").Scan(&version)
-	if version != 6 {
-		t.Fatalf("user_version = %d, want 6", version)
+	if version != 7 {
+		t.Fatalf("user_version = %d, want 7", version)
 	}
 
 	var fk int

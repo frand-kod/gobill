@@ -61,6 +61,15 @@ type Coupon struct {
 	CreatedAt   int64
 }
 
+type CustomField struct {
+	ID        int64
+	Name      string
+	Type      string
+	Options   string
+	Required  int64
+	SortOrder int64
+}
+
 type Customer struct {
 	ID            int64
 	Username      string
@@ -81,6 +90,12 @@ type Customer struct {
 	CreatedAt     int64
 	LastLoginAt   sql.NullInt64
 	Coordinates   string
+}
+
+type CustomerFieldValue struct {
+	CustomerID int64
+	FieldID    int64
+	Value      string
 }
 
 type CustomersInbox struct {
@@ -111,6 +126,12 @@ type Odp struct {
 	Coverage    int64
 	Description string
 	RouterID    sql.NullInt64
+}
+
+type Page struct {
+	Slug  string
+	Title string
+	Body  string
 }
 
 type Plan struct {

@@ -24,6 +24,7 @@
         <dt>{{T "Billing Day"}}</dt><dd>{{if .C.BillingDay.Valid}}{{.C.BillingDay.Int64}}{{end}}</dd>
         <dt>{{T "Auto Renewal"}}</dt><dd>{{if eq .C.AutoRenewal 1}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd>
         <dt>{{T "Created"}}</dt><dd>{{.Created}}</dd>
+        {{range .Custom}}<dt>{{T .Label}}</dt><dd>{{.Value}}</dd>{{end}}
       </dl>
     </div>
   </section>

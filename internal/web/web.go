@@ -211,6 +211,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/maps/routers/data", managers(http.HandlerFunc(s.mapRouterData)))
 	mux.Handle("GET /admin/maps/odp", managers(s.mapPage("ODP Geo Location Information", "/admin/maps/odp/data")))
 	mux.Handle("GET /admin/maps/odp/data", managers(http.HandlerFunc(s.mapODPData)))
+	// Old customfield.php and pages.php: custom fields CRUD, static page editor (managers only).
+	crud("/admin/fields", s.cfList, s.cfNew, s.cfEdit, s.cfSave, s.cfDelete)
+	mux.Handle("GET /admin/pages/{slug}", managers(http.HandlerFunc(s.pageEdit)))
+	mux.Handle("POST /admin/pages/{slug}", managers(http.HandlerFunc(s.pageSave)))
 
 	s.reportRoutes(mux, all)
 	s.messageRoutes(mux, staff)
@@ -389,6 +393,8 @@ func (s *Server) parseTemplates() error {
 		"p_orders":    {"base.html", "portal/layout.html", "portal/orders.html"},
 		"p_plans":     {"base.html", "portal/layout.html", "portal/plans.html"},
 		"p_inbox":     {"base.html", "portal/layout.html", "portal/inbox.html"},
+		"p_forgot":    {"base.html", "portal/forgot.html"},
+		"p_page":      {"base.html", "portal/page.html"},
 	}
 	s.templates = map[string]*template.Template{}
 	for name, files := range pages {

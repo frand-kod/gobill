@@ -57,6 +57,11 @@ func (s *Server) portalRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /portal/plans", s.requireCustomer(s.pPlans))
 	mux.Handle("POST /portal/plans/{id}/balance", s.requireCustomer(s.pBuyBalance))
 	s.inboxRoutes(mux)
+	mux.HandleFunc("GET /portal/forgot", s.pForgotForm)
+	mux.HandleFunc("POST /portal/forgot", s.pForgotSend)
+	mux.HandleFunc("POST /portal/forgot/verify", s.pForgotVerify)
+	mux.HandleFunc("POST /portal/forgot/reset", s.pForgotReset)
+	mux.HandleFunc("GET /pages/{slug}", s.pagePublic)
 }
 
 func (s *Server) prender(w http.ResponseWriter, r *http.Request, status int, name string, p Page) {
@@ -190,7 +195,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 			s.sessions.Put(ctx, "reg_otp", otp)
 			s.sessions.Put(ctx, "reg_otp_phone", d.Phone)
 			s.sessions.Put(ctx, "reg_otp_exp", time.Now().Add(10*time.Minute).Unix())
-			if err := s.sendOTP(ctx, st, d.Phone, otp); err != nil {
+			if err := s.sendOTP(ctx, st, d.Phone, "Registration code", otp); err != nil {
 				slog.Error("send otp", "err", err)
 				show("Failed to send verification code")
 				return
@@ -225,12 +230,12 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/portal/login", http.StatusSeeOther)
 }
 
-func (s *Server) sendOTP(ctx context.Context, st map[string]string, phone, otp string) error {
+func (s *Server) sendOTP(ctx context.Context, st map[string]string, phone, label, otp string) error {
 	n, err := notify.Load(ctx, s.queries)
 	if err != nil {
 		return err
 	}
-	msg := st["company_name"] + "\n\n" + s.catalog.T(s.language(), "Registration code") + "\n" + otp
+	msg := st["company_name"] + "\n\n" + s.catalog.T(s.language(), label) + "\n" + otp
 	typ := st["phone_otp_type"]
 	if typ == "whatsapp" || typ == "both" {
 		if err := n.WhatsApp(ctx, phone, msg); err != nil {
@@ -250,6 +255,11 @@ type pSubRow struct {
 	Expires            int64
 }
 
+type pDashData struct {
+	Subs   []pSubRow
+	Notice string // the announcement page, plain text
+}
+
 func (s *Server) pDashboard(w http.ResponseWriter, r *http.Request) {
 	c := customerFrom(r)
 	subs, err := s.queries.ListSubscriptionsByCustomer(r.Context(), db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 50})
@@ -257,12 +267,18 @@ func (s *Server) pDashboard(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal dashboard", err)
 		return
 	}
-	var rows []pSubRow
+	var d pDashData
 	for _, sub := range subs {
 		p, _ := s.queries.GetPlan(r.Context(), sub.PlanID)
-		rows = append(rows, pSubRow{p.Name, sub.Type, sub.Status, sub.ExpiresAt})
+		d.Subs = append(d.Subs, pSubRow{p.Name, sub.Type, sub.Status, sub.ExpiresAt})
 	}
-	s.prender(w, r, 200, "p_dashboard", Page{Title: "Dashboard", Data: rows})
+	ann, err := s.queries.GetPage(r.Context(), "announcement")
+	if err != nil {
+		s.fail(w, "portal announcement", err)
+		return
+	}
+	d.Notice = ann.Body
+	s.prender(w, r, 200, "p_dashboard", Page{Title: "Dashboard", Data: d})
 }
 
 func (s *Server) pOrders(w http.ResponseWriter, r *http.Request) {

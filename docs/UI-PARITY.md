@@ -105,8 +105,8 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | S5 | `admin/settings/maintenance-mode.tpl` | `settings/maintenance` | — | Belum | F5 |
 | S6 | `admin/settings/dbstatus.tpl` | `settings/dbstatus`, `dbbackup`, `dbrestore` | — | Sebagian | F5 |
 | S7 | `admin/settings/language-add.tpl` | `settings/language`, `lang-post` | — (bahasa = file JSON `internal/i18n`) | Ditunda | Tunda |
-| S8 | `admin/settings/customfield.tpl` | `customfield` | — | Belum | F5 |
-| S9 | `admin/settings/page.tpl` | `pages/{nama}` | — | Belum | F5 |
+| S8 | `admin/settings/customfield.tpl` | `customfield` | `/admin/fields` (CRUD) | Sebagian | F5 |
+| S9 | `admin/settings/page.tpl` | `pages/{nama}` | `GET/POST /admin/pages/{slug}`, `GET /pages/{slug}` | Sebagian | F5 |
 | S10 | `admin/settings/devices.tpl` | `settings/devices` | — (driver bawaan di kode) | Non-goal | — |
 | S11 | `admin/settings/widgets.tpl`, `widgets_add_edit.tpl` | `widgets` | — (widget tetap) | Non-goal | — (F5: widget tetap) |
 | S12 | `admin/settings/plugin-manager.tpl` | `pluginmanager` | — | Non-goal | — |
@@ -211,7 +211,7 @@ Kolom daftar `admin/list.tpl`: Username, Full Name, Phone, Email, Type, Location
 | `state` | State | text | — | — | ❌ | idem |
 | `zip` | Zip | text | — | — | ❌ | idem |
 | `photo` (edit saja) | Photo | file | face detection | — | ❌ | Foto Tunda (face detection Tunda); tidak ada kolom |
-| `custom_field_name[]`, `custom_field_value[]`, `custom_fields[...]` | Custom fields | text | — | — | ❌ | `customfield` F5 |
+| `custom_field_name[]`, `custom_field_value[]`, `custom_fields[...]` | Custom fields | text | — | `cf_<id>` (tabel `customer_field_values`) | ✅ | Form dan detail pelanggan; nilai divalidasi (wajib, angka, tanggal, pilihan) |
 | `send_welcome_message` | Send welcome message | checkbox | — | — | ❌ | Notifikasi F4 |
 | `sms`, `wa`, `mail` | Notification via | checkbox | — | — | ❌ | `internal/notify` ada, belum disambung ke UI |
 | `id` (edit) | — | hidden | — | `{id}` di URL | ✅ | |
@@ -715,8 +715,8 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | `settings/maintenance-mode` | `maintenance_mode` (checkbox `1`, aktifkan), `maintenance_mode_logout` (checkbox `1`, paksa logout pelanggan), tombol `save` | — | ❌ | F5 |
 | `settings/dbstatus` | `tables[]` (checkbox), Download Backup Database, `json` (file) + Restore Database | — | ❌ | F5: backup harian `VACUUM INTO`; restore JSON per tabel tidak dipakai (SQLite satu file) |
 | `settings/language-add` | satu input per kunci bahasa (`{$lang@key}`) | — | ❌ | Ditunda; bahasa = file JSON di `internal/i18n` |
-| `settings/customfield` | `order[]`, `name[]`, `placeholder[]`, `type[]`, `value[]` (opsi), `register[]`, `required[]` | — | ❌ | F5; tidak ada tabel custom field |
-| `settings/page` | `html` (editor) + `template_name` (Save as template) + `template_save` (checkbox `yes`, simpan sebagai template) | — | ❌ | F5 (halaman statis) |
+| `settings/customfield` | `order[]`, `name[]`, `placeholder[]`, `type[]`, `value[]` (opsi), `register[]`, `required[]` | `sort_order`, `name`, `type`, `options`, `required` | ⚠️ | `placeholder`, `value` (default), `register` belum; urutan lewat angka, bukan drag |
+| `settings/page` | `html` (editor) + `template_name` (Save as template) + `template_save` (checkbox `yes`, simpan sebagai template) | `body` (textarea) | ⚠️ | Teks biasa, bukan HTML; template simpan/reset belum |
 | `settings/devices` | tanpa input | — | ❌ | Non-goal |
 | `settings/widgets` | `orders[]`, `id[]`, `dashboard`, tombol Add/Edit | — | ❌ | Non-goal |
 | `settings/widgets_add_edit` | `widget`, `title`, `orders`, `position`, `tipeUser`, `enabled`, `content` | — | ❌ | Non-goal |
@@ -753,7 +753,7 @@ Baru: `dashboard.html` + `dashboardData` (`handlers.go`), 4 kotak + 2 grafik Cha
 |---|---|---|---|---|
 | W15 | `account_info.tpl` | Info akun, saldo, Service Type, toggle auto renewal, tagihan tambahan | Belum | F4; `customers.auto_renewal` ada |
 | W16 | `active_internet_plan.tpl` | Paket aktif, expiry, IP/MAC, login status, Connect, Extend, Deactivate | Belum | F4 |
-| W17 | `announcement.tpl` | Pengumuman (halaman statis) | Belum | F4/F5 |
+| W17 | `announcement.tpl` | Pengumuman (halaman statis) | Sebagian | F4/F5; ditampilkan di dashboard portal dari halaman `announcement` |
 | W18 | `balance_transfer.tpl` | Form `friend` + `balance` transfer | Belum | F4 |
 | W19 | `button_order_internet_plan.tpl` | Tombol Order Package | Belum | F4 |
 | W20 | `recharge_a_friend.tpl` | Form username teman | Belum | F4 |
@@ -794,10 +794,12 @@ Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, das
 
 | Field lama | Label | Tipe | Wajib | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
-| `username` | Phone/Usernames | text | required | — | ❌ | |
-| `find` | Email or Phone number | text | required | — | ❌ | |
-| `otp_code` | OTP | text | required | — | ❌ | |
-| Aksi: Validate, Back, Cancel, Forgot Usernames (`forgot&step=6`) | | | | | ❌ | |
+| `username` | Phone/Usernames | text | required | `username` (`POST /portal/forgot`) | ✅ | Kode dikirim ke nomor HP lewat gateway WA/SMS (`notify`); tanpa gateway: "contact admin" |
+| `find` | Email or Phone number | text | required | — | ❌ | Lupa username belum di-port |
+| `otp_code` | OTP | text | required | `otp_code` (`POST /portal/forgot/verify`) | ✅ | 6 digit crypto/rand, hash bcrypt di session, 10 menit, 5 percobaan |
+| (baru) | Password baru + konfirmasi | password | required | `npass`, `cnpass` (`POST /portal/forgot/reset`) | ✅ | bcrypt; setelah berhasil ke login |
+| Aksi: Validate, Back, Cancel | | | | `GET /portal/forgot?cancel=1` | ✅ | |
+| Aksi: Forgot Usernames (`forgot&step=6`) | | | | — | ❌ | |
 
 ### C4. Dashboard `dashboard.tpl` + widget W15-W22 (lihat bagian 4). Semua ❌.
 
@@ -847,7 +849,7 @@ Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, das
 | `orderHistory`: kolom Package Name, Payment Method, Routers, Type, Package Price, Created on, Expires on, Date, Status | | | | ⚠️ | `/portal/orders` dari transaksi; tanpa kolom Routers/Status | |
 | `orderView`: Pay Now, Check for Payment (`/check`), Cancel (`/cancel`) | | | | | ❌ | Perlu simpan `reference` Tripay |
 
-### C10. Halaman statis dan galat: `pages.tpl` (ditampilkan `page/{nama}`), `404.tpl`, `error.tpl` -> ❌.
+### C10. Halaman statis dan galat: `pages.tpl` (ditampilkan `page/{nama}`) ✅ `GET /pages/{slug}` (teks biasa, di-escape, baris baru dijaga); `404.tpl`, `error.tpl` ❌.
 
 ---
 
