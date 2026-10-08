@@ -68,7 +68,7 @@ func (s *Server) radiusLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	from, to, _, _ := s.dateRange(r)
-	lp := listPage{Heading: "Radius Logs", Base: "/admin/logs/radius", Q: q, Searchable: true, Dates: true, From: from, To: to, Cols: radiusLogCols}
+	lp := listPage{Heading: "Radius Logs", Base: "/admin/logs/radius", Q: q, Searchable: true, Dates: true, From: from, To: to, Cols: radiusLogCols, Clean: "/admin/logs/clean/radius"}
 	for i, c := range s.radiusLogRows(ss) {
 		lp.Rows = append(lp.Rows, listRow{ss[i].ID, c})
 	}
@@ -118,7 +118,7 @@ func (s *Server) msgLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	from, to, _, _ := s.dateRange(r)
-	lp := listPage{Heading: "Message Logs", Base: "/admin/logs/messages", Q: q, Searchable: true, Dates: true, From: from, To: to, Cols: msgLogCols}
+	lp := listPage{Heading: "Message Logs", Base: "/admin/logs/messages", Q: q, Searchable: true, Dates: true, From: from, To: to, Cols: msgLogCols, Clean: "/admin/logs/clean/messages"}
 	for i, c := range s.msgLogRows(ms) {
 		lp.Rows = append(lp.Rows, listRow{ms[i].ID, c})
 	}

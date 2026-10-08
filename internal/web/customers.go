@@ -23,7 +23,7 @@ import (
 var (
 	custStatuses = []string{"Active", "Banned", "Disabled", "Inactive", "Limited", "Suspended"}
 	custNames    = []string{"username", "fullname", "address", "phone", "email", "service_type", "pppoe_username",
-		"pppoe_ip", "billing_day", "auto_renewal", "status", "coordinates"}
+		"pppoe_ip", "billing_day", "auto_renewal", "status", "coordinates", "send_welcome_message", "notify_sms", "notify_wa", "notify_email"}
 )
 
 func custFields(v, e map[string]string, editing bool) []field {
@@ -53,7 +53,13 @@ func custFields(v, e map[string]string, editing bool) []field {
 		text("billing_day", "Billing Day", v, e).as("number").hint("Day of month, 1-31. Optional; overrides the plan."),
 		ar,
 	}, "Service & billing", "")
-	return append(append(acct, contact...), svc...)
+	out := append(append(acct, contact...), svc...)
+	if !editing { // old form: Send Welcome Message + sms / wa / mail
+		chk := func(n, l string) field { f := text(n, l, v, e).as("checkbox"); f.Checked = v[n] == "1"; return f }
+		out = append(out, section([]field{chk("send_welcome_message", "Send Welcome Message"), chk("notify_sms", "SMS"),
+			chk("notify_wa", "WhatsApp"), chk("notify_email", "Email")}, "Welcome Message", "")...)
+	}
+	return out
 }
 
 var custSorts = []string{"username", "fullname", "balance", "status"}
@@ -177,6 +183,7 @@ func (s *Server) custEdit(w http.ResponseWriter, r *http.Request) {
 type subRow struct{ Plan, Router, Expires, Status string }
 
 type custDetail struct {
+	Manage    bool // SuperAdmin/Admin: deactivate, sync, login as customer
 	C         db.Customer
 	Created   string
 	SecretSet bool
@@ -197,7 +204,7 @@ func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	role := adminFrom(r).Role
-	d := custDetail{C: c, Created: s.ts(c.CreatedAt), SecretSet: len(c.SecretEnc) > 0,
+	d := custDetail{Manage: oneOf(role, "SuperAdmin", "Admin"), C: c, Created: s.ts(c.CreatedAt), SecretSet: len(c.SecretEnc) > 0,
 		CanEdit: oneOf(role, "SuperAdmin", "Admin"), CanSell: oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales")}
 	opts, plans, err := s.planOptions(r, true)
 	if err != nil {
@@ -428,6 +435,9 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 				PppoeUsername: v["pppoe_username"], PppoeIp: v["pppoe_ip"], SecretEnc: enc, AutoRenewal: renew,
 				Status: v["status"], CreatedBy: sql.NullInt64{Int64: adminFrom(r).ID, Valid: true}, BillingDay: bday, Coordinates: coords})
 			cid = c.ID
+			if err == nil && v["send_welcome_message"] == "1" {
+				s.welcome(ctx, c, welcomeChannels(v))
+			}
 		} else {
 			err = s.queries.UpdateCustomer(ctx, db.UpdateCustomerParams{Fullname: v["fullname"], Address: v["address"],
 				Phone: v["phone"], Email: v["email"], ServiceType: v["service_type"], PppoeUsername: v["pppoe_username"],

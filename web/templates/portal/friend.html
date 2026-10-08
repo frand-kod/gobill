@@ -1,0 +1,10 @@
+{{define "content"}}
+<h1 class="mb-4 text-2xl font-semibold">{{T "Buy for friend"}}</h1>
+{{with .Data}}
+<form class="card max-w-md" method="post" action="/portal/plans/{{.Plan.ID}}/friend"><div class="card-body space-y-4">
+  <p><b>{{.Plan.Name}}</b> - {{money .Plan.Price}}</p>
+  <div><label class="label" for="fu">{{T "Friend's Username"}}</label><input class="input" id="fu" name="username" value="{{.Username}}" required autofocus></div>
+  <button class="btn btn-primary" type="submit">{{T "Pay with Balance"}}</button>
+</div></form>
+{{end}}
+{{end}}

@@ -118,6 +118,7 @@ func run() error {
 	app.Billing = svc
 	go job.Run(ctx, "expiry", time.Minute, svc.ExpiryJob(guard.Trusted))
 	go job.Run(ctx, "reminder", time.Minute, svc.ReminderJob(guard.Trusted))
+	go job.Run(ctx, "log_clean", 10*time.Minute, svc.LogCleanJob(guard.Trusted)) // once a day, setting log_keep_days
 	go job.Run(ctx, "router_check", 5*time.Minute, svc.RouterCheck)
 	backup := &job.Backup{Conn: conn, Q: db.New(conn), Trusted: guard.Trusted,
 		Dir: env("NUXBILL_BACKUP_DIR", filepath.Join(filepath.Dir(dbPath), "backup"))}

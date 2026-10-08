@@ -212,7 +212,7 @@ Kolom daftar `admin/list.tpl`: Username, Full Name, Phone, Email, Type, Location
 | `zip` | Zip | text | — | — | ❌ | idem |
 | `photo` (edit saja) | Photo | file | face detection | — | ❌ | Foto Tunda (face detection Tunda); tidak ada kolom |
 | `custom_field_name[]`, `custom_field_value[]`, `custom_fields[...]` | Custom fields | text | — | `cf_<id>` (tabel `customer_field_values`) | ✅ | Form dan detail pelanggan; nilai divalidasi (wajib, angka, tanggal, pilihan) |
-| `send_welcome_message` | Send welcome message | checkbox | — | — | ❌ | Notifikasi F4 |
+| `send_welcome_message` | Send welcome message | checkbox | — | `send_welcome_message` + `notify_sms`, `notify_wa`, `notify_email` | ✅ | Hanya form tambah. Mengirim `welcome_message` lewat `internal/notify` di kanal yang dicentang; kata sandi tidak pernah ikut (`[[Password]]` = `********`) |
 | `sms`, `wa`, `mail` | Notification via | checkbox | — | — | ❌ | `internal/notify` ada, belum disambung ke UI |
 | `id` (edit) | — | hidden | — | `{id}` di URL | ✅ | |
 | — | Billing Day | number 1-31 | — | `billing_day` | ✅ | Field baru; override `plans.billing_day` |
@@ -236,10 +236,10 @@ Kolom daftar `admin/list.tpl`: Username, Full Name, Phone, Email, Type, Location
 | Tabel paket aktif (Plan Name, Gateway, Routers, Type, Plan Price, Created On, Expires On, Date Done, Method) | Tabel "Service Plan": Plan Name, Type, Expires, Status | ⚠️ | Hilang: Created On, Method, Price, Routers; `Expires On` tanggal+jam diganti `expires_at` (disengaja, satu kolom UTC) |
 | Tabel riwayat transaksi (Invoice, Username, Plan Name, Plan Price, Type, Created On, Expires On, Method) | Tabel "Transactions": Invoice, Date, Plan Name, Method, Plan Price | ⚠️ | Hilang: Type, Expires On |
 | Tombol Recharge per paket | Form "Recharge Account" (`plan`, `method` Cash/Balance) | ⚠️ | Di lama per-paket dan memakai halaman confirm (A44) |
-| Tombol Deactivate paket | — | ❌ | `customers/deactivate` belum |
-| Tombol Sync | — | ❌ | Sinkron ke router per pelanggan belum |
-| Tombol Send Message | — | ❌ | Halaman `/admin/message/send` ada (F5); tombol di detail pelanggan belum |
-| Tombol Login as Customer | — | ❌ | Bergantung portal F4 |
+| Tombol Deactivate paket | Tombol Deactivate (`POST /admin/customers/{id}/deactivate`, SuperAdmin/Admin) | ✅ | Kedaluwarsakan semua langganan aktif + hapus dari router (`DeactivateCustomer`); satu tombol untuk semua paket, bukan per paket |
+| Tombol Sync | Tombol Sync (`POST /admin/customers/{id}/sync`, SuperAdmin/Admin) | ✅ | Kirim ulang semua langganan aktif ke router (`SyncCustomer`) |
+| Tombol Send Message | Link `/admin/message/send?customer=ID` (form terisi) | ✅ | |
+| Tombol Login as Customer | Tombol `POST /admin/customers/{id}/login` (SuperAdmin/Admin) | ✅ | Sesi pelanggan di browser yang sama tanpa kata sandi; log `customer.impersonate`; portal menampilkan banner "Anda masuk sebagai admin" + tombol Back to admin (`POST /portal/impersonate/end`) yang hanya mengakhiri sesi pelanggan, sesi admin utuh |
 | Tombol Edit, Back | Edit, link ke daftar | ✅ | |
 | Link Redeem Voucher | `/admin/vouchers/redeem?customer=` | ✅ | Tambahan baru |
 
@@ -474,11 +474,11 @@ Kolom: Username, Type, Plan Name, Plan Price, Created On, Expires On, Method, Ro
 | Field lama | Label | Tipe | Field baru | St | Catatan |
 |---|---|---|---|---|---|
 | `q` | Search | text | `q` | ✅ | |
-| `keep` | Keep logs (hari) | text | — | ❌ | "Clean up Logs" belum |
+| `keep` | Keep logs (hari) | text | — | `keep` (`POST /admin/logs/clean/activity`) | ✅ | Hanya SuperAdmin/Admin. Auto-bersih harian lewat setting `log_keep_days` (0 = simpan selamanya; tanpa input di Settings) |
 
-Kolom lama (tanpa `<th>`): ID, Date, Type, IP, Description. Baru: Date, Actor, Action, Description, IP (Actor/Action menggantikan Type/User ID). Aksi: CSV (`logs/list-csv`) belum, Clean up belum.
+Kolom lama (tanpa `<th>`): ID, Date, Type, IP, Description. Baru: Date, Actor, Action, Description, IP (Actor/Action menggantikan Type/User ID). Aksi: CSV (`logs/list-csv`) belum; Clean up ada.
 
-**A58 `logs/radius.tpl`:** `GET /admin/logs/radius` memuat semua sesi `radius_sessions` (terbuka dan selesai): User, NAS, IP, MAC, Start, Stop, Duration, Upload, Download; cari `q` (username/NAS), `from`/`to` (tanggal mulai), paging, CSV (`/export`, dengan penjaga formula). Belum: Clean Logs (`keep`). Sesi terbuka juga di A58b `/admin/radius/sessions`; kartu "RADIUS usage" di detail pelanggan. **A59 `logs/message.tpl`:** `GET /admin/logs/messages` (tabel `message_logs`, diisi `internal/notify` lewat hook `Log` di tiap percobaan kirim Telegram/SMS/WA/Email): Date, Type, Recipient, Subject, Status, Message (galat bila gagal); cari, tanggal, paging, CSV. Belum: `keep` (hapus log lama).
+**A58 `logs/radius.tpl`:** `GET /admin/logs/radius` memuat semua sesi `radius_sessions` (terbuka dan selesai): User, NAS, IP, MAC, Start, Stop, Duration, Upload, Download; cari `q` (username/NAS), `from`/`to` (tanggal mulai), paging, CSV (`/export`, dengan penjaga formula). Clean Logs (`keep`, `POST /admin/logs/clean/radius`) hanya menghapus sesi TERTUTUP yang lebih lama dari N hari; sesi terbuka tidak pernah dihapus. Sesi terbuka juga di A58b `/admin/radius/sessions`; kartu "RADIUS usage" di detail pelanggan. **A59 `logs/message.tpl`:** `GET /admin/logs/messages` (tabel `message_logs`, diisi `internal/notify` lewat hook `Log` di tiap percobaan kirim Telegram/SMS/WA/Email): Date, Type, Recipient, Subject, Status, Message (galat bila gagal); cari, tanggal, paging, CSV. Clean Logs (`keep`, `POST /admin/logs/clean/messages`) ada.
 
 ### A60-A62. Kupon
 
@@ -620,7 +620,7 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | `enable_balance` | Enable System (saldo) | select | `enable_balance` | ✅ | Dibaca `internal/billing/service.go:290` (default aktif), tapi tidak ada input di UI. Keputusan default menunggu pengguna |
 | `allow_balance_transfer` | Allow Transfer | select | — | ✅ | Input di Miscellaneous > Balance; portal membaca |
 | `minimum_transfer` | Minimum Balance Transfer | number | — | ✅ | Input di Miscellaneous > Balance; bilangan bulat 0 atau lebih |
-| `allow_balance_custom` | Allow Balance Custom Amount | select | — | ⚠️ | Input di Miscellaneous > Balance. Belum ada pembaca di kode |
+| `allow_balance_custom` | Allow Balance Custom Amount | select | — | ✅ | Input di Miscellaneous > Balance; portal `/portal/topup` (hanya dengan Tripay) |
 
 **Notifikasi kanal**
 
@@ -764,7 +764,7 @@ Baru: `dashboard.html` + `dashboardData` (`handlers.go`), 4 kotak + 2 grafik Cha
 
 ## 5. Bagian Portal pelanggan
 
-Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, dashboard, profil, ganti password, riwayat order, order dari saldo. Sudah juga: lupa password, inbox, aktivasi voucher (`/portal/voucher`), kirim saldo antar pelanggan (`POST /portal/transfer`; `allow_balance_transfer`, `minimum_transfer`, notifikasi `balance_send`/`balance_received`, atomik satu tx), perpanjang paket kedaluwarsa (`POST /portal/extend/{id}`; `extend_expired`, `extend_days`, sekali per bulan kalender), registrasi menghormati `disable_registration=noreg`, `registration_username` (phone/email), `sms_otp_registration`, `reg_nofify_admin` (Telegram) dan mengirim `welcome_message`, daftar paket menampilkan bandwidth bila `show_bandwidth_plan=yes`. Belum: gateway Tripay, kirim paket ke teman.
+Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, dashboard, profil, ganti password, riwayat order, order dari saldo. Sudah juga: lupa password, inbox, aktivasi voucher (`/portal/voucher`), kirim saldo antar pelanggan (`POST /portal/transfer`; `allow_balance_transfer`, `minimum_transfer`, notifikasi `balance_send`/`balance_received`, atomik satu tx), perpanjang paket kedaluwarsa (`POST /portal/extend/{id}`; `extend_expired`, `extend_days`, sekali per bulan kalender), registrasi menghormati `disable_registration=noreg`, `registration_username` (phone/email), `sms_otp_registration`, `reg_nofify_admin` (Telegram) dan mengirim `welcome_message`, daftar paket menampilkan bandwidth bila `show_bandwidth_plan=yes`. Sudah juga: gateway Tripay, kirim paket ke teman (`/portal/plans/{id}/friend`), riwayat aktivasi (`/portal/activation`), lupa username, top-up saldo kustom.
 
 ### C1. Login `customer/login.tpl`, `login-noreg.tpl`, `login-custom-moon.tpl`
 
@@ -799,7 +799,7 @@ Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, das
 | `otp_code` | OTP | text | required | `otp_code` (`POST /portal/forgot/verify`) | ✅ | 6 digit crypto/rand, hash bcrypt di session, 10 menit, 5 percobaan |
 | (baru) | Password baru + konfirmasi | password | required | `npass`, `cnpass` (`POST /portal/forgot/reset`) | ✅ | bcrypt; setelah berhasil ke login |
 | Aksi: Validate, Back, Cancel | | | | `GET /portal/forgot?cancel=1` | ✅ | |
-| Aksi: Forgot Usernames (`forgot&step=6`) | | | | — | ❌ | |
+| Aksi: Forgot Usernames (`forgot&step=6`) | | | | `GET/POST /portal/forgot/username` | ✅ | Email/telepon -> username dikirim via notify ke kontak itu; jawaban selalu sama (tanpa enumerasi akun), pembatas `otpAllow` |
 
 ### C4. Dashboard `dashboard.tpl` + widget W15-W22 (lihat bagian 4). Semua ❌.
 
@@ -834,18 +834,18 @@ Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, das
 | Field lama | Label | Tipe | Wajib | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
 | `code` | Voucher code | text | required | `code` (`POST /portal/voucher`) | ✅ | `RedeemVoucher` sekali pakai; `disable_voucher=yes` memblokir (403); `voucher_redirect` hanya URL http/https |
-| `activation-list`: kolom Invoice, Package Name, Package Price, Type, Created On, Expires On, Method | | | | | ❌ | |
+| `activation-list`: kolom Invoice, Package Name, Package Price, Type, Created On, Expires On, Method | | | | `GET /portal/activation` | ✅ | Dari transaksi pelanggan, tanpa baris Balance (kirim/terima saldo) |
 | `invoice-customer`: `id`, Finish, Download, WhatsApp | | | | | ⚠️ | `GET /portal/orders/{id}/invoice` (hanya transaksi sendiri, selain itu 404); tanpa Download/WhatsApp |
 
 ### C9. Order paket `orderPlan.tpl`, `orderBalance.tpl`, `orderHistory.tpl`, `orderView.tpl`, `selectGateway.tpl`, `sendPlan.tpl`
 
 | Field lama | Label | Tipe | Wajib | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
-| tombol Buy / Buy for friend per paket (`order/gateway/...`, `order/send/...`, `stoken`) | | link | | — | ❌ | `orderPlan` daftar paket per router/tipe |
-| `custom` (hidden), `amount` | Jumlah saldo kustom | number | — | — | ❌ | `allow_balance_custom` |
+| tombol Buy / Buy for friend per paket (`order/gateway/...`, `order/send/...`, `stoken`) | | link | | `/portal/plans`, `GET /portal/plans/{id}/friend` | ✅ | Daftar paket gabungan; Buy for friend tampil bila saldo aktif |
+| `custom` (hidden), `amount` | Jumlah saldo kustom | number | — | `amount`, `channel` (`POST /portal/topup`) | ✅ | Hanya bila `allow_balance_custom=yes` DAN `payment_gateway=tripay` (di kode lama hanya dipakai di jalur gateway). `payment_requests.plan_id=0` = top-up; saldo bertambah saat lunas (migrasi 0010) |
 | `coupon` | Coupon Code | text maxlength 50 | required (Apply) | `coupon` | ⚠️ | Di form bayar-saldo `/portal/plans` (tanpa gateway, tanpa pembatas percobaan 5x, tanpa gating `enable_coupons`); kupon tidak berlaku untuk paket Balance |
 | `gateway` | Payment Gateway | select (`channel`) | required | `channel` | ✅ | `selectGateway` digabung ke `/portal/plans`: pilih kanal Tripay + kupon per paket, `POST /portal/plans/{id}/pay`; hanya bila `payment_gateway=tripay`. Kupon dipotong dari jumlah, dipakai saat lunas |
-| `username` (`sendPlan`) | Friend username | text | required | — | ❌ | |
+| `username` (`sendPlan`) | Friend username | text | required | `username` (`POST /portal/plans/{id}/friend`) | ✅ | `SendPlan`: satu tx debit saldo + recharge teman + baris transaksi pengirim. Aturan lama: saldo tidak `no`, pengirim Active, teman ada, bukan diri sendiri, teman tak punya paket aktif lain, saldo cukup. Keduanya dinotifikasi |
 | `orderHistory`: kolom Package Name, Payment Method, Routers, Type, Package Price, Created on, Expires on, Date, Status | | | | ⚠️ | `/portal/orders` dari transaksi; tanpa kolom Routers/Status | |
 | `orderView`: Pay Now, Check for Payment (`/check`), Cancel (`/cancel`) | `GET /portal/payments/{id}`, `POST .../check` | | | ⚠️ | Pay Now + Check ada; Cancel belum (pesanan kedaluwarsa otomatis oleh job) |
 

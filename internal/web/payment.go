@@ -81,6 +81,7 @@ func baseURL(r *http.Request) string {
 
 func (s *Server) paymentRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /portal/plans/{id}/pay", s.requireCustomer(s.pPay))
+	mux.Handle("POST /portal/topup", s.requireCustomer(s.pTopUp))
 	mux.Handle("GET /portal/payments/{id}", s.requireCustomer(s.pPayView))
 	mux.Handle("POST /portal/payments/{id}/check", s.requireCustomer(s.pPayCheck))
 	mux.HandleFunc("POST /callback/tripay", s.tripayCallback)
@@ -136,16 +137,51 @@ func (s *Server) pPay(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	s.payOrder(w, r, g, c, p.ID, p.Name, amount, code, channel)
+}
+
+// pTopUp is allow_balance_custom (only with a gateway): a custom amount paid online is added to the balance.
+func (s *Server) pTopUp(w http.ResponseWriter, r *http.Request) {
+	c := customerFrom(r)
+	st, err := s.loadSettings(r.Context())
+	if err != nil {
+		s.fail(w, "portal topup", err)
+		return
+	}
+	g, err := s.gateway(st)
+	if err != nil || g == nil || st["allow_balance_custom"] != "yes" || st["enable_balance"] == "no" {
+		http.NotFound(w, r)
+		return
+	}
+	amount, _ := strconv.ParseInt(strings.TrimSpace(r.PostFormValue("amount")), 10, 64)
+	chans, err := s.activeChannels(r.Context(), g)
+	channel, ok := r.PostFormValue("channel"), false
+	for _, ch := range chans {
+		ok = ok || ch.Code == channel
+	}
+	switch {
+	case amount <= 0 || amount > 1_000_000_000:
+		s.plansPage(w, r, 200, "Please enter amount")
+	case err != nil || !ok:
+		s.plansPage(w, r, 200, "Please select Payment Gateway")
+	default:
+		s.payOrder(w, r, g, c, 0, "Custom Balance", amount, "", channel)
+	}
+}
+
+// payOrder stores the pending payment, creates the gateway transaction and redirects to its pay URL.
+// planID 0 = custom balance top-up.
+func (s *Server) payOrder(w http.ResponseWriter, r *http.Request, g Gateway, c *db.Customer, planID int64, planName string, amount int64, code, channel string) {
 	raw := make([]byte, 8)
 	rand.Read(raw)
 	exp := time.Now().Add(payExpiry)
 	pr, err := s.queries.CreatePaymentRequest(r.Context(), db.CreatePaymentRequestParams{Ref: "NB" + strings.ToUpper(hex.EncodeToString(raw)),
-		Gateway: g.Name(), CustomerID: c.ID, PlanID: p.ID, Amount: amount, Coupon: code, Channel: channel, ExpiresAt: exp.Unix()})
+		Gateway: g.Name(), CustomerID: c.ID, PlanID: planID, Amount: amount, Coupon: code, Channel: channel, ExpiresAt: exp.Unix()})
 	if err != nil {
 		s.fail(w, "portal pay", err)
 		return
 	}
-	cr, err := g.CreateTransaction(r.Context(), payment.Transaction{ID: pr.Ref, Amount: amount, PlanName: p.Name, Name: c.Fullname,
+	cr, err := g.CreateTransaction(r.Context(), payment.Transaction{ID: pr.Ref, Amount: amount, PlanName: planName, Name: c.Fullname,
 		Email: c.Email, Phone: c.Phone, ReturnURL: baseURL(r) + "/portal/payments/" + strconv.FormatInt(pr.ID, 10), Channel: channel, Expiry: exp})
 	if err != nil {
 		slog.Error("pay: create transaction", "ref", pr.Ref, "err", err)
@@ -179,6 +215,9 @@ func (s *Server) pPayView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pl, _ := s.queries.GetPlan(r.Context(), pr.PlanID)
+	if pr.PlanID == 0 {
+		pl.Name = "Custom Balance"
+	}
 	s.prender(w, r, 200, "p_payment", Page{Title: "Order Details", Data: struct {
 		P    db.PaymentRequest
 		Plan string
@@ -228,10 +267,14 @@ func (s *Server) settlePayment(ctx context.Context, pr db.PaymentRequest, st pay
 		if pr.Status == "expired" || pr.Status == "failed" {
 			slog.Warn("payment paid after request was closed", "ref", pr.Ref)
 		}
-		return s.Billing.RechargePaid(ctx, func(q *db.Queries) (bool, error) {
+		claim := func(q *db.Queries) (bool, error) {
 			n, err := q.ClaimPaymentPaid(ctx, pr.Ref)
 			return n > 0, err
-		}, pr.CustomerID, pr.PlanID, "Tripay - "+pr.Channel, pr.Coupon, pr.Amount)
+		}
+		if pr.PlanID == 0 { // custom balance top-up
+			return s.Billing.TopUpPaid(ctx, claim, pr.CustomerID, pr.Amount, "Tripay - "+pr.Channel)
+		}
+		return s.Billing.RechargePaid(ctx, claim, pr.CustomerID, pr.PlanID, "Tripay - "+pr.Channel, pr.Coupon, pr.Amount)
 	case payment.Failed, payment.Expired:
 		_, err := s.queries.ClosePaymentRequest(ctx, db.ClosePaymentRequestParams{Status: string(st), Ref: pr.Ref})
 		return err

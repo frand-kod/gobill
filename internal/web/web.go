@@ -67,18 +67,19 @@ type Server struct {
 
 // Page is the data every template receives.
 type Page struct {
-	Title    string
-	Admin    *db.Admin
-	Customer *db.Customer // portal customer, if any
-	Unread   int64        // portal inbox badge
-	Flash    string
-	Error    string
-	Path     string
-	Tabs     []option          // settings sub-page menu
-	Brand    map[string]string // logo and login page text, filled by render
-	Dir      string            // "rtl" or "ltr"
-	Lang     string
-	Data     any
+	Title         string
+	Admin         *db.Admin
+	Customer      *db.Customer // portal customer, if any
+	Impersonating bool         // portal session opened by an admin (login as customer)
+	Unread        int64        // portal inbox badge
+	Flash         string
+	Error         string
+	Path          string
+	Tabs          []option          // settings sub-page menu
+	Brand         map[string]string // logo and login page text, filled by render
+	Dir           string            // "rtl" or "ltr"
+	Lang          string
+	Data          any
 }
 
 type ctxKey struct{}
@@ -188,6 +189,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/customers/{id}/edit", managers(http.HandlerFunc(s.custEdit)))
 	mux.Handle("POST /admin/customers/{id}", managers(http.HandlerFunc(s.custSave)))
 	mux.Handle("POST /admin/customers/{id}/delete", managers(http.HandlerFunc(s.custDelete)))
+	s.extraRoutes(mux, managers)
 	mux.Handle("POST /admin/customers/{id}/recharge/confirm", staff(http.HandlerFunc(s.custRechargeConfirm)))
 	mux.Handle("POST /admin/customers/{id}/recharge", staff(http.HandlerFunc(s.custRecharge)))
 
@@ -416,17 +418,20 @@ func (s *Server) parseTemplates() error {
 		"maps":             {"base.html", "app.html", "maps.html"},
 		"pay_audit":        {"base.html", "app.html", "pay_audit.html"},
 
-		"p_login":     {"base.html", "portal/login.html"},
-		"p_register":  {"base.html", "portal/register.html"},
-		"p_dashboard": {"base.html", "portal/layout.html", "portal/dashboard.html"},
-		"p_profile":   {"base.html", "portal/layout.html", "portal/profile.html"},
-		"p_orders":    {"base.html", "portal/layout.html", "portal/orders.html"},
-		"p_plans":     {"base.html", "portal/layout.html", "portal/plans.html"},
-		"p_inbox":     {"base.html", "portal/layout.html", "portal/inbox.html"},
-		"p_voucher":   {"base.html", "portal/layout.html", "portal/voucher.html"},
-		"p_forgot":    {"base.html", "portal/forgot.html"},
-		"p_page":      {"base.html", "portal/page.html"},
-		"p_payment":   {"base.html", "portal/layout.html", "portal/payment.html"},
+		"p_login":       {"base.html", "portal/login.html"},
+		"p_register":    {"base.html", "portal/register.html"},
+		"p_dashboard":   {"base.html", "portal/layout.html", "portal/dashboard.html"},
+		"p_profile":     {"base.html", "portal/layout.html", "portal/profile.html"},
+		"p_orders":      {"base.html", "portal/layout.html", "portal/orders.html"},
+		"p_plans":       {"base.html", "portal/layout.html", "portal/plans.html"},
+		"p_inbox":       {"base.html", "portal/layout.html", "portal/inbox.html"},
+		"p_voucher":     {"base.html", "portal/layout.html", "portal/voucher.html"},
+		"p_forgot":      {"base.html", "portal/forgot.html"},
+		"p_page":        {"base.html", "portal/page.html"},
+		"p_payment":     {"base.html", "portal/layout.html", "portal/payment.html"},
+		"p_activation":  {"base.html", "portal/layout.html", "portal/activation.html"},
+		"p_friend":      {"base.html", "portal/layout.html", "portal/friend.html"},
+		"p_forgot_user": {"base.html", "portal/forgot_user.html"},
 	}
 	s.templates = map[string]*template.Template{}
 	for name, files := range pages {

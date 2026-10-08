@@ -73,6 +73,7 @@ func (s *Server) prender(w http.ResponseWriter, r *http.Request, status int, nam
 	p.Customer = customerFrom(r)
 	if p.Customer != nil {
 		p.Unread, _ = s.queries.CountUnreadInbox(r.Context(), p.Customer.ID)
+		p.Impersonating = s.sessions.GetInt64(r.Context(), "impersonator") != 0
 	}
 	if p.Flash == "" {
 		p.Flash = s.sessions.PopString(r.Context(), "flash")
@@ -132,6 +133,7 @@ func (s *Server) keepSession(r *http.Request, id int64) error {
 
 func (s *Server) pLogout(w http.ResponseWriter, r *http.Request) {
 	s.sessions.Remove(r.Context(), "customer_id")
+	s.sessions.Remove(r.Context(), "impersonator")
 	http.Redirect(w, r, "/portal/login", http.StatusSeeOther)
 }
 
@@ -447,6 +449,7 @@ type plansData struct {
 	Plans    []planRow
 	Balance  bool
 	Channels []payment.Channel // online gateway channels; empty = gateway off
+	Custom   bool              // allow_balance_custom with a gateway: custom top-up form
 }
 
 func (s *Server) pPlans(w http.ResponseWriter, r *http.Request) {
@@ -482,6 +485,7 @@ func (s *Server) plansPage(w http.ResponseWriter, r *http.Request, code int, err
 		}
 	}
 	pd := plansData{Plans: plans, Balance: st["enable_balance"] != "no"}
+	pd.Custom = pd.Balance && st["allow_balance_custom"] == "yes"
 	if g, err := s.gateway(st); g != nil && err == nil {
 		if pd.Channels, err = s.activeChannels(r.Context(), g); err != nil {
 			slog.Error("portal plans: channels", "err", err)
