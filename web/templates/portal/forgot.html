@@ -1,0 +1,38 @@
+{{define "body"}}
+<main class="grid min-h-screen place-items-center p-4">
+  <div class="card w-full max-w-sm overflow-hidden">
+    <div class="fiber-stripe" aria-hidden="true"></div>
+    <div class="card-body space-y-4">
+      <h1 class="text-2xl font-semibold">{{T "Forgot Password"}}</h1>
+      {{if .Flash}}<p class="alert alert-ok" role="status">{{icon "circle-check"}}<span>{{.Flash}}</span></p>{{end}}
+      {{if .Error}}<p class="alert alert-error" role="alert">{{icon "circle-alert"}}<span>{{T .Error}}</span></p>{{end}}
+      {{with .Data}}
+        {{if eq .Step "user"}}
+        <form method="post" action="/portal/forgot" class="space-y-4">
+          <div><label class="label" for="username">{{T "Username"}}</label>
+            <input class="input" id="username" name="username" autocomplete="username" required autofocus></div>
+          <button class="btn btn-primary w-full" type="submit">{{T "Send Verification Code"}}</button>
+          <a class="btn btn-ghost w-full" href="/portal/login">{{T "Back"}}</a>
+        </form>
+        {{else if eq .Step "code"}}
+        <form method="post" action="/portal/forgot/verify" class="space-y-4">
+          <p class="text-sm">{{T "Username"}}: <b>{{.Username}}</b></p>
+          <div><label class="label" for="otp_code">{{T "Verification Code"}}</label>
+            <input class="input" id="otp_code" name="otp_code" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
+          <button class="btn btn-primary w-full" type="submit">{{T "Validate"}}</button>
+          <a class="btn btn-ghost w-full" href="/portal/forgot?cancel=1">{{T "Cancel"}}</a>
+        </form>
+        {{else}}
+        <form method="post" action="/portal/forgot/reset" class="space-y-4">
+          <div><label class="label" for="npass">{{T "New Password"}}</label>
+            <input class="input" id="npass" name="npass" type="password" autocomplete="new-password" required autofocus></div>
+          <div><label class="label" for="cnpass">{{T "Confirm New Password"}}</label>
+            <input class="input" id="cnpass" name="cnpass" type="password" autocomplete="new-password" required></div>
+          <button class="btn btn-primary w-full" type="submit">{{T "Save"}}</button>
+        </form>
+        {{end}}
+      {{end}}
+    </div>
+  </div>
+</main>
+{{end}}

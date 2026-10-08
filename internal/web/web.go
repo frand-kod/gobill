@@ -193,6 +193,11 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/deposit", staff(http.HandlerFunc(s.depositSave)))
 	mux.Handle("GET /admin/transactions", all(http.HandlerFunc(s.trxList)))
 
+	// Old customfield.php and pages.php: custom fields CRUD, static page editor (managers only).
+	crud("/admin/fields", s.cfList, s.cfNew, s.cfEdit, s.cfSave, s.cfDelete)
+	mux.Handle("GET /admin/pages/{slug}", managers(http.HandlerFunc(s.pageEdit)))
+	mux.Handle("POST /admin/pages/{slug}", managers(http.HandlerFunc(s.pageSave)))
+
 	s.reportRoutes(mux, all)
 	s.portalRoutes(mux)
 
@@ -367,6 +372,8 @@ func (s *Server) parseTemplates() error {
 		"p_profile":   {"base.html", "portal/layout.html", "portal/profile.html"},
 		"p_orders":    {"base.html", "portal/layout.html", "portal/orders.html"},
 		"p_plans":     {"base.html", "portal/layout.html", "portal/plans.html"},
+		"p_forgot":    {"base.html", "portal/forgot.html"},
+		"p_page":      {"base.html", "portal/page.html"},
 	}
 	s.templates = map[string]*template.Template{}
 	for name, files := range pages {

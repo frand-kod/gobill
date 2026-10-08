@@ -137,7 +137,12 @@ func (s *Server) custExport(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) custNew(w http.ResponseWriter, r *http.Request) {
 	v := map[string]string{"service_type": "Others", "status": "Active", "auto_renewal": "1"}
-	s.renderForm(w, r, 200, formPage{"Add New Contact", "/admin/customers", "/admin/customers", custFields(v, nil, false)})
+	fs, err := s.customerForm(r.Context(), 0, v, nil, false)
+	if err != nil {
+		s.fail(w, "custom fields", err)
+		return
+	}
+	s.renderForm(w, r, 200, formPage{"Add New Contact", "/admin/customers", "/admin/customers", fs})
 }
 
 func (s *Server) custGet(w http.ResponseWriter, r *http.Request) (db.Customer, bool) {
@@ -163,7 +168,12 @@ func (s *Server) custEdit(w http.ResponseWriter, r *http.Request) {
 	if c.BillingDay.Valid {
 		v["billing_day"] = fmt.Sprint(c.BillingDay.Int64)
 	}
-	s.renderForm(w, r, 200, formPage{"Edit Contact: " + c.Username, fmt.Sprint("/admin/customers/", c.ID), "/admin/customers", custFields(v, nil, true)})
+	fs, err := s.customerForm(r.Context(), c.ID, v, nil, true)
+	if err != nil {
+		s.fail(w, "custom fields", err)
+		return
+	}
+	s.renderForm(w, r, 200, formPage{"Edit Contact: " + c.Username, fmt.Sprint("/admin/customers/", c.ID), "/admin/customers", fs})
 }
 
 type subRow struct{ Plan, Router, Expires, Status string }
@@ -178,6 +188,7 @@ type custDetail struct {
 	Subs      []subRow
 	Usage     *radiusUsage
 	Trx       []db.Transaction
+	Custom    []field // custom fields with this customer's values
 }
 
 func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
@@ -208,6 +219,10 @@ func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d.Usage = s.radiusUsage(ctx, c)
+	if d.Custom, err = s.cfFormFields(ctx, c.ID, map[string]string{}, nil); err != nil {
+		s.fail(w, "custom fields", err)
+		return
+	}
 	s.render(w, r, 200, "customer", Page{
 		Title: c.Username,
 		Flash: s.sessions.PopString(ctx, "flash"),
@@ -301,6 +316,11 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 		}
 		bday = sql.NullInt64{Int64: n, Valid: true}
 	}
+	cfv, err := s.cfCheck(r.Context(), r, v, e)
+	if err != nil {
+		s.fail(w, "check custom fields", err)
+		return
+	}
 	if len(e) == 0 {
 		enc := cur.SecretEnc
 		if sec != "" {
@@ -316,16 +336,19 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 		}
 		var err error
 		ctx := r.Context()
+		cid := id
 		if id == 0 {
 			var hash []byte
 			if hash, err = bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost); err != nil {
 				s.fail(w, "hash password", err)
 				return
 			}
-			_, err = s.queries.CreateCustomer(ctx, db.CreateCustomerParams{Username: v["username"], PasswordHash: string(hash),
+			var c db.Customer
+			c, err = s.queries.CreateCustomer(ctx, db.CreateCustomerParams{Username: v["username"], PasswordHash: string(hash),
 				Fullname: v["fullname"], Address: v["address"], Phone: v["phone"], Email: v["email"], ServiceType: v["service_type"],
 				PppoeUsername: v["pppoe_username"], PppoeIp: v["pppoe_ip"], SecretEnc: enc, AutoRenewal: renew,
 				Status: v["status"], CreatedBy: sql.NullInt64{Int64: adminFrom(r).ID, Valid: true}, BillingDay: bday})
+			cid = c.ID
 		} else {
 			err = s.queries.UpdateCustomer(ctx, db.UpdateCustomerParams{Fullname: v["fullname"], Address: v["address"],
 				Phone: v["phone"], Email: v["email"], ServiceType: v["service_type"], PppoeUsername: v["pppoe_username"],
@@ -336,6 +359,9 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 					err = s.queries.SetCustomerPassword(ctx, db.SetCustomerPasswordParams{PasswordHash: string(hash), ID: id})
 				}
 			}
+		}
+		if err == nil {
+			err = s.cfStore(ctx, cid, cfv)
 		}
 		switch {
 		case isUnique(err):
@@ -356,7 +382,12 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 	if id != 0 {
 		action, head = fmt.Sprint("/admin/customers/", id), "Edit Contact: "+cur.Username
 	}
-	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{head, action, "/admin/customers", custFields(v, e, id != 0)})
+	fs, err := s.customerForm(r.Context(), id, v, e, id != 0)
+	if err != nil {
+		s.fail(w, "custom fields", err)
+		return
+	}
+	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{head, action, "/admin/customers", fs})
 }
 
 func (s *Server) custDelete(w http.ResponseWriter, r *http.Request) {

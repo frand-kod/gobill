@@ -44,6 +44,15 @@ type Bandwidth struct {
 	Burst        string
 }
 
+type CustomField struct {
+	ID        int64
+	Name      string
+	Type      string
+	Options   string
+	Required  int64
+	SortOrder int64
+}
+
 type Customer struct {
 	ID            int64
 	Username      string
@@ -65,12 +74,24 @@ type Customer struct {
 	LastLoginAt   sql.NullInt64
 }
 
+type CustomerFieldValue struct {
+	CustomerID int64
+	FieldID    int64
+	Value      string
+}
+
 type Na struct {
 	ID          int64
 	Name        string
 	Ip          string
 	SecretEnc   []byte
 	Description string
+}
+
+type Page struct {
+	Slug  string
+	Title string
+	Body  string
 }
 
 type Plan struct {
