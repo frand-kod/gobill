@@ -458,6 +458,9 @@ func (s *Service) defaultDevice(p db.Plan, r db.Router) (device.Device, error) {
 	if p.Device == "" || p.Device == "Dummy" {
 		return device.Dummy{}, nil
 	}
+	if p.Device == "Radius" {
+		return device.Radius{Q: s.Q, Key: s.Key}, nil
+	}
 	rt, err := s.routerConn(r)
 	if err != nil {
 		return nil, err

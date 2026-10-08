@@ -200,6 +200,29 @@ func (q *Queries) GetRadiusPlan(ctx context.Context, customerID int64) (GetRadiu
 	return i, err
 }
 
+const getRadiusSession = `-- name: GetRadiusSession :one
+SELECT id, session_id, username, nas_ip, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions WHERE id = ?
+`
+
+func (q *Queries) GetRadiusSession(ctx context.Context, id int64) (RadiusSession, error) {
+	row := q.db.QueryRowContext(ctx, getRadiusSession, id)
+	var i RadiusSession
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Username,
+		&i.NasIp,
+		&i.FramedIp,
+		&i.Mac,
+		&i.StartedAt,
+		&i.UpdatedAt,
+		&i.StoppedAt,
+		&i.InputOctets,
+		&i.OutputOctets,
+	)
+	return i, err
+}
+
 const listNAS = `-- name: ListNAS :many
 SELECT id, name, ip, secret_enc, description FROM nas ORDER BY name
 `
@@ -219,6 +242,132 @@ func (q *Queries) ListNAS(ctx context.Context) ([]Na, error) {
 			&i.Ip,
 			&i.SecretEnc,
 			&i.Description,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOpenRadiusSessionsByUser = `-- name: ListOpenRadiusSessionsByUser :many
+SELECT id, session_id, username, nas_ip, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions WHERE username = ? AND stopped_at IS NULL
+`
+
+func (q *Queries) ListOpenRadiusSessionsByUser(ctx context.Context, username string) ([]RadiusSession, error) {
+	rows, err := q.db.QueryContext(ctx, listOpenRadiusSessionsByUser, username)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RadiusSession
+	for rows.Next() {
+		var i RadiusSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Username,
+			&i.NasIp,
+			&i.FramedIp,
+			&i.Mac,
+			&i.StartedAt,
+			&i.UpdatedAt,
+			&i.StoppedAt,
+			&i.InputOctets,
+			&i.OutputOctets,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRecentRadiusSessionsByUser = `-- name: ListRecentRadiusSessionsByUser :many
+SELECT id, session_id, username, nas_ip, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions WHERE username = ? ORDER BY started_at DESC LIMIT 10
+`
+
+func (q *Queries) ListRecentRadiusSessionsByUser(ctx context.Context, username string) ([]RadiusSession, error) {
+	rows, err := q.db.QueryContext(ctx, listRecentRadiusSessionsByUser, username)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RadiusSession
+	for rows.Next() {
+		var i RadiusSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Username,
+			&i.NasIp,
+			&i.FramedIp,
+			&i.Mac,
+			&i.StartedAt,
+			&i.UpdatedAt,
+			&i.StoppedAt,
+			&i.InputOctets,
+			&i.OutputOctets,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchOpenRadiusSessions = `-- name: SearchOpenRadiusSessions :many
+SELECT id, session_id, username, nas_ip, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions
+WHERE stopped_at IS NULL
+  AND (username LIKE '%' || CAST(?1 AS TEXT) || '%' OR framed_ip LIKE '%' || CAST(?1 AS TEXT) || '%' OR mac LIKE '%' || CAST(?1 AS TEXT) || '%')
+ORDER BY started_at DESC LIMIT ?3 OFFSET ?2
+`
+
+type SearchOpenRadiusSessionsParams struct {
+	Q          string
+	PageOffset int64
+	PageLimit  int64
+}
+
+func (q *Queries) SearchOpenRadiusSessions(ctx context.Context, arg SearchOpenRadiusSessionsParams) ([]RadiusSession, error) {
+	rows, err := q.db.QueryContext(ctx, searchOpenRadiusSessions, arg.Q, arg.PageOffset, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RadiusSession
+	for rows.Next() {
+		var i RadiusSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Username,
+			&i.NasIp,
+			&i.FramedIp,
+			&i.Mac,
+			&i.StartedAt,
+			&i.UpdatedAt,
+			&i.StoppedAt,
+			&i.InputOctets,
+			&i.OutputOctets,
 		); err != nil {
 			return nil, err
 		}

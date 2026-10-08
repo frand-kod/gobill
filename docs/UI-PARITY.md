@@ -79,6 +79,7 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | A56 | `admin/print/by-period.tpl` | `export/print-by-period` | — | Belum | F5 |
 | A57 | `admin/logs/system.tpl` | `logs/list`, `list-csv` | `GET /admin/logs` | Sebagian | F1 |
 | A58 | `admin/logs/radius.tpl` | `logs/radius`, `radius-csv` | — | Belum | F3 |
+| A58b | — (baru, tanpa padanan lama) | — | `GET /admin/radius/sessions`, `POST /admin/radius/sessions/{id}/disconnect` | Ada | F3 |
 | A59 | `admin/logs/message.tpl` | `logs/message`, `message-csv` | — | Belum | F4 |
 | A60 | `admin/coupons/list.tpl` | `coupons` | — | Belum | F5 |
 | A61 | `admin/coupons/add.tpl` | `coupons/add`, `add-post` | — | Belum | F5 |
@@ -123,7 +124,7 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 - `admin/community.tpl`/`rollback.tpl`: hanya tautan komunitas dan tombol update GitHub.
 - `admin/autoload/*.tpl`: hanya dipanggil lewat AJAX dari form paket/voucher.
 
-**Hitungan baris tabel ringkasan (91 baris):** Ada 9 · Sebagian 29 · Belum 42 · Ditunda 7 · Non-goal 4.
+**Hitungan baris tabel ringkasan (92 baris):** Ada 10 · Sebagian 29 · Belum 42 · Ditunda 7 · Non-goal 4.
 
 **Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 54 · ⚠️ 40 · ❌ 84; Settings ✅ 37 · ⚠️ 6 · ❌ 72; Portal pelanggan ✅ 15 · ⚠️ 4 · ❌ 22. Total ✅ 106 · ⚠️ 50 · ❌ 178. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
 
@@ -249,8 +250,8 @@ Satu form baru `planFields` (`internal/web/plans.go`) melayani tipe Hotspot/PPPo
 | `enabled` | Status | radio 1/0 | — | `enabled` | ✅ | Checkbox |
 | `prepaid` | Type | radio yes/no | — | `billing` prepaid/postpaid | ⚠️ | Nama dan nilai beda; label "Plan Type" |
 | `plan_type` | Package Type | radio Personal/Business | — | — | ❌ | Tidak ada kolom (kategori) |
-| `radius` (P saja) | Radius | checkbox | — | `device` | ⚠️ | RADIUS built-in; tidak ada flag, pemilihan lewat NAS/`device` |
-| `device` | Device | select (driver di `system/devices`) | — | `device` | ⚠️ | Opsi: kosong/MikrotikHotspot/MikrotikPppoe/Dummy. Radius/RadiusRest tidak ada (RADIUS built-in) |
+| `radius` (P saja) | Radius | checkbox | — | `device` | ⚠️ | RADIUS built-in; tidak ada flag, pilih `device` = Radius (router tidak disentuh, server RADIUS yang autentikasi) |
+| `device` | Device | select (driver di `system/devices`) | — | `device` | ⚠️ | Opsi: kosong/MikrotikHotspot/MikrotikPppoe/Dummy/Radius (Disconnect-Request ke NAS saat expired). RadiusRest tidak ada (RADIUS built-in) |
 | `name` (H) / `name_plan` (P) | Package Name | text maxlength 40 | required, unik (`Name Plan Already Exist`) | `name` | ✅ | |
 | `typebp` (H) | Package Type | radio Unlimited/Limited | — | `limited` | ⚠️ | checkbox 0/1 |
 | `limit_type` (H) | Limit Type | radio Time_Limit/Data_Limit/Both_Limit | — | `limit_type` | ✅ | |
@@ -473,7 +474,7 @@ Kolom: Username, Type, Plan Name, Plan Price, Created On, Expires On, Method, Ro
 
 Kolom lama (tanpa `<th>`): ID, Date, Type, IP, Description. Baru: Date, Actor, Action, Description, IP (Actor/Action menggantikan Type/User ID). Aksi: CSV (`logs/list-csv`) belum, Clean up belum.
 
-**A58 `logs/radius.tpl`:** `q`, `keep`, CSV, Clean Logs. Belum; data `radius_sessions` ada (tanpa UI). **A59 `logs/message.tpl`:** `q`, `keep`; kolom ID, Date Sent, Type, Status, Message; belum, tabel log pesan tidak ada.
+**A58 `logs/radius.tpl`:** `q`, `keep`, CSV, Clean Logs. Belum (log riwayat); sesi terbuka tampil di A58b `/admin/radius/sessions` (cari `q`, paging, tombol Disconnect, badge Stale), dan kartu "RADIUS usage" (total byte sejak paket aktif + 10 sesi terakhir) ada di detail pelanggan. **A59 `logs/message.tpl`:** `q`, `keep`; kolom ID, Date Sent, Type, Status, Message; belum, tabel log pesan tidak ada.
 
 ### A60-A62. Kupon
 

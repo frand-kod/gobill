@@ -1,0 +1,37 @@
+{{define "content"}}
+{{with .Data}}
+<div class="mb-4"><h1 class="text-2xl font-semibold">{{T "Online Sessions"}}</h1></div>
+<div class="card overflow-hidden">
+  <form class="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3 dark:border-slate-800" method="get" action="/admin/radius/sessions" role="search">
+    <div class="relative min-w-48 flex-1 sm:max-w-xs">
+      <span class="pointer-events-none absolute inset-y-0 start-3 flex items-center text-slate-400">{{icon "search"}}</span>
+      <input class="input ps-10" type="search" name="q" value="{{.Q}}" placeholder="{{T "Search"}}" aria-label="{{T "Search"}}">
+    </div>
+    <button class="btn btn-ghost" type="submit">{{T "Search"}}</button>
+  </form>
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead><tr><th>{{T "Username"}}</th><th>{{T "NAS"}}</th><th>{{T "IP Address"}}</th><th>{{T "MAC Address"}}</th><th>{{T "Start"}}</th><th>{{T "Duration"}}</th><th>{{T "Upload"}}</th><th>{{T "Download"}}</th><th></th></tr></thead>
+      <tbody>
+      {{range .Rows}}
+        <tr>
+          <td>{{.User}}{{if .Stale}} <span class="badge badge-warn">{{T "Stale"}}</span>{{end}}</td>
+          <td>{{.NAS}}</td><td>{{.IP}}</td><td>{{.MAC}}</td><td>{{.Start}}</td><td>{{.For}}</td><td>{{.Up}}</td><td>{{.Down}}</td>
+          <td class="text-end"><form method="post" action="/admin/radius/sessions/{{.ID}}/disconnect" onsubmit="return confirm({{T "Disconnect"}} + '?')">
+            <button class="btn btn-danger btn-sm" type="submit">{{icon "x"}}<span>{{T "Disconnect"}}</span></button></form></td>
+        </tr>
+      {{else}}
+        <tr><td class="py-8 text-center text-slate-500" colspan="9">{{T "No data"}}</td></tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{if or .Prev .Next}}
+<p class="mt-4 flex justify-end gap-2">
+  {{if .Prev}}<a class="btn btn-ghost" href="/admin/radius/sessions?q={{.Q}}&amp;page={{.Prev}}">{{T "Previous"}}</a>{{end}}
+  {{if .Next}}<a class="btn btn-ghost" href="/admin/radius/sessions?q={{.Q}}&amp;page={{.Next}}">{{T "Next"}}</a>{{end}}
+</p>
+{{end}}
+{{end}}
+{{end}}

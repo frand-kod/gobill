@@ -65,7 +65,7 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 		f.Checked = v[name] == "1"
 		return f
 	}
-	dev := text("device", "Device", v, e).opts("", "MikrotikHotspot", "MikrotikPppoe", "Dummy").hint("Empty = by plan type")
+	dev := text("device", "Device", v, e).opts("", "MikrotikHotspot", "MikrotikPppoe", "Dummy", "Radius").hint("Empty = by plan type")
 	const notBalance, hotspot = "type !== 'Balance'", "type === 'Hotspot'"
 	out := section([]field{
 		text("name", "Plan Name", v, e).req(),
@@ -206,7 +206,7 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 	if !oneOf(v["validity_unit"], "Mins", "Hrs", "Days", "Months", "Period") {
 		e["validity_unit"] = "Invalid value"
 	}
-	if !oneOf(v["device"], "", "MikrotikHotspot", "MikrotikPppoe", "Dummy") {
+	if !oneOf(v["device"], "", "MikrotikHotspot", "MikrotikPppoe", "Dummy", "Radius") {
 		e["device"] = "Invalid value"
 	}
 	price, err := strconv.ParseInt(v["price"], 10, 64)

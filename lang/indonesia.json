@@ -1143,5 +1143,17 @@
     "Enter a whole number from 0 to 23": "Masukkan angka bulat 0 sampai 23",
     "Enter a port from 1 to 65535": "Masukkan port 1 sampai 65535",
     "URL must contain [number] and [text]": "URL harus memuat [number] dan [text]",
-    "Use an http or https URL": "Gunakan URL http atau https"
+    "Use an http or https URL": "Gunakan URL http atau https",
+    "RADIUS usage": "Pemakaian RADIUS",
+    "Total since plan start": "Total sejak paket dimulai",
+    "Stale": "Basi",
+    "Disconnect failed": "Gagal memutus",
+    "User disconnected": "Pengguna diputus",
+    "Online Sessions": "Sesi Online",
+    "RADIUS": "RADIUS",
+    "Start": "Mulai",
+    "Duration": "Durasi",
+    "IP Address": "Alamat IP",
+    "MAC Address": "Alamat MAC",
+    "Disconnect": "Putuskan"
 }

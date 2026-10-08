@@ -51,3 +51,18 @@ ON CONFLICT (nas_ip, session_id) DO UPDATE SET
 
 -- name: CloseRadiusSessionsByNAS :exec
 UPDATE radius_sessions SET stopped_at = ? WHERE nas_ip = ? AND stopped_at IS NULL;
+
+-- name: SearchOpenRadiusSessions :many
+SELECT * FROM radius_sessions
+WHERE stopped_at IS NULL
+  AND (username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR framed_ip LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR mac LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%')
+ORDER BY started_at DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+
+-- name: GetRadiusSession :one
+SELECT * FROM radius_sessions WHERE id = ?;
+
+-- name: ListOpenRadiusSessionsByUser :many
+SELECT * FROM radius_sessions WHERE username = ? AND stopped_at IS NULL;
+
+-- name: ListRecentRadiusSessionsByUser :many
+SELECT * FROM radius_sessions WHERE username = ? ORDER BY started_at DESC LIMIT 10;

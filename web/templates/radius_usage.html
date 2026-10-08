@@ -1,0 +1,10 @@
+{{define "radius_usage"}}{{with .}}{{if .Rows}}
+<section class="card mt-4 overflow-hidden">
+  <h2 class="card-title">{{T "RADIUS usage"}}</h2>
+  <p class="px-4 pt-3">{{T "Total since plan start"}}: <strong>{{.Total}}</strong></p>
+  <div class="overflow-x-auto"><table class="table">
+    <thead><tr><th>{{T "Start"}}</th><th>{{T "Duration"}}</th><th>{{T "Upload"}}</th><th>{{T "Download"}}</th></tr></thead>
+    <tbody>{{range .Rows}}<tr><td>{{.Start}}</td><td>{{.For}}</td><td>{{.Up}}</td><td>{{.Down}}</td></tr>{{end}}</tbody>
+  </table></div>
+</section>
+{{end}}{{end}}{{end}}

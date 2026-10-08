@@ -686,5 +686,17 @@
     "Enter a whole number from 0 to 23": "Enter a whole number from 0 to 23",
     "Enter a port from 1 to 65535": "Enter a port from 1 to 65535",
     "URL must contain [number] and [text]": "URL must contain [number] and [text]",
-    "Use an http or https URL": "Use an http or https URL"
+    "Use an http or https URL": "Use an http or https URL",
+    "RADIUS usage": "RADIUS usage",
+    "Total since plan start": "Total since plan start",
+    "Stale": "Stale",
+    "Disconnect failed": "Disconnect failed",
+    "User disconnected": "User disconnected",
+    "Online Sessions": "Online Sessions",
+    "RADIUS": "RADIUS",
+    "Start": "Start",
+    "Duration": "Duration",
+    "IP Address": "IP Address",
+    "MAC Address": "MAC Address",
+    "Disconnect": "Disconnect"
 }

@@ -57,7 +57,7 @@ CREATE TABLE plans (
     on_login      TEXT    NOT NULL DEFAULT '',
     on_logout     TEXT    NOT NULL DEFAULT '',
     -- Driver name from system/devices; '' for Balance plans.
-    device        TEXT    NOT NULL DEFAULT '' CHECK (device IN ('', 'MikrotikHotspot', 'MikrotikPppoe', 'Dummy')),
+    device        TEXT    NOT NULL DEFAULT '' CHECK (device IN ('', 'MikrotikHotspot', 'MikrotikPppoe', 'Dummy', 'Radius')),
     enabled       INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
     CHECK (type = 'Balance' OR (bandwidth_id IS NOT NULL AND router_id IS NOT NULL))
 );

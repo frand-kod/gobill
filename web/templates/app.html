@@ -24,9 +24,16 @@
         <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o"><span>{{T "Network"}}</span>{{icon "chevron-down"}}</button>
         <div x-show="o" class="space-y-1">
           <a class="nav-item" href="/admin/routers"{{if hasPrefix .Path "/admin/routers"}} aria-current="page"{{end}}>{{icon "router"}}<span>{{T "Routers"}}</span></a>
-          <a class="nav-item" href="/admin/nas"{{if hasPrefix .Path "/admin/nas"}} aria-current="page"{{end}}>{{icon "server"}}<span>{{T "NAS"}}</span></a>
           <a class="nav-item" href="/admin/pool"{{if hasPrefix .Path "/admin/pool"}} aria-current="page"{{end}}>{{icon "network"}}<span>{{T "Pool"}}</span></a>
           <a class="nav-item" href="/admin/bandwidth"{{if hasPrefix .Path "/admin/bandwidth"}} aria-current="page"{{end}}>{{icon "gauge"}}<span>{{T "Bandwidth"}}</span></a>
+        </div>
+      </div>
+
+      <div x-data="{o:true}">
+        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o"><span>{{T "RADIUS"}}</span>{{icon "chevron-down"}}</button>
+        <div x-show="o" class="space-y-1">
+          <a class="nav-item" href="/admin/nas"{{if hasPrefix .Path "/admin/nas"}} aria-current="page"{{end}}>{{icon "radio-tower"}}<span>{{T "NAS"}}</span></a>
+          <a class="nav-item" href="/admin/radius/sessions"{{if hasPrefix .Path "/admin/radius"}} aria-current="page"{{end}}>{{icon "activity"}}<span>{{T "Online Sessions"}}</span></a>
         </div>
       </div>
       {{end}}

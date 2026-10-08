@@ -50,6 +50,8 @@ type Server struct {
 	SettingsChanged func(ctx context.Context) // called after settings are saved
 	// Billing recharges customers and syncs plans to routers; nil disables both.
 	Billing *billing.Service
+	// CoAPort is the NAS Disconnect-Request port; empty = 3799.
+	CoAPort string
 
 	// ponytail: in-memory limiter, resets on restart; persist if needed
 	mu     sync.Mutex
@@ -147,6 +149,8 @@ func (s *Server) Handler() http.Handler {
 	crud("/admin/routers", s.routerList, s.routerNew, s.routerEdit, s.routerSave, s.routerDelete)
 	mux.Handle("POST /admin/routers/{id}/test", managers(http.HandlerFunc(s.routerTest)))
 	crud("/admin/nas", s.nasList, s.nasNew, s.nasEdit, s.nasSave, s.nasDelete)
+	mux.Handle("GET /admin/radius/sessions", managers(http.HandlerFunc(s.radiusSessions)))
+	mux.Handle("POST /admin/radius/sessions/{id}/disconnect", managers(http.HandlerFunc(s.radiusDisconnect)))
 	crud("/admin/pool", s.poolList, s.poolNew, s.poolEdit, s.poolSave, s.poolDelete)
 	crud("/admin/plans", s.planList, s.planNew, s.planEdit, s.planSave, s.planDelete)
 	mux.Handle("GET /admin/logs", managers(http.HandlerFunc(s.logList)))
@@ -319,12 +323,13 @@ func (s *Server) parseTemplates() error {
 		},
 	}
 	pages := map[string][]string{
-		"login":     {"base.html", "login.html"},
-		"dashboard": {"base.html", "app.html", "dashboard.html"},
-		"list":      {"base.html", "app.html", "list.html"},
-		"form":      {"base.html", "app.html", "form.html"},
-		"customer":  {"base.html", "app.html", "customer.html"},
-		"print":     {"print.html"},
+		"login":           {"base.html", "login.html"},
+		"dashboard":       {"base.html", "app.html", "dashboard.html"},
+		"list":            {"base.html", "app.html", "list.html"},
+		"form":            {"base.html", "app.html", "form.html"},
+		"customer":        {"base.html", "app.html", "customer.html", "radius_usage.html"},
+		"radius_sessions": {"base.html", "app.html", "radius_sessions.html"},
+		"print":           {"print.html"},
 
 		"p_login":     {"base.html", "portal/login.html"},
 		"p_register":  {"base.html", "portal/register.html"},

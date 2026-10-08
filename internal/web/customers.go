@@ -110,6 +110,7 @@ type custDetail struct {
 	CanSell   bool // may recharge
 	Plans     []option
 	Subs      []subRow
+	Usage     *radiusUsage
 	Trx       []db.Transaction
 }
 
@@ -140,6 +141,7 @@ func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "list transactions", err)
 		return
 	}
+	d.Usage = s.radiusUsage(ctx, c)
 	s.render(w, r, 200, "customer", Page{
 		Title: c.Username,
 		Flash: s.sessions.PopString(ctx, "flash"),
