@@ -113,78 +113,73 @@ func reject(w radius.ResponseWriter, r *radius.Request, msg string) {
 	w.Write(p)
 }
 
-// HandleAuth is Access-Request: authorize (customer, active plan, expiry) + authenticate (password).
-func (s *Server) HandleAuth(w radius.ResponseWriter, r *radius.Request) {
-	ctx := r.Context()
-	user := rfc2865.UserName_GetString(r.Packet)
+// AuthRequest is the transport-neutral input of Authorize (UDP packet or rlm_rest form).
+type AuthRequest struct {
+	User     string
+	Check    func(pw []byte) (ok bool, success string) // verifies the offered credential against the stored password
+	FramedIP string
+	MAC      string
+}
+
+// Decision is the outcome of Authorize. Reject != "" means Access-Reject with that message.
+type Decision struct {
+	Reject    string
+	Success   string // MS-CHAP2-Success blob, UDP only
+	Cust      db.Customer
+	Plan      db.GetRadiusPlanRow
+	Rate      string // Mikrotik-Rate-Limit, "" = none
+	Timeout   int64  // Session-Timeout seconds, 0 = none
+	Expires   int64
+	TotalLeft int64 // remaining bytes when a data limit applies (HasTotal)
+	HasTotal  bool
+}
+
+// Authorize is the shared decision: customer lookup, password, active and unexpired plan
+// (clock-guarded), shared_users, time and data limits. Old PHP radius.php semantics.
+func (s *Server) Authorize(ctx context.Context, rq AuthRequest) Decision {
+	user := rq.User
 	c, err := s.Q.GetCustomerForRadius(ctx, user)
 	if err != nil || user == "" || len(c.SecretEnc) == 0 {
-		reject(w, r, "Login invalid......")
-		return
+		return Decision{Reject: "Login invalid......"}
 	}
 	pw, err := secret.Open(s.Key, c.SecretEnc)
 	if err != nil {
 		slog.Error("radius: decrypt customer secret", "user", user, "err", err)
-		reject(w, r, "Login invalid......")
-		return
+		return Decision{Reject: "Login invalid......"}
 	}
-	ok, success := checkPassword(r.Packet, user, pw)
+	ok, success := rq.Check(pw)
 	if !ok {
-		reject(w, r, "Username or Password is wrong")
-		return
+		return Decision{Reject: "Username or Password is wrong"}
 	}
 	pl, err := s.Q.GetRadiusPlan(ctx, c.ID)
 	if err != nil {
-		reject(w, r, "No active plan")
-		return
+		return Decision{Reject: "No active plan"}
 	}
 	left := pl.ExpiresAt - s.now().Unix()
 	if left <= 0 {
 		// Old PHP rejects expired accounts. A wrong clock must not lock everybody out.
 		if s.Trusted == nil || s.Trusted() {
-			reject(w, r, "Sorry, your account's active period has expired ("+time.Unix(pl.ExpiresAt, 0).UTC().Format("2006-01-02 15:04:05")+")")
-			return
+			return Decision{Reject: "Sorry, your account's active period has expired (" + time.Unix(pl.ExpiresAt, 0).UTC().Format("2006-01-02 15:04:05") + ")"}
 		}
 		slog.Warn("radius: clock untrusted, accepting expired subscription", "user", user)
 	}
 	// Old PHP: Hotspot only, count of logged-in sessions >= shared_users is refused.
 	if pl.PlanType == "Hotspot" && pl.SharedUsers.Valid {
-		fip := ""
-		if ip := rfc2865.FramedIPAddress_Get(r.Packet); ip != nil {
-			fip = ip.String()
-		}
-		mac := rfc2865.CallingStationID_GetString(r.Packet)
 		n, _ := s.Q.CountOtherOpenRadiusSessions(ctx, db.CountOtherOpenRadiusSessionsParams{
-			Username: user, UpdatedAt: s.now().Unix() - staleAfter, FramedIp: fip, Column4: fip, Mac: mac, Column6: mac})
+			Username: user, UpdatedAt: s.now().Unix() - staleAfter, FramedIp: rq.FramedIP, Column4: rq.FramedIP, Mac: rq.MAC, Column6: rq.MAC})
 		if n >= pl.SharedUsers.Int64 {
-			reject(w, r, "You are already logged in - access denied")
-			return
+			return Decision{Reject: "You are already logged in - access denied"}
 		}
 	}
-
-	p := r.Response(radius.CodeAccessAccept)
-	rfc2865.ReplyMessage_SetString(p, "success")
-	if success != "" {
-		microsoft.MSCHAP2Success_Add(p, []byte(success))
-	}
-	timeout := int64(0)
+	d := Decision{Success: success, Cust: c, Plan: pl, Expires: pl.ExpiresAt}
 	if left > 0 {
-		timeout = left
-	}
-	if pl.PlanType == "PPPoE" {
-		if pl.PoolName.Valid && pl.PoolName.String != "" {
-			rfc2869.FramedPool_SetString(p, pl.PoolName.String)
-		}
-		if ip := net.ParseIP(c.PppoeIp).To4(); ip != nil {
-			rfc2865.FramedIPAddress_Set(p, ip)
-		}
+		d.Timeout = left
 	}
 	if pl.RateUp.Valid && pl.RateDown.Valid {
-		rate := fmt.Sprintf("%d%s/%d%s", pl.RateUp.Int64, unit(pl.RateUpUnit.String), pl.RateDown.Int64, unit(pl.RateDownUnit.String))
+		d.Rate = fmt.Sprintf("%d%s/%d%s", pl.RateUp.Int64, unit(pl.RateUpUnit.String), pl.RateDown.Int64, unit(pl.RateDownUnit.String))
 		if b := strings.TrimSpace(pl.Burst.String); b != "" {
-			rate += " " + b
+			d.Rate += " " + b
 		}
-		mikrotik.MikrotikRateLimit_SetString(p, rate)
 	}
 	if pl.Limited == 1 {
 		lt := pl.LimitType.String
@@ -193,8 +188,8 @@ func (s *Server) HandleAuth(w radius.ResponseWriter, r *radius.Request) {
 			if pl.TimeUnit.String == "Hrs" {
 				t *= 60
 			}
-			if timeout == 0 || t < timeout {
-				timeout = t
+			if d.Timeout == 0 || t < d.Timeout {
+				d.Timeout = t
 			}
 		}
 		if (lt == "Data_Limit" || lt == "Both_Limit") && pl.DataLimit.Valid {
@@ -204,19 +199,53 @@ func (s *Server) HandleAuth(w radius.ResponseWriter, r *radius.Request) {
 			}
 			used, _ := s.Q.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: user, StartedAt: pl.StartedAt})
 			if total-used <= 0 {
-				reject(w, r, "You have exceeded your data limit.")
-				return
+				return Decision{Reject: "You have exceeded your data limit."}
 			}
-			rem := uint64(total - used)
-			mikrotik.MikrotikTotalLimit_Set(p, mikrotik.MikrotikTotalLimit(uint32(rem)))
-			mikrotik.MikrotikTotalLimitGigawords_Set(p, mikrotik.MikrotikTotalLimitGigawords(rem>>32))
+			d.TotalLeft, d.HasTotal = total-used, true
 		}
 	}
-	if timeout > 0 {
-		if timeout > 1<<32-1 {
-			timeout = 1<<32 - 1
+	if d.Timeout > 1<<32-1 {
+		d.Timeout = 1<<32 - 1
+	}
+	return d
+}
+
+// HandleAuth is Access-Request over UDP: a thin packet adapter over Authorize.
+func (s *Server) HandleAuth(w radius.ResponseWriter, r *radius.Request) {
+	user := rfc2865.UserName_GetString(r.Packet)
+	rq := AuthRequest{User: user, MAC: rfc2865.CallingStationID_GetString(r.Packet),
+		Check: func(pw []byte) (bool, string) { return checkPassword(r.Packet, user, pw) }}
+	if ip := rfc2865.FramedIPAddress_Get(r.Packet); ip != nil {
+		rq.FramedIP = ip.String()
+	}
+	d := s.Authorize(r.Context(), rq)
+	if d.Reject != "" {
+		reject(w, r, d.Reject)
+		return
+	}
+	p := r.Response(radius.CodeAccessAccept)
+	rfc2865.ReplyMessage_SetString(p, "success")
+	if d.Success != "" {
+		microsoft.MSCHAP2Success_Add(p, []byte(d.Success))
+	}
+	if d.Plan.PlanType == "PPPoE" {
+		if d.Plan.PoolName.Valid && d.Plan.PoolName.String != "" {
+			rfc2869.FramedPool_SetString(p, d.Plan.PoolName.String)
 		}
-		rfc2865.SessionTimeout_Set(p, rfc2865.SessionTimeout(timeout))
+		if ip := net.ParseIP(d.Cust.PppoeIp).To4(); ip != nil {
+			rfc2865.FramedIPAddress_Set(p, ip)
+		}
+	}
+	if d.Rate != "" {
+		mikrotik.MikrotikRateLimit_SetString(p, d.Rate)
+	}
+	if d.HasTotal {
+		rem := uint64(d.TotalLeft)
+		mikrotik.MikrotikTotalLimit_Set(p, mikrotik.MikrotikTotalLimit(uint32(rem)))
+		mikrotik.MikrotikTotalLimitGigawords_Set(p, mikrotik.MikrotikTotalLimitGigawords(rem>>32))
+	}
+	if d.Timeout > 0 {
+		rfc2865.SessionTimeout_Set(p, rfc2865.SessionTimeout(d.Timeout))
 	}
 	w.Write(p)
 }
@@ -228,6 +257,15 @@ func unit(u string) string {
 	return "M"
 }
 
+// CHAPOK checks a CHAP response: md5(id || password || challenge) == resp.
+func CHAPOK(pw []byte, id byte, challenge, resp []byte) bool {
+	h := md5.New()
+	h.Write([]byte{id})
+	h.Write(pw)
+	h.Write(challenge)
+	return subtle.ConstantTimeCompare(h.Sum(nil), resp) == 1
+}
+
 // checkPassword tries CHAP, MS-CHAPv2, then PAP. success is the MS-CHAP2-Success blob when applicable.
 func checkPassword(p *radius.Packet, user string, pw []byte) (ok bool, success string) {
 	if chap := rfc2865.CHAPPassword_Get(p); len(chap) == 17 {
@@ -235,11 +273,7 @@ func checkPassword(p *radius.Packet, user string, pw []byte) (ok bool, success s
 		if len(ch) == 0 {
 			ch = p.Authenticator[:]
 		}
-		h := md5.New()
-		h.Write(chap[:1])
-		h.Write(pw)
-		h.Write(ch)
-		return bytes.Equal(h.Sum(nil), chap[1:]), ""
+		return CHAPOK(pw, chap[0], ch, chap[1:]), ""
 	}
 	if resp := microsoft.MSCHAP2Response_Get(p); len(resp) == 50 {
 		ch := microsoft.MSCHAPChallenge_Get(p)
@@ -263,37 +297,47 @@ func checkPassword(p *radius.Packet, user string, pw []byte) (ok bool, success s
 	return false, ""
 }
 
-// HandleAcct is Accounting-Request. Interim only updates the session row.
-func (s *Server) HandleAcct(w radius.ResponseWriter, r *radius.Request) {
-	p := r.Packet
-	nas := addrIP(r.RemoteAddr).String()
+// AcctRequest is the transport-neutral accounting input.
+type AcctRequest struct {
+	Type                 rfc2866.AcctStatusType
+	NAS, SessionID, User string
+	MAC, FramedIP        string
+	SessionTime          int64
+	InOctets, OutOctets  int64 // gigawords already folded in
+}
+
+// Account applies Start, Interim-Update, Stop and Accounting-On/Off to radius_sessions.
+func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 	now := s.now().Unix()
-	typ := rfc2866.AcctStatusType_Get(p)
-	switch typ {
+	switch a.Type {
 	case rfc2866.AcctStatusType_Value_AccountingOn, rfc2866.AcctStatusType_Value_AccountingOff:
 		// NAS rebooted: its open sessions are gone.
-		s.Q.CloseRadiusSessionsByNAS(r.Context(), db.CloseRadiusSessionsByNASParams{StoppedAt: sql.NullInt64{Int64: now, Valid: true}, NasIp: nas})
+		return s.Q.CloseRadiusSessionsByNAS(ctx, db.CloseRadiusSessionsByNASParams{StoppedAt: sql.NullInt64{Int64: now, Valid: true}, NasIp: a.NAS})
 	case rfc2866.AcctStatusType_Value_Start, rfc2866.AcctStatusType_Value_InterimUpdate, rfc2866.AcctStatusType_Value_Stop:
-		arg := db.UpsertRadiusSessionParams{
-			SessionID:    rfc2866.AcctSessionID_GetString(p),
-			Username:     rfc2865.UserName_GetString(p),
-			NasIp:        nas,
-			Mac:          rfc2865.CallingStationID_GetString(p),
-			StartedAt:    now - int64(rfc2866.AcctSessionTime_Get(p)),
-			UpdatedAt:    now,
-			InputOctets:  int64(rfc2869.AcctInputGigawords_Get(p))<<32 | int64(rfc2866.AcctInputOctets_Get(p)),
-			OutputOctets: int64(rfc2869.AcctOutputGigawords_Get(p))<<32 | int64(rfc2866.AcctOutputOctets_Get(p)),
-		}
-		if ip := rfc2865.FramedIPAddress_Get(p); ip != nil {
-			arg.FramedIp = ip.String()
-		}
-		if typ == rfc2866.AcctStatusType_Value_Stop {
+		arg := db.UpsertRadiusSessionParams{SessionID: a.SessionID, Username: a.User, NasIp: a.NAS, FramedIp: a.FramedIP,
+			Mac: a.MAC, StartedAt: now - a.SessionTime, UpdatedAt: now, InputOctets: a.InOctets, OutputOctets: a.OutOctets}
+		if a.Type == rfc2866.AcctStatusType_Value_Stop {
 			arg.StoppedAt = sql.NullInt64{Int64: now, Valid: true}
 		}
-		if err := s.Q.UpsertRadiusSession(r.Context(), arg); err != nil {
-			slog.Error("radius: accounting", "err", err)
-			return // no response: NAS retries
-		}
+		return s.Q.UpsertRadiusSession(ctx, arg)
+	}
+	return nil
+}
+
+// HandleAcct is Accounting-Request over UDP.
+func (s *Server) HandleAcct(w radius.ResponseWriter, r *radius.Request) {
+	p := r.Packet
+	a := AcctRequest{Type: rfc2866.AcctStatusType_Get(p), NAS: addrIP(r.RemoteAddr).String(),
+		SessionID: rfc2866.AcctSessionID_GetString(p), User: rfc2865.UserName_GetString(p),
+		MAC: rfc2865.CallingStationID_GetString(p), SessionTime: int64(rfc2866.AcctSessionTime_Get(p)),
+		InOctets:  int64(rfc2869.AcctInputGigawords_Get(p))<<32 | int64(rfc2866.AcctInputOctets_Get(p)),
+		OutOctets: int64(rfc2869.AcctOutputGigawords_Get(p))<<32 | int64(rfc2866.AcctOutputOctets_Get(p))}
+	if ip := rfc2865.FramedIPAddress_Get(p); ip != nil {
+		a.FramedIP = ip.String()
+	}
+	if err := s.Account(r.Context(), a); err != nil {
+		slog.Error("radius: accounting", "err", err)
+		return // no response: NAS retries
 	}
 	w.Write(r.Response(radius.CodeAccountingResponse))
 }

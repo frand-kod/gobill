@@ -13,7 +13,7 @@ import (
 func (s *Server) maintenance(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := r.URL.Path
-		if strings.HasPrefix(p, "/static/") || strings.HasPrefix(p, "/callback/") {
+		if strings.HasPrefix(p, "/static/") || strings.HasPrefix(p, "/callback/") || isRadiusRest(p) {
 			next.ServeHTTP(w, r)
 			return
 		}

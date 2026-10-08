@@ -153,3 +153,25 @@ Cek apakah service berjalan:
 
     systemctl status nuxbill
     systemctl is-enabled nuxbill
+
+## Migrasi dari PHPNuxBill + FreeRADIUS REST
+
+Plan `RadiusRest` dari PHPNuxBill diimpor sebagai plan `Radius`. Ada dua cara melanjutkan.
+
+**Opsi A: tetap pakai FreeRADIUS.** Di `mods-enabled/rest` ubah `connect_uri` menjadi `https://<nuxbill>/radius.php` (atau `/radius/rest`). Konfigurasi FreeRADIUS lain, MikroTik, dan section `authorize`/`authenticate`/`accounting`/`post-auth` tidak diubah. Format respons sama dengan `radius.php` lama (JSON `control:`/`reply:`, 204 untuk authenticate sukses, 401 untuk ditolak).
+
+- Plus: tidak ada perubahan di MikroTik dan FreeRADIUS, mudah dikembalikan.
+- Plus: FreeRADIUS tetap bisa dipakai untuk modul lain (misalnya EAP).
+- Minus: satu komponen tambahan yang harus dirawat, dan setiap login menambah satu hop HTTP.
+
+**Opsi B: tanpa FreeRADIUS.** Arahkan RADIUS MikroTik langsung ke NuxBill (UDP 1812/1813, server built-in; mendukung PAP, CHAP, dan MS-CHAPv2).
+
+- Plus: satu proses, tanpa FreeRADIUS, tanpa PHP.
+- Plus: MS-CHAPv2 dan pembatasan sesi bersama langsung dari satu sumber data.
+- Minus: alamat dan secret RADIUS di MikroTik harus diubah, dan tidak ada modul FreeRADIUS lain.
+
+Catatan penting:
+
+- Amankan endpoint: isi pengaturan `radius_rest_allow` dengan IP FreeRADIUS (pisahkan dengan koma, boleh CIDR). Kosong berarti semua boleh dan NuxBill mencatat peringatan saat start. Header `X-Forwarded-For` hanya dipercaya jika `trust_proxy` = `yes`. `radius.php` lama tidak punya autentikasi sama sekali.
+- Disconnect: plan `Radius` tidak memanggil API router. Putus paksa (saat plan habis atau admin menekan Disconnect) dikirim sebagai CoA/Disconnect-Request langsung ke MikroTik. PHPNuxBill lama tidak melakukannya (`disconnect_customer` kosong). Agar berfungsi, tambahkan MikroTik di menu NAS (IP plus secret) dan aktifkan RADIUS incoming (port 3799) di MikroTik. Tanpa baris NAS, disconnect hanya dicatat sebagai peringatan; Access-Request berikutnya tetap ditolak.
+- Voucher yang login lewat username tanpa password (mode voucher RADIUS di `radius.php` lama) belum didukung di endpoint ini.

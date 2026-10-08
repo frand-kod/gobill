@@ -86,6 +86,6 @@ Library lain hanya boleh ditambahkan jika stdlib dan daftar di atas terbukti tid
 ## Konsekuensi
 
 - **Plugin PHP lama tidak jalan.** Payment gateway di-port satu per satu sebagai implementasi interface `PaymentGateway` yang ikut dikompilasi. Untuk kebutuhan integrasi ringan, aplikasi menyediakan **outgoing webhook** per event (`customer.activated`, `recharge.expired`, `payment.paid`, ...) sebagai pengganti `run_hook`.
-- **FreeRADIUS jadi opsional.** RADIUS built-in menangani auth dan accounting. Pengguna yang tetap ingin memakai FreeRADIUS bisa memakai endpoint REST yang kompatibel dengan `rlm_rest`. Endpoint ini ditunda sampai ada permintaan.
+- **FreeRADIUS jadi opsional.** RADIUS built-in menangani auth dan accounting. Pengguna yang tetap ingin memakai FreeRADIUS cukup mengganti `connect_uri` rlm_rest ke `https://<nuxbill>/radius.php`: endpoint kompatibel `radius.php` PHPNuxBill sudah tersedia (`internal/web/radiusrest.go`) dan memakai logika keputusan yang sama dengan server UDP.
 - **SQLite artinya satu instance per database.** Ini cukup untuk ISP kecil-menengah (ribuan pelanggan). `ponytail:` jika butuh multi-instance atau puluhan ribu sesi aktif, tambahkan dukungan PostgreSQL. `sqlc` mendukung PostgreSQL, sehingga yang perlu ditulis ulang hanya file query.
 - **Pengelola perlu belajar Go dasar.** Untuk memitigasinya, gaya kode dibatasi oleh aturan di atas, dan setiap package diberi contoh test.
