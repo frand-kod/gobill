@@ -46,7 +46,8 @@ type Server struct {
 	// ClockWarning, if set, returns a non-empty reason while the clock is untrusted.
 	ClockWarning func() string
 	// SecretKey encrypts router passwords and customer secrets (see package secret).
-	SecretKey []byte
+	SecretKey       []byte
+	SettingsChanged func(ctx context.Context) // called after settings are saved
 	// Billing recharges customers and syncs plans to routers; nil disables both.
 	Billing *billing.Service
 

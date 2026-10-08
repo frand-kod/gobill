@@ -20,6 +20,7 @@ import (
 	"github.com/frand-kod/nuxbill-go/internal/billing"
 	"github.com/frand-kod/nuxbill-go/internal/db"
 	"github.com/frand-kod/nuxbill-go/internal/job"
+	"github.com/frand-kod/nuxbill-go/internal/notify"
 	"github.com/frand-kod/nuxbill-go/internal/radius"
 	"github.com/frand-kod/nuxbill-go/internal/secret"
 	"github.com/frand-kod/nuxbill-go/internal/web"
@@ -83,20 +84,27 @@ func run() error {
 		guard.Run(ctx)
 	}()
 
-	loc := time.FixedZone("WIB", 7*3600)
-	if l, err := time.LoadLocation("Asia/Jakarta"); err == nil {
-		loc = l
-	}
-	if rows, err := db.New(conn).ListSettings(ctx); err == nil {
-		for _, r := range rows {
-			if l, err := time.LoadLocation(r.Value); r.Key == "timezone" && err == nil {
-				loc = l
-			}
+	svc := &billing.Service{DB: conn, Q: db.New(conn), Key: key}
+	reload := func(ctx context.Context) {
+		n, err := notify.Load(ctx, svc.Q)
+		if err != nil {
+			slog.Error("reload settings", "err", err)
+			return
 		}
+		loc := time.FixedZone("WIB", 7*3600)
+		if l, err := time.LoadLocation("Asia/Jakarta"); err == nil {
+			loc = l
+		}
+		if l, err := time.LoadLocation(n.Settings["timezone"]); err == nil {
+			loc = l
+		}
+		svc.Reload(n, loc)
 	}
-	svc := &billing.Service{DB: conn, Q: db.New(conn), Key: key, Loc: loc}
+	reload(ctx)
+	app.SettingsChanged = reload
 	app.Billing = svc
 	go job.Run(ctx, "expiry", time.Minute, svc.ExpiryJob(guard.Trusted))
+	go job.Run(ctx, "reminder", time.Minute, svc.ReminderJob(guard.Trusted))
 
 	errCh := make(chan error, 2)
 	if ra := env("NUXBILL_RADIUS", ":1812"); ra != "" {

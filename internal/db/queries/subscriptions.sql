@@ -20,6 +20,9 @@ ORDER BY s.id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 -- name: ListExpiredActiveSubscriptions :many
 SELECT * FROM subscriptions WHERE status = 'active' AND expires_at <= sqlc.arg(now) ORDER BY expires_at;
 
+-- name: ListActiveExpiringBetween :many
+SELECT * FROM subscriptions WHERE status = 'active' AND expires_at >= sqlc.arg(from_ts) AND expires_at < sqlc.arg(to_ts) ORDER BY expires_at;
+
 -- name: ExpireSubscription :execrows
 UPDATE subscriptions SET status = 'expired' WHERE id = ? AND status = 'active';
 

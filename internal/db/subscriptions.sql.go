@@ -97,6 +97,49 @@ func (q *Queries) GetSubscription(ctx context.Context, id int64) (Subscription, 
 	return i, err
 }
 
+const listActiveExpiringBetween = `-- name: ListActiveExpiringBetween :many
+SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id FROM subscriptions WHERE status = 'active' AND expires_at >= ?1 AND expires_at < ?2 ORDER BY expires_at
+`
+
+type ListActiveExpiringBetweenParams struct {
+	FromTs int64
+	ToTs   int64
+}
+
+func (q *Queries) ListActiveExpiringBetween(ctx context.Context, arg ListActiveExpiringBetweenParams) ([]Subscription, error) {
+	rows, err := q.db.QueryContext(ctx, listActiveExpiringBetween, arg.FromTs, arg.ToTs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Subscription
+	for rows.Next() {
+		var i Subscription
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.PlanID,
+			&i.RouterID,
+			&i.Type,
+			&i.StartedAt,
+			&i.ExpiresAt,
+			&i.Status,
+			&i.Method,
+			&i.AdminID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listExpiredActiveSubscriptions = `-- name: ListExpiredActiveSubscriptions :many
 SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id FROM subscriptions WHERE status = 'active' AND expires_at <= ?1 ORDER BY expires_at
 `

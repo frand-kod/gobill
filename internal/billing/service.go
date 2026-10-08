@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/frand-kod/nuxbill-go/internal/db"
 	"github.com/frand-kod/nuxbill-go/internal/device"
+	"github.com/frand-kod/nuxbill-go/internal/notify"
 	"github.com/frand-kod/nuxbill-go/internal/secret"
 )
 
@@ -26,10 +29,26 @@ type Service struct {
 	Key []byte         // decrypts routers.password_enc and customers.secret_enc
 	Loc *time.Location // zone used for day/month/billing-day math
 	Now func() time.Time
+	// N sends notifications; nil means none. Swap at runtime with Reload.
+	N  *notify.Notifier
+	mu sync.RWMutex
 	// DeviceFor builds the driver for a plan; nil means the default (by plans.device).
 	DeviceFor func(plan db.Plan, router db.Router) (device.Device, error)
 	// RouterFor builds the connection for a router (ping, pool sync); nil means from the stored row.
 	RouterFor func(router db.Router) (device.Router, error)
+}
+
+// Reload swaps the notifier and time zone (after settings change).
+func (s *Service) Reload(n *notify.Notifier, loc *time.Location) {
+	s.mu.Lock()
+	s.N, s.Loc = n, loc
+	s.mu.Unlock()
+}
+
+func (s *Service) notifier() *notify.Notifier {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.N
 }
 
 func (s *Service) now() time.Time {
@@ -37,6 +56,8 @@ func (s *Service) now() time.Time {
 	if s.Now != nil {
 		t = s.Now()
 	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if s.Loc != nil {
 		t = t.In(s.Loc)
 	}
@@ -48,6 +69,9 @@ type pending struct {
 	cust   db.Customer
 	plan   db.Plan
 	change bool // plan change: PPPoE sessions are dropped so the new profile applies
+	trx    db.CreateTransactionParams
+	first  bool // first activation (no active subscription before)
+	expiry time.Time
 }
 
 // Recharge activates/extends planID for the customer and records the transaction.
@@ -222,7 +246,7 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		if err != nil {
 			return nil, err
 		}
-		pend = &pending{cust: c, plan: plan, change: found && !extend}
+		pend = &pending{cust: c, plan: plan, change: found && !extend, trx: trx, first: !found, expiry: exp}
 	}
 
 	if _, err := q.CreateTransaction(ctx, trx); err != nil {
@@ -277,6 +301,29 @@ func (s *Service) apply(ctx context.Context, p *pending) {
 	if err != nil {
 		slog.Error("device: activate failed, sync manually", "customer", p.cust.Username, "plan", p.plan.Name, "err", err)
 	}
+	s.notifyRecharge(p)
+}
+
+func (s *Service) notifyRecharge(p *pending) {
+	n := s.notifier()
+	if n == nil {
+		return
+	}
+	const layout = "2006-01-02 15:04:05"
+	loc := s.now().Location()
+	gw, ch, _ := strings.Cut(p.trx.Method, " - ")
+	vars := map[string]string{"invoice": p.trx.Invoice, "date": time.Unix(p.trx.PeriodStart, 0).In(loc).Format(layout),
+		"payment_gateway": gw, "payment_channel": ch, "type": p.trx.Type, "plan_name": p.plan.Name,
+		"plan_price": strconv.FormatInt(p.trx.Price, 10), "expired_date": p.expiry.In(loc).Format(layout)}
+	data := map[string]any{"invoice": p.trx.Invoice, "username": p.cust.Username, "plan": p.plan.Name, "type": p.trx.Type,
+		"price": p.trx.Price, "method": p.trx.Method, "router": p.trx.RouterName, "expires_at": p.expiry.Unix()}
+	n.Go("recharge", func(ctx context.Context) error { return n.RechargeSuccess(ctx, p.cust, vars) })
+	n.Go("webhook", func(ctx context.Context) error { return n.Webhook(ctx, "payment.paid", data) })
+	if p.first {
+		n.Go("webhook", func(ctx context.Context) error {
+			return n.Webhook(ctx, "customer.activated", map[string]any{"username": p.cust.Username, "plan": p.plan.Name, "expires_at": p.expiry.Unix()})
+		})
+	}
 }
 
 // ExpireDue expires due subscriptions, takes them off the router and auto-renews from balance.
@@ -316,8 +363,20 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 	if err != nil || n == 0 {
 		return err
 	}
+	nf := s.notifier()
+	if nf != nil {
+		v := map[string]string{"expired_date": time.Unix(sub.ExpiresAt, 0).In(s.now().Location()).Format("2006-01-02 15:04:05")}
+		nf.Go("expired", func(ctx context.Context) error { return nf.Expired(ctx, c, plan.Name, v) })
+		nf.Go("webhook", func(ctx context.Context) error {
+			return nf.Webhook(ctx, "recharge.expired", map[string]any{"username": c.Username, "plan": plan.Name, "expires_at": sub.ExpiresAt})
+		})
+	}
 	if autoRenew && c.AutoRenewal == 1 && c.Balance >= plan.Price {
 		if err := s.RechargeWithBalance(ctx, c.ID, plan.ID, 0); err != nil {
+			if nf != nil {
+				txt := fmt.Sprintf("FAILED RENEWAL #cron\n\n#u.%s #buy #%s \n%s\nPrice: %d", c.Username, plan.Type, plan.Name, plan.Price)
+				nf.Go("telegram", func(ctx context.Context) error { return nf.Telegram(ctx, txt) })
+			}
 			return fmt.Errorf("auto renewal: %w", err)
 		}
 	}
