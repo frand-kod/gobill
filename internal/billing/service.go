@@ -84,7 +84,7 @@ type pending struct {
 func (s *Service) Recharge(ctx context.Context, customerID, planID int64, method string, adminID int64) error {
 	var p *pending
 	err := s.tx(ctx, func(q *db.Queries) (err error) {
-		p, err = s.recharge(ctx, q, customerID, planID, method, adminID)
+		p, err = s.recharge(ctx, q, customerID, planID, method, adminID, nil)
 		return
 	})
 	if err != nil {
@@ -116,7 +116,7 @@ func (s *Service) RechargeWithBalance(ctx context.Context, customerID, planID, a
 		if _, err := q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: -plan.Price, ID: customerID}); err != nil {
 			return fmt.Errorf("debit balance: %w", err)
 		}
-		p, err = s.recharge(ctx, q, customerID, planID, "Customer - Balance", adminID)
+		p, err = s.recharge(ctx, q, customerID, planID, "Customer - Balance", adminID, nil)
 		return err
 	})
 	if err != nil {
@@ -143,7 +143,7 @@ func (s *Service) RedeemVoucher(ctx context.Context, code string, customerID int
 		if n == 0 {
 			return ErrVoucherInvalid
 		}
-		p, err = s.recharge(ctx, q, customerID, v.PlanID, "Voucher - "+code, 0)
+		p, err = s.recharge(ctx, q, customerID, v.PlanID, "Voucher - "+code, 0, nil)
 		return err // a failed recharge rolls the claim back too
 	})
 	if err != nil {
@@ -181,7 +181,7 @@ func setting(ctx context.Context, q *db.Queries, key string) string {
 }
 
 // recharge is the DB half of rechargeUser; it runs inside the caller's transaction.
-func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planID int64, method string, adminID int64) (*pending, error) {
+func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planID int64, method string, adminID int64, cp *couponUse) (*pending, error) {
 	plan, err := q.GetPlan(ctx, planID)
 	if err != nil {
 		return nil, fmt.Errorf("plan %d: %w", planID, err)
@@ -201,6 +201,9 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		PlanID: sql.NullInt64{Int64: plan.ID, Valid: true}, Username: c.Username, PlanName: plan.Name,
 		Type: plan.Type, Price: plan.Price, Method: method, AdminID: nullID(adminID),
 		PeriodStart: now.Unix(), PeriodEnd: now.Unix(),
+	}
+	if cp != nil {
+		trx.Price, trx.Note = cp.price, "Coupon "+cp.code
 	}
 
 	var pend *pending

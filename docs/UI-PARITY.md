@@ -81,9 +81,9 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | A58 | `admin/logs/radius.tpl` | `logs/radius`, `radius-csv` | — | Belum | F3 |
 | A58b | — (baru, tanpa padanan lama) | — | `GET /admin/radius/sessions`, `POST /admin/radius/sessions/{id}/disconnect` | Ada | F3 |
 | A59 | `admin/logs/message.tpl` | `logs/message`, `message-csv` | — | Belum | F4 |
-| A60 | `admin/coupons/list.tpl` | `coupons` | — | Belum | F5 |
-| A61 | `admin/coupons/add.tpl` | `coupons/add`, `add-post` | — | Belum | F5 |
-| A62 | `admin/coupons/edit.tpl` | `coupons/edit`, `edit-post` | — | Belum | F5 |
+| A60 | `admin/coupons/list.tpl` | `coupons` | `/admin/coupons` | Selesai | F5 |
+| A61 | `admin/coupons/add.tpl` | `coupons/add`, `add-post` | `/admin/coupons` | Selesai | F5 |
+| A62 | `admin/coupons/edit.tpl` | `coupons/edit`, `edit-post` | `/admin/coupons` | Selesai | F5 |
 | A63 | `admin/message/single.tpl` | `message/send`, `send-post` | — | Belum | F4 |
 | A64 | `admin/message/bulk.tpl` | `message/send_bulk`, `send_bulk_ajax` | — | Belum | F5 |
 | A65 | `admin/odp/list.tpl` | `odp/list` | — | Belum | F5 |
@@ -486,18 +486,18 @@ Kolom lama (tanpa `<th>`): ID, Date, Type, IP, Description. Baru: Date, Actor, A
 
 | Field lama | Label | Tipe | Wajib/validasi PHP | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
-| `code` | Coupon Code | text maxlength 50 (+ tombol Random) | required, unik | — | ❌ | Tidak ada tabel `coupons` |
-| `type` | Type | select fixed/percent | required | — | ❌ | |
-| `value` | Discount Value | number | required | — | ❌ | |
-| `description` | Description | textarea | required | — | ❌ | |
-| `max_usage` | Max Usage | number | required, >= 0 | — | ❌ | |
-| `min_order_amount` | Minimum Order Amount | number | required | — | ❌ | |
-| `max_discount_amount` | Max Discount Amount | number | required | — | ❌ | |
-| `start_date` | Start Date | date | required | — | ❌ | |
-| `end_date` | End Date | date | required | — | ❌ | |
-| `status` (diperlukan controller, diubah lewat Block/Unblock) | Status | — | required | — | ❌ | |
+| `code` | Coupon Code | text maxlength 50 (+ tombol Random) | required, unik | `code` (kosong = acak crypto/rand) | ✅ | `coupons` (migrasi 0004); nilai bulat rupiah/persen |
+| `type` | Type | select fixed/percent | required | ada | ✅ | `coupons` (migrasi 0004); nilai bulat rupiah/persen |
+| `value` | Discount Value | number | required | ada | ✅ | `coupons` (migrasi 0004); nilai bulat rupiah/persen |
+| `description` | Description | textarea | required | ada | ✅ | `coupons` (migrasi 0004); nilai bulat rupiah/persen |
+| `max_usage` | Max Usage | number | required, >= 0 | ada | ✅ | `coupons` (migrasi 0004); nilai bulat rupiah/persen |
+| `min_order_amount` | Minimum Order Amount | number | required | ada | ✅ | `coupons` (migrasi 0004); nilai bulat rupiah/persen |
+| `max_discount_amount` | Max Discount Amount | number | required | ada | ✅ | `coupons` (migrasi 0004); nilai bulat rupiah/persen |
+| `start_date` | Start Date | date | required | ada | ✅ | `coupons` (migrasi 0004); nilai bulat rupiah/persen |
+| `end_date` | End Date | date | required | ada | ✅ | `coupons` (migrasi 0004); nilai bulat rupiah/persen |
+| `status` (diperlukan controller, diubah lewat Block/Unblock) | Status | — | required | ada | ✅ | `coupons` (migrasi 0004); nilai bulat rupiah/persen |
 
-Kolom daftar: Code, Type, Value, Description, Max Usage, Usage Count, Status, Min Order, Max Discount, Start Date, End Date, Created Date, Updated Date, Action. Aksi: cari, Add, Edit, Block/Unblock, Delete Selected (bulk, `coupon_ids[]`). Semua belum. Dipakai juga di `selectGateway` portal (C-order).
+Daftar: Code, Type, Value, Max Usage, Used, Min Order, Start/End Date, Status; aksi cari, Add, Edit, Block/Unblock, Delete (tanpa bulk delete, tanpa kolom Created/Updated). Peran: SuperAdmin/Admin/Sales.
 
 ### A63-A64. Pesan
 
@@ -841,7 +841,7 @@ Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, das
 |---|---|---|---|---|---|---|
 | tombol Buy / Buy for friend per paket (`order/gateway/...`, `order/send/...`, `stoken`) | | link | | — | ❌ | `orderPlan` daftar paket per router/tipe |
 | `custom` (hidden), `amount` | Jumlah saldo kustom | number | — | — | ❌ | `allow_balance_custom` |
-| `coupon` | Coupon Code | text maxlength 50 | required (Apply) | — | ❌ | Kupon A60-62 belum |
+| `coupon` | Coupon Code | text maxlength 50 | required (Apply) | `coupon` | ⚠️ | Di form bayar-saldo `/portal/plans` (tanpa gateway, tanpa pembatas percobaan 5x, tanpa gating `enable_coupons`); kupon tidak berlaku untuk paket Balance |
 | `gateway` | Payment Gateway | select | required | — | ❌ | `internal/payment` Tripay siap |
 | `username` (`sendPlan`) | Friend username | text | required | — | ❌ | |
 | `orderHistory`: kolom Package Name, Payment Method, Routers, Type, Package Price, Created on, Expires on, Date, Status | | | | ⚠️ | `/portal/orders` dari transaksi; tanpa kolom Routers/Status | |

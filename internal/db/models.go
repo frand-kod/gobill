@@ -44,6 +44,22 @@ type Bandwidth struct {
 	Burst        string
 }
 
+type Coupon struct {
+	ID          int64
+	Code        string
+	Type        string
+	Value       int64
+	Description string
+	MaxUsage    int64
+	Used        int64
+	MinOrder    int64
+	MaxDiscount int64
+	StartDate   string
+	EndDate     string
+	Status      string
+	CreatedAt   int64
+}
+
 type Customer struct {
 	ID            int64
 	Username      string
