@@ -98,7 +98,6 @@ Template lama ada di `../phpnuxbill/ui/ui`, sekitar 157 file.
   - dashboard, profile, inbox, activation
   - orderPlan, orderBalance, orderHistory, orderView, selectGateway
   - invoice, sendPlan, phone-update, email-update
-- **Belum dicek manual:** UI baru belum dibandingkan halaman per halaman dengan UI lama. Screenshot dari pengguna dipakai sebagai acuan.
 
 ## Belum pernah diuji di dunia nyata
 
@@ -107,15 +106,10 @@ Template lama ada di `../phpnuxbill/ui/ui`, sekitar 157 file.
 - Email SMTP. Yang sudah dites baru validasi config-nya.
 - Tampilan UI baru di browser (menunggu screenshot pengguna).
 
-## Utang teknis yang disengaja (`ponytail:`)
+## Utang teknis yang disengaja
 
-- Koneksi RouterOS dibuat baru per panggilan, tanpa pooling.
-- Sertifikat TLS RouterOS tidak diverifikasi.
-- Batas sesi basi RADIUS tetap 10 menit, belum bisa diatur.
-- Kunci MPPE untuk PPPoE terenkripsi belum dikirim.
-- Mode SMS lewat MikroTik belum di-port.
-- Waktu di halaman log masih tampil dalam UTC.
-- Pembatas login hanya di memori, jadi ter-reset saat restart.
+Ditandai dengan komentar `ponytail:` di kode. Daftar lengkapnya: `grep -rn "ponytail:" --include=*.go .`
+Yang paling penting: koneksi RouterOS tanpa pooling, sertifikat TLS RouterOS tidak diverifikasi, dan kunci MPPE untuk PPPoE belum dikirim.
 
 ## Perbedaan perilaku dari PHP lama (disengaja)
 
