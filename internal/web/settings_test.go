@@ -1,9 +1,14 @@
 package web
 
 import (
+	"bytes"
 	"context"
+	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -164,5 +169,203 @@ func TestSettingsCheckboxStoresYesNo(t *testing.T) {
 	}
 	if w := do(h, "GET", "/admin/settings/miscellaneous", nil, c); !strings.Contains(w.Body.String(), `checked`) {
 		t.Fatal("saved checkbox not rendered as checked")
+	}
+}
+
+func TestSettingsNewFieldsPersist(t *testing.T) {
+	_, h, q := settingsSetup(t)
+	c := login(t, h, "alice")
+	saves := []struct {
+		tab  string
+		form url.Values
+	}{
+		{"app", url.Values{"company_name": {"Acme"}, "currency_code": {"Rp"}, "login_page_head": {"Welcome"},
+			"login_page_description": {"Log in here"}}},
+		{"localisation", url.Values{"language": {"english"}, "timezone": {"Asia/Jakarta"}, "dec_point": {","},
+			"thousands_sep": {"'"}, "reset_day": {"15"}}},
+		{"notifications", url.Values{"reminder_hour": {"7"}, "notif_invoice_balance": {"bal"}, "notif_welcome_message": {"hi"},
+			"notif_balance_send": {"sent"}, "notif_balance_received": {"got"}}},
+		{"integrations", url.Values{"mail_reply_to": {"help@acme.test"}}},
+		{"miscellaneous", url.Values{"voucher_format": {"numbers"}, "disable_registration": {"yes"},
+			"registration_username": {"phone"}, "sms_otp_registration": {"yes"}, "phone_otp_type": {"wa"},
+			"reg_nofify_admin": {"yes"}, "session_timeout_duration": {"30"}, "single_session": {"yes"},
+			"maintenance_date": {"2026-10-31"}}},
+	}
+	for _, sv := range saves {
+		if w := do(h, "POST", "/admin/settings/"+sv.tab, sv.form, c); w.Code != http.StatusSeeOther {
+			t.Fatalf("%s: %d %s", sv.tab, w.Code, w.Body.String())
+		}
+	}
+	got := settingValues(t, q)
+	for k, want := range map[string]string{"login_page_head": "Welcome", "login_page_description": "Log in here",
+		"dec_point": ",", "thousands_sep": "'", "reset_day": "15", "notif_invoice_balance": "bal",
+		"notif_welcome_message": "hi", "notif_balance_send": "sent", "notif_balance_received": "got",
+		"mail_reply_to": "help@acme.test", "voucher_format": "numbers", "disable_registration": "yes",
+		"registration_username": "phone", "sms_otp_registration": "yes", "phone_otp_type": "wa",
+		"reg_nofify_admin": "yes", "session_timeout_duration": "30", "single_session": "yes",
+		"maintenance_date": "2026-10-31"} {
+		if got[k] != want {
+			t.Errorf("%s = %q, want %q", k, got[k], want)
+		}
+	}
+	bad := []struct {
+		tab  string
+		form url.Values
+	}{
+		{"localisation", url.Values{"language": {"english"}, "timezone": {"Asia/Jakarta"}, "reset_day": {"29"}}},
+		{"miscellaneous", url.Values{"session_timeout_duration": {"0"}}},
+		{"miscellaneous", url.Values{"phone_otp_type": {"email"}}},
+		{"miscellaneous", url.Values{"maintenance_date": {"31/10/2026"}}},
+	}
+	for _, tc := range bad {
+		if w := do(h, "POST", "/admin/settings/"+tc.tab, tc.form, c); w.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("%v: %d", tc.form, w.Code)
+		}
+	}
+}
+
+// uploadPNG is a PNG signature plus padding; DetectContentType sniffs only the signature.
+var uploadPNG = append([]byte("\x89PNG\r\n\x1a\n"), make([]byte, 64)...)
+
+func postLogo(t *testing.T, h http.Handler, c *http.Cookie, data []byte) *httptest.ResponseRecorder {
+	t.Helper()
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	mw.WriteField("company_name", "Acme")
+	mw.WriteField("currency_code", "Rp")
+	fw, _ := mw.CreateFormFile("logo", "logo.png")
+	fw.Write(data)
+	mw.Close()
+	r := httptest.NewRequest("POST", "/admin/settings/app", &buf)
+	r.Header.Set("Content-Type", mw.FormDataContentType())
+	r.AddCookie(c)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	return w
+}
+
+func TestSettingsUploadRules(t *testing.T) {
+	s, h, q := settingsSetup(t)
+	c := login(t, h, "alice")
+	svg := []byte(`<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`)
+	for _, data := range [][]byte{[]byte("hello"), svg} {
+		if w := postLogo(t, h, c, data); w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "Use a PNG") {
+			t.Fatalf("non-image accepted: %d", w.Code)
+		}
+	}
+	if w := postLogo(t, h, c, append(uploadPNG, make([]byte, maxUpload)...)); w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "2 MB") {
+		t.Fatalf("oversize accepted: %d", w.Code)
+	}
+	if got := settingValues(t, q)["logo"]; got != "" {
+		t.Fatalf("rejected upload stored: %q", got)
+	}
+	if w := postLogo(t, h, c, uploadPNG); w.Code != http.StatusSeeOther {
+		t.Fatalf("png: %d %s", w.Code, w.Body.String())
+	}
+	name := settingValues(t, q)["logo"]
+	if !uploadName.MatchString(name) {
+		t.Fatalf("stored name %q", name)
+	}
+	dir, err := s.uploadDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
+		t.Fatal(err)
+	}
+	// a save without a new file keeps the stored image
+	do(h, "POST", "/admin/settings/app", url.Values{"company_name": {"Acme"}, "currency_code": {"Rp"}}, c)
+	if got := settingValues(t, q)["logo"]; got != name {
+		t.Fatalf("logo lost: %q", got)
+	}
+}
+
+func TestUploadsServeRejectsTraversal(t *testing.T) {
+	s, _, _ := settingsSetup(t)
+	dir, err := s.uploadDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	name := strings.Repeat("a", 32) + ".png"
+	if err := os.WriteFile(filepath.Join(dir, name), uploadPNG, 0o640); err != nil {
+		t.Fatal(err)
+	}
+	serve := func(n string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("GET", "/uploads/"+n, nil)
+		r.SetPathValue("name", n)
+		w := httptest.NewRecorder()
+		s.serveUpload(w, r)
+		return w
+	}
+	for _, bad := range []string{"../" + name, "..%2F" + name, "sub/" + name, "../nuxbill.db", name + "/.."} {
+		if w := serve(bad); w.Code != http.StatusNotFound {
+			t.Fatalf("%q served: %d", bad, w.Code)
+		}
+	}
+	if w := serve(name); w.Code != http.StatusOK || !bytes.HasPrefix(w.Body.Bytes(), uploadPNG[:8]) {
+		t.Fatalf("valid upload: %d", w.Code)
+	}
+}
+
+func TestDBBackupSuperAdminOnly(t *testing.T) {
+	s, h, _ := settingsSetup(t)
+	backup := s.sessions.LoadAndSave(s.requireAdmin("SuperAdmin", "Admin")(http.HandlerFunc(s.dbBackup)))
+	w := do(backup, "GET", "/backup", nil, login(t, h, "alice"))
+	if w.Code != http.StatusOK || !strings.HasPrefix(w.Body.String(), "SQLite format 3\x00") {
+		t.Fatalf("superadmin: %d", w.Code)
+	}
+	if !strings.HasPrefix(w.Header().Get("Content-Disposition"), "attachment;") {
+		t.Fatalf("not an attachment: %q", w.Header().Get("Content-Disposition"))
+	}
+	if w := do(backup, "GET", "/backup", nil, login(t, h, "bob")); w.Code != http.StatusForbidden {
+		t.Fatalf("admin: %d", w.Code)
+	}
+}
+
+func TestMoneyUsesThousandsSep(t *testing.T) {
+	_, h, _ := settingsSetup(t)
+	t.Cleanup(func() { setThousandsSep(".") })
+	if got := money(1234000); got != "Rp 1.234.000" {
+		t.Fatalf("default: %q", got)
+	}
+	do(h, "POST", "/admin/settings/localisation", url.Values{"language": {"english"}, "timezone": {"Asia/Jakarta"},
+		"thousands_sep": {","}}, login(t, h, "alice"))
+	if got := money(1234000); got != "Rp 1,234,000" {
+		t.Fatalf("thousands_sep: %q", got)
+	}
+}
+
+func TestBrandingAndBackupRoutesReachable(t *testing.T) {
+	_, h, q := settingsSetup(t)
+	c := login(t, h, "alice")
+	if w := postLogo(t, h, c, uploadPNG); w.Code != http.StatusSeeOther {
+		t.Fatalf("upload: %d", w.Code)
+	}
+	name := settingValues(t, q)["logo"]
+	if w := do(h, "GET", "/uploads/"+name, nil, nil); w.Code != http.StatusOK || !bytes.HasPrefix(w.Body.Bytes(), uploadPNG[:8]) {
+		t.Fatalf("/uploads: %d", w.Code)
+	}
+	if w := do(h, "GET", "/uploads/../nuxbill.db", nil, nil); w.Code == http.StatusOK {
+		t.Fatal("traversal served")
+	}
+	do(h, "POST", "/admin/settings/app", url.Values{"company_name": {"Acme"}, "currency_code": {"Rp"},
+		"login_page_head": {"Acme Head"}, "login_page_description": {"Log in here"}}, c)
+	if w := do(h, "GET", "/login", nil, nil); !strings.Contains(w.Body.String(), "Acme Head") || !strings.Contains(w.Body.String(), "Log in here") || !strings.Contains(w.Body.String(), "/uploads/"+name) {
+		t.Fatal("branding missing on login page")
+	}
+	if w := do(h, "GET", "/admin/settings/miscellaneous/backup", nil, c); w.Code != http.StatusOK || !strings.HasPrefix(w.Body.String(), "SQLite format 3\x00") {
+		t.Fatalf("backup as SuperAdmin: %d", w.Code)
+	}
+	if w := do(h, "GET", "/admin/settings/miscellaneous/backup", nil, login(t, h, "bob")); w.Code != http.StatusForbidden {
+		t.Fatalf("backup as Admin: %d", w.Code)
+	}
+	if w := do(h, "GET", "/admin/settings/miscellaneous", nil, c); !strings.Contains(w.Body.String(), "/admin/settings/miscellaneous/backup") {
+		t.Fatal("backup button missing")
+	}
+	if w := do(h, "GET", "/admin/settings/app", nil, c); !strings.Contains(w.Body.String(), `enctype="multipart/form-data"`) {
+		t.Fatal("multipart form missing on the upload page")
 	}
 }

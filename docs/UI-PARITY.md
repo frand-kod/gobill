@@ -100,9 +100,9 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | A76 | `admin/community.tpl`, `admin/rollback.tpl` | `community`, `community/rollback` | — | Non-goal | — (updater diganti install script) |
 | S1 | `admin/settings/app.tpl` | `settings/app(-post)` | `GET/POST /admin/settings` (4 key saja) | Sebagian | F0 dasar / F5 |
 | S2 | `admin/settings/localisation.tpl` | `settings/localisation(-post)` | `/admin/settings` | Sebagian | F0 / F5 |
-| S3 | `admin/settings/notifications.tpl` | `settings/notifications(-post)` | — | Belum | F4 |
-| S4 | `admin/settings/miscellaneous.tpl` | `settings/miscellaneous(-post)` | — | Belum | F4 / F5 |
-| S5 | `admin/settings/maintenance-mode.tpl` | `settings/maintenance` | — | Belum | F5 |
+| S3 | `admin/settings/notifications.tpl` | `settings/notifications(-post)` | `GET/POST /admin/settings/notifications` | Sebagian | F4 |
+| S4 | `admin/settings/miscellaneous.tpl` | `settings/miscellaneous(-post)` | `GET/POST /admin/settings/miscellaneous` | Sebagian | F4 / F5 |
+| S5 | `admin/settings/maintenance-mode.tpl` | `settings/maintenance` | `maintenance_date` di `/admin/settings/miscellaneous` | Sebagian | F5 |
 | S6 | `admin/settings/dbstatus.tpl` | `settings/dbstatus`, `dbbackup`, `dbrestore` | — | Sebagian | F5 |
 | S7 | `admin/settings/language-add.tpl` | `settings/language`, `lang-post` | — (bahasa = file JSON `internal/i18n`) | Ditunda | Tunda |
 | S8 | `admin/settings/customfield.tpl` | `customfield` | `/admin/fields` (CRUD) | Sebagian | F5 |
@@ -559,7 +559,7 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | Key lama | Label | Tipe | Wajib | Key baru | St | Catatan / Fase |
 |---|---|---|---|---|---|---|
 | `CompanyName` | Application Name / Company Name | text | required | `company_name` | ⚠️ | Nama key beda |
-| `logo` | Company Logo | file | — | — | ❌ | F5 |
+| `logo` | Company Logo | file | — | `logo` | ⚠️ | F5. Simpan dan validasi ada (PNG/JPG/WebP/ICO, maks 2 MB, nama file acak di `<db>/uploads`). Belum: input file belum di `form.html` (perlu enctype), logo belum tampil di sidebar |
 | `CompanyFooter` | Company Footer | text | — | `company_footer` | ✅ | F5 |
 | `address` | Address | textarea | — | `address` | ✅ | F5 (dipakai invoice) |
 | `phone` | Phone Number | text | — | `phone` | ✅ | F5 |
@@ -567,7 +567,7 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | `printer_cols` | Print Max Char | number | required | — | ❌ | Ditunda (printer thermal NuxPrint) |
 | `theme` | Theme | select | — | toggle terang/gelap di header | ⚠️ | Disengaja: tema AdminLTE diganti Tailwind + mode gelap per pengguna |
 | `payment_usings` | Recharge Using | text | — | — | ❌ | F1: daftar metode bayar admin (baru hanya Cash/Balance) |
-| `reset_day` | Income reset date | number min 1 | required | — | ❌ | F5; dashboard baru memakai bulan kalender |
+| `reset_day` | Income reset date | number min 1 | — | `reset_day` | ⚠️ | F5. Opsional, 1-28; dashboard tetap memakai bulan kalender |
 | `dashboard_cr` | Dashboard Structure | text | — | — | ❌ | Non-goal (widget tetap) |
 | `url_canonical` | Pretty URL | select | — | — | ❌ | Non-goal (route tetap `/admin/...`) |
 
@@ -577,22 +577,22 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 |---|---|---|---|---|---|
 | `login_page_type` | Choose Template | select | — | ❌ | F4 (portal) |
 | `login_Page_template` | Select Login Page | select | — | ❌ | Non-goal (tema "moon" dinamis) |
-| `login_page_head` | Page Heading / Company Name | text | — | ❌ | F4 |
-| `login_page_description` | Page Description | textarea | — | ❌ | F4 |
-| `login_page_favicon` | Favicon | file | — | ❌ | F4 |
-| `login_page_logo` | Login Page Logo | file | — | ❌ | F4 |
-| `login_page_wallpaper` | Login Page Wallpaper | file | — | ❌ | F4 |
+| `login_page_head` | Page Heading / Company Name | text | `login_page_head` | ⚠️ | F4. Tersimpan; belum tampil di halaman login |
+| `login_page_description` | Page Description | textarea | `login_page_description` | ⚠️ | F4. Tersimpan; belum tampil di halaman login |
+| `login_page_favicon` | Favicon | file | `login_page_favicon` | ⚠️ | F4. Simpan dan validasi ada; belum dipasang di `base.html` |
+| `login_page_logo` | Login Page Logo | file | `login_page_logo` | ⚠️ | F4. Simpan dan validasi ada; belum tampil di login |
+| `login_page_wallpaper` | Login Page Wallpaper | file | `login_page_wallpaper` | ⚠️ | F4. Simpan dan validasi ada; belum tampil di login |
 
 **Registrasi**
 
 | Key lama | Label | Tipe | Key baru | St | Catatan / Fase |
 |---|---|---|---|---|---|
-| `disable_registration` | Allow Registration | select | — | ❌ | F4 |
-| `registration_username` | Registration Username | select | — | ❌ | F4 |
+| `disable_registration` | Allow Registration | select | `disable_registration` | ⚠️ | F4. Settings saja (Miscellaneous > Registration); portal belum membaca |
+| `registration_username` | Registration Username | select | `registration_username` | ⚠️ | F4. Settings saja; portal belum membaca |
 | `photo_register` | Photo Required | select | — | ❌ | Ditunda (foto/face detection) |
-| `sms_otp_registration` | SMS OTP Registration | select | — | ❌ | F4 |
-| `phone_otp_type` | OTP Method | select | — | ❌ | F4 |
-| `reg_nofify_admin` | Notify Admin | select | — | ❌ | F4 |
+| `sms_otp_registration` | SMS OTP Registration | select | `sms_otp_registration` | ⚠️ | F4. Settings saja; portal belum membaca |
+| `phone_otp_type` | OTP Method | select | `phone_otp_type` | ⚠️ | F4. Settings saja, sms/wa; portal belum membaca |
+| `reg_nofify_admin` | Notify Admin | select | `reg_nofify_admin` | ⚠️ | F4. Settings saja; belum ada pengirim |
 | `man_fields_email` | Mandatory field: Email | checkbox `yes` | `man_fields_email` | ✅ | F4 (field wajib di registrasi) |
 | `man_fields_fname` | Mandatory field: Full Name | checkbox `yes` | `man_fields_fname` | ✅ | F4 |
 | `man_fields_address` | Mandatory field: Address | checkbox `yes` | `man_fields_address` | ✅ | F4 |
@@ -601,8 +601,8 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 
 | Key lama | Label | Tipe | Key baru | St | Catatan / Fase |
 |---|---|---|---|---|---|
-| `session_timeout_duration` | Timeout Duration | number min 1 | — | ❌ | F5 (durasi sesi `scs` tetap di kode) |
-| `single_session` | Single Admin Session | select | — | ❌ | F5 |
+| `session_timeout_duration` | Timeout Duration | number min 1 | `session_timeout_duration` | ⚠️ | F5. Settings saja (menit, 1 atau lebih); middleware auth dipasang router agent |
+| `single_session` | Single Admin Session | select | `single_session` | ⚠️ | F5. Settings saja; middleware auth dipasang router agent |
 | `csrf_enabled` | Enable CSRF Validation | select | — | ⚠️ | Disengaja hilang: CSRF selalu aktif (`CrossOriginProtection`) |
 | `enable_session_timeout` | Enable Session Timeout | checkbox `1` | `enable_session_timeout` | ✅ | F5 (bersama `session_timeout_duration`) |
 
@@ -611,7 +611,7 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | Key lama | Label | Tipe | Key baru | St | Catatan / Fase |
 |---|---|---|---|---|---|
 | `disable_voucher` | Disable Voucher | select | — | ❌ | F4 (portal) |
-| `voucher_format` | Voucher Format (default) | select | — | ❌ | F5; form baru memilih per generate |
+| `voucher_format` | Voucher Format (default) | select | `voucher_format` | ⚠️ | F5. Tersimpan dan divalidasi; form generate belum membaca nilai default ini |
 | `voucher_redirect` | Redirect URL after Activation | text | — | ❌ | F4 |
 | `radius_enable` | Enable Radius | select | — | ⚠️ | Disengaja: RADIUS built-in, aktif jika server dijalankan dan NAS ada |
 | `extend_expired` | Allow Extend | select | — | ❌ | F4 (extend mandiri pelanggan) |
@@ -637,7 +637,7 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | `smtp_pass` | SMTP Password | password | `smtp_pass` | ✅ | F4 (simpan terenkripsi `internal/secret`) |
 | `smtp_ssltls` | SMTP Security | select | `smtp_ssltls` | ✅ | F4 |
 | `mail_from` | Mail From | text | `mail_from` | ✅ | F4 |
-| `mail_reply_to` | Mail Reply To | text | — | ❌ | F4 |
+| `mail_reply_to` | Mail Reply To | text | `mail_reply_to` | ⚠️ | F4. Tersimpan (Integrations > Email); SMTP belum memakai |
 | `user_notification_expired` | Expired Notification | select | `user_notification_expired` | ✅ | F4 |
 | `user_notification_payment` | Payment Notification | select | `user_notification_payment` | ✅ | F4 |
 | `user_notification_reminder` | Reminder Notification | select | `user_notification_reminder` | ✅ | F4 |
@@ -663,8 +663,8 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | `tzone` | Timezone | select | required | `timezone` | ⚠️ | Divalidasi `time.LoadLocation`; saat ini hanya dibaca saat start (PROGRESS item 2) |
 | `date_format` | Date Format | select | required | `date_format` | ✅ | F5 |
 | `lan` | Default Language | select | required | `language` | ⚠️ | Nama beda; opsi dari katalog JSON |
-| `dec_point` | Decimal Point | text | required | — | ❌ | F5 |
-| `thousands_sep` | Thousands Separator | text | required | — | ❌ | F5 (helper `money` ada) |
+| `dec_point` | Decimal Point | text | required | `dec_point` | ⚠️ | F5. Tersimpan; `money` belum memakai (rupiah tanpa desimal) |
+| `thousands_sep` | Thousands Separator | text | required | `thousands_sep` | ✅ | F5. Dibaca helper `money` (default "."), berlaku setelah simpan |
 | `currency_code` | Currency Code | text | required | `currency_code` | ✅ | Default "Rp" |
 | `country_code_phone` | Country Code Phone | text | — | `country_code_phone` | ✅ | F4 (normalisasi nomor) |
 | `radius_plan` | Radius Package (label menu) | text | — | — | ❌ | Non-goal |
@@ -685,10 +685,10 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | `notification_reminder_3day` | Send 3-day reminder | select yes/no | `notification_reminder_3day` | ✅ | Baru: `no` mematikan pengingat 3 hari |
 | `notification_reminder_1day` | Send 1-day reminder | select yes/no | `notification_reminder_1day` | ✅ | Baru: `no` mematikan pengingat 1 hari |
 | `reminder_hour` | Reminder Hour | number 0-23 | `reminder_hour` | ✅ | Baru: jam kirim pengingat, default 7 |
-| `invoice_balance` | Balance Notification Payment | textarea | — | ❌ | F4 |
-| `welcome_message` | Welcome Message | textarea | — | ❌ | F4 |
-| `balance_send` | Send Balance | textarea | — | ❌ | F4 |
-| `balance_received` | Received Balance | textarea | — | ❌ | F4 |
+| `invoice_balance` | Balance Notification Payment | textarea | `notif_invoice_balance` | ✅ | F4. Template `notif_*` di Settings > Notifications |
+| `welcome_message` | Welcome Message | textarea | `notif_welcome_message` | ✅ | F4. Template `notif_*` |
+| `balance_send` | Send Balance | textarea | `notif_balance_send` | ✅ | F4. Template `notif_*` |
+| `balance_received` | Received Balance | textarea | `notif_balance_received` | ✅ | F4. Template `notif_*` |
 | `email_invoice` | PDF Invoice Template | textarea | — | ❌ | F5 (PDF diganti HTML cetak) |
 
 ### S4. `settings/miscellaneous`
@@ -698,7 +698,7 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | `new_version_notify` | New Version Notification | select | — | ❌ | Non-goal (updater) |
 | `router_check` | Router Check | select | — | ❌ | F2 (monitor online/last seen) |
 | `allow_phone_otp` | Phone OTP Required | select | — | ❌ | F4 |
-| `phone_otp_type` | OTP Method | select | — | ❌ | F4 |
+| `phone_otp_type` | OTP Method | select | `phone_otp_type` | ⚠️ | F4. Settings saja, sms/wa; portal belum membaca |
 | `allow_email_otp` | Email OTP Required | select | — | ❌ | F4 |
 | `show_bandwidth_plan` | Show Bandwidth Plan | select | — | ❌ | F4 (tampil di portal) |
 | `hs_auth_method` | Hotspot Auth Method | select | — | ❌ | F3 (PAP/CHAP; RADIUS mendukung PAP, CHAP, MS-CHAPv2) |
@@ -711,9 +711,9 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 
 | Sub-halaman lama | Field/aksi | Key baru | St | Catatan / Fase |
 |---|---|---|---|---|
-| `settings/maintenance-mode` | `maintenance_date` (date) + Save | — | ❌ | F5 |
+| `settings/maintenance-mode` | `maintenance_date` (date) + Save | `maintenance_date` (Miscellaneous > System) | ⚠️ | F5. Field ada; sub-halaman maintenance belum |
 | `settings/maintenance-mode` | `maintenance_mode` (checkbox `1`, aktifkan), `maintenance_mode_logout` (checkbox `1`, paksa logout pelanggan), tombol `save` | — | ❌ | F5 |
-| `settings/dbstatus` | `tables[]` (checkbox), Download Backup Database, `json` (file) + Restore Database | — | ❌ | F5: backup harian `VACUUM INTO`; restore JSON per tabel tidak dipakai (SQLite satu file) |
+| `settings/dbstatus` | Download Backup Database | — | ⚠️ | F5. Handler `dbBackup` (`VACUUM INTO`, SuperAdmin) ada di `settings.go`; rute dan tombol di Miscellaneous belum dipasang. Restore tidak diimplementasikan: restore = stop service, replace file. `json` + Restore Database: non-goal |
 | `settings/language-add` | satu input per kunci bahasa (`{$lang@key}`) | — | ❌ | Ditunda; bahasa = file JSON di `internal/i18n` |
 | `settings/customfield` | `order[]`, `name[]`, `placeholder[]`, `type[]`, `value[]` (opsi), `register[]`, `required[]` | `sort_order`, `name`, `type`, `options`, `required` | ⚠️ | `placeholder`, `value` (default), `register` belum; urutan lewat angka, bukan drag |
 | `settings/page` | `html` (editor) + `template_name` (Save as template) + `template_save` (checkbox `yes`, simpan sebagai template) | `body` (textarea) | ⚠️ | Teks biasa, bukan HTML; template simpan/reset belum |
