@@ -287,7 +287,7 @@ func badge(v string) string {
 		return "badge-ok"
 	case "disable", "disabled", "banned", "suspended", "expired", "inactive", "no", "offline", "error":
 		return "badge-bad"
-	case "limited":
+	case "limited", "secret lemah":
 		return "badge-warn"
 	}
 	return "badge-muted"

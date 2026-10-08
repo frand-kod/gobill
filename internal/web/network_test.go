@@ -86,17 +86,17 @@ func TestPoolSyncKeepsRowOnFailure(t *testing.T) {
 
 func TestNASCRUD(t *testing.T) {
 	s, h, q, c := crudApp(t)
-	form := url.Values{"name": {"edge"}, "ip": {"10.0.0.0/24"}, "secret": {"s3cretvalue"}, "description": {"d"}}
+	form := url.Values{"name": {"edge"}, "ip": {"10.0.0.0/24"}, "secret": {"s3cretvalue-0123456789"}, "description": {"d"}}
 	wantCode(t, do(h, "POST", "/admin/nas", form, c), 303, "create")
 	list, _ := q.ListNAS(t.Context())
-	if len(list) != 1 || strings.Contains(string(list[0].SecretEnc), "s3cretvalue") {
+	if len(list) != 1 || strings.Contains(string(list[0].SecretEnc), "s3cretvalue-0123456789") {
 		t.Fatalf("nas: %+v", list)
 	}
-	if plain, err := secret.Open(s.SecretKey, list[0].SecretEnc); err != nil || string(plain) != "s3cretvalue" {
+	if plain, err := secret.Open(s.SecretKey, list[0].SecretEnc); err != nil || string(plain) != "s3cretvalue-0123456789" {
 		t.Fatalf("open: %q %v", plain, err)
 	}
 	for _, p := range []string{"/admin/nas", "/admin/nas/1/edit"} {
-		if w := do(h, "GET", p, nil, c); w.Code != 200 || strings.Contains(w.Body.String(), "s3cretvalue") {
+		if w := do(h, "GET", p, nil, c); w.Code != 200 || strings.Contains(w.Body.String(), "s3cretvalue-0123456789") {
 			t.Fatalf("%s: %d or shows secret", p, w.Code)
 		}
 	}

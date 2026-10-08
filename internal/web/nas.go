@@ -1,6 +1,7 @@
 package web
 
 import (
+	"crypto/subtle"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -13,9 +14,11 @@ import (
 
 func nasFields(v, e map[string]string, editing bool) []field {
 	pw := text("secret", "Shared Secret", v, e).as("password").req()
+	pw.Gen = true
+	pw.Hint = "At least 16 characters. Use Generate, then copy it to the MikroTik before saving: it is shown only once"
 	if editing {
 		pw.Required = false
-		pw.Hint = "Leave empty to keep the current secret"
+		pw.Hint = "Leave empty to keep the current secret. Generate shows a new one once: copy it to the MikroTik"
 	}
 	pw.Value = "" // never rendered back
 	ma := text("require_message_auth", "Require Message-Authenticator", v, e).as("checkbox")
@@ -38,6 +41,31 @@ func validNASAddr(s string) bool {
 	return err == nil
 }
 
+// weakSecret explains why a RADIUS shared secret is unacceptable, "" if it is fine.
+func weakSecret(p string) string {
+	if len(p) < 16 {
+		return "Secret must be at least 16 characters"
+	}
+	if strings.Trim(p, p[:1]) == "" || strings.Trim(p, "0123456789") == "" {
+		return "Secret must not be one repeated character or only digits"
+	}
+	return ""
+}
+
+// secretReused reports whether another NAS (not id) already uses secret p.
+func (s *Server) secretReused(r *http.Request, id int64, p string) (bool, error) {
+	rows, err := s.queries.ListNAS(r.Context())
+	for _, n := range rows {
+		if n.ID == id {
+			continue
+		}
+		if o, err := secret.Open(s.SecretKey, n.SecretEnc); err == nil && subtle.ConstantTimeCompare(o, []byte(p)) == 1 {
+			return true, nil
+		}
+	}
+	return false, err
+}
+
 func (s *Server) nasList(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.queries.ListNAS(r.Context())
 	if err != nil {
@@ -45,9 +73,13 @@ func (s *Server) nasList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp := listPage{Heading: "NAS", Base: "/admin/nas", CanCreate: true, CanEdit: true,
-		Cols: []string{"Name", "IP / CIDR", "Description"}}
+		Cols: []string{"Name", "IP / CIDR", "Description", "Secret"}}
 	for _, n := range rows {
-		lp.Rows = append(lp.Rows, listRow{n.ID, []string{n.Name, n.Ip, n.Description}})
+		weak := "" // legacy rows keep working; only flagged
+		if p, err := secret.Open(s.SecretKey, n.SecretEnc); err == nil && weakSecret(string(p)) != "" {
+			weak = "secret lemah"
+		}
+		lp.Rows = append(lp.Rows, listRow{n.ID, []string{n.Name, n.Ip, n.Description, weak}})
 	}
 	s.renderList(w, r, lp)
 }
@@ -96,6 +128,16 @@ func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
 		enc = n.SecretEnc
 	} else if pass == "" {
 		e["secret"] = "This field is required"
+	}
+	if pass != "" {
+		if m := weakSecret(pass); m != "" {
+			e["secret"] = m
+		} else if dup, err := s.secretReused(r, id, pass); err != nil {
+			s.fail(w, "list nas", err)
+			return
+		} else if dup {
+			e["secret"] = "Secret is already used by another NAS"
+		}
 	}
 	if len(e) == 0 {
 		if pass != "" {

@@ -121,6 +121,7 @@ func TestCHAP(t *testing.T) {
 		t.Fatalf("code %v %s", r.Code, rfc2865.ReplyMessage_GetString(r))
 	}
 	sum[0] ^= 1
+	p.Identifier++ // same id and authenticator would be a retransmit
 	rfc2865.CHAPPassword_Set(p, append([]byte{7}, sum[:]...))
 	if r := e.auth(t, p); r.Code != radius.CodeAccessReject {
 		t.Fatalf("bad chap: %v", r.Code)

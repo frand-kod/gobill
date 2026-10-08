@@ -43,6 +43,9 @@ type Server struct {
 	// Redeem activates an unused voucher for a customer (billing.Service.RedeemVoucher).
 	// nil disables hotspot voucher login.
 	Redeem func(ctx context.Context, code string, customerID int64) error
+
+	userFails failLimiter // failed password checks per username
+	dups      dupCache    // answered requests, for retransmits
 }
 
 func (s *Server) now() time.Time {
@@ -142,6 +145,25 @@ type Decision struct {
 // Authorize is the shared decision: customer lookup, password, active and unexpired plan
 // (clock-guarded), shared_users, time and data limits. Old PHP radius.php semantics.
 func (s *Server) Authorize(ctx context.Context, rq AuthRequest) Decision {
+	// ponytail: per-user throttle is in-memory, per process (see failLimiter). A retransmit never
+	// gets here: dupCache absorbs it, so retries cannot lock a user out.
+	now := s.now().Unix()
+	if rq.User != "" && s.userFails.blocked(rq.User, now) {
+		return Decision{Reject: "Too many attempts, try again later"}
+	}
+	d := s.decide(ctx, rq)
+	switch d.Reject {
+	case "":
+		s.userFails.reset(rq.User)
+	case badPassword:
+		s.userFails.fail(rq.User, now)
+	}
+	return d
+}
+
+const badPassword = "Username or Password is wrong"
+
+func (s *Server) decide(ctx context.Context, rq AuthRequest) Decision {
 	// Old radius.php: password == username (or empty, or CHAP of either) means "voucher login".
 	vl := rq.User != "" && (func() bool { ok, _ := rq.Check([]byte(rq.User)); return ok }() ||
 		func() bool { ok, _ := rq.Check(nil); return ok }())
@@ -183,13 +205,13 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 		var msg string
 		if c, msg = s.voucherLogin(ctx, user, c, found); msg != "" {
 			if found && msg == "Invalid Voucher.." {
-				msg = "Username or Password is wrong"
+				msg = badPassword
 			}
 			return Decision{Reject: msg}
 		}
 		ok = true
 	} else if !ok {
-		return Decision{Reject: "Username or Password is wrong"}
+		return Decision{Reject: badPassword}
 	}
 	pl, err := s.Q.GetRadiusPlan(ctx, c.ID)
 	if err != nil {
@@ -337,11 +359,24 @@ func (l *failLimiter) fail(key string, now int64) {
 			}
 		}
 	}
+	if l.m == nil {
+		l.m = map[string][]int64{}
+	}
 	l.m[key] = append(l.recent(key, now), now)
+}
+
+func (l *failLimiter) reset(key string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	delete(l.m, key)
 }
 
 // HandleAuth is Access-Request over UDP: a thin packet adapter over Authorize.
 func (s *Server) HandleAuth(w radius.ResponseWriter, r *radius.Request) {
+	s.dups.serve(s.now(), w, r, s.handleAuth)
+}
+
+func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 	required := false
 	ip := addrIP(r.RemoteAddr)
 	if rows, err := s.Q.ListNAS(r.Context()); err == nil {
@@ -470,6 +505,10 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 
 // HandleAcct is Accounting-Request over UDP.
 func (s *Server) HandleAcct(w radius.ResponseWriter, r *radius.Request) {
+	s.dups.serve(s.now(), w, r, s.handleAcct)
+}
+
+func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 	p := r.Packet
 	a := AcctRequest{Type: rfc2866.AcctStatusType_Get(p), NAS: addrIP(r.RemoteAddr).String(),
 		SessionID: rfc2866.AcctSessionID_GetString(p), User: rfc2865.UserName_GetString(p),

@@ -20,6 +20,7 @@ type field struct {
 	Section, SectionShow                  string // form card title, and the Alpine condition showing the whole card
 	Show                                  string // Alpine condition showing this field
 	Bind                                  bool   // field feeds the form's Alpine state (x-model)
+	Gen                                   bool   // "Generate" button fills the field with a random value
 }
 
 type option struct{ Value, Label string }

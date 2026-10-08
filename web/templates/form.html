@@ -32,6 +32,7 @@
         <p><a class="btn btn-primary" href="{{.Value}}">{{T "Download backup"}}</a></p>
         {{else}}
         <input class="input" id="{{.Name}}" name="{{.Name}}" type="{{.Type}}" value="{{.Value}}"{{if .Required}} required{{end}}{{if eq .Type "password"}} autocomplete="new-password"{{end}}{{if eq .Type "number"}} min="0"{{end}}{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
+        {{if .Gen}}<button type="button" class="btn btn-ghost mt-2" @click="const a='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_',b=crypto.getRandomValues(new Uint8Array(24)),i=$el.previousElementSibling;i.type='text';i.value=Array.from(b,x=>a[x&63]).join('')">{{T "Generate"}}</button>{{end}}
         {{end}}
         {{end}}
         {{with .Hint}}<p class="hint">{{T .}}</p>{{end}}
