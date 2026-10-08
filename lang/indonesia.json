@@ -1395,5 +1395,9 @@
     "Deleted logs older than (days)": "Log lebih lama dari (hari) dihapus",
     "Custom Balance": "Saldo Kustom",
     "Input Desired Amount": "Masukkan Jumlah yang Diinginkan",
-    "Please enter amount": "Silakan masukkan jumlah"
+    "Please enter amount": "Silakan masukkan jumlah",
+    "Default Device for New Plans": "Perangkat default untuk paket baru",
+    "By plan type": "Sesuai tipe paket",
+    "Preselected on the new plan form": "Dipilih otomatis di formulir paket baru",
+    "Choose one of the listed devices": "Pilih salah satu perangkat yang tersedia"
 }

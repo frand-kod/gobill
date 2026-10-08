@@ -1410,5 +1410,9 @@
     "Allow Balance Custom Amount": "Allow Balance Custom Amount",
     "Phone OTP Required": "Phone OTP Required",
     "Email OTP Required": "Email OTP Required",
-    "Hotspot Auth Method": "Hotspot Auth Method"
+    "Hotspot Auth Method": "Hotspot Auth Method",
+    "Default Device for New Plans": "Default Device for New Plans",
+    "By plan type": "By plan type",
+    "Preselected on the new plan form": "Preselected on the new plan form",
+    "Choose one of the listed devices": "Choose one of the listed devices"
 }

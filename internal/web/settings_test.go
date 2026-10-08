@@ -407,3 +407,20 @@ func TestSettingsPortalOptions(t *testing.T) {
 		}
 	}
 }
+
+func TestSettingsDefaultPlanDevice(t *testing.T) {
+	_, h, q := settingsSetup(t)
+	c := login(t, h, "alice")
+	if w := do(h, "POST", "/admin/settings/miscellaneous", url.Values{"default_plan_device": {"Radius"}}, c); w.Code != http.StatusSeeOther {
+		t.Fatalf("save: %d %s", w.Code, w.Body.String())
+	}
+	if got := settingValues(t, q)["default_plan_device"]; got != "Radius" {
+		t.Fatalf("stored %q", got)
+	}
+	if w := do(h, "POST", "/admin/settings/miscellaneous", url.Values{"default_plan_device": {"Bogus"}}, c); w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("bad value: %d", w.Code)
+	}
+	if got := settingValues(t, q)["default_plan_device"]; got != "Radius" {
+		t.Fatalf("bad value was stored: %q", got)
+	}
+}
