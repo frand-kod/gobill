@@ -38,7 +38,9 @@ CREATE TABLE plans (
     price         INTEGER NOT NULL CHECK (price >= 0),
     validity      INTEGER NOT NULL CHECK (validity > 0),
     validity_unit TEXT    NOT NULL CHECK (validity_unit IN ('Mins', 'Hrs', 'Days', 'Months', 'Period')),
-    -- Hotspot limits; NULL = unlimited.
+    -- Hotspot quota; limited=0 means unlimited (old typebp).
+    limited       INTEGER NOT NULL DEFAULT 0 CHECK (limited IN (0, 1)),
+    limit_type    TEXT    CHECK (limit_type IN ('Time_Limit', 'Data_Limit', 'Both_Limit')),
     time_limit    INTEGER CHECK (time_limit > 0),
     time_unit     TEXT    CHECK (time_unit IN ('Mins', 'Hrs')),
     data_limit    INTEGER CHECK (data_limit > 0),
@@ -48,6 +50,14 @@ CREATE TABLE plans (
     bandwidth_id  INTEGER REFERENCES bandwidths (id) ON DELETE RESTRICT,
     router_id     INTEGER REFERENCES routers (id) ON DELETE RESTRICT,
     pool_id       INTEGER REFERENCES pools (id) ON DELETE RESTRICT,
+    -- Profile an expired customer is moved to instead of being removed (old plan_expired).
+    expired_plan_id INTEGER REFERENCES plans (id) ON DELETE SET NULL,
+    -- Postpaid Period plans: day of month the bill is due (old expired_date).
+    billing_day   INTEGER CHECK (billing_day BETWEEN 1 AND 31),
+    on_login      TEXT    NOT NULL DEFAULT '',
+    on_logout     TEXT    NOT NULL DEFAULT '',
+    -- Driver name from system/devices; '' for Balance plans.
+    device        TEXT    NOT NULL DEFAULT '' CHECK (device IN ('', 'MikrotikHotspot', 'MikrotikPppoe', 'Dummy')),
     enabled       INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
     CHECK (type = 'Balance' OR (bandwidth_id IS NOT NULL AND router_id IS NOT NULL))
 );
@@ -66,6 +76,7 @@ CREATE TABLE customers (
     pppoe_username TEXT   NOT NULL DEFAULT '',
     pppoe_ip      TEXT    NOT NULL DEFAULT '',
     secret_enc    BLOB,             -- router-side hotspot/PPPoE password, AES-GCM
+    billing_day   INTEGER CHECK (billing_day BETWEEN 1 AND 31), -- overrides plans.billing_day
     auto_renewal  INTEGER NOT NULL DEFAULT 1 CHECK (auto_renewal IN (0, 1)),
     status        TEXT    NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Banned', 'Disabled', 'Inactive', 'Limited', 'Suspended')),
     created_by    INTEGER REFERENCES admins (id) ON DELETE SET NULL,
@@ -89,6 +100,8 @@ CREATE TABLE subscriptions (
     CHECK (expires_at >= started_at)
 );
 CREATE INDEX subscriptions_status_expires_idx ON subscriptions (status, expires_at);
+-- Old Package.php: one row per customer + router + type; recharge updates it.
+CREATE UNIQUE INDEX subscriptions_active_uniq ON subscriptions (customer_id, router_id, type) WHERE status = 'active';
 CREATE INDEX subscriptions_customer_idx ON subscriptions (customer_id);
 
 CREATE TABLE transactions (

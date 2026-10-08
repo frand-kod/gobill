@@ -58,6 +58,15 @@ func TestBillingSchema(t *testing.T) {
 		}
 	}
 
+	// One active subscription per customer+router+type; allowed again once expired.
+	dup := CreateSubscriptionParams{CustomerID: cust.ID, PlanID: plan.ID, RouterID: rt.ID, Type: "Hotspot", StartedAt: 300, ExpiresAt: 400}
+	if _, err := q.CreateSubscription(ctx, dup); err != nil {
+		t.Fatalf("new sub after expiry: %v", err)
+	}
+	if _, err := q.CreateSubscription(ctx, dup); err == nil {
+		t.Fatal("second active subscription accepted")
+	}
+
 	// Voucher claimed once only.
 	v, err := q.CreateVoucher(ctx, CreateVoucherParams{Code: "ABC", PlanID: plan.ID})
 	if err != nil {
@@ -95,6 +104,11 @@ func TestBillingSchema(t *testing.T) {
 		{"check customer status", `UPDATE customers SET status = 'weird'`},
 		{"check negative price", `UPDATE plans SET price = -1`},
 		{"unique username", `INSERT INTO customers (username, password_hash, fullname) VALUES ('u1', 'h', 'dup')`},
+		{"check device", `UPDATE plans SET device = 'Nope'`},
+		{"check limit_type", `UPDATE plans SET limit_type = 'Nope'`},
+		{"check plan billing_day", `UPDATE plans SET billing_day = 32`},
+		{"check customer billing_day", `UPDATE customers SET billing_day = 0`},
+		{"fk expired_plan", `UPDATE plans SET expired_plan_id = 999`},
 		{"voucher status/used_at", `UPDATE vouchers SET status = 'unused'`},
 	}
 	for _, c := range bad {

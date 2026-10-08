@@ -52,6 +52,7 @@ type Customer struct {
 	PppoeUsername string
 	PppoeIp       string
 	SecretEnc     []byte
+	BillingDay    sql.NullInt64
 	AutoRenewal   int64
 	Status        string
 	CreatedBy     sql.NullInt64
@@ -60,22 +61,29 @@ type Customer struct {
 }
 
 type Plan struct {
-	ID           int64
-	Name         string
-	Type         string
-	Billing      string
-	Price        int64
-	Validity     int64
-	ValidityUnit string
-	TimeLimit    sql.NullInt64
-	TimeUnit     sql.NullString
-	DataLimit    sql.NullInt64
-	DataUnit     sql.NullString
-	SharedUsers  sql.NullInt64
-	BandwidthID  sql.NullInt64
-	RouterID     sql.NullInt64
-	PoolID       sql.NullInt64
-	Enabled      int64
+	ID            int64
+	Name          string
+	Type          string
+	Billing       string
+	Price         int64
+	Validity      int64
+	ValidityUnit  string
+	Limited       int64
+	LimitType     sql.NullString
+	TimeLimit     sql.NullInt64
+	TimeUnit      sql.NullString
+	DataLimit     sql.NullInt64
+	DataUnit      sql.NullString
+	SharedUsers   sql.NullInt64
+	BandwidthID   sql.NullInt64
+	RouterID      sql.NullInt64
+	PoolID        sql.NullInt64
+	ExpiredPlanID sql.NullInt64
+	BillingDay    sql.NullInt64
+	OnLogin       string
+	OnLogout      string
+	Device        string
+	Enabled       int64
 }
 
 type Pool struct {

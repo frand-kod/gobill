@@ -30,9 +30,9 @@ func (q *Queries) AdjustBalance(ctx context.Context, arg AdjustBalanceParams) (i
 
 const createCustomer = `-- name: CreateCustomer :one
 INSERT INTO customers (username, password_hash, fullname, address, phone, email, service_type,
-                       pppoe_username, pppoe_ip, secret_enc, auto_renewal, status, created_by)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, auto_renewal, status, created_by, created_at, last_login_at
+                       pppoe_username, pppoe_ip, secret_enc, auto_renewal, status, created_by, billing_day)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+RETURNING id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at
 `
 
 type CreateCustomerParams struct {
@@ -49,6 +49,7 @@ type CreateCustomerParams struct {
 	AutoRenewal   int64
 	Status        string
 	CreatedBy     sql.NullInt64
+	BillingDay    sql.NullInt64
 }
 
 func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error) {
@@ -66,6 +67,7 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 		arg.AutoRenewal,
 		arg.Status,
 		arg.CreatedBy,
+		arg.BillingDay,
 	)
 	var i Customer
 	err := row.Scan(
@@ -81,6 +83,7 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 		&i.PppoeUsername,
 		&i.PppoeIp,
 		&i.SecretEnc,
+		&i.BillingDay,
 		&i.AutoRenewal,
 		&i.Status,
 		&i.CreatedBy,
@@ -100,7 +103,7 @@ func (q *Queries) DeleteCustomer(ctx context.Context, id int64) error {
 }
 
 const getCustomer = `-- name: GetCustomer :one
-SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, auto_renewal, status, created_by, created_at, last_login_at FROM customers WHERE id = ?
+SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at FROM customers WHERE id = ?
 `
 
 func (q *Queries) GetCustomer(ctx context.Context, id int64) (Customer, error) {
@@ -119,6 +122,7 @@ func (q *Queries) GetCustomer(ctx context.Context, id int64) (Customer, error) {
 		&i.PppoeUsername,
 		&i.PppoeIp,
 		&i.SecretEnc,
+		&i.BillingDay,
 		&i.AutoRenewal,
 		&i.Status,
 		&i.CreatedBy,
@@ -129,7 +133,7 @@ func (q *Queries) GetCustomer(ctx context.Context, id int64) (Customer, error) {
 }
 
 const getCustomerByUsername = `-- name: GetCustomerByUsername :one
-SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, auto_renewal, status, created_by, created_at, last_login_at FROM customers WHERE username = ?
+SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at FROM customers WHERE username = ?
 `
 
 func (q *Queries) GetCustomerByUsername(ctx context.Context, username string) (Customer, error) {
@@ -148,6 +152,7 @@ func (q *Queries) GetCustomerByUsername(ctx context.Context, username string) (C
 		&i.PppoeUsername,
 		&i.PppoeIp,
 		&i.SecretEnc,
+		&i.BillingDay,
 		&i.AutoRenewal,
 		&i.Status,
 		&i.CreatedBy,
@@ -158,7 +163,7 @@ func (q *Queries) GetCustomerByUsername(ctx context.Context, username string) (C
 }
 
 const listCustomers = `-- name: ListCustomers :many
-SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, auto_renewal, status, created_by, created_at, last_login_at FROM customers ORDER BY id DESC LIMIT ? OFFSET ?
+SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at FROM customers ORDER BY id DESC LIMIT ? OFFSET ?
 `
 
 type ListCustomersParams struct {
@@ -188,6 +193,7 @@ func (q *Queries) ListCustomers(ctx context.Context, arg ListCustomersParams) ([
 			&i.PppoeUsername,
 			&i.PppoeIp,
 			&i.SecretEnc,
+			&i.BillingDay,
 			&i.AutoRenewal,
 			&i.Status,
 			&i.CreatedBy,
@@ -208,7 +214,7 @@ func (q *Queries) ListCustomers(ctx context.Context, arg ListCustomersParams) ([
 }
 
 const searchCustomers = `-- name: SearchCustomers :many
-SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, auto_renewal, status, created_by, created_at, last_login_at FROM customers
+SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at FROM customers
 WHERE username LIKE '%' || CAST(?1 AS TEXT) || '%'
    OR fullname LIKE '%' || CAST(?1 AS TEXT) || '%'
    OR phone LIKE '%' || CAST(?1 AS TEXT) || '%'
@@ -243,6 +249,7 @@ func (q *Queries) SearchCustomers(ctx context.Context, arg SearchCustomersParams
 			&i.PppoeUsername,
 			&i.PppoeIp,
 			&i.SecretEnc,
+			&i.BillingDay,
 			&i.AutoRenewal,
 			&i.Status,
 			&i.CreatedBy,
@@ -287,7 +294,7 @@ func (q *Queries) TouchCustomerLogin(ctx context.Context, id int64) error {
 
 const updateCustomer = `-- name: UpdateCustomer :exec
 UPDATE customers SET fullname = ?, address = ?, phone = ?, email = ?, service_type = ?,
-    pppoe_username = ?, pppoe_ip = ?, secret_enc = ?, auto_renewal = ?, status = ?
+    pppoe_username = ?, pppoe_ip = ?, secret_enc = ?, auto_renewal = ?, status = ?, billing_day = ?
 WHERE id = ?
 `
 
@@ -302,6 +309,7 @@ type UpdateCustomerParams struct {
 	SecretEnc     []byte
 	AutoRenewal   int64
 	Status        string
+	BillingDay    sql.NullInt64
 	ID            int64
 }
 
@@ -317,6 +325,7 @@ func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) 
 		arg.SecretEnc,
 		arg.AutoRenewal,
 		arg.Status,
+		arg.BillingDay,
 		arg.ID,
 	)
 	return err
