@@ -8,6 +8,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-09
+
 ### Added
 
 - License GPL-3.0-or-later, NOTICE, CONTRIBUTING, issue/PR templates.
@@ -15,6 +17,10 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 ### Changed
 
 - Go module path is now `github.com/frand-kod/gobill` (was `github.com/frand-kod/nuxbill-go`).
+
+### Fixed
+
+- CI: committed `web/static/app.css` was stale, so the CSS freshness check failed.
 
 ## [0.1.0] - 2026-10-09
 
