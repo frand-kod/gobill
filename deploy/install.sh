@@ -96,7 +96,7 @@ log "memasang unit systemd"
 cat > "$UNIT" <<'EOF'
 [Unit]
 Description=NuxBill billing server
-Documentation=https://github.com/frand-kod/nuxbill-go
+Documentation=https://github.com/frand-kod/gobill
 After=time-sync.target network-online.target
 Wants=network-online.target
 

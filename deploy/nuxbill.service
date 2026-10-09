@@ -1,6 +1,6 @@
 [Unit]
 Description=NuxBill billing server
-Documentation=https://github.com/frand-kod/nuxbill-go
+Documentation=https://github.com/frand-kod/gobill
 # STB tidak punya RTC: tunggu NTP sinkron sebelum start.
 After=time-sync.target network-online.target
 Wants=network-online.target

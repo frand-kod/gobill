@@ -1,4 +1,4 @@
-# Paritas UI: PHPNuxBill lama vs nuxbill-go
+# Paritas UI: PHPNuxBill lama vs NuxBill Go
 
 Dokumen ini membandingkan UI lama (`../phpnuxbill/ui/ui`, 157 template) dengan rewrite Go. Hanya dokumentasi, tidak ada kode yang diubah. Dibuat 2026-10-08 dari kode di `main`.
 

@@ -1,77 +1,76 @@
 # NuxBill Go
 
-Penulisan ulang PHPNuxBill (billing hotspot/PPPoE MikroTik) dalam Go. Satu binary, database SQLite, tanpa PHP dan tanpa web server terpisah. Target utama: STB ARM dengan RAM 1-2 GB.
+Billing ISP untuk hotspot dan PPPoE MikroTik, ditulis ulang dari PHPNuxBill dalam Go. Satu binary, satu database SQLite, tanpa PHP dan tanpa web server terpisah. Cocok untuk RT/RW Net dan ISP kecil-menengah yang ingin menjalankannya di STB Armbian (RAM 1-2 GB), VPS, atau Docker.
 
-Status: fase F0 (login, dashboard kosong, pengaturan dasar).
+## Fitur utama
 
-## Menjalankan
+- Paket hotspot, PPPoE, dan saldo (prepaid/postpaid), voucher dengan QR, kupon, dan perpanjangan otomatis.
+- Server RADIUS bawaan (auth, accounting, CoA, login voucher hotspot) dan endpoint kompatibel FreeRADIUS REST (`/radius.php`).
+- Driver MikroTik lewat RouterOS API, atau mode RADIUS tanpa API.
+- Portal pelanggan: pesan paket, aktivasi voucher, transfer saldo, OTP, inbox.
+- Pembayaran online lewat Tripay (opsional).
+- Notifikasi Telegram, WhatsApp/SMS (URL gateway), email, dan webhook.
+- Dashboard, laporan, peta/ODP, multi-role admin, dan 5 bahasa.
+- Aman untuk perangkat tanpa RTC: job expiry menolak jalan saat jam sistem tidak dipercaya.
+- Impor satu kali dari database MySQL PHPNuxBill.
 
-    go run ./cmd/nuxbill
+## Teknologi
 
-Buka http://localhost:8080.
+| Bagian | Pilihan |
+|---|---|
+| Bahasa | Go, `net/http` stdlib, tanpa framework |
+| Database | SQLite (`modernc.org/sqlite`, tanpa CGO) + `sqlc` |
+| UI | `html/template`, Tailwind CSS v4, Alpine.js, Chart.js, Leaflet |
+| RADIUS | `layeh.com/radius` |
+| MikroTik | `go-routeros` (API) |
+| Deploy | Binary statis (amd64, arm64, armv7), systemd, Docker |
 
-## Instalasi
-
-Untuk STB Armbian dan server Linux dengan systemd, lihat [docs/INSTALL-STB.md](docs/INSTALL-STB.md). Ringkasnya:
-
-    sudo sh deploy/install.sh ./nuxbill-linux-arm64
-
-Rilis dengan binary `amd64`, `arm64`, dan `armv7` ada di halaman Releases. Setiap rilis menyertakan `sha256sums.txt`.
-
-## Docker
-
-    docker build --build-arg VERSION=dev -t nuxbill .
-    docker run -d --name nuxbill -p 8080:8080 -p 1812:1812/udp -p 1813:1813/udp \
-      -v nuxbill-data:/data nuxbill
-
-Data SQLite dan `nuxbill.db.key` ada di volume `/data`. Berikan `NUXBILL_SECRET_KEY` lewat `-e` bila ingin mengelola kunci sendiri. Lihat password admin pertama dengan `docker logs nuxbill | grep "first admin"`.
-
-## Variabel lingkungan
-
-| Variabel | Bawaan | Fungsi |
-|---|---|---|
-| `NUXBILL_DB` | `./nuxbill.db` | Lokasi file SQLite |
-| `NUXBILL_HTTP` | `:8080` | Alamat listen |
-| `NUXBILL_RADIUS` | `:1812` | Alamat listen RADIUS UDP (auth; acct di port+1). Kosong atau `off` mematikan listener UDP |
-| `NUXBILL_HTTPS` | kosong | Isi `1` jika dilayani lewat HTTPS (cookie sesi diberi flag Secure) |
-
-## Admin pertama
-
-Saat database masih kosong, aplikasi membuat user `admin` (SuperAdmin) dengan kata sandi acak 16 karakter. Kata sandi itu dicetak satu kali di log (level WARN) saat start pertama. Catat, lalu ganti.
-
-## Impor dari PHPNuxBill
+## Arsitektur
 
 ```
-nuxbill import --mysql-dsn='user:pass@tcp(127.0.0.1:3306)/phpnuxbill' --db=./nuxbill.db [--timezone=Asia/Jakarta] [--dry-run] [--force]
+ Browser admin / pelanggan --HTTP :8080--+
+ Tripay (callback) ----------HTTP--------+
+ FreeRADIUS (rlm_rest) ------/radius.php-+
+                                         v
+                     +------------- nuxbill (1 proses) -------------+
+                     |  Web (admin, portal)   RADIUS :1812/:1813    |
+                     |  Job: expiry, reminder, backup, clock guard  |
+                     |                    |                         |
+                     |              SQLite (file)                   |
+                     +-------+----------------------+---------------+
+                             |                      |
+          API :8728 / CoA :3799 ke MikroTik    Telegram, WA/SMS, SMTP,
+          RADIUS dari MikroTik (UDP)           webhook, Tripay
 ```
 
-Semuanya berjalan dalam satu transaksi SQLite. Target harus kosong (`--force` menghapus isinya). `--dry-run` hanya membuat laporan. Laporan menampilkan baris yang dibaca, diimpor, dan dilewati beserta alasannya. Harga yang gagal dikonversi dilewati. Zona waktu default diambil dari setting lama. Kata sandi admin (sha1) ditandai `legacy_sha1` dan diganti ke bcrypt saat login pertama. Kupon, ODP, dan inbox belum diimpor.
+Detail: [docs/arsitektur.md](docs/arsitektur.md).
 
-## Build untuk STB
+## Mulai cepat
 
-    CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o nuxbill ./cmd/nuxbill
-    CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -ldflags="-s -w" -o nuxbill ./cmd/nuxbill
+1. Unduh binary dari [Releases](https://github.com/frand-kod/gobill/releases) (`nuxbill-linux-amd64`, `-arm64`, `-armv7`), atau build sendiri: `make build`.
+2. Jalankan:
 
-## Menambah ikon
+       NUXBILL_DB=./nuxbill.db NUXBILL_HTTP=:8080 ./nuxbill
 
-Salin file SVG dari `lucide-static@0.460.0/icons` ke `web/static/icons/`, lalu pakai `{{icon "nama"}}` di template. Nama ikon yang tidak ada membuat server gagal start.
+3. Ambil password admin pertama dari log (dicetak sekali): cari baris `first admin`. Di systemd: `journalctl -u nuxbill | grep "first admin"`.
+4. Buka http://localhost:8080, login sebagai `admin`, lalu ganti password.
 
-## Regenerasi sqlc
+Untuk STB, systemd, atau Docker, lihat [docs/instalasi.md](docs/instalasi.md).
 
-Ubah SQL di `internal/db/queries` atau `internal/db/migrations`, lalu dari root repo:
+## Dokumentasi
 
-    sqlc generate
+Indeks lengkap: [docs/README.md](docs/README.md).
 
-Jangan edit file hasil generate secara manual.
+- [docs/instalasi.md](docs/instalasi.md): pasang di STB Armbian, VPS, atau Docker; upgrade dan pemecahan masalah.
+- [docs/konfigurasi.md](docs/konfigurasi.md): semua variabel `NUXBILL_*` dan pengaturan penting di UI.
+- [docs/mikrotik.md](docs/mikrotik.md): setup MikroTik (mode API dan RADIUS) dan pelajaran dari uji lapangan.
+- [docs/freeradius-rest.md](docs/freeradius-rest.md): memakai FreeRADIUS yang sudah ada lewat REST.
+- [docs/keamanan.md](docs/keamanan.md): pengerasan RADIUS dan catatan keamanan aplikasi.
+- [docs/migrasi-phpnuxbill.md](docs/migrasi-phpnuxbill.md): impor data, cutover, dan rollback.
+- [docs/arsitektur.md](docs/arsitektur.md): paket, alur request, dan model data.
+- [docs/pengembangan.md](docs/pengembangan.md): panduan developer, test, dan rilis.
+- Riwayat dan status: [CHANGELOG.md](CHANGELOG.md), [docs/PROGRESS.md](docs/PROGRESS.md), [docs/UI-PARITY.md](docs/UI-PARITY.md), [docs/plan/](docs/plan/README.md).
 
-## Versi & rilis
+## Versi dan lisensi
 
-Versi mengikuti SemVer. Perubahan tercatat di [CHANGELOG.md](CHANGELOG.md). Selama 0.x, perubahan yang memutus kompatibilitas bisa terjadi di versi minor.
-
-Untuk rilis, tag dengan `git tag -a v0.1.1 -m "v0.1.1"`, lalu `git push --tags`. CI membangun binary rilis untuk amd64, arm64, dan armv7 dari tag itu. Build lokal memakai `make build` dan memasang `git describe` ke `--version`.
-
-File migrasi yang sudah dirilis tidak boleh diubah. Schema baru masuk file bernomor baru, dan hash-nya dicatat di `internal/db/migrations.sum`.
-
-## Dokumen rencana
-
-Lihat `../phpnuxbill/docs/plan/`.
+Versi mengikuti SemVer, lihat [CHANGELOG.md](CHANGELOG.md) dan [aturan rilis](docs/pengembangan.md#versi-dan-rilis). Belum ada file lisensi di repo ini; tentukan sebelum didistribusikan.

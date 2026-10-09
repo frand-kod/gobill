@@ -74,7 +74,6 @@ Semua fase sudah selesai di level kode dan test. Yang tersisa adalah uji lapanga
 - **Kolom lama yang sengaja dibuang:** `account_type`, kota/kecamatan/provinsi/kode pos, `price_old` (harga coret), dan `plan_type` (Personal/Business). Tambahkan jika memang dipakai.
 - **`hs_auth_method`:** nilainya perlu disamakan dengan PHP lama (`api`/`hchap`), dan driver hotspot perlu dibuat membacanya.
 - **Default bisnis:** saat belum diisi, `extend_expiry` dan `enable_balance` dianggap aktif, aktivasi pertama postpaid ditagih Rp0, dan paket yang nonaktif tetap bisa di-recharge oleh admin.
-- **URL remote GitHub.**
 
 ## Belum pernah diuji di dunia nyata
 
