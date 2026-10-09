@@ -12,10 +12,10 @@ Semua fase sudah selesai di level kode dan test. Yang tersisa adalah uji lapanga
 |---|---|
 | F0 Fondasi | Selesai. CI belum pernah jalan karena belum ada remote |
 | F1 Billing inti | Selesai |
-| F2 Driver MikroTik | Selesai di kode, termasuk monitor router. Belum diuji di router nyata |
+| F2 Driver MikroTik | Selesai di kode. Belum diuji di router nyata |
 | F3 RADIUS | Selesai di kode: server bawaan, endpoint FreeRADIUS REST `/radius.php`, CoA, dan login voucher hotspot. Belum diuji dengan NAS nyata |
 | F4 Portal, notifikasi, Tripay | Selesai di kode. Tripay belum diuji di sandbox |
-| F5 Pelengkap | Selesai: laporan, invoice, widget, user admin, kupon, peta/ODP, pesan/inbox, custom field, halaman statis, backup, maintenance, dan pembersihan log |
+| F5 Pelengkap | Selesai (daftar fitur ada di CHANGELOG) |
 | F6 Import & rilis | Selesai. Import diuji dengan dump produksi asli, dan semua tanggal expiry serta total transaksi cocok |
 
 **Paritas UI:**
@@ -24,14 +24,14 @@ Semua fase sudah selesai di level kode dan test. Yang tersisa adalah uji lapanga
 
 ## Sudah selesai (ringkas)
 
-- **Stack:** Go dalam satu binary, SQLite (WAL, `synchronous=FULL`, `_txlock=immediate`), `sqlc`, `html/template`, Tailwind v4 standalone, Alpine.js, Chart.js, dan Leaflet. Tidak butuh Node.
+- **Stack:** Go dalam satu binary, SQLite (WAL, `synchronous=FULL`, `_txlock=immediate`), `sqlc`, `html/template`, Tailwind v4 standalone, Alpine.js, Chart.js, dan Leaflet.
 - **Keamanan:**
   - Password admin dan pelanggan memakai bcrypt. Password sha1 lama otomatis di-rehash saat login pertama.
   - Secret router, pelanggan, dan NAS dienkripsi AES-GCM.
   - CSRF dicegah lewat stdlib. Hanya callback Tripay dan `/radius.php` yang dikecualikan.
   - Ada pembatas brute-force untuk login, voucher, dan OTP.
   - Sesi dicabut saat password, role, atau status berubah.
-  - Error notifikasi disaring sebelum ditulis ke log, sehingga token dan API key tidak bocor.
+  - Error notifikasi disaring sebelum masuk log.
 - **Uang:**
   - Disimpan sebagai INTEGER rupiah.
   - Semua perubahan saldo atomik.
@@ -39,10 +39,6 @@ Semua fase sudah selesai di level kode dan test. Yang tersisa adalah uji lapanga
   - Transaksi milik pelanggan yang sudah dihapus tetap disimpan.
 - **Jam STB:** job expiry, reminder, backup, dan RADIUS ditahan atau disesuaikan saat jam sistem tidak dipercaya.
 - **Review keamanan akhir:** 9 temuan, semuanya sudah diperbaiki dan punya test regresi.
-
-## Sedang dikerjakan
-
-Tidak ada.
 
 ## Uji lapangan (MikroTik "4 keys infra", RouterOS 6.49.22, 2026-10-09)
 
@@ -59,18 +55,18 @@ Tidak ada.
   - `NUXBILL_RADIUS=` (kosong) tidak mematikan RADIUS
   - CoA mengirim NAS-IP-Address yang salah
   - paket dari NAS yang tidak terdaftar dibuang tanpa log
-- **Pelajaran jaringan:** server nuxbill tidak boleh menjadi klien hotspot, karena universal NAT membuat router menjangkaunya lewat `to-address`. Pakai ip-binding bypass atau port/VLAN tersendiri.
+- **Pelajaran jaringan:** server nuxbill jangan jadi klien hotspot. Universal NAT membuat router menjangkaunya lewat `to-address`.
 
 ## Akan dikerjakan (checklist sebelum menggantikan PHPNuxBill)
 
 1. Uji ulang CoA Disconnect di MikroTik.
 2. Uji jalur FreeRADIUS REST: arahkan `connect_uri` server 192.168.99.2 ke nuxbill di instance uji, lalu jalankan `freeradius -X`.
 3. Uji login voucher hotspot lewat RADIUS dan pembatas MAC.
-4. Import dump produksi terbaru ke STB, lalu bandingkan jumlah pelanggan aktif, expiry, dan saldo dengan sistem lama sesaat sebelum cutover.
-5. Jalankan paralel 1–3 hari dalam mode baca. nuxbill menerima accounting tanpa melayani auth produksi, lalu bandingkan sesi dan expiry harian.
-6. Build ARM dan jalankan di STB: cek RAM, startup tanpa RTC (clock guard), restart saat listrik padam, serta backup ke USB.
+4. Import dump produksi terbaru ke STB, lalu bandingkan pelanggan aktif, expiry, dan saldo dengan sistem lama.
+5. Jalankan paralel 1–3 hari dalam mode baca (accounting saja), lalu bandingkan sesi dan expiry.
+6. Build ARM dan uji di STB: RAM, startup tanpa RTC, listrik padam, backup ke USB.
 7. Push ke GitHub supaya CI dan rilis jalan.
-8. Rencana cutover dan rollback: ganti `connect_uri` atau `/radius address`. Rollback cukup mengembalikan entri lama, karena DB PHPNuxBill tidak disentuh.
+8. Rencana cutover dan rollback: ganti `connect_uri` atau `/radius address`. Rollback cukup kembali ke entri lama.
 9. Bersihkan sisa uji di router: `split-user-domain=no` di HSProfMaster, `/radius` `nuxbill-test`, profil `test` dan `test2`, dan user `claude-test`.
 
 ## Keputusan yang menunggu pengguna
@@ -84,7 +80,7 @@ Tidak ada.
 
 - CI di GitHub dan build ARM.
 - MikroTik, NAS RADIUS, FreeRADIUS, Tripay sandbox, SMTP, dan gateway WA/SMS.
-- Tampilan UI terbaru di browser.
+- Tampilan UI terbaru.
 
 ## Utang teknis yang disengaja
 
@@ -101,7 +97,6 @@ Yang terpenting:
 
 - Router dihubungi setelah commit DB.
 - Tanggal tidak valid di paket Period dinormalkan.
-- Kode voucher dibuat dengan `crypto/rand`, minimal 8 huruf atau 10 angka.
 - Bug PHP diperbaiki:
   - ganti username hotspot
   - rename profil PPPoE
@@ -115,6 +110,7 @@ Yang terpenting:
 
 - Opus berperan sebagai orkestrator. Sonnet mengerjakan logika bisnis dan bagian yang menyangkut keamanan, sedangkan Haiku mengerjakan form dan dokumen. Setiap agent bekerja di worktree terpisah.
 - Setiap merge harus lolos `go vet ./...` dan `go test ./...`, ditambah race detector untuk billing, radius, dan job.
-- Kode `sqlc` selalu di-generate ulang. CSS di-build dengan `sh tools/tailwind.sh`.
-- Sebelum rilis, file migrasi boleh diedit langsung. Akibatnya DB dev harus dibuat ulang setelah ada perubahan schema.
+- Kode `sqlc` selalu di-generate ulang. CSS di-build dengan `make css`.
+- Sejak v0.1.0, file migrasi di `internal/db/migrations/` tidak boleh diubah. Perubahan schema masuk file baru bernomor berikutnya, lalu baris hash-nya ditambahkan ke `internal/db/migrations.sum`. Test `TestMigrationsFrozen` menggagalkan build jika file rilis berubah, hilang, atau belum tercatat.
+- Versi mengikuti SemVer dan dicatat di `CHANGELOG.md`.
 - Dump produksi (`docs/*.sql`) di-gitignore dan tidak boleh di-commit.

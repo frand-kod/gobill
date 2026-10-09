@@ -48,6 +48,9 @@ type Server struct {
 	Radius     *radius.Server
 	radiusOnce sync.Once
 
+	// Version is shown in the admin sidebar footer.
+	Version string
+
 	// ClockWarning, if set, returns a non-empty reason while the clock is untrusted.
 	ClockWarning func() string
 	// SecretKey encrypts router passwords and customer secrets (see package secret).
@@ -84,6 +87,7 @@ type Page struct {
 	Brand         map[string]string // logo and login page text, filled by render
 	Dir           string            // "rtl" or "ltr"
 	Lang          string
+	Version       string
 	Data          any
 }
 
@@ -480,6 +484,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, name
 	p.Admin = adminFrom(r)
 	p.Path = r.URL.Path
 	p.Lang = s.language()
+	p.Version = s.Version
 	p.Brand = s.brand(r.Context())
 	p.Dir = "ltr"
 	if p.Lang == "arabic" {

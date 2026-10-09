@@ -51,6 +51,7 @@ func run() error {
 	dbPath := env("NUXBILL_DB", "./nuxbill.db")
 	addr := env("NUXBILL_HTTP", ":8080")
 	secure := os.Getenv("NUXBILL_HTTPS") == "1"
+	slog.Info("nuxbill starting", "version", version)
 
 	conn, err := db.Open(dbPath)
 	if err != nil {
@@ -77,6 +78,7 @@ func run() error {
 		return err
 	}
 	app.SecretKey = key
+	app.Version = version
 	guard := job.NewClockGuard(db.New(conn))
 	app.ClockWarning = guard.Reason
 	srv := &http.Server{

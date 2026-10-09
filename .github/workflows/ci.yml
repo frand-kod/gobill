@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: go build -trimpath -ldflags="-s -w" -o dist/nuxbill-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && 'v' }}${{ matrix.goarm }} ./cmd/nuxbill
+      - run: go build -trimpath -ldflags="-s -w -X main.version=$(git describe --tags --always --dirty)" -o dist/nuxbill-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && 'v' }}${{ matrix.goarm }} ./cmd/nuxbill
         env:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}

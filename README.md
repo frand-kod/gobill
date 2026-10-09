@@ -64,6 +64,14 @@ Ubah SQL di `internal/db/queries` atau `internal/db/migrations`, lalu dari root 
 
 Jangan edit file hasil generate secara manual.
 
+## Versi & rilis
+
+Versi mengikuti SemVer. Perubahan tercatat di [CHANGELOG.md](CHANGELOG.md). Selama 0.x, perubahan yang memutus kompatibilitas bisa terjadi di versi minor.
+
+Untuk rilis, tag dengan `git tag -a v0.1.1 -m "v0.1.1"`, lalu `git push --tags`. CI membangun binary rilis untuk amd64, arm64, dan armv7 dari tag itu. Build lokal memakai `make build` dan memasang `git describe` ke `--version`.
+
+File migrasi yang sudah dirilis tidak boleh diubah. Schema baru masuk file bernomor baru, dan hash-nya dicatat di `internal/db/migrations.sum`.
+
 ## Dokumen rencana
 
 Lihat `../phpnuxbill/docs/plan/`.
