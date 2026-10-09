@@ -107,6 +107,21 @@ func (s *Service) Recharge(ctx context.Context, customerID, planID int64, method
 	return nil
 }
 
+// RechargeZero is the admin "Recharge Zero" (PHP using=zero): the plan is activated, nothing is
+// charged and the transaction is recorded at price 0 (compensation, goodwill).
+func (s *Service) RechargeZero(ctx context.Context, customerID, planID int64, method string, adminID int64) error {
+	var p *pending
+	err := s.tx(ctx, func(q *db.Queries) (err error) {
+		p, err = s.recharge(ctx, q, customerID, planID, method, adminID, &couponUse{})
+		return
+	})
+	if err != nil {
+		return err
+	}
+	s.apply(ctx, p)
+	return nil
+}
+
 // RechargeWithBalance pays the plan price from the customer's balance, atomically.
 func (s *Service) RechargeWithBalance(ctx context.Context, customerID, planID, adminID int64) error {
 	var p *pending
@@ -226,13 +241,16 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		PeriodStart: now.Unix(), PeriodEnd: now.Unix(),
 	}
 	if cp != nil {
-		trx.Price, trx.Note = cp.price, "Coupon "+cp.code
+		trx.Price = cp.price // what was actually charged: coupon-discounted, or 0 for Recharge Zero
+		if cp.code != "" {
+			trx.Note = "Coupon " + cp.code
+		}
 	}
 
 	var pend *pending
 	if plan.Type == "Balance" { // rechargeBalance: top up, no subscription, no router
 		trx.RouterName = "balance"
-		if _, err := q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: plan.Price, ID: customerID}); err != nil {
+		if _, err := q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: trx.Price, ID: customerID}); err != nil {
 			return nil, err
 		}
 		pend = &pending{cust: c, plan: plan, trx: trx, first: false, expiry: now} // notify only, no router

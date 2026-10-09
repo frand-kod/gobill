@@ -9,7 +9,7 @@
       <dt class="text-slate-500">{{T "Customer"}}</dt><dd>{{.C.Fullname}} ({{.C.Username}})</dd>
       <dt class="text-slate-500">{{T "Service Plan"}}</dt><dd>{{.Plan}}</dd>
       <dt class="text-slate-500">{{T "Plan Price"}}</dt><dd>{{.Price}}</dd>
-      <dt class="text-slate-500">{{T "Payment Method"}}</dt><dd>{{T .Method}}</dd>
+      <dt class="text-slate-500">{{T "Payment Method"}}</dt><dd>{{T .MethodLabel}}</dd>
       {{if .Expiry}}<dt class="text-slate-500">{{T "Expires On"}}</dt><dd id="new-expiry">{{.Expiry}}</dd>{{end}}
       <dt class="text-slate-500">{{T "Balance"}}</dt><dd>{{.Balance}}</dd>
       <dt class="text-slate-500">{{T "Balance after"}}</dt><dd id="balance-after">{{.After}}</dd>

@@ -130,7 +130,7 @@ func TestRechargeForm(t *testing.T) {
 	wantCode(t, do(e.h, "POST", pay, url.Values{"plan": {itoa(cash.ID)}, "method": {"Cash"}}, e.c), 303, "recharge")
 	subs, _ := e.q.ListSubscriptionsByCustomer(t.Context(), db.ListSubscriptionsByCustomerParams{CustomerID: e.cust.ID, Limit: 10})
 	trx, _ := e.q.ListTransactionsByCustomer(t.Context(), db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: e.cust.ID, Valid: true}, Limit: 10})
-	if len(subs) != 1 || len(trx) != 1 || trx[0].Price != 10000 || trx[0].Method != "Admin - Cash" {
+	if len(subs) != 1 || len(trx) != 1 || trx[0].Price != 10000 || trx[0].Method != "Cash - Alice Wong" {
 		t.Fatalf("subs=%+v trx=%+v", subs, trx)
 	}
 
@@ -147,7 +147,7 @@ func TestRechargeForm(t *testing.T) {
 	if trx, _ = e.q.ListTransactionsByCustomer(t.Context(), db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: e.cust.ID, Valid: true}, Limit: 10}); len(trx) != 1 {
 		t.Fatal("failed balance recharge created a transaction")
 	}
-	if w := do(e.h, "GET", "/admin/transactions?q=u1", nil, e.c); !strings.Contains(w.Body.String(), "Admin - Cash") {
+	if w := do(e.h, "GET", "/admin/transactions?q=u1", nil, e.c); !strings.Contains(w.Body.String(), "Cash - Alice Wong") {
 		t.Fatal("transactions list")
 	}
 }

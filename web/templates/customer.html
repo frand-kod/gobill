@@ -42,7 +42,7 @@
       <div><label class="label" for="plan">{{T "Service Plan"}}</label>
         <select class="input" id="plan" name="plan">{{range .Plans}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</select></div>
       <div><label class="label" for="method">{{T "Payment Method"}}</label>
-        <select class="input" id="method" name="method"><option value="Cash">{{T "Cash"}}</option><option value="Balance">{{T "Balance"}}</option></select></div>
+        <select class="input" id="method" name="method">{{range .Methods}}<option value="{{.Value}}">{{T .Label}}</option>{{end}}</select></div>
       <div class="flex flex-wrap gap-2">
         <button class="btn btn-primary" type="submit">{{icon "wallet"}}<span>{{T "Recharge"}}</span></button>
         <a class="btn btn-ghost" href="/admin/vouchers/redeem?customer={{.C.Username}}">{{icon "ticket"}}<span>{{T "Redeem Voucher"}}</span></a>
