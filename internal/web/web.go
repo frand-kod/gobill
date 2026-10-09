@@ -228,7 +228,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/subscriptions/export", all(http.HandlerFunc(s.subExport)))
 	mux.Handle("GET /admin/subscriptions/{id}/edit", managers(http.HandlerFunc(s.subEdit)))
 	mux.Handle("POST /admin/subscriptions/{id}", managers(http.HandlerFunc(s.subSave)))
-	mux.Handle("POST /admin/subscriptions/{id}/extend", managers(http.HandlerFunc(s.subExtend)))
+	mux.Handle("POST /admin/subscriptions/{id}/extend", staff(http.HandlerFunc(s.subExtend)))
 	mux.Handle("POST /admin/subscriptions/{id}/deactivate", managers(http.HandlerFunc(s.subDeactivate)))
 	mux.Handle("POST /admin/subscriptions/{id}/sync", managers(http.HandlerFunc(s.subSync)))
 	mux.Handle("GET /admin/deposit", staff(http.HandlerFunc(s.depositForm)))

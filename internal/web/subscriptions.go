@@ -60,12 +60,16 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 	}
 	plans := append([]option{{"", "Plan"}}, planOpts...)
 	lp := listPage{Heading: "Subscriptions", Base: "/admin/subscriptions", Q: p.Q, Searchable: true,
-		CanEdit: oneOf(adminFrom(r).Role, "SuperAdmin", "Admin"), NoDelete: true,
+		CanEdit: oneOf(adminFrom(r).Role, "SuperAdmin", "Admin", "Agent", "Sales"), NoDelete: true,
+		DeleteOnly: !oneOf(adminFrom(r).Role, "SuperAdmin", "Admin"), // Agent/Sales get Extend only (PHP plan/extend has no role check)
 		Cols:     []string{"Username", "Plan Name", "Type", "Created On", "Expires On", "Method", "Location", "Status"},
 		SortKeys: []string{"username", "plan", "", "created", "expires", "", "", ""}, Sort: sort, Dir: dir,
 		Filters: []filter{{"status", p.Status, []option{{"", "Status"}, {"active", "active"}, {"expired", "expired"}}},
 			{"type", p.Type, anyOpts("Type", "Hotspot", "PPPoE")}, {"router", g("router"), routers}, {"plan", g("plan"), plans}},
 		Actions: []rowAction{{"extend", "Extend", "days", true}, {"deactivate", "Deactivate", "", true}, {"sync", "Sync", "", false}}}
+	if lp.DeleteOnly {
+		lp.Actions = lp.Actions[:1]
+	}
 	for _, x := range rows {
 		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Username, x.PlanName, x.Type, s.ts(x.StartedAt), s.ts(x.ExpiresAt), x.Method, x.RouterName, x.Status}})
 	}

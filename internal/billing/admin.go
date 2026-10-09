@@ -126,13 +126,19 @@ func (s *Service) removeFromDevice(ctx context.Context, c db.Customer, p db.Plan
 	}
 }
 
-// ExtendSubscription adds days to the current expiry (old plan/extend).
+// ExtendSubscription adds days to the expiry (old plan/extend). Like PHP, a subscription whose
+// expiry has already passed restarts from NOW + days (and goes active again, back on the device);
+// one that has not expired yet extends from its current expiry.
 func (s *Service) ExtendSubscription(ctx context.Context, id int64, days int, adminID int64) error {
 	sub, err := s.Q.GetSubscription(ctx, id)
 	if err != nil {
 		return err
 	}
-	return s.EditSubscription(ctx, id, sub.PlanID, time.Unix(sub.ExpiresAt, 0).In(s.now().Location()).AddDate(0, 0, days), adminID)
+	from, now := time.Unix(sub.ExpiresAt, 0).In(s.now().Location()), s.now()
+	if !from.After(now) {
+		from = now
+	}
+	return s.EditSubscription(ctx, id, sub.PlanID, from.AddDate(0, 0, days), adminID)
 }
 
 // DeactivateSubscription expires the subscription now and takes it off the router. Doing it twice
