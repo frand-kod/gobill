@@ -210,7 +210,7 @@ func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
 	role := adminFrom(r).Role
 	d := custDetail{Manage: oneOf(role, "SuperAdmin", "Admin"), C: c, Created: s.ts(c.CreatedAt), SecretSet: len(c.SecretEnc) > 0,
 		CanEdit: oneOf(role, "SuperAdmin", "Admin"), CanSell: oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales")}
-	opts, plans, err := s.planOptions(r, true)
+	opts, plans, err := s.planOptions(r, !d.Manage) // PHP: SuperAdmin/Admin may recharge a disabled plan
 	if err != nil {
 		s.fail(w, "list plans", err)
 		return
@@ -300,7 +300,7 @@ func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pv, err := s.Billing.Preview(r.Context(), c.ID, planID)
-	if err != nil || pv.Plan.Enabled != 1 {
+	if err != nil || pv.Plan.Enabled != 1 && !oneOf(adminFrom(r).Role, "SuperAdmin", "Admin") {
 		fail("Invalid plan")
 		return
 	}
@@ -334,7 +334,7 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 	}
 	planID, _ := posInt(r.PostFormValue("plan"))
 	plan, err := s.queries.GetPlan(r.Context(), planID)
-	if err != nil || plan.Enabled != 1 {
+	if err != nil || plan.Enabled != 1 && !oneOf(adminFrom(r).Role, "SuperAdmin", "Admin") {
 		fail("Invalid plan")
 		return
 	}
