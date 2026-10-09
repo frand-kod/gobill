@@ -7,6 +7,7 @@ package db
 
 import (
 	"context"
+	"strings"
 )
 
 const createCoupon = `-- name: CreateCoupon :one
@@ -66,6 +67,28 @@ DELETE FROM coupons WHERE id = ?
 func (q *Queries) DeleteCoupon(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, deleteCoupon, id)
 	return err
+}
+
+const deleteCouponsByIDs = `-- name: DeleteCouponsByIDs :execrows
+DELETE FROM coupons WHERE id IN (/*SLICE:ids*/?)
+`
+
+func (q *Queries) DeleteCouponsByIDs(ctx context.Context, ids []int64) (int64, error) {
+	query := deleteCouponsByIDs
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	result, err := q.db.ExecContext(ctx, query, queryParams...)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const getCoupon = `-- name: GetCoupon :one

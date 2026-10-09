@@ -24,3 +24,6 @@ DELETE FROM coupons WHERE id = ?;
 
 -- name: UseCoupon :execrows
 UPDATE coupons SET used = used + 1 WHERE id = ? AND (max_usage = 0 OR used < max_usage);
+
+-- name: DeleteCouponsByIDs :execrows
+DELETE FROM coupons WHERE id IN (sqlc.slice('ids'));

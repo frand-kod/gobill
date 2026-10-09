@@ -37,7 +37,8 @@ DELETE FROM subscriptions WHERE id = ?;
 -- name: FilterSubscriptions :many
 -- Empty status/type and router_id/plan_id 0 = any.
 SELECT s.id, s.type, s.started_at, s.expires_at, s.status, s.method, c.username, p.name AS plan_name,
-       CAST(COALESCE(r.name, '') AS TEXT) AS router_name
+       CAST(COALESCE(r.name, '') AS TEXT) AS router_name,
+       CAST(sqlc.arg(sort) AS TEXT) AS sort_key -- e.g. expires_asc; anything else = soonest-expiring last first
 FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id LEFT JOIN routers r ON r.id = s.router_id
 WHERE (c.username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
        OR p.name LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%')
@@ -45,7 +46,15 @@ WHERE (c.username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.fullname LIK
   AND (CAST(sqlc.arg(type) AS TEXT) = '' OR s.type = sqlc.arg(type))
   AND (CAST(sqlc.arg(router_id) AS INTEGER) = 0 OR s.router_id = sqlc.arg(router_id))
   AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR s.plan_id = sqlc.arg(plan_id))
-ORDER BY s.expires_at DESC, s.id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+ORDER BY
+  CASE WHEN sort_key = 'username_asc' THEN c.username END ASC,
+  CASE WHEN sort_key = 'username_desc' THEN c.username END DESC,
+  CASE WHEN sort_key = 'plan_asc' THEN p.name END ASC,
+  CASE WHEN sort_key = 'plan_desc' THEN p.name END DESC,
+  CASE WHEN sort_key = 'created_asc' THEN s.started_at END ASC,
+  CASE WHEN sort_key = 'created_desc' THEN s.started_at END DESC,
+  CASE WHEN sort_key = 'expires_asc' THEN s.expires_at END ASC,
+  s.expires_at DESC, s.id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 -- name: UpdateSubscription :exec
 UPDATE subscriptions SET plan_id = ?, router_id = ?, type = ?, expires_at = ?, status = ?, admin_id = ? WHERE id = ?;

@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"strings"
 )
 
 const createVoucher = `-- name: CreateVoucher :one
@@ -37,6 +38,20 @@ func (q *Queries) CreateVoucher(ctx context.Context, arg CreateVoucherParams) (V
 	return i, err
 }
 
+const deleteOldUsedVouchers = `-- name: DeleteOldUsedVouchers :execrows
+DELETE FROM vouchers WHERE status = 'used' AND used_at < ?1
+  AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.method = 'Voucher - ' || vouchers.code)
+`
+
+// Old PHP remove-voucher: used before the cutoff, unless a subscription still shows "Voucher - CODE" as its method.
+func (q *Queries) DeleteOldUsedVouchers(ctx context.Context, cutoff sql.NullInt64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteOldUsedVouchers, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteVoucher = `-- name: DeleteVoucher :exec
 DELETE FROM vouchers WHERE id = ? AND status = 'unused'
 `
@@ -44,6 +59,29 @@ DELETE FROM vouchers WHERE id = ? AND status = 'unused'
 func (q *Queries) DeleteVoucher(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, deleteVoucher, id)
 	return err
+}
+
+const deleteVouchersByIDs = `-- name: DeleteVouchersByIDs :execrows
+DELETE FROM vouchers WHERE id IN (/*SLICE:ids*/?)
+`
+
+// Bulk delete from the list; like old PHP voucher-delete-many, used vouchers may go too (history lives in transactions).
+func (q *Queries) DeleteVouchersByIDs(ctx context.Context, ids []int64) (int64, error) {
+	query := deleteVouchersByIDs
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	result, err := q.db.ExecContext(ctx, query, queryParams...)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const getVoucher = `-- name: GetVoucher :one

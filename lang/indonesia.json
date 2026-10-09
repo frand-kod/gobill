@@ -1428,5 +1428,10 @@
     "Your balance": "Saldo Anda",
     "Insufficient balance for this package": "Saldo tidak cukup untuk paket ini",
     "After paying, wait a few seconds then tap Check for Payment. This page refreshes itself.": "Setelah membayar, tunggu beberapa detik lalu ketuk Cek Pembayaran. Halaman ini menyegarkan diri otomatis.",
-    "Balance +%s, now %s": "Saldo +%s, sekarang %s"
+    "Balance +%s, now %s": "Saldo +%s, sekarang %s",
+    "Delete selected": "Hapus terpilih",
+    "Delete used vouchers older than 3 months": "Hapus voucher terpakai lebih dari 3 bulan",
+    "Send message to selected": "Kirim pesan ke yang dipilih",
+    "Select at least one row": "Pilih minimal satu baris",
+    "Select all": "Pilih semua"
 }

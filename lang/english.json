@@ -1415,5 +1415,10 @@
     "Default Device for New Plans": "Default Device for New Plans",
     "By plan type": "By plan type",
     "Preselected on the new plan form": "Preselected on the new plan form",
-    "Choose one of the listed devices": "Choose one of the listed devices"
+    "Choose one of the listed devices": "Choose one of the listed devices",
+    "Delete selected": "Delete selected",
+    "Delete used vouchers older than 3 months": "Delete used vouchers older than 3 months",
+    "Send message to selected": "Send message to selected",
+    "Select at least one row": "Select at least one row",
+    "Select all": "Select all"
 }

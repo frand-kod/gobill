@@ -8,6 +8,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"strings"
 )
 
 const adjustBalance = `-- name: AdjustBalance :one
@@ -301,6 +302,64 @@ type ListCustomersParams struct {
 
 func (q *Queries) ListCustomers(ctx context.Context, arg ListCustomersParams) ([]Customer, error) {
 	rows, err := q.db.QueryContext(ctx, listCustomers, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Customer
+	for rows.Next() {
+		var i Customer
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.PasswordHash,
+			&i.Fullname,
+			&i.Address,
+			&i.Phone,
+			&i.Email,
+			&i.Balance,
+			&i.ServiceType,
+			&i.PppoeUsername,
+			&i.PppoeIp,
+			&i.SecretEnc,
+			&i.BillingDay,
+			&i.AutoRenewal,
+			&i.Status,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.LastLoginAt,
+			&i.SessionVersion,
+			&i.Coordinates,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCustomersByIDs = `-- name: ListCustomersByIDs :many
+SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at, session_version, coordinates FROM customers WHERE id IN (/*SLICE:ids*/?) ORDER BY id
+`
+
+func (q *Queries) ListCustomersByIDs(ctx context.Context, ids []int64) ([]Customer, error) {
+	query := listCustomersByIDs
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}

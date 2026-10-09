@@ -100,18 +100,28 @@ func (q *Queries) ExpireSubscription(ctx context.Context, arg ExpireSubscription
 
 const filterSubscriptions = `-- name: FilterSubscriptions :many
 SELECT s.id, s.type, s.started_at, s.expires_at, s.status, s.method, c.username, p.name AS plan_name,
-       CAST(COALESCE(r.name, '') AS TEXT) AS router_name
+       CAST(COALESCE(r.name, '') AS TEXT) AS router_name,
+       CAST(?1 AS TEXT) AS sort_key -- e.g. expires_asc; anything else = soonest-expiring last first
 FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id LEFT JOIN routers r ON r.id = s.router_id
-WHERE (c.username LIKE '%' || CAST(?1 AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(?1 AS TEXT) || '%'
-       OR p.name LIKE '%' || CAST(?1 AS TEXT) || '%')
-  AND (CAST(?2 AS TEXT) = '' OR s.status = ?2)
-  AND (CAST(?3 AS TEXT) = '' OR s.type = ?3)
-  AND (CAST(?4 AS INTEGER) = 0 OR s.router_id = ?4)
-  AND (CAST(?5 AS INTEGER) = 0 OR s.plan_id = ?5)
-ORDER BY s.expires_at DESC, s.id DESC LIMIT ?7 OFFSET ?6
+WHERE (c.username LIKE '%' || CAST(?2 AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(?2 AS TEXT) || '%'
+       OR p.name LIKE '%' || CAST(?2 AS TEXT) || '%')
+  AND (CAST(?3 AS TEXT) = '' OR s.status = ?3)
+  AND (CAST(?4 AS TEXT) = '' OR s.type = ?4)
+  AND (CAST(?5 AS INTEGER) = 0 OR s.router_id = ?5)
+  AND (CAST(?6 AS INTEGER) = 0 OR s.plan_id = ?6)
+ORDER BY
+  CASE WHEN sort_key = 'username_asc' THEN c.username END ASC,
+  CASE WHEN sort_key = 'username_desc' THEN c.username END DESC,
+  CASE WHEN sort_key = 'plan_asc' THEN p.name END ASC,
+  CASE WHEN sort_key = 'plan_desc' THEN p.name END DESC,
+  CASE WHEN sort_key = 'created_asc' THEN s.started_at END ASC,
+  CASE WHEN sort_key = 'created_desc' THEN s.started_at END DESC,
+  CASE WHEN sort_key = 'expires_asc' THEN s.expires_at END ASC,
+  s.expires_at DESC, s.id DESC LIMIT ?8 OFFSET ?7
 `
 
 type FilterSubscriptionsParams struct {
+	Sort       string
 	Q          string
 	Status     string
 	Type       string
@@ -131,11 +141,13 @@ type FilterSubscriptionsRow struct {
 	Username   string
 	PlanName   string
 	RouterName string
+	SortKey    string
 }
 
 // Empty status/type and router_id/plan_id 0 = any.
 func (q *Queries) FilterSubscriptions(ctx context.Context, arg FilterSubscriptionsParams) ([]FilterSubscriptionsRow, error) {
 	rows, err := q.db.QueryContext(ctx, filterSubscriptions,
+		arg.Sort,
 		arg.Q,
 		arg.Status,
 		arg.Type,
@@ -161,6 +173,7 @@ func (q *Queries) FilterSubscriptions(ctx context.Context, arg FilterSubscriptio
 			&i.Username,
 			&i.PlanName,
 			&i.RouterName,
+			&i.SortKey,
 		); err != nil {
 			return nil, err
 		}

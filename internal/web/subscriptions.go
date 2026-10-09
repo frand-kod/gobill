@@ -46,6 +46,8 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 	for _, x := range rts {
 		routers = append(routers, option{fmt.Sprint(x.ID), x.Name})
 	}
+	sort, dir, param := listSort(r, "username", "plan", "created", "expires")
+	p.Sort = param
 	rows, err := s.queries.FilterSubscriptions(r.Context(), p)
 	if err != nil {
 		s.fail(w, "list subscriptions", err)
@@ -59,7 +61,8 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 	plans := append([]option{{"", "Plan"}}, planOpts...)
 	lp := listPage{Heading: "Subscriptions", Base: "/admin/subscriptions", Q: p.Q, Searchable: true,
 		CanEdit: oneOf(adminFrom(r).Role, "SuperAdmin", "Admin"), NoDelete: true,
-		Cols: []string{"Username", "Plan Name", "Type", "Created On", "Expires On", "Method", "Location", "Status"},
+		Cols:     []string{"Username", "Plan Name", "Type", "Created On", "Expires On", "Method", "Location", "Status"},
+		SortKeys: []string{"username", "plan", "", "created", "expires", "", "", ""}, Sort: sort, Dir: dir,
 		Filters: []filter{{"status", p.Status, []option{{"", "Status"}, {"active", "active"}, {"expired", "expired"}}},
 			{"type", p.Type, anyOpts("Type", "Hotspot", "PPPoE")}, {"router", g("router"), routers}, {"plan", g("plan"), plans}},
 		Actions: []rowAction{{"extend", "Extend", "days", true}, {"deactivate", "Deactivate", "", true}, {"sync", "Sync", "", false}}}

@@ -38,6 +38,7 @@
     if (f.method === 'dialog') return;
     if (t && !f.dataset.ok) {
       e.preventDefault();
+      t = t.replace('{n}', document.querySelectorAll('input[name=ids]:checked').length);
       t = t.replace(/\{(\w+)\}/g, function (m, n) { return f.elements[n] ? f.elements[n].value : m; });
       var go = function () { f.dataset.ok = '1'; f.requestSubmit(sb); delete f.dataset.ok; };
       if (!dlg || !dlg.showModal) { if (confirm(t)) go(); return; }

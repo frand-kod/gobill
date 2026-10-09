@@ -12,6 +12,9 @@
   <input class="input w-32" type="number" name="keep" min="1" required placeholder="{{T "Keep logs (days)"}}" aria-label="{{T "Keep logs (days)"}}">
   <button class="btn btn-danger" type="submit">{{icon "trash-2"}}<span>{{T "Clean Logs"}}</span></button>
 </form>{{end}}
+{{if .Bulk}}<form id="bulk" method="post" class="mb-3 flex flex-wrap gap-2">
+  {{range .Bulk}}<button class="btn {{if .Danger}}btn-danger{{else}}btn-ghost{{end}}" type="submit" formaction="{{$d.Base}}/{{.Path}}" data-confirm="{{T .Label}} ({n})?"{{if .Danger}} data-confirm-danger{{end}}>{{if .Danger}}{{icon "trash-2"}}{{end}}<span>{{T .Label}}</span></button>{{end}}
+</form>{{end}}
 <div class="card overflow-hidden">
   {{if .Searchable}}
   <form class="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3 dark:border-slate-800" method="get" action="{{.Base}}" role="search">
@@ -26,10 +29,11 @@
   {{end}}
   <div class="overflow-x-auto">
     <table class="table">
-      <thead><tr>{{range $i, $c := .Cols}}<th>{{with $d.SortKey $i}}<a class="hover:underline" href="{{$d.SortURL .}}">{{T $c}}{{if eq $d.Sort .}} {{if eq $d.Dir "asc"}}&uarr;{{else}}&darr;{{end}}{{end}}</a>{{else}}{{T $c}}{{end}}</th>{{end}}{{if .CanEdit}}<th></th>{{end}}</tr></thead>
+      <thead><tr>{{if .Bulk}}<th class="w-10"><label class="flex size-10 items-center justify-center"><input type="checkbox" class="size-4 accent-brand-600" aria-label="{{T "Select all"}}" onchange="document.querySelectorAll('input[name=ids]').forEach(function(c){c.checked=event.target.checked})"></label></th>{{end}}{{range $i, $c := .Cols}}<th>{{with $d.SortKey $i}}<a class="hover:underline" href="{{$d.SortURL .}}">{{T $c}}{{if eq $d.Sort .}} {{if eq $d.Dir "asc"}}&uarr;{{else}}&darr;{{end}}{{end}}</a>{{else}}{{T $c}}{{end}}</th>{{end}}{{if .CanEdit}}<th></th>{{end}}</tr></thead>
       <tbody>
       {{range $r := .Rows}}
         <tr>
+          {{if $d.Bulk}}<td class="w-10"><label class="flex size-10 items-center justify-center"><input type="checkbox" class="size-4 accent-brand-600" name="ids" value="{{$r.ID}}" form="bulk" aria-label="{{index $r.Cells 0}}"></label></td>{{end}}
           {{range $i, $c := $r.Cells}}<td>
             {{if eq (index $d.Cols $i) "Status"}}<span class="badge {{badge $c}}">{{T $c}}</span>
             {{else if eq (index $d.Cols $i) "Secret"}}{{if $c}}<span class="badge badge-warn">{{T $c}}</span>{{end}}
@@ -47,7 +51,7 @@
           </td>{{end}}
         </tr>
       {{else}}
-        <tr><td class="py-8 text-center text-slate-500" colspan="{{len .Cols}}">{{T "No data"}}</td></tr>
+        <tr><td class="py-8 text-center text-slate-500" colspan="99">{{T "No data"}}</td></tr>
       {{end}}
       </tbody>
     </table>

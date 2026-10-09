@@ -35,6 +35,7 @@ func (s *Server) cpnList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp := listPage{Heading: "Coupons", Base: "/admin/coupons", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
+		Bulk:    []bulkAction{{"delete-many", "Delete selected", true}},
 		Actions: []rowAction{{"toggle", "Block/Unblock", "", true}},
 		Cols:    []string{"Code", "Type", "Value", "Max Usage", "Used", "Min Order", "Start Date", "End Date", "Status"}}
 	for _, c := range rows {
@@ -145,5 +146,12 @@ func (s *Server) cpnDelete(w http.ResponseWriter, r *http.Request) {
 	c, _ := s.queries.GetCoupon(r.Context(), pathID(r))
 	s.remove(w, r, "/admin/coupons", "coupon", "Coupon is in use", c.Code, func(id int64) error {
 		return s.queries.DeleteCoupon(r.Context(), id)
+	})
+}
+
+// cpnDeleteMany deletes the selected coupons (old PHP coupons delete, SuperAdmin/Admin/Sales).
+func (s *Server) cpnDeleteMany(w http.ResponseWriter, r *http.Request) {
+	s.bulkDelete(w, r, "/admin/coupons", "coupon", "Coupon is in use", func(q *db.Queries, ids []int64) (int64, error) {
+		return q.DeleteCouponsByIDs(r.Context(), ids)
 	})
 }

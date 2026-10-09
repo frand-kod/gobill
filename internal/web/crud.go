@@ -89,18 +89,100 @@ type listPage struct {
 	CanEdit          bool // shows edit and delete
 	ViewLink         bool // first cell links to Base/ID instead of Base/ID/edit
 	Searchable       bool
-	Prev, Next       int         // page numbers, 0 = none
-	DeleteOnly       bool        // rows have no edit page
-	Links            []option    // extra toolbar buttons: Value = href
-	Filters          []filter    // selects next to the search box
-	SortKeys         []string    // parallel to Cols; "" = not sortable
-	Sort, Dir        string      // current sort key and "asc"/"desc"
-	InvoiceLink      bool        // first cell links to Base/ID/invoice
-	NoDelete         bool        // rows have no delete button
-	Actions          []rowAction // per-row POST buttons
-	Dates            bool        // from/to date inputs next to the search box
-	From, To         string      // YYYY-MM-DD
-	Clean            string      // POST URL of the "keep N days / Clean logs" form; "" = none
+	Prev, Next       int          // page numbers, 0 = none
+	DeleteOnly       bool         // rows have no edit page
+	Links            []option     // extra toolbar buttons: Value = href
+	Filters          []filter     // selects next to the search box
+	SortKeys         []string     // parallel to Cols; "" = not sortable
+	Sort, Dir        string       // current sort key and "asc"/"desc"
+	InvoiceLink      bool         // first cell links to Base/ID/invoice
+	NoDelete         bool         // rows have no delete button
+	Actions          []rowAction  // per-row POST buttons
+	Dates            bool         // from/to date inputs next to the search box
+	From, To         string       // YYYY-MM-DD
+	Bulk             []bulkAction // row checkboxes + buttons posting the selected ids to Base/Path
+	Clean            string       // POST URL of the "keep N days / Clean logs" form; "" = none
+}
+
+// bulkAction is a button that POSTs the checked row ids (name "ids") to Base/Path.
+type bulkAction struct {
+	Path, Label string
+	Danger      bool
+}
+
+const maxBulkIDs = 1000
+
+// parseIDs reads the posted "ids" strictly: positive integers only, duplicates dropped, 1..maxBulkIDs of them.
+func parseIDs(r *http.Request) ([]int64, bool) {
+	r.ParseForm()
+	vals := r.PostForm["ids"]
+	if len(vals) == 0 || len(vals) > maxBulkIDs {
+		return nil, false
+	}
+	seen := map[int64]bool{}
+	var ids []int64
+	for _, v := range vals {
+		id, ok := posInt(v)
+		if !ok {
+			return nil, false
+		}
+		if !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	return ids, true
+}
+
+// bulkDelete runs del over the posted ids in ONE transaction, logs once and flashes "N Data Deleted Successfully".
+// A foreign-key refusal rolls everything back and shows inUse.
+func (s *Server) bulkDelete(w http.ResponseWriter, r *http.Request, back, what, inUse string, del func(q *db.Queries, ids []int64) (int64, error)) {
+	ids, ok := parseIDs(r)
+	if !ok {
+		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Select at least one row"))
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	tx, err := s.conn.BeginTx(r.Context(), nil)
+	if err != nil {
+		s.fail(w, "begin bulk delete "+what, err)
+		return
+	}
+	defer tx.Rollback()
+	n, err := del(s.queries.WithTx(tx), ids)
+	if err == nil {
+		err = tx.Commit()
+	}
+	if err != nil {
+		if !isFK(err) {
+			s.fail(w, "bulk delete "+what, err)
+			return
+		}
+		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), inUse))
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	s.bulkDone(w, r, back, what+".delete_many", n)
+}
+
+// bulkDone logs one activity entry with the count and flashes "N Data Deleted Successfully".
+func (s *Server) bulkDone(w http.ResponseWriter, r *http.Request, back, action string, n int64) {
+	s.logActivity(r, action, fmt.Sprint(n))
+	s.sessions.Put(r.Context(), "flash", fmt.Sprintf("%d %s", n, s.catalog.T(s.language(), "Data Deleted Successfully")))
+	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+// listSort reads ?sort and ?dir against a whitelist. param is "key_dir" for the SQL CASE ("" = default order).
+func listSort(r *http.Request, allowed ...string) (sort, dir, param string) {
+	g := r.URL.Query().Get
+	dir = "asc"
+	if !oneOf(g("sort"), allowed...) {
+		return "", dir, ""
+	}
+	if g("dir") == "desc" {
+		dir = "desc"
+	}
+	return g("sort"), dir, g("sort") + "_" + dir
 }
 
 type filter struct {

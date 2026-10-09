@@ -24,3 +24,12 @@ WHERE id = ? AND status = 'unused';
 
 -- name: DeleteVoucher :exec
 DELETE FROM vouchers WHERE id = ? AND status = 'unused';
+
+-- name: DeleteVouchersByIDs :execrows
+-- Bulk delete from the list; like old PHP voucher-delete-many, used vouchers may go too (history lives in transactions).
+DELETE FROM vouchers WHERE id IN (sqlc.slice('ids'));
+
+-- name: DeleteOldUsedVouchers :execrows
+-- Old PHP remove-voucher: used before the cutoff, unless a subscription still shows "Voucher - CODE" as its method.
+DELETE FROM vouchers WHERE status = 'used' AND used_at < sqlc.arg(cutoff)
+  AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.method = 'Voucher - ' || vouchers.code);

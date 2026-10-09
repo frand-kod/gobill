@@ -67,3 +67,6 @@ LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 -- name: DetachCustomerTransactions :exec
 -- Customer delete keeps history: transactions stay with customer_id NULL (username/plan_name remain).
 UPDATE transactions SET customer_id = NULL WHERE customer_id = ?;
+
+-- name: ListCustomersByIDs :many
+SELECT * FROM customers WHERE id IN (sqlc.slice('ids')) ORDER BY id;

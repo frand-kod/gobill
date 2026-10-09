@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/skip2/go-qrcode"
 
@@ -94,6 +95,9 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 		CanCreate: oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), CanEdit: oneOf(role, "SuperAdmin", "Admin"),
 		Filters: []filter{{"status", status, vchStatuses}},
 		Cols:    []string{"Code Voucher", "Plan Name", "Status", "Created", "Used"}}
+	if lp.CanEdit {
+		lp.Bulk = []bulkAction{{"delete-many", "Delete selected", true}, {"remove-old", "Delete used vouchers older than 3 months", true}}
+	}
 	if lp.CanCreate {
 		lp.Links = []option{{"/admin/vouchers/redeem", "Redeem Voucher"}, {"/admin/vouchers/print?limit=36", "Print"}}
 	}
@@ -204,6 +208,23 @@ func (s *Server) vchDelete(w http.ResponseWriter, r *http.Request) {
 	s.remove(w, r, "/admin/vouchers", "voucher", "Voucher is in use", name, func(id int64) error {
 		return s.queries.DeleteVoucher(r.Context(), id)
 	})
+}
+
+// vchDeleteMany deletes the selected vouchers, used ones too (old PHP voucher-delete-many).
+func (s *Server) vchDeleteMany(w http.ResponseWriter, r *http.Request) {
+	s.bulkDelete(w, r, "/admin/vouchers", "voucher", "Voucher is in use", func(q *db.Queries, ids []int64) (int64, error) {
+		return q.DeleteVouchersByIDs(r.Context(), ids)
+	})
+}
+
+// vchRemoveOld deletes used vouchers older than 3 months (old PHP remove-voucher); ids are ignored.
+func (s *Server) vchRemoveOld(w http.ResponseWriter, r *http.Request) {
+	n, err := s.queries.DeleteOldUsedVouchers(r.Context(), sql.NullInt64{Int64: time.Now().AddDate(0, -3, 0).Unix(), Valid: true})
+	if err != nil {
+		s.fail(w, "remove old vouchers", err)
+		return
+	}
+	s.bulkDone(w, r, "/admin/vouchers", "voucher.remove_old", n)
 }
 
 type printItem struct {
@@ -323,13 +344,15 @@ func (s *Server) vchRedeem(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) trxList(w http.ResponseWriter, r *http.Request) {
 	q, page, limit, off := paging(r)
-	rows, err := s.queries.SearchTransactions(r.Context(), db.SearchTransactionsParams{Q: q, PageLimit: limit, PageOffset: off})
+	sort, dir, param := listSort(r, "date", "amount", "username")
+	rows, err := s.queries.SearchTransactions(r.Context(), db.SearchTransactionsParams{Q: q, Sort: param, PageLimit: limit, PageOffset: off})
 	if err != nil {
 		s.fail(w, "list transactions", err)
 		return
 	}
 	lp := listPage{Heading: "Transactions", Base: "/admin/transactions", Q: q, Searchable: true, InvoiceLink: true,
-		Cols: []string{"Invoice", "Date", "Username", "Plan Name", "Type", "Method", "Plan Price"}}
+		Cols:     []string{"Invoice", "Date", "Username", "Plan Name", "Type", "Method", "Plan Price"},
+		SortKeys: []string{"", "date", "username", "", "", "", "amount"}, Sort: sort, Dir: dir}
 	for _, t := range rows {
 		lp.Rows = append(lp.Rows, listRow{t.ID, []string{t.Invoice, s.ts(t.CreatedAt), t.Username, t.PlanName, t.Type, t.Method, money(t.Price)}})
 	}

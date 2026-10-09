@@ -222,28 +222,61 @@ func (q *Queries) ListTransactionsByCustomer(ctx context.Context, arg ListTransa
 }
 
 const searchTransactions = `-- name: SearchTransactions :many
-SELECT id, invoice, customer_id, plan_id, username, plan_name, router_name, type, price, method, note, admin_id, created_at, period_start, period_end FROM transactions
-WHERE invoice LIKE '%' || CAST(?1 AS TEXT) || '%'
-   OR username LIKE '%' || CAST(?1 AS TEXT) || '%'
-   OR plan_name LIKE '%' || CAST(?1 AS TEXT) || '%'
-ORDER BY id DESC LIMIT ?3 OFFSET ?2
+SELECT id, invoice, customer_id, plan_id, username, plan_name, router_name, type, price, method, note, admin_id, created_at, period_start, period_end, CAST(?1 AS TEXT) AS sort_key -- e.g. date_asc; anything else = newest first
+FROM transactions
+WHERE invoice LIKE '%' || CAST(?2 AS TEXT) || '%'
+   OR username LIKE '%' || CAST(?2 AS TEXT) || '%'
+   OR plan_name LIKE '%' || CAST(?2 AS TEXT) || '%'
+ORDER BY
+  CASE WHEN sort_key = 'date_asc' THEN created_at END ASC,
+  CASE WHEN sort_key = 'date_desc' THEN created_at END DESC,
+  CASE WHEN sort_key = 'amount_asc' THEN price END ASC,
+  CASE WHEN sort_key = 'amount_desc' THEN price END DESC,
+  CASE WHEN sort_key = 'username_asc' THEN username END ASC,
+  CASE WHEN sort_key = 'username_desc' THEN username END DESC,
+  id DESC LIMIT ?4 OFFSET ?3
 `
 
 type SearchTransactionsParams struct {
+	Sort       string
 	Q          string
 	PageOffset int64
 	PageLimit  int64
 }
 
-func (q *Queries) SearchTransactions(ctx context.Context, arg SearchTransactionsParams) ([]Transaction, error) {
-	rows, err := q.db.QueryContext(ctx, searchTransactions, arg.Q, arg.PageOffset, arg.PageLimit)
+type SearchTransactionsRow struct {
+	ID          int64
+	Invoice     string
+	CustomerID  sql.NullInt64
+	PlanID      sql.NullInt64
+	Username    string
+	PlanName    string
+	RouterName  string
+	Type        string
+	Price       int64
+	Method      string
+	Note        string
+	AdminID     sql.NullInt64
+	CreatedAt   int64
+	PeriodStart int64
+	PeriodEnd   int64
+	SortKey     string
+}
+
+func (q *Queries) SearchTransactions(ctx context.Context, arg SearchTransactionsParams) ([]SearchTransactionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, searchTransactions,
+		arg.Sort,
+		arg.Q,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Transaction
+	var items []SearchTransactionsRow
 	for rows.Next() {
-		var i Transaction
+		var i SearchTransactionsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Invoice,
@@ -260,6 +293,7 @@ func (q *Queries) SearchTransactions(ctx context.Context, arg SearchTransactions
 			&i.CreatedAt,
 			&i.PeriodStart,
 			&i.PeriodEnd,
+			&i.SortKey,
 		); err != nil {
 			return nil, err
 		}

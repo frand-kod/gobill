@@ -10,6 +10,7 @@
     {{if .Title}}<h2 class="card-title">{{T .Title}}</h2>{{end}}
     <div class="card-body grid gap-x-6 gap-y-4 md:grid-cols-2">
       {{range .Fields}}
+      {{if eq .Type "hidden"}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{else}}
       <div{{with .Show}} x-show="{{.}}" x-cloak{{end}}>
         {{if eq .Type "checkbox"}}
         <label class="flex items-center gap-2 py-2 text-sm font-medium"><input type="checkbox" class="size-4 rounded accent-brand-600" name="{{.Name}}" value="1"{{if .Checked}} checked{{end}}{{if .Bind}} x-model="{{.Name}}"{{end}}> {{T .Label}}</label>
@@ -38,6 +39,7 @@
         {{with .Hint}}<p class="hint">{{T .}}</p>{{end}}
         {{if .Error}}<p class="field-error" id="{{.Name}}-err">{{T .Error}}</p>{{end}}
       </div>
+      {{end}}
       {{end}}
     </div>
   </section>
