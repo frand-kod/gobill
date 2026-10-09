@@ -2,6 +2,7 @@
 <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
   <h1 class="text-2xl font-semibold">{{TT .Title}}</h1>
 </div>
+{{template "callout" .Intro}}
 <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
 <div class="card overflow-hidden">
   <div id="map" class="h-[70vh] w-full" data-src="{{.Data}}" role="application" aria-label="{{TT .Title}}"></div>

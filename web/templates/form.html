@@ -4,9 +4,11 @@
 <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
   <h1 class="text-2xl font-semibold">{{TT .Heading}}</h1>
 </div>
+{{template "callout" $.Intro}}
 <form method="post" action="{{.Action}}"{{if .HasFile}} enctype="multipart/form-data"{{end}} novalidate x-data="{{.XData}}">
   {{range .Groups}}
-  <section class="card mb-4"{{with .Show}} x-show="{{.}}" x-cloak{{end}}>
+  {{if .Fold}}<details class="mb-4"{{if .Open}} open{{end}}><summary class="cursor-pointer py-2 text-sm font-medium text-brand-600 dark:text-brand-500">{{T "Advanced options"}}</summary>{{end}}
+  <section class="card{{if not .Fold}} mb-4{{end}}"{{with .Show}} x-show="{{.}}" x-cloak{{end}}>
     {{if .Title}}<h2 class="card-title">{{T .Title}}</h2>{{end}}
     <div class="card-body grid gap-x-6 gap-y-4 md:grid-cols-2">
       {{range .Fields}}
@@ -46,6 +48,7 @@
       {{end}}
     </div>
   </section>
+  {{if .Fold}}</details>{{end}}
   {{end}}
   <div class="flex gap-2">
     <button class="btn btn-primary" type="submit">{{T "Save"}}</button>

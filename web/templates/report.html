@@ -8,6 +8,7 @@
     <a class="btn btn-ghost" href="/admin/reports/print?{{.Query}}" target="_blank">{{T "Print"}}</a>
   </div>
 </div>
+{{template "callout" $.Intro}}
 <div class="card overflow-hidden">
   <form class="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3 dark:border-slate-800" method="get" action="{{if .Period}}/admin/reports/period{{else}}/admin/reports{{end}}">
     {{if .Period}}

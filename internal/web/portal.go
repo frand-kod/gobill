@@ -396,6 +396,9 @@ type pDashData struct {
 	Transfer bool   // allow_balance_transfer
 	Minimum  string
 	Voucher  bool
+	Company  string // operator contact from Settings
+	Phone    string
+	WA       string // wa.me link of Phone, "" when it is not a usable number
 }
 
 func (s *Server) pDashboard(w http.ResponseWriter, r *http.Request) { s.pDash(w, r, 200, "") }
@@ -412,7 +415,8 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		s.fail(w, "portal dashboard", err)
 		return
 	}
-	d := pDashData{Transfer: st["enable_balance"] != "no" && st["allow_balance_transfer"] == "yes", Minimum: st["minimum_transfer"], Voucher: st["disable_voucher"] != "yes"}
+	d := pDashData{Transfer: st["enable_balance"] != "no" && st["allow_balance_transfer"] == "yes", Minimum: st["minimum_transfer"], Voucher: st["disable_voucher"] != "yes",
+		Company: st["company_name"], Phone: st["phone"], WA: waLink(st["phone"], st["country_code_phone"])}
 	canExtend := (st["extend_expired"] == "1" || st["extend_expired"] == "yes") && c.Status == "Active"
 	for _, sub := range subs {
 		p, _ := s.queries.GetPlan(r.Context(), sub.PlanID)

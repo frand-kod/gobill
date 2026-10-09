@@ -1,6 +1,10 @@
 {{define "content"}}
 <h1 class="mb-4 text-2xl font-semibold">{{T "Dashboard"}}</h1>
-<div class="card mb-4"><div class="card-body"><p class="text-sm text-slate-500">{{T "Balance"}}</p><p class="text-2xl font-semibold">{{money .Customer.Balance}}</p></div></div>
+{{template "callout" .Intro}}
+<div class="card mb-4"><div class="card-body flex flex-wrap items-center justify-between gap-4"><div><p class="text-sm text-slate-500">{{T "Balance"}}</p><p class="text-2xl font-semibold">{{money .Customer.Balance}}</p></div>
+  <a class="btn btn-primary min-h-12 px-6 text-base" href="/portal/plans">{{icon "wallet"}}<span>{{T "Buy / Extend"}}</span></a></div></div>
+{{if or .Data.Phone .Data.WA}}<div class="card mb-4"><div class="card-body flex flex-wrap items-center justify-between gap-3 text-sm"><p><span class="font-semibold">{{T "Need help? Contact"}} {{with .Data.Company}}{{.}}{{else}}{{T "your operator"}}{{end}}</span>{{with .Data.Phone}}<br><a class="text-brand-600 hover:underline" href="tel:{{.}}">{{.}}</a>{{end}}</p>
+  {{with .Data.WA}}<a class="btn btn-ghost" href="{{.}}" target="_blank" rel="noopener">WhatsApp</a>{{end}}</div></div>{{end}}
 {{if .Data.Voucher}}<p class="mb-4"><a class="btn btn-ghost" href="/portal/voucher">{{T "Voucher Activation"}}</a></p>{{end}}
 {{if .Data.Transfer}}<form class="card mb-4" method="post" action="/portal/transfer" data-confirm="{{T "Send {balance} to {username}?"}}"><h2 class="card-title">{{T "Send Balance"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">
   <div><label class="label" for="tu">{{T "Username"}}</label><input class="input" id="tu" name="username" required autocomplete="off"></div>
@@ -12,5 +16,5 @@
 <div class="overflow-x-auto"><table class="table">
 <thead><tr><th>{{T "Package Name"}}</th><th>{{T "Type"}}</th><th>{{T "Expires On"}}</th><th>{{T "Status"}}</th></tr></thead>
 <tbody>{{range .Data.Subs}}<tr><td>{{.Plan}}</td><td>{{.Type}}</td><td>{{ts .Expires}}</td><td><span class="badge {{badge .Status}}">{{T .Status}}</span>{{if .CanExtend}} <form class="inline" method="post" action="/portal/extend/{{.ID}}" data-confirm="{{T "Extend"}} {{.Plan}}?"><button class="btn btn-ghost" type="submit">{{T "Extend"}}</button></form>{{end}}</td></tr>
-{{else}}<tr><td class="py-8 text-center text-slate-500" colspan="4">{{T "No data"}}</td></tr>{{end}}</tbody></table></div></div>
+{{else}}<tr><td class="py-8 text-center text-slate-500" colspan="4"><p>{{T "You have no active plan yet."}}</p><a class="btn btn-primary mt-3" href="/portal/plans">{{T "Buy / Extend"}}</a></td></tr>{{end}}</tbody></table></div></div>
 {{end}}

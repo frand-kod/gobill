@@ -1,3 +1,8 @@
+{{define "callout"}}{{if .Title}}<aside class="callout" data-callout>
+  <p class="callout-title">{{.Title}}</p>
+  <p>{{.Text}}</p>
+  {{with .Tip}}<p class="callout-tip"><span class="font-semibold">{{T "Tip"}}:</span> {{.}}</p>{{end}}
+</aside>{{end}}{{end}}
 {{define "base"}}<!doctype html>
 <html lang="{{if eq .Lang "indonesia"}}id{{else if eq .Lang "english"}}en{{else if eq .Lang "arabic"}}ar{{else if eq .Lang "spanish"}}es{{else if eq .Lang "turkish"}}tr{{else}}id{{end}}" dir="{{.Dir}}">
 <head>

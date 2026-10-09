@@ -8,6 +8,7 @@
     {{if .CanCreate}}<a class="btn btn-primary" href="{{.Base}}/new">{{icon "plus"}}<span>{{T "Add"}}</span></a>{{end}}
   </div>
 </div>
+{{template "callout" $.Intro}}
 {{if .Clean}}<form class="mb-4 flex flex-wrap items-center gap-2" method="post" action="{{.Clean}}" data-confirm="{{T "Clean Logs"}}?" data-confirm-danger>
   <input class="input w-32" type="number" name="keep" min="1" required placeholder="{{T "Keep logs (days)"}}" aria-label="{{T "Keep logs (days)"}}">
   <button class="btn btn-danger" type="submit">{{icon "trash-2"}}<span>{{T "Clean Logs"}}</span></button>
@@ -51,7 +52,7 @@
           </td>{{end}}
         </tr>
       {{else}}
-        <tr><td class="py-8 text-center text-slate-500" colspan="99">{{T "No data"}}</td></tr>
+        <tr><td class="py-8 text-center text-slate-500" colspan="99"><p>{{T "Nothing here yet."}}</p>{{if .CanCreate}}<a class="btn btn-primary mt-3" href="{{.Base}}/new">{{icon "plus"}}<span>{{T "Add"}}</span></a>{{end}}</td></tr>
       {{end}}
       </tbody>
     </table>
