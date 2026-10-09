@@ -4,11 +4,12 @@ Untuk operator yang pindah dari PHPNuxBill (MySQL) ke NuxBill Go. Impor dilakuka
 
 ## Perintah impor
 
-    nuxbill import --mysql-dsn='<user>:<password>@tcp(127.0.0.1:3306)/phpnuxbill' --db=./nuxbill.db [--timezone=Asia/Jakarta] [--dry-run] [--force]
+    nuxbill import --mysql-dsn='<user>:<password>@tcp(127.0.0.1:3306)/phpnuxbill' --db=./nuxbill.db [--timezone=Asia/Jakarta] [--dry-run] [--force] [--notifications=/path/phpnuxbill/system/uploads/notifications.json]
 
 - Semua berjalan dalam satu transaksi SQLite. Target harus kosong (`--force` menghapus isinya).
 - `--dry-run` hanya membuat laporan: baris dibaca, diimpor, dilewati, beserta alasannya.
 - Zona waktu bawaan diambil dari setting lama (atau `Asia/Jakarta`).
+- Template pesan (expired, reminder 7/3/1 hari, invoice, selamat datang, saldo) disimpan PHPNuxBill di file `system/uploads/notifications.json`, bukan di MySQL. Tambahkan `--notifications=<path file itu>` agar ikut diimpor ke setting `notif_*`; tanpa opsi ini (atau bila file tidak ada) pesan memakai template bawaan bahasa Inggris, dan laporan impor mencatatnya. Hanya template yang punya padanan di NuxBill Go yang diimpor (`email_invoice` dilewati). Placeholder yang tidak dikenal dikirim sebagai teks kosong, tidak pernah `[[...]]` mentah; `[[payment_link]]` dan `[[invoice_link]]` berisi tautan ke portal (butuh setting `app_url`; pelanggan login dulu).
 - Pakai `NUXBILL_SECRET_KEY` yang sama dengan yang akan dipakai produksi (atau biarkan membuat `<db>.key`, lalu backup).
 
 ## Yang dikonversi

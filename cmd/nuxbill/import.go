@@ -23,6 +23,7 @@ func runImport(args []string) error {
 	tz := fs.String("timezone", "", "timezone of the old dates (default: old appconfig timezone)")
 	dry := fs.Bool("dry-run", false, "read and convert everything, then roll back")
 	force := fs.Bool("force", false, "wipe a non-empty target first")
+	notif := fs.String("notifications", "", "PHPNuxBill system/uploads/notifications.json to import message templates from")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -57,7 +58,7 @@ func runImport(args []string) error {
 	if err := db.Migrate(lite); err != nil {
 		return err
 	}
-	rep, err := importer.Run(ctx, my, lite, importer.Options{Key: key, Loc: loc, DryRun: *dry, Force: *force})
+	rep, err := importer.Run(ctx, my, lite, importer.Options{Key: key, Loc: loc, DryRun: *dry, Force: *force, Notifications: *notif})
 	if err != nil {
 		return err
 	}
