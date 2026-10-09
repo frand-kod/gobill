@@ -1,14 +1,15 @@
 package billing
 
+// Customer attributes and recurring bill totals.
+
 import (
 	"context"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/notify"
 	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/notify"
 )
 
 // PHP kept per-customer "attributes" in tbl_customers_fields; gobill keeps them as custom

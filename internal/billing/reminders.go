@@ -1,12 +1,13 @@
 package billing
 
+// Expiry reminders sent to customers.
+
 import (
 	"context"
-	"strconv"
-	"time"
-
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
+	"strconv"
+	"time"
 )
 
 // ReminderJob ports cron_reminder.php: once a day at setting reminder_hour (default 7, app

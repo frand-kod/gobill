@@ -1,10 +1,12 @@
 package billing
 
-import (
-	"context"
-	"database/sql"
-	"errors"
+// Coupon discounts and balance-coupon recharge.
 
+import (
+	"database/sql"
+
+	"context"
+	"errors"
 	"github.com/frand-kod/gobill/internal/db"
 )
 

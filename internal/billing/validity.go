@@ -2,7 +2,11 @@
 // Ported from phpnuxbill system/autoload/Package.php rechargeUser().
 package billing
 
-import "time"
+// Subscription validity and expiry-date arithmetic (pure, no database).
+
+import (
+	"time"
+)
 
 type Unit string
 

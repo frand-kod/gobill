@@ -1,13 +1,14 @@
 package billing
 
+// Price quotes, tax and order pricing.
+
 import (
 	"context"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/db"
 	"math"
 	"strconv"
 	"strings"
-
-	"github.com/frand-kod/gobill/internal/db"
 )
 
 // WithTax is price plus PHP's tax (plan.php:126, order.php:238): when enable_tax is "yes",

@@ -1,15 +1,17 @@
 package billing
 
+// Daily summary text and delivery.
+
 import (
+	"log/slog"
+
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
-	"strings"
-	"time"
-
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
+	"strings"
+	"time"
 )
 
 // DailySummaryText builds the operator's morning message (Indonesian). Income uses
