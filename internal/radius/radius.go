@@ -230,7 +230,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 		if vl {
 			return Decision{Reject: "Voucher Expired..."}
 		}
-		return Decision{Reject: "No active plan"}
+		return Decision{Reject: "Internet Plan Expired.."}
 	}
 	left := pl.ExpiresAt - s.now().Unix()
 	if left <= 0 {
