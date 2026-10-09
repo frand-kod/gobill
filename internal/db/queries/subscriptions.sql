@@ -62,3 +62,7 @@ UPDATE subscriptions SET plan_id = ?, router_id = ?, type = ?, expires_at = ?, s
 -- name: DeactivateSubscription :execrows
 -- Expires the subscription now (never before it started); 0 rows = already inactive.
 UPDATE subscriptions SET status = 'expired', expires_at = MAX(started_at, sqlc.arg(now)) WHERE id = sqlc.arg(id) AND status = 'active';
+
+-- name: RestartSubscription :exec
+-- A dead subscription brought back to life starts a new usage window (data limit counts from started_at).
+UPDATE subscriptions SET started_at = ? WHERE id = ?;

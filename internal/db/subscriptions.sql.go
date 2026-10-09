@@ -409,6 +409,21 @@ func (q *Queries) RenewSubscription(ctx context.Context, arg RenewSubscriptionPa
 	return err
 }
 
+const restartSubscription = `-- name: RestartSubscription :exec
+UPDATE subscriptions SET started_at = ? WHERE id = ?
+`
+
+type RestartSubscriptionParams struct {
+	StartedAt int64
+	ID        int64
+}
+
+// A dead subscription brought back to life starts a new usage window (data limit counts from started_at).
+func (q *Queries) RestartSubscription(ctx context.Context, arg RestartSubscriptionParams) error {
+	_, err := q.db.ExecContext(ctx, restartSubscription, arg.StartedAt, arg.ID)
+	return err
+}
+
 const searchSubscriptions = `-- name: SearchSubscriptions :many
 SELECT s.id, s.customer_id, s.plan_id, s.router_id, s.type, s.started_at, s.expires_at, s.status, s.method, s.admin_id FROM subscriptions s JOIN customers c ON c.id = s.customer_id
 WHERE c.username LIKE '%' || CAST(?1 AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(?1 AS TEXT) || '%'

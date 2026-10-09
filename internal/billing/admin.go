@@ -91,8 +91,14 @@ func (s *Service) EditSubscription(ctx context.Context, id, planID int64, expire
 		if expires.After(s.now()) {
 			status = "active"
 		}
+		// Coming back from dead (expired/deactivated): PHP zeroes the data usage on expiry, so the
+		// usage window restarts now. An extension of a live subscription keeps its usage.
+		revive := status == "active" && (sub.Status != "active" || sub.ExpiresAt <= s.now().Unix())
 		err = q.UpdateSubscription(ctx, db.UpdateSubscriptionParams{PlanID: cur.ID, RouterID: cur.RouterID, Type: cur.Type,
 			ExpiresAt: expires.Unix(), Status: status, AdminID: nullID(adminID), ID: id})
+		if err == nil && revive {
+			err = q.RestartSubscription(ctx, db.RestartSubscriptionParams{StartedAt: s.now().Unix(), ID: id})
+		}
 		if err != nil {
 			return err
 		}
