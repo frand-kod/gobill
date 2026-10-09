@@ -68,6 +68,7 @@ func (s *Server) parseTemplates() error {
 		"print":            {"print.html"},
 		"voucher_view":     {"base.html", "app.html", "voucher_view.html"},
 		"recharge_confirm": {"base.html", "app.html", "recharge_confirm.html"},
+		"recharge":         {"base.html", "app.html", "recharge.html"},
 		"report":           {"base.html", "app.html", "report.html"},
 		"report_print":     {"report_print.html"},
 		"invoice":          {"invoice.html"},

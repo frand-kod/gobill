@@ -3,9 +3,11 @@ package web
 // Admin-side customer recharge with confirmation.
 
 import (
+	"database/sql"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"context"
 	"errors"
@@ -157,4 +159,75 @@ func (s *Server) rechargeMethod(r *http.Request) (value, label string, ok bool) 
 		}
 	}
 	return "", "", false
+}
+
+// rechargePage is the Recharge Account page: pick a customer and a plan, then go on to the confirm page.
+type rechargePage struct {
+	Customer, Plan, Method          string
+	Plans, Methods                  []option
+	ErrCustomer, ErrPlan, ErrMethod string
+}
+
+// rechargeOptions lists the plans this role may recharge (same rule as the customer page).
+func (s *Server) rechargeOptions(r *http.Request) ([]option, error) {
+	manage := oneOf(adminFrom(r).Role, "SuperAdmin", "Admin")
+	plans, _, err := s.planOptions(r, !manage) // PHP: SuperAdmin/Admin may recharge a disabled plan
+	return plans, err
+}
+
+func (s *Server) rechargeForm(w http.ResponseWriter, r *http.Request, status int, d rechargePage, plans []option) {
+	d.Plans, d.Methods = plans, s.rechargeMethods(r.Context())
+	s.render(w, r, status, "recharge", Page{Title: "Recharge Account", Data: d})
+}
+
+// rechargePick: GET /admin/recharge, optionally ?customer=<username> to prefill.
+func (s *Server) rechargePick(w http.ResponseWriter, r *http.Request) {
+	plans, err := s.rechargeOptions(r)
+	if err != nil {
+		s.fail(w, "list plans", err)
+		return
+	}
+	s.rechargeForm(w, r, http.StatusOK, rechargePage{Customer: strings.TrimSpace(r.URL.Query().Get("customer"))}, plans)
+}
+
+// rechargeStart: POST /admin/recharge. Resolves the username, checks the plan and method, then
+// shows the existing confirm page for that customer. It writes nothing.
+func (s *Server) rechargeStart(w http.ResponseWriter, r *http.Request) {
+	plans, err := s.rechargeOptions(r)
+	if err != nil {
+		s.fail(w, "list plans", err)
+		return
+	}
+	d := rechargePage{Customer: strings.TrimSpace(r.PostFormValue("customer")), Plan: r.PostFormValue("plan"), Method: r.PostFormValue("method")}
+	c, err := s.queries.GetCustomerByUsername(r.Context(), d.Customer)
+	switch {
+	case d.Customer == "":
+		d.ErrCustomer = "Choose a customer first"
+	case errors.Is(err, sql.ErrNoRows):
+		d.ErrCustomer = "Customer not found"
+	case err != nil:
+		s.fail(w, "get customer", err)
+		return
+	case c.Status != "Active":
+		d.ErrCustomer = "This customer is not active. Turn the customer on first."
+	}
+	allowed := false
+	for _, o := range plans {
+		allowed = allowed || o.Value == d.Plan
+	}
+	switch {
+	case d.Plan == "":
+		d.ErrPlan = "Choose a service plan first"
+	case !allowed:
+		d.ErrPlan = msgPlanMissing
+	}
+	if _, _, ok := s.rechargeMethod(r); !ok {
+		d.ErrMethod = "Invalid payment method"
+	}
+	if d.ErrCustomer != "" || d.ErrPlan != "" || d.ErrMethod != "" {
+		s.rechargeForm(w, r, http.StatusUnprocessableEntity, d, plans)
+		return
+	}
+	r.SetPathValue("id", strconv.FormatInt(c.ID, 10)) // the confirm handler reads the customer from the path
+	s.custRechargeConfirm(w, r)
 }

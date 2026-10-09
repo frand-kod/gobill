@@ -54,6 +54,7 @@ var pageIntros = map[string]intro{
 	"report":          {"Daily report", "Money received on one day. Pick a date to compare, and print to keep a copy.", ""},
 	"report_period":   {"Period report", "Money received between two dates. Good for monthly closing.", ""},
 	"radius_sessions": {"Online now (RADIUS)", "Customers connected right now through RADIUS. Disconnect (CoA) asks the router to drop one so they reconnect with their latest plan.", "Customers who connect through the router API are not listed here. Open their customer page instead."},
+	"recharge":        {"Recharge Account", "Add a plan to a customer. Type the customer's username, pick the plan and how they paid, then check the summary before saving.", "You can also do this from the customer page."},
 	"maps":            {"Map", "Pins show where customers, routers or ODP boxes are. Tap a pin for its details.", ""},
 	"p_dashboard":     {"Your internet account", "Your balance, your plans and the date each one ends. Press Buy / Extend before it ends so you stay online.", ""},
 }

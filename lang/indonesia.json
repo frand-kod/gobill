@@ -1671,5 +1671,11 @@
     "Router offline: check its power and cables": "Router offline: cek listrik dan kabelnya",
     "Router %s is online": "Router %s online",
     "Account and plan are fine but the device is not connected: check the customer's modem and cable": "Akun dan paket normal tetapi perangkat belum terhubung: cek modem dan kabel pelanggan",
-    "Everything looks normal": "Semua terlihat normal"
+    "Everything looks normal": "Semua terlihat normal",
+    "Continue": "Lanjut",
+    "Choose a customer first": "Pilih pelanggan dulu",
+    "This customer is not active. Turn the customer on first.": "Pelanggan ini tidak aktif. Aktifkan pelanggan dulu.",
+    "Choose a service plan first": "Pilih paket layanan dulu",
+    "Add a plan to a customer. Type the customer's username, pick the plan and how they paid, then check the summary before saving.": "Tambahkan paket ke pelanggan. Ketik nama pengguna pelanggan, pilih paket dan cara bayarnya, lalu periksa ringkasannya sebelum disimpan.",
+    "You can also do this from the customer page.": "Bisa juga dari halaman pelanggan"
 }

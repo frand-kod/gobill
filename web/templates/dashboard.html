@@ -6,7 +6,7 @@
 {{$mgr := or (eq $.Admin.Role "SuperAdmin") (eq $.Admin.Role "Admin")}}
 {{if or $mgr (eq $.Admin.Role "Agent") (eq $.Admin.Role "Sales")}}
 <nav class="mb-4 flex flex-wrap gap-2" aria-label="{{T "Quick actions"}}">
-  <a class="btn btn-primary" href="/admin/customers">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
+  <a class="btn btn-primary" href="/admin/recharge">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
   <a class="btn" href="/admin/customers/new">{{icon "users"}}<span>{{T "Add Customer"}}</span></a>
   <a class="btn" href="/admin/vouchers/new">{{icon "ticket"}}<span>{{T "Make vouchers"}}</span></a>
   <a class="btn" href="/admin/deposit">{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>

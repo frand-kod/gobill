@@ -1,0 +1,60 @@
+{{define "content"}}
+{{with .Data}}
+<div class="mb-4"><h1 class="page-title">{{T "Recharge Account"}}</h1></div>
+<script>
+// Customer type-ahead over /admin/search. Without JS the username box is a plain text field.
+function gbRecharge() {
+  var seq = 0;
+  return {
+    items: [], open: false,
+    find: function () {
+      var me = this, q = this.$refs.customer.value.trim(), n = ++seq;
+      if (!q) { this.items = []; this.open = false; return; }
+      fetch('/admin/search?q=' + encodeURIComponent(q), { headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (rows) { if (n === seq) { me.items = rows.slice(0, 8); me.open = me.items.length > 0; } })
+        .catch(function () {});
+    },
+    pick: function (r) { this.$refs.customer.value = r.username; this.items = []; this.open = false; }
+  };
+}
+</script>
+<form class="card max-w-xl" method="post" action="/admin/recharge" x-data="gbRecharge()" @click.outside="open=false">
+  <div class="card-body space-y-4">
+    <div class="relative"><label class="label" for="customer">{{T "Username"}}</label>
+      <input class="input" id="customer" name="customer" x-ref="customer" value="{{.Customer}}" autocomplete="off" required
+        placeholder="{{T "Customer"}}" @input.debounce.250ms="find()" @keydown.escape="open=false"
+        role="combobox" aria-autocomplete="list" aria-controls="recharge-customers" :aria-expanded="open"
+        {{- if .ErrCustomer}} aria-invalid="true" aria-describedby="customer-err"{{end}}>
+      <ul id="recharge-customers" role="listbox" x-show="open" x-cloak class="absolute inset-x-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border border-line bg-surface py-1 shadow-lg">
+        <template x-for="r in items" :key="r.id">
+          <li role="option"><button type="button" class="block w-full px-4 py-2 text-start text-sm hover:bg-sidebar" @click="pick(r)">
+            <span class="font-medium" x-text="r.username"></span> <span class="text-ink-2" x-text="[r.fullname, r.phone, r.pppoe_username].filter(Boolean).join(' / ')"></span>
+          </button></li>
+        </template>
+      </ul>
+      {{if .ErrCustomer}}<p class="field-error" id="customer-err">{{T .ErrCustomer}}</p>{{end}}
+    </div>
+    <div><label class="label" for="plan">{{T "Service Plan"}}</label>
+      {{$plan := .Plan}}
+      <select class="input" id="plan" name="plan"{{if .ErrPlan}} aria-invalid="true" aria-describedby="plan-err"{{end}}>
+        <option value="">-</option>
+        {{range .Plans}}<option value="{{.Value}}"{{if eq .Value $plan}} selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+      {{if .ErrPlan}}<p class="field-error" id="plan-err">{{T .ErrPlan}}</p>{{end}}
+    </div>
+    <div><label class="label" for="method">{{T "Payment Method"}}</label>
+      {{$method := .Method}}
+      <select class="input" id="method" name="method"{{if .ErrMethod}} aria-invalid="true" aria-describedby="method-err"{{end}}>
+        {{range .Methods}}<option value="{{.Value}}"{{if eq .Value $method}} selected{{end}}>{{T .Label}}</option>{{end}}
+      </select>
+      {{if .ErrMethod}}<p class="field-error" id="method-err">{{T .ErrMethod}}</p>{{end}}
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button class="btn btn-primary" type="submit">{{icon "wallet"}}<span>{{T "Continue"}}</span></button>
+      <a class="btn btn-ghost" href="/admin/customers">{{T "Cancel"}}</a>
+    </div>
+  </div>
+</form>
+{{end}}
+{{end}}

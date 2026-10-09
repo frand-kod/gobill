@@ -9,7 +9,7 @@
     <nav class="flex-1 px-3 pb-6" aria-label="Main">
       <a class="nav-item" href="/admin"{{if eq .Path "/admin"}} aria-current="page"{{end}}>{{icon "layout-dashboard"}}<span>{{T "Dashboard"}}</span></a>
       <a class="nav-item" href="/admin/customers"{{if hasPrefix .Path "/admin/customers"}} aria-current="page"{{end}}>{{icon "users"}}<span>{{T "Customer"}}</span></a>
-      {{if $staff}}<a class="nav-item" href="/admin/customers">{{icon "wallet"}}<span>{{T "Recharge Account"}}</span></a>
+      {{if $staff}}<a class="nav-item" href="/admin/recharge"{{if eq .Path "/admin/recharge"}} aria-current="page"{{end}}>{{icon "wallet"}}<span>{{T "Recharge Account"}}</span></a>
       <a class="nav-item" href="/admin/vouchers/redeem"{{if eq .Path "/admin/vouchers/redeem"}} aria-current="page"{{end}}>{{icon "ticket"}}<span>{{T "Redeem Voucher"}}</span></a>
       <a class="nav-item" href="/admin/deposit"{{if eq .Path "/admin/deposit"}} aria-current="page"{{end}}>{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>{{end}}
       <a class="nav-item" href="/admin/vouchers"{{if or (eq .Path "/admin/vouchers") (eq .Path "/admin/vouchers/new") (eq .Path "/admin/vouchers/print")}} aria-current="page"{{end}}>{{icon "ticket"}}<span>{{T "Voucher"}}</span></a>
