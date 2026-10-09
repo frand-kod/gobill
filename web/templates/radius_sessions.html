@@ -24,7 +24,7 @@
           <td>{{.Plan}}</td>
           <td>{{.NAS}}</td><td>{{.IP}}</td><td>{{.MAC}}</td><td>{{.Start}}</td><td>{{.For}}</td><td>{{.Up}}</td><td>{{.Down}}</td>
           <td class="text-end"><form method="post" action="/admin/radius/sessions/{{.ID}}/disconnect" data-confirm="{{T "Disconnect"}} {{.User}}?" data-confirm-danger>
-            <button class="btn btn-danger btn-sm" type="submit">{{icon "x"}}<span>{{T "Disconnect"}}</span></button></form></td>
+            <button class="btn btn-danger btn-icon tip-end" type="submit" aria-label="{{T "Disconnect"}}" data-tip="{{T "Disconnect"}}">{{icon "unplug"}}</button></form></td>
         </tr>
       {{else}}
         <tr><td class="py-8 text-center text-ink-2" colspan="11">{{T "No data"}}</td></tr>

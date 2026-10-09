@@ -42,11 +42,11 @@
             {{else}}{{$c}}{{end}}
           </td>{{end}}
           {{if $d.CanEdit}}<td class="whitespace-nowrap text-end">
-            <div class="flex flex-wrap justify-end gap-2">
-              {{range $d.Actions}}<form class="flex items-center gap-1" method="post" action="{{$d.Base}}/{{$r.ID}}/{{.Path}}"{{if .Confirm}} data-confirm="{{T .Label}} {{index $r.Cells 0}}{{with .Field}} (+{{printf "{%s}" .}} {{T "days"}}){{end}}?"{{if eq .Path "deactivate"}} data-confirm-danger{{end}}{{end}}>{{with .Field}}<input class="input w-20 py-1" type="number" name="{{.}}" value="7" min="1" aria-label="{{T .}}">{{end}}<button class="btn btn-ghost btn-sm" type="submit">{{if eq .Path "deactivate"}}{{icon "x"}}{{else}}{{icon "circle-check"}}{{end}}<span>{{T .Label}}</span></button></form>{{end}}
-              {{if not $d.DeleteOnly}}<a class="btn btn-ghost btn-sm" href="{{$d.Base}}/{{$r.ID}}/edit">{{icon "pencil"}}<span>{{T "Edit"}}</span></a>{{end}}
+            <div class="flex flex-wrap justify-end gap-1">
+              {{range $d.Actions}}{{$ic := "circle-check"}}{{if eq .Path "extend"}}{{$ic = "calendar-plus"}}{{else if eq .Path "deactivate"}}{{$ic = "power"}}{{else if eq .Path "toggle"}}{{$ic = "power"}}{{else if eq .Path "sync"}}{{$ic = "refresh-cw"}}{{else if eq .Path "test"}}{{$ic = "wifi"}}{{end}}<form class="flex items-center gap-1" method="post" action="{{$d.Base}}/{{$r.ID}}/{{.Path}}"{{if .Confirm}} data-confirm="{{T .Label}} {{index $r.Cells 0}}{{with .Field}} (+{{printf "{%s}" .}} {{T "days"}}){{end}}?"{{if eq .Path "deactivate"}} data-confirm-danger{{end}}{{end}}>{{with .Field}}<input class="input input-sm" type="number" name="{{.}}" value="7" min="1" aria-label="{{T .}}">{{end}}<button class="btn btn-ghost btn-icon tip-end" type="submit" aria-label="{{T .Label}}" data-tip="{{T .Label}}">{{icon $ic}}</button></form>{{end}}
+              {{if not $d.DeleteOnly}}<a class="btn btn-ghost btn-icon tip-end" href="{{$d.Base}}/{{$r.ID}}/edit" aria-label="{{T "Edit"}}" data-tip="{{T "Edit"}}">{{icon "pencil"}}</a>{{end}}
               {{if not $d.NoDelete}}<form method="post" action="{{$d.Base}}/{{$r.ID}}/delete" data-confirm="{{T "Delete"}} {{index $r.Cells 0}}?" data-confirm-danger>
-                <button class="btn btn-danger btn-sm" type="submit">{{icon "trash-2"}}<span>{{T "Delete"}}</span></button>
+                <button class="btn btn-danger btn-icon tip-end" type="submit" aria-label="{{T "Delete"}}" data-tip="{{T "Delete"}}">{{icon "trash-2"}}</button>
               </form>{{end}}
             </div>
           </td>{{end}}

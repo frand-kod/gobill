@@ -79,16 +79,17 @@
     --sp-4: calc(16px * var(--d)); --sp-6: calc(24px * var(--d)); --sp-8: calc(32px * var(--d));
     --ctl-h: 2.5rem;     /* control height: input, button */
     --ctl-h-sm: 2.25rem; /* small button; never below 40px on phones, see below */
-    --row-py: 0.625rem;  /* table cell padding */
+    --row-py: var(--sp-1); /* table cell padding: buttons set the height, not the padding */
+    --row-h: 2.75rem;    /* table row min height: 44px normal, 36px compact */
     --icon: 1.125rem;    /* icons sit on the text size */
   }
   :root[data-accent="orange"] { --accent: #f38020; --on-accent: #111418; }
-  :root[data-density="compact"] { --d: 0.75; --ctl-h: 2rem; --ctl-h-sm: 1.75rem; --row-py: 0.375rem; }
-  :root[data-density="roomy"] { --d: 1.25; --ctl-h: 2.75rem; --ctl-h-sm: 2.5rem; --row-py: 0.875rem; }
+  :root[data-density="compact"] { --d: 0.75; --ctl-h: 2rem; --ctl-h-sm: 1.75rem; --row-h: 2.25rem; }
+  :root[data-density="roomy"] { --d: 1.25; --ctl-h: 2.75rem; --ctl-h-sm: 2.5rem; --row-h: 3.25rem; }
   @media (max-width: 639px) {
-    /* touch targets: >=40px even when compact, >=44px when roomy */
-    :root { --ctl-h: 2.5rem; --ctl-h-sm: 2.5rem; }
-    :root[data-density="roomy"] { --ctl-h: 2.75rem; --ctl-h-sm: 2.75rem; }
+    /* touch targets: >=40px even when compact, >=44px when roomy. compact is repeated because its selector outranks :root */
+    :root, :root[data-density="compact"] { --ctl-h: 2.5rem; --ctl-h-sm: 2.5rem; --row-h: 2.75rem; }
+    :root[data-density="roomy"] { --ctl-h: 2.75rem; --ctl-h-sm: 2.75rem; --row-h: 3.25rem; }
   }
   :root.dark {
     --accent-fg: var(--fg-d, color-mix(in srgb, var(--accent) 50%, white));
@@ -143,11 +144,14 @@
   .btn-danger { @apply text-err-fg hover:bg-err-bg; }
   .btn-danger-solid { background: #b42318; @apply rounded-full border-transparent px-4 text-white hover:opacity-90; }
   .btn-sm { min-height: var(--ctl-h-sm); @apply px-2 text-xs; }
+  /* icon-only row action: square, tap target = control height (>=40px on phones); icon is 18px via --icon */
+  .btn-icon { width: var(--ctl-h-sm); min-height: var(--ctl-h-sm); @apply px-0; }
   .btn[aria-current="page"] { @apply border-brand-500 bg-brand-50 text-accent-fg; }
 
   .label { @apply mb-1 block text-sm font-medium text-ink; }
   .input { min-height: var(--ctl-h); @apply block w-full rounded-sm border border-line-strong bg-surface px-3 text-sm text-ink placeholder:text-ink-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 aria-invalid:border-err-fg; }
   textarea.input { min-height: 0; padding-block: 0.5rem; }
+  .input-sm { min-height: var(--ctl-h-sm); @apply w-16 px-2 text-xs; }
   .hint { font-size: var(--fs-small); @apply mt-1 text-ink-2; }
   .field-error { font-size: var(--fs-small); @apply mt-1 font-medium text-err-fg; }
 
@@ -162,10 +166,20 @@
   .callout-tip { @apply mt-2 text-xs text-ink-2; }
 
   .table { line-height: var(--lh-table); @apply w-full text-left text-sm; }
-  .table th { font-size: var(--fs-small); padding: var(--row-py) var(--sp-4); @apply whitespace-nowrap border-b border-line bg-surface-2 font-medium text-ink-2; }
-  .table td { padding: var(--row-py) var(--sp-4); font-variant-numeric: tabular-nums; }
+  .table th { font-size: var(--fs-small); padding: var(--sp-2) var(--sp-4); @apply whitespace-nowrap border-b border-line bg-surface-2 font-medium text-ink-2; }
+  .table td { height: var(--row-h); padding: var(--row-py) var(--sp-4); font-variant-numeric: tabular-nums; }
+  /* zebra: a light mix of the neutral surface tokens, so it follows light and dark. Declared before the hover rule, which must win on equal specificity. */
+  .table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--surface-2) 55%, var(--surface)); }
   .table tbody tr { @apply border-t border-line first:border-t-0 hover:bg-surface-2; }
   .table .num { font-variant-numeric: tabular-nums; @apply text-end; }
+  /* compact status badge in tables: dot + short text */
+  .table .badge { @apply gap-1 px-1.5 py-0 leading-5; }
+
+  /* tooltip for icon-only buttons: text from data-tip, on hover, keyboard focus and touch (:active). No JS. */
+  [data-tip] { position: relative; }
+  [data-tip]::after { content: attr(data-tip); @apply pointer-events-none absolute bottom-full start-1/2 z-20 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-sm bg-ink px-2 py-1 text-xs font-medium text-bg opacity-0 transition-opacity; }
+  [data-tip].tip-end::after { @apply start-auto end-0 translate-x-0; }
+  [data-tip]:hover::after, [data-tip]:focus-visible::after, [data-tip]:active::after { @apply opacity-100; }
 
   .badge { @apply inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-xs font-medium; }
   .badge::before { content: ""; @apply size-1.5 rounded-full bg-current; }
