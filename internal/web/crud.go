@@ -1,6 +1,10 @@
 package web
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"html"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -105,7 +109,10 @@ type filter struct {
 }
 
 // rowAction is a per-row POST button to Base/ID/Path; Field adds a number input of that name.
-type rowAction struct{ Path, Label, Field string }
+type rowAction struct {
+	Path, Label, Field string
+	Confirm            bool // asks "Label name?" first
+}
 
 func (lp listPage) query() url.Values {
 	v := url.Values{}
@@ -198,8 +205,22 @@ func isFK(err error) bool {
 }
 
 func (s *Server) fail(w http.ResponseWriter, what string, err error) {
-	slog.Error(what, "err", err)
-	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	ref := make([]byte, 4)
+	rand.Read(ref)
+	slog.Error(what, "err", err, "ref", hex.EncodeToString(ref))
+	s.errorPage(w, hex.EncodeToString(ref))
+}
+
+// errorPage is the 500 page: Indonesian text from the catalog, no internal error text, a reference to find the log line.
+// It does not use the page layout because fail has no request (and the failure may be in the layout itself).
+func (s *Server) errorPage(w http.ResponseWriter, ref string) {
+	t := func(k string) string { return html.EscapeString(s.catalog.T(s.language(), k)) }
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusInternalServerError)
+	fmt.Fprintf(w, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%[1]s</title><link rel="stylesheet" href="/static/app.css"></head>
+<body><main class="mx-auto max-w-md p-4"><div class="card mt-12"><div class="card-body space-y-4" role="alert"><h1 class="text-xl font-semibold">%[1]s</h1><p>%[2]s</p><p class="hint">Ref: %[3]s</p>
+<a class="btn btn-primary min-h-10" href="/" onclick="history.back();return false">%[4]s</a></div></div></main></body></html>`,
+		t("Something went wrong"), t("The request could not be completed. Check the data before trying again."), ref, t("Go back"))
 }
 
 func pathID(r *http.Request) int64 {

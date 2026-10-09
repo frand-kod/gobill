@@ -54,13 +54,13 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	s.clearFailures(ip)
 	if err := s.sessions.RenewToken(r.Context()); err != nil {
 		slog.Error("renew session", "err", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		s.errorPage(w, "-")
 		return
 	}
 	if s.single.Load() { // single_session: a new login invalidates the other sessions
 		if admin.SessionVersion, err = s.queries.BumpAdminSession(r.Context(), admin.ID); err != nil {
 			slog.Error("bump session", "err", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			s.errorPage(w, "-")
 			return
 		}
 	}

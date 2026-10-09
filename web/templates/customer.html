@@ -2,12 +2,12 @@
 {{with .Data}}
 <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
   <h1 class="text-2xl font-semibold">{{.C.Username}} <span class="badge {{badge .C.Status}} align-middle">{{T .C.Status}}</span></h1>
-  <div class="flex gap-2">
+  <div class="flex flex-wrap gap-2">
     {{if .CanSell}}<a class="btn btn-ghost" href="/admin/message/send?customer={{.C.ID}}">{{icon "scroll-text"}}<span>{{T "Send Message"}}</span></a>{{end}}
     {{if .Manage}}
     <form method="post" action="/admin/customers/{{.C.ID}}/sync"><button class="btn btn-ghost" type="submit">{{icon "network"}}<span>{{T "Sync"}}</span></button></form>
-    <form method="post" action="/admin/customers/{{.C.ID}}/deactivate" onsubmit="return confirm({{T "Deactivate"}} + '?')"><button class="btn btn-danger" type="submit">{{icon "x"}}<span>{{T "Deactivate"}}</span></button></form>
-    <form method="post" action="/admin/customers/{{.C.ID}}/login" onsubmit="return confirm({{T "Login as Customer"}} + '?')"><button class="btn btn-ghost" type="submit">{{icon "user-round"}}<span>{{T "Login as Customer"}}</span></button></form>
+    <form method="post" action="/admin/customers/{{.C.ID}}/deactivate" data-confirm="{{T "Deactivate"}} {{.C.Username}}?" data-confirm-danger><button class="btn btn-danger" type="submit">{{icon "x"}}<span>{{T "Deactivate"}}</span></button></form>
+    <form method="post" action="/admin/customers/{{.C.ID}}/login" data-confirm="{{T "Login as Customer"}} {{.C.Username}}?"><button class="btn btn-ghost" type="submit">{{icon "user-round"}}<span>{{T "Login as Customer"}}</span></button></form>
     {{end}}
     {{if .CanEdit}}<a class="btn btn-ghost" href="/admin/customers/{{.C.ID}}/edit">{{icon "pencil"}}<span>{{T "Edit"}}</span></a>{{end}}
     <a class="btn btn-ghost" href="/admin/customers">{{icon "users"}}<span>{{T "Customer"}}</span></a>

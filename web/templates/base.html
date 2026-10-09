@@ -11,6 +11,51 @@
 </head>
 <body>
 {{block "body" .}}{{end}}
+<dialog id="confirm-dlg" class="card m-auto w-[calc(100%-2rem)] max-w-sm p-0 text-inherit backdrop:bg-black/50" aria-labelledby="confirm-msg">
+  <form method="dialog" class="card-body space-y-4">
+    <p id="confirm-msg" class="text-base font-medium"></p>
+    <div class="flex flex-wrap justify-end gap-2">
+      <button class="btn btn-ghost min-h-10" value="cancel" autofocus>{{T "Cancel"}}</button>
+      <button class="btn btn-primary min-h-10" id="confirm-ok" value="ok">{{T "Continue"}}</button>
+    </div>
+  </form>
+</dialog>
+<script>
+// Forms work without JS. With JS: data-confirm="text {field}" (on form or submit button) asks first in the
+// <dialog>; {field} is replaced by the form input of that name. Submit buttons are then locked against double taps.
+(function () {
+  var dlg = document.getElementById('confirm-dlg'), ok = document.getElementById('confirm-ok');
+  function lock(f) {
+    var bs = f.querySelectorAll('[type=submit],button:not([type])');
+    // a disabled button is not sent, so lock after the browser has collected the form data
+    setTimeout(function () {
+      bs.forEach(function (b) { if (b.disabled) return; b.disabled = true; b.dataset.locked = '1'; });
+      f.setAttribute('aria-busy', 'true');
+    });
+  }
+  document.addEventListener('submit', function (e) {
+    var f = e.target, sb = e.submitter, t = (sb && sb.dataset.confirm) || f.dataset.confirm;
+    if (f.method === 'dialog') return;
+    if (t && !f.dataset.ok) {
+      e.preventDefault();
+      t = t.replace(/\{(\w+)\}/g, function (m, n) { return f.elements[n] ? f.elements[n].value : m; });
+      var go = function () { f.dataset.ok = '1'; f.requestSubmit(sb); delete f.dataset.ok; };
+      if (!dlg || !dlg.showModal) { if (confirm(t)) go(); return; }
+      document.getElementById('confirm-msg').textContent = t;
+      ok.className = 'btn min-h-10 ' + ((sb && 'confirmDanger' in sb.dataset) || 'confirmDanger' in f.dataset ? 'border-red-600 bg-red-600 text-white hover:bg-red-700' : 'btn-primary');
+      dlg.returnValue = '';
+      dlg.onclose = function () { if (dlg.returnValue === 'ok') go(); };
+      dlg.showModal();
+      return;
+    }
+    if (!e.defaultPrevented) lock(f);
+  });
+  // back/forward cache restores the page with locked buttons
+  addEventListener('pageshow', function (e) {
+    if (e.persisted) document.querySelectorAll('[data-locked]').forEach(function (b) { b.disabled = false; delete b.dataset.locked; b.form && b.form.removeAttribute('aria-busy'); });
+  });
+})();
+</script>
 </body>
 </html>
 {{end}}

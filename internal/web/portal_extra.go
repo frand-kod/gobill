@@ -108,7 +108,7 @@ func (s *Server) pTransfer(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal transfer", err)
 		return
 	}
-	s.flashTo(w, r, "/portal", "Sending balance success")
+	s.flashTo(w, r, "/portal", s.catalog.T(s.language(), "Sending balance success")+": "+money(amount)+" -> "+strings.TrimSpace(r.PostFormValue("username")))
 }
 
 // ---- self extend ----
@@ -129,7 +129,7 @@ func (s *Server) pExtend(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal extend", err)
 		return
 	}
-	s.flashTo(w, r, "/portal", "Extend until "+until.Format("2006-01-02"))
+	s.flashTo(w, r, "/portal", s.catalog.T(s.language(), "Extend until")+" "+until.Format("2006-01-02"))
 }
 
 // ---- phone / email change with OTP ----

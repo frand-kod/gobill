@@ -1,4 +1,5 @@
 {{define "content"}}
+{{with .Data}}{{if eq .P.Status "pending"}}<script>setTimeout(function () { location.reload(); }, 10000);</script>{{end}}{{end}}
 {{with .Data}}{{$p := .P}}
 <h1 class="mb-4 text-2xl font-semibold">{{T "Order Details"}}</h1>
 <div class="card"><div class="card-body space-y-3">
@@ -11,6 +12,7 @@
     <dt class="font-medium">{{T "Expires On"}}</dt><dd>{{ts $p.ExpiresAt}}</dd>
   </dl>
   {{if eq $p.Status "pending"}}
+  <p class="hint">{{T "After paying, wait a few seconds then tap Check for Payment. This page refreshes itself."}}</p>
   <div class="flex flex-wrap gap-2">
     {{if $p.PayUrl}}<a class="btn btn-primary" href="{{$p.PayUrl}}" rel="noopener">{{T "Pay Now"}}</a>{{end}}
     <form method="post" action="/portal/payments/{{$p.ID}}/check"><button class="btn btn-ghost" type="submit">{{T "Check for Payment"}}</button></form>

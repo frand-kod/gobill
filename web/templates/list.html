@@ -8,7 +8,7 @@
     {{if .CanCreate}}<a class="btn btn-primary" href="{{.Base}}/new">{{icon "plus"}}<span>{{T "Add"}}</span></a>{{end}}
   </div>
 </div>
-{{if .Clean}}<form class="mb-4 flex flex-wrap items-center gap-2" method="post" action="{{.Clean}}" onsubmit="return confirm({{T "Clean Logs"}} + '?')">
+{{if .Clean}}<form class="mb-4 flex flex-wrap items-center gap-2" method="post" action="{{.Clean}}" data-confirm="{{T "Clean Logs"}}?" data-confirm-danger>
   <input class="input w-32" type="number" name="keep" min="1" required placeholder="{{T "Keep logs (days)"}}" aria-label="{{T "Keep logs (days)"}}">
   <button class="btn btn-danger" type="submit">{{icon "trash-2"}}<span>{{T "Clean Logs"}}</span></button>
 </form>{{end}}
@@ -37,10 +37,10 @@
             {{else}}{{$c}}{{end}}
           </td>{{end}}
           {{if $d.CanEdit}}<td class="whitespace-nowrap text-end">
-            <div class="flex justify-end gap-1">
-              {{range $d.Actions}}<form class="flex items-center gap-1" method="post" action="{{$d.Base}}/{{$r.ID}}/{{.Path}}">{{with .Field}}<input class="input w-20 py-1" type="number" name="{{.}}" value="7" min="1" aria-label="{{T .}}">{{end}}<button class="btn btn-ghost btn-sm" type="submit">{{icon "circle-check"}}<span>{{T .Label}}</span></button></form>{{end}}
+            <div class="flex flex-wrap justify-end gap-2">
+              {{range $d.Actions}}<form class="flex items-center gap-1" method="post" action="{{$d.Base}}/{{$r.ID}}/{{.Path}}"{{if .Confirm}} data-confirm="{{T .Label}} {{index $r.Cells 0}}{{with .Field}} (+{{printf "{%s}" .}} {{T "days"}}){{end}}?"{{if eq .Path "deactivate"}} data-confirm-danger{{end}}{{end}}>{{with .Field}}<input class="input w-20 py-1" type="number" name="{{.}}" value="7" min="1" aria-label="{{T .}}">{{end}}<button class="btn btn-ghost btn-sm" type="submit">{{if eq .Path "deactivate"}}{{icon "x"}}{{else}}{{icon "circle-check"}}{{end}}<span>{{T .Label}}</span></button></form>{{end}}
               {{if not $d.DeleteOnly}}<a class="btn btn-ghost btn-sm" href="{{$d.Base}}/{{$r.ID}}/edit">{{icon "pencil"}}<span>{{T "Edit"}}</span></a>{{end}}
-              {{if not $d.NoDelete}}<form method="post" action="{{$d.Base}}/{{$r.ID}}/delete" onsubmit="return confirm({{T "Delete"}} + '?')">
+              {{if not $d.NoDelete}}<form method="post" action="{{$d.Base}}/{{$r.ID}}/delete" data-confirm="{{T "Delete"}} {{index $r.Cells 0}}?" data-confirm-danger>
                 <button class="btn btn-danger btn-sm" type="submit">{{icon "trash-2"}}<span>{{T "Delete"}}</span></button>
               </form>{{end}}
             </div>

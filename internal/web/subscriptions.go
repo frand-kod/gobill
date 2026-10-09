@@ -62,7 +62,7 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 		Cols: []string{"Username", "Plan Name", "Type", "Created On", "Expires On", "Method", "Location", "Status"},
 		Filters: []filter{{"status", p.Status, []option{{"", "Status"}, {"active", "active"}, {"expired", "expired"}}},
 			{"type", p.Type, anyOpts("Type", "Hotspot", "PPPoE")}, {"router", g("router"), routers}, {"plan", g("plan"), plans}},
-		Actions: []rowAction{{"extend", "Extend", "days"}, {"deactivate", "Deactivate", ""}, {"sync", "Sync", ""}}}
+		Actions: []rowAction{{"extend", "Extend", "days", true}, {"deactivate", "Deactivate", "", true}, {"sync", "Sync", "", false}}}
 	for _, x := range rows {
 		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Username, x.PlanName, x.Type, s.ts(x.StartedAt), s.ts(x.ExpiresAt), x.Method, x.RouterName, x.Status}})
 	}
@@ -274,7 +274,11 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 			s.fail(w, "deposit", err)
 			return
 		default:
-			s.sessions.Put(r.Context(), "flash", s.catalog.T(s.language(), "Refill Balance")+": "+c.Username)
+			msg := s.catalog.T(s.language(), "Refill Balance")
+			if nc, err := s.queries.GetCustomer(r.Context(), c.ID); err == nil { // amount = what the balance actually grew by
+				msg = fmt.Sprintf(s.catalog.T(s.language(), "Balance +%s, now %s"), money(nc.Balance-c.Balance), money(nc.Balance))
+			}
+			s.sessions.Put(r.Context(), "flash", msg+": "+c.Username)
 			http.Redirect(w, r, fmt.Sprint("/admin/customers/", c.ID), http.StatusSeeOther)
 			return
 		}

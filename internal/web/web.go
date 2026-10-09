@@ -493,7 +493,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, name
 	var buf bytes.Buffer
 	if err := s.templates[name].ExecuteTemplate(&buf, "base", p); err != nil {
 		slog.Error("render", "page", name, "err", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		s.errorPage(w, "-")
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

@@ -371,7 +371,7 @@ func (s *Server) passwordSave(w http.ResponseWriter, r *http.Request) {
 	// Other sessions of this admin die with the bumped version; this one gets a new token.
 	if err := s.sessions.RenewToken(r.Context()); err != nil {
 		slog.Error("renew session", "err", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		s.errorPage(w, "-")
 		return
 	}
 	s.sessions.Put(r.Context(), "sv", sv)

@@ -13,10 +13,10 @@
 {{end}}
 {{else}}
 <h1 class="mb-4 text-2xl font-semibold">{{T "Inbox"}}</h1>
-<div class="card"><div class="overflow-x-auto"><table class="w-full text-sm">
-<thead><tr><th class="p-2 text-start">{{T "Subject"}}</th><th class="p-2 text-start">{{T "From"}}</th><th class="p-2 text-start">{{T "Date"}}</th></tr></thead>
-<tbody>{{range .List}}<tr class="{{if not .ReadAt.Valid}}font-semibold{{end}}"><td class="p-2"><a class="underline" href="/portal/inbox/{{.ID}}">{{.Subject}}</a>{{if not .ReadAt.Valid}} <span class="badge badge-bad">{{T "New"}}</span>{{end}}</td><td class="p-2">{{.FromName}}</td><td class="p-2">{{ts .CreatedAt}}</td></tr>
-{{else}}<tr><td class="p-2" colspan="3">{{T "No data"}}</td></tr>{{end}}</tbody></table></div></div>
+<div class="card"><div class="overflow-x-auto"><table class="table">
+<thead><tr><th>{{T "Subject"}}</th><th>{{T "From"}}</th><th>{{T "Date"}}</th></tr></thead>
+<tbody>{{range .List}}<tr class="{{if not .ReadAt.Valid}}font-semibold{{end}}"><td><a class="underline" href="/portal/inbox/{{.ID}}">{{.Subject}}</a>{{if not .ReadAt.Valid}} <span class="badge badge-bad">{{T "New"}}</span>{{end}}</td><td>{{.FromName}}</td><td>{{ts .CreatedAt}}</td></tr>
+{{else}}<tr><td class="py-8 text-center text-slate-500" colspan="3">{{T "No data"}}</td></tr>{{end}}</tbody></table></div></div>
 {{end}}
 {{end}}
 {{end}}
