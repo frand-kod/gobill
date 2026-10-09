@@ -44,15 +44,34 @@ Semua fase sudah selesai di level kode dan test. Yang tersisa adalah uji lapanga
 
 Tidak ada.
 
-## Akan dikerjakan
+## Uji lapangan (MikroTik "4 keys infra", RouterOS 6.49.22, 2026-10-09)
 
-1. **Uji lapangan, dilakukan pengguna:**
-   - MikroTik CHR atau fisik: aktivasi, expiry, disconnect, sinkronisasi paket dan pool, serta tes koneksi router.
-   - RADIUS bawaan: `radtest` untuk PAP dan CHAP, login hotspot dan PPPoE, login voucher hotspot, dan CoA ke port 3799.
-   - FreeRADIUS REST: ganti `connect_uri` ke `https://<nuxbill>/radius.php`, lalu jalankan `freeradius -X`.
-   - Tripay sandbox. Langkahnya ada di laporan agent dan di halaman setting.
-2. **Push ke GitHub** supaya CI dan build ARM jalan. Lalu buat tag `v0.1.0` untuk rilis.
-3. **Perbaikan dari hasil uji lapangan.**
+- **Mode API: lolos.** Mencakup koneksi, sinkron paket ke profil, recharge, login HP, queue, deactivate, ganti paket, expiry otomatis, dan login sebagai pelanggan.
+- **RADIUS bawaan: lolos untuk auth dan accounting.**
+  - Access-Accept dengan Message-Authenticator (`yes-for-request-resp`) diterima router.
+  - Session-Timeout dan rate-limit dari paket terpasang, dan accounting masuk ke nuxbill.
+  - Expiry lewat Session-Timeout jalan.
+- **CoA Disconnect:** sempat ditolak (NAK) karena NAS-IP-Address tidak cocok. Sudah diperbaiki di `52f97f9`, tapi belum diuji ulang.
+- **Bug yang ditemukan lewat uji lapangan, semuanya sudah diperbaiki:**
+  - user hotspot dibuat dengan password kosong
+  - timezone kosong dianggap UTC
+  - jalur REST mereset pembatas brute-force
+  - `NUXBILL_RADIUS=` (kosong) tidak mematikan RADIUS
+  - CoA mengirim NAS-IP-Address yang salah
+  - paket dari NAS yang tidak terdaftar dibuang tanpa log
+- **Pelajaran jaringan:** server nuxbill tidak boleh menjadi klien hotspot, karena universal NAT membuat router menjangkaunya lewat `to-address`. Pakai ip-binding bypass atau port/VLAN tersendiri.
+
+## Akan dikerjakan (checklist sebelum menggantikan PHPNuxBill)
+
+1. Uji ulang CoA Disconnect di MikroTik.
+2. Uji jalur FreeRADIUS REST: arahkan `connect_uri` server 192.168.99.2 ke nuxbill di instance uji, lalu jalankan `freeradius -X`.
+3. Uji login voucher hotspot lewat RADIUS dan pembatas MAC.
+4. Import dump produksi terbaru ke STB, lalu bandingkan jumlah pelanggan aktif, expiry, dan saldo dengan sistem lama sesaat sebelum cutover.
+5. Jalankan paralel 1–3 hari dalam mode baca. nuxbill menerima accounting tanpa melayani auth produksi, lalu bandingkan sesi dan expiry harian.
+6. Build ARM dan jalankan di STB: cek RAM, startup tanpa RTC (clock guard), restart saat listrik padam, serta backup ke USB.
+7. Push ke GitHub supaya CI dan rilis jalan.
+8. Rencana cutover dan rollback: ganti `connect_uri` atau `/radius address`. Rollback cukup mengembalikan entri lama, karena DB PHPNuxBill tidak disentuh.
+9. Bersihkan sisa uji di router: `split-user-domain=no` di HSProfMaster, `/radius` `nuxbill-test`, profil `test` dan `test2`, dan user `claude-test`.
 
 ## Keputusan yang menunggu pengguna
 
