@@ -174,7 +174,7 @@ func (s *Server) routerTest(w http.ResponseWriter, r *http.Request) {
 	if s.Billing == nil {
 		s.sessions.Put(r.Context(), "error", s.catalog.T(lang, "Router connection is not configured"))
 	} else if id, err := s.Billing.Ping(r.Context(), x); err != nil {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(lang, "Connection failed")+": "+x.Name+": "+err.Error())
+		s.putFailure(r, s.catalog.T(lang, "Connection failed")+": "+x.Name+". "+s.catalog.T(lang, routerErr(err, msgRouterOther)), err)
 	} else {
 		s.sessions.Put(r.Context(), "flash", s.catalog.T(lang, "Connection successful")+": "+x.Name+" ("+id+")")
 	}

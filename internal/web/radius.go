@@ -91,7 +91,7 @@ func (s *Server) radiusDisconnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := radius.Disconnect(r.Context(), s.queries, s.SecretKey, s.CoAPort, sess); err != nil {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Disconnect failed")+": "+err.Error())
+		s.putFailure(r, s.catalog.T(s.language(), "Disconnect failed")+". "+s.catalog.T(s.language(), routerErr(err, msgNASOther)), err)
 		http.Redirect(w, r, "/admin/radius/sessions", http.StatusSeeOther)
 		return
 	}

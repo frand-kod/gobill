@@ -391,11 +391,24 @@ func (s *Service) apply(ctx context.Context, p *pending) {
 		err = s.activate(ctx, p)
 	}
 	if err != nil {
+		if f, ok := ctx.Value(deviceFailKey{}).(*bool); ok {
+			*f = true
+		}
 		slog.Error("device: activate failed, sync manually", "customer", p.cust.Username, "plan", p.plan.Name, "err", err)
 		s.telegram(fmt.Sprintf("System Error. When activate Package. You need to sync manually\nRouter: %s\nCustomer: u%s\nPlan: p%s\n%v",
 			p.trx.RouterName, p.cust.Username, p.plan.Name, err))
 	}
 	s.notifyRecharge(p)
+}
+
+type deviceFailKey struct{}
+
+// TrackDeviceFailure returns a ctx and a flag that apply sets when the router call after a
+// committed recharge failed. The recharge itself still succeeds (money and transaction are kept);
+// the caller uses the flag to warn the operator to Sync.
+func TrackDeviceFailure(ctx context.Context) (context.Context, *bool) {
+	f := new(bool)
+	return context.WithValue(ctx, deviceFailKey{}, f), f
 }
 
 // telegram sends an admin alert in the background; no-op without telegram_bot, never blocks or fails billing.
