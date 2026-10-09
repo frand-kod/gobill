@@ -122,15 +122,18 @@ func (s *Service) RechargeWithBalance(ctx context.Context, customerID, planID, a
 		if err != nil {
 			return err
 		}
-		if c.Balance < plan.Price {
+		if p, err = s.recharge(ctx, q, customerID, planID, "Customer - Balance", adminID, nil); err != nil {
+			return err
+		}
+		// Debit what was recorded (plan price + the customer's bills).
+		if c.Balance < p.trx.Price {
 			return ErrInsufficientBalance
 		}
 		// CHECK (balance >= 0) is the backstop against a concurrent overdraw.
-		if _, err := q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: -plan.Price, ID: customerID}); err != nil {
+		if _, err := q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: -p.trx.Price, ID: customerID}); err != nil {
 			return fmt.Errorf("debit balance: %w", err)
 		}
-		p, err = s.recharge(ctx, q, customerID, planID, "Customer - Balance", adminID, nil)
-		return err
+		return nil
 	})
 	if err != nil {
 		return err
@@ -248,8 +251,24 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		exp := NewExpiry(from, int(plan.Validity), Unit(plan.ValidityUnit), Options{Extend: extend, BillingDay: billingDay(c, plan)})
 		trx.PeriodStart, trx.PeriodEnd = start, exp.Unix()
 		// PHP: first postpaid Period activation is billed 0; later periods bill the plan price.
+		var bills []billItem
 		if plan.ValidityUnit == "Period" && !found {
 			trx.Price = 0
+		} else {
+			// PHP user attributes: Invoice replaces the Period price, "* Bill" fields add to it.
+			// With a coupon the caller already put the bills into cp.price.
+			at := attrs(ctx, q, customerID)
+			var add int64
+			bills, add = customerBills(at)
+			if cp == nil {
+				if inv := parseMoney(at["Invoice"]); plan.ValidityUnit == "Period" && inv > 0 {
+					trx.Price = inv
+				}
+				if add != 0 {
+					trx.Note = billsNote(bills) + fmt.Sprintf("%s : %d\n", plan.Name, trx.Price)
+					trx.Price += add
+				}
+			}
 		}
 
 		if found {
@@ -261,6 +280,22 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		}
 		if err != nil {
 			return nil, err
+		}
+		if err := payBills(ctx, q, customerID, bills); err != nil {
+			return nil, err
+		}
+		if plan.ValidityUnit == "Period" && plan.Price != 0 {
+			// Next invoice: the plan price, prorated by days after the first activation.
+			inv := plan.Price
+			if !found {
+				days := int64(exp.Sub(now).Hours() / 24)
+				if g := plan.Price * days / (30 * plan.Validity); g < inv {
+					inv = g
+				}
+			}
+			if err := setAttr(ctx, q, customerID, "Invoice", strconv.FormatInt(inv, 10)); err != nil {
+				return nil, err
+			}
 		}
 		pend = &pending{cust: c, plan: plan, change: found && !extend, trx: trx, first: !found, expiry: exp}
 	}
@@ -412,7 +447,7 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 			return nf.Webhook(ctx, "recharge.expired", map[string]any{"username": c.Username, "plan": plan.Name, "expires_at": sub.ExpiresAt})
 		})
 	}
-	if autoRenew && c.AutoRenewal == 1 && c.Balance >= plan.Price {
+	if autoRenew && c.AutoRenewal == 1 && c.Balance >= plan.Price+s.BillsTotal(ctx, c.ID) {
 		if err := s.RechargeWithBalance(ctx, c.ID, plan.ID, 0); err != nil {
 			if nf != nil {
 				txt := fmt.Sprintf("FAILED RENEWAL #cron\n\n#u.%s #buy #%s \n%s\nPrice: %d", c.Username, plan.Type, plan.Name, plan.Price)
@@ -566,6 +601,13 @@ func (s *Service) Preview(ctx context.Context, customerID, planID int64) (Rechar
 	pv.Expiry = NewExpiry(from, int(plan.Validity), Unit(plan.ValidityUnit), Options{Extend: pv.Extends, BillingDay: billingDay(c, plan)})
 	if plan.ValidityUnit == "Period" && !found {
 		pv.Price = 0
+	} else {
+		at := attrs(ctx, s.Q, customerID)
+		if inv := parseMoney(at["Invoice"]); plan.ValidityUnit == "Period" && inv > 0 {
+			pv.Price = inv
+		}
+		_, add := customerBills(at)
+		pv.Price += add
 	}
 	return pv, nil
 }

@@ -20,6 +20,11 @@ Setting, admin, router, bandwidth, IP pool, paket, pelanggan, langganan aktif, t
 - Waktu expiry diubah ke Unix UTC; uang menjadi INTEGER rupiah. Harga yang gagal dikonversi dilewati dan dilaporkan.
 - Plan `RadiusRest` menjadi plan `Radius` ([freeradius-rest.md](freeradius-rest.md)).
 - Belum diimpor: kupon, ODP, dan inbox.
+- Atribut pelanggan (`tbl_customers_fields`) diimpor sebagai kolom kustom dengan nama yang sama (tampil di form pelanggan). NuxBill Go ikut memakainya seperti PHP:
+  - `<nama> Bill` (mis. `Router Bill`): tagihan tambahan, ditambahkan ke harga setiap recharge (admin, saldo, voucher, gateway, auto-renew). Nilai `biaya:sisa` (mis. `50000:3`) adalah cicilan: berkurang satu setiap recharge, berhenti saat sisa 0.
+  - `Invoice`: harga tagihan paket Period berikutnya (menggantikan harga paket), diisi otomatis setelah recharge Period seperti PHP.
+  - `Expired Date`: tanggal jatuh tempo paket Period per pelanggan; masuk ke `billing_day` pelanggan (bukan kolom kustom). Nilai yang bukan angka 1-31 dilewati dan dilaporkan.
+  - Beda: pembayaran gateway online memakai harga paket + tagihan saat pesanan dibuat; kupon hanya mendiskon harga paket, tagihan ditambahkan di atasnya.
 - Kolom lama yang sengaja dibuang: `account_type`, kota/kecamatan/provinsi/kode pos, `price_old`, `plan_type`.
 
 ## Verifikasi yang sudah dilakukan

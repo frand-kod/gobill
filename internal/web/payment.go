@@ -137,6 +137,9 @@ func (s *Server) pPay(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if s.Billing != nil {
+		amount += s.Billing.BillsTotal(r.Context(), c.ID) // the customer's extra bills (PHP "* Bill" fields)
+	}
 	s.payOrder(w, r, g, c, p.ID, p.Name, amount, code, channel)
 }
 

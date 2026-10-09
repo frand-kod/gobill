@@ -150,7 +150,7 @@ func Run(ctx context.Context, my, lite *sql.DB, o Options) (*Report, error) {
 		routers: map[string]int64{}, pools: map[string]int64{}, plans: map[string]int64{},
 		customers: map[string]int64{}, admins: map[int64]bool{}, custIDs: map[int64]bool{}}
 	for _, step := range []func() error{m.settings, m.admin, m.router, m.bandwidth, m.pool, m.plan,
-		m.customer, m.subscription, m.transaction, m.voucher, m.logs, m.nas} {
+		m.customer, m.fields, m.subscription, m.transaction, m.voucher, m.logs, m.nas} {
 		if err := step(); err != nil {
 			return nil, err
 		}
