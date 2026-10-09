@@ -49,7 +49,7 @@ SELECT c.*, CAST(COALESCE((SELECT group_concat(p.name, ', ') FROM subscriptions 
        CAST(sqlc.arg(sort) AS TEXT) AS sort_key -- e.g. username_desc; anything else = newest first
 FROM customers c
 WHERE (c.username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
-       OR c.phone LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%')
+       OR c.phone LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.pppoe_username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%')
   AND (CAST(sqlc.arg(service_type) AS TEXT) = '' OR c.service_type = sqlc.arg(service_type))
   AND (CAST(sqlc.arg(status) AS TEXT) = '' OR c.status = sqlc.arg(status))
 ORDER BY
@@ -70,3 +70,13 @@ UPDATE transactions SET customer_id = NULL WHERE customer_id = ?;
 
 -- name: ListCustomersByIDs :many
 SELECT * FROM customers WHERE id IN (sqlc.slice('ids')) ORDER BY id;
+
+-- name: QuickSearchCustomers :many
+-- Header type-ahead: case-insensitive substring match with instr (no LIKE wildcards to escape); exact matches sort first.
+SELECT id, username, fullname, phone, pppoe_username, status FROM customers
+WHERE instr(lower(username), lower(CAST(sqlc.arg(term) AS TEXT))) > 0
+   OR instr(lower(fullname), lower(CAST(sqlc.arg(term) AS TEXT))) > 0
+   OR instr(lower(phone), lower(CAST(sqlc.arg(term) AS TEXT))) > 0
+   OR instr(lower(pppoe_username), lower(CAST(sqlc.arg(term) AS TEXT))) > 0
+ORDER BY (lower(username) = lower(CAST(?1 AS TEXT)) OR (pppoe_username <> '' AND lower(pppoe_username) = lower(CAST(?1 AS TEXT))) OR phone = CAST(?1 AS TEXT)) DESC, username
+LIMIT 8;

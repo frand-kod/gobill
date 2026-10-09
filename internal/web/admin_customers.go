@@ -5,6 +5,7 @@ package web
 import (
 	"database/sql"
 	"encoding/csv"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/mail"
@@ -121,6 +122,26 @@ func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 	s.renderList(w, r, lp)
 }
 
+// custSearch is the header type-ahead: up to 8 customers matching username, full name, phone or
+// PPPoE username, as JSON. Staff only (route).
+func (s *Server) custSearch(w http.ResponseWriter, r *http.Request) {
+	out := []map[string]any{}
+	if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" && len(q) <= 100 {
+		rows, err := s.queries.QuickSearchCustomers(r.Context(), q)
+		if err != nil {
+			s.fail(w, "search customers", err)
+			return
+		}
+		for _, c := range rows {
+			out = append(out, map[string]any{"id": c.ID, "username": c.Username, "fullname": c.Fullname, "phone": c.Phone,
+				"pppoe_username": c.PppoeUsername, "status": c.Status, "url": fmt.Sprint("/admin/customers/", c.ID)})
+		}
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	json.NewEncoder(w).Encode(out)
+}
+
 // custExport streams the current filter (all pages) as CSV, like the old customers csv.
 func (s *Server) custExport(w http.ResponseWriter, r *http.Request) {
 	p, _, _ := custQuery(r)
@@ -199,6 +220,7 @@ type custDetail struct {
 	Trx       []db.Transaction
 	Custom    []field // custom fields with this customer's values
 	Online    string  // "" unless check_customer_online is yes; else Online, Offline or Error
+	Diag      diagnosis
 }
 
 func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
@@ -235,6 +257,7 @@ func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d.Online = s.customerOnline(ctx, c, subs)
+	d.Diag = s.diagnose(ctx, c, subs, d.Online)
 	s.render(w, r, 200, "customer", Page{
 		Title: c.Username,
 		Flash: s.sessions.PopString(ctx, "flash"),

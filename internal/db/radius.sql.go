@@ -10,6 +10,19 @@ import (
 	"database/sql"
 )
 
+const activePlanNameByLogin = `-- name: ActivePlanNameByLogin :one
+SELECT p.name FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id
+WHERE s.status = 'active' AND (c.username = ?1 OR (c.pppoe_username <> '' AND c.pppoe_username = ?1))
+ORDER BY s.expires_at DESC LIMIT 1
+`
+
+// Plan of the customer who logs in with this RADIUS user name (username or pppoe_username).
+func (q *Queries) ActivePlanNameByLogin(ctx context.Context, name string) (string, error) {
+	row := q.db.QueryRowContext(ctx, activePlanNameByLogin, name)
+	err := row.Scan(&name)
+	return name, err
+}
+
 const closeRadiusSessionsByNAS = `-- name: CloseRadiusSessionsByNAS :exec
 UPDATE radius_sessions SET stopped_at = ? WHERE nas_ip = ? AND stopped_at IS NULL
 `

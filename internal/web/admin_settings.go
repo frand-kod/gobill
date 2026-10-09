@@ -547,5 +547,9 @@ func (s *Server) brand(ctx context.Context) map[string]string {
 		out["logo_l"], out["logo_l_dark"] = out["logo_a"], out["logo_a_dark"]
 	}
 	out["theme_mode"], out["theme_accent"], out["theme_density"] = themeDefaults(m)
+	out["theme_color"], _ = pwaColors(out["theme_accent"], out["theme_mode"])
+	if out["app_icon"] = pwaIcon(m); out["app_icon"] == "" {
+		out["app_icon"] = "/static/icons/app-192.png"
+	}
 	return out
 }

@@ -81,3 +81,9 @@ ORDER BY started_at DESC, id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(pag
 -- Seconds the user was online since from_ts (open sessions count up to their last update).
 SELECT CAST(COALESCE(SUM(COALESCE(stopped_at, updated_at) - started_at), 0) AS INTEGER) FROM radius_sessions
 WHERE username = ? AND started_at >= ?;
+
+-- name: ActivePlanNameByLogin :one
+-- Plan of the customer who logs in with this RADIUS user name (username or pppoe_username).
+SELECT p.name FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id
+WHERE s.status = 'active' AND (c.username = sqlc.arg(name) OR (c.pppoe_username <> '' AND c.pppoe_username = sqlc.arg(name)))
+ORDER BY s.expires_at DESC LIMIT 1;

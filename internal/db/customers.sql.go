@@ -123,7 +123,7 @@ SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.emai
        CAST(?1 AS TEXT) AS sort_key -- e.g. username_desc; anything else = newest first
 FROM customers c
 WHERE (c.username LIKE '%' || CAST(?2 AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(?2 AS TEXT) || '%'
-       OR c.phone LIKE '%' || CAST(?2 AS TEXT) || '%')
+       OR c.phone LIKE '%' || CAST(?2 AS TEXT) || '%' OR c.pppoe_username LIKE '%' || CAST(?2 AS TEXT) || '%')
   AND (CAST(?3 AS TEXT) = '' OR c.service_type = ?3)
   AND (CAST(?4 AS TEXT) = '' OR c.status = ?4)
 ORDER BY
@@ -388,6 +388,56 @@ func (q *Queries) ListCustomersByIDs(ctx context.Context, ids []int64) ([]Custom
 			&i.LastLoginAt,
 			&i.SessionVersion,
 			&i.Coordinates,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const quickSearchCustomers = `-- name: QuickSearchCustomers :many
+SELECT id, username, fullname, phone, pppoe_username, status FROM customers
+WHERE instr(lower(username), lower(CAST(?1 AS TEXT))) > 0
+   OR instr(lower(fullname), lower(CAST(?1 AS TEXT))) > 0
+   OR instr(lower(phone), lower(CAST(?1 AS TEXT))) > 0
+   OR instr(lower(pppoe_username), lower(CAST(?1 AS TEXT))) > 0
+ORDER BY (lower(username) = lower(CAST(?1 AS TEXT)) OR (pppoe_username <> '' AND lower(pppoe_username) = lower(CAST(?1 AS TEXT))) OR phone = CAST(?1 AS TEXT)) DESC, username
+LIMIT 8
+`
+
+type QuickSearchCustomersRow struct {
+	ID            int64
+	Username      string
+	Fullname      string
+	Phone         string
+	PppoeUsername string
+	Status        string
+}
+
+// Header type-ahead: case-insensitive substring match with instr (no LIKE wildcards to escape); exact matches sort first.
+func (q *Queries) QuickSearchCustomers(ctx context.Context, term string) ([]QuickSearchCustomersRow, error) {
+	rows, err := q.db.QueryContext(ctx, quickSearchCustomers, term)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []QuickSearchCustomersRow
+	for rows.Next() {
+		var i QuickSearchCustomersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Fullname,
+			&i.Phone,
+			&i.PppoeUsername,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}

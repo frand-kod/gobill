@@ -147,11 +147,15 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/password", all(http.HandlerFunc(s.passwordForm)))
 	mux.Handle("POST /admin/password", all(http.HandlerFunc(s.passwordSave)))
 
+	// app manifests (public: the browser fetches them without cookies)
+	mux.HandleFunc("GET /admin/manifest.webmanifest", s.manifest(" Admin", "/admin", "/admin/"))
+	mux.HandleFunc("GET /portal/manifest.webmanifest", s.manifest("", "/portal", "/portal/"))
 
 	// dashboard
 	mux.Handle("GET /admin", all(http.HandlerFunc(s.dashboard)))
 
 	// customers: search, list, detail, edit, delete, actions, custom fields, maps
+	mux.Handle("GET /admin/search", staff(http.HandlerFunc(s.custSearch)))
 	mux.Handle("GET /admin/customers", all(http.HandlerFunc(s.custList)))
 	mux.Handle("GET /admin/customers/export", all(http.HandlerFunc(s.custExport)))
 	mux.Handle("GET /admin/customers/new", staff(http.HandlerFunc(s.custNew)))
@@ -214,6 +218,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/routers/{id}/test", managers(http.HandlerFunc(s.routerTest)))
 	crud("/admin/nas", s.nasList, s.nasNew, s.nasEdit, s.nasSave, s.nasDelete)
 	mux.Handle("GET /admin/radius/sessions", managers(http.HandlerFunc(s.radiusSessions)))
+	mux.Handle("POST /admin/radius/sessions/disconnect-many", managers(http.HandlerFunc(s.radiusDisconnectMany)))
 	mux.Handle("POST /admin/radius/sessions/{id}/disconnect", managers(http.HandlerFunc(s.radiusDisconnect)))
 	crud("/admin/odp", s.odpList, s.odpNew, s.odpEdit, s.odpSave, s.odpDelete)
 	mux.Handle("GET /admin/maps/routers", managers(s.mapPage("Routers Geo Location Information", "/admin/maps/routers/data")))

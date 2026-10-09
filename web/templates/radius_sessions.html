@@ -2,6 +2,9 @@
 {{with .Data}}
 <div class="mb-4"><h1 class="page-title">{{T "Online Sessions"}}</h1></div>
 {{template "callout" $.Intro}}
+<form id="bulk" method="post" class="mb-3 flex flex-wrap gap-2">
+  <button class="btn btn-danger" type="submit" formaction="/admin/radius/sessions/disconnect-many" data-confirm="{{T "Disconnect selected"}} ({n})?" data-confirm-danger>{{icon "x"}}<span>{{T "Disconnect selected"}}</span></button>
+</form>
 <div class="card overflow-hidden">
   <form class="flex flex-wrap items-center gap-2 border-b border-line p-3" method="get" action="/admin/radius/sessions" role="search">
     <div class="relative min-w-48 flex-1 sm:max-w-xs">
@@ -12,17 +15,19 @@
   </form>
   <div class="overflow-x-auto">
     <table class="table">
-      <thead><tr><th>{{T "Username"}}</th><th>{{T "NAS"}}</th><th>{{T "IP Address"}}</th><th>{{T "MAC Address"}}</th><th>{{T "Start"}}</th><th>{{T "Duration"}}</th><th>{{T "Upload"}}</th><th>{{T "Download"}}</th><th></th></tr></thead>
+      <thead><tr><th class="w-10"><label class="flex size-10 items-center justify-center"><input type="checkbox" class="size-4 accent-brand-500" aria-label="{{T "Select all"}}" onchange="document.querySelectorAll('input[name=ids]').forEach(function(c){c.checked=event.target.checked})"></label></th><th>{{T "Username"}}</th><th>{{T "Plan Name"}}</th><th>{{T "NAS"}}</th><th>{{T "IP Address"}}</th><th>{{T "MAC Address"}}</th><th>{{T "Start"}}</th><th>{{T "Duration"}}</th><th>{{T "Upload"}}</th><th>{{T "Download"}}</th><th></th></tr></thead>
       <tbody>
       {{range .Rows}}
         <tr>
+          <td class="w-10"><label class="flex size-10 items-center justify-center"><input type="checkbox" class="size-4 accent-brand-500" name="ids" value="{{.ID}}" form="bulk" aria-label="{{.User}}"></label></td>
           <td>{{.User}}{{if .Stale}} <span class="badge badge-warn">{{T "Stale"}}</span>{{end}}</td>
+          <td>{{.Plan}}</td>
           <td>{{.NAS}}</td><td>{{.IP}}</td><td>{{.MAC}}</td><td>{{.Start}}</td><td>{{.For}}</td><td>{{.Up}}</td><td>{{.Down}}</td>
           <td class="text-end"><form method="post" action="/admin/radius/sessions/{{.ID}}/disconnect" data-confirm="{{T "Disconnect"}} {{.User}}?" data-confirm-danger>
             <button class="btn btn-danger btn-sm" type="submit">{{icon "x"}}<span>{{T "Disconnect"}}</span></button></form></td>
         </tr>
       {{else}}
-        <tr><td class="py-8 text-center text-ink-2" colspan="9">{{T "No data"}}</td></tr>
+        <tr><td class="py-8 text-center text-ink-2" colspan="11">{{T "No data"}}</td></tr>
       {{end}}
       </tbody>
     </table>

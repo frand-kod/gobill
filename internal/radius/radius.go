@@ -193,6 +193,24 @@ func (s *Server) decide(ctx context.Context, rq AuthRequest) Decision {
 	return d
 }
 
+// LimitSeconds converts a plan time limit (Mins or Hrs) to seconds.
+func LimitSeconds(n int64, unit string) int64 {
+	t := n * 60
+	if unit == "Hrs" {
+		t *= 60
+	}
+	return t
+}
+
+// LimitBytes converts a plan data limit (MB or GB) to bytes.
+func LimitBytes(n int64, unit string) int64 {
+	b := n * 1048576
+	if unit == "GB" {
+		b *= 1024
+	}
+	return b
+}
+
 func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decision {
 	user := rq.User
 	c, err := s.Q.GetCustomerForRadius(ctx, user)
@@ -261,10 +279,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 	if pl.Limited == 1 {
 		lt := pl.LimitType.String
 		if (lt == "Time_Limit" || lt == "Both_Limit") && pl.TimeLimit.Valid {
-			t := pl.TimeLimit.Int64 * 60
-			if pl.TimeUnit.String == "Hrs" {
-				t *= 60
-			}
+			t := LimitSeconds(pl.TimeLimit.Int64, pl.TimeUnit.String)
 			// Max-All-Session: the limit is the total online time since activation, not per login.
 			used, _ := s.Q.SumRadiusSessionTime(ctx, db.SumRadiusSessionTimeParams{Username: user, StartedAt: pl.StartedAt})
 			if t -= used; t <= 0 {
@@ -275,10 +290,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 			}
 		}
 		if (lt == "Data_Limit" || lt == "Both_Limit") && pl.DataLimit.Valid {
-			total := pl.DataLimit.Int64 * 1048576
-			if pl.DataUnit.String == "GB" {
-				total *= 1024
-			}
+			total := LimitBytes(pl.DataLimit.Int64, pl.DataUnit.String)
 			used, _ := s.Q.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: user, StartedAt: pl.StartedAt})
 			if total-used <= 0 {
 				return Decision{Reject: "You have exceeded your data limit."}

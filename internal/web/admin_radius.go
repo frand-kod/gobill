@@ -3,6 +3,7 @@ package web
 // RADIUS live sessions: list and disconnect.
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -15,6 +16,7 @@ type sessRow struct {
 	User, NAS, IP, MAC, Start, For string
 	Up, Down                       string
 	Stale                          bool
+	Plan                           string
 }
 
 // sessRows turns sessions into rows; the duration of a closed session ends at stopped_at.
@@ -29,7 +31,7 @@ func (s *Server) sessRows(ss []db.RadiusSession, now int64) []sessRow {
 		}
 		// Input is what the NAS received from the user = upload.
 		out = append(out, sessRow{x.ID, x.Username, x.NasIp, x.FramedIp, x.Mac, s.ts(x.StartedAt), humanDur(end - x.StartedAt),
-			humanBytes(x.InputOctets), humanBytes(x.OutputOctets), stale})
+			humanBytes(x.InputOctets), humanBytes(x.OutputOctets), stale, ""})
 	}
 	return out
 }
@@ -53,6 +55,9 @@ func (s *Server) radiusSessions(w http.ResponseWriter, r *http.Request) {
 		d.Prev = page - 1
 	}
 	d.Rows = s.sessRows(ss, time.Now().Unix())
+	for i := range d.Rows { // ponytail: one tiny query per row (max 20); join in SQL if pages get bigger
+		d.Rows[i].Plan, _ = s.queries.ActivePlanNameByLogin(r.Context(), d.Rows[i].User)
+	}
 	s.render(w, r, http.StatusOK, "radius_sessions", Page{Title: "Online Sessions",
 		Flash: s.sessions.PopString(r.Context(), "flash"), Error: s.sessions.PopString(r.Context(), "error"), Data: d})
 }
@@ -70,3 +75,46 @@ func (s *Server) radiusDisconnect(w http.ResponseWriter, r *http.Request) {
 	}
 	s.done(w, r, "/admin/radius/sessions", "User disconnected", "radius.disconnect", sess.Username)
 }
+
+// radiusDisconnectMany drops the selected sessions one by one through the same CoA path and reports
+// "N disconnected, M failed". One activity log entry for the whole action.
+func (s *Server) radiusDisconnectMany(w http.ResponseWriter, r *http.Request) {
+	const back = "/admin/radius/sessions"
+	ids, ok := parseIDs(r)
+	if !ok {
+		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Select at least one row"))
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	if len(ids) > maxDisconnectMany { // each CoA waits for its NAS, so the request must stay short
+		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Select at most 100 sessions"))
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	var okN, failN int
+	var firstErr error
+	for _, id := range ids {
+		sess, err := s.queries.GetRadiusSession(r.Context(), id)
+		if err == nil {
+			err = radius.Disconnect(r.Context(), s.queries, s.SecretKey, s.CoAPort, sess)
+		}
+		if err != nil {
+			failN++
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		okN++
+	}
+	s.logActivity(r, "radius.disconnect_many", fmt.Sprintf("%d ok, %d failed", okN, failN))
+	msg := fmt.Sprintf(s.catalog.T(s.language(), "%d disconnected, %d failed"), okN, failN)
+	if okN == 0 {
+		s.putFailure(r, msg, firstErr)
+	} else {
+		s.sessions.Put(r.Context(), "flash", msg)
+	}
+	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+const maxDisconnectMany = 100

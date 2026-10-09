@@ -15,6 +15,15 @@
     <a class="btn btn-ghost" href="/admin/customers">{{icon "users"}}<span>{{T "Customer"}}</span></a>
   </div>
 </div>
+<section class="card mb-4" aria-labelledby="diag-title">
+  <h2 class="card-title" id="diag-title">{{T "Diagnosis"}}</h2>
+  <div class="card-body space-y-3">
+    <ul class="space-y-2">
+      {{range .Diag.Items}}<li class="flex flex-wrap items-start gap-x-3 gap-y-1"><span class="badge {{.Cls}} shrink-0">{{T .Label}}<span class="sr-only">: {{T .State}}</span></span><span class="min-w-0 flex-1">{{.Text}}</span></li>{{end}}
+    </ul>
+    <p class="callout !mb-0"><span class="callout-title">{{T "Advice"}}:</span> {{.Diag.Advice}}</p>
+  </div>
+</section>
 <div class="grid gap-4 xl:grid-cols-3">
   <section class="card xl:col-span-2">
     <h2 class="card-title">{{T "Customer"}}</h2>
