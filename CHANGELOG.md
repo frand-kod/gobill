@@ -8,6 +8,10 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Added
+
+- License GPL-3.0-or-later, NOTICE, CONTRIBUTING, issue/PR templates.
+
 ### Changed
 
 - Go module path is now `github.com/frand-kod/gobill` (was `github.com/frand-kod/nuxbill-go`).

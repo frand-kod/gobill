@@ -1,0 +1,33 @@
+nuxbill (gobill)
+Copyright (C) 2026 frand-kod and contributors
+
+Licensed under GPL-3.0-or-later. See LICENSE.
+
+Derived from PHPNuxBill (https://github.com/hotspotbilling/phpnuxbill),
+GPL-2.0-or-later. Translation files in lang/ originate from PHPNuxBill.
+
+Third-party components
+----------------------
+
+Go modules (direct, from go.mod; license texts in the module cache):
+- github.com/alexedwards/scs/v2, scs/sqlite3store: MIT
+- github.com/go-routeros/routeros/v3: MIT
+- github.com/wneessen/go-mail: MIT
+- github.com/skip2/go-qrcode: MIT
+- golang.org/x/crypto, golang.org/x/sys: BSD-3-Clause
+- modernc.org/sqlite (and its modernc.org/* support modules): BSD-3-Clause
+- layeh.com/radius: MPL-2.0
+- github.com/go-sql-driver/mysql (used by the PHPNuxBill importer): MPL-2.0
+- Indirect: filippo.io/edwards25519, github.com/google/uuid, golang.org/x/text
+  (BSD-3-Clause), github.com/dustin/go-humanize (MIT),
+  github.com/mattn/go-isatty (MIT), github.com/ncruces/go-strftime (MIT),
+  github.com/remyoudompheng/bigfft (BSD-3-Clause)
+
+Web assets (web/static/vendor, web/static/icons, web/static/app.css):
+- Alpine.js 3.14.9: MIT
+- Chart.js 4.4.9: MIT
+- Leaflet 1.9.4: BSD-2-Clause
+- Lucide icons (lucide-static 0.460.0): ISC
+- Tailwind CSS 4.1.11 output in app.css: MIT (the output carries the MIT notice)
+
+Full license texts are in each upstream project. This file summarizes them.

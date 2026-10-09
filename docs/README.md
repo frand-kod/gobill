@@ -20,6 +20,14 @@ Pilih dokumen sesuai peran Anda. Setiap dokumen berdiri sendiri. Ringkasan proye
 | [arsitektur.md](arsitektur.md) | Paket, alur request, model data, aturan STB |
 | [pengembangan.md](pengembangan.md) | Layout repo, build/test, sqlc, Tailwind, migration freeze, rilis, konvensi kode |
 
+## Lisensi & kontribusi
+
+| Dokumen | Isi |
+|---|---|
+| [../LICENSE](../LICENSE) | Teks GPL-3.0-or-later |
+| [../NOTICE](../NOTICE) | Atribusi PHPNuxBill dan daftar komponen pihak ketiga |
+| [../CONTRIBUTING.md](../CONTRIBUTING.md) | Cara berkontribusi, DCO, dan aturan commit |
+
 ## Riwayat & status
 
 | Dokumen | Isi |

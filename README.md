@@ -73,4 +73,8 @@ Indeks lengkap: [docs/README.md](docs/README.md).
 
 ## Versi dan lisensi
 
-Versi mengikuti SemVer, lihat [CHANGELOG.md](CHANGELOG.md) dan [aturan rilis](docs/pengembangan.md#versi-dan-rilis). Belum ada file lisensi di repo ini; tentukan sebelum didistribusikan.
+Versi mengikuti SemVer, lihat [CHANGELOG.md](CHANGELOG.md) dan [aturan rilis](docs/pengembangan.md#versi-dan-rilis).
+
+Lisensi: GPL-3.0-or-later — lihat [LICENSE](LICENSE) dan [NOTICE](NOTICE). Turunan dari PHPNuxBill (GPL-2.0-or-later).
+
+Berkontribusi: lihat [CONTRIBUTING.md](CONTRIBUTING.md).
