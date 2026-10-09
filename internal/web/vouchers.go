@@ -123,9 +123,13 @@ func (s *Server) vchFields(r *http.Request, v, e map[string]string) ([]field, er
 	format.Options = []option{{"up", "UPPERCASE"}, {"low", "lowercase"}, {"rand", "Random case"}, {"numbers", "Numbers"}}
 	pn := text("print_now", "Print Now", v, e).as("checkbox")
 	pn.Checked = v["print_now"] == "1"
-	out := section([]field{plan, text("numbervoucher", "Number of Vouchers", v, e).as("number").req()}, "Voucher", "")
-	return append(out, section([]field{format, text("prefix", "Prefix", v, e),
-		text("lengthcode", "Length Code", v, e).as("number").req().hint("8-32, numbers: 10-32"), pn}, "Code", "")...), nil
+	out := section([]field{plan, text("numbervoucher", "Number of Vouchers", v, e).as("number").req(), pn}, "Voucher", "")
+	code := section([]field{format, text("prefix", "Prefix", v, e),
+		text("lengthcode", "Length Code", v, e).as("number").req().hint("8-32, numbers: 10-32")}, "Code", "")
+	for i := range code {
+		code[i].Fold = true // "Advanced options": the defaults are fine for most vouchers
+	}
+	return append(out, code...), nil
 }
 
 func (s *Server) vchForm(w http.ResponseWriter, r *http.Request, status int, v, e map[string]string) {
@@ -138,7 +142,7 @@ func (s *Server) vchForm(w http.ResponseWriter, r *http.Request, status int, v, 
 }
 
 func (s *Server) vchNew(w http.ResponseWriter, r *http.Request) {
-	s.vchForm(w, r, 200, map[string]string{"numbervoucher": "10", "voucher_format": "up", "lengthcode": "8"}, nil)
+	s.vchForm(w, r, 200, map[string]string{"numbervoucher": "10", "voucher_format": "up", "lengthcode": "8", "print_now": "1"}, nil)
 }
 
 func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {

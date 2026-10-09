@@ -25,6 +25,7 @@ type field struct {
 	Show                                  string // Alpine condition showing this field
 	Bind                                  bool   // field feeds the form's Alpine state (x-model)
 	Gen                                   bool   // "Generate" button fills the field with a random value
+	Fold                                  bool   // its card sits inside a collapsed "Advanced options"
 }
 
 type option struct{ Value, Label string }
@@ -37,7 +38,18 @@ type formPage struct {
 // group is a titled card of fields on the form page.
 type group struct {
 	Title, Show string
+	Fold        bool
 	Fields      []field
+}
+
+// Open reports whether a folded card must start open: one of its fields has an error.
+func (g group) Open() bool {
+	for _, f := range g.Fields {
+		if f.Error != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // Groups splits the fields into cards by consecutive Section.
@@ -45,7 +57,7 @@ func (fp formPage) Groups() []group {
 	var gs []group
 	for _, f := range fp.Fields {
 		if n := len(gs); n == 0 || gs[n-1].Title != f.Section {
-			gs = append(gs, group{Title: f.Section, Show: f.SectionShow})
+			gs = append(gs, group{Title: f.Section, Show: f.SectionShow, Fold: f.Fold})
 		}
 		gs[len(gs)-1].Fields = append(gs[len(gs)-1].Fields, f)
 	}

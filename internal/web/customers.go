@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/mail"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -303,7 +304,8 @@ func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 	pv, err := s.Billing.Preview(r.Context(), c.ID, planID)
 	if err != nil || pv.Plan.Enabled != 1 && !oneOf(adminFrom(r).Role, "SuperAdmin", "Admin") {
-		fail("Invalid plan")
+		pl, perr := s.queries.GetPlan(r.Context(), planID)
+		fail(planErrMsg(perr == nil, pl.Enabled))
 		return
 	}
 	d := rechargeConfirm{C: c, Plan: pv.Plan.Name, PlanID: planID, Method: method, MethodLabel: label, Price: money(pv.Price), Balance: money(c.Balance), After: money(c.Balance)}
@@ -340,7 +342,7 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 	planID, _ := posInt(r.PostFormValue("plan"))
 	plan, err := s.queries.GetPlan(r.Context(), planID)
 	if err != nil || plan.Enabled != 1 && !oneOf(adminFrom(r).Role, "SuperAdmin", "Admin") {
-		fail("Invalid plan")
+		fail(planErrMsg(err == nil, plan.Enabled))
 		return
 	}
 	admin := adminFrom(r)
@@ -352,23 +354,31 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 	// PHP records "<method> - <admin name>" (Recharge Zero for free ones); balance payments keep
 	// "Customer - Balance" so the dashboard can leave them out (S1).
 	rec := titleWords(label) + " - " + admin.Fullname
+	ctx, devFailed := billing.TrackDeviceFailure(r.Context())
 	switch method {
 	case methodZero:
-		err = s.Billing.RechargeZero(r.Context(), c.ID, plan.ID, "Recharge Zero - "+admin.Fullname, admin.ID)
+		err = s.Billing.RechargeZero(ctx, c.ID, plan.ID, "Recharge Zero - "+admin.Fullname, admin.ID)
 	case "Balance":
-		err = s.Billing.RechargeWithBalance(r.Context(), c.ID, plan.ID, admin.ID)
+		err = s.Billing.RechargeWithBalance(ctx, c.ID, plan.ID, admin.ID)
 	default:
-		err = s.Billing.Recharge(r.Context(), c.ID, plan.ID, rec, admin.ID)
+		err = s.Billing.Recharge(ctx, c.ID, plan.ID, rec, admin.ID)
 	}
 	if errors.Is(err, billing.ErrInsufficientBalance) {
-		fail("Insufficient balance")
+		s.sessions.Put(r.Context(), "errlink", "/admin/deposit?customer="+url.QueryEscape(c.Username))
+		fail(msgNoBalance)
 		return
 	} else if errors.Is(err, billing.ErrInactive) {
 		fail("account is not active")
 		return
 	} else if err != nil {
 		slog.Error("recharge", "customer", c.Username, "plan", plan.Name, "err", err)
-		fail("Recharge failed")
+		fail(msgRechargeFail)
+		return
+	}
+	if *devFailed { // money and transaction are saved; only the router missed the change
+		s.logActivity(r, "customer.recharge", c.Username+" ["+plan.Name+"] router not updated")
+		s.sessions.Put(r.Context(), "warn", s.catalog.T(s.language(), msgNotSynced))
+		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
 	s.done(w, r, back, "Recharge Successful", "customer.recharge", c.Username+" ["+plan.Name+"]")
@@ -525,7 +535,11 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
-			s.done(w, r, "/admin/customers", msg, act, v["username"])
+			next := "/admin/customers"
+			if id == 0 { // a new customer has no plan yet: go to the page where one is chosen
+				next, msg = fmt.Sprint("/admin/customers/", cid), "Customer created. Choose a plan below to switch the internet on."
+			}
+			s.done(w, r, next, msg, act, v["username"])
 			return
 		}
 	}

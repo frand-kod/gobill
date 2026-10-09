@@ -82,6 +82,10 @@ type Page struct {
 	Unread        int64        // portal inbox badge
 	Flash         string
 	Error         string
+	Warn          string // yellow alert: the action worked but needs a follow-up
+	Detail        string // raw technical text of Error, shown in a small <details>
+	ErrLink       string // href of an "Add balance" button next to Error
+	Intro         intro  // callout under the page title; filled by render when empty
 	Path          string
 	Tabs          []option          // settings sub-page menu
 	Brand         map[string]string // logo and login page text, filled by render
@@ -488,6 +492,19 @@ func loadIcons() (map[string]template.HTML, error) {
 func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, name string, p Page) {
 	p.Admin = adminFrom(r)
 	p.Path = r.URL.Path
+	ctx := r.Context()
+	for _, a := range []struct {
+		dst *string
+		key string
+	}{{&p.Flash, "flash"}, {&p.Error, "error"}, {&p.Warn, "warn"}, {&p.Detail, "detail"}, {&p.ErrLink, "errlink"}} {
+		if v := s.sessions.PopString(ctx, a.key); *a.dst == "" {
+			*a.dst = v
+		}
+	}
+	if p.Intro.Title == "" {
+		p.Intro = introFor(name, r.URL.Path)
+	}
+	p.Intro = s.translateIntro(p.Intro)
 	p.Lang = s.language()
 	p.Version = s.Version
 	p.Brand = s.brand(r.Context())
