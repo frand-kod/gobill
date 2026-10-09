@@ -1,0 +1,33 @@
+{{define "docsTOC"}}<ul class="space-y-1">{{range .}}<li{{if eq .Level 3}} class="ps-3"{{end}}><a class="link" href="#{{.ID}}">{{.Text}}</a></li>{{end}}</ul>{{end}}
+{{define "content"}}
+{{with .Data}}
+<div class="page-head">
+  <h1 class="page-title">{{if .Guide}}{{.Guide.Title}}{{else}}{{T "Guide"}}{{end}}</h1>
+  {{if .Guide}}<a class="btn btn-ghost" href="/admin/docs">{{T "All guides"}}</a>{{end}}
+</div>
+{{template "callout" $.Intro}}
+{{if .Guide}}
+<div class="lg:grid lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-8">
+  {{with .Guide.TOC}}
+  <details class="card mb-4 lg:hidden">
+    <summary class="cursor-pointer px-4 py-3 font-medium">{{T "On this page"}}</summary>
+    <nav class="px-4 pb-3 text-sm" aria-label="{{T "On this page"}}">{{template "docsTOC" .}}</nav>
+  </details>
+  <aside class="hidden lg:block">
+    <nav class="sticky top-6 text-sm" aria-label="{{T "On this page"}}">{{template "docsTOC" .}}</nav>
+  </aside>
+  {{end}}
+  <article class="prose-doc min-w-0">{{.Guide.HTML}}</article>
+</div>
+{{else}}
+<ul class="grid gap-3 sm:grid-cols-2">
+  {{range .Index}}
+  <li><a class="card card-body block hover:bg-surface-2" href="/admin/docs/{{.Slug}}">
+    <span class="block font-semibold text-ink">{{.Title}}</span>
+    <span class="mt-1 block text-sm text-ink-2">{{.Desc}}</span>
+  </a></li>
+  {{end}}
+</ul>
+{{end}}
+{{end}}
+{{end}}

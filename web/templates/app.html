@@ -8,6 +8,7 @@
     <a href="/admin" class="flex items-center gap-2 px-5 py-4 text-lg font-semibold text-ink">{{template "logoA" .Brand}}</a>
     <nav class="flex-1 px-3 pb-6" aria-label="Main">
       <a class="nav-item" href="/admin"{{if eq .Path "/admin"}} aria-current="page"{{end}}>{{icon "layout-dashboard"}}<span>{{T "Dashboard"}}</span></a>
+      <a class="nav-item" href="/admin/docs"{{if hasPrefix .Path "/admin/docs"}} aria-current="page"{{end}}>{{icon "circle-help"}}<span>{{T "Guide"}}</span></a>
       <a class="nav-item" href="/admin/customers"{{if hasPrefix .Path "/admin/customers"}} aria-current="page"{{end}}>{{icon "users"}}<span>{{T "Customer"}}</span></a>
       {{if $staff}}<a class="nav-item" href="/admin/customers">{{icon "wallet"}}<span>{{T "Recharge Account"}}</span></a>
       <a class="nav-item" href="/admin/vouchers/redeem"{{if eq .Path "/admin/vouchers/redeem"}} aria-current="page"{{end}}>{{icon "ticket"}}<span>{{T "Redeem Voucher"}}</span></a>

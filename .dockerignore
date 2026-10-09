@@ -1,7 +1,14 @@
 .git
 .github
 .claude
-docs
+docs/*
+!docs/README.md
+!docs/instalasi.md
+!docs/konfigurasi.md
+!docs/mikrotik.md
+!docs/freeradius-rest.md
+!docs/migrasi-phpnuxbill.md
+!docs/keamanan.md
 deploy
 *.db
 *.db-wal

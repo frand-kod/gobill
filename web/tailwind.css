@@ -196,4 +196,23 @@
   .seg input:checked + span { @apply bg-surface font-medium ring-1 ring-line-strong; }
   .seg input:focus-visible + span { outline: 2px solid var(--accent-fg); outline-offset: 1px; }
   .swatch { @apply inline-block size-4 rounded-full border border-line-strong; }
+
+  /* "Panduan" guide body: 72ch measure, plain document styling from the tokens above */
+  .prose-doc { max-width: 72ch; line-height: 1.7; color: var(--text); overflow-wrap: anywhere; }
+  .prose-doc h1 { font-size: var(--fs-title); font-weight: var(--fw-bold); line-height: 1.25; margin-bottom: 0.5rem; }
+  .prose-doc h2 { font-size: 1.2rem; font-weight: var(--fw-bold); margin-top: 2rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--border); scroll-margin-top: 5rem; }
+  .prose-doc h3 { font-size: var(--fs-section); font-weight: var(--fw-bold); margin-top: 1.5rem; scroll-margin-top: 5rem; }
+  .prose-doc p, .prose-doc ul, .prose-doc ol, .prose-doc pre, .prose-doc table, .prose-doc blockquote { margin-bottom: 1em; }
+  .prose-doc ul { list-style: disc; padding-inline-start: 1.5em; }
+  .prose-doc ol { list-style: decimal; padding-inline-start: 1.5em; }
+  .prose-doc li + li { margin-top: 0.25em; }
+  .prose-doc a { color: var(--accent-fg); text-decoration: underline; text-underline-offset: 2px; }
+  .prose-doc code { font-size: 0.875em; background: var(--surface-2); border-radius: 4px; padding: 0.1em 0.35em; }
+  .prose-doc pre { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem 1rem; overflow-x: auto; line-height: 1.5; }
+  .prose-doc pre code { background: none; padding: 0; font-size: 0.85em; }
+  .prose-doc blockquote { border-inline-start: 3px solid var(--accent); padding-inline-start: 1rem; color: var(--text-2); }
+  .prose-doc table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 0.9em; }
+  .prose-doc th, .prose-doc td { border: 1px solid var(--border); padding: 0.4rem 0.6rem; text-align: start; vertical-align: top; }
+  .prose-doc th { background: var(--surface-2); font-weight: var(--fw-bold); }
+  .prose-doc hr { border-color: var(--border); margin: 2rem 0; }
 }

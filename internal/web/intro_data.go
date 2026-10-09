@@ -55,5 +55,6 @@ var pageIntros = map[string]intro{
 	"report_period":   {"Period report", "Money received between two dates. Good for monthly closing.", ""},
 	"radius_sessions": {"Online now (RADIUS)", "Customers connected right now through RADIUS. Disconnect (CoA) asks the router to drop one so they reconnect with their latest plan.", "Customers who connect through the router API are not listed here. Open their customer page instead."},
 	"maps":            {"Map", "Pins show where customers, routers or ODP boxes are. Tap a pin for its details.", ""},
+	"docs":            {"Guide", "Step-by-step notes for the operator: install, settings, MikroTik and RADIUS, moving from PHPNuxBill, and security. Pick a topic on the left.", ""},
 	"p_dashboard":     {"Your internet account", "Your balance, your plans and the date each one ends. Press Buy / Extend before it ends so you stay online.", ""},
 }
