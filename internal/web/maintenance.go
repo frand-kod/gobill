@@ -1,8 +1,11 @@
 package web
 
+// Maintenance-mode middleware.
+
 import (
-	"html"
 	"net/http"
+
+	"html"
 	"strings"
 )
 

@@ -1,5 +1,7 @@
 package web
 
+// Static intro texts for list, form and page screens.
+
 // Intro callouts. Texts are English catalog keys; Indonesian lives in lang/indonesia.json.
 
 var listIntros = map[string]intro{

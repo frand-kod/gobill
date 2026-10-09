@@ -1,9 +1,12 @@
 package web
 
+// Admin session idle timeout and settings reload.
+
 import (
-	"context"
 	"log/slog"
 	"net/http"
+
+	"context"
 	"strconv"
 	"time"
 )

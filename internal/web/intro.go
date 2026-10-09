@@ -1,5 +1,7 @@
 package web
 
+// Page intro text lookup and translation.
+
 import (
 	"regexp"
 	"strings"

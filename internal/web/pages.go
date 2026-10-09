@@ -1,12 +1,14 @@
 package web
 
+// Editable static content pages (admin editor and public view).
+
 import (
 	"database/sql"
-	"errors"
 	"net/http"
-	"strings"
 
+	"errors"
 	"github.com/frand-kod/gobill/internal/db"
+	"strings"
 )
 
 // Old pages.php: four static pages (announcement, terms, privacy, registration) edited as plain text.
