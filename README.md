@@ -32,6 +32,7 @@ Data SQLite dan `nuxbill.db.key` ada di volume `/data`. Berikan `NUXBILL_SECRET_
 |---|---|---|
 | `NUXBILL_DB` | `./nuxbill.db` | Lokasi file SQLite |
 | `NUXBILL_HTTP` | `:8080` | Alamat listen |
+| `NUXBILL_RADIUS` | `:1812` | Alamat listen RADIUS UDP (auth; acct di port+1). Kosong atau `off` mematikan listener UDP |
 | `NUXBILL_HTTPS` | kosong | Isi `1` jika dilayani lewat HTTPS (cookie sesi diberi flag Secure) |
 
 ## Admin pertama

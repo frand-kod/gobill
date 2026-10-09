@@ -144,11 +144,11 @@ Pesan yang sering muncul:
 
 - **Log berisi `clock`, expiry ditolak**: jam belum sinkron. Cek `timedatectl status`, lalu pastikan chrony atau timesyncd aktif dan internet bisa diakses.
 - **`first admin created`**: password admin pertama. Hanya muncul saat DB baru dibuat.
-- **`NUXBILL_RADIUS ... want host:port`**: format `NUXBILL_RADIUS` salah. Gunakan `:1812`.
+- **`NUXBILL_RADIUS ... want host:port`**: format `NUXBILL_RADIUS` salah. Gunakan `:1812`, atau `off` untuk mematikan.
 - **`permission denied` saat tulis DB**: folder data tidak bisa ditulis user `nuxbill`. Jalankan `sudo chown -R nuxbill:nuxbill /var/lib/nuxbill`.
 - **Service terus restart**: `systemctl status nuxbill`, lalu lihat log. Pastikan `/etc/nuxbill/config.env` ada dan berisi `NUXBILL_SECRET_KEY`.
 - **Pelanggan tidak bisa login di hotspot**: cek `journalctl -u nuxbill | grep -i radius`. Pastikan secret cocok dan port 1812 tidak diblokir.
-- **Port 8080 atau 1812 sudah dipakai**: `ss -ulnp | grep 1812` atau `ss -tlnp | grep 8080`. Ubah `NUXBILL_HTTP` atau `NUXBILL_RADIUS` di config.env, lalu restart.
+- **Port 8080 atau 1812 sudah dipakai**: `ss -ulnp | grep 1812` atau `ss -tlnp | grep 8080`. Ubah `NUXBILL_HTTP` atau `NUXBILL_RADIUS` di config.env, lalu restart. Jika FreeRADIUS sudah memakai 1812 di host yang sama, isi `NUXBILL_RADIUS=off` (atau kosongkan) untuk mematikan listener UDP built-in; endpoint `/radius.php` tetap jalan.
 
 Cek apakah service berjalan:
 

@@ -75,6 +75,7 @@ if [ ! -f "$CONF" ]; then
 		cat > "$CONF" <<EOF
 NUXBILL_DB=$STATE_DIR/nuxbill.db
 NUXBILL_HTTP=:8080
+# NUXBILL_RADIUS=off mematikan listener UDP built-in (misal jika FreeRADIUS memakai 1812)
 NUXBILL_RADIUS=:1812
 NUXBILL_SECRET_KEY=$KEY
 EOF

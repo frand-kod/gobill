@@ -122,7 +122,7 @@ func run() error {
 	errCh := make(chan error, 2)
 	rs := &radius.Server{Q: db.New(conn), Key: key, Trusted: guard.Trusted, Redeem: svc.RedeemVoucher}
 	app.Radius = rs // shared with /radius.php so throttles and dedup state are common
-	if ra := env("NUXBILL_RADIUS", ":1812"); ra != "" {
+	if ra, on := radiusAddr(); on {
 		host, port, err := net.SplitHostPort(ra)
 		p, perr := strconv.Atoi(port)
 		if err != nil || perr != nil {
@@ -155,6 +155,19 @@ func run() error {
 		return err
 	}
 	return nil
+}
+
+// radiusAddr returns the UDP RADIUS listen address. Unset means ":1812";
+// empty or "off" disables the UDP listener (the REST /radius.php still works).
+func radiusAddr() (addr string, enabled bool) {
+	v, ok := os.LookupEnv("NUXBILL_RADIUS")
+	if !ok {
+		return ":1812", true
+	}
+	if v == "" || v == "off" {
+		return "", false
+	}
+	return v, true
 }
 
 func env(key, fallback string) string {
