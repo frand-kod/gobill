@@ -121,25 +121,8 @@ func (s *Server) Handler() http.Handler {
 		panic(err) // the path is embedded at build time
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/admin", http.StatusSeeOther)
-	})
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
-	mux.HandleFunc("GET /login", s.loginForm)
-	mux.HandleFunc("GET /uploads/{name}", s.serveUpload)
-	mux.HandleFunc("POST /login", s.loginSubmit)
-	mux.HandleFunc("POST /logout", s.logout)
 	all := s.requireAdmin()
 	managers := s.requireAdmin("SuperAdmin", "Admin")
-	mux.Handle("GET /admin", all(http.HandlerFunc(s.dashboard)))
-	mux.Handle("GET /admin/settings", managers(http.HandlerFunc(s.settingsForm)))
-	mux.Handle("GET /admin/settings/{tab}", managers(http.HandlerFunc(s.settingsForm)))
-	mux.Handle("POST /admin/settings/{tab}", managers(http.HandlerFunc(s.settingsSave)))
-	mux.Handle("POST /admin/theme/default", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.themeDefault)))
-	mux.Handle("POST /admin/settings/integrations/wa-test", managers(http.HandlerFunc(s.waTest)))
-	mux.Handle("POST /admin/settings/notifications/daily-summary", managers(http.HandlerFunc(s.dailySummaryNow)))
-	mux.Handle("GET /admin/settings/miscellaneous/backup", managers(http.HandlerFunc(s.dbBackup)))
-
 	// Old PHP: bandwidth, routers, pool and logs are SuperAdmin/Admin only; customers are
 	// readable by everyone, creatable by Agent/Sales too, editable/deletable by managers.
 	staff := s.requireAdmin("SuperAdmin", "Admin", "Agent", "Sales")
@@ -151,29 +134,24 @@ func (s *Server) Handler() http.Handler {
 		mux.Handle("POST "+base+"/{id}", managers(save))
 		mux.Handle("POST "+base+"/{id}/delete", managers(del))
 	}
-	crud("/admin/bandwidth", s.bwList, s.bwNew, s.bwEdit, s.bwSave, s.bwDelete)
-	crud("/admin/routers", s.routerList, s.routerNew, s.routerEdit, s.routerSave, s.routerDelete)
-	mux.Handle("POST /admin/routers/{id}/test", managers(http.HandlerFunc(s.routerTest)))
-	crud("/admin/nas", s.nasList, s.nasNew, s.nasEdit, s.nasSave, s.nasDelete)
-	mux.Handle("GET /admin/radius/sessions", managers(http.HandlerFunc(s.radiusSessions)))
-	mux.Handle("POST /admin/radius/sessions/{id}/disconnect", managers(http.HandlerFunc(s.radiusDisconnect)))
-	crud("/admin/pool", s.poolList, s.poolNew, s.poolEdit, s.poolSave, s.poolDelete)
-	crud("/admin/plans", s.planList, s.planNew, s.planEdit, s.planSave, s.planDelete)
-	// Old settings.php users-*: list/add/edit for SuperAdmin, Admin and Agent (scoped in admins.go); delete only SuperAdmin and Admin.
-	userMgr := s.requireAdmin("SuperAdmin", "Admin", "Agent")
-	mux.Handle("GET /admin/users", userMgr(http.HandlerFunc(s.adminList)))
-	mux.Handle("GET /admin/users/new", userMgr(http.HandlerFunc(s.adminNew)))
-	mux.Handle("POST /admin/users", userMgr(http.HandlerFunc(s.adminSave)))
-	mux.Handle("GET /admin/users/{id}/edit", userMgr(http.HandlerFunc(s.adminEdit)))
-	mux.Handle("POST /admin/users/{id}", userMgr(http.HandlerFunc(s.adminSave)))
-	mux.Handle("POST /admin/users/{id}/delete", managers(http.HandlerFunc(s.adminDelete)))
+
+	// auth: root redirect, static files, uploads, admin login/logout, own password
+	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+	})
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
+	mux.HandleFunc("GET /login", s.loginForm)
+	mux.HandleFunc("GET /uploads/{name}", s.serveUpload)
+	mux.HandleFunc("POST /login", s.loginSubmit)
+	mux.HandleFunc("POST /logout", s.logout)
 	mux.Handle("GET /admin/password", all(http.HandlerFunc(s.passwordForm)))
 	mux.Handle("POST /admin/password", all(http.HandlerFunc(s.passwordSave)))
-	mux.Handle("GET /admin/logs", managers(http.HandlerFunc(s.logList)))
-	mux.Handle("GET /admin/logs/radius", managers(http.HandlerFunc(s.radiusLog)))
-	mux.Handle("GET /admin/logs/radius/export", managers(http.HandlerFunc(s.radiusLogExport)))
-	mux.Handle("GET /admin/logs/messages", managers(http.HandlerFunc(s.msgLog)))
-	mux.Handle("GET /admin/logs/messages/export", managers(http.HandlerFunc(s.msgLogExport)))
+
+
+	// dashboard
+	mux.Handle("GET /admin", all(http.HandlerFunc(s.dashboard)))
+
+	// customers: search, list, detail, edit, delete, actions, custom fields, maps
 	mux.Handle("GET /admin/customers", all(http.HandlerFunc(s.custList)))
 	mux.Handle("GET /admin/customers/export", all(http.HandlerFunc(s.custExport)))
 	mux.Handle("GET /admin/customers/new", staff(http.HandlerFunc(s.custNew)))
@@ -184,9 +162,28 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/customers/message", staff(http.HandlerFunc(s.custMessageForm)))
 	mux.Handle("POST /admin/customers/{id}/delete", managers(http.HandlerFunc(s.custDelete)))
 	s.extraRoutes(mux, managers)
+	// Old customfield.php: custom fields CRUD (managers only).
+	crud("/admin/fields", s.cfList, s.cfNew, s.cfEdit, s.cfSave, s.cfDelete)
+	// F5 maps and ODP (maps.go, odp.go). Old PHP: customer map is open to all admins; router, ODP and their maps are managers only.
+	mux.Handle("GET /admin/maps/customers", all(s.mapPage("Customer Geo Location Information", "/admin/maps/customers/data")))
+	mux.Handle("GET /admin/maps/customers/data", all(http.HandlerFunc(s.mapCustomerData)))
+
+	// recharge and billing: recharge, deposit, customer plans, transactions, payment gateway admin
 	mux.Handle("POST /admin/customers/{id}/recharge/confirm", staff(http.HandlerFunc(s.custRechargeConfirm)))
 	mux.Handle("POST /admin/customers/{id}/recharge", staff(http.HandlerFunc(s.custRecharge)))
+	mux.Handle("GET /admin/deposit", staff(http.HandlerFunc(s.depositForm)))
+	mux.Handle("POST /admin/deposit", staff(http.HandlerFunc(s.depositSave)))
+	mux.Handle("GET /admin/subscriptions", all(http.HandlerFunc(s.subList)))
+	mux.Handle("GET /admin/subscriptions/export", all(http.HandlerFunc(s.subExport)))
+	mux.Handle("GET /admin/subscriptions/{id}/edit", managers(http.HandlerFunc(s.subEdit)))
+	mux.Handle("POST /admin/subscriptions/{id}", managers(http.HandlerFunc(s.subSave)))
+	mux.Handle("POST /admin/subscriptions/{id}/extend", staff(http.HandlerFunc(s.subExtend)))
+	mux.Handle("POST /admin/subscriptions/{id}/deactivate", managers(http.HandlerFunc(s.subDeactivate)))
+	mux.Handle("POST /admin/subscriptions/{id}/sync", managers(http.HandlerFunc(s.subSync)))
+	mux.Handle("GET /admin/transactions", all(http.HandlerFunc(s.trxList)))
+	s.paymentAdminRoutes(mux, managers)
 
+	// vouchers and coupons
 	// Old PHP plan.php: voucher list is open to all admins, generate/redeem to staff, delete to managers.
 	mux.Handle("GET /admin/vouchers", all(http.HandlerFunc(s.vchList)))
 	mux.Handle("GET /admin/vouchers/new", staff(http.HandlerFunc(s.vchNew)))
@@ -208,35 +205,58 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/coupons/{id}/toggle", cpn(http.HandlerFunc(s.cpnToggle)))
 	mux.Handle("POST /admin/coupons/delete-many", cpn(http.HandlerFunc(s.cpnDeleteMany)))
 	mux.Handle("POST /admin/coupons/{id}/delete", cpn(http.HandlerFunc(s.cpnDelete)))
-	mux.Handle("GET /admin/subscriptions", all(http.HandlerFunc(s.subList)))
-	mux.Handle("GET /admin/subscriptions/export", all(http.HandlerFunc(s.subExport)))
-	mux.Handle("GET /admin/subscriptions/{id}/edit", managers(http.HandlerFunc(s.subEdit)))
-	mux.Handle("POST /admin/subscriptions/{id}", managers(http.HandlerFunc(s.subSave)))
-	mux.Handle("POST /admin/subscriptions/{id}/extend", staff(http.HandlerFunc(s.subExtend)))
-	mux.Handle("POST /admin/subscriptions/{id}/deactivate", managers(http.HandlerFunc(s.subDeactivate)))
-	mux.Handle("POST /admin/subscriptions/{id}/sync", managers(http.HandlerFunc(s.subSync)))
-	mux.Handle("GET /admin/deposit", staff(http.HandlerFunc(s.depositForm)))
-	mux.Handle("POST /admin/deposit", staff(http.HandlerFunc(s.depositSave)))
-	mux.Handle("GET /admin/transactions", all(http.HandlerFunc(s.trxList)))
 
-	// F5 maps and ODP (maps.go, odp.go). Old PHP: customer map is open to all admins; router, ODP and their maps are managers only.
+	// plans and network: bandwidth, plans, pools, routers, NAS, online sessions, ODP and router/ODP maps
+	crud("/admin/bandwidth", s.bwList, s.bwNew, s.bwEdit, s.bwSave, s.bwDelete)
+	crud("/admin/plans", s.planList, s.planNew, s.planEdit, s.planSave, s.planDelete)
+	crud("/admin/pool", s.poolList, s.poolNew, s.poolEdit, s.poolSave, s.poolDelete)
+	crud("/admin/routers", s.routerList, s.routerNew, s.routerEdit, s.routerSave, s.routerDelete)
+	mux.Handle("POST /admin/routers/{id}/test", managers(http.HandlerFunc(s.routerTest)))
+	crud("/admin/nas", s.nasList, s.nasNew, s.nasEdit, s.nasSave, s.nasDelete)
+	mux.Handle("GET /admin/radius/sessions", managers(http.HandlerFunc(s.radiusSessions)))
+	mux.Handle("POST /admin/radius/sessions/{id}/disconnect", managers(http.HandlerFunc(s.radiusDisconnect)))
 	crud("/admin/odp", s.odpList, s.odpNew, s.odpEdit, s.odpSave, s.odpDelete)
-	mux.Handle("GET /admin/maps/customers", all(s.mapPage("Customer Geo Location Information", "/admin/maps/customers/data")))
-	mux.Handle("GET /admin/maps/customers/data", all(http.HandlerFunc(s.mapCustomerData)))
 	mux.Handle("GET /admin/maps/routers", managers(s.mapPage("Routers Geo Location Information", "/admin/maps/routers/data")))
 	mux.Handle("GET /admin/maps/routers/data", managers(http.HandlerFunc(s.mapRouterData)))
 	mux.Handle("GET /admin/maps/odp", managers(s.mapPage("ODP Geo Location Information", "/admin/maps/odp/data")))
 	mux.Handle("GET /admin/maps/odp/data", managers(http.HandlerFunc(s.mapODPData)))
-	// Old customfield.php and pages.php: custom fields CRUD, static page editor (managers only).
-	crud("/admin/fields", s.cfList, s.cfNew, s.cfEdit, s.cfSave, s.cfDelete)
+
+	// reports and logs
+	s.reportRoutes(mux, all)
+	mux.Handle("GET /admin/logs", managers(http.HandlerFunc(s.logList)))
+	mux.Handle("GET /admin/logs/radius", managers(http.HandlerFunc(s.radiusLog)))
+	mux.Handle("GET /admin/logs/radius/export", managers(http.HandlerFunc(s.radiusLogExport)))
+	mux.Handle("GET /admin/logs/messages", managers(http.HandlerFunc(s.msgLog)))
+	mux.Handle("GET /admin/logs/messages/export", managers(http.HandlerFunc(s.msgLogExport)))
+
+	// settings: app settings, theme default, admin users, static pages
+	mux.Handle("GET /admin/settings", managers(http.HandlerFunc(s.settingsForm)))
+	mux.Handle("GET /admin/settings/{tab}", managers(http.HandlerFunc(s.settingsForm)))
+	mux.Handle("POST /admin/settings/{tab}", managers(http.HandlerFunc(s.settingsSave)))
+	mux.Handle("POST /admin/theme/default", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.themeDefault)))
+	mux.Handle("POST /admin/settings/integrations/wa-test", managers(http.HandlerFunc(s.waTest)))
+	mux.Handle("POST /admin/settings/notifications/daily-summary", managers(http.HandlerFunc(s.dailySummaryNow)))
+	mux.Handle("GET /admin/settings/miscellaneous/backup", managers(http.HandlerFunc(s.dbBackup)))
+	// Old settings.php users-*: list/add/edit for SuperAdmin, Admin and Agent (scoped in admins.go); delete only SuperAdmin and Admin.
+	userMgr := s.requireAdmin("SuperAdmin", "Admin", "Agent")
+	mux.Handle("GET /admin/users", userMgr(http.HandlerFunc(s.adminList)))
+	mux.Handle("GET /admin/users/new", userMgr(http.HandlerFunc(s.adminNew)))
+	mux.Handle("POST /admin/users", userMgr(http.HandlerFunc(s.adminSave)))
+	mux.Handle("GET /admin/users/{id}/edit", userMgr(http.HandlerFunc(s.adminEdit)))
+	mux.Handle("POST /admin/users/{id}", userMgr(http.HandlerFunc(s.adminSave)))
+	mux.Handle("POST /admin/users/{id}/delete", managers(http.HandlerFunc(s.adminDelete)))
+	// Old pages.php: static page editor (managers only).
 	mux.Handle("GET /admin/pages/{slug}", managers(http.HandlerFunc(s.pageEdit)))
 	mux.Handle("POST /admin/pages/{slug}", managers(http.HandlerFunc(s.pageSave)))
 
-	s.reportRoutes(mux, all)
+	// messages: send, bulk, selected customers
 	s.messageRoutes(mux, staff)
+
+	// customer portal
 	s.portalRoutes(mux)
 	s.paymentRoutes(mux)
-	s.paymentAdminRoutes(mux, managers)
+
+	// RADIUS REST endpoint and payment callbacks (no session; bypass the origin check below)
 	s.radiusRestRoutes(mux)
 
 	// the Tripay server posts the callback without our origin; its HMAC signature authenticates it
