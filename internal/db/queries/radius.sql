@@ -76,3 +76,8 @@ WHERE (username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR nas_ip LIKE '%' 
   AND (CAST(sqlc.arg(from_ts) AS INTEGER) = 0 OR started_at >= sqlc.arg(from_ts))
   AND (CAST(sqlc.arg(to_ts) AS INTEGER) = 0 OR started_at < sqlc.arg(to_ts))
 ORDER BY started_at DESC, id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+
+-- name: SumRadiusSessionTime :one
+-- Seconds the user was online since from_ts (open sessions count up to their last update).
+SELECT CAST(COALESCE(SUM(COALESCE(stopped_at, updated_at) - started_at), 0) AS INTEGER) FROM radius_sessions
+WHERE username = ? AND started_at >= ?;

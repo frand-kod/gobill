@@ -457,6 +457,24 @@ func (q *Queries) SearchRadiusLogs(ctx context.Context, arg SearchRadiusLogsPara
 	return items, nil
 }
 
+const sumRadiusSessionTime = `-- name: SumRadiusSessionTime :one
+SELECT CAST(COALESCE(SUM(COALESCE(stopped_at, updated_at) - started_at), 0) AS INTEGER) FROM radius_sessions
+WHERE username = ? AND started_at >= ?
+`
+
+type SumRadiusSessionTimeParams struct {
+	Username  string
+	StartedAt int64
+}
+
+// Seconds the user was online since from_ts (open sessions count up to their last update).
+func (q *Queries) SumRadiusSessionTime(ctx context.Context, arg SumRadiusSessionTimeParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, sumRadiusSessionTime, arg.Username, arg.StartedAt)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const sumRadiusUsage = `-- name: SumRadiusUsage :one
 SELECT CAST(COALESCE(SUM(input_octets + output_octets), 0) AS INTEGER) FROM radius_sessions
 WHERE username = ? AND started_at >= ?

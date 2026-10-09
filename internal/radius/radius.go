@@ -265,6 +265,11 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 			if pl.TimeUnit.String == "Hrs" {
 				t *= 60
 			}
+			// Max-All-Session: the limit is the total online time since activation, not per login.
+			used, _ := s.Q.SumRadiusSessionTime(ctx, db.SumRadiusSessionTimeParams{Username: user, StartedAt: pl.StartedAt})
+			if t -= used; t <= 0 {
+				return Decision{Reject: "You have exceeded your time limit."}
+			}
 			if d.Timeout == 0 || t < d.Timeout {
 				d.Timeout = t
 			}
