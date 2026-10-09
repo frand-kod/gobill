@@ -310,6 +310,7 @@ func (q *Queries) SearchTransactions(ctx context.Context, arg SearchTransactions
 
 const sumTransactionsBetween = `-- name: SumTransactionsBetween :one
 SELECT CAST(COALESCE(SUM(price), 0) AS INTEGER) FROM transactions WHERE created_at >= ? AND created_at < ?
+  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
 `
 
 type SumTransactionsBetweenParams struct {

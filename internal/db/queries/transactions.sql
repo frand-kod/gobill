@@ -32,4 +32,6 @@ ORDER BY
   id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 -- name: SumTransactionsBetween :one
-SELECT CAST(COALESCE(SUM(price), 0) AS INTEGER) FROM transactions WHERE created_at >= ? AND created_at < ?;
+-- Income: like PHP top_widget, purchases paid from balance are not income (the top-up already was).
+SELECT CAST(COALESCE(SUM(price), 0) AS INTEGER) FROM transactions WHERE created_at >= ? AND created_at < ?
+  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%';

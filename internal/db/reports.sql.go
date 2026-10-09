@@ -16,6 +16,7 @@ WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?4 AS TEXT) = '' OR method = ?4)
   AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
+  AND NOT (method = 'Customer - Balance' AND type = 'Balance')
 ORDER BY created_at, id
 `
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -159,13 +160,23 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 	now = now.In(loc)
 	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	month := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+	// PHP dashboard.php:29-35: the "month" income runs from reset_day (default 1) to today.
+	start := month
+	if st, e := s.loadSettings(ctx); e == nil {
+		if rd, _ := strconv.Atoi(st["reset_day"]); rd > 1 && rd <= 28 {
+			start = month.AddDate(0, 0, rd-1)
+			if now.Day() < rd {
+				start = start.AddDate(0, -1, 0)
+			}
+		}
+	}
 	sum := func(from, to time.Time) (int64, error) {
 		return s.queries.SumTransactionsBetween(ctx, db.SumTransactionsBetweenParams{CreatedAt: from.Unix(), CreatedAt_2: to.Unix()})
 	}
 	if d.IncomeToday, err = sum(day, day.AddDate(0, 0, 1)); err != nil {
 		return
 	}
-	if d.IncomeMonth, err = sum(month, month.AddDate(0, 1, 0)); err != nil {
+	if d.IncomeMonth, err = sum(start, day.AddDate(0, 0, 1)); err != nil {
 		return
 	}
 	if d.ActiveSubs, err = s.queries.CountSubscriptionsByStatus(ctx, "active"); err != nil {
