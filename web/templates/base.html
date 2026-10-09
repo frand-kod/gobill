@@ -1,17 +1,25 @@
-{{define "callout"}}{{if .Title}}<aside class="callout relative pe-10" data-callout data-dismissible="callout" data-show-label="{{T "Show this note"}}">
-  <button type="button" class="btn btn-sm absolute end-1 top-1 hidden border-transparent bg-transparent px-2" data-dismiss aria-label="{{T "Hide this note"}}">{{icon "x"}}</button>
-  <p class="callout-title">{{.Title}}</p>
-  <p>{{.Text}}</p>
-  {{with .Tip}}<p class="callout-tip"><span class="font-semibold">{{T "Tip"}}:</span> {{.}}</p>{{end}}
-</aside>{{end}}{{end}}
-{{define "logoA"}}{{with .logo_a}}<img src="/uploads/{{.}}" alt="" class="logo-light h-8 max-w-48 object-contain">{{with $.logo_a_dark}}<img src="/uploads/{{.}}" alt="" class="logo-dark h-8 max-w-48 object-contain">{{end}}{{else}}{{icon "wifi"}}<span>NuxBill</span>{{end}}{{end}}
+{{define "callout"}}{{if .Title}}<details class="intro-help relative" data-intro>
+  <summary class="btn btn-sm px-2" aria-controls="intro-pop" aria-label="{{T "Show this note"}}" title="{{T "Show this note"}}">{{icon "circle-help"}}</summary>
+  <aside id="intro-pop" class="intro-pop" role="dialog" aria-labelledby="intro-title">
+    <div class="flex items-start gap-2"><p id="intro-title" class="callout-title flex-1">{{.Title}}</p><button type="button" class="btn btn-sm shrink-0 border-transparent bg-transparent px-2 hidden" data-intro-close aria-label="{{T "Close"}}">{{icon "x"}}</button></div>
+    <p>{{.Text}}</p>
+    {{with .Tip}}<p class="callout-tip"><span class="font-semibold">{{T "Tip"}}:</span> {{.}}</p>{{end}}
+  </aside>
+</details>{{end}}{{end}}
+{{define "logoA"}}{{with .logo_a}}<img src="/uploads/{{.}}" alt="" class="logo-light h-8 max-w-48 object-contain">{{with $.logo_a_dark}}<img src="/uploads/{{.}}" alt="" class="logo-dark h-8 max-w-48 object-contain">{{end}}{{else}}{{icon "wifi"}}{{end}}<span class="{{with .logo_a}}hidden min-w-0 truncate sm:inline{{else}}truncate{{end}}">{{or .company_name "gobill"}}</span>{{end}}
 {{define "logoL"}}{{with .logo_l}}<img src="/uploads/{{.}}" alt="" class="logo-light h-10 max-w-48 object-contain">{{with $.logo_l_dark}}<img src="/uploads/{{.}}" alt="" class="logo-dark h-10 max-w-48 object-contain">{{end}}{{else}}{{icon "wifi"}}{{end}}{{end}}
+{{define "toastx"}}<button type="button" class="btn btn-sm shrink-0 border-transparent bg-transparent px-2" data-toast-close aria-label="{{T "Close"}}">{{icon "x"}}</button>{{end}}
+{{define "toasts"}}{{if or .Flash .Warn .Error}}<div id="toasts" class="fixed inset-x-4 top-4 z-[60] flex flex-col gap-2 sm:inset-x-auto sm:end-4 sm:w-[420px] sm:max-w-[calc(100vw-2rem)]">
+  {{with .Flash}}<div class="alert alert-ok toast" role="status" data-toast="4000">{{icon "circle-check"}}<span class="min-w-0 flex-1">{{.}}</span>{{template "toastx"}}</div>{{end}}
+  {{with .Warn}}<div class="alert alert-warn toast" role="status" data-toast="8000">{{icon "triangle-alert"}}<span class="min-w-0 flex-1">{{.}}</span>{{template "toastx"}}</div>{{end}}
+  {{with .Error}}<div class="alert alert-error toast" role="alert">{{icon "circle-alert"}}<span class="min-w-0 flex-1">{{T .}}{{with $.Detail}}<details class="mt-1 text-xs opacity-80"><summary class="cursor-pointer">{{T "Technical details"}}</summary><code class="break-all">{{.}}</code></details>{{end}}</span>{{with $.ErrLink}}<a class="btn btn-ghost btn-sm" href="{{.}}">{{icon "wallet"}}<span>{{T "Add Balance"}}</span></a>{{end}}{{template "toastx"}}</div>{{end}}
+</div>{{end}}{{end}}
 {{define "base"}}<!doctype html>
 <html data-def-mode="{{.Brand.theme_mode}}" data-def-accent="{{.Brand.theme_accent}}" data-def-density="{{.Brand.theme_density}}" lang="{{if eq .Lang "indonesia"}}id{{else if eq .Lang "english"}}en{{else if eq .Lang "arabic"}}ar{{else if eq .Lang "spanish"}}es{{else if eq .Lang "turkish"}}tr{{else}}id{{end}}" dir="{{.Dir}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{TT .Title}} - NuxBill</title>
+<title>{{TT .Title}} - {{or .Brand.company_name "gobill"}}</title>
 <script>
 // Theme, applied before first paint. A local choice (localStorage gb-theme) wins over the SuperAdmin defaults
 // (data-def-* on <html>). mode light|dark|system, accent teal|orange|#rrggbb, density compact|normal|roomy.
@@ -80,33 +88,39 @@
   </form>
 </dialog>
 <script>
-// Dismissible notes: [data-dismissible] with a [data-dismiss] button (hidden until JS runs). Remembered per page
-// in localStorage. A dismissed callout leaves a "?" button in the page header to bring it back.
+// Floating UI, no layout shift. Toasts: success/info close after 4s, warnings after 8s, errors stay; hover or focus
+// pauses the timer. Intro popover: the "?" in the page header; closes on x, Escape or an outside click, and returns
+// focus to the "?" button. Without JS the toasts are visible and the intro stays closed.
 (function () {
-  function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-  function put(k, v) { try { v ? localStorage.setItem(k, '1') : localStorage.removeItem(k); } catch (e) {} }
-  document.querySelectorAll('[data-dismissible]').forEach(function (el) {
-    var key = 'gb-hide:' + el.dataset.dismissible + ':' + location.pathname, back = null;
-    var btn = el.querySelector('[data-dismiss]');
-    if (!btn) return;
-    btn.classList.remove('hidden');
-    function hide(on) {
-      el.hidden = on; put(key, on);
-      if (!el.hasAttribute('data-callout')) return;
-      if (on && !back) {
-        var head = document.querySelector('.page-head') || document.querySelector('.page-title');
-        if (!head) return;
-        back = document.createElement('button');
-        back.type = 'button'; back.className = 'btn btn-sm border-transparent bg-transparent px-2';
-        back.setAttribute('aria-label', el.dataset.showLabel); back.title = el.dataset.showLabel;
-        back.innerHTML = '<svg class="lucide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>';
-        back.onclick = function () { hide(false); btn.focus(); };
-        head.appendChild(back);
-      }
-      if (back) back.hidden = !on;
+  document.querySelectorAll('#toasts > *').forEach(function (t) {
+    var left = +t.dataset.toast, start = 0, timer = 0;
+    t.querySelector('[data-toast-close]').onclick = function () { t.remove(); };
+    if (!left) return;
+    function arm() { if (timer) return; start = Date.now(); timer = setTimeout(function () { t.remove(); }, left); }
+    function pause() { if (!timer) return; clearTimeout(timer); timer = 0; left -= Date.now() - start; }
+    t.addEventListener('mouseenter', pause);
+    t.addEventListener('focusin', pause);
+    t.addEventListener('mouseleave', function () { if (!t.contains(document.activeElement)) arm(); });
+    t.addEventListener('focusout', function () { if (!t.matches(':hover')) arm(); });
+    arm();
+  });
+  document.querySelectorAll('[data-intro]').forEach(function (d) {
+    var s = d.querySelector('summary'), x = d.querySelector('[data-intro-close]'), head = document.querySelector('.page-head');
+    // the callout is rendered under the page head; move its "?" into the head's action row
+    if (head && d.previousElementSibling === head) {
+      var acts = head.querySelector(':scope > .flex');
+      if (acts) acts.appendChild(d);
     }
-    btn.onclick = function () { hide(true); };
-    if (get(key)) hide(true);
+    x.classList.remove('hidden');
+    s.setAttribute('aria-expanded', 'false');
+    function close(back) { d.open = false; if (back) s.focus(); }
+    d.addEventListener('toggle', function () {
+      s.setAttribute('aria-expanded', String(d.open));
+      if (d.open) x.focus();
+    });
+    x.onclick = function () { close(true); };
+    document.addEventListener('keydown', function (e) { if (d.open && e.key === 'Escape') close(true); });
+    document.addEventListener('click', function (e) { if (d.open && !d.contains(e.target)) close(false); });
   });
 })();
 </script>

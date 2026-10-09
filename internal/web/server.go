@@ -158,7 +158,7 @@ func (s *Server) loadSettings(ctx context.Context) (map[string]string, error) {
 		return nil, err
 	}
 	m := map[string]string{
-		"company_name":  "NuxBill",
+		"company_name":  "gobill",
 		"language":      "indonesia",
 		"timezone":      "Asia/Jakarta",
 		"currency_code": "Rp",

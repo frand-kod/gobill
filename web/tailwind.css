@@ -164,6 +164,14 @@
   .callout { @apply mb-4 rounded-lg border border-s-2 border-line border-s-brand-500 bg-surface px-4 py-3 text-sm text-ink-2; }
   .callout-title { @apply mb-0.5 font-semibold text-ink; }
   .callout-tip { @apply mt-2 text-xs text-ink-2; }
+  /* intro popover: anchored to its "?" on desktop, bottom sheet on phones (like the Tema popover) */
+  .intro-help > summary { list-style: none; }
+  .intro-help > summary::-webkit-details-marker { display: none; }
+  .intro-pop { @apply mt-2 rounded-lg border border-line bg-surface p-4 text-sm text-ink-2 shadow-lg z-50; }
+  @media (min-width: 640px) { .intro-pop { position: absolute; inset-inline-end: 0; top: 100%; width: 22rem; } }
+  @media (max-width: 639px) { .intro-pop { position: fixed; inset-inline: 0; bottom: 0; top: auto; margin: 0; max-height: 75vh; overflow-y: auto; border-radius: 0.5rem 0.5rem 0 0; padding-bottom: 2rem; } }
+  /* toasts: the container is fixed (see base.html "toasts"); the alert look comes from .alert */
+  .toast { @apply mb-0 pointer-events-auto shadow-lg; }
 
   .table { line-height: var(--lh-table); @apply w-full text-left text-sm; }
   .table th { font-size: var(--fs-small); padding: var(--sp-2) var(--sp-4); @apply whitespace-nowrap border-b border-line bg-surface-2 font-medium text-ink-2; }
