@@ -42,6 +42,7 @@ Ubah di menu Settings (kunci di bawah muncul di tabel `settings`).
 | `log_keep_days` | Hapus log lebih lama dari N hari. `0`/kosong = simpan selamanya |
 | `backup_keep` | Jumlah file backup harian yang disimpan (bawaan 7) |
 | `reminder_hour` | Jam kirim pengingat harian |
+| `daily_summary_enabled`, `daily_summary_time`, `daily_summary_channel`, `daily_summary_wa_to` | Ringkasan harian untuk operator (bukan pelanggan): `yes`/`no` (bawaan `no`), jam `HH:MM` zona waktu server (bawaan `07:00`), saluran `telegram`/`wa`/`both`, nomor WA operator. Telegram memakai `telegram_target_id`. Dikirim sekali sehari (tanggal terakhir di `daily_summary_last`, aman saat restart), ditunda bila jam sistem tidak tepercaya. Tombol "Kirim ringkasan sekarang" di Settings > Notifications untuk uji coba |
 | `maintenance_mode` | Mode perawatan: portal pelanggan ditutup |
 | `extend_expiry`, `enable_balance` | Perilaku bisnis. Jika belum diisi, keduanya dianggap aktif |
 | `disable_registration`, `disable_voucher`, `allow_phone_otp` | Pembatasan portal pelanggan |

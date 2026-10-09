@@ -36,6 +36,22 @@ func (q *Queries) CountCustomersBetween(ctx context.Context, arg CountCustomersB
 	return count, err
 }
 
+const countExpiredBetween = `-- name: CountExpiredBetween :one
+SELECT COUNT(*) FROM subscriptions WHERE status = 'expired' AND expires_at >= ? AND expires_at < ?
+`
+
+type CountExpiredBetweenParams struct {
+	ExpiresAt   int64
+	ExpiresAt_2 int64
+}
+
+func (q *Queries) CountExpiredBetween(ctx context.Context, arg CountExpiredBetweenParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countExpiredBetween, arg.ExpiresAt, arg.ExpiresAt_2)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countSubscriptionsByStatus = `-- name: CountSubscriptionsByStatus :one
 SELECT COUNT(*) FROM subscriptions WHERE status = ?
 `

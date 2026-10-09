@@ -19,6 +19,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
 )
@@ -159,12 +160,20 @@ func (s *Server) settingsFields(tab string, v, e map[string]string) []field {
 			sel("user_notification_payment", "Payment Notification", settingsChannels...),
 			sel("user_notification_reminder", "Reminder Notification", settingsChannels...),
 		}, "Channels", "")...)
-		return append(out, section([]field{
+		out = append(out, section([]field{
 			sel("notification_reminder_7day", "Send 7-day reminder", settingsYesNo...),
 			sel("notification_reminder_3day", "Send 3-day reminder", settingsYesNo...),
 			sel("notification_reminder_1day", "Send 1-day reminder", settingsYesNo...),
 			text("reminder_hour", "Reminder Hour", v, e).as("number").req().hint("Hour of day, 0-23, when reminders are sent"),
 		}, "Reminders", "")...)
+		return append(out, section([]field{
+			sel("daily_summary_enabled", "Daily summary", settingsYesNo...).hint("Sends a short report to you (the operator) every morning: income yesterday, new customers, subscriptions expiring, routers offline"),
+			text("daily_summary_time", "Daily summary time", v, e).as("time").hint("Server time zone, e.g. 07:00"),
+			sel("daily_summary_channel", "Daily summary channel", option{"telegram", "Telegram"}, option{"wa", "WhatsApp"}, option{"both", "Telegram and WhatsApp"}).hint("Telegram uses the Telegram ID in Integrations. WhatsApp needs the WA server or WhatsApp URL in Integrations"),
+			text("daily_summary_wa_to", "Operator WhatsApp number", v, e).hint("Your own number, e.g. 08123456789"),
+			{Name: "daily_summary_now", Label: "Send summary now", Type: "dsnow", Value: v["daily_summary_now"], Error: e["daily_summary_now"],
+				Hint: "Sends the summary right now to test it. Save the settings first: the saved values are used"},
+		}, "Daily summary", "")...)
 	case "integrations":
 		out := section([]field{
 			sec("telegram_bot", "Telegram Bot Token"),
@@ -267,7 +276,7 @@ func (s *Server) settingsFields(tab string, v, e map[string]string) []field {
 func fieldNames(fs []field) []string {
 	var out []string
 	for _, f := range fs {
-		if f.Type == "watest" {
+		if f.Type == "watest" || f.Type == "dsnow" {
 			continue // action button, not a setting
 		}
 		out = append(out, f.Name)
@@ -300,6 +309,14 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	}
 	if x, ok := v["reminder_hour"]; ok && x != "" && !inRange(x, 0, 23) {
 		e["reminder_hour"] = "Enter a whole number from 0 to 23"
+	}
+	if x := v["daily_summary_time"]; x != "" {
+		if _, err := time.Parse("15:04", x); err != nil {
+			e["daily_summary_time"] = "Use a time like 07:00"
+		}
+	}
+	if x := v["daily_summary_channel"]; x != "" && !oneOf(x, "telegram", "wa", "both") {
+		e["daily_summary_channel"] = "Choose Telegram, WhatsApp or both"
 	}
 	if x := v["reset_day"]; x != "" && !inRange(x, 1, 28) {
 		e["reset_day"] = "Enter a day from 1 to 28"
@@ -690,4 +707,32 @@ func waTestError(err error) string {
 		return "The WA server does not know this address. Check the WA server URL"
 	}
 	return "The WA server answered with an error"
+}
+
+// dailySummaryNow sends the summary immediately from the saved settings and shows a plain result.
+func (s *Server) dailySummaryNow(w http.ResponseWriter, r *http.Request) {
+	st, err := s.loadSettings(r.Context())
+	if err != nil {
+		s.fail(w, "load settings", err)
+		return
+	}
+	lang, e := s.language(), map[string]string{}
+	var sent []string
+	if s.Billing != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+		sent, err = s.Billing.SendDailySummary(ctx)
+	} else {
+		err = billing.ErrSummaryNotConfigured
+	}
+	s.logActivity(r, "daily_summary.send", "ok="+strconv.FormatBool(err == nil))
+	switch {
+	case err == nil:
+		s.sessions.Put(r.Context(), "flash", s.catalog.T(lang, "Summary sent")+": "+strings.Join(sent, ", "))
+	case errors.Is(err, billing.ErrSummaryNotConfigured):
+		e["daily_summary_now"] = s.catalog.T(lang, "Not sent. Choose a channel and fill in the Telegram ID or the WhatsApp number and server first")
+	default:
+		e["daily_summary_now"] = s.catalog.T(lang, "Could not send the summary") + ": " + err.Error()
+	}
+	s.renderSettings(w, r, http.StatusOK, "notifications", st, e)
 }
