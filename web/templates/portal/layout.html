@@ -1,4 +1,4 @@
-{{define "body"}}
+{{define "body"}}{{template "toasts" .}}
 {{if .Impersonating}}<div class="flex flex-wrap items-center justify-center gap-3 bg-warn-bg px-4 py-2 text-sm font-medium text-warn-fg" role="status">
   <span>{{T "You are logged in as admin"}}: {{.Customer.Username}}</span>
   <form method="post" action="/portal/impersonate/end"><button class="btn btn-ghost btn-sm" type="submit">{{T "Back to admin"}}</button></form>
@@ -6,7 +6,7 @@
 <header class="border-b border-line bg-surface">
   <div class="fiber-stripe" aria-hidden="true"></div>
   <nav class="mx-auto flex max-w-4xl flex-wrap items-center gap-1 px-4 py-2" aria-label="Main">
-    <a href="/portal" class="me-4 flex items-center gap-2 font-semibold text-accent-fg">{{template "logoA" .Brand}}<span>{{with .Brand.login_page_head}}{{.}}{{else}}NuxBill{{end}}</span></a>
+    <a href="/portal" class="me-4 flex items-center gap-2 font-semibold text-accent-fg">{{template "logoA" .Brand}}</a>
     <a class="btn" href="/portal">{{T "Dashboard"}}</a>
     <a class="btn" href="/portal/plans">{{T "Order Package"}}</a>
     <a class="btn" href="/portal/orders">{{T "Order History"}}</a>
@@ -17,8 +17,7 @@
   </nav>
 </header>
 <main class="mx-auto max-w-4xl p-4">
-  {{if .Flash}}<p class="alert alert-ok" role="status">{{icon "circle-check"}}<span>{{.Flash}}</span></p>{{end}}
-  {{if .Error}}<p class="alert alert-error" role="alert">{{icon "circle-alert"}}<span>{{T .Error}}</span></p>{{end}}
   {{template "content" .}}
 </main>
+<footer class="mx-auto max-w-4xl px-4 pb-6 text-xs text-ink-2">{{or .Brand.company_name "gobill"}} · {{with .Version}}v{{.}}{{else}}dev{{end}} · GPL-3.0</footer>
 {{end}}

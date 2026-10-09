@@ -50,7 +50,7 @@ func (s *Server) manifest(suffix, start, scope string) http.HandlerFunc {
 		theme, bg := pwaColors(accent, mode)
 		company := strings.TrimSpace(st["company_name"])
 		if company == "" {
-			company = "NuxBill"
+			company = "gobill"
 		}
 		short := []rune(company)
 		if len(short) > 12 {

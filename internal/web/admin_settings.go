@@ -527,6 +527,7 @@ func (s *Server) brand(ctx context.Context) map[string]string {
 		slog.Error("load branding", "err", err)
 		return out
 	}
+	out["company_name"] = m["company_name"]
 	for _, k := range []string{"logo", "logo_dark", "login_page_logo", "login_page_logo_dark", "login_page_favicon", "login_page_head", "login_page_description", "disable_registration"} {
 		out[k] = m[k]
 	}

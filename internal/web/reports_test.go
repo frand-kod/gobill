@@ -61,7 +61,7 @@ func TestReports(t *testing.T) {
 		t.Fatalf("csv:\n%s", w.Body.String())
 	}
 	// print page shows company and totals
-	if p := do(h, "GET", "/admin/reports/print?date=2026-03-10", nil, c); p.Code != 200 || !strings.Contains(p.Body.String(), "NuxBill") || !strings.Contains(p.Body.String(), "Rp 23") {
+	if p := do(h, "GET", "/admin/reports/print?date=2026-03-10", nil, c); p.Code != 200 || !strings.Contains(p.Body.String(), "gobill") || !strings.Contains(p.Body.String(), "Rp 23") {
 		t.Fatalf("print: %d", p.Code)
 	}
 	// Report role can view

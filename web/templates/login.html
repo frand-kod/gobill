@@ -3,7 +3,7 @@
   <form class="card w-full max-w-sm overflow-hidden" method="post" action="/login">
     <div class="fiber-stripe" aria-hidden="true"></div>
     <div class="card-body space-y-4">
-      <div class="flex items-center gap-2 text-accent-fg">{{template "logoL" .Brand}}<span class="text-lg font-semibold">{{with .Brand.login_page_head}}{{.}}{{else}}NuxBill{{end}}</span></div>
+      <div class="flex items-center gap-2 text-accent-fg">{{template "logoL" .Brand}}<span class="text-lg font-semibold">{{with .Brand.login_page_head}}{{.}}{{else}}{{or .Brand.company_name "gobill"}}{{end}}</span></div>
       <h1 class="page-title">{{T "Sign in"}}</h1>
       {{with .Brand.login_page_description}}<p class="text-sm text-ink-2">{{.}}</p>{{end}}
       {{if .Error}}<p class="alert alert-error" role="alert">{{icon "circle-alert"}}<span>{{T .Error}}</span></p>{{end}}

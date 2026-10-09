@@ -174,13 +174,13 @@ func TestPagesHaveIntro(t *testing.T) {
 			t.Errorf("%s: status %d", p, w.Code)
 			continue
 		}
-		if !strings.Contains(w.Body.String(), "data-callout") {
+		if !strings.Contains(w.Body.String(), "data-intro") {
 			t.Errorf("%s: no intro callout", p)
 		}
 	}
 	portalCust(t, e, 0)
 	pc, _ := custLogin(t, e, "u1", "pw12345")
-	if body := do(e.h, "GET", "/portal", nil, pc).Body.String(); !strings.Contains(body, "data-callout") || !strings.Contains(body, "/portal/plans") {
+	if body := do(e.h, "GET", "/portal", nil, pc).Body.String(); !strings.Contains(body, "data-intro") || !strings.Contains(body, "/portal/plans") {
 		t.Error("portal home: no intro or buy button")
 	}
 }
