@@ -96,7 +96,7 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 		Filters: []filter{{"status", status, vchStatuses}},
 		Cols:    []string{"Code Voucher", "Plan Name", "Status", "Created", "Used"}}
 	if lp.CanEdit {
-		lp.Bulk = []bulkAction{{"delete-many", "Delete selected", true}, {"remove-old", "Delete used vouchers older than 3 months", true}}
+		lp.Bulk = []bulkAction{{"delete-many", "Delete selected", true, false}, {"remove-old", "Delete used vouchers older than 3 months", true, true}}
 	}
 	if lp.CanCreate {
 		lp.Links = []option{{"/admin/vouchers/redeem", "Redeem Voucher"}, {"/admin/vouchers/print?limit=36", "Print"}}

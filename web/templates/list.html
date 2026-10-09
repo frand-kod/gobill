@@ -13,7 +13,7 @@
   <button class="btn btn-danger" type="submit">{{icon "trash-2"}}<span>{{T "Clean Logs"}}</span></button>
 </form>{{end}}
 {{if .Bulk}}<form id="bulk" method="post" class="mb-3 flex flex-wrap gap-2">
-  {{range .Bulk}}<button class="btn {{if .Danger}}btn-danger{{else}}btn-ghost{{end}}" type="submit" formaction="{{$d.Base}}/{{.Path}}" data-confirm="{{T .Label}} ({n})?"{{if .Danger}} data-confirm-danger{{end}}>{{if .Danger}}{{icon "trash-2"}}{{end}}<span>{{T .Label}}</span></button>{{end}}
+  {{range .Bulk}}<button class="btn {{if .Danger}}btn-danger{{else}}btn-ghost{{end}}" type="submit" formaction="{{$d.Base}}/{{.Path}}" data-confirm="{{T .Label}}{{if not .All}} ({n}){{end}}?"{{if .Danger}} data-confirm-danger{{end}}>{{if .Danger}}{{icon "trash-2"}}{{end}}<span>{{T .Label}}</span></button>{{end}}
 </form>{{end}}
 <div class="card overflow-hidden">
   {{if .Searchable}}

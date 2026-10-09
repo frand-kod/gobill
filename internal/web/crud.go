@@ -108,6 +108,7 @@ type listPage struct {
 type bulkAction struct {
 	Path, Label string
 	Danger      bool
+	All         bool // acts on all matching rows, ignores the selection
 }
 
 const maxBulkIDs = 1000

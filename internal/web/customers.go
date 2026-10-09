@@ -112,7 +112,7 @@ func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 		Filters: []filter{{"service_type", p.ServiceType, anyOpts("Service Type", "Hotspot", "PPPoE", "Others")},
 			{"status", p.Status, anyOpts("Status", custStatuses...)}}}
 	if oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales") {
-		lp.Bulk = []bulkAction{{"message", "Send message to selected", false}}
+		lp.Bulk = []bulkAction{{"message", "Send message to selected", false, false}}
 	}
 	for _, c := range rows {
 		lp.Rows = append(lp.Rows, listRow{c.ID, []string{c.Username, c.Fullname, money(c.Balance), c.Packages, c.ServiceType, c.PppoeUsername, c.Status}})
