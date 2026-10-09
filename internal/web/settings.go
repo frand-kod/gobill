@@ -39,7 +39,7 @@ var settingsTabs = []struct {
 
 // settingsSecret are write-only: never rendered, and an empty post keeps the stored value.
 // ponytail: stored plaintext in settings, as the old app did; move to internal/secret if needed.
-var settingsSecret = map[string]bool{"telegram_bot": true, "smtp_pass": true, "webhook_secret": true, "tripay_api_key": true, "tripay_private_key": true}
+var settingsSecret = map[string]bool{"telegram_bot": true, "smtp_pass": true, "webhook_secret": true, "alt_wga_password": true, "tripay_api_key": true, "tripay_private_key": true}
 
 // settingsFile are image uploads. The setting holds the stored filename; an empty post keeps it.
 var settingsFile = map[string]bool{"logo": true, "login_page_logo": true, "login_page_favicon": true, "login_page_wallpaper": true}
@@ -175,6 +175,14 @@ func (s *Server) settingsFields(tab string, v, e map[string]string) []field {
 			text("wa_url", "WhatsApp Server URL", v, e).hint("Must contain [number] and [text]"),
 		}, "SMS & WhatsApp", "")...)
 		out = append(out, section([]field{
+			text("alt_wga_server_url", "WA server URL", v, e).hint("Address of the WhatsApp server, e.g. http://127.0.0.1:3030. When filled, WhatsApp is sent straight to this server and the WhatsApp Server URL above is ignored"),
+			text("alt_wga_device_id", "WA device ID", v, e).hint("Optional. Sent as the X-Device-Id header. Leave empty if the server has only one device"),
+			text("alt_wga_username", "WA server username", v, e).hint("Basic auth username of the WA server, if it has one"),
+			sec("alt_wga_password", "WA server password"),
+			{Name: "wa_test_phone", Label: "Send test message", Type: "watest", Error: e["wa_test_phone"], Value: v["wa_test_phone"],
+				Hint: "Type a phone number and press the button. Uses the values typed above, even if not saved yet. Devices and QR login are managed in the WA server's own page, not here"},
+		}, "WhatsApp (WA server)", "")...)
+		out = append(out, section([]field{
 			text("smtp_host", "SMTP Host", v, e),
 			text("smtp_port", "SMTP Port", v, e).as("number").hint("1-65535"),
 			text("smtp_user", "SMTP Username", v, e),
@@ -259,6 +267,9 @@ func (s *Server) settingsFields(tab string, v, e map[string]string) []field {
 func fieldNames(fs []field) []string {
 	var out []string
 	for _, f := range fs {
+		if f.Type == "watest" {
+			continue // action button, not a setting
+		}
 		out = append(out, f.Name)
 	}
 	return out
@@ -313,8 +324,13 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	if x, ok := v["smtp_port"]; ok && x != "" && !inRange(x, 1, 65535) {
 		e["smtp_port"] = "Enter a port from 1 to 65535"
 	}
+	if x := v["alt_wga_server_url"]; x != "" {
+		if u, err := url.Parse(x); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			e["alt_wga_server_url"] = "Use an http or https URL"
+		}
+	}
 	for _, k := range []string{"sms_url", "wa_url"} {
-		if x := v[k]; x != "" && !(strings.Contains(x, "[number]") && strings.Contains(x, "[text]")) {
+		if x := v[k]; x != "" && !(k == "wa_url" && v["alt_wga_server_url"] != "") && !(strings.Contains(x, "[number]") && strings.Contains(x, "[text]")) {
 			e[k] = "URL must contain [number] and [text]"
 		}
 	}
@@ -601,4 +617,77 @@ func (s *Server) brand(ctx context.Context) map[string]string {
 		out[k] = m[k]
 	}
 	return out
+}
+
+// waTest sends a test message with the (possibly unsaved) values of the WA server fields and
+// shows the server's answer on the integrations page.
+func (s *Server) waTest(w http.ResponseWriter, r *http.Request) {
+	if adminFrom(r).Role != "SuperAdmin" {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	st, err := s.loadSettings(r.Context())
+	if err != nil {
+		s.fail(w, "load settings", err)
+		return
+	}
+	n, err := notify.Load(r.Context(), s.queries)
+	if err != nil {
+		s.fail(w, "wa test notifier", err)
+		return
+	}
+	v := formVals(r, "alt_wga_server_url", "alt_wga_device_id", "alt_wga_username", "alt_wga_password", "wa_test_phone")
+	for k, x := range v {
+		if k != "wa_test_phone" && (k != "alt_wga_password" || x != "") {
+			n.Settings[k] = x
+		}
+	}
+	delete(v, "alt_wga_password")
+	for k, x := range st { // fields not on this form keep their stored value
+		if _, ok := v[k]; !ok {
+			v[k] = x
+		}
+	}
+	lang, e := s.language(), map[string]string{}
+	switch {
+	case n.Settings["alt_wga_server_url"] == "":
+		e["wa_test_phone"] = "Fill in the WA server URL first"
+	case v["wa_test_phone"] == "":
+		e["wa_test_phone"] = "Enter a phone number for the test"
+	default:
+		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+		defer cancel()
+		err := n.AltWA(ctx, v["wa_test_phone"], s.catalog.T(lang, "Test message from gobill. WhatsApp works."))
+		s.logActivity(r, "wa.test", "ok="+strconv.FormatBool(err == nil))
+		if err == nil {
+			s.sessions.Put(r.Context(), "flash", s.catalog.T(lang, "Test message sent. Check the phone to be sure it arrived."))
+		} else {
+			msg := s.catalog.T(lang, waTestError(err))
+			var we *notify.WAError
+			if errors.As(err, &we) && we.Status > 0 && we.Status != 401 && we.Status != 403 && we.Status != 404 && we.Detail != "" {
+				msg += ": " + we.Detail // the server's own words
+			}
+			e["wa_test_phone"] = msg
+		}
+	}
+	s.renderSettings(w, r, http.StatusOK, "integrations", v, e)
+}
+
+// waTestError turns a send error into a plain sentence (Indonesian through the catalog).
+func waTestError(err error) string {
+	var we *notify.WAError
+	if !errors.As(err, &we) {
+		return err.Error()
+	}
+	switch {
+	case we.Status == 0 && we.Detail == "invalid phone number":
+		return "Invalid phone number. Use 10 to 15 digits, e.g. 08123456789"
+	case we.Status == 0:
+		return "Cannot reach the WA server. Check the URL and that the server is running"
+	case we.Status == 401 || we.Status == 403:
+		return "The WA server refused the username or password"
+	case we.Status == 404:
+		return "The WA server does not know this address. Check the WA server URL"
+	}
+	return "The WA server answered with an error"
 }

@@ -43,7 +43,7 @@ func (s *Server) deliver(ctx context.Context, n *notify.Notifier, st map[string]
 	case "inbox":
 		return s.queries.CreateInboxMessage(ctx, db.CreateInboxMessageParams{CustomerID: c.ID, FromName: from, Subject: subject, Body: text})
 	case "sms", "wa":
-		if st[channel+"_url"] == "" {
+		if (channel == "sms" && st["sms_url"] == "") || (channel == "wa" && !notify.WAConfigured(st)) {
 			return errors.New("gateway not configured")
 		}
 		if c.Phone == "" {

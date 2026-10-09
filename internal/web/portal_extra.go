@@ -199,7 +199,7 @@ func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
 			s.profilePage(w, r, 200, "Invalid phone number format")
 			return
 		}
-		if st["sms_url"] == "" && st["wa_url"] == "" {
+		if st["sms_url"] == "" && !notify.WAConfigured(st) {
 			s.profilePage(w, r, 200, "SMS server not Available, Please try again later")
 			return
 		}

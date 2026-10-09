@@ -32,6 +32,18 @@ Setting, admin, router, bandwidth, IP pool, paket, pelanggan, langganan aktif, t
 
 Import diuji dengan dump produksi asli: semua tanggal expiry dan total transaksi cocok dengan sistem lama. Ulangi pembandingan itu pada dump terbaru Anda sebelum cutover.
 
+## WhatsApp setelah cutover
+
+Di sistem lama, `wa_url` menunjuk ke aplikasi PHP sendiri (`http://<host-php>/?_route=plugin/wga_sendMessage&phone=[[phone]]&message=[[text]]&secret=...`) dan plugin "Alternative WhatsApp Gateway" meneruskannya ke server WA. Setelah cutover aplikasi PHP tidak ada lagi, jadi `wa_url` itu tidak boleh dibiarkan.
+
+`nuxbill import` ikut membawa `alt_wga_server_url`, `alt_wga_device_id`, `alt_wga_username`, `alt_wga_password`. NuxBill memakainya untuk mengirim langsung ke server WA, dan mengabaikan `wa_url` selama `alt_wga_server_url` terisi.
+
+Setelah import:
+1. Buka Pengaturan > Integrasi, cek keempat isian "WhatsApp (server WA)" sudah terisi (password tampil kosong, itu normal).
+2. Kosongkan `wa_url` yang masih menunjuk ke plugin PHP, lalu simpan.
+3. Pastikan server WA bisa dijangkau dari STB baru (alamat `127.0.0.1` hanya benar jika server WA berjalan di STB yang sama).
+4. Klik "Kirim pesan uji" ke nomor sendiri.
+
 ## Checklist jalan paralel
 
 1. Uji CoA Disconnect di MikroTik (setelah perbaikan NAS-IP-Address).

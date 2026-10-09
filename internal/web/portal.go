@@ -213,7 +213,7 @@ type regData struct {
 
 // otpEnabled: old sms_otp_registration, but only when a WA/SMS gateway exists to deliver it.
 func otpEnabled(st map[string]string) bool {
-	return st["sms_otp_registration"] == "yes" && (st["sms_url"] != "" || st["wa_url"] != "")
+	return st["sms_otp_registration"] == "yes" && (st["sms_url"] != "" || notify.WAConfigured(st))
 }
 
 func (s *Server) pRegisterForm(w http.ResponseWriter, r *http.Request) {
