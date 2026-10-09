@@ -35,6 +35,7 @@ type Server struct {
 	sessions  *scs.SessionManager
 	catalog   i18n.Catalog
 	templates map[string]*template.Template
+	guides    *guideSet    // rendered "Panduan" pages, see docs.go
 	lang      atomic.Value // string: current language, a global app setting
 	dummyHash []byte       // compared against when the username does not exist
 
@@ -126,6 +127,9 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	s.lang.Store(settings["language"])
 	s.ReloadSessionSettings(context.Background())
 	if err := s.parseTemplates(); err != nil {
+		return nil, err
+	}
+	if s.guides, err = loadGuides(nuxbill.Docs); err != nil {
 		return nil, err
 	}
 	return s, nil

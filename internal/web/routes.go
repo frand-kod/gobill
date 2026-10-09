@@ -106,6 +106,12 @@ func (s *Server) radiusRestRoutes(mux *http.ServeMux) {
 	}
 }
 
+// docsRoutes serves the "Panduan" guides to any logged-in admin.
+func (s *Server) docsRoutes(mux *http.ServeMux, all func(http.Handler) http.Handler) {
+	mux.Handle("GET /admin/docs", all(http.HandlerFunc(s.docsIndex)))
+	mux.Handle("GET /admin/docs/{slug}", all(http.HandlerFunc(s.docsPage)))
+}
+
 func (s *Server) reportRoutes(mux *http.ServeMux, all func(http.Handler) http.Handler) {
 	mux.Handle("GET /admin/reports", all(s.reportPage(false)))
 	mux.Handle("GET /admin/reports/period", all(s.reportPage(true)))
@@ -230,6 +236,7 @@ func (s *Server) Handler() http.Handler {
 
 	// reports and logs
 	s.reportRoutes(mux, all)
+	s.docsRoutes(mux, all)
 	mux.Handle("GET /admin/logs", managers(http.HandlerFunc(s.logList)))
 	mux.Handle("GET /admin/logs/radius", managers(http.HandlerFunc(s.radiusLog)))
 	mux.Handle("GET /admin/logs/radius/export", managers(http.HandlerFunc(s.radiusLogExport)))

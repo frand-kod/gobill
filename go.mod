@@ -12,11 +12,14 @@ require (
 	modernc.org/sqlite v1.60.1
 )
 
-require github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
+require (
+	github.com/go-sql-driver/mysql v1.9.2
+	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
+	github.com/yuin/goldmark v1.8.6
+)
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
-	github.com/go-sql-driver/mysql v1.9.2 // indirect
 	golang.org/x/text v0.42.0 // indirect
 )
 
