@@ -150,7 +150,7 @@ func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
 		if nas == "" {
 			nas = clientIP(r)
 		}
-		err := rs.Account(r.Context(), radius.AcctRequest{Type: typ, NAS: nas, SessionID: r.FormValue("acctSessionId"), User: user,
+		err := rs.Account(r.Context(), radius.AcctRequest{Type: typ, NAS: nas, NASIPAttr: r.FormValue("nasIpAddress"), NASID: r.FormValue("nasid"), SessionID: r.FormValue("acctSessionId"), User: user,
 			MAC: r.FormValue("macAddr"), FramedIP: r.FormValue("framedIPAddress"), SessionTime: n("acctSessionTime"),
 			InOctets:  n("acctInputGigawords")<<32 | n("acctInputOctets"),
 			OutOctets: n("acctOutputGigawords")<<32 | n("acctOutputOctets")})

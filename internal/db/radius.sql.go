@@ -207,7 +207,7 @@ func (q *Queries) GetRadiusPlan(ctx context.Context, customerID int64) (GetRadiu
 }
 
 const getRadiusSession = `-- name: GetRadiusSession :one
-SELECT id, session_id, username, nas_ip, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions WHERE id = ?
+SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions WHERE id = ?
 `
 
 func (q *Queries) GetRadiusSession(ctx context.Context, id int64) (RadiusSession, error) {
@@ -218,6 +218,8 @@ func (q *Queries) GetRadiusSession(ctx context.Context, id int64) (RadiusSession
 		&i.SessionID,
 		&i.Username,
 		&i.NasIp,
+		&i.NasIpAttr,
+		&i.NasIdentifier,
 		&i.FramedIp,
 		&i.Mac,
 		&i.StartedAt,
@@ -264,7 +266,7 @@ func (q *Queries) ListNAS(ctx context.Context) ([]Na, error) {
 }
 
 const listOpenRadiusSessionsByUser = `-- name: ListOpenRadiusSessionsByUser :many
-SELECT id, session_id, username, nas_ip, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions WHERE username = ? AND stopped_at IS NULL
+SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions WHERE username = ? AND stopped_at IS NULL
 `
 
 func (q *Queries) ListOpenRadiusSessionsByUser(ctx context.Context, username string) ([]RadiusSession, error) {
@@ -281,6 +283,8 @@ func (q *Queries) ListOpenRadiusSessionsByUser(ctx context.Context, username str
 			&i.SessionID,
 			&i.Username,
 			&i.NasIp,
+			&i.NasIpAttr,
+			&i.NasIdentifier,
 			&i.FramedIp,
 			&i.Mac,
 			&i.StartedAt,
@@ -303,7 +307,7 @@ func (q *Queries) ListOpenRadiusSessionsByUser(ctx context.Context, username str
 }
 
 const listRecentRadiusSessionsByUser = `-- name: ListRecentRadiusSessionsByUser :many
-SELECT id, session_id, username, nas_ip, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions WHERE username = ? ORDER BY started_at DESC LIMIT 10
+SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions WHERE username = ? ORDER BY started_at DESC LIMIT 10
 `
 
 func (q *Queries) ListRecentRadiusSessionsByUser(ctx context.Context, username string) ([]RadiusSession, error) {
@@ -320,6 +324,8 @@ func (q *Queries) ListRecentRadiusSessionsByUser(ctx context.Context, username s
 			&i.SessionID,
 			&i.Username,
 			&i.NasIp,
+			&i.NasIpAttr,
+			&i.NasIdentifier,
 			&i.FramedIp,
 			&i.Mac,
 			&i.StartedAt,
@@ -342,7 +348,7 @@ func (q *Queries) ListRecentRadiusSessionsByUser(ctx context.Context, username s
 }
 
 const searchOpenRadiusSessions = `-- name: SearchOpenRadiusSessions :many
-SELECT id, session_id, username, nas_ip, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions
+SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions
 WHERE stopped_at IS NULL
   AND (username LIKE '%' || CAST(?1 AS TEXT) || '%' OR framed_ip LIKE '%' || CAST(?1 AS TEXT) || '%' OR mac LIKE '%' || CAST(?1 AS TEXT) || '%')
 ORDER BY started_at DESC LIMIT ?3 OFFSET ?2
@@ -368,6 +374,8 @@ func (q *Queries) SearchOpenRadiusSessions(ctx context.Context, arg SearchOpenRa
 			&i.SessionID,
 			&i.Username,
 			&i.NasIp,
+			&i.NasIpAttr,
+			&i.NasIdentifier,
 			&i.FramedIp,
 			&i.Mac,
 			&i.StartedAt,
@@ -390,7 +398,7 @@ func (q *Queries) SearchOpenRadiusSessions(ctx context.Context, arg SearchOpenRa
 }
 
 const searchRadiusLogs = `-- name: SearchRadiusLogs :many
-SELECT id, session_id, username, nas_ip, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions
+SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions
 WHERE (username LIKE '%' || CAST(?1 AS TEXT) || '%' OR nas_ip LIKE '%' || CAST(?1 AS TEXT) || '%')
   AND (CAST(?2 AS INTEGER) = 0 OR started_at >= ?2)
   AND (CAST(?3 AS INTEGER) = 0 OR started_at < ?3)
@@ -426,6 +434,8 @@ func (q *Queries) SearchRadiusLogs(ctx context.Context, arg SearchRadiusLogsPara
 			&i.SessionID,
 			&i.Username,
 			&i.NasIp,
+			&i.NasIpAttr,
+			&i.NasIdentifier,
 			&i.FramedIp,
 			&i.Mac,
 			&i.StartedAt,
@@ -490,25 +500,29 @@ func (q *Queries) UpdateNAS(ctx context.Context, arg UpdateNASParams) error {
 }
 
 const upsertRadiusSession = `-- name: UpsertRadiusSession :exec
-INSERT INTO radius_sessions (session_id, username, nas_ip, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO radius_sessions (session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (nas_ip, session_id) DO UPDATE SET
+    nas_ip_attr = COALESCE(NULLIF(excluded.nas_ip_attr, ''), radius_sessions.nas_ip_attr),
+    nas_identifier = COALESCE(NULLIF(excluded.nas_identifier, ''), radius_sessions.nas_identifier),
     framed_ip = excluded.framed_ip, updated_at = excluded.updated_at,
     stopped_at = COALESCE(radius_sessions.stopped_at, excluded.stopped_at),
     input_octets = excluded.input_octets, output_octets = excluded.output_octets
 `
 
 type UpsertRadiusSessionParams struct {
-	SessionID    string
-	Username     string
-	NasIp        string
-	FramedIp     string
-	Mac          string
-	StartedAt    int64
-	UpdatedAt    int64
-	StoppedAt    sql.NullInt64
-	InputOctets  int64
-	OutputOctets int64
+	SessionID     string
+	Username      string
+	NasIp         string
+	NasIpAttr     string
+	NasIdentifier string
+	FramedIp      string
+	Mac           string
+	StartedAt     int64
+	UpdatedAt     int64
+	StoppedAt     sql.NullInt64
+	InputOctets   int64
+	OutputOctets  int64
 }
 
 func (q *Queries) UpsertRadiusSession(ctx context.Context, arg UpsertRadiusSessionParams) error {
@@ -516,6 +530,8 @@ func (q *Queries) UpsertRadiusSession(ctx context.Context, arg UpsertRadiusSessi
 		arg.SessionID,
 		arg.Username,
 		arg.NasIp,
+		arg.NasIpAttr,
+		arg.NasIdentifier,
 		arg.FramedIp,
 		arg.Mac,
 		arg.StartedAt,

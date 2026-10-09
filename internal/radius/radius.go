@@ -44,8 +44,9 @@ type Server struct {
 	// nil disables hotspot voucher login.
 	Redeem func(ctx context.Context, code string, customerID int64) error
 
-	userFails failLimiter // failed password checks per username
-	dups      dupCache    // answered requests, for retransmits
+	userFails   failLimiter // failed password checks per username
+	dups        dupCache    // answered requests, for retransmits
+	unknownSeen sync.Map    // ip string -> time.Time of last unknown-NAS warning
 }
 
 func (s *Server) now() time.Time {
@@ -68,7 +69,18 @@ func (s *Server) RADIUSSecret(ctx context.Context, addr net.Addr) ([]byte, error
 			return secret.Open(s.Key, n.SecretEnc)
 		}
 	}
+	s.warnUnknown(ip)
 	return nil, fmt.Errorf("unknown NAS %v", ip)
+}
+
+// warnUnknown logs a packet from an unregistered NAS, once per IP per 5 minutes.
+func (s *Server) warnUnknown(ip net.IP) {
+	now := s.now()
+	if t, ok := s.unknownSeen.Load(ip.String()); ok && now.Sub(t.(time.Time)) < 5*time.Minute {
+		return
+	}
+	s.unknownSeen.Store(ip.String(), now)
+	slog.Warn("radius: packet from unknown NAS, add it under Network > NAS", "ip", ip.String())
 }
 
 func addrIP(a net.Addr) net.IP {
@@ -480,6 +492,7 @@ func checkPassword(p *radius.Packet, user string, pw []byte) (ok bool, success s
 type AcctRequest struct {
 	Type                 rfc2866.AcctStatusType
 	NAS, SessionID, User string
+	NASIPAttr, NASID     string // NAS-IP-Address / NAS-Identifier as the NAS reports them
 	MAC, FramedIP        string
 	SessionTime          int64
 	InOctets, OutOctets  int64 // gigawords already folded in
@@ -493,7 +506,7 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 		// NAS rebooted: its open sessions are gone.
 		return s.Q.CloseRadiusSessionsByNAS(ctx, db.CloseRadiusSessionsByNASParams{StoppedAt: sql.NullInt64{Int64: now, Valid: true}, NasIp: a.NAS})
 	case rfc2866.AcctStatusType_Value_Start, rfc2866.AcctStatusType_Value_InterimUpdate, rfc2866.AcctStatusType_Value_Stop:
-		arg := db.UpsertRadiusSessionParams{SessionID: a.SessionID, Username: a.User, NasIp: a.NAS, FramedIp: a.FramedIP,
+		arg := db.UpsertRadiusSessionParams{SessionID: a.SessionID, Username: a.User, NasIp: a.NAS, NasIpAttr: a.NASIPAttr, NasIdentifier: a.NASID, FramedIp: a.FramedIP,
 			Mac: a.MAC, StartedAt: now - a.SessionTime, UpdatedAt: now, InputOctets: a.InOctets, OutputOctets: a.OutOctets}
 		if a.Type == rfc2866.AcctStatusType_Value_Stop {
 			arg.StoppedAt = sql.NullInt64{Int64: now, Valid: true}
@@ -518,6 +531,10 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 	if ip := rfc2865.FramedIPAddress_Get(p); ip != nil {
 		a.FramedIP = ip.String()
 	}
+	if ip := rfc2865.NASIPAddress_Get(p); ip != nil {
+		a.NASIPAttr = ip.String()
+	}
+	a.NASID = rfc2865.NASIdentifier_GetString(p)
 	if err := s.Account(r.Context(), a); err != nil {
 		slog.Error("radius: accounting", "err", err)
 		return // no response: NAS retries

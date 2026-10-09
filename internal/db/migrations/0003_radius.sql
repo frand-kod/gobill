@@ -14,7 +14,9 @@ CREATE TABLE radius_sessions (
     id             INTEGER PRIMARY KEY,
     session_id     TEXT    NOT NULL,
     username       TEXT    NOT NULL,
-    nas_ip         TEXT    NOT NULL,
+    nas_ip         TEXT    NOT NULL, -- packet source IP: finds the NAS row, secret and CoA destination
+    nas_ip_attr    TEXT    NOT NULL DEFAULT '', -- NAS-IP-Address attribute as the NAS reports it
+    nas_identifier TEXT    NOT NULL DEFAULT '',
     framed_ip      TEXT    NOT NULL DEFAULT '',
     mac            TEXT    NOT NULL DEFAULT '',
     started_at     INTEGER NOT NULL,

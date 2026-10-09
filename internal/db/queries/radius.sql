@@ -42,9 +42,11 @@ WHERE username = ? AND stopped_at IS NULL AND updated_at >= ?
   AND (mac <> ? OR ? = '');
 
 -- name: UpsertRadiusSession :exec
-INSERT INTO radius_sessions (session_id, username, nas_ip, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO radius_sessions (session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (nas_ip, session_id) DO UPDATE SET
+    nas_ip_attr = COALESCE(NULLIF(excluded.nas_ip_attr, ''), radius_sessions.nas_ip_attr),
+    nas_identifier = COALESCE(NULLIF(excluded.nas_identifier, ''), radius_sessions.nas_identifier),
     framed_ip = excluded.framed_ip, updated_at = excluded.updated_at,
     stopped_at = COALESCE(radius_sessions.stopped_at, excluded.stopped_at),
     input_octets = excluded.input_octets, output_octets = excluded.output_octets;

@@ -199,17 +199,19 @@ type Pool struct {
 }
 
 type RadiusSession struct {
-	ID           int64
-	SessionID    string
-	Username     string
-	NasIp        string
-	FramedIp     string
-	Mac          string
-	StartedAt    int64
-	UpdatedAt    int64
-	StoppedAt    sql.NullInt64
-	InputOctets  int64
-	OutputOctets int64
+	ID            int64
+	SessionID     string
+	Username      string
+	NasIp         string
+	NasIpAttr     string
+	NasIdentifier string
+	FramedIp      string
+	Mac           string
+	StartedAt     int64
+	UpdatedAt     int64
+	StoppedAt     sql.NullInt64
+	InputOctets   int64
+	OutputOctets  int64
 }
 
 type Router struct {

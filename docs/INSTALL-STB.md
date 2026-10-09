@@ -107,6 +107,8 @@ Jalankan perintah ini di terminal MikroTik. Ganti `192.168.88.10` dengan IP STB 
 
 Daftarkan router di UI NuxBill dengan IP MikroTik, user `nuxbill`, dan secret RADIUS yang sama. Pastikan IP STB sama dengan yang didaftarkan sebagai RADIUS client.
 
+**Catatan:** host NuxBill tidak boleh menjadi klien hotspot. NAT universal hotspot membuat router menjangkau host ini lewat `to-address`, bukan IP aslinya, sehingga RADIUS dan CoA gagal. Bypass dengan `/ip hotspot ip-binding add mac-address=<MAC> type=bypassed`, atau letakkan di port atau VLAN terpisah. `address` pada `/radius` harus IP yang benar-benar dijangkau router.
+
 ## 6. Port firewall
 
 | Arah | Port | Protokol | Keterangan |
