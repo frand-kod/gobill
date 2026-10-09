@@ -52,8 +52,8 @@
         <td><span class="badge {{if .Expired}}badge-bad{{else}}badge-warn{{end}}">{{if .Expired}}{{T "Expired"}}{{else}}{{T "Expiring"}}{{end}}</span></td>
         <td class="whitespace-nowrap text-end">
           {{with .Phone}}<span class="me-2">{{.}}</span>{{end}}
-          {{if .WA}}<a class="btn btn-ghost btn-sm" href="{{.WA}}" target="_blank" rel="noopener">{{icon "pencil"}}<span>WhatsApp</span></a>{{end}}
-          <a class="btn btn-sm" href="/admin/customers/{{.CustomerID}}">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
+          {{if .WA}}<a class="btn btn-ghost btn-icon tip-end" href="{{.WA}}" target="_blank" rel="noopener" aria-label="WhatsApp" data-tip="WhatsApp">{{icon "message-circle"}}</a>{{end}}
+          <a class="btn btn-icon tip-end" href="/admin/customers/{{.CustomerID}}" aria-label="{{T "Recharge"}}" data-tip="{{T "Recharge"}}">{{icon "wallet"}}</a>
         </td>
       </tr>{{else}}<tr><td class="py-6 text-center text-ink-2" colspan="6">{{T "No plans end in the next 7 days."}}</td></tr>{{end}}
       </tbody>
