@@ -154,7 +154,7 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// dashboardData gathers the tiles and the per-month series of the current year in the app location.
+// dashboardData gathers the tiles and the per-month series of the last 12 months in the app location.
 func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, err error) {
 	loc := s.location()
 	now = now.In(loc)
@@ -190,10 +190,11 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 	}
 	d.Year = now.Year()
 	labels, regs, sales := make([]string, 12), make([]int64, 12), make([]int64, 12)
+	// rolling window: the last 12 months, oldest first, ending with the current month
 	for m := 0; m < 12; m++ {
-		from := time.Date(d.Year, time.Month(m+1), 1, 0, 0, 0, 0, loc)
+		from := month.AddDate(0, m-11, 0)
 		to := from.AddDate(0, 1, 0)
-		labels[m] = s.catalog.T(s.language(), from.Month().String()[:3])
+		labels[m] = s.catalog.T(s.language(), from.Month().String()[:3]) + from.Format(" 06")
 		if regs[m], err = s.queries.CountCustomersBetween(ctx, db.CountCustomersBetweenParams{CreatedAt: from.Unix(), CreatedAt_2: to.Unix()}); err != nil {
 			return
 		}

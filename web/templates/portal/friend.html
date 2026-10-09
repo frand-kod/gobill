@@ -1,5 +1,5 @@
 {{define "content"}}
-<h1 class="mb-4 text-2xl font-semibold">{{T "Buy for friend"}}</h1>
+<h1 class="page-title mb-4">{{T "Buy for friend"}}</h1>
 {{with .Data}}
 <form class="card max-w-md" method="post" action="/portal/plans/{{.Plan.ID}}/friend" data-confirm="{{printf (T "Pay %s %s from balance %s for {username}?") .Plan.Name (money .Plan.Price) (money $.Customer.Balance)}}"><div class="card-body space-y-4">
   <p><b>{{.Plan.Name}}</b> - {{money .Plan.Price}}</p>

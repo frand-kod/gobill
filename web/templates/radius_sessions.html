@@ -1,11 +1,11 @@
 {{define "content"}}
 {{with .Data}}
-<div class="mb-4"><h1 class="text-2xl font-semibold">{{T "Online Sessions"}}</h1></div>
+<div class="mb-4"><h1 class="page-title">{{T "Online Sessions"}}</h1></div>
 {{template "callout" $.Intro}}
 <div class="card overflow-hidden">
-  <form class="flex flex-wrap items-center gap-2 border-b border-slate-200 p-3 dark:border-slate-800" method="get" action="/admin/radius/sessions" role="search">
+  <form class="flex flex-wrap items-center gap-2 border-b border-line p-3" method="get" action="/admin/radius/sessions" role="search">
     <div class="relative min-w-48 flex-1 sm:max-w-xs">
-      <span class="pointer-events-none absolute inset-y-0 start-3 flex items-center text-slate-400">{{icon "search"}}</span>
+      <span class="pointer-events-none absolute inset-y-0 start-3 flex items-center text-ink-2">{{icon "search"}}</span>
       <input class="input ps-10" type="search" name="q" value="{{.Q}}" placeholder="{{T "Search"}}" aria-label="{{T "Search"}}">
     </div>
     <button class="btn btn-ghost" type="submit">{{T "Search"}}</button>
@@ -22,7 +22,7 @@
             <button class="btn btn-danger btn-sm" type="submit">{{icon "x"}}<span>{{T "Disconnect"}}</span></button></form></td>
         </tr>
       {{else}}
-        <tr><td class="py-8 text-center text-slate-500" colspan="9">{{T "No data"}}</td></tr>
+        <tr><td class="py-8 text-center text-ink-2" colspan="9">{{T "No data"}}</td></tr>
       {{end}}
       </tbody>
     </table>

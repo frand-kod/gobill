@@ -1,19 +1,19 @@
 {{define "body"}}
-{{if .Impersonating}}<div class="flex flex-wrap items-center justify-center gap-3 bg-amber-100 px-4 py-2 text-sm font-medium text-amber-900" role="status">
+{{if .Impersonating}}<div class="flex flex-wrap items-center justify-center gap-3 bg-warn-bg px-4 py-2 text-sm font-medium text-warn-fg" role="status">
   <span>{{T "You are logged in as admin"}}: {{.Customer.Username}}</span>
   <form method="post" action="/portal/impersonate/end"><button class="btn btn-ghost btn-sm" type="submit">{{T "Back to admin"}}</button></form>
 </div>{{end}}
-<header class="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+<header class="border-b border-line bg-surface">
   <div class="fiber-stripe" aria-hidden="true"></div>
   <nav class="mx-auto flex max-w-4xl flex-wrap items-center gap-1 px-4 py-2" aria-label="Main">
-    <a href="/portal" class="me-4 flex items-center gap-2 font-semibold text-brand-600">{{with or .Brand.login_page_logo .Brand.logo}}<img src="/uploads/{{.}}" alt="" class="h-8 max-w-40 object-contain">{{else}}{{icon "wifi"}}{{end}}<span>{{with .Brand.login_page_head}}{{.}}{{else}}NuxBill{{end}}</span></a>
-    <a class="btn btn-ghost" href="/portal">{{T "Dashboard"}}</a>
-    <a class="btn btn-ghost" href="/portal/plans">{{T "Order Package"}}</a>
-    <a class="btn btn-ghost" href="/portal/orders">{{T "Order History"}}</a>
-    <a class="btn btn-ghost" href="/portal/activation">{{T "Activation History"}}</a>
-    <a class="btn btn-ghost" href="/portal/inbox">{{T "Inbox"}}{{if .Unread}} <span class="badge badge-bad">{{.Unread}}</span>{{end}}</a>
-    <a class="btn btn-ghost" href="/portal/profile">{{T "Profile"}}</a>
-    <form class="ms-auto" method="post" action="/portal/logout"><button class="btn btn-ghost" type="submit">{{T "Logout"}}</button></form>
+    <a href="/portal" class="me-4 flex items-center gap-2 font-semibold text-accent-fg">{{template "logoA" .Brand}}<span>{{with .Brand.login_page_head}}{{.}}{{else}}NuxBill{{end}}</span></a>
+    <a class="btn" href="/portal">{{T "Dashboard"}}</a>
+    <a class="btn" href="/portal/plans">{{T "Order Package"}}</a>
+    <a class="btn" href="/portal/orders">{{T "Order History"}}</a>
+    <a class="btn" href="/portal/activation">{{T "Activation History"}}</a>
+    <a class="btn" href="/portal/inbox">{{T "Inbox"}}{{if .Unread}} <span class="badge badge-bad">{{.Unread}}</span>{{end}}</a>
+    <a class="btn" href="/portal/profile">{{T "Profile"}}</a>
+    <form class="ms-auto" method="post" action="/portal/logout"><button class="btn" type="submit">{{T "Logout"}}</button></form>
   </nav>
 </header>
 <main class="mx-auto max-w-4xl p-4">

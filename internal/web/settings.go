@@ -42,7 +42,7 @@ var settingsTabs = []struct {
 var settingsSecret = map[string]bool{"telegram_bot": true, "smtp_pass": true, "webhook_secret": true, "alt_wga_password": true, "tripay_api_key": true, "tripay_private_key": true}
 
 // settingsFile are image uploads. The setting holds the stored filename; an empty post keeps it.
-var settingsFile = map[string]bool{"logo": true, "login_page_logo": true, "login_page_favicon": true, "login_page_wallpaper": true}
+var settingsFile = map[string]bool{"logo": true, "logo_dark": true, "login_page_logo": true, "login_page_logo_dark": true, "login_page_favicon": true, "login_page_wallpaper": true}
 
 const maxUpload = 2 << 20
 
@@ -118,11 +118,13 @@ func (s *Server) settingsFields(tab string, v, e map[string]string) []field {
 			area("note", "Invoice Footer"),
 			text("currency_code", "Currency Code", v, e).req(),
 			upl("logo", "Company Logo"),
+			upl("logo_dark", "Company Logo (dark mode)"),
 		}, "General", "")
 		return append(out, section([]field{
 			text("login_page_head", "Page Heading / Company Name", v, e),
 			area("login_page_description", "Page Description"),
 			upl("login_page_logo", "Login Page Logo"),
+			upl("login_page_logo_dark", "Login Page Logo (dark mode)"),
 			upl("login_page_favicon", "Favicon"),
 			upl("login_page_wallpaper", "Login Page Wallpaper"),
 		}, "Login page", "")...)
@@ -613,9 +615,26 @@ func (s *Server) brand(ctx context.Context) map[string]string {
 		slog.Error("load branding", "err", err)
 		return out
 	}
-	for _, k := range []string{"logo", "login_page_logo", "login_page_favicon", "login_page_head", "login_page_description", "disable_registration"} {
+	for _, k := range []string{"logo", "logo_dark", "login_page_logo", "login_page_logo_dark", "login_page_favicon", "login_page_head", "login_page_description", "disable_registration"} {
 		out[k] = m[k]
 	}
+	// the logo each layout shows, light and dark; a missing dark one falls back to the light one
+	pair := func(light, dark string) (string, string) {
+		if light == "" {
+			light = dark
+		}
+		if dark == light {
+			dark = ""
+		}
+		return light, dark
+	}
+	out["logo_a"], out["logo_a_dark"] = pair(m["logo"], m["logo_dark"])
+	if m["login_page_logo"] != "" {
+		out["logo_l"], out["logo_l_dark"] = pair(m["login_page_logo"], m["login_page_logo_dark"])
+	} else {
+		out["logo_l"], out["logo_l_dark"] = out["logo_a"], out["logo_a_dark"]
+	}
+	out["theme_mode"], out["theme_accent"], out["theme_density"] = themeDefaults(m)
 	return out
 }
 

@@ -1,75 +1,75 @@
 {{define "content"}}
 {{with .Data}}
 {{if .Warn}}<p class="alert alert-warn" role="alert">{{icon "triangle-alert"}}<span>{{.Warn}}</span></p>{{end}}
-<h1 class="mb-4 text-2xl font-semibold">{{T "Dashboard"}}</h1>
+<div class="page-head"><h1 class="page-title">{{T "Dashboard"}}</h1></div>
 {{template "callout" $.Intro}}
 {{$mgr := or (eq $.Admin.Role "SuperAdmin") (eq $.Admin.Role "Admin")}}
 {{if or $mgr (eq $.Admin.Role "Agent") (eq $.Admin.Role "Sales")}}
-<nav class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="{{T "Quick actions"}}">
-  <a class="btn btn-primary min-h-12 text-base" href="/admin/customers/new">{{icon "users"}}<span>{{T "Add Customer"}}</span></a>
-  <a class="btn btn-primary min-h-12 text-base" href="/admin/customers">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
-  <a class="btn btn-primary min-h-12 text-base" href="/admin/vouchers/new">{{icon "ticket"}}<span>{{T "Make vouchers"}}</span></a>
-  <a class="btn btn-primary min-h-12 text-base" href="/admin/deposit">{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>
+<nav class="mb-4 flex flex-wrap gap-2" aria-label="{{T "Quick actions"}}">
+  <a class="btn btn-primary" href="/admin/customers">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
+  <a class="btn" href="/admin/customers/new">{{icon "users"}}<span>{{T "Add Customer"}}</span></a>
+  <a class="btn" href="/admin/vouchers/new">{{icon "ticket"}}<span>{{T "Make vouchers"}}</span></a>
+  <a class="btn" href="/admin/deposit">{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>
 </nav>
 {{end}}
 {{if and $mgr (not .SetupDone)}}
-<section class="card mb-4" aria-labelledby="setup-title">
-  <h2 class="card-title" id="setup-title">{{T "Quick start"}}</h2>
+<section class="card mb-4" aria-labelledby="setup-title" data-dismissible="setup">
+  <h2 class="card-title flex items-center justify-between gap-2" id="setup-title"><span>{{T "Quick start"}}</span><button type="button" class="btn btn-sm hidden" data-dismiss>{{T "Hide"}}</button></h2>
   <ol class="card-body space-y-2 text-sm">
     {{range .Setup}}<li class="flex items-center gap-3">
-      {{if .Done}}<span class="badge badge-ok">{{icon "circle-check"}}<span class="ms-1">{{T "Done"}}</span></span><span class="text-slate-500 line-through">{{T .Label}}</span>
+      {{if .Done}}<span class="badge badge-ok">{{icon "circle-check"}}<span class="ms-1">{{T "Done"}}</span></span><span class="text-ink-2 line-through">{{T .Label}}</span>
       {{else}}<a class="btn btn-ghost btn-sm" href="{{.Href}}">{{T "Do this"}}</a><span class="font-medium">{{T .Label}}</span>{{end}}
     </li>{{end}}
   </ol>
 </section>
 {{end}}
-<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-  <a href="/admin/transactions" class="flex items-center justify-between rounded-xl bg-sky-600 p-5 text-white shadow-sm hover:bg-sky-700">
-    <div><p class="text-2xl font-bold" id="tile-today">{{money .IncomeToday}}</p><p class="text-sm opacity-90">{{T "Income Today"}}</p></div>
-    {{icon "banknote"}}
+<div class="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+  <a href="/admin/transactions" class="stat">
+    <div><p class="stat-label">{{T "Income Today"}}</p><p class="stat-num" id="tile-today">{{money .IncomeToday}}</p></div>
+    <span class="text-info-fg">{{icon "banknote"}}</span>
   </a>
-  <a href="/admin/transactions" class="flex items-center justify-between rounded-xl bg-emerald-600 p-5 text-white shadow-sm hover:bg-emerald-700">
-    <div><p class="text-2xl font-bold" id="tile-month">{{money .IncomeMonth}}</p><p class="text-sm opacity-90">{{T "Income This Month"}}</p></div>
-    {{icon "circle-dollar-sign"}}
+  <a href="/admin/transactions" class="stat">
+    <div><p class="stat-label">{{T "Income This Month"}}</p><p class="stat-num" id="tile-month">{{money .IncomeMonth}}</p></div>
+    <span class="text-ok-fg">{{icon "circle-dollar-sign"}}</span>
   </a>
-  <div class="flex items-center justify-between rounded-xl bg-amber-700 p-5 text-white shadow-sm">
-    <div><p class="text-2xl font-bold" id="tile-subs">{{.ActiveSubs}} / {{.ExpiredSubs}}</p><p class="text-sm opacity-90">{{T "Active"}} / {{T "Expired"}}</p></div>
-    {{icon "clock"}}
+  <div class="stat">
+    <div><p class="stat-label">{{T "Active"}} / {{T "Expired"}}</p><p class="stat-num" id="tile-subs">{{.ActiveSubs}} / {{.ExpiredSubs}}</p></div>
+    <span class="text-warn-fg">{{icon "clock"}}</span>
   </div>
-  <a href="/admin/customers" class="flex items-center justify-between rounded-xl bg-rose-600 p-5 text-white shadow-sm hover:bg-rose-700">
-    <div><p class="text-2xl font-bold" id="tile-customers">{{.Customers}}</p><p class="text-sm opacity-90">{{T "Customer"}}</p></div>
-    {{icon "users"}}
+  <a href="/admin/customers" class="stat">
+    <div><p class="stat-label">{{T "Customer"}}</p><p class="stat-num" id="tile-customers">{{.Customers}}</p></div>
+    <span class="text-ink-2">{{icon "users"}}</span>
   </a>
 </div>
-<div class="mt-4 grid gap-4 lg:grid-cols-2">
-  <section class="card">
-    <h2 class="card-title">{{T "Registered Members"}} {{.Year}}</h2>
-    <div class="card-body"><div class="h-64"><canvas data-chart="bar" data-label="{{T "Customer"}}" data-labels="{{.Labels}}" data-values="{{.Regs}}" role="img" aria-label="{{T "Registered Members"}} {{.Year}}"></canvas></div></div>
-  </section>
-  <section class="card">
-    <h2 class="card-title">{{T "Total Monthly Sales"}} {{.Year}}</h2>
-    <div class="card-body"><div class="h-64"><canvas data-chart="bar" data-money="1" data-label="{{T "Sales"}}" data-labels="{{.Labels}}" data-values="{{.Sales}}" role="img" aria-label="{{T "Total Monthly Sales"}} {{.Year}}"></canvas></div></div>
-  </section>
-</div>
-<div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-  <section class="card overflow-hidden md:col-span-2">
-    <h2 class="card-title flex flex-wrap items-center justify-between gap-2"><span>{{T "Expiring Soon"}} ({{T "next 7 days"}})</span><a class="normal-case text-brand-600 hover:underline dark:text-brand-500" href="/admin/subscriptions?status=active&sort=expires&dir=asc">{{T "See all"}}</a></h2>
+  <section class="card mb-4 overflow-hidden">
+    <h2 class="card-title flex flex-wrap items-center justify-between gap-2"><span>{{T "Expiring Soon"}} ({{T "next 7 days"}})</span><a class="link" href="/admin/subscriptions?status=active&sort=expires&dir=asc">{{T "See all"}}</a></h2>
     <div class="overflow-x-auto"><table class="table">
       <thead><tr><th>{{T "Username"}}</th><th>{{T "Full Name"}}</th><th>{{T "Internet Package"}}</th><th>{{T "Expires"}}</th><th>{{T "Status"}}</th><th></th></tr></thead>
       <tbody>
       {{range .Expiring}}<tr>
-        <td><a class="font-medium text-brand-600 hover:underline dark:text-brand-500" href="/admin/customers/{{.CustomerID}}">{{.Username}}</a></td>
+        <td><a class="link" href="/admin/customers/{{.CustomerID}}">{{.Username}}</a></td>
         <td>{{.Fullname}}</td><td>{{.Plan}}</td><td>{{.Expires}}</td>
         <td><span class="badge {{if .Expired}}badge-bad{{else}}badge-warn{{end}}">{{if .Expired}}{{T "Expired"}}{{else}}{{T "Expiring"}}{{end}}</span></td>
         <td class="whitespace-nowrap text-end">
           {{with .Phone}}<span class="me-2">{{.}}</span>{{end}}
           {{if .WA}}<a class="btn btn-ghost btn-sm" href="{{.WA}}" target="_blank" rel="noopener">{{icon "pencil"}}<span>WhatsApp</span></a>{{end}}
-          <a class="btn btn-primary btn-sm" href="/admin/customers/{{.CustomerID}}">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
+          <a class="btn btn-sm" href="/admin/customers/{{.CustomerID}}">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
         </td>
-      </tr>{{else}}<tr><td class="py-6 text-center text-slate-500" colspan="6">{{T "No plans end in the next 7 days."}}</td></tr>{{end}}
+      </tr>{{else}}<tr><td class="py-6 text-center text-ink-2" colspan="6">{{T "No plans end in the next 7 days."}}</td></tr>{{end}}
       </tbody>
     </table></div>
   </section>
+<div class="mb-4 grid gap-4 md:grid-cols-2">
+  <section class="card">
+    <h2 class="card-title">{{T "New customers per month"}}</h2>
+    <div class="card-body"><div class="h-52"><canvas data-chart="bar" data-label="{{T "Customer"}}" data-labels="{{.Labels}}" data-values="{{.Regs}}" role="img" aria-label="{{T "New customers per month"}}"></canvas></div></div>
+  </section>
+  <section class="card">
+    <h2 class="card-title">{{T "Sales per month"}}</h2>
+    <div class="card-body"><div class="h-52"><canvas data-chart="bar" data-money="1" data-label="{{T "Sales"}}" data-labels="{{.Labels}}" data-values="{{.Sales}}" role="img" aria-label="{{T "Sales per month"}}"></canvas></div></div>
+  </section>
+</div>
+<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
   <section class="card">
     <h2 class="card-title">{{T "All Users Insights"}}</h2>
     <div class="card-body"><div class="h-64"><canvas data-chart="pie" data-labels="{{.Insight}}" data-values="{{.InsightVals}}" role="img" aria-label="{{T "All Users Insights"}}"></canvas></div></div>
@@ -86,8 +86,8 @@
   <section class="card">
     <h2 class="card-title">{{T "Job Monitor"}}</h2>
     <dl class="card-body grid gap-3 text-sm">
-      <div><dt class="text-slate-500">{{T "Expiry Job Last Run"}}</dt><dd class="font-medium" id="job-expiry">{{if .ExpiryRun}}{{.ExpiryRun}}{{else}}-{{end}}</dd></div>
-      <div><dt class="text-slate-500">{{T "Reminder Job Last Run"}}</dt><dd class="font-medium" id="job-reminder">{{if .ReminderRun}}{{.ReminderRun}}{{else}}-{{end}}</dd></div>
+      <div><dt class="text-ink-2">{{T "Expiry Job Last Run"}}</dt><dd class="font-medium" id="job-expiry">{{if .ExpiryRun}}{{.ExpiryRun}}{{else}}-{{end}}</dd></div>
+      <div><dt class="text-ink-2">{{T "Reminder Job Last Run"}}</dt><dd class="font-medium" id="job-reminder">{{if .ReminderRun}}{{.ReminderRun}}{{else}}-{{end}}</dd></div>
     </dl>
   </section>
   <section class="card md:col-span-2 xl:col-span-3">

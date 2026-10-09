@@ -1,13 +1,13 @@
 {{define "content"}}
-<h1 class="mb-4 text-2xl font-semibold">{{T "Order Package"}}</h1>
-{{if .Data.Balance}}<p class="mb-4 text-sm text-slate-500">{{T "Your balance"}}: <b class="text-slate-800 dark:text-slate-200">{{money .Customer.Balance}}</b></p>{{end}}
+<h1 class="page-title mb-4">{{T "Order Package"}}</h1>
+{{if .Data.Balance}}<p class="mb-4 text-sm text-ink-2">{{T "Your balance"}}: <b class="text-ink">{{money .Customer.Balance}}</b></p>{{end}}
 <div class="grid gap-4 sm:grid-cols-2">
 {{$bal := .Data.Balance}}{{$ch := .Data.Channels}}
 {{range .Data.Plans}}
 <div class="card"><div class="card-body space-y-2">
   <h2 class="font-semibold">{{.Name}}</h2>
-  <p class="text-sm text-slate-500">{{.Type}} - {{.Validity}} {{.ValidityUnit}}</p>
-  {{with .Bandwidth}}<p class="text-sm text-slate-500">{{T "Bandwidth"}}: {{.}}</p>{{end}}
+  <p class="text-sm text-ink-2">{{.Type}} - {{.Validity}} {{.ValidityUnit}}</p>
+  {{with .Bandwidth}}<p class="text-sm text-ink-2">{{T "Bandwidth"}}: {{.}}</p>{{end}}
   <p class="text-xl font-semibold">{{money .Price}}</p>
   {{if $bal}}<form method="post" action="/portal/plans/{{.ID}}/balance" class="space-y-2" data-confirm="{{printf (T "Pay %s %s from balance %s?") .Name (money .Price) (money $.Customer.Balance)}}"><input class="input" type="text" name="coupon" maxlength="50" placeholder="{{T "Coupon Code"}}" aria-label="{{T "Coupon Code"}}"><button class="btn btn-primary" type="submit"{{if lt $.Customer.Balance .Price}} disabled{{end}}>{{T "Pay with Balance"}}</button>{{if lt $.Customer.Balance .Price}}<p class="hint">{{T "Insufficient balance for this package"}}</p>{{end}}</form>{{end}}
   {{if $bal}}<a class="btn btn-ghost" href="/portal/plans/{{.ID}}/friend">{{T "Buy for friend"}}</a>{{end}}

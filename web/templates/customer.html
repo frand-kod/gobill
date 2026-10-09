@@ -1,7 +1,7 @@
 {{define "content"}}
 {{with .Data}}
-<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-  <h1 class="text-2xl font-semibold">{{.C.Username}} <span class="badge {{badge .C.Status}} align-middle">{{T .C.Status}}</span></h1>
+<div class="page-head">
+  <h1 class="page-title">{{.C.Username}} <span class="badge {{badge .C.Status}} align-middle">{{T .C.Status}}</span></h1>
   <div class="flex flex-wrap gap-2">
     {{if .CanSell}}<a class="btn btn-primary" href="#recharge">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
     <a class="btn btn-primary" href="/admin/deposit?customer={{.C.Username}}">{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>
@@ -59,15 +59,15 @@
   <div class="overflow-x-auto"><table class="table">
     <thead><tr><th>{{T "Plan Name"}}</th><th>{{T "Type"}}</th><th>{{T "Expires"}}</th><th>{{T "Status"}}</th></tr></thead>
     <tbody>{{range .Subs}}<tr><td>{{.Plan}}</td><td>{{.Router}}</td><td>{{.Expires}}</td><td><span class="badge {{badge .Status}}">{{T .Status}}</span></td></tr>
-    {{else}}<tr><td class="py-8 text-center text-slate-500" colspan="4">{{T "No plan yet. Choose one in the Recharge Account box to switch the internet on."}}</td></tr>{{end}}</tbody>
+    {{else}}<tr><td class="py-8 text-center text-ink-2" colspan="4">{{T "No plan yet. Choose one in the Recharge Account box to switch the internet on."}}</td></tr>{{end}}</tbody>
   </table></div>
 </section>
 <section class="card mt-4 overflow-hidden">
   <h2 class="card-title">{{T "Transactions"}}</h2>
   <div class="overflow-x-auto"><table class="table">
     <thead><tr><th>{{T "Invoice"}}</th><th>{{T "Date"}}</th><th>{{T "Plan Name"}}</th><th>{{T "Method"}}</th><th>{{T "Plan Price"}}</th></tr></thead>
-    <tbody>{{range .Trx}}<tr><td><a class="text-brand-600 hover:underline" href="/admin/transactions/{{.ID}}/invoice">{{.Invoice}}</a></td><td>{{ts .CreatedAt}}</td><td>{{.PlanName}}</td><td>{{.Method}}</td><td>{{money .Price}}</td></tr>
-    {{else}}<tr><td class="py-8 text-center text-slate-500" colspan="5">{{T "No data"}}</td></tr>{{end}}</tbody>
+    <tbody>{{range .Trx}}<tr><td><a class="text-accent-fg hover:underline" href="/admin/transactions/{{.ID}}/invoice">{{.Invoice}}</a></td><td>{{ts .CreatedAt}}</td><td>{{.PlanName}}</td><td>{{.Method}}</td><td>{{money .Price}}</td></tr>
+    {{else}}<tr><td class="py-8 text-center text-ink-2" colspan="5">{{T "No data"}}</td></tr>{{end}}</tbody>
   </table></div>
 </section>
 {{template "radius_usage" .Usage}}

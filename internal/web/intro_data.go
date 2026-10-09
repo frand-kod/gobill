@@ -49,7 +49,6 @@ var formIntros = map[string]intro{
 }
 
 var pageIntros = map[string]intro{
-	"dashboard":       {"Today at a glance", "Money in, who is active and who is about to expire. Use the quick buttons for the daily jobs.", ""},
 	"report":          {"Daily report", "Money received on one day. Pick a date to compare, and print to keep a copy.", ""},
 	"report_period":   {"Period report", "Money received between two dates. Good for monthly closing.", ""},
 	"radius_sessions": {"Online now (RADIUS)", "Customers connected right now through RADIUS. Disconnect (CoA) asks the router to drop one so they reconnect with their latest plan.", "Customers who connect through the router API are not listed here. Open their customer page instead."},

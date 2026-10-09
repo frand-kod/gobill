@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="mb-4"><h1 class="text-2xl font-semibold">{{T "Payment Audit"}}</h1></div>
+<div class="mb-4"><h1 class="page-title">{{T "Payment Audit"}}</h1></div>
 <div class="card"><div class="card-body">
   <dl class="grid gap-2 sm:grid-cols-[12rem_1fr]">
     {{range .Data}}<dt class="font-medium">{{T (index . 0)}}</dt><dd class="break-all">{{index . 1}}</dd>{{end}}

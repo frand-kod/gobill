@@ -1,18 +1,18 @@
 {{define "content"}}
 {{with .Data}}
-<div class="mb-4"><h1 class="text-2xl font-semibold">{{T "Recharge Account"}}: {{.C.Username}}</h1></div>
+<div class="mb-4"><h1 class="page-title">{{T "Recharge Account"}}: {{.C.Username}}</h1></div>
 <form class="card max-w-xl" method="post" action="/admin/customers/{{.C.ID}}/recharge">
   <div class="card-body space-y-4">
     <input type="hidden" name="plan" value="{{.PlanID}}">
     <input type="hidden" name="method" value="{{.Method}}">
     <dl class="grid grid-cols-2 gap-2 text-sm">
-      <dt class="text-slate-500">{{T "Customer"}}</dt><dd>{{.C.Fullname}} ({{.C.Username}})</dd>
-      <dt class="text-slate-500">{{T "Service Plan"}}</dt><dd>{{.Plan}}</dd>
-      <dt class="text-slate-500">{{T "Plan Price"}}</dt><dd>{{.Price}}</dd>
-      <dt class="text-slate-500">{{T "Payment Method"}}</dt><dd>{{T .MethodLabel}}</dd>
-      {{if .Expiry}}<dt class="text-slate-500">{{T "Expires On"}}</dt><dd id="new-expiry">{{.Expiry}}</dd>{{end}}
-      <dt class="text-slate-500">{{T "Balance"}}</dt><dd>{{.Balance}}</dd>
-      <dt class="text-slate-500">{{T "Balance after"}}</dt><dd id="balance-after">{{.After}}</dd>
+      <dt class="text-ink-2">{{T "Customer"}}</dt><dd>{{.C.Fullname}} ({{.C.Username}})</dd>
+      <dt class="text-ink-2">{{T "Service Plan"}}</dt><dd>{{.Plan}}</dd>
+      <dt class="text-ink-2">{{T "Plan Price"}}</dt><dd>{{.Price}}</dd>
+      <dt class="text-ink-2">{{T "Payment Method"}}</dt><dd>{{T .MethodLabel}}</dd>
+      {{if .Expiry}}<dt class="text-ink-2">{{T "Expires On"}}</dt><dd id="new-expiry">{{.Expiry}}</dd>{{end}}
+      <dt class="text-ink-2">{{T "Balance"}}</dt><dd>{{.Balance}}</dd>
+      <dt class="text-ink-2">{{T "Balance after"}}</dt><dd id="balance-after">{{.After}}</dd>
     </dl>
     {{if .Insufficient}}<div class="alert alert-warn flex-wrap" role="alert"><span class="flex-1">{{T "The customer's balance is not enough. Add balance first, or choose Cash."}}</span><a class="btn btn-ghost btn-sm" href="/admin/deposit?customer={{.C.Username}}">{{icon "banknote"}}<span>{{T "Add Balance"}}</span></a></div>{{end}}
     <div class="flex flex-wrap gap-2">

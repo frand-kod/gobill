@@ -2,21 +2,21 @@
 {{with .Data}}
 {{if .View}}
 {{with .View}}
-<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-  <h1 class="text-2xl font-semibold">{{.Subject}}</h1>
+<div class="page-head">
+  <h1 class="page-title">{{.Subject}}</h1>
   <a class="btn btn-ghost" href="/portal/inbox">{{T "Back"}}</a>
 </div>
 <article class="card card-body">
-  <p class="text-sm text-slate-500">{{T "From"}}: {{.FromName}} &middot; {{ts .CreatedAt}}</p>
+  <p class="text-sm text-ink-2">{{T "From"}}: {{.FromName}} &middot; {{ts .CreatedAt}}</p>
   <div class="mt-4 whitespace-pre-wrap">{{.Body}}</div>
 </article>
 {{end}}
 {{else}}
-<h1 class="mb-4 text-2xl font-semibold">{{T "Inbox"}}</h1>
+<h1 class="page-title mb-4">{{T "Inbox"}}</h1>
 <div class="card"><div class="overflow-x-auto"><table class="table">
 <thead><tr><th>{{T "Subject"}}</th><th>{{T "From"}}</th><th>{{T "Date"}}</th></tr></thead>
 <tbody>{{range .List}}<tr class="{{if not .ReadAt.Valid}}font-semibold{{end}}"><td><a class="underline" href="/portal/inbox/{{.ID}}">{{.Subject}}</a>{{if not .ReadAt.Valid}} <span class="badge badge-bad">{{T "New"}}</span>{{end}}</td><td>{{.FromName}}</td><td>{{ts .CreatedAt}}</td></tr>
-{{else}}<tr><td class="py-8 text-center text-slate-500" colspan="3">{{T "No data"}}</td></tr>{{end}}</tbody></table></div></div>
+{{else}}<tr><td class="py-8 text-center text-ink-2" colspan="3">{{T "No data"}}</td></tr>{{end}}</tbody></table></div></div>
 {{end}}
 {{end}}
 {{end}}

@@ -3,7 +3,7 @@
   <div class="card w-full max-w-sm overflow-hidden">
     <div class="fiber-stripe" aria-hidden="true"></div>
     <div class="card-body space-y-4">
-      <h1 class="text-2xl font-semibold">{{T "Forgot Password"}}</h1>
+      <h1 class="page-title">{{T "Forgot Password"}}</h1>
       {{if .Flash}}<p class="alert alert-ok" role="status">{{icon "circle-check"}}<span>{{.Flash}}</span></p>{{end}}
       {{if .Error}}<p class="alert alert-error" role="alert">{{icon "circle-alert"}}<span>{{T .Error}}</span></p>{{end}}
       {{with .Data}}

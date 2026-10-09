@@ -1,8 +1,9 @@
 // Draws the dashboard charts from data-* attributes (see dashboard.html). data-chart="pie" uses fixed colours.
 document.querySelectorAll('canvas[data-chart]').forEach(function (el) {
-  var dark = document.documentElement.classList.contains('dark');
-  var text = dark ? '#cbd5e1' : '#475569';
-  var grid = dark ? '#334155' : '#e2e8f0';
+  var css = getComputedStyle(document.documentElement);
+  var text = css.getPropertyValue('--text-2').trim() || '#575f69';
+  var grid = css.getPropertyValue('--border').trim() || '#e3e6ea';
+  var accent = css.getPropertyValue('--accent').trim() || '#0b7f79';
   var money = !!el.dataset.money;
   var pie = el.dataset.chart === 'pie';
   new Chart(el, {
@@ -12,7 +13,7 @@ document.querySelectorAll('canvas[data-chart]').forEach(function (el) {
       datasets: [{
         label: el.dataset.label,
         data: JSON.parse(el.dataset.values),
-        backgroundColor: pie ? ['#0e8f89', '#e11d48'] : money ? '#059669' : '#0e8f89',
+        backgroundColor: pie ? [accent, '#d92d20'] : accent,
         borderRadius: pie ? 0 : 4
       }]
     },

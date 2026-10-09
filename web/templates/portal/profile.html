@@ -1,5 +1,5 @@
 {{define "content"}}
-<h1 class="mb-4 text-2xl font-semibold">{{T "Profile"}}</h1>
+<h1 class="page-title mb-4">{{T "Profile"}}</h1>
 {{with .Customer}}
 <form class="card mb-4" method="post" action="/portal/profile"><div class="card-body grid gap-4 md:grid-cols-2">
   <div><label class="label" for="username">{{T "Username"}}</label><input class="input" id="username" value="{{.Username}}" readonly></div>

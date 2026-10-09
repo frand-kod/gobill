@@ -1,13 +1,13 @@
 {{define "content"}}
 {{if .Tabs}}<nav class="mb-4 flex flex-wrap gap-2">{{range .Tabs}}<a class="btn {{if eq .Value $.Path}}btn-primary{{else}}btn-ghost{{end}}" href="{{.Value}}">{{T .Label}}</a>{{end}}</nav>{{end}}
 {{with .Data}}
-<div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-  <h1 class="text-2xl font-semibold">{{TT .Heading}}</h1>
+<div class="page-head">
+  <h1 class="page-title">{{TT .Heading}}</h1>
 </div>
 {{template "callout" $.Intro}}
 <form method="post" action="{{.Action}}"{{if .HasFile}} enctype="multipart/form-data"{{end}} novalidate x-data="{{.XData}}">
   {{range .Groups}}
-  {{if .Fold}}<details class="mb-4"{{if .Open}} open{{end}}><summary class="cursor-pointer py-2 text-sm font-medium text-brand-600 dark:text-brand-500">{{T "Advanced options"}}</summary>{{end}}
+  {{if .Fold}}<details class="mb-4"{{if .Open}} open{{end}}><summary class="cursor-pointer py-2 text-sm font-medium text-accent-fg">{{T "Advanced options"}}</summary>{{end}}
   <section class="card{{if not .Fold}} mb-4{{end}}"{{with .Show}} x-show="{{.}}" x-cloak{{end}}>
     {{if .Title}}<h2 class="card-title">{{T .Title}}</h2>{{end}}
     <div class="card-body grid gap-x-6 gap-y-4 md:grid-cols-2">
@@ -15,9 +15,9 @@
       {{if eq .Type "hidden"}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{else}}
       <div{{with .Show}} x-show="{{.}}" x-cloak{{end}}>
         {{if eq .Type "checkbox"}}
-        <label class="flex items-center gap-2 py-2 text-sm font-medium"><input type="checkbox" class="size-4 rounded accent-brand-600" name="{{.Name}}" value="1"{{if .Checked}} checked{{end}}{{if .Bind}} x-model="{{.Name}}"{{end}}> {{T .Label}}</label>
+        <label class="flex items-center gap-2 py-2 text-sm font-medium"><input type="checkbox" class="size-4 rounded accent-brand-500" name="{{.Name}}" value="1"{{if .Checked}} checked{{end}}{{if .Bind}} x-model="{{.Name}}"{{end}}> {{T .Label}}</label>
         {{else}}
-        <label class="label" for="{{.Name}}">{{T .Label}}{{if .Required}} <span class="text-red-600" aria-hidden="true">*</span>{{end}}</label>
+        <label class="label" for="{{.Name}}">{{T .Label}}{{if .Required}} <span class="text-err-fg" aria-hidden="true">*</span>{{end}}</label>
         {{if eq .Type "select"}}
         <select class="input" id="{{.Name}}" name="{{.Name}}"{{if .Bind}} x-model="{{.Name}}"{{end}}{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
           {{$cur := .Value}}
@@ -25,7 +25,7 @@
         </select>
         {{else if eq .Type "coords"}}
         <input class="input" id="{{.Name}}" name="{{.Name}}" value="{{.Value}}" placeholder="-6.2,106.8" inputmode="decimal"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
-        <div class="mt-2 h-64 w-full overflow-hidden rounded-lg border border-slate-200" data-pick="{{.Name}}" role="application" aria-label="{{T "Pick on map"}}"></div>
+        <div class="mt-2 h-64 w-full overflow-hidden rounded-lg border border-line" data-pick="{{.Name}}" role="application" aria-label="{{T "Pick on map"}}"></div>
         <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
         <script src="/static/vendor/leaflet/leaflet.js"></script>
         <script src="/static/maps.js"></script>
