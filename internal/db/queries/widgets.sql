@@ -1,10 +1,10 @@
 -- name: ListExpiringSubscriptions :many
 -- Active or just-expired subscriptions, soonest expiry first (dashboard widget).
-SELECT s.id, s.customer_id, s.expires_at, s.status, c.username, c.fullname, p.name AS plan_name
+SELECT s.id, s.customer_id, s.expires_at, s.status, c.username, c.fullname, c.phone, p.name AS plan_name
 FROM subscriptions s
 JOIN customers c ON c.id = s.customer_id
 JOIN plans p ON p.id = s.plan_id
-WHERE s.status IN ('active', 'expired') AND s.expires_at >= sqlc.arg(since)
+WHERE s.status IN ('active', 'expired') AND s.expires_at >= sqlc.arg(since) AND s.expires_at <= sqlc.arg(until)
 ORDER BY s.expires_at, s.id LIMIT sqlc.arg(page_limit);
 
 -- name: VoucherStockByPlan :many
@@ -15,3 +15,9 @@ FROM plans p
 LEFT JOIN vouchers v ON v.plan_id = p.id
 GROUP BY p.id, p.name
 ORDER BY p.name;
+
+-- name: CountSetup :one
+-- Row counts the dashboard "quick start" checklist ticks against.
+SELECT (SELECT COUNT(*) FROM routers) AS routers, (SELECT COUNT(*) FROM nas) AS nas,
+  (SELECT COUNT(*) FROM bandwidths) AS bandwidths, (SELECT COUNT(*) FROM plans) AS plans,
+  (SELECT COUNT(*) FROM customers) AS customers, (SELECT COUNT(*) FROM vouchers) AS vouchers;

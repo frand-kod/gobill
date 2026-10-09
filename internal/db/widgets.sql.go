@@ -9,17 +9,48 @@ import (
 	"context"
 )
 
+const countSetup = `-- name: CountSetup :one
+SELECT (SELECT COUNT(*) FROM routers) AS routers, (SELECT COUNT(*) FROM nas) AS nas,
+  (SELECT COUNT(*) FROM bandwidths) AS bandwidths, (SELECT COUNT(*) FROM plans) AS plans,
+  (SELECT COUNT(*) FROM customers) AS customers, (SELECT COUNT(*) FROM vouchers) AS vouchers
+`
+
+type CountSetupRow struct {
+	Routers    int64
+	Nas        int64
+	Bandwidths int64
+	Plans      int64
+	Customers  int64
+	Vouchers   int64
+}
+
+// Row counts the dashboard "quick start" checklist ticks against.
+func (q *Queries) CountSetup(ctx context.Context) (CountSetupRow, error) {
+	row := q.db.QueryRowContext(ctx, countSetup)
+	var i CountSetupRow
+	err := row.Scan(
+		&i.Routers,
+		&i.Nas,
+		&i.Bandwidths,
+		&i.Plans,
+		&i.Customers,
+		&i.Vouchers,
+	)
+	return i, err
+}
+
 const listExpiringSubscriptions = `-- name: ListExpiringSubscriptions :many
-SELECT s.id, s.customer_id, s.expires_at, s.status, c.username, c.fullname, p.name AS plan_name
+SELECT s.id, s.customer_id, s.expires_at, s.status, c.username, c.fullname, c.phone, p.name AS plan_name
 FROM subscriptions s
 JOIN customers c ON c.id = s.customer_id
 JOIN plans p ON p.id = s.plan_id
-WHERE s.status IN ('active', 'expired') AND s.expires_at >= ?1
-ORDER BY s.expires_at, s.id LIMIT ?2
+WHERE s.status IN ('active', 'expired') AND s.expires_at >= ?1 AND s.expires_at <= ?2
+ORDER BY s.expires_at, s.id LIMIT ?3
 `
 
 type ListExpiringSubscriptionsParams struct {
 	Since     int64
+	Until     int64
 	PageLimit int64
 }
 
@@ -30,12 +61,13 @@ type ListExpiringSubscriptionsRow struct {
 	Status     string
 	Username   string
 	Fullname   string
+	Phone      string
 	PlanName   string
 }
 
 // Active or just-expired subscriptions, soonest expiry first (dashboard widget).
 func (q *Queries) ListExpiringSubscriptions(ctx context.Context, arg ListExpiringSubscriptionsParams) ([]ListExpiringSubscriptionsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listExpiringSubscriptions, arg.Since, arg.PageLimit)
+	rows, err := q.db.QueryContext(ctx, listExpiringSubscriptions, arg.Since, arg.Until, arg.PageLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +82,7 @@ func (q *Queries) ListExpiringSubscriptions(ctx context.Context, arg ListExpirin
 			&i.Status,
 			&i.Username,
 			&i.Fullname,
+			&i.Phone,
 			&i.PlanName,
 		); err != nil {
 			return nil, err
