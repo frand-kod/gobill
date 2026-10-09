@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // ---- login / logout ----

@@ -8,6 +8,10 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Changed
+
+- Go module path is now `github.com/frand-kod/gobill` (was `github.com/frand-kod/nuxbill-go`).
+
 ## [0.1.0] - 2026-10-09
 
 First release: a single-binary rewrite of PHPNuxBill (MikroTik hotspot and PPPoE billing).

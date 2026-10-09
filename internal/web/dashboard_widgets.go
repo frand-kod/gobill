@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // dashWidgets holds the cards below the dashboard tiles and charts (old PHP widgets W4, W5, W6, W7, W8/W9).

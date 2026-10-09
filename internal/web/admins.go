@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // Role rules follow the old settings.php users-* cases, but stricter: the old code let an

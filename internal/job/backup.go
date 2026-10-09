@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // backupHour is the local hour (02:00) when the daily backup is taken.

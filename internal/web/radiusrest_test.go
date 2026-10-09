@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/secret"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/secret"
 )
 
 // restSetup: customer "bob"/"pw" with a Hotspot plan (5M down, 512K up) expiring in +1h (or -1h if expired).

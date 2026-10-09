@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // SyncPlan pushes an admin plan change to the plan's router. op is "add", "update" or

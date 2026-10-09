@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // Old pages.php: four static pages (announcement, terms, privacy, registration) edited as plain text.

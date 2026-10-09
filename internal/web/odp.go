@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 var odpNames = []string{"name", "coordinates", "address", "port_amount", "attenuation", "coverage", "description", "router_id"}

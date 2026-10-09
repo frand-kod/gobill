@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // dateRange reads ?from and ?to (YYYY-MM-DD, billing zone); to is inclusive. Unix 0 = open end.

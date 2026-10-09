@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // RouterCheck pings every enabled router, stores online/last_seen_at, and sends one Telegram

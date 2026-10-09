@@ -15,8 +15,8 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/payment"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/payment"
 )
 
 const tripayKey = "priv-secret-key"

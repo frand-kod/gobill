@@ -14,7 +14,7 @@ import (
 
 	"layeh.com/radius/rfc2866"
 
-	"github.com/frand-kod/nuxbill-go/internal/radius"
+	"github.com/frand-kod/gobill/internal/radius"
 )
 
 // radiusRestRoutes serves the FreeRADIUS rlm_rest endpoint of old phpnuxbill (radius.php), so

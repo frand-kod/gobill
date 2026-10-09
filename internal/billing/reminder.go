@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/notify"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/notify"
 )
 
 // ReminderJob ports cron_reminder.php: once a day at setting reminder_hour (default 7, app

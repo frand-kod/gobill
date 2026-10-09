@@ -6,9 +6,9 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/device"
-	"github.com/frand-kod/nuxbill-go/internal/secret"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/device"
+	"github.com/frand-kod/gobill/internal/secret"
 )
 
 // routerConn builds the connection info of a stored router; RouterFor overrides it in tests.

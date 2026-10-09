@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 func TestSendAttemptsAreLogged(t *testing.T) {

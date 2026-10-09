@@ -11,9 +11,9 @@ import (
 	"layeh.com/radius"
 	"layeh.com/radius/rfc2865"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/device"
-	"github.com/frand-kod/nuxbill-go/internal/secret"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/device"
+	"github.com/frand-kod/gobill/internal/secret"
 )
 
 func TestRadiusPlanRechargeWithoutRouter(t *testing.T) {

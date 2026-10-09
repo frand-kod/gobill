@@ -10,8 +10,8 @@ import (
 
 	"layeh.com/radius"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/secret"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/secret"
 )
 
 func TestRadiusSessionsPage(t *testing.T) {

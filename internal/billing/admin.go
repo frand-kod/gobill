@@ -8,7 +8,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 var ErrBadDeposit = errors.New("choose a Balance plan or enter an amount above 0")

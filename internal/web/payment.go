@@ -14,9 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/billing"
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/payment"
+	"github.com/frand-kod/gobill/internal/billing"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/payment"
 )
 
 // Gateway is what the web layer needs from an online gateway (Tripay today).

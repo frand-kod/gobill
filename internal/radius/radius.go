@@ -25,8 +25,8 @@ import (
 	"layeh.com/radius/vendors/microsoft"
 	"layeh.com/radius/vendors/mikrotik"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/secret"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/secret"
 )
 
 // staleAfter: an open session not updated for this long no longer counts toward shared_users.

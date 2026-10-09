@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/device"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/device"
 )
 
 type fakeDev struct {

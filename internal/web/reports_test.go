@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/billing"
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/billing"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // seedTrx inserts a transaction at the given instant.

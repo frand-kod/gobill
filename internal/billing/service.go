@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/device"
-	"github.com/frand-kod/nuxbill-go/internal/notify"
-	"github.com/frand-kod/nuxbill-go/internal/secret"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/device"
+	"github.com/frand-kod/gobill/internal/notify"
+	"github.com/frand-kod/gobill/internal/secret"
 )
 
 var (

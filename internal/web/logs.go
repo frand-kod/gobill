@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 func (s *Server) logList(w http.ResponseWriter, r *http.Request) {

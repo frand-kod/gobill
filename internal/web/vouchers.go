@@ -15,8 +15,8 @@ import (
 
 	"github.com/skip2/go-qrcode"
 
-	"github.com/frand-kod/nuxbill-go/internal/billing"
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/billing"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 const (

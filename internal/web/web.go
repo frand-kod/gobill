@@ -22,11 +22,11 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"golang.org/x/crypto/bcrypt"
 
-	nuxbill "github.com/frand-kod/nuxbill-go"
-	"github.com/frand-kod/nuxbill-go/internal/billing"
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/i18n"
-	"github.com/frand-kod/nuxbill-go/internal/radius"
+	nuxbill "github.com/frand-kod/gobill"
+	"github.com/frand-kod/gobill/internal/billing"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/i18n"
+	"github.com/frand-kod/gobill/internal/radius"
 )
 
 const (

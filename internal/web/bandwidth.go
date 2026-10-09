@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 var bwNames = []string{"name", "rate_down", "rate_down_unit", "rate_up", "rate_up_unit", "burst"}

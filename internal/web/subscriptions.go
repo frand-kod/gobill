@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/billing"
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/billing"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 const localTime = "2006-01-02T15:04" // <input type="datetime-local">

@@ -13,7 +13,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	_ "modernc.org/sqlite"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 func TestParsePrice(t *testing.T) {

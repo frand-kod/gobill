@@ -8,8 +8,8 @@ import (
 	"net/netip"
 	"strings"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/secret"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/secret"
 )
 
 func nasFields(v, e map[string]string, editing bool) []field {

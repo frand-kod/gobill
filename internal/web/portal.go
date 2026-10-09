@@ -16,11 +16,11 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/frand-kod/nuxbill-go/internal/billing"
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/notify"
-	"github.com/frand-kod/nuxbill-go/internal/payment"
-	"github.com/frand-kod/nuxbill-go/internal/secret"
+	"github.com/frand-kod/gobill/internal/billing"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/notify"
+	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/secret"
 )
 
 // Customer portal. The session key "customer_id" is separate from the admin's "admin_id".

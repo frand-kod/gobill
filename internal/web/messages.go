@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/notify"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/notify"
 )
 
 // Old message.php (send, send_bulk) and mail.php (customer inbox). Channels: sms, wa, email, inbox.

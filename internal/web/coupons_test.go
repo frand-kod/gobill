@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 func cpnForm(code string) url.Values {

@@ -1,4 +1,4 @@
-module github.com/frand-kod/nuxbill-go
+module github.com/frand-kod/gobill
 
 go 1.26.8
 

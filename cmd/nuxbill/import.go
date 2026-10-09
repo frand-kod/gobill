@@ -10,9 +10,9 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/importer"
-	"github.com/frand-kod/nuxbill-go/internal/secret"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/importer"
+	"github.com/frand-kod/gobill/internal/secret"
 )
 
 // runImport implements `nuxbill import`: PHPNuxBill MySQL -> SQLite.

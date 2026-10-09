@@ -15,8 +15,8 @@ import (
 	"layeh.com/radius/rfc2865"
 	"layeh.com/radius/rfc2866"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/secret"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/secret"
 )
 
 // fakeNAS listens for one Disconnect-Request, answers with reply, and hands over the raw bytes.

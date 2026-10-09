@@ -19,13 +19,13 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/frand-kod/nuxbill-go/internal/billing"
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/job"
-	"github.com/frand-kod/nuxbill-go/internal/notify"
-	"github.com/frand-kod/nuxbill-go/internal/radius"
-	"github.com/frand-kod/nuxbill-go/internal/secret"
-	"github.com/frand-kod/nuxbill-go/internal/web"
+	"github.com/frand-kod/gobill/internal/billing"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/job"
+	"github.com/frand-kod/gobill/internal/notify"
+	"github.com/frand-kod/gobill/internal/radius"
+	"github.com/frand-kod/gobill/internal/secret"
+	"github.com/frand-kod/gobill/internal/web"
 )
 
 // version is set at build time with -ldflags "-X main.version=...".

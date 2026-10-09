@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/notify"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/notify"
 )
 
 // withNotify points the service at a fake server; got receives "path?query body" per request.

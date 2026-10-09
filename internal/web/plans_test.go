@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // newPlanForm returns the new plan form with the default device setting set to dev.

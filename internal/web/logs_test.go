@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // The activity log shows times in the billing zone (Asia/Jakarta, UTC+7), not UTC.

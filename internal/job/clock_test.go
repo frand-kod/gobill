@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 func newGuard(t *testing.T, now int64, synced bool) *ClockGuard {

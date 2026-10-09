@@ -14,7 +14,7 @@ import (
 	"layeh.com/radius"
 	"layeh.com/radius/rfc2865"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // voucherEnv: a fake Redeem with the same atomic claim as billing.RedeemVoucher.

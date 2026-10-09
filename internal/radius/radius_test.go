@@ -17,8 +17,8 @@ import (
 	"layeh.com/radius/vendors/microsoft"
 	"layeh.com/radius/vendors/mikrotik"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/secret"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/secret"
 )
 
 var nasSecret = []byte("nas-secret")

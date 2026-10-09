@@ -3,7 +3,7 @@ package billing
 import (
 	"context"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // RechargePaid is Recharge for a confirmed online payment. claim runs first in the SAME

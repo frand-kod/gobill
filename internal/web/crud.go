@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 const perPage = 20

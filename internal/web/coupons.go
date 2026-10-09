@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 var cpnKeys = []string{"code", "type", "value", "description", "max_usage", "min_order", "max_discount", "start_date", "end_date", "status"}

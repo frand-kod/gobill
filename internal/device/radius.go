@@ -4,8 +4,8 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/radius"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/radius"
 )
 
 // Radius is for plans served by the built-in RADIUS server: the router is not touched and

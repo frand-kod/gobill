@@ -10,9 +10,9 @@ import (
 	"sync"
 	"testing"
 
-	nuxbill "github.com/frand-kod/nuxbill-go"
-	"github.com/frand-kod/nuxbill-go/internal/db"
-	"github.com/frand-kod/nuxbill-go/internal/i18n"
+	nuxbill "github.com/frand-kod/gobill"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/i18n"
 )
 
 // tr is the text the default language (indonesia) shows for msg.
