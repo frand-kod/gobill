@@ -505,11 +505,25 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) custDelete(w http.ResponseWriter, r *http.Request) {
-	name := ""
-	if c, err := s.queries.GetCustomer(r.Context(), pathID(r)); err == nil {
-		name = c.Username
+	id := pathID(r)
+	c, err := s.queries.GetCustomer(r.Context(), id)
+	if err != nil {
+		http.NotFound(w, r)
+		return
 	}
-	s.remove(w, r, "/admin/customers", "customer", "Customer has transactions and cannot be deleted", name, func(id int64) error {
-		return s.queries.DeleteCustomer(r.Context(), id)
-	})
+	if s.Billing == nil {
+		s.fail(w, "delete customer", errors.New("billing service not configured"))
+		return
+	}
+	// Transactions are kept (customer_id -> NULL); a device error does not undo the delete.
+	if err := s.Billing.DeleteCustomer(r.Context(), id); err != nil {
+		if _, gerr := s.queries.GetCustomer(r.Context(), id); gerr == nil {
+			s.fail(w, "delete customer", err)
+			return
+		}
+		slog.Error("delete customer: router", "customer", c.Username, "err", err)
+		s.logActivity(r, "customer.delete_router_failed", fmt.Sprintf("%s: %v", c.Username, err))
+		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Deleted, but the router could not be updated")+": "+err.Error())
+	}
+	s.done(w, r, "/admin/customers", "Data Deleted Successfully", "customer.delete", c.Username)
 }

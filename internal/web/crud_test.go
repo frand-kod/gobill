@@ -189,26 +189,14 @@ func TestCustomerCRUD(t *testing.T) {
 	if p, err := secret.Open(s.SecretKey, cu3.SecretEnc); err != nil || string(p) != "newpw999" {
 		t.Fatal("edit with new password must update the router secret")
 	}
-
-	// delete refused while a transaction exists
-	_, err = q.CreateTransaction(t.Context(), db.CreateTransactionParams{Invoice: "INV1", CustomerID: sql.NullInt64{Int64: cu.ID, Valid: true}, Username: "budi",
-		PlanName: "p", Type: "Balance", PeriodStart: 1, PeriodEnd: 1})
-	if err != nil {
-		t.Fatal(err)
-	}
-	w = do(h, "POST", "/admin/customers/1/delete", nil, c)
-	wantCode(t, w, 303, "delete with transactions")
-	w = do(h, "GET", "/admin/customers", nil, c)
-	if !strings.Contains(w.Body.String(), "alert-error") || !strings.Contains(w.Body.String(), "budi") {
-		t.Fatal("friendly error missing")
-	}
 }
 
 func TestCustomerDeleteWithoutTransactions(t *testing.T) {
-	_, h, q, c := crudApp(t)
-	q.CreateCustomer(t.Context(), db.CreateCustomerParams{Username: "u1", PasswordHash: "x", Fullname: "U", ServiceType: "Others", Status: "Active"})
-	wantCode(t, do(h, "POST", "/admin/customers/1/delete", nil, c), 303, "delete")
-	if _, err := q.GetCustomer(t.Context(), 1); err != sql.ErrNoRows {
+	e := billApp(t)
+	h, q, c := e.h, e.q, e.c
+	q.CreateCustomer(t.Context(), db.CreateCustomerParams{Username: "u2", PasswordHash: "x", Fullname: "U", ServiceType: "Others", Status: "Active"})
+	wantCode(t, do(h, "POST", "/admin/customers/"+itoa(e.cust.ID+1)+"/delete", nil, c), 303, "delete")
+	if _, err := q.GetCustomer(t.Context(), e.cust.ID+1); err != sql.ErrNoRows {
 		t.Fatal("not deleted")
 	}
 }
@@ -268,5 +256,36 @@ func TestCustomerPasswordSyncsSecret(t *testing.T) {
 	cu, _ = q.GetCustomerByUsername(t.Context(), "diff")
 	if p, err := secret.Open(s.SecretKey, cu.SecretEnc); err != nil || string(p) != "other" {
 		t.Fatal("explicit secret must win")
+	}
+}
+
+func TestCustomerDeleteKeepsTransactions(t *testing.T) {
+	e := billApp(t)
+	e.recordDevice()
+	p := e.plan(t, "Gold", "PPPoE", 10000)
+	if err := e.s.Billing.Recharge(t.Context(), e.cust.ID, p.ID, "Admin - Cash", 0); err != nil {
+		t.Fatal(err)
+	}
+	*e.calls = nil
+	wantCode(t, do(e.h, "POST", "/admin/customers/"+itoa(e.cust.ID)+"/delete", nil, e.c), 303, "delete")
+	if _, err := e.q.GetCustomer(t.Context(), e.cust.ID); err != sql.ErrNoRows {
+		t.Fatalf("customer not deleted: %v", err)
+	}
+	if got := strings.Join(*e.calls, ","); got != "remove u1" {
+		t.Fatalf("device calls: %q", got)
+	}
+	var n, null int
+	if err := e.s.conn.QueryRow(`SELECT COUNT(*), COALESCE(SUM(customer_id IS NULL AND username = 'u1' AND plan_name = 'Gold'), 0) FROM transactions`).Scan(&n, &null); err != nil || n == 0 || n != null {
+		t.Fatalf("transactions: n=%d detached=%d err=%v", n, null, err)
+	}
+	var subs int
+	e.s.conn.QueryRow(`SELECT COUNT(*) FROM subscriptions`).Scan(&subs)
+	if subs != 0 {
+		t.Fatalf("subscriptions left: %d", subs)
+	}
+	for _, path := range []string{"/admin/customers", "/admin/reports", "/admin/transactions"} {
+		if w := do(e.h, "GET", path, nil, e.c); w.Code >= 500 {
+			t.Fatalf("%s: %d", path, w.Code)
+		}
 	}
 }

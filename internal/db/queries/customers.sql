@@ -63,3 +63,7 @@ ORDER BY
   CASE WHEN sort_key = 'status_desc' THEN c.status END DESC,
   c.id DESC
 LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+
+-- name: DetachCustomerTransactions :exec
+-- Customer delete keeps history: transactions stay with customer_id NULL (username/plan_name remain).
+UPDATE transactions SET customer_id = NULL WHERE customer_id = ?;

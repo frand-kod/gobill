@@ -106,6 +106,16 @@ func (q *Queries) DeleteCustomer(ctx context.Context, id int64) error {
 	return err
 }
 
+const detachCustomerTransactions = `-- name: DetachCustomerTransactions :exec
+UPDATE transactions SET customer_id = NULL WHERE customer_id = ?
+`
+
+// Customer delete keeps history: transactions stay with customer_id NULL (username/plan_name remain).
+func (q *Queries) DetachCustomerTransactions(ctx context.Context, customerID sql.NullInt64) error {
+	_, err := q.db.ExecContext(ctx, detachCustomerTransactions, customerID)
+	return err
+}
+
 const filterCustomers = `-- name: FilterCustomers :many
 SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, c.session_version, c.coordinates, CAST(COALESCE((SELECT group_concat(p.name, ', ') FROM subscriptions s JOIN plans p ON p.id = s.plan_id
                            WHERE s.customer_id = c.id AND s.status = 'active'), '') AS TEXT) AS packages,

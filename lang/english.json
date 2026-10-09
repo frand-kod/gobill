@@ -577,6 +577,7 @@
     "Connection failed": "Connection failed",
     "Router connection is not configured": "Router connection is not configured",
     "Saved, but the router could not be updated": "Saved, but the router could not be updated",
+    "Deleted, but the router could not be updated": "Deleted, but the router could not be updated",
     "Connection": "Connection",
     "Speed": "Speed",
     "Code": "Code",

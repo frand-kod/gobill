@@ -1045,6 +1045,7 @@
     "Connection failed": "Koneksi gagal",
     "Router connection is not configured": "Koneksi router belum dikonfigurasi",
     "Saved, but the router could not be updated": "Tersimpan, tetapi router tidak dapat diperbarui",
+    "Deleted, but the router could not be updated": "Terhapus, tetapi router tidak dapat diperbarui",
     "Connection": "Koneksi",
     "Other": "Lainnya",
     "Speed": "Kecepatan",
