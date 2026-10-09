@@ -160,6 +160,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/settings/{tab}", managers(http.HandlerFunc(s.settingsSave)))
 	mux.Handle("POST /admin/theme/default", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.themeDefault)))
 	mux.Handle("POST /admin/settings/integrations/wa-test", managers(http.HandlerFunc(s.waTest)))
+	mux.Handle("POST /admin/settings/notifications/daily-summary", managers(http.HandlerFunc(s.dailySummaryNow)))
 	mux.Handle("GET /admin/settings/miscellaneous/backup", managers(http.HandlerFunc(s.dbBackup)))
 
 	// Old PHP: bandwidth, routers, pool and logs are SuperAdmin/Admin only; customers are
