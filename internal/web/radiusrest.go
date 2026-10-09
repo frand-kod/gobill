@@ -102,10 +102,7 @@ func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
 	if action == "" {
 		action = r.FormValue("action")
 	}
-	rs := &radius.Server{Q: s.queries, Key: s.SecretKey, Trusted: func() bool { return s.ClockWarning == nil || s.ClockWarning() == "" }}
-	if s.Billing != nil {
-		rs.Redeem = s.Billing.RedeemVoucher
-	}
+	rs := s.radiusServer()
 	user := r.FormValue("username")
 	switch action {
 	case "authorize", "authenticate":
@@ -211,4 +208,19 @@ func (s *Server) acceptBody(d radius.Decision) kv {
 		}
 	}
 	return b
+}
+
+// radiusServer returns the shared instance (so throttles persist across requests);
+// tests without one get a single lazily built instance.
+func (s *Server) radiusServer() *radius.Server {
+	s.radiusOnce.Do(func() {
+		if s.Radius != nil {
+			return
+		}
+		s.Radius = &radius.Server{Q: s.queries, Key: s.SecretKey, Trusted: func() bool { return s.ClockWarning == nil || s.ClockWarning() == "" }}
+		if s.Billing != nil {
+			s.Radius.Redeem = s.Billing.RedeemVoucher
+		}
+	})
+	return s.Radius
 }

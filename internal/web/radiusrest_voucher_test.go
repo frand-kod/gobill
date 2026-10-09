@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/frand-kod/nuxbill-go/internal/billing"
 	"github.com/frand-kod/nuxbill-go/internal/db"
 	"github.com/frand-kod/nuxbill-go/internal/device"
+	"github.com/frand-kod/nuxbill-go/internal/radius"
 )
 
 func TestRadiusRestVoucher(t *testing.T) {
@@ -45,5 +47,35 @@ func TestRadiusRestVoucher(t *testing.T) {
 	w := post(h, "/radius.php?action=authorize", url.Values{"username": {"RV1"}, "password": {"RV1"}, "macAddr": {"cc:dd"}}, "")
 	if w.Code != 401 {
 		t.Fatalf("throttle %d %s", w.Code, w.Body)
+	}
+}
+
+func TestRadiusRestUserThrottle(t *testing.T) {
+	s, _ := restSetup(t, false)
+	h := s.Handler()
+	f := func(pw string) url.Values { return url.Values{"username": {"bob"}, "password": {pw}} }
+	for i := 0; i < 11; i++ {
+		post(h, "/radius.php?action=authorize", f("bad"), "")
+	}
+	w := post(h, "/radius.php?action=authorize", f("pw"), "")
+	if w.Code != 401 || !strings.Contains(w.Body.String(), "Too many attempts") {
+		t.Fatalf("not throttled: %d %s", w.Code, w.Body)
+	}
+}
+
+func TestRadiusRestSharedWithUDP(t *testing.T) {
+	s, _ := restSetup(t, false)
+	s.Radius = &radius.Server{Q: s.queries, Key: s.SecretKey}
+	h := s.Handler()
+	bad := func([]byte) (bool, string) { return false, "" }
+	for i := 0; i < 5; i++ { // the "UDP" side
+		s.Radius.Authorize(t.Context(), radius.AuthRequest{User: "bob", Check: bad})
+	}
+	for i := 0; i < 5; i++ {
+		post(h, "/radius.php?action=authorize", url.Values{"username": {"bob"}, "password": {"bad"}}, "")
+	}
+	w := post(h, "/radius.php?action=authorize", url.Values{"username": {"bob"}, "password": {"pw"}}, "")
+	if !strings.Contains(w.Body.String(), "Too many attempts") {
+		t.Fatalf("not shared: %d %s", w.Code, w.Body)
 	}
 }

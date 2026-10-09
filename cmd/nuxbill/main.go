@@ -120,14 +120,15 @@ func run() error {
 	go job.Run(ctx, "backup", time.Minute, backup.Run)
 
 	errCh := make(chan error, 2)
+	rs := &radius.Server{Q: db.New(conn), Key: key, Trusted: guard.Trusted, Redeem: svc.RedeemVoucher}
+	app.Radius = rs // shared with /radius.php so throttles and dedup state are common
 	if ra := env("NUXBILL_RADIUS", ":1812"); ra != "" {
 		host, port, err := net.SplitHostPort(ra)
 		p, perr := strconv.Atoi(port)
 		if err != nil || perr != nil {
 			return fmt.Errorf("NUXBILL_RADIUS %q: want host:port", ra)
 		}
-		rs := &radius.Server{Q: db.New(conn), Key: key, Trusted: guard.Trusted, Redeem: svc.RedeemVoucher,
-			AuthAddr: ra, AcctAddr: net.JoinHostPort(host, strconv.Itoa(p+1))}
+		rs.AuthAddr, rs.AcctAddr = ra, net.JoinHostPort(host, strconv.Itoa(p+1))
 		go func() {
 			slog.Info("radius listening", "auth", rs.AuthAddr, "acct", rs.AcctAddr)
 			if err := rs.ListenAndServe(ctx); err != nil {

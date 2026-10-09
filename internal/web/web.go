@@ -26,6 +26,7 @@ import (
 	"github.com/frand-kod/nuxbill-go/internal/billing"
 	"github.com/frand-kod/nuxbill-go/internal/db"
 	"github.com/frand-kod/nuxbill-go/internal/i18n"
+	"github.com/frand-kod/nuxbill-go/internal/radius"
 )
 
 const (
@@ -42,6 +43,10 @@ type Server struct {
 	templates map[string]*template.Template
 	lang      atomic.Value // string: current language, a global app setting
 	dummyHash []byte       // compared against when the username does not exist
+
+	// Radius is shared with the UDP listener so auth throttles apply to /radius.php too.
+	Radius     *radius.Server
+	radiusOnce sync.Once
 
 	// ClockWarning, if set, returns a non-empty reason while the clock is untrusted.
 	ClockWarning func() string
