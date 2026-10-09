@@ -9,7 +9,7 @@
 {{if .Data.Transfer}}<form class="card mb-4" method="post" action="/portal/transfer" data-confirm="{{T "Send {balance} to {username}?"}}"><h2 class="card-title">{{T "Send Balance"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">
   <div><label class="label" for="tu">{{T "Username"}}</label><input class="input" id="tu" name="username" required autocomplete="off"></div>
   <div><label class="label" for="tb">{{T "Balance"}}{{if .Data.Minimum}} (min {{.Data.Minimum}}){{end}}</label><input class="input" id="tb" name="balance" type="number" min="1" inputmode="numeric" required></div>
-  <div class="self-end"><button class="btn btn-primary" type="submit">{{T "Send Balance"}}</button></div>
+  <div class="self-end"><button class="btn" type="submit">{{T "Send Balance"}}</button></div>
 </div></form>{{end}}
 {{with .Data.Notice}}<div class="card mb-4"><h2 class="card-title">{{T "Announcement"}}</h2><div class="card-body whitespace-pre-line text-sm">{{.}}</div></div>{{end}}
 <div class="card"><h2 class="card-title">{{T "Active Subscriptions"}}</h2>

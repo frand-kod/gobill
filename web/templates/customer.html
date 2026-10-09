@@ -4,7 +4,7 @@
   <h1 class="page-title">{{.C.Username}} <span class="badge {{badge .C.Status}} align-middle">{{T .C.Status}}</span></h1>
   <div class="flex flex-wrap gap-2">
     {{if .CanSell}}<a class="btn btn-primary" href="#recharge">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
-    <a class="btn btn-primary" href="/admin/deposit?customer={{.C.Username}}">{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>
+    <a class="btn" href="/admin/deposit?customer={{.C.Username}}">{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>
     <a class="btn btn-ghost" href="/admin/message/send?customer={{.C.ID}}">{{icon "scroll-text"}}<span>{{T "Send Message"}}</span></a>{{end}}
     {{if .Manage}}
     <form method="post" action="/admin/customers/{{.C.ID}}/sync"><button class="btn btn-ghost" type="submit">{{icon "network"}}<span>{{T "Sync"}}</span></button></form>

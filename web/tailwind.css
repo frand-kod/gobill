@@ -43,7 +43,7 @@
     /* accent: teal. --accent must give --on-accent >= 4.5:1; tints are mixed with the surface */
     --accent: #0b7f79;
     --on-accent: #ffffff;
-    --accent-fg: var(--fg-l, color-mix(in srgb, var(--accent) 75%, black));
+    --accent-fg: var(--fg-l, color-mix(in srgb, var(--accent) 60%, black));
     --accent-600: color-mix(in srgb, var(--accent) 88%, black);
     --accent-700: color-mix(in srgb, var(--accent) 74%, black);
     --accent-50: color-mix(in srgb, var(--accent) 9%, var(--surface));
