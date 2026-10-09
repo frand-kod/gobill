@@ -239,7 +239,7 @@ func (s *Server) adminSave(w http.ResponseWriter, r *http.Request) {
 	var hash []byte
 	if pass != "" {
 		var err error
-		if hash, err = bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost); err != nil {
+		if hash, err = bcrypt.GenerateFromPassword([]byte(pass), bcryptCost); err != nil {
 			s.fail(w, "hash password", err)
 			return
 		}
@@ -358,7 +358,7 @@ func (s *Server) passwordSave(w http.ResponseWriter, r *http.Request) {
 		again(422)
 		return
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(pass), bcryptCost)
 	if err != nil {
 		s.fail(w, "hash password", err)
 		return

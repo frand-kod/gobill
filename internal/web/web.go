@@ -104,7 +104,7 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	dummy, err := bcrypt.GenerateFromPassword([]byte("not-a-real-password"), bcrypt.DefaultCost)
+	dummy, err := bcrypt.GenerateFromPassword([]byte("not-a-real-password"), bcryptCost)
 	if err != nil {
 		return nil, err
 	}
@@ -495,3 +495,6 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, name
 	w.WriteHeader(status)
 	buf.WriteTo(w)
 }
+
+// bcryptCost is lowered by tests; bcrypt at the default cost dominates test time under -race.
+var bcryptCost = bcrypt.DefaultCost

@@ -87,7 +87,7 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "forgot otp", err)
 		return
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(otp), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(otp), bcryptCost)
 	if err != nil {
 		s.fail(w, "forgot hash", err)
 		return

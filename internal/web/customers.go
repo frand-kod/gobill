@@ -360,7 +360,7 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 // setPassword stores a new portal password and, as in the old app (one password for portal and
 // router), the same value as the router secret.
 func (s *Server) setPassword(ctx context.Context, id int64, pass string) error {
-	hash, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(pass), bcryptCost)
 	if err != nil {
 		return err
 	}
@@ -443,7 +443,7 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 		cid := id
 		if id == 0 {
 			var hash []byte
-			if hash, err = bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost); err != nil {
+			if hash, err = bcrypt.GenerateFromPassword([]byte(pass), bcryptCost); err != nil {
 				s.fail(w, "hash password", err)
 				return
 			}
@@ -462,7 +462,7 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 				PppoeIp: v["pppoe_ip"], SecretEnc: enc, AutoRenewal: renew, Status: v["status"], BillingDay: bday, Coordinates: coords, ID: id})
 			if err == nil && pass != "" {
 				var hash []byte
-				if hash, err = bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost); err == nil {
+				if hash, err = bcrypt.GenerateFromPassword([]byte(pass), bcryptCost); err == nil {
 					err = s.queries.SetCustomerPassword(ctx, db.SetCustomerPasswordParams{PasswordHash: string(hash), ID: id})
 				}
 			}

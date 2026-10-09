@@ -221,7 +221,7 @@ func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
 	otp, err := newOTP()
 	var hash []byte
 	if err == nil {
-		hash, err = bcrypt.GenerateFromPassword([]byte(otp), bcrypt.DefaultCost)
+		hash, err = bcrypt.GenerateFromPassword([]byte(otp), bcryptCost)
 	}
 	if err != nil {
 		s.fail(w, "portal contact otp", err)

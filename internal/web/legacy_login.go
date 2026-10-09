@@ -20,7 +20,7 @@ func (s *Server) legacyLogin(ctx context.Context, id int64, password string) boo
 	if subtle.ConstantTimeCompare([]byte(hex.EncodeToString(sum[:])), []byte(want)) != 1 {
 		return false
 	}
-	if h, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost); err == nil {
+	if h, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost); err == nil {
 		s.conn.ExecContext(ctx, "UPDATE admins SET password_hash = ?, legacy_sha1 = '' WHERE id = ?", string(h), id)
 	}
 	return true

@@ -175,7 +175,7 @@ func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	c, err := s.queries.GetCustomerByUsername(ctx, username)
 	if err != nil {
-		hash, herr := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
+		hash, herr := bcrypt.GenerateFromPassword([]byte(code), bcryptCost)
 		enc, serr := secret.Seal(s.SecretKey, []byte(code))
 		if herr != nil || serr != nil {
 			s.fail(w, "voucher login", errors.Join(herr, serr))
@@ -324,7 +324,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		show("Account already exists")
 		return
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(f("password")), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(f("password")), bcryptCost)
 	var enc []byte
 	if err == nil {
 		enc, err = secret.Seal(s.SecretKey, []byte(f("password")))
