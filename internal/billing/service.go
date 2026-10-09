@@ -83,6 +83,7 @@ type pending struct {
 	plan   db.Plan
 	change bool // plan change: PPPoE sessions are dropped so the new profile applies
 	trx    db.CreateTransactionParams
+	trxID  int64
 	first  bool // first activation (no active subscription before)
 	expiry time.Time
 }
@@ -300,9 +301,11 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		pend = &pending{cust: c, plan: plan, change: found && !extend, trx: trx, first: !found, expiry: exp}
 	}
 
-	if _, err := q.CreateTransaction(ctx, trx); err != nil {
+	t, err := q.CreateTransaction(ctx, trx)
+	if err != nil {
 		return nil, err
 	}
+	pend.trxID = t.ID
 	actor := "system"
 	if adminID > 0 {
 		actor = "admin"
@@ -383,7 +386,9 @@ func (s *Service) notifyRecharge(p *pending) {
 	gw, ch, _ := strings.Cut(p.trx.Method, " - ")
 	vars := map[string]string{"invoice": p.trx.Invoice, "date": time.Unix(p.trx.PeriodStart, 0).In(loc).Format(layout),
 		"payment_gateway": gw, "payment_channel": ch, "type": p.trx.Type, "plan_name": p.plan.Name,
-		"plan_price": strconv.FormatInt(p.trx.Price, 10), "expired_date": p.expiry.In(loc).Format(layout)}
+		"plan_price": notify.Money(p.trx.Price), "price": notify.Money(p.trx.Price), "expired_date": p.expiry.In(loc).Format(layout),
+		"trx_date": time.Unix(p.trx.PeriodStart, 0).In(loc).Format(layout), "note": p.trx.Note,
+		"bills": p.trx.Note + "Total : " + notify.Money(p.trx.Price) + "\n", "invoice_link": fmt.Sprintf("/portal/orders/%d/invoice", p.trxID)}
 	data := map[string]any{"invoice": p.trx.Invoice, "username": p.cust.Username, "plan": p.plan.Name, "type": p.trx.Type,
 		"price": p.trx.Price, "method": p.trx.Method, "router": p.trx.RouterName, "expires_at": p.expiry.Unix()}
 	n.Go("recharge", func(ctx context.Context) error { return n.RechargeSuccess(ctx, p.cust, vars) })
@@ -441,7 +446,8 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 	}
 	nf := s.notifier()
 	if nf != nil {
-		v := map[string]string{"expired_date": time.Unix(sub.ExpiresAt, 0).In(s.now().Location()).Format("2006-01-02 15:04:05")}
+		v := s.packageVars(ctx, c.ID, plan.Price)
+		v["expired_date"] = time.Unix(sub.ExpiresAt, 0).In(s.now().Location()).Format("2006-01-02 15:04:05")
 		nf.Go("expired", func(ctx context.Context) error { return nf.Expired(ctx, c, plan.Name, v) })
 		nf.Go("webhook", func(ctx context.Context) error {
 			return nf.Webhook(ctx, "recharge.expired", map[string]any{"username": c.Username, "plan": plan.Name, "expires_at": sub.ExpiresAt})

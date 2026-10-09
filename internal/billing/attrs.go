@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/notify"
 )
 
 // PHP kept per-customer "attributes" in tbl_customers_fields; gobill keeps them as custom
@@ -89,6 +90,18 @@ func payBills(ctx context.Context, q *db.Queries, customerID int64, items []bill
 		}
 	}
 	return nil
+}
+
+// packageVars are the [[price]] and [[bills]] placeholders of sendPackageNotification:
+// bills lists the customer's extra charges and ends with the total.
+func (s *Service) packageVars(ctx context.Context, customerID, price int64) map[string]string {
+	items, add := customerBills(attrs(ctx, s.Q, customerID))
+	var b strings.Builder
+	for _, it := range items {
+		fmt.Fprintf(&b, "%s : %s\n", it.Name, notify.Money(it.Cost))
+	}
+	fmt.Fprintf(&b, "Total : %s\n", notify.Money(price+add))
+	return map[string]string{"price": notify.Money(price), "bills": b.String()}
 }
 
 func setAttr(ctx context.Context, q *db.Queries, customerID int64, name, value string) error {
