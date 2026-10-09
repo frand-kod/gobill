@@ -30,7 +30,7 @@ func TestPeriodRepurchasePrice(t *testing.T) {
 	}
 	var price int64
 	e.conn.QueryRow("SELECT price FROM transactions ORDER BY id DESC LIMIT 1").Scan(&price)
-	if price != 10000 || bal-e.balance() != price {
+	if price != 3333 || bal-e.balance() != price { // 3333 = the Invoice attribute set by the first (prorated) activation, IM1
 		t.Fatalf("recorded %d charged %d", price, bal-e.balance())
 	}
 }

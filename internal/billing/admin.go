@@ -173,5 +173,10 @@ func (s *Service) DeactivateSubscription(ctx context.Context, id, adminID int64)
 	if err != nil || n == 0 {
 		return err
 	}
+	who := "system"
+	if a, err := s.Q.GetAdmin(ctx, adminID); err == nil {
+		who = a.Username
+	}
+	s.telegram("Admin " + who + " Deactivate " + plan.Name + " for u" + c.Username) // customers.php:268
 	return s.logAdmin(ctx, s.Q, adminID, "subscription.deactivate", c.Username+" "+plan.Name)
 }

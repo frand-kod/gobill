@@ -137,7 +137,7 @@ func (s *Service) SendPlan(ctx context.Context, fromID int64, friend string, pla
 				return ErrFriendPlanDiffers
 			}
 		}
-		if p, err = s.recharge(ctx, q, to.ID, plan.ID, "Balance - Gift from "+from.Username, 0, charge(ctx, q, plan)); err != nil {
+		if p, err = s.recharge(ctx, q, to.ID, plan.ID, "Balance - Gift from "+from.Username, 0, nil); err != nil {
 			return err
 		}
 		if err = debit(ctx, q, from.ID, p.trx.Price); err != nil {

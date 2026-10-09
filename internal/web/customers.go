@@ -32,12 +32,11 @@ func custFields(v, e map[string]string, editing bool) []field {
 	sec := text("secret", "Router Secret", v, e).as("password").hint("Hotspot/PPPoE password on the router. Leave empty to use the Password above (or keep the current one when no new password is entered).")
 	ar := text("auto_renewal", "Auto Renewal", v, e).as("checkbox")
 	ar.Checked = v["auto_renewal"] == "1"
-	fs := []field{}
+	fs := []field{text("username", "Username", v, e).req()}
 	if editing {
 		pw.Hint = "Leave empty to keep the current password"
 	} else {
 		pw.Required = true
-		fs = append(fs, text("username", "Username", v, e).req())
 	}
 	acct := section(append(fs, pw, text("fullname", "Full Name", v, e).req(), text("status", "Status", v, e).opts(custStatuses...)), "Account", "")
 	contact := section([]field{
@@ -170,7 +169,7 @@ func (s *Server) custEdit(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	v := map[string]string{"fullname": c.Fullname, "address": c.Address, "phone": c.Phone, "email": c.Email, "coordinates": c.Coordinates,
+	v := map[string]string{"username": c.Username, "fullname": c.Fullname, "address": c.Address, "phone": c.Phone, "email": c.Email, "coordinates": c.Coordinates,
 		"service_type": c.ServiceType, "pppoe_username": c.PppoeUsername, "pppoe_ip": c.PppoeIp,
 		"auto_renewal": fmt.Sprint(c.AutoRenewal), "status": c.Status}
 	if c.BillingDay.Valid {
@@ -404,13 +403,26 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 		if cur, ok = s.custGet(w, r); !ok {
 			return
 		}
+	} else if pass == "" {
+		e["password"] = "This field is required"
+	}
+	v["username"] = strings.TrimSpace(v["username"])
+	if id != 0 && !r.PostForm.Has("username") { // a post without the field keeps the username
 		v["username"] = cur.Username
-	} else {
-		if v["username"] == "" {
-			e["username"] = "This field is required"
+	}
+	if v["username"] == "" {
+		e["username"] = "This field is required"
+	}
+	// RADIUS logs in by username or pppoe_username, so neither may collide with another customer.
+	for _, f := range []string{"username", "pppoe_username"} {
+		if _, ok := e[f]; ok || v[f] == "" || id != 0 && v[f] == cur.Username && f == "username" || id != 0 && v[f] == cur.PppoeUsername && f == "pppoe_username" {
+			continue
 		}
-		if pass == "" {
-			e["password"] = "This field is required"
+		if _, err := s.queries.FindLoginNameOwner(r.Context(), db.FindLoginNameOwnerParams{Self: id, Name: v[f]}); err == nil {
+			e[f] = "Username already used by another customer"
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			s.fail(w, "check username", err)
+			return
 		}
 	}
 	if v["fullname"] == "" {
@@ -476,9 +488,14 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 				s.welcome(ctx, c, welcomeChannels(v))
 			}
 		} else {
-			err = s.queries.UpdateCustomer(ctx, db.UpdateCustomerParams{Fullname: v["fullname"], Address: v["address"],
-				Phone: v["phone"], Email: v["email"], ServiceType: v["service_type"], PppoeUsername: v["pppoe_username"],
-				PppoeIp: v["pppoe_ip"], SecretEnc: enc, AutoRenewal: renew, Status: v["status"], BillingDay: bday, Coordinates: coords, ID: id})
+			if v["username"] != cur.Username { // first, so a clash changes nothing
+				err = s.queries.RenameCustomer(ctx, db.RenameCustomerParams{Username: v["username"], ID: id})
+			}
+			if err == nil {
+				err = s.queries.UpdateCustomer(ctx, db.UpdateCustomerParams{Fullname: v["fullname"], Address: v["address"],
+					Phone: v["phone"], Email: v["email"], ServiceType: v["service_type"], PppoeUsername: v["pppoe_username"],
+					PppoeIp: v["pppoe_ip"], SecretEnc: enc, AutoRenewal: renew, Status: v["status"], BillingDay: bday, Coordinates: coords, ID: id})
+			}
 			if err == nil && pass != "" {
 				var hash []byte
 				if hash, err = bcrypt.GenerateFromPassword([]byte(pass), bcryptCost); err == nil {
@@ -499,8 +516,9 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 			act, msg := "customer.create", "Data Created Successfully"
 			if id != 0 {
 				act, msg = "customer.update", "Data Updated Successfully"
-				if (pass != "" || sec != "") && s.Billing != nil { // new password goes to the router, as the old app did
-					if _, serr := s.Billing.SyncCustomer(r.Context(), id, adminFrom(r).ID); serr != nil {
+				// A new password, username, pppoe username/ip goes to the router, as the old app did.
+				if (pass != "" || sec != "" || v["username"] != cur.Username || v["pppoe_username"] != cur.PppoeUsername || v["pppoe_ip"] != cur.PppoeIp) && s.Billing != nil {
+					if _, serr := s.Billing.SyncAfterEdit(r.Context(), cur, adminFrom(r).ID); serr != nil {
 						slog.Error("sync customer", "customer", v["username"], "err", serr)
 						s.logActivity(r, "customer.sync_failed", fmt.Sprintf("%s: %v", v["username"], serr))
 						s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Saved, but the router could not be updated")+": "+serr.Error())

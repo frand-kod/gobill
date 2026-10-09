@@ -59,7 +59,12 @@ func (s *Service) sendReminders(ctx context.Context, n *notify.Notifier, now tim
 		if err != nil {
 			return err
 		}
-		v := map[string]string{"expired_date": e.Format("2006-01-02 15:04:05")}
+		price := p.Price
+		if inv := parseMoney(attrs(ctx, s.Q, c.ID)["Invoice"]); p.ValidityUnit == "Period" && inv > 0 {
+			price = inv // postpaid: the invoice amount, as cron_reminder.php
+		}
+		v := s.packageVars(ctx, c.ID, price)
+		v["expired_date"] = e.Format("2006-01-02 15:04:05")
 		n.Go("reminder", func(ctx context.Context) error { return n.Reminder(ctx, c, days, p.Name, v) })
 	}
 	return nil

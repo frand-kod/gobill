@@ -83,6 +83,7 @@ type pending struct {
 	plan   db.Plan
 	change bool // plan change: PPPoE sessions are dropped so the new profile applies
 	trx    db.CreateTransactionParams
+	trxID  int64
 	first  bool // first activation (no active subscription before)
 	expiry time.Time
 }
@@ -97,11 +98,7 @@ type pending struct {
 func (s *Service) Recharge(ctx context.Context, customerID, planID int64, method string, adminID int64) error {
 	var p *pending
 	err := s.tx(ctx, func(q *db.Queries) (err error) {
-		plan, err := q.GetPlan(ctx, planID)
-		if err != nil {
-			return err
-		}
-		p, err = s.recharge(ctx, q, customerID, planID, method, adminID, charge(ctx, q, plan))
+		p, err = s.recharge(ctx, q, customerID, planID, method, adminID, nil)
 		return
 	})
 	if err != nil {
@@ -116,7 +113,7 @@ func (s *Service) Recharge(ctx context.Context, customerID, planID int64, method
 func (s *Service) RechargeZero(ctx context.Context, customerID, planID int64, method string, adminID int64) error {
 	var p *pending
 	err := s.tx(ctx, func(q *db.Queries) (err error) {
-		p, err = s.recharge(ctx, q, customerID, planID, method, adminID, &couponUse{})
+		p, err = s.recharge(ctx, q, customerID, planID, method, adminID, &couponUse{mode: modeZero})
 		return
 	})
 	if err != nil {
@@ -138,7 +135,7 @@ func (s *Service) RechargeWithBalance(ctx context.Context, customerID, planID, a
 			return errors.New("cannot pay a balance top-up from balance")
 		}
 		// The debit is what the transaction records (recharge decides the price), so it follows it.
-		if p, err = s.recharge(ctx, q, customerID, planID, "Customer - Balance", adminID, charge(ctx, q, plan)); err != nil {
+		if p, err = s.recharge(ctx, q, customerID, planID, "Customer - Balance", adminID, nil); err != nil {
 			return err
 		}
 		return debit(ctx, q, customerID, p.trx.Price)
@@ -167,7 +164,7 @@ func (s *Service) RedeemVoucher(ctx context.Context, code string, customerID int
 		if n == 0 {
 			return ErrVoucherInvalid
 		}
-		p, err = s.recharge(ctx, q, customerID, v.PlanID, "Voucher - "+code, 0, nil)
+		p, err = s.recharge(ctx, q, customerID, v.PlanID, "Voucher - "+code, 0, &couponUse{noTax: true})
 		return err // a failed recharge rolls the claim back too
 	})
 	if err != nil {
@@ -245,7 +242,9 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		PeriodStart: now.Unix(), PeriodEnd: now.Unix(),
 	}
 	if cp != nil {
-		trx.Price = cp.price // what was actually charged: coupon-discounted, or 0 for Recharge Zero
+		if cp.mode == modeZero || cp.mode == modeTotal {
+			trx.Price = cp.price // Recharge Zero, or what the gateway charged
+		}
 		if cp.code != "" {
 			trx.Note = "Coupon " + cp.code
 		}
@@ -279,13 +278,17 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		}
 		exp := NewExpiry(from, int(plan.Validity), Unit(plan.ValidityUnit), Options{Extend: extend, BillingDay: billingDay(c, plan)})
 		trx.PeriodStart, trx.PeriodEnd = start, exp.Unix()
-		// PHP: only the very first Period activation (no recharge row, active or not) is billed 0.
-		if plan.ValidityUnit == "Period" {
-			if had, err := hadSub(ctx, q, customerID, rid, plan.Type); err != nil {
-				return nil, err
-			} else if !had {
-				trx.Price = 0
-			}
+		// PHP: only the very first Period activation (never had a recharge row, active or not) is
+		// billed 0 and carries no bills. Otherwise: price (Invoice attr for Period, or the coupon-
+		// discounted price) + tax on that + the customer's bills.
+		var bills []billItem
+		qt, err := quote(ctx, q, customerID, plan, cp)
+		if err != nil {
+			return nil, err
+		}
+		trx.Price, bills = qt.price, qt.bills
+		if qt.note != "" {
+			trx.Note = qt.note + trx.Note
 		}
 
 		if found {
@@ -298,12 +301,30 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		if err != nil {
 			return nil, err
 		}
+		if err := payBills(ctx, q, customerID, bills); err != nil {
+			return nil, err
+		}
+		if plan.ValidityUnit == "Period" && plan.Price != 0 {
+			// Next invoice: the plan price, prorated by days after the first activation.
+			inv := plan.Price
+			if !found {
+				days := int64(exp.Sub(now).Hours() / 24)
+				if g := plan.Price * days / (30 * plan.Validity); g < inv {
+					inv = g
+				}
+			}
+			if err := setAttr(ctx, q, customerID, "Invoice", strconv.FormatInt(inv, 10)); err != nil {
+				return nil, err
+			}
+		}
 		pend = &pending{cust: c, plan: plan, change: found && !extend, trx: trx, first: !found, expiry: exp}
 	}
 
-	if _, err := q.CreateTransaction(ctx, trx); err != nil {
+	t, err := q.CreateTransaction(ctx, trx)
+	if err != nil {
 		return nil, err
 	}
+	pend.trxID = t.ID
 	actor := "system"
 	if adminID > 0 {
 		actor = "admin"
@@ -371,8 +392,17 @@ func (s *Service) apply(ctx context.Context, p *pending) {
 	}
 	if err != nil {
 		slog.Error("device: activate failed, sync manually", "customer", p.cust.Username, "plan", p.plan.Name, "err", err)
+		s.telegram(fmt.Sprintf("System Error. When activate Package. You need to sync manually\nRouter: %s\nCustomer: u%s\nPlan: p%s\n%v",
+			p.trx.RouterName, p.cust.Username, p.plan.Name, err))
 	}
 	s.notifyRecharge(p)
+}
+
+// telegram sends an admin alert in the background; no-op without telegram_bot, never blocks or fails billing.
+func (s *Service) telegram(text string) {
+	if n := s.notifier(); n != nil {
+		n.Go("telegram", func(ctx context.Context) error { return n.Telegram(ctx, text) })
+	}
 }
 
 func (s *Service) activate(ctx context.Context, p *pending) error {
@@ -395,9 +425,20 @@ func (s *Service) notifyRecharge(p *pending) {
 	gw, ch, _ := strings.Cut(p.trx.Method, " - ")
 	vars := map[string]string{"invoice": p.trx.Invoice, "date": time.Unix(p.trx.PeriodStart, 0).In(loc).Format(layout),
 		"payment_gateway": gw, "payment_channel": ch, "type": p.trx.Type, "plan_name": p.plan.Name,
-		"plan_price": strconv.FormatInt(p.trx.Price, 10), "expired_date": p.expiry.In(loc).Format(layout)}
+		"plan_price": notify.Money(p.trx.Price), "price": notify.Money(p.trx.Price), "expired_date": p.expiry.In(loc).Format(layout),
+		"trx_date": time.Unix(p.trx.PeriodStart, 0).In(loc).Format(layout), "note": p.trx.Note,
+		"bills": p.trx.Note + "Total : " + notify.Money(p.trx.Price) + "\n", "invoice_link": fmt.Sprintf("/portal/orders/%d/invoice", p.trxID)}
 	data := map[string]any{"invoice": p.trx.Invoice, "username": p.cust.Username, "plan": p.plan.Name, "type": p.trx.Type,
 		"price": p.trx.Price, "method": p.trx.Method, "router": p.trx.RouterName, "expires_at": p.expiry.Unix()}
+	if p.plan.Type != "Balance" { // Package.php #recharge (extend) / #buy (new)
+		tag := "#recharge"
+		if p.first {
+			tag = "#buy"
+		}
+		s.telegram(fmt.Sprintf("#u%s %s %s #%s \n%s\nRouter: %s\nGateway: %s\nChannel: %s\nExpired: %s\nPrice: %s\nNote:\n%s",
+			p.cust.Username, p.cust.Fullname, tag, p.plan.Type, p.plan.Name, p.trx.RouterName, gw, ch,
+			p.expiry.In(loc).Format(layout), notify.Money(p.trx.Price), p.trx.Note))
+	}
 	n.Go("recharge", func(ctx context.Context) error { return n.RechargeSuccess(ctx, p.cust, vars) })
 	n.Go("webhook", func(ctx context.Context) error { return n.Webhook(ctx, "payment.paid", data) })
 	if p.first {
@@ -453,13 +494,14 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 	}
 	nf := s.notifier()
 	if nf != nil {
-		v := map[string]string{"expired_date": time.Unix(sub.ExpiresAt, 0).In(s.now().Location()).Format("2006-01-02 15:04:05")}
+		v := s.packageVars(ctx, c.ID, plan.Price)
+		v["expired_date"] = time.Unix(sub.ExpiresAt, 0).In(s.now().Location()).Format("2006-01-02 15:04:05")
 		nf.Go("expired", func(ctx context.Context) error { return nf.Expired(ctx, c, plan.Name, v) })
 		nf.Go("webhook", func(ctx context.Context) error {
 			return nf.Webhook(ctx, "recharge.expired", map[string]any{"username": c.Username, "plan": plan.Name, "expires_at": sub.ExpiresAt})
 		})
 	}
-	if autoRenew && c.AutoRenewal == 1 && c.Status == "Active" && c.Balance >= WithTax(settingsMap(ctx, s.Q), plan.Price) {
+	if autoRenew && c.AutoRenewal == 1 && c.Status == "Active" && c.Balance >= WithTax(settingsMap(ctx, s.Q), plan.Price)+s.BillsTotal(ctx, c.ID) {
 		if err := s.RechargeWithBalance(ctx, c.ID, plan.ID, 0); err != nil {
 			if nf != nil {
 				txt := fmt.Sprintf("FAILED RENEWAL #cron\n\n#u.%s #buy #%s \n%s\nPrice: %d", c.Username, plan.Type, plan.Name, plan.Price)
@@ -602,7 +644,6 @@ func (s *Service) Preview(ctx context.Context, customerID, planID int64) (Rechar
 	if plan.Type == "Balance" {
 		return pv, nil
 	}
-	pv.Price = WithTax(settingsMap(ctx, s.Q), plan.Price)
 	active, found, err := activeSub(ctx, s.Q, customerID, plan.RouterID, plan.Type)
 	if err != nil {
 		return pv, err
@@ -612,12 +653,10 @@ func (s *Service) Preview(ctx context.Context, customerID, planID int64) (Rechar
 		from = time.Unix(active.ExpiresAt, 0).In(from.Location())
 	}
 	pv.Expiry = NewExpiry(from, int(plan.Validity), Unit(plan.ValidityUnit), Options{Extend: pv.Extends, BillingDay: billingDay(c, plan)})
-	if plan.ValidityUnit == "Period" {
-		if had, err := hadSub(ctx, s.Q, customerID, plan.RouterID, plan.Type); err != nil {
-			return pv, err
-		} else if !had {
-			pv.Price = 0
-		}
+	qt, err := quote(ctx, s.Q, customerID, plan, nil)
+	if err != nil {
+		return pv, err
 	}
+	pv.Price = qt.price
 	return pv, nil
 }

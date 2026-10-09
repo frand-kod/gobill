@@ -17,10 +17,22 @@ var (
 	ErrCouponTooBig   = errors.New("discount value exceeds the plan price")
 )
 
+// couponUse changes how recharge prices an order (nil = plan price + tax + bills):
+// modeDiscount: price replaces the plan price (coupon); modeTotal: price is the whole amount
+// charged (gateway); modeZero: free (Recharge Zero). noTax: no tax (vouchers).
 type couponUse struct {
 	code  string
 	price int64
+	mode  int
+	noTax bool
 }
+
+const (
+	modeNone = iota
+	modeDiscount
+	modeTotal
+	modeZero
+)
 
 // Discount validates c for an order of price and returns the discounted price (old order.php:
 // percent is capped by max_discount when set; a discount >= price is refused, so the result is > 0).
@@ -71,13 +83,13 @@ func (s *Service) RechargeWithBalanceCoupon(ctx context.Context, customerID, pla
 		if err != nil {
 			return err
 		}
-		price = WithTax(settingsMap(ctx, q), price) // tax on the discounted price
+		// the coupon discounts the plan price only; recharge adds bills and tax on top
 		if n, err := q.UseCoupon(ctx, c.ID); err != nil {
 			return err
 		} else if n == 0 {
 			return ErrCouponUsed
 		}
-		if p, err = s.recharge(ctx, q, customerID, planID, "Customer - Balance", 0, &couponUse{c.Code, price}); err != nil {
+		if p, err = s.recharge(ctx, q, customerID, planID, "Customer - Balance", 0, &couponUse{code: c.Code, price: price, mode: modeDiscount}); err != nil {
 			return err
 		}
 		return debit(ctx, q, customerID, p.trx.Price)

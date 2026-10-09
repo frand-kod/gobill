@@ -969,6 +969,7 @@
     "Invalid email address": "Alamat email tidak valid",
     "Enter a day between 1 and 31": "Masukkan tanggal antara 1 dan 31",
     "Username already exists": "Username sudah ada",
+    "Username already used by another customer": "Username sudah dipakai pelanggan lain",
     "Customer has transactions and cannot be deleted": "Pelanggan memiliki transaksi dan tidak dapat dihapus",
     "Bandwidth is used by a plan": "Bandwidth dipakai oleh paket",
     "Router is used by a plan": "Router dipakai oleh paket",

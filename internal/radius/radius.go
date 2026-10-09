@@ -230,7 +230,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 		if vl {
 			return Decision{Reject: "Voucher Expired..."}
 		}
-		return Decision{Reject: "No active plan"}
+		return Decision{Reject: "Internet Plan Expired.."}
 	}
 	left := pl.ExpiresAt - s.now().Unix()
 	if left <= 0 {
@@ -264,6 +264,11 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 			t := pl.TimeLimit.Int64 * 60
 			if pl.TimeUnit.String == "Hrs" {
 				t *= 60
+			}
+			// Max-All-Session: the limit is the total online time since activation, not per login.
+			used, _ := s.Q.SumRadiusSessionTime(ctx, db.SumRadiusSessionTimeParams{Username: user, StartedAt: pl.StartedAt})
+			if t -= used; t <= 0 {
+				return Decision{Reject: "You have exceeded your time limit."}
 			}
 			if d.Timeout == 0 || t < d.Timeout {
 				d.Timeout = t

@@ -2,6 +2,7 @@ package billing
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -36,14 +37,53 @@ func settingsMap(ctx context.Context, q *db.Queries) map[string]string {
 	return m
 }
 
-// charge is the tax-inclusive price of a plan that is paid for (cash, balance); nil when tax
-// changes nothing, so recharge records the plain plan price. Balance top-ups are never taxed.
-func charge(ctx context.Context, q *db.Queries, plan db.Plan) *couponUse {
-	if plan.Type == "Balance" {
-		return nil
+type quoted struct {
+	price int64
+	bills []billItem
+	note  string
+}
+
+// quote is the one price formula of a paid recharge (see couponUse for cp):
+//
+//	base  = plan price; the Invoice attribute for Period plans; the coupon price with a coupon
+//	price = base + tax(base) + the customer's bills        (PHP: tax is on the plan price only)
+//
+// The very first Period activation (never had a subscription for that router and type) and
+// Recharge Zero cost 0 and carry no bills. A gateway payment records the amount it charged.
+func quote(ctx context.Context, q *db.Queries, customerID int64, plan db.Plan, cp *couponUse) (quoted, error) {
+	if cp != nil && cp.mode == modeZero {
+		return quoted{}, nil
 	}
-	if p := WithTax(settingsMap(ctx, q), plan.Price); p != plan.Price {
-		return &couponUse{price: p}
+	period := plan.ValidityUnit == "Period"
+	if period {
+		if had, err := hadSub(ctx, q, customerID, plan.RouterID, plan.Type); err != nil || !had {
+			return quoted{}, err
+		}
 	}
-	return nil
+	at := attrs(ctx, q, customerID)
+	bills, add := customerBills(at)
+	base := plan.Price
+	if inv := parseMoney(at["Invoice"]); period && inv > 0 {
+		base = inv
+	}
+	if cp != nil && cp.mode == modeDiscount {
+		base = cp.price
+	}
+	out := quoted{price: base + add, bills: bills}
+	if cp == nil || !cp.noTax {
+		out.price = WithTax(settingsMap(ctx, q), base) + add
+	}
+	if cp != nil && cp.mode == modeTotal {
+		out.price = cp.price
+	}
+	if add != 0 {
+		out.note = billsNote(bills) + fmt.Sprintf("%s : %d\n", plan.Name, base)
+	}
+	return out, nil
+}
+
+// OrderPrice is what a gateway order for a plan at base price costs: tax on base, plus the
+// customer's bills, the same as quote.
+func (s *Service) OrderPrice(ctx context.Context, customerID, base int64) int64 {
+	return WithTax(settingsMap(ctx, s.Q), base) + s.BillsTotal(ctx, customerID)
 }

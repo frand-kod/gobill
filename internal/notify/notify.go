@@ -252,6 +252,44 @@ func Render(tpl string, vars map[string]string) string {
 	return strings.NewReplacer(kv...).Replace(tpl)
 }
 
+var anyPlaceholder = regexp.MustCompile(`\[\[[^\[\]]*\]\]`)
+
+// Money formats rupiah like the old Lang::moneyFormat: "Rp 1.234.000".
+func Money(v int64) string {
+	d, neg := strconv.FormatInt(v, 10), ""
+	if v < 0 {
+		d, neg = d[1:], "-"
+	}
+	for i := len(d) - 3; i > 0; i -= 3 {
+		d = d[:i] + "." + d[i:]
+	}
+	return "Rp " + neg + d
+}
+
+// fill is Render for messages that get sent: payment_link / invoice_link become absolute
+// with app_url (empty without it), and a placeholder nobody filled becomes "" instead of
+// reaching the customer as raw "[[price]]".
+func (n *Notifier) fill(tpl string, v map[string]string) string {
+	out := make(map[string]string, len(v)+2)
+	for k, x := range v {
+		out[k] = x
+	}
+	if _, ok := out["payment_link"]; !ok {
+		out["payment_link"] = "/portal/plans"
+	}
+	base := strings.TrimRight(n.get("app_url"), "/")
+	for _, k := range []string{"payment_link", "invoice_link"} {
+		if strings.HasPrefix(out[k], "/") {
+			if base == "" {
+				out[k] = ""
+			} else {
+				out[k] = base + out[k]
+			}
+		}
+	}
+	return anyPlaceholder.ReplaceAllString(Render(tpl, out), "")
+}
+
 func (n *Notifier) template(name string) string {
 	if t := n.get("notif_" + name); t != "" {
 		return t
@@ -293,24 +331,24 @@ func (n *Notifier) RechargeSuccess(ctx context.Context, c db.Customer, vars map[
 			v[k] = n.get(s)
 		}
 	}
-	return n.send(ctx, c, n.get("user_notification_payment"), "Invoice #"+v["invoice"], Render(n.template("invoice_paid"), v))
+	return n.send(ctx, c, n.get("user_notification_payment"), "Invoice #"+v["invoice"], n.fill(n.template("invoice_paid"), v))
 }
 
 // Expired sends the expired message via user_notification_expired (cron.php).
 func (n *Notifier) Expired(ctx context.Context, c db.Customer, pkg string, vars map[string]string) error {
 	v := custVars(c, vars)
 	v["package"], v["plan"] = pkg, pkg
-	return n.send(ctx, c, n.get("user_notification_expired"), "Internet Plan Expired", Render(n.template("expired"), v))
+	return n.send(ctx, c, n.get("user_notification_expired"), "Internet Plan Expired", n.fill(n.template("expired"), v))
 }
 
 // Custom sends template `name` (settings notif_<name>) via user_notification_payment.
 func (n *Notifier) Custom(ctx context.Context, c db.Customer, name, subject string, vars map[string]string) error {
-	return n.send(ctx, c, n.get("user_notification_payment"), subject, Render(n.template(name), custVars(c, vars)))
+	return n.send(ctx, c, n.get("user_notification_payment"), subject, n.fill(n.template(name), custVars(c, vars)))
 }
 
 // CustomOn is Custom on explicit channels (sms, wa, email) instead of user_notification_payment.
 func (n *Notifier) CustomOn(ctx context.Context, c db.Customer, vias []string, name, subject string, vars map[string]string) error {
-	msg, err := Render(n.template(name), custVars(c, vars)), error(nil)
+	msg, err := n.fill(n.template(name), custVars(c, vars)), error(nil)
 	for _, v := range vias {
 		err = errors.Join(err, n.send(ctx, c, v, subject, msg))
 	}
@@ -325,5 +363,5 @@ func (n *Notifier) Reminder(ctx context.Context, c db.Customer, days int, pkg st
 	}
 	v := custVars(c, vars)
 	v["package"], v["plan"] = pkg, pkg
-	return n.send(ctx, c, n.get("user_notification_reminder"), "Internet Plan Reminder", Render(n.template(fmt.Sprintf("reminder_%d_day", days)), v))
+	return n.send(ctx, c, n.get("user_notification_reminder"), "Internet Plan Reminder", n.fill(n.template(fmt.Sprintf("reminder_%d_day", days)), v))
 }

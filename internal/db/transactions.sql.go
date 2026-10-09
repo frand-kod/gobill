@@ -318,6 +318,7 @@ type SumTransactionsBetweenParams struct {
 	CreatedAt_2 int64
 }
 
+// Income: like PHP top_widget, purchases paid from balance are not income (the top-up already was).
 func (q *Queries) SumTransactionsBetween(ctx context.Context, arg SumTransactionsBetweenParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, sumTransactionsBetween, arg.CreatedAt, arg.CreatedAt_2)
 	var column_1 int64

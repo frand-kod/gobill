@@ -141,7 +141,9 @@ func (s *Server) pPay(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	amount = billing.WithTax(st, amount) // PHP order.php:238, on the (discounted) price
+	if s.Billing != nil { // same formula as recharge: tax on the (discounted) price, then the customer's bills
+		amount = s.Billing.OrderPrice(r.Context(), c.ID, amount)
+	}
 	s.payOrder(w, r, g, c, p.ID, p.Name, amount, code, channel)
 }
 

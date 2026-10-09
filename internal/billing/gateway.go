@@ -24,7 +24,7 @@ func (s *Service) RechargePaid(ctx context.Context, claim func(*db.Queries) (boo
 		}
 		var cp *couponUse
 		if price > 0 { // record what the gateway charged (coupon discount and tax included)
-			cp = &couponUse{price: price}
+			cp = &couponUse{price: price, mode: modeTotal}
 		}
 		if coupon != "" {
 			if c, err := q.GetCouponByCode(ctx, coupon); err == nil {

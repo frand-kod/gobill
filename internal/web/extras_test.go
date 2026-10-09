@@ -32,6 +32,11 @@ func (d remDev) RemoveCustomer(_ context.Context, c device.Customer, _ device.Pl
 	return nil
 }
 
+func (d remDev) ChangeUsername(_ context.Context, _ device.Plan, from, to string) error {
+	*d.calls = append(*d.calls, "rename "+from+">"+to)
+	return nil
+}
+
 func (e *billEnv) recordDevice() {
 	e.s.Billing.DeviceFor = func(db.Plan, db.Router) (device.Device, error) { return remDev{calls: e.calls}, nil }
 }
