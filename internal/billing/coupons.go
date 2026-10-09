@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 
 	"github.com/frand-kod/gobill/internal/db"
 )
@@ -77,18 +76,10 @@ func (s *Service) RechargeWithBalanceCoupon(ctx context.Context, customerID, pla
 		} else if n == 0 {
 			return ErrCouponUsed
 		}
-		cust, err := q.GetCustomer(ctx, customerID)
-		if err != nil {
+		if p, err = s.recharge(ctx, q, customerID, planID, "Customer - Balance", 0, &couponUse{c.Code, price}); err != nil {
 			return err
 		}
-		if cust.Balance < price {
-			return ErrInsufficientBalance
-		}
-		if _, err := q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: -price, ID: customerID}); err != nil {
-			return fmt.Errorf("debit balance: %w", err)
-		}
-		p, err = s.recharge(ctx, q, customerID, planID, "Customer - Balance", 0, &couponUse{c.Code, price})
-		return err
+		return debit(ctx, q, customerID, p.trx.Price)
 	})
 	if err != nil {
 		return err

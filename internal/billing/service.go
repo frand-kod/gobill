@@ -118,19 +118,11 @@ func (s *Service) RechargeWithBalance(ctx context.Context, customerID, planID, a
 		if plan.Type == "Balance" {
 			return errors.New("cannot pay a balance top-up from balance")
 		}
-		c, err := q.GetCustomer(ctx, customerID)
-		if err != nil {
+		// The debit is what the transaction records (recharge decides the price), so it follows it.
+		if p, err = s.recharge(ctx, q, customerID, planID, "Customer - Balance", adminID, nil); err != nil {
 			return err
 		}
-		if c.Balance < plan.Price {
-			return ErrInsufficientBalance
-		}
-		// CHECK (balance >= 0) is the backstop against a concurrent overdraw.
-		if _, err := q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: -plan.Price, ID: customerID}); err != nil {
-			return fmt.Errorf("debit balance: %w", err)
-		}
-		p, err = s.recharge(ctx, q, customerID, planID, "Customer - Balance", adminID, nil)
-		return err
+		return debit(ctx, q, customerID, p.trx.Price)
 	})
 	if err != nil {
 		return err
@@ -163,6 +155,21 @@ func (s *Service) RedeemVoucher(ctx context.Context, code string, customerID int
 		return err
 	}
 	s.apply(ctx, p)
+	return nil
+}
+
+// debit takes amount off the balance. CHECK (balance >= 0) is the backstop against a concurrent overdraw.
+func debit(ctx context.Context, q *db.Queries, customerID, amount int64) error {
+	c, err := q.GetCustomer(ctx, customerID)
+	if err != nil {
+		return err
+	}
+	if c.Balance < amount {
+		return ErrInsufficientBalance
+	}
+	if _, err := q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: -amount, ID: customerID}); err != nil {
+		return fmt.Errorf("debit balance: %w", err)
+	}
 	return nil
 }
 
@@ -250,9 +257,13 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		}
 		exp := NewExpiry(from, int(plan.Validity), Unit(plan.ValidityUnit), Options{Extend: extend, BillingDay: billingDay(c, plan)})
 		trx.PeriodStart, trx.PeriodEnd = start, exp.Unix()
-		// PHP: first postpaid Period activation is billed 0; later periods bill the plan price.
-		if plan.ValidityUnit == "Period" && !found {
-			trx.Price = 0
+		// PHP: only the very first Period activation (no recharge row, active or not) is billed 0.
+		if plan.ValidityUnit == "Period" {
+			if had, err := hadSub(ctx, q, customerID, rid, plan.Type); err != nil {
+				return nil, err
+			} else if !had {
+				trx.Price = 0
+			}
 		}
 
 		if found {
@@ -303,6 +314,17 @@ func activeSub(ctx context.Context, q *db.Queries, customerID int64, routerID sq
 		}
 	}
 	return db.Subscription{}, false, nil
+}
+
+// hadSub reports whether the customer ever had a subscription for (router, type), in any status.
+func hadSub(ctx context.Context, q *db.Queries, customerID int64, routerID sql.NullInt64, typ string) (bool, error) {
+	subs, err := q.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: customerID, Limit: 1000})
+	for _, sub := range subs {
+		if sub.RouterID == routerID && sub.Type == typ {
+			return true, err
+		}
+	}
+	return false, err
 }
 
 // billingDay: customer override, else the postpaid plan's day, else 0 (NewExpiry uses 20).
@@ -567,8 +589,12 @@ func (s *Service) Preview(ctx context.Context, customerID, planID int64) (Rechar
 		from = time.Unix(active.ExpiresAt, 0).In(from.Location())
 	}
 	pv.Expiry = NewExpiry(from, int(plan.Validity), Unit(plan.ValidityUnit), Options{Extend: pv.Extends, BillingDay: billingDay(c, plan)})
-	if plan.ValidityUnit == "Period" && !found {
-		pv.Price = 0
+	if plan.ValidityUnit == "Period" {
+		if had, err := hadSub(ctx, s.Q, customerID, plan.RouterID, plan.Type); err != nil {
+			return pv, err
+		} else if !had {
+			pv.Price = 0
+		}
 	}
 	return pv, nil
 }

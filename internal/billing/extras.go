@@ -137,13 +137,13 @@ func (s *Service) SendPlan(ctx context.Context, fromID int64, friend string, pla
 				return ErrFriendPlanDiffers
 			}
 		}
-		if from.Balance < plan.Price {
-			return ErrInsufficientBalance
-		}
-		if from.Balance, err = q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: -plan.Price, ID: from.ID}); err != nil {
-			return fmt.Errorf("debit balance: %w", err)
-		}
 		if p, err = s.recharge(ctx, q, to.ID, plan.ID, "Balance - Gift from "+from.Username, 0, nil); err != nil {
+			return err
+		}
+		if err = debit(ctx, q, from.ID, p.trx.Price); err != nil {
+			return err
+		}
+		if from, err = q.GetCustomer(ctx, from.ID); err != nil {
 			return err
 		}
 		inv, err := nextInvoice(ctx, q)
@@ -152,7 +152,7 @@ func (s *Service) SendPlan(ctx context.Context, fromID int64, friend string, pla
 		}
 		now := s.now().Unix()
 		_, err = q.CreateTransaction(ctx, db.CreateTransactionParams{Invoice: inv, CustomerID: sql.NullInt64{Int64: from.ID, Valid: true},
-			Username: from.Username, PlanName: "Send Plan: " + plan.Name, RouterName: "balance", Type: "Balance", Price: plan.Price,
+			Username: from.Username, PlanName: "Send Plan: " + plan.Name, RouterName: "balance", Type: "Balance", Price: p.trx.Price,
 			Method: "Customer - Balance", Note: to.Username, PeriodStart: now, PeriodEnd: now})
 		return err
 	})
