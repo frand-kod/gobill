@@ -29,6 +29,9 @@
         <script src="/static/maps.js"></script>
         {{else if eq .Type "textarea"}}
         <textarea class="input" id="{{.Name}}" name="{{.Name}}" rows="4"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>{{.Value}}</textarea>
+        {{else if eq .Type "watest"}}
+        <div class="flex flex-wrap gap-2"><input class="input flex-1" id="{{.Name}}" name="{{.Name}}" value="{{.Value}}" inputmode="tel" placeholder="08123456789"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
+        <button type="submit" class="btn btn-ghost" formaction="/admin/settings/integrations/wa-test">{{T "Send test message"}}</button></div>
         {{else if eq .Type "link"}}
         <p><a class="btn btn-primary" href="{{.Value}}">{{T "Download backup"}}</a></p>
         {{else}}

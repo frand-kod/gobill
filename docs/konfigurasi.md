@@ -47,3 +47,15 @@ Ubah di menu Settings (kunci di bawah muncul di tabel `settings`).
 | `disable_registration`, `disable_voucher`, `allow_phone_otp` | Pembatasan portal pelanggan |
 | `telegram_bot`, `wa_url`, `sms_url`, SMTP | Kanal notifikasi |
 | `tripay_*`, `merchant_code`, `api_key`, `private_key` | Gateway Tripay (lihat [keamanan.md](keamanan.md) soal penyimpanan) |
+
+## WhatsApp
+
+Ada dua cara mengirim WhatsApp. Yang dipakai ditentukan otomatis:
+
+1. **Server WA langsung** (disarankan): isi di Pengaturan > Integrasi, bagian "WhatsApp (server WA)":
+   `alt_wga_server_url` (mis. `http://127.0.0.1:3030`), `alt_wga_device_id` (opsional), `alt_wga_username` dan `alt_wga_password` (basic auth, jika server memakainya). NuxBill mengirim `POST <alt_wga_server_url>/send/message` dengan body `{"phone":"628xxx@s.whatsapp.net","message":"..."}`, sama seperti plugin "Alternative WhatsApp Gateway" di PHPNuxBill. Nomor yang diawali 0 diubah memakai `country_code_phone`.
+2. **`wa_url`** (URL template dengan `[number]` dan `[text]`): dipakai hanya jika `alt_wga_server_url` kosong.
+
+Jika `alt_wga_server_url` terisi, `wa_url` diabaikan sepenuhnya. Jika `wa_url` masih berisi alamat plugin PHP lama (`...?_route=plugin/wga_sendMessage&...`), NuxBill mencatat peringatan di log dan tetap mengirim langsung ke server WA. Kosongkan `wa_url` supaya tidak membingungkan.
+
+Tombol "Kirim pesan uji" di halaman yang sama mengirim satu pesan ke nomor yang Anda ketik, memakai isian di form (walau belum disimpan), lalu menampilkan jawaban server dalam bahasa biasa. Perangkat WhatsApp dan login QR tidak diatur di NuxBill: lakukan di halaman server WA sendiri.
