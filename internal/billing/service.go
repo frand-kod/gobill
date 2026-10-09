@@ -362,8 +362,17 @@ func (s *Service) apply(ctx context.Context, p *pending) {
 	}
 	if err != nil {
 		slog.Error("device: activate failed, sync manually", "customer", p.cust.Username, "plan", p.plan.Name, "err", err)
+		s.telegram(fmt.Sprintf("System Error. When activate Package. You need to sync manually\nRouter: %s\nCustomer: u%s\nPlan: p%s\n%v",
+			p.trx.RouterName, p.cust.Username, p.plan.Name, err))
 	}
 	s.notifyRecharge(p)
+}
+
+// telegram sends an admin alert in the background; no-op without telegram_bot, never blocks or fails billing.
+func (s *Service) telegram(text string) {
+	if n := s.notifier(); n != nil {
+		n.Go("telegram", func(ctx context.Context) error { return n.Telegram(ctx, text) })
+	}
 }
 
 func (s *Service) activate(ctx context.Context, p *pending) error {
@@ -391,6 +400,15 @@ func (s *Service) notifyRecharge(p *pending) {
 		"bills": p.trx.Note + "Total : " + notify.Money(p.trx.Price) + "\n", "invoice_link": fmt.Sprintf("/portal/orders/%d/invoice", p.trxID)}
 	data := map[string]any{"invoice": p.trx.Invoice, "username": p.cust.Username, "plan": p.plan.Name, "type": p.trx.Type,
 		"price": p.trx.Price, "method": p.trx.Method, "router": p.trx.RouterName, "expires_at": p.expiry.Unix()}
+	if p.plan.Type != "Balance" { // Package.php #recharge (extend) / #buy (new)
+		tag := "#recharge"
+		if p.first {
+			tag = "#buy"
+		}
+		s.telegram(fmt.Sprintf("#u%s %s %s #%s \n%s\nRouter: %s\nGateway: %s\nChannel: %s\nExpired: %s\nPrice: %s\nNote:\n%s",
+			p.cust.Username, p.cust.Fullname, tag, p.plan.Type, p.plan.Name, p.trx.RouterName, gw, ch,
+			p.expiry.In(loc).Format(layout), notify.Money(p.trx.Price), p.trx.Note))
+	}
 	n.Go("recharge", func(ctx context.Context) error { return n.RechargeSuccess(ctx, p.cust, vars) })
 	n.Go("webhook", func(ctx context.Context) error { return n.Webhook(ctx, "payment.paid", data) })
 	if p.first {
