@@ -71,6 +71,7 @@ func (s *Service) RechargeWithBalanceCoupon(ctx context.Context, customerID, pla
 		if err != nil {
 			return err
 		}
+		price = WithTax(settingsMap(ctx, q), price) // tax on the discounted price
 		if n, err := q.UseCoupon(ctx, c.ID); err != nil {
 			return err
 		} else if n == 0 {

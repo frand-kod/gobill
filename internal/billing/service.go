@@ -97,7 +97,11 @@ type pending struct {
 func (s *Service) Recharge(ctx context.Context, customerID, planID int64, method string, adminID int64) error {
 	var p *pending
 	err := s.tx(ctx, func(q *db.Queries) (err error) {
-		p, err = s.recharge(ctx, q, customerID, planID, method, adminID, nil)
+		plan, err := q.GetPlan(ctx, planID)
+		if err != nil {
+			return err
+		}
+		p, err = s.recharge(ctx, q, customerID, planID, method, adminID, charge(ctx, q, plan))
 		return
 	})
 	if err != nil {
@@ -134,7 +138,7 @@ func (s *Service) RechargeWithBalance(ctx context.Context, customerID, planID, a
 			return errors.New("cannot pay a balance top-up from balance")
 		}
 		// The debit is what the transaction records (recharge decides the price), so it follows it.
-		if p, err = s.recharge(ctx, q, customerID, planID, "Customer - Balance", adminID, nil); err != nil {
+		if p, err = s.recharge(ctx, q, customerID, planID, "Customer - Balance", adminID, charge(ctx, q, plan)); err != nil {
 			return err
 		}
 		return debit(ctx, q, customerID, p.trx.Price)
@@ -455,7 +459,7 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 			return nf.Webhook(ctx, "recharge.expired", map[string]any{"username": c.Username, "plan": plan.Name, "expires_at": sub.ExpiresAt})
 		})
 	}
-	if autoRenew && c.AutoRenewal == 1 && c.Status == "Active" && c.Balance >= plan.Price {
+	if autoRenew && c.AutoRenewal == 1 && c.Status == "Active" && c.Balance >= WithTax(settingsMap(ctx, s.Q), plan.Price) {
 		if err := s.RechargeWithBalance(ctx, c.ID, plan.ID, 0); err != nil {
 			if nf != nil {
 				txt := fmt.Sprintf("FAILED RENEWAL #cron\n\n#u.%s #buy #%s \n%s\nPrice: %d", c.Username, plan.Type, plan.Name, plan.Price)
@@ -598,6 +602,7 @@ func (s *Service) Preview(ctx context.Context, customerID, planID int64) (Rechar
 	if plan.Type == "Balance" {
 		return pv, nil
 	}
+	pv.Price = WithTax(settingsMap(ctx, s.Q), plan.Price)
 	active, found, err := activeSub(ctx, s.Q, customerID, plan.RouterID, plan.Type)
 	if err != nil {
 		return pv, err

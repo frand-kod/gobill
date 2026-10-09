@@ -23,10 +23,15 @@ func (s *Service) RechargePaid(ctx context.Context, claim func(*db.Queries) (boo
 			return creditPaid(ctx, q, s.now().Unix(), customerID, price, method, "Payment Credit")
 		}
 		var cp *couponUse
+		if price > 0 { // record what the gateway charged (coupon discount and tax included)
+			cp = &couponUse{price: price}
+		}
 		if coupon != "" {
 			if c, err := q.GetCouponByCode(ctx, coupon); err == nil {
 				_, _ = q.UseCoupon(ctx, c.ID)
-				cp = &couponUse{c.Code, price}
+				if cp != nil {
+					cp.code = c.Code
+				}
 			}
 		}
 		var err error
