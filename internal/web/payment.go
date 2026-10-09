@@ -109,6 +109,10 @@ func (s *Server) pPay(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal pay", err)
 		return
 	}
+	if c.Status != "Active" { // recharge would be refused after payment (PHP Package.php:44)
+		s.plansPage(w, r, 200, "account is not active")
+		return
+	}
 	chans, err := s.activeChannels(r.Context(), g)
 	channel, ok := r.PostFormValue("channel"), false
 	for _, ch := range chans {

@@ -177,23 +177,27 @@ func (s *Service) TopUpPaid(ctx context.Context, claim func(*db.Queries) (bool, 
 		if ok, err := claim(q); err != nil || !ok {
 			return err
 		}
-		c, err := q.GetCustomer(ctx, customerID)
-		if err != nil {
-			return err
-		}
-		if _, err = q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: amount, ID: customerID}); err != nil {
-			return err
-		}
-		inv, err := nextInvoice(ctx, q)
-		if err != nil {
-			return err
-		}
-		now := s.now().Unix()
-		_, err = q.CreateTransaction(ctx, db.CreateTransactionParams{Invoice: inv, CustomerID: sql.NullInt64{Int64: customerID, Valid: true},
-			Username: c.Username, PlanName: "Custom Balance", RouterName: "balance", Type: "Balance", Price: amount, Method: method,
-			PeriodStart: now, PeriodEnd: now})
-		return err
+		return creditPaid(ctx, q, s.now().Unix(), customerID, amount, method, "Custom Balance")
 	})
+}
+
+// creditPaid adds an already-paid amount to the balance and records it as a Balance transaction.
+func creditPaid(ctx context.Context, q *db.Queries, now, customerID, amount int64, method, name string) error {
+	c, err := q.GetCustomer(ctx, customerID)
+	if err != nil {
+		return err
+	}
+	if _, err = q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: amount, ID: customerID}); err != nil {
+		return err
+	}
+	inv, err := nextInvoice(ctx, q)
+	if err != nil {
+		return err
+	}
+	_, err = q.CreateTransaction(ctx, db.CreateTransactionParams{Invoice: inv, CustomerID: sql.NullInt64{Int64: customerID, Valid: true},
+		Username: c.Username, PlanName: name, RouterName: "balance", Type: "Balance", Price: amount, Method: method,
+		PeriodStart: now, PeriodEnd: now})
+	return err
 }
 
 // LogKinds are the log tables CleanLog knows.

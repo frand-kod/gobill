@@ -351,6 +351,9 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 	if errors.Is(err, billing.ErrInsufficientBalance) {
 		fail("Insufficient balance")
 		return
+	} else if errors.Is(err, billing.ErrInactive) {
+		fail("account is not active")
+		return
 	} else if err != nil {
 		slog.Error("recharge", "customer", c.Username, "plan", plan.Name, "err", err)
 		fail("Recharge failed")

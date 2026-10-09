@@ -203,6 +203,9 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 	if err != nil {
 		return nil, fmt.Errorf("customer %d: %w", customerID, err)
 	}
+	if c.Status != "Active" { // PHP Package::rechargeUser dies for any other status
+		return nil, ErrInactive
+	}
 	now := s.now()
 
 	invoice, err := nextInvoice(ctx, q)
@@ -412,7 +415,7 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 			return nf.Webhook(ctx, "recharge.expired", map[string]any{"username": c.Username, "plan": plan.Name, "expires_at": sub.ExpiresAt})
 		})
 	}
-	if autoRenew && c.AutoRenewal == 1 && c.Balance >= plan.Price {
+	if autoRenew && c.AutoRenewal == 1 && c.Status == "Active" && c.Balance >= plan.Price {
 		if err := s.RechargeWithBalance(ctx, c.ID, plan.ID, 0); err != nil {
 			if nf != nil {
 				txt := fmt.Sprintf("FAILED RENEWAL #cron\n\n#u.%s #buy #%s \n%s\nPrice: %d", c.Username, plan.Type, plan.Name, plan.Price)

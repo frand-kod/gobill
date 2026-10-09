@@ -331,6 +331,8 @@ func (s *Server) vchRedeem(w http.ResponseWriter, r *http.Request) {
 		switch err := s.Billing.RedeemVoucher(r.Context(), v["code"], c.ID); {
 		case errors.Is(err, billing.ErrVoucherInvalid):
 			e["code"] = "Voucher not valid or already used"
+		case errors.Is(err, billing.ErrInactive):
+			e["code"] = "account is not active"
 		case err != nil:
 			s.fail(w, "redeem voucher", err)
 			return

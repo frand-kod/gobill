@@ -17,6 +17,11 @@ func (s *Service) RechargePaid(ctx context.Context, claim func(*db.Queries) (boo
 		if ok, err := claim(q); err != nil || !ok {
 			return err
 		}
+		if c, err := q.GetCustomer(ctx, customerID); err == nil && c.Status != "Active" {
+			// PHP dies here and the payment is left in limbo. It is already claimed, so keep the
+			// money: credit the customer's balance, to be spent once the account is active again.
+			return creditPaid(ctx, q, s.now().Unix(), customerID, price, method, "Payment Credit")
+		}
 		var cp *couponUse
 		if coupon != "" {
 			if c, err := q.GetCouponByCode(ctx, coupon); err == nil {

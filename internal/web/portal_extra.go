@@ -72,6 +72,8 @@ func (s *Server) pVoucher(w http.ResponseWriter, r *http.Request) {
 			s.recordFailure(k)
 		}
 		s.prender(w, r, 200, "p_voucher", Page{Title: "Voucher Activation", Error: "Voucher Not Valid"})
+	case errors.Is(err, billing.ErrInactive):
+		s.prender(w, r, 200, "p_voucher", Page{Title: "Voucher Activation", Error: "account is not active"})
 	case err != nil:
 		s.fail(w, "portal voucher", err)
 	default:

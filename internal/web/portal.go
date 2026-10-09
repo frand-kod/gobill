@@ -194,6 +194,8 @@ func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 	switch err := s.Billing.RedeemVoucher(ctx, code, c.ID); {
 	case errors.Is(err, billing.ErrVoucherInvalid):
 		bad()
+	case errors.Is(err, billing.ErrInactive):
+		s.flashTo(w, r, "/portal/login", "account is not active")
 	case err != nil:
 		s.fail(w, "voucher login", err)
 	default:
@@ -540,6 +542,10 @@ func (s *Server) pBuyBalance(w http.ResponseWriter, r *http.Request) {
 	}
 	if errors.Is(err, billing.ErrInsufficientBalance) {
 		s.plansPage(w, r, 200, "Insufficient balance")
+		return
+	}
+	if errors.Is(err, billing.ErrInactive) {
+		s.plansPage(w, r, 200, "account is not active")
 		return
 	}
 	if err != nil {
