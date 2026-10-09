@@ -2,6 +2,7 @@ package billing
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/device"
 	"github.com/frand-kod/gobill/internal/notify"
 )
 
@@ -66,12 +68,34 @@ func TestRechargeNotifies(t *testing.T) {
 		t.Fatal(err)
 	}
 	reqs := drain(got)
-	if count(reqs, "payment.paid") != 1 || count(reqs, "customer.activated") != 1 || len(reqs) != 2 {
+	if count(reqs, "payment.paid") != 1 || count(reqs, "customer.activated") != 1 || count(reqs, "%23buy") != 1 || len(reqs) != 3 {
 		t.Fatalf("first recharge: %v", reqs)
 	}
 	e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0)
-	if reqs = drain(got); count(reqs, "payment.paid") != 1 || count(reqs, "customer.activated") != 0 {
+	if reqs = drain(got); count(reqs, "payment.paid") != 1 || count(reqs, "customer.activated") != 0 || count(reqs, "%23recharge") != 1 {
 		t.Fatalf("extend: %v", reqs)
+	}
+}
+
+type failDev struct{ fakeDev }
+
+func (failDev) AddCustomer(context.Context, device.Customer, device.Plan) error {
+	return errors.New("router down")
+}
+
+// A failed router activation still records the recharge and tells the admin on Telegram.
+func TestActivateFailureTelegram(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	e.s.DeviceFor = func(db.Plan, db.Router) (device.Device, error) { return failDev{fakeDev{calls: e.calls}}, nil }
+	got := withNotify(t, e)
+	if err := e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0); err != nil {
+		t.Fatal(err)
+	}
+	if reqs := drain(got); count(reqs, "sync+manually") != 1 || count(reqs, "router+down") != 1 {
+		t.Fatalf("telegram: %v", reqs)
+	}
+	if _, err := e.q.GetTransactionByInvoice(ctx, "INV-1"); err != nil {
+		t.Fatal(err)
 	}
 }
 

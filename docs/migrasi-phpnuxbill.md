@@ -4,11 +4,12 @@ Untuk operator yang pindah dari PHPNuxBill (MySQL) ke NuxBill Go. Impor dilakuka
 
 ## Perintah impor
 
-    nuxbill import --mysql-dsn='<user>:<password>@tcp(127.0.0.1:3306)/phpnuxbill' --db=./nuxbill.db [--timezone=Asia/Jakarta] [--dry-run] [--force]
+    nuxbill import --mysql-dsn='<user>:<password>@tcp(127.0.0.1:3306)/phpnuxbill' --db=./nuxbill.db [--timezone=Asia/Jakarta] [--dry-run] [--force] [--notifications=/path/phpnuxbill/system/uploads/notifications.json]
 
 - Semua berjalan dalam satu transaksi SQLite. Target harus kosong (`--force` menghapus isinya).
 - `--dry-run` hanya membuat laporan: baris dibaca, diimpor, dilewati, beserta alasannya.
 - Zona waktu bawaan diambil dari setting lama (atau `Asia/Jakarta`).
+- Template pesan (expired, reminder 7/3/1 hari, invoice, selamat datang, saldo) disimpan PHPNuxBill di file `system/uploads/notifications.json`, bukan di MySQL. Tambahkan `--notifications=<path file itu>` agar ikut diimpor ke setting `notif_*`; tanpa opsi ini (atau bila file tidak ada) pesan memakai template bawaan bahasa Inggris, dan laporan impor mencatatnya. Hanya template yang punya padanan di NuxBill Go yang diimpor (`email_invoice` dilewati). Placeholder yang tidak dikenal dikirim sebagai teks kosong, tidak pernah `[[...]]` mentah; `[[payment_link]]` dan `[[invoice_link]]` berisi tautan ke portal (butuh setting `app_url`; pelanggan login dulu).
 - Pakai `NUXBILL_SECRET_KEY` yang sama dengan yang akan dipakai produksi (atau biarkan membuat `<db>.key`, lalu backup).
 
 ## Yang dikonversi
@@ -20,6 +21,11 @@ Setting, admin, router, bandwidth, IP pool, paket, pelanggan, langganan aktif, t
 - Waktu expiry diubah ke Unix UTC; uang menjadi INTEGER rupiah. Harga yang gagal dikonversi dilewati dan dilaporkan.
 - Plan `RadiusRest` menjadi plan `Radius` ([freeradius-rest.md](freeradius-rest.md)).
 - Belum diimpor: kupon, ODP, dan inbox.
+- Atribut pelanggan (`tbl_customers_fields`) diimpor sebagai kolom kustom dengan nama yang sama (tampil di form pelanggan). NuxBill Go ikut memakainya seperti PHP:
+  - `<nama> Bill` (mis. `Router Bill`): tagihan tambahan, ditambahkan ke harga setiap recharge (admin, saldo, voucher, gateway, auto-renew). Nilai `biaya:sisa` (mis. `50000:3`) adalah cicilan: berkurang satu setiap recharge, berhenti saat sisa 0.
+  - `Invoice`: harga tagihan paket Period berikutnya (menggantikan harga paket), diisi otomatis setelah recharge Period seperti PHP.
+  - `Expired Date`: tanggal jatuh tempo paket Period per pelanggan; masuk ke `billing_day` pelanggan (bukan kolom kustom). Nilai yang bukan angka 1-31 dilewati dan dilaporkan.
+  - Beda: pembayaran gateway online memakai harga paket + tagihan saat pesanan dibuat; kupon hanya mendiskon harga paket, tagihan ditambahkan di atasnya.
 - Kolom lama yang sengaja dibuang: `account_type`, kota/kecamatan/provinsi/kode pos, `price_old`, `plan_type`.
 
 ## Verifikasi yang sudah dilakukan

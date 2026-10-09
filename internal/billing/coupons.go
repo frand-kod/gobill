@@ -72,6 +72,8 @@ func (s *Service) RechargeWithBalanceCoupon(ctx context.Context, customerID, pla
 		if err != nil {
 			return err
 		}
+		_, add := customerBills(attrs(ctx, q, customerID))
+		price += add // the coupon discounts the plan price only; bills are added on top
 		if n, err := q.UseCoupon(ctx, c.ID); err != nil {
 			return err
 		} else if n == 0 {

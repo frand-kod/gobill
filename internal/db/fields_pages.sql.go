@@ -52,6 +52,19 @@ func (q *Queries) DeleteCustomField(ctx context.Context, id int64) error {
 	return err
 }
 
+const ensureCustomField = `-- name: EnsureCustomField :one
+INSERT INTO custom_fields (name, type) VALUES (?, 'text')
+ON CONFLICT (name) DO UPDATE SET name = excluded.name
+RETURNING id
+`
+
+func (q *Queries) EnsureCustomField(ctx context.Context, name string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, ensureCustomField, name)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getCustomField = `-- name: GetCustomField :one
 SELECT id, name, type, options, required, sort_order FROM custom_fields WHERE id = ?
 `
@@ -102,6 +115,39 @@ func (q *Queries) ListCustomFields(ctx context.Context) ([]CustomField, error) {
 			&i.Required,
 			&i.SortOrder,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCustomerAttrs = `-- name: ListCustomerAttrs :many
+SELECT f.name, v.value FROM customer_field_values v JOIN custom_fields f ON f.id = v.field_id
+WHERE v.customer_id = ?
+`
+
+type ListCustomerAttrsRow struct {
+	Name  string
+	Value string
+}
+
+func (q *Queries) ListCustomerAttrs(ctx context.Context, customerID int64) ([]ListCustomerAttrsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCustomerAttrs, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCustomerAttrsRow
+	for rows.Next() {
+		var i ListCustomerAttrsRow
+		if err := rows.Scan(&i.Name, &i.Value); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

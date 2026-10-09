@@ -28,3 +28,12 @@ SELECT * FROM pages WHERE slug = ?;
 
 -- name: UpdatePageBody :exec
 UPDATE pages SET body = ? WHERE slug = ?;
+
+-- name: ListCustomerAttrs :many
+SELECT f.name, v.value FROM customer_field_values v JOIN custom_fields f ON f.id = v.field_id
+WHERE v.customer_id = ?;
+
+-- name: EnsureCustomField :one
+INSERT INTO custom_fields (name, type) VALUES (?, 'text')
+ON CONFLICT (name) DO UPDATE SET name = excluded.name
+RETURNING id;
