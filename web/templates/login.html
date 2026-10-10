@@ -31,6 +31,7 @@
         <h1 class="al-title">{{T "Sign in"}}</h1>
       </div>
       {{if .Error}}<p class="alert alert-error !mb-0" role="alert">{{icon "circle-alert"}}<span>{{T .Error}}</span></p>{{end}}
+      {{with .Flash}}<p class="alert alert-ok !mb-0" role="status"><span>{{.}}</span></p>{{end}}
       <div>
         <label class="label" for="username">{{T "Username"}}</label>
         <input class="input" id="username" name="username" type="text" autocomplete="username" required autofocus value="{{with .Data}}{{.Username}}{{end}}">
