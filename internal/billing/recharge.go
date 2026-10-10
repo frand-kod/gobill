@@ -25,6 +25,8 @@ type pending struct {
 	trxID  int64
 	first  bool // first activation (no active subscription before)
 	expiry time.Time
+	// start_on_first_login: expiry is provisional until the first RADIUS login (StartPending)
+	pendingStart bool
 }
 
 // Recharge activates/extends planID for the customer and records the transaction.
@@ -156,7 +158,8 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		if err != nil {
 			return nil, err
 		}
-		extend := found && active.PlanID == plan.ID && setting(ctx, q, "extend_expiry") != "no"
+		extend := found && active.PlanID == plan.ID && active.PendingStart == 0 && setting(ctx, q, "extend_expiry") != "no"
+		pendStart := !rid.Valid && settingOn(setting(ctx, q, "start_on_first_login")) && (!found || active.PendingStart == 1)
 		from, start := now, now.Unix()
 		if extend {
 			from, start = time.Unix(active.ExpiresAt, 0).In(now.Location()), active.StartedAt
@@ -178,10 +181,10 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 
 		if found {
 			err = q.RenewSubscription(ctx, db.RenewSubscriptionParams{PlanID: plan.ID, RouterID: rid, Type: plan.Type,
-				StartedAt: start, ExpiresAt: exp.Unix(), Method: method, AdminID: nullID(adminID), ID: active.ID})
+				StartedAt: start, ExpiresAt: exp.Unix(), Method: method, AdminID: nullID(adminID), PendingStart: b2i(pendStart), ID: active.ID})
 		} else {
 			_, err = q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: customerID, PlanID: plan.ID, RouterID: rid,
-				Type: plan.Type, StartedAt: start, ExpiresAt: exp.Unix(), Method: method, AdminID: nullID(adminID)})
+				Type: plan.Type, StartedAt: start, ExpiresAt: exp.Unix(), Method: method, AdminID: nullID(adminID), PendingStart: b2i(pendStart)})
 		}
 		if err != nil {
 			return nil, err
@@ -202,7 +205,7 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 				return nil, err
 			}
 		}
-		pend = &pending{cust: c, plan: plan, change: found && !extend, trx: trx, first: !found, expiry: exp}
+		pend = &pending{cust: c, plan: plan, change: found && !extend, trx: trx, first: !found, expiry: exp, pendingStart: pendStart}
 	}
 
 	t, err := q.CreateTransaction(ctx, trx)
@@ -271,9 +274,13 @@ func (s *Service) notifyRecharge(p *pending) {
 	const layout = "2006-01-02 15:04:05"
 	loc := s.now().Location()
 	gw, ch, _ := strings.Cut(p.trx.Method, " - ")
+	expired := p.expiry.In(loc).Format(layout)
+	if p.pendingStart {
+		expired = pendingStartText
+	}
 	vars := map[string]string{"invoice": p.trx.Invoice, "date": time.Unix(p.trx.PeriodStart, 0).In(loc).Format(layout),
 		"payment_gateway": gw, "payment_channel": ch, "type": p.trx.Type, "plan_name": p.plan.Name,
-		"plan_price": notify.Money(p.trx.Price), "price": notify.Money(p.trx.Price), "expired_date": p.expiry.In(loc).Format(layout),
+		"plan_price": notify.Money(p.trx.Price), "price": notify.Money(p.trx.Price), "expired_date": expired,
 		"trx_date": time.Unix(p.trx.PeriodStart, 0).In(loc).Format(layout), "note": p.trx.Note,
 		"bills": p.trx.Note + "Total : " + notify.Money(p.trx.Price) + "\n", "invoice_link": fmt.Sprintf("/portal/orders/%d/invoice", p.trxID)}
 	data := map[string]any{"invoice": p.trx.Invoice, "username": p.cust.Username, "plan": p.plan.Name, "type": p.trx.Type,

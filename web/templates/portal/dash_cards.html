@@ -24,10 +24,13 @@ window.gbCountdown = function (end, now, w) {
 <section class="card mb-4" aria-labelledby="c-plan"><div class="card-body">
   <h2 id="c-plan" class="card-title">{{T "Active Plan"}}</h2>
   {{with .Data.Plan}}
-  <div x-data="gbCountdown({{.Expires}}, {{$.Data.Now}}, {{$.Data.Words.JSON}})">
+  {{if .Pending}}<div>
+    <p class="text-lg font-semibold">{{.Name}}</p>
+    <p class="mt-1 text-2xl font-semibold text-accent-fg">{{.Left}}</p>
+  </div>{{else}}<div x-data="gbCountdown({{.Expires}}, {{$.Data.Now}}, {{$.Data.Words.JSON}})">
     <p class="text-lg font-semibold">{{.Name}}</p>
     <p class="mt-1 text-2xl font-semibold text-accent-fg" x-text="left">{{.Left}}</p>
-  </div>
+  </div>{{end}}
   <p class="mt-1 text-sm text-ink-2">{{T "Expires On"}}: {{.Ends}}</p>
   {{else}}
   <p class="text-base">{{with $.Data.PlanEnded}}{{.}}{{else}}{{T "You have no active plan yet."}}{{end}}</p>

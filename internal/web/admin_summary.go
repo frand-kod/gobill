@@ -103,6 +103,9 @@ func (s *Server) custSummary(w http.ResponseWriter, r *http.Request) {
 		exp := time.Unix(sb.ExpiresAt, 0).In(loc)
 		row := summarySub{Plan: sb.PlanName, Type: sb.Type, ExpiresAt: exp.Format("2006-01-02 15:04"),
 			DaysLeft: max(0, int(math.Ceil(exp.Sub(now).Hours()/24)))}
+		if sb.PendingStart == 1 {
+			row.ExpiresAt, row.DaysLeft = s.subExpiry(1, 0), 0 // no date until the first login
+		}
 		// billing (activeSub + recharge): the active subscription on the same router and type is renewed
 		if hasPlan && plan.Type != "Balance" && sb.Type == plan.Type && sb.RouterID == plan.RouterID {
 			row.Effect = "replace"

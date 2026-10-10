@@ -204,6 +204,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 	case "miscellaneous":
 		out := section([]field{
 			sel("extend_expiry", "Extend Package Expiry", settingsYesNo...),
+			sel("start_on_first_login", "Start On First Login", option{"no", "No"}, option{"yes", "Yes"}).hint("RADIUS plans only: the period starts at the customer's first login. MikroTik plans start at once"),
 			sel("enable_balance", "Enable Balance System", settingsYesNo...),
 			sel("voucher_format", "Voucher Format (default)", option{"up", "UPPERCASE"}, option{"low", "lowercase"},
 				option{"rand", "Random case"}, option{"numbers", "Numbers"}),

@@ -45,9 +45,17 @@ Ubah di menu Settings (kunci di bawah muncul di tabel `settings`).
 | `daily_summary_enabled`, `daily_summary_time`, `daily_summary_channel`, `daily_summary_wa_to` | Ringkasan harian untuk operator (bukan pelanggan): `yes`/`no` (bawaan `no`), jam `HH:MM` zona waktu server (bawaan `07:00`), saluran `telegram`/`wa`/`both`, nomor WA operator. Telegram memakai `telegram_target_id`. Dikirim sekali sehari (tanggal terakhir di `daily_summary_last`, aman saat restart), ditunda bila jam sistem tidak tepercaya. Tombol "Kirim ringkasan sekarang" di Settings > Notifications untuk uji coba |
 | `maintenance_mode` | Mode perawatan: portal pelanggan ditutup |
 | `extend_expiry`, `enable_balance` | Perilaku bisnis. Jika belum diisi, keduanya dianggap aktif |
+| `start_on_first_login` | `yes` agar masa aktif paket RADIUS mulai saat login pertama, bukan saat recharge (bawaan `no`). Lihat bagian di bawah |
 | `disable_registration`, `disable_voucher`, `allow_phone_otp` | Pembatasan portal pelanggan |
 | `telegram_bot`, `wa_url`, `sms_url`, SMTP | Kanal notifikasi |
 | `tripay_*`, `merchant_code`, `api_key`, `private_key` | Gateway Tripay (lihat [keamanan.md](keamanan.md) soal penyimpanan) |
+
+### Masa aktif mulai saat login pertama (`start_on_first_login`)
+
+Jika `yes`, recharge paket RADIUS (device `Radius`) baru atau setelah paket habis tidak langsung memulai masa aktif. Langganan ditandai menunggu, dan login RADIUS pertama pelanggan setelah itu memulai masa aktif dari saat login, dengan durasi penuh paket. Selama menunggu, pelanggan tetap bisa login, tidak dianggap kedaluwarsa oleh job expiry, dan tanggal kedaluwarsa tampil sebagai "Mulai saat login pertama" (di admin, portal, dan pesan WA recharge).
+
+- Hanya paket RADIUS. Paket MikroTik (Hotspot/PPPoE dengan router) selalu mulai saat recharge, pengaturan ini tidak berlaku untuk mereka.
+- Recharge ulang paket yang belum dipakai menunggu lagi dari awal. Perpanjang paket yang sedang berjalan tetap mengikuti `extend_expiry`.
 
 ## WhatsApp
 

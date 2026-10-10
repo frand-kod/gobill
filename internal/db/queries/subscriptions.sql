@@ -1,6 +1,6 @@
 -- name: CreateSubscription :one
-INSERT INTO subscriptions (customer_id, plan_id, router_id, type, started_at, expires_at, method, admin_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO subscriptions (customer_id, plan_id, router_id, type, started_at, expires_at, method, admin_id, pending_start)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetSubscription :one
@@ -18,17 +18,17 @@ WHERE c.username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.fullname LIKE
 ORDER BY s.id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 -- name: ListExpiredActiveSubscriptions :many
-SELECT * FROM subscriptions WHERE status = 'active' AND expires_at <= sqlc.arg(now) ORDER BY expires_at;
+SELECT * FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expires_at <= sqlc.arg(now) ORDER BY expires_at;
 
 -- name: ListActiveExpiringBetween :many
-SELECT * FROM subscriptions WHERE status = 'active' AND expires_at >= sqlc.arg(from_ts) AND expires_at < sqlc.arg(to_ts) ORDER BY expires_at;
+SELECT * FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expires_at >= sqlc.arg(from_ts) AND expires_at < sqlc.arg(to_ts) ORDER BY expires_at;
 
 -- name: ExpireSubscription :execrows
-UPDATE subscriptions SET status = 'expired' WHERE id = sqlc.arg(id) AND status = 'active' AND expires_at <= sqlc.arg(now);
+UPDATE subscriptions SET status = 'expired' WHERE id = sqlc.arg(id) AND status = 'active' AND pending_start = 0 AND expires_at <= sqlc.arg(now);
 
 -- name: RenewSubscription :exec
 UPDATE subscriptions SET plan_id = ?, router_id = ?, type = ?, started_at = ?, expires_at = ?,
-    status = 'active', method = ?, admin_id = ?
+    status = 'active', method = ?, admin_id = ?, pending_start = ?
 WHERE id = ?;
 
 -- name: DeleteSubscription :exec
@@ -36,7 +36,7 @@ DELETE FROM subscriptions WHERE id = ?;
 
 -- name: FilterSubscriptions :many
 -- Empty status/type and router_id/plan_id 0 = any.
-SELECT s.id, s.type, s.started_at, s.expires_at, s.status, s.method, c.username, p.name AS plan_name,
+SELECT s.id, s.type, s.started_at, s.expires_at, s.status, s.method, s.pending_start, c.username, p.name AS plan_name,
        CAST(COALESCE(r.name, '') AS TEXT) AS router_name,
        CAST(sqlc.arg(sort) AS TEXT) AS sort_key -- e.g. expires_asc; anything else = soonest-expiring last first
 FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id LEFT JOIN routers r ON r.id = s.router_id
@@ -58,7 +58,7 @@ ORDER BY
 
 -- name: ListActiveSubscriptionsWithPlan :many
 -- Customer summary: the subscriptions still active (any expiry, as billing treats them) with the plan name.
-SELECT s.id, s.plan_id, s.router_id, s.type, s.expires_at, p.name AS plan_name
+SELECT s.id, s.plan_id, s.router_id, s.type, s.expires_at, s.pending_start, p.name AS plan_name
 FROM subscriptions s JOIN plans p ON p.id = s.plan_id
 WHERE s.customer_id = ? AND s.status = 'active' ORDER BY s.expires_at;
 
@@ -72,3 +72,7 @@ UPDATE subscriptions SET status = 'expired', expires_at = MAX(started_at, sqlc.a
 -- name: RestartSubscription :exec
 -- A dead subscription brought back to life starts a new usage window (data limit counts from started_at).
 UPDATE subscriptions SET started_at = ? WHERE id = ?;
+
+-- name: StartPendingSubscription :execrows
+-- First RADIUS login of a start_on_first_login subscription: the usage window and expiry start now. 0 rows = already started.
+UPDATE subscriptions SET pending_start = 0, started_at = sqlc.arg(started_at), expires_at = sqlc.arg(expires_at) WHERE id = sqlc.arg(id) AND pending_start = 1;
