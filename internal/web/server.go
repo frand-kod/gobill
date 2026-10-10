@@ -58,6 +58,8 @@ type Server struct {
 	BackupDir string
 	// Restart is called after a restore is staged; main shuts down and exits for systemd to start it again.
 	Restart func()
+	// BackupMirror is the optional off-site backup folder (NUXBILL_BACKUP_MIRROR), shown to SuperAdmin.
+	BackupMirror string
 	// Billing recharges customers and syncs plans to routers; nil disables both.
 	Billing *billing.Service
 	// CoAPort is the NAS Disconnect-Request port; empty = 3799.
