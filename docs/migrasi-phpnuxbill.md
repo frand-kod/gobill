@@ -29,7 +29,7 @@ Alternatif lewat MySQL langsung (pilih salah satu, `--json` atau `--mysql-dsn`):
 
     nuxbill import --mysql-dsn='<user>:<password>@tcp(127.0.0.1:3306)/phpnuxbill' --db=./nuxbill.db [--timezone=Asia/Jakarta] [--dry-run] [--force] [--notifications=/path/phpnuxbill/system/uploads/notifications.json]
 
-- Tabel yang tidak ada di file backup (atau di database) dilewati dan dicatat di laporan sebagai "tidak ada di sumber, dilewati". Impor tidak gagal karena itu.
+- Tabel yang tidak ada di file backup (atau di database) dilewati dan dicatat di laporan sebagai "tidak ada atau kosong di sumber, dilewati". Impor tidak gagal karena itu.
 - Semua berjalan dalam satu transaksi SQLite. Target harus kosong (`--force` menghapus isinya).
 - `--dry-run` hanya membuat laporan: baris dibaca, diimpor, dilewati, beserta alasannya.
 - Zona waktu bawaan diambil dari setting lama (atau `Asia/Jakarta`).

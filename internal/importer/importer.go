@@ -79,7 +79,7 @@ func missing(err error) string {
 	s := err.Error()
 	switch {
 	case strings.Contains(s, "doesn't exist"), strings.Contains(s, "no such table"):
-		return "tidak ada di sumber, dilewati"
+		return "tidak ada atau kosong di sumber, dilewati"
 	case strings.Contains(s, "Unknown column"), strings.Contains(s, "no such column"):
 		return "kolom tidak ada, dilewati: " + s
 	}
