@@ -54,6 +54,10 @@ ON CONFLICT (nas_ip, session_id) DO UPDATE SET
 -- name: CloseRadiusSessionsByNAS :exec
 UPDATE radius_sessions SET stopped_at = ? WHERE nas_ip = ? AND stopped_at IS NULL;
 
+-- name: CloseStaleRadiusSessions :execrows
+-- Open sessions whose last update is older than the cutoff: the NAS lost them. Stop them at their last update.
+UPDATE radius_sessions SET stopped_at = updated_at WHERE stopped_at IS NULL AND updated_at < ?;
+
 -- name: SearchOpenRadiusSessions :many
 SELECT * FROM radius_sessions
 WHERE stopped_at IS NULL

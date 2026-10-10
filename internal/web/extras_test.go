@@ -342,13 +342,20 @@ func TestLogCleanup(t *testing.T) {
 		t.Fatal("no clean form")
 	}
 
-	// daily job: setting log_keep_days, 0 = keep forever
+	// daily job: setting log_keep_days, 0 = keep forever; missing = 90 days (the row is 100 days old)
 	e.s.conn.Exec(fmt.Sprintf(`INSERT INTO message_logs (channel, recipient, subject, body, status, created_at) VALUES ('sms', 'r', 's', 'b', 'ok', %d)`, old))
+	setting(t, e, "log_keep_days", "0")
 	if err := e.s.Billing.LogCleanJob(nil)(t.Context()); err != nil || count("message_logs", "1=1") != 1 {
-		t.Fatalf("job with default 0 deleted rows: %v", err)
+		t.Fatalf("job with 0 deleted rows: %v", err)
+	}
+	e.s.conn.Exec(`DELETE FROM settings WHERE key = 'log_keep_days'`)
+	if err := e.s.Billing.LogCleanJob(nil)(t.Context()); err != nil || count("message_logs", "1=1") != 0 {
+		t.Fatalf("job with missing setting kept a 100-day-old row: %v", err)
 	}
 	setting(t, e, "log_keep_days", "30")
-	if err := e.s.Billing.LogCleanJob(nil)(t.Context()); err != nil || count("message_logs", "1=1") != 0 || count("radius_sessions", "session_id = 'open'") != 1 {
+	// the 100-day-stale 'open' session is closed at its last update, then pruned; a fresh open session survives
+	e.s.conn.Exec(fmt.Sprintf(`INSERT INTO radius_sessions (session_id, username, nas_ip, started_at, updated_at) VALUES ('live', 'u', '1.1.1.1', %d, %d)`, time.Now().Unix()-60, time.Now().Unix()))
+	if err := e.s.Billing.LogCleanJob(nil)(t.Context()); err != nil || count("message_logs", "1=1") != 0 || count("radius_sessions", "session_id = 'open'") != 0 || count("radius_sessions", "session_id = 'live' AND stopped_at IS NULL") != 1 {
 		t.Fatalf("job: %v", err)
 	}
 }

@@ -23,6 +23,9 @@ func Open(path string) (*sql.DB, error) {
 		"&_pragma=synchronous(FULL)" +
 		"&_pragma=foreign_keys(1)" +
 		"&_pragma=busy_timeout(5000)" +
+		"&_pragma=journal_size_limit(16777216)" +
+		"&_pragma=temp_store(MEMORY)" +
+		"&_pragma=cache_size(-8000)" +
 		"&_txlock=immediate"
 	conn, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -32,6 +35,7 @@ func Open(path string) (*sql.DB, error) {
 		conn.Close()
 		return nil, err
 	}
+	conn.SetMaxOpenConns(4) // ponytail: fixed pool for the STB's RAM; raise if portal requests queue
 	return conn, nil
 }
 

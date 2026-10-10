@@ -60,8 +60,10 @@ Satu binary `nuxbill` menjalankan semuanya dalam satu proses:
 - Uang `INTEGER` rupiah. Waktu `INTEGER` Unix detik UTC, zona waktu hanya saat tampil.
 - Status memakai `TEXT` + `CHECK`; foreign key aktif (`PRAGMA foreign_keys=ON`).
 - Secret (router, pelanggan, NAS) terenkripsi AES-GCM; password bcrypt.
-- Transaksi milik pelanggan yang dihapus tetap disimpan.
+- Transaksi dan pembayaran online milik pelanggan yang dihapus tetap disimpan (`customer_id` menjadi NULL, `username` menyimpan nama saat transaksi).
 - Pengaturan: tabel key-value `settings`.
+- Indeks: pencarian login RADIUS (`username` atau `pppoe_username`), sesi RADIUS per user dan sesi terbuka, serta relasi langganan/voucher/transaksi memakai indeks parsial bila cocok. Query login diuji dengan `EXPLAIN QUERY PLAN` (`internal/db/indexes_test.go`).
+- Retensi harian (`log_keep_days`, default 90 hari bila belum diisi): log, sesi RADIUS tertutup, pesan inbox yang sudah dibaca, dan pembayaran yang belum lunas dihapus per 5000 baris. Pembayaran lunas tidak pernah dihapus. Sesi RADIUS terbuka yang tidak diperbarui selama 1 jam ditutup pada waktu pembaruan terakhirnya.
 - Migrasi: file `.sql` bernomor di `internal/db/migrations/`, dibekukan lewat `migrations.sum` ([pengembangan.md](pengembangan.md#migration-freeze)).
 - SQLite: WAL, `synchronous=FULL`, `_txlock=immediate`.
 

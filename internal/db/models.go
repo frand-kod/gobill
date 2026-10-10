@@ -152,7 +152,8 @@ type PaymentRequest struct {
 	Ref        string
 	Gateway    string
 	GatewayRef string
-	CustomerID int64
+	CustomerID sql.NullInt64
+	Username   string
 	PlanID     int64
 	Amount     int64
 	Coupon     string

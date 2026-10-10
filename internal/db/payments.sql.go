@@ -41,14 +41,15 @@ func (q *Queries) ClosePaymentRequest(ctx context.Context, arg ClosePaymentReque
 }
 
 const createPaymentRequest = `-- name: CreatePaymentRequest :one
-INSERT INTO payment_requests (ref, gateway, customer_id, plan_id, amount, coupon, channel, expires_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, ref, gateway, gateway_ref, customer_id, plan_id, amount, coupon, channel, pay_url, status, created_at, paid_at, expires_at
+INSERT INTO payment_requests (ref, gateway, customer_id, username, plan_id, amount, coupon, channel, expires_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, ref, gateway, gateway_ref, customer_id, username, plan_id, amount, coupon, channel, pay_url, status, created_at, paid_at, expires_at
 `
 
 type CreatePaymentRequestParams struct {
 	Ref        string
 	Gateway    string
-	CustomerID int64
+	CustomerID sql.NullInt64
+	Username   string
 	PlanID     int64
 	Amount     int64
 	Coupon     string
@@ -61,6 +62,7 @@ func (q *Queries) CreatePaymentRequest(ctx context.Context, arg CreatePaymentReq
 		arg.Ref,
 		arg.Gateway,
 		arg.CustomerID,
+		arg.Username,
 		arg.PlanID,
 		arg.Amount,
 		arg.Coupon,
@@ -74,6 +76,7 @@ func (q *Queries) CreatePaymentRequest(ctx context.Context, arg CreatePaymentReq
 		&i.Gateway,
 		&i.GatewayRef,
 		&i.CustomerID,
+		&i.Username,
 		&i.PlanID,
 		&i.Amount,
 		&i.Coupon,
@@ -85,6 +88,19 @@ func (q *Queries) CreatePaymentRequest(ctx context.Context, arg CreatePaymentReq
 		&i.ExpiresAt,
 	)
 	return i, err
+}
+
+const deleteUnpaidPaymentRequestsBefore = `-- name: DeleteUnpaidPaymentRequestsBefore :execrows
+DELETE FROM payment_requests WHERE rowid IN (SELECT p.rowid FROM payment_requests p WHERE p.status IN ('pending', 'expired', 'failed') AND p.created_at < ? LIMIT 5000)
+`
+
+// One batch of unpaid requests; the caller loops until 0 rows. Paid rows are kept (accounting).
+func (q *Queries) DeleteUnpaidPaymentRequestsBefore(ctx context.Context, createdAt int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteUnpaidPaymentRequestsBefore, createdAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const expirePaymentRequests = `-- name: ExpirePaymentRequests :execrows
@@ -100,8 +116,8 @@ func (q *Queries) ExpirePaymentRequests(ctx context.Context, expiresAt int64) (i
 }
 
 const getPaymentAudit = `-- name: GetPaymentAudit :one
-SELECT p.id, p.ref, p.gateway, p.gateway_ref, p.customer_id, p.plan_id, p.amount, p.coupon, p.channel, p.pay_url, p.status, p.created_at, p.paid_at, p.expires_at, c.username, CAST(COALESCE(pl.name, 'Custom Balance') AS TEXT) AS plan_name FROM payment_requests p
-JOIN customers c ON c.id = p.customer_id LEFT JOIN plans pl ON pl.id = p.plan_id WHERE p.id = ?
+SELECT p.id, p.ref, p.gateway, p.gateway_ref, p.customer_id, p.username, p.plan_id, p.amount, p.coupon, p.channel, p.pay_url, p.status, p.created_at, p.paid_at, p.expires_at, CAST(COALESCE(pl.name, 'Custom Balance') AS TEXT) AS plan_name FROM payment_requests p
+LEFT JOIN plans pl ON pl.id = p.plan_id WHERE p.id = ?
 `
 
 type GetPaymentAuditRow struct {
@@ -109,7 +125,8 @@ type GetPaymentAuditRow struct {
 	Ref        string
 	Gateway    string
 	GatewayRef string
-	CustomerID int64
+	CustomerID sql.NullInt64
+	Username   string
 	PlanID     int64
 	Amount     int64
 	Coupon     string
@@ -119,7 +136,6 @@ type GetPaymentAuditRow struct {
 	CreatedAt  int64
 	PaidAt     sql.NullInt64
 	ExpiresAt  int64
-	Username   string
 	PlanName   string
 }
 
@@ -132,6 +148,7 @@ func (q *Queries) GetPaymentAudit(ctx context.Context, id int64) (GetPaymentAudi
 		&i.Gateway,
 		&i.GatewayRef,
 		&i.CustomerID,
+		&i.Username,
 		&i.PlanID,
 		&i.Amount,
 		&i.Coupon,
@@ -141,14 +158,13 @@ func (q *Queries) GetPaymentAudit(ctx context.Context, id int64) (GetPaymentAudi
 		&i.CreatedAt,
 		&i.PaidAt,
 		&i.ExpiresAt,
-		&i.Username,
 		&i.PlanName,
 	)
 	return i, err
 }
 
 const getPaymentRequest = `-- name: GetPaymentRequest :one
-SELECT id, ref, gateway, gateway_ref, customer_id, plan_id, amount, coupon, channel, pay_url, status, created_at, paid_at, expires_at FROM payment_requests WHERE id = ?
+SELECT id, ref, gateway, gateway_ref, customer_id, username, plan_id, amount, coupon, channel, pay_url, status, created_at, paid_at, expires_at FROM payment_requests WHERE id = ?
 `
 
 func (q *Queries) GetPaymentRequest(ctx context.Context, id int64) (PaymentRequest, error) {
@@ -160,6 +176,7 @@ func (q *Queries) GetPaymentRequest(ctx context.Context, id int64) (PaymentReque
 		&i.Gateway,
 		&i.GatewayRef,
 		&i.CustomerID,
+		&i.Username,
 		&i.PlanID,
 		&i.Amount,
 		&i.Coupon,
@@ -174,7 +191,7 @@ func (q *Queries) GetPaymentRequest(ctx context.Context, id int64) (PaymentReque
 }
 
 const getPaymentRequestByRef = `-- name: GetPaymentRequestByRef :one
-SELECT id, ref, gateway, gateway_ref, customer_id, plan_id, amount, coupon, channel, pay_url, status, created_at, paid_at, expires_at FROM payment_requests WHERE ref = ?
+SELECT id, ref, gateway, gateway_ref, customer_id, username, plan_id, amount, coupon, channel, pay_url, status, created_at, paid_at, expires_at FROM payment_requests WHERE ref = ?
 `
 
 func (q *Queries) GetPaymentRequestByRef(ctx context.Context, ref string) (PaymentRequest, error) {
@@ -186,6 +203,7 @@ func (q *Queries) GetPaymentRequestByRef(ctx context.Context, ref string) (Payme
 		&i.Gateway,
 		&i.GatewayRef,
 		&i.CustomerID,
+		&i.Username,
 		&i.PlanID,
 		&i.Amount,
 		&i.Coupon,
@@ -200,10 +218,10 @@ func (q *Queries) GetPaymentRequestByRef(ctx context.Context, ref string) (Payme
 }
 
 const searchPaymentRequests = `-- name: SearchPaymentRequests :many
-SELECT p.id, p.ref, p.gateway, p.gateway_ref, p.customer_id, p.plan_id, p.amount, p.coupon, p.channel, p.pay_url, p.status, p.created_at, p.paid_at, p.expires_at, c.username, CAST(COALESCE(pl.name, 'Custom Balance') AS TEXT) AS plan_name FROM payment_requests p
-JOIN customers c ON c.id = p.customer_id LEFT JOIN plans pl ON pl.id = p.plan_id
+SELECT p.id, p.ref, p.gateway, p.gateway_ref, p.customer_id, p.username, p.plan_id, p.amount, p.coupon, p.channel, p.pay_url, p.status, p.created_at, p.paid_at, p.expires_at, CAST(COALESCE(pl.name, 'Custom Balance') AS TEXT) AS plan_name FROM payment_requests p
+LEFT JOIN plans pl ON pl.id = p.plan_id
 WHERE (CAST(?1 AS TEXT) = '' OR p.ref LIKE '%' || CAST(?1 AS TEXT) || '%' OR p.gateway_ref LIKE '%' || CAST(?1 AS TEXT) || '%'
-       OR c.username LIKE '%' || CAST(?1 AS TEXT) || '%' OR COALESCE(pl.name, 'Custom Balance') LIKE '%' || CAST(?1 AS TEXT) || '%')
+       OR p.username LIKE '%' || CAST(?1 AS TEXT) || '%' OR COALESCE(pl.name, 'Custom Balance') LIKE '%' || CAST(?1 AS TEXT) || '%')
   AND (CAST(?2 AS TEXT) = '' OR p.status = ?2)
   AND (CAST(?3 AS INTEGER) = 0 OR p.created_at >= ?3)
   AND (CAST(?4 AS INTEGER) = 0 OR p.created_at < ?4)
@@ -224,7 +242,8 @@ type SearchPaymentRequestsRow struct {
 	Ref        string
 	Gateway    string
 	GatewayRef string
-	CustomerID int64
+	CustomerID sql.NullInt64
+	Username   string
 	PlanID     int64
 	Amount     int64
 	Coupon     string
@@ -234,7 +253,6 @@ type SearchPaymentRequestsRow struct {
 	CreatedAt  int64
 	PaidAt     sql.NullInt64
 	ExpiresAt  int64
-	Username   string
 	PlanName   string
 }
 
@@ -261,6 +279,7 @@ func (q *Queries) SearchPaymentRequests(ctx context.Context, arg SearchPaymentRe
 			&i.Gateway,
 			&i.GatewayRef,
 			&i.CustomerID,
+			&i.Username,
 			&i.PlanID,
 			&i.Amount,
 			&i.Coupon,
@@ -270,7 +289,6 @@ func (q *Queries) SearchPaymentRequests(ctx context.Context, arg SearchPaymentRe
 			&i.CreatedAt,
 			&i.PaidAt,
 			&i.ExpiresAt,
-			&i.Username,
 			&i.PlanName,
 		); err != nil {
 			return nil, err
