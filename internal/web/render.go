@@ -66,6 +66,7 @@ func (s *Server) parseTemplates() error {
 		"navActive": navActive,
 		"money":     money,
 		"badge":     badge,
+		"dot":       func(v string) string { return badgeDot(badge(v)) },
 		"ts":        s.ts,
 		"icon": func(name string) (template.HTML, error) {
 			svg, ok := icons[name]

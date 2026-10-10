@@ -9,7 +9,6 @@ import (
 	"context"
 	"github.com/frand-kod/gobill/internal/db"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -34,17 +33,6 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.ClockWarning != nil {
 		d.Warn = s.ClockWarning()
-	}
-	if off, err := s.queries.ListOfflineRouters(r.Context()); err == nil && len(off) > 0 {
-		names := make([]string, len(off))
-		for i, x := range off {
-			names[i] = x.Name
-		}
-		msg := s.catalog.T(s.language(), "Router offline") + ": " + strings.Join(names, ", ")
-		if d.Warn != "" {
-			msg = d.Warn + " | " + msg
-		}
-		d.Warn = msg
 	}
 	s.render(w, r, http.StatusOK, "dashboard", Page{
 		Title: "Dashboard",

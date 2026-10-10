@@ -1,11 +1,20 @@
 -- name: ListExpiringSubscriptions :many
--- Active or just-expired subscriptions, soonest expiry first (dashboard widget).
+-- Active subscriptions that end from now to the given limit, soonest first (dashboard widget).
 SELECT s.id, s.customer_id, s.expires_at, s.status, c.username, c.fullname, c.phone, p.name AS plan_name
 FROM subscriptions s
 JOIN customers c ON c.id = s.customer_id
 JOIN plans p ON p.id = s.plan_id
-WHERE s.status IN ('active', 'expired') AND s.expires_at >= sqlc.arg(since) AND s.expires_at <= sqlc.arg(until)
+WHERE s.status = 'active' AND s.expires_at >= sqlc.arg(since) AND s.expires_at <= sqlc.arg(until)
 ORDER BY s.expires_at, s.id LIMIT sqlc.arg(page_limit);
+
+-- name: ListRecentlyExpiredSubscriptions :many
+-- Subscriptions that ended inside the window and are not renewed, newest first (dashboard "just expired" card).
+SELECT s.id, s.customer_id, s.expires_at, s.status, c.username, c.fullname, c.phone, p.name AS plan_name
+FROM subscriptions s
+JOIN customers c ON c.id = s.customer_id
+JOIN plans p ON p.id = s.plan_id
+WHERE s.status IN ('active', 'expired') AND s.expires_at >= sqlc.arg(since) AND s.expires_at < sqlc.arg(until)
+ORDER BY s.expires_at DESC, s.id DESC LIMIT sqlc.arg(page_limit);
 
 -- name: VoucherStockByPlan :many
 SELECT p.id, p.name,

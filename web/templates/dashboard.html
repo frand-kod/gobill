@@ -42,84 +42,101 @@
   </a>
 </div>
 {{if $mgr}}
-<section class="card mb-4" aria-labelledby="network-title">
-  <h2 class="card-title flex flex-wrap items-center justify-between gap-2" id="network-title"><span>{{T "Network"}} <span class="font-normal text-ink-2" id="network-summary">{{.Network.Online}}/{{len .Network.Rows}} {{T "Online"}}</span></span><a class="link" href="/admin/routers">{{T "See all"}}</a></h2>
+<section class="card mb-4" aria-labelledby="network-title" data-collapse="network">
+  <h2 class="card-title flex flex-wrap items-center justify-between gap-2" id="network-title"><span>{{T "Network"}} <span class="font-normal text-ink-2" id="network-summary">{{.Network.Online}}/{{len .Network.Rows}} {{T "Online"}}{{if .Network.Offline}} · <span class="font-medium text-err-fg">{{printf (T "%d offline") .Network.Offline}}</span>{{end}}</span></span>
+    <span class="flex items-center gap-3"><a class="link" href="/admin/routers">{{T "See all"}}</a>{{template "collapse" "network"}}</span></h2>
+  <div id="network-body" data-collapse-body>
   {{if .Network.Rows}}
   <ul class="divide-y divide-line">
-    {{range .Network.Rows}}<li>
+    {{range .Network.Rows}}<li class="{{.Tint}}">
       <a class="flex items-center gap-3 px-4 py-3 hover:bg-surface-2" href="{{.Href}}">
         <span class="size-2.5 shrink-0 rounded-full {{.Dot}}" aria-hidden="true"></span>
         <span class="min-w-0 flex-1"><span class="block truncate font-medium">{{.Name}}</span><span class="block truncate text-xs text-ink-2">{{.Metric}}</span></span>
+        {{if eq .Status "Offline"}}<span class="shrink-0 text-err-fg" aria-hidden="true">{{icon "triangle-alert"}}</span>{{end}}
         <span class="badge hidden sm:inline-flex">{{T .Type}}</span>
-        <span class="shrink-0 text-sm">{{T .Status}}</span>
+        <span class="shrink-0 text-sm{{if eq .Status "Offline"}} font-medium text-err-fg{{end}}">{{T .Status}}</span>
       </a>
     </li>{{end}}
   </ul>
   {{else}}
   <p class="card-body text-sm text-ink-2">{{T "No routers or NAS yet."}} <a class="link" href="/admin/routers/new">{{T "Add a router"}}</a> · <a class="link" href="/admin/nas/new">{{T "Add a NAS"}}</a></p>
   {{end}}
+  </div>
 </section>
 {{end}}
-  <section class="card mb-4 overflow-hidden">
-    <h2 class="card-title flex flex-wrap items-center justify-between gap-2"><span>{{T "Expiring Soon"}} ({{T "next 7 days"}})</span><a class="link" href="/admin/subscriptions?status=active&sort=expires&dir=asc">{{T "See all"}}</a></h2>
-    <div class="overflow-x-auto"><table class="table">
-      <thead><tr><th>{{T "Username"}}</th><th>{{T "Full Name"}}</th><th>{{T "Internet Package"}}</th><th>{{T "Expires"}}</th><th>{{T "Status"}}</th><th></th></tr></thead>
-      <tbody>
-      {{range .Expiring}}<tr>
-        <td><a class="link" href="/admin/customers/{{.CustomerID}}">{{.Username}}</a></td>
-        <td>{{.Fullname}}</td><td>{{.Plan}}</td><td>{{.Expires}}</td>
-        <td><span class="badge {{if .Expired}}badge-bad{{else}}badge-warn{{end}}">{{if .Expired}}{{T "Expired"}}{{else}}{{T "Expiring"}}{{end}}</span></td>
-        <td class="whitespace-nowrap text-end">
-          {{with .Phone}}<span class="me-2">{{.}}</span>{{end}}
-          {{if .WA}}<a class="btn btn-ghost btn-icon tip-end" href="{{.WA}}" target="_blank" rel="noopener" aria-label="WhatsApp" data-tip="WhatsApp">{{icon "message-circle"}}</a>{{end}}
-          <a class="btn btn-icon tip-end" href="/admin/customers/{{.CustomerID}}" aria-label="{{T "Recharge"}}" data-tip="{{T "Recharge"}}">{{icon "wallet"}}</a>
-        </td>
-      </tr>{{else}}<tr><td class="py-6 text-center text-ink-2" colspan="6">{{T "No plans end in the next 7 days."}}</td></tr>{{end}}
-      </tbody>
-    </table></div>
-  </section>
+<section class="card mb-4 overflow-hidden" aria-labelledby="expiring-title" data-collapse="expiring">
+  <h2 class="card-title flex flex-wrap items-center justify-between gap-2" id="expiring-title"><span>{{T "Expiring Soon"}} ({{T "next 7 days"}})</span>
+    <span class="flex items-center gap-3"><a class="link" href="/admin/subscriptions?status=active&sort=expires&dir=asc">{{T "See all"}}</a>{{template "collapse" "expiring"}}</span></h2>
+  <div id="expiring-body" data-collapse-body>
+  {{if .Expiring}}<div class="overflow-x-auto"><table class="table">
+    <thead><tr><th>{{T "Username"}}</th><th class="max-sm:hidden">{{T "Full Name"}}</th><th class="max-sm:hidden">{{T "Internet Package"}}</th><th class="font-medium">{{T "Expires"}}</th><th></th></tr></thead>
+    <tbody>{{template "expiry-rows" .Expiring}}</tbody>
+  </table></div>
+  {{else}}<p class="card-body text-sm text-ink-2">{{T "No plans end in the next 7 days."}}</p>{{end}}
+  </div>
+</section>
+<section class="card mb-4 overflow-hidden" aria-labelledby="recent-title" data-collapse="recent">
+  <h2 class="card-title flex flex-wrap items-center justify-between gap-2" id="recent-title"><span>{{T "Recently expired (last 3 days)"}}</span>{{template "collapse" "recent"}}</h2>
+  <div id="recent-body" data-collapse-body>
+  {{if .Recent}}<div class="overflow-x-auto"><table class="table">
+    <thead><tr><th>{{T "Username"}}</th><th class="max-sm:hidden">{{T "Full Name"}}</th><th class="max-sm:hidden">{{T "Internet Package"}}</th><th class="font-medium">{{T "Expires"}}</th><th></th></tr></thead>
+    <tbody>{{template "expiry-rows" .Recent}}</tbody>
+  </table></div>
+  {{else}}<p class="card-body text-sm text-ink-2">{{T "No plans ended in the last 3 days."}}</p>{{end}}
+  </div>
+</section>
 <div class="mb-4 grid gap-4 md:grid-cols-2">
-  <section class="card">
-    <h2 class="card-title">{{T "New customers per month"}}</h2>
-    <div class="card-body"><div class="h-44 sm:h-52"><canvas data-chart="bar" data-label="{{T "Customer"}}" data-labels="{{.Labels}}" data-values="{{.Regs}}" role="img" aria-label="{{T "New customers per month"}}"></canvas></div></div>
+  <section class="card" aria-labelledby="chart-regs-title" data-collapse="chart-regs">
+    <h2 class="card-title flex items-center justify-between gap-2" id="chart-regs-title"><span>{{T "New customers per month"}}</span>{{template "collapse" "chart-regs"}}</h2>
+    <div id="chart-regs-body" data-collapse-body><div class="card-body"><div class="h-44 sm:h-52"><canvas data-chart="bar" data-label="{{T "Customer"}}" data-labels="{{.Labels}}" data-values="{{.Regs}}" role="img" aria-label="{{T "New customers per month"}}"></canvas></div></div></div>
   </section>
-  <section class="card">
-    <h2 class="card-title">{{T "Sales per month"}}</h2>
-    <div class="card-body"><div class="h-44 sm:h-52"><canvas data-chart="bar" data-money="1" data-label="{{T "Sales"}}" data-labels="{{.Labels}}" data-values="{{.Sales}}" role="img" aria-label="{{T "Sales per month"}}"></canvas></div></div>
+  <section class="card" aria-labelledby="chart-sales-title" data-collapse="chart-sales">
+    <h2 class="card-title flex items-center justify-between gap-2" id="chart-sales-title"><span>{{T "Sales per month"}}</span>{{template "collapse" "chart-sales"}}</h2>
+    <div id="chart-sales-body" data-collapse-body><div class="card-body"><div class="h-44 sm:h-52"><canvas data-chart="bar" data-money="1" data-label="{{T "Sales"}}" data-labels="{{.Labels}}" data-values="{{.Sales}}" role="img" aria-label="{{T "Sales per month"}}"></canvas></div></div></div>
   </section>
 </div>
 <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-  <section class="card">
-    <h2 class="card-title">{{T "All Users Insights"}}</h2>
-    <div class="card-body"><div class="h-44 sm:h-64"><canvas data-chart="pie" data-labels="{{.Insight}}" data-values="{{.InsightVals}}" role="img" aria-label="{{T "All Users Insights"}}"></canvas></div></div>
+  <section class="card" aria-labelledby="insight-title" data-collapse="insight">
+    <h2 class="card-title flex items-center justify-between gap-2" id="insight-title"><span>{{T "All Users Insights"}}</span>{{template "collapse" "insight"}}</h2>
+    <div id="insight-body" data-collapse-body><div class="card-body"><div class="h-44 sm:h-64"><canvas data-chart="pie" data-labels="{{.Insight}}" data-values="{{.InsightVals}}" role="img" aria-label="{{T "All Users Insights"}}"></canvas></div></div></div>
   </section>
-  <section class="card overflow-hidden">
-    <h2 class="card-title">{{T "Voucher Stock"}}</h2>
-    <div class="overflow-x-auto"><table class="table">
+  <section class="card overflow-hidden" aria-labelledby="vouchers-title" data-collapse="vouchers">
+    <h2 class="card-title flex items-center justify-between gap-2" id="vouchers-title"><span>{{T "Voucher Stock"}}</span>{{template "collapse" "vouchers"}}</h2>
+    <div id="vouchers-body" data-collapse-body><div class="overflow-x-auto"><table class="table">
       <thead><tr><th>{{T "Package Name"}}</th><th>{{T "Unused"}}</th><th>{{T "Used"}}</th></tr></thead>
       <tbody>
       {{range .Vouchers}}<tr><td>{{.Name}}</td><td>{{.Unused}}</td><td>{{.Used}}</td></tr>{{else}}<tr><td colspan="3">{{T "No data"}}</td></tr>{{end}}
       </tbody>
-    </table></div>
+    </table></div></div>
   </section>
-  <section class="card">
-    <h2 class="card-title">{{T "Job Monitor"}}</h2>
-    <dl class="card-body grid gap-3 text-sm">
+  <section class="card" aria-labelledby="jobs-title" data-collapse="jobs">
+    <h2 class="card-title flex items-center justify-between gap-2" id="jobs-title"><span>{{T "Job Monitor"}}</span>{{template "collapse" "jobs"}}</h2>
+    <div id="jobs-body" data-collapse-body><dl class="card-body grid gap-3 text-sm">
       <div><dt class="text-ink-2">{{T "Expiry Job Last Run"}}</dt><dd class="font-medium" id="job-expiry">{{if .ExpiryRun}}{{.ExpiryRun}}{{else}}-{{end}}</dd></div>
       <div><dt class="text-ink-2">{{T "Reminder Job Last Run"}}</dt><dd class="font-medium" id="job-reminder">{{if .ReminderRun}}{{.ReminderRun}}{{else}}-{{end}}</dd></div>
-    </dl>
+    </dl></div>
   </section>
-  <section class="card md:col-span-2 xl:col-span-3">
-    <h2 class="card-title">{{T "Activity Log"}}</h2>
-    <div class="overflow-x-auto"><table class="table">
+  <section class="card md:col-span-2 xl:col-span-3 overflow-hidden" aria-labelledby="logs-title" data-collapse="logs">
+    <h2 class="card-title flex items-center justify-between gap-2" id="logs-title"><span>{{T "Activity Log"}}</span>{{template "collapse" "logs"}}</h2>
+    <div id="logs-body" data-collapse-body><div class="overflow-x-auto"><table class="table">
       <thead><tr><th>{{T "Date"}}</th><th>{{T "Action"}}</th><th>{{T "Description"}}</th></tr></thead>
       <tbody>
       {{range .Logs}}<tr><td class="whitespace-nowrap">{{ts .CreatedAt}}</td><td>{{.Action}}</td><td>{{.Description}}</td></tr>{{else}}<tr><td colspan="3">{{T "No data"}}</td></tr>{{end}}
       </tbody>
-    </table></div>
+    </table></div></div>
   </section>
 </div>
 <script src="/static/vendor/chart-4.4.9.umd.js"></script>
 <script src="/static/dashboard.js"></script>
 {{end}}
 {{end}}
+{{define "collapse"}}<button type="button" class="btn btn-ghost btn-icon card-toggle hidden" data-collapse-toggle aria-controls="{{.}}-body" aria-expanded="true" aria-label="{{T "Show or hide"}}">{{icon "chevron-down"}}</button>{{end}}
+{{define "expiry-rows"}}{{range .}}<tr>
+  <td><a class="link" href="/admin/customers/{{.CustomerID}}">{{.Username}}</a></td>
+  <td class="max-sm:hidden">{{.Fullname}}</td><td class="max-sm:hidden">{{.Plan}}</td><td class="font-medium">{{.Expires}}</td>
+  <td class="whitespace-nowrap text-end">
+    {{with .Phone}}<span class="me-2 max-sm:hidden">{{.}}</span>{{end}}
+    {{if .WA}}<a class="btn btn-ghost btn-icon tip-end" href="{{.WA}}" target="_blank" rel="noopener" aria-label="WhatsApp" data-tip="WhatsApp">{{icon "message-circle"}}</a>{{end}}
+    <a class="btn btn-icon tip-end" href="/admin/customers/{{.CustomerID}}" aria-label="{{T "Recharge"}}" data-tip="{{T "Recharge"}}">{{icon "wallet"}}</a>
+  </td>
+</tr>{{end}}{{end}}

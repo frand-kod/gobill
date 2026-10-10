@@ -205,20 +205,27 @@
   .table .num { font-variant-numeric: tabular-nums; @apply text-end; }
   /* scroll region for long lists: the header stays visible */
   .table-scroll { max-height: min(70vh, 40rem); @apply overflow-auto; }
-  /* phones: long cells end in an ellipsis so each row stays one line. The last column (row actions) is pinned to the
-     right edge of the scroll region, with a shadow as the edge hint, so the actions stay reachable while the rest scrolls. */
+  /* phones: long cells end in an ellipsis so each row stays one line. */
   @media (max-width: 639px) {
     .table th, .table td { padding-inline: var(--sp-2); }
     .table td:not(:last-child) { max-width: 7.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* primary columns (expiry date) show in full */
+    .table td.font-medium { max-width: none; white-space: normal; }
+    .table th.font-medium { white-space: normal; }
     .table td:last-child { white-space: nowrap; }
-    .table th:last-child, .table td:last-child { position: sticky; inset-inline-end: 0; z-index: 2; background: var(--surface); box-shadow: -0.5rem 0 0.5rem -0.5rem color-mix(in srgb, var(--text) 30%, transparent); }
-    .table th:last-child { background: color-mix(in srgb, var(--surface-2) 60%, var(--border)); }
+    /* the row actions are not pinned: a pinned column covered the visible cells left of it; they scroll into view instead */
   }
   /* selection bar: hidden, shown above the table only while a row is checked */
   .bulk-bar { display: none; }
   .list-results:has(input[name=ids]:checked) > .bulk-bar { @apply flex flex-wrap items-center justify-end gap-2 border-b border-line bg-surface-2 px-3 py-2; }
   /* compact status badge in tables: dot + short text */
   .table .badge { @apply gap-1 px-1.5 py-0 leading-5; }
+  /* list filters: on phones the panel opens from the Filter button (data-open, see list.js); from sm it always shows */
+  .filter-panel { display: none; }
+  .filter-panel[data-open] { display: flex; }
+  @media (min-width: 640px) { .filter-panel { display: flex; } }
+  /* controls of the phone "more actions" menu of a row */
+  .menu-item { @apply flex min-h-10 w-full items-center gap-3 px-3 py-2 text-start text-sm text-ink hover:bg-surface-2; }
 
   /* tooltip for icon-only buttons: text from data-tip, on hover, keyboard focus and touch (:active). No JS. */
   [data-tip] { position: relative; }
@@ -246,6 +253,9 @@
   /* thin scrollbar that stays out of the way; the sidebar still scrolls */
   .sb-scroll { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text-2) 40%, transparent) transparent; }
   .nav-item[data-tip]::after { display: none; }
+  /* dashboard card toggle: chevron turns when the card is collapsed */
+  .card-toggle > svg { transition: rotate 150ms ease; }
+  .card-toggle[aria-expanded="false"] > svg { rotate: -90deg; }
   /* desktop icon rail: labels, groups and the logo hide; tooltips show the label (position set by gbShell.tip) */
   @media (min-width: 64rem) {
     .sidebar-rail .sb-head { justify-content: center; padding-inline: 0; }

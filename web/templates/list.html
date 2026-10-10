@@ -21,10 +21,15 @@
       <span class="pointer-events-none absolute inset-y-0 start-3 flex items-center text-ink-2">{{icon "search"}}</span>
       <input class="input ps-10" type="search" name="q" value="{{.Q}}" placeholder="{{T "Search"}}" aria-label="{{T "Search"}}">
     </div>
+    {{if or .Dates .Filters}}
+    <button type="button" class="btn sm:hidden" data-filter-toggle aria-expanded="false" aria-controls="list-filters">{{icon "funnel"}}<span>{{T "Filter"}}{{with .FilterCount}} ({{.}}){{end}}</span></button>
+    <div id="list-filters" class="filter-panel w-full flex-wrap items-center gap-2 sm:flex sm:w-auto" data-filter-panel>
     {{if .Dates}}<input class="input w-full sm:w-auto" type="date" name="from" value="{{.From}}" aria-label="{{T "From"}}"><input class="input w-full sm:w-auto" type="date" name="to" value="{{.To}}" aria-label="{{T "To"}}">{{end}}
     {{range .Filters}}{{$cur := .Val}}<select class="input w-full sm:w-auto" name="{{.Name}}" aria-label="{{T .Name}}">{{range .Opts}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{T .Label}}</option>{{end}}</select>{{end}}
+    </div>
+    {{end}}
     {{if .Sort}}<input type="hidden" name="sort" value="{{.Sort}}"><input type="hidden" name="dir" value="{{.Dir}}">{{end}}
-    <button class="btn btn-ghost" type="submit">{{T "Search"}}</button>
+    <button class="btn btn-ghost max-sm:hidden" type="submit">{{T "Search"}}</button>
     {{if .Filtered}}<a class="btn btn-ghost btn-icon tip-end" href="{{.Base}}" aria-label="{{T "Reset filter"}}" data-tip="{{T "Reset filter"}}">{{icon "x"}}</a>{{end}}
   </form>
   {{else if .Filtered}}
@@ -43,18 +48,21 @@
           <tr>
             {{if $d.Bulk}}<td class="w-10"><label class="flex size-10 items-center justify-center"><input type="checkbox" class="size-4 accent-brand-500" name="ids" value="{{$r.ID}}" form="bulk" aria-label="{{index $r.Cells 0}}"></label></td>{{end}}
             {{range $i, $c := $r.Cells}}<td{{with $d.ColClass $i}} class="{{.}}"{{end}}>
+              {{if and (eq $i 0) (gt $d.StatusIndex 0)}}{{$st := index $r.Cells $d.StatusIndex}}<span class="me-1.5 inline-flex align-middle sm:hidden" title="{{T $st}}"><span class="sr-only">{{T $st}}</span><span class="size-2 shrink-0 rounded-full {{dot $st}}" aria-hidden="true"></span></span>{{end}}
               {{if eq (index $d.Cols $i) "Status"}}<span class="badge {{badge $c}}">{{T $c}}</span>
               {{else if eq (index $d.Cols $i) "Secret"}}{{if $c}}<span class="badge badge-warn">{{T $c}}</span>{{end}}
               {{else if and (eq $i 0) (or $d.ViewLink $d.InvoiceLink)}}<a class="link" href="{{$d.Base}}/{{$r.ID}}{{if $d.InvoiceLink}}/invoice{{end}}">{{$c}}</a>
               {{else}}{{$c}}{{end}}
             </td>{{end}}
-            {{if $d.CanEdit}}<td class="whitespace-nowrap text-end">
+            {{if $d.CanEdit}}{{$items := $d.RowItems $r}}{{$many := gt (len $items) 2}}<td class="whitespace-nowrap text-end">
               <div class="flex flex-nowrap justify-end gap-1">
-                {{range $d.Actions}}{{$ic := "circle-check"}}{{if eq .Path "extend"}}{{$ic = "calendar-plus"}}{{else if eq .Path "deactivate"}}{{$ic = "power"}}{{else if eq .Path "toggle"}}{{$ic = "power"}}{{else if eq .Path "sync"}}{{$ic = "refresh-cw"}}{{else if eq .Path "test"}}{{$ic = "wifi"}}{{end}}<form class="flex items-center gap-1" method="post" action="{{$d.Base}}/{{$r.ID}}/{{.Path}}"{{if .Confirm}} data-confirm="{{T .Label}} {{index $r.Cells 0}}{{with .Field}} (+{{printf "{%s}" .}} {{T "days"}}){{end}}?"{{if eq .Path "deactivate"}} data-confirm-danger{{end}}{{end}}>{{with .Field}}<input class="input input-sm" type="number" name="{{.}}" value="7" min="1" aria-label="{{T .}}">{{end}}<button class="btn btn-ghost btn-icon tip-end" type="submit" aria-label="{{T .Label}}" data-tip="{{T .Label}}">{{icon $ic}}</button></form>{{end}}
-                {{if not $d.DeleteOnly}}<a class="btn btn-ghost btn-icon tip-end" href="{{$d.Base}}/{{$r.ID}}/edit" aria-label="{{T "Edit"}}" data-tip="{{T "Edit"}}">{{icon "pencil"}}</a>{{end}}
-                {{if not $d.NoDelete}}<form method="post" action="{{$d.Base}}/{{$r.ID}}/delete" data-confirm="{{T "Delete"}} {{index $r.Cells 0}}?" data-confirm-danger>
-                  <button class="btn btn-danger btn-icon tip-end" type="submit" aria-label="{{T "Delete"}}" data-tip="{{T "Delete"}}">{{icon "trash-2"}}</button>
-                </form>{{end}}
+                {{range $items}}{{if or (not $many) .Primary}}{{template "rowItem" .}}{{else}}<span class="hidden sm:contents">{{template "rowItem" .}}</span>{{end}}{{end}}
+                {{if $many}}<div class="relative sm:hidden" x-data="{o:false}" @click.outside="o=false" @keydown.escape.stop="o=false;$refs.t.focus()">
+                  <button type="button" class="btn btn-ghost btn-icon" x-ref="t" @click="o=!o;if(o)$nextTick(function(){$refs.m.querySelector('a,button')?.focus()})" :aria-expanded="o" aria-haspopup="menu" aria-label="{{T "More actions"}}" data-tip="{{T "More actions"}}">{{icon "ellipsis"}}</button>
+                  <div x-show="o" x-cloak x-ref="m" role="menu" class="absolute end-0 top-full z-30 mt-1 w-64 max-w-[85vw] rounded-lg border border-line bg-surface py-1 shadow-lg">
+                    {{range $items}}{{if not .Primary}}{{template "rowMenuItem" .}}{{end}}{{end}}
+                  </div>
+                </div>{{end}}
               </div>
             </td>{{end}}
           </tr>
@@ -76,3 +84,22 @@
 <script defer src="/static/list.js"></script>
 {{end}}
 {{end}}
+{{/* row controls in the action cell: inline on desktop and on phones when the row has at most two */}}
+{{define "rowItem"}}{{if eq .Kind "edit"}}<a class="btn btn-ghost btn-icon tip-end" href="{{.Href}}" aria-label="{{T .Label}}" data-tip="{{T .Label}}">{{icon .Icon}}</a>
+{{else if eq .Kind "delete"}}<form method="post" action="{{.Href}}" data-confirm="{{T "Delete"}} {{.Name}}?" data-confirm-danger>
+  <button class="btn btn-danger btn-icon tip-end" type="submit" aria-label="{{T "Delete"}}" data-tip="{{T "Delete"}}">{{icon .Icon}}</button>
+</form>
+{{else}}<form class="flex items-center gap-1" method="post" action="{{.Href}}"{{if .Confirm}} data-confirm="{{T .Label}} {{.Name}}{{with .Field}} (+{{printf "{%s}" .}} {{T "days"}}){{end}}?"{{if .Danger}} data-confirm-danger{{end}}{{end}}>{{with .Field}}<input class="input input-sm" type="number" name="{{.}}" value="7" min="1" aria-label="{{T .}}">{{end}}<button class="btn btn-ghost btn-icon tip-end" type="submit" aria-label="{{T .Label}}" data-tip="{{T .Label}}">{{icon .Icon}}</button></form>{{end}}{{end}}
+{{/* the same controls in the phone "more actions" menu; the extend days input moves in here */}}
+{{define "rowMenuItem"}}{{if eq .Kind "edit"}}<a class="menu-item" role="menuitem" href="{{.Href}}">{{icon .Icon}}<span>{{T .Label}}</span></a>
+{{else if eq .Kind "delete"}}<form method="post" action="{{.Href}}" data-confirm="{{T "Delete"}} {{.Name}}?" data-confirm-danger>
+  <button class="menu-item text-err-fg" role="menuitem" type="submit">{{icon .Icon}}<span>{{T "Delete"}}</span></button>
+</form>
+{{else if .Field}}<form class="flex flex-wrap items-center gap-2 px-3 py-2" method="post" action="{{.Href}}"{{if .Confirm}} data-confirm="{{T .Label}} {{.Name}} (+{{printf "{%s}" .Field}} {{T "days"}})?"{{if .Danger}} data-confirm-danger{{end}}{{end}}>
+  <input class="input input-sm w-20" type="number" name="{{.Field}}" value="7" min="1" aria-label="{{T .Field}}">
+  <span class="text-xs text-ink-2">{{T "days"}}</span>
+  <button class="btn btn-sm" type="submit">{{icon .Icon}}<span>{{T .Label}}</span></button>
+</form>
+{{else}}<form method="post" action="{{.Href}}"{{if .Confirm}} data-confirm="{{T .Label}} {{.Name}}?"{{if .Danger}} data-confirm-danger{{end}}{{end}}>
+  <button class="menu-item{{if .Danger}} text-err-fg{{end}}" role="menuitem" type="submit">{{icon .Icon}}<span>{{T .Label}}</span></button>
+</form>{{end}}{{end}}

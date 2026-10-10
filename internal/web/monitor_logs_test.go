@@ -134,14 +134,9 @@ func TestRouterStatusInListAndDashboard(t *testing.T) {
 	if b := do(e.h, "GET", "/admin/routers", nil, e.c).Body.String(); !strings.Contains(b, "badge-bad") {
 		t.Fatal("offline badge missing")
 	}
-	if b := do(e.h, "GET", "/admin", nil, e.c).Body.String(); !strings.Contains(b, "alert-warn") || !strings.Contains(b, ": r<") {
-		t.Fatalf("dashboard warning missing: %s", b)
-	}
-	if err := e.q.SetRouterStatus(t.Context(), db.SetRouterStatusParams{ID: e.rt, Online: sql.NullInt64{Int64: 1, Valid: true}}); err != nil {
-		t.Fatal(err)
-	}
-	if b := do(e.h, "GET", "/admin", nil, e.c).Body.String(); strings.Contains(b, "alert-warn") {
-		t.Fatal("warning should clear once online")
+	// no banner: the Network card lists the offline router instead
+	if b := do(e.h, "GET", "/admin", nil, e.c).Body.String(); strings.Contains(b, "alert-warn") || strings.Contains(b, "Router offline") {
+		t.Fatal("dashboard should not show a router-offline banner")
 	}
 }
 

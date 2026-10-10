@@ -25,7 +25,9 @@
         if (!cur || !next) throw new Error('no list');
         var a = document.activeElement, focus = a && cur.contains(a) && a.name ? a : null;
         var s = focus && focus.selectionStart, e = focus && focus.selectionEnd;
+        var panelOpen = !!cur.querySelector('[data-filter-panel][data-open]');
         cur.replaceWith(next);
+        if (panelOpen) setFilters(next, true);
         history.replaceState(null, '', url.href);
         if (focus) {
           var el = document.querySelector('[data-list] [name="' + focus.name + '"]');
@@ -40,6 +42,18 @@
   }
 
   function current() { return document.querySelector('form[data-live]'); }
+
+  // phones: the Filter button shows or hides the filter panel (data-open); the state survives a live reload
+  function setFilters(root, open) {
+    var p = root.querySelector('[data-filter-panel]'), t = root.querySelector('[data-filter-toggle]');
+    if (p) { if (open) p.setAttribute('data-open', ''); else p.removeAttribute('data-open'); }
+    if (t) t.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('[data-filter-toggle]');
+    if (t) setFilters(t.closest('[data-list]'), t.getAttribute('aria-expanded') !== 'true');
+  });
 
   document.addEventListener('input', function (e) {
     var t = e.target;

@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -21,12 +22,13 @@ const nasFreshFor = 15 * time.Minute
 // netRow is one line of the dashboard card.
 type netRow struct {
 	Kind, Name, Type, Status, Dot, Metric, Href string
+	Tint                                        string // row background: offline = error tint, unknown = neutral
 }
 
-// netCard is the dashboard card: every device, and how many are online.
+// netCard is the dashboard card: every device, sorted offline first, then unknown, then online.
 type netCard struct {
-	Rows   []netRow
-	Online int
+	Rows            []netRow
+	Online, Offline int
 }
 
 // netStat is what the RADIUS side saw of one NAS, keyed by its packet source IP.
@@ -71,12 +73,31 @@ func (s *Server) networkCard(ctx context.Context, now time.Time) (netCard, error
 	for _, n := range nas {
 		c.Rows = append(c.Rows, s.nasRow(n, stats, now))
 	}
-	for _, r := range c.Rows {
-		if r.Status == "Online" {
+	for i, r := range c.Rows {
+		switch r.Status {
+		case "Online":
 			c.Online++
+		case "Offline":
+			c.Offline++
+			c.Rows[i].Tint = "bg-err-bg"
+		default:
+			c.Rows[i].Tint = "bg-surface-2"
 		}
 	}
+	// stable: routers keep their order inside each group, and routers come before NAS
+	sort.SliceStable(c.Rows, func(i, j int) bool { return statusRank(c.Rows[i].Status) < statusRank(c.Rows[j].Status) })
 	return c, nil
+}
+
+// statusRank orders the dashboard card: offline first, then unknown, then online.
+func statusRank(status string) int {
+	switch status {
+	case "Offline":
+		return 0
+	case "Online":
+		return 2
+	}
+	return 1
 }
 
 // routerStatus reads the monitor's online flag; a disabled router is not checked, so it stays unknown.
@@ -112,7 +133,11 @@ func (s *Server) nasRow(n db.Na, stats map[string]netStat, now time.Time) netRow
 	if !ok {
 		row.Metric = s.catalog.T(lang, "No packet yet")
 	} else {
-		row.Metric = fmt.Sprintf(s.catalog.T(lang, "%d active sessions, last packet %s"), st.Active, s.ts(st.LastSeen))
+		key := "%d active sessions, last packet %s"
+		if st.Active == 1 {
+			key = "%d active session, last packet %s"
+		}
+		row.Metric = fmt.Sprintf(s.catalog.T(lang, key), st.Active, s.ts(st.LastSeen))
 		row.Status = "Offline"
 		if now.Sub(time.Unix(st.LastSeen, 0)) <= nasFreshFor {
 			row.Status = "Online"

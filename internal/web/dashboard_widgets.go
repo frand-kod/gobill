@@ -13,7 +13,8 @@ import (
 
 // dashWidgets holds the cards below the dashboard tiles and charts (old PHP widgets W4, W5, W6, W7, W8/W9).
 type dashWidgets struct {
-	Expiring    []expiringRow
+	Expiring    []expiringRow // active, ending in the next 7 days
+	Recent      []expiringRow // ended in the last 3 days and not renewed
 	Vouchers    []db.VoucherStockByPlanRow
 	Logs        []db.ActivityLog
 	ExpiryRun   string
@@ -68,7 +69,6 @@ type expiringRow struct {
 	Fullname   string
 	Plan       string
 	Expires    string
-	Expired    bool
 	Phone      string
 	WA         string // wa.me link, "" when the phone is missing or too short
 }
@@ -79,18 +79,21 @@ func (s *Server) widgetData(ctx context.Context, now time.Time, active, expired 
 	if err != nil {
 		return
 	}
-	rows, err := s.queries.ListExpiringSubscriptions(ctx, db.ListExpiringSubscriptionsParams{
-		Since: now.AddDate(0, 0, -1).Unix(), Until: now.AddDate(0, 0, 7).Unix(), PageLimit: 20})
+	soon, err := s.queries.ListExpiringSubscriptions(ctx, db.ListExpiringSubscriptionsParams{
+		Since: now.Unix(), Until: now.AddDate(0, 0, 7).Unix(), PageLimit: 20})
 	if err != nil {
 		return
 	}
-	for _, r := range rows {
-		x := expiringRow{CustomerID: r.CustomerID, Username: r.Username, Fullname: r.Fullname, Phone: r.Phone,
-			Plan: r.PlanName, Expires: s.ts(r.ExpiresAt), Expired: r.Status == "expired" || r.ExpiresAt < now.Unix()}
-		if l := waLink(r.Phone, settings["country_code_phone"]); l != "" {
-			x.WA = l + "?text=" + url.QueryEscape(s.catalog.T(s.language(), "Hello, your internet plan is about to end. Please renew to stay online."))
-		}
-		w.Expiring = append(w.Expiring, x)
+	for _, r := range soon {
+		w.Expiring = append(w.Expiring, s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.ExpiresAt))
+	}
+	ended, err := s.queries.ListRecentlyExpiredSubscriptions(ctx, db.ListRecentlyExpiredSubscriptionsParams{
+		Since: now.AddDate(0, 0, -3).Unix(), Until: now.Unix(), PageLimit: 20})
+	if err != nil {
+		return
+	}
+	for _, r := range ended {
+		w.Recent = append(w.Recent, s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.ExpiresAt))
 	}
 	cnt, err := s.queries.CountSetup(ctx)
 	if err != nil {
@@ -107,4 +110,13 @@ func (s *Server) widgetData(ctx context.Context, now time.Time, active, expired 
 	w.Insight = jsonStr([]string{s.catalog.T(s.language(), "Active"), s.catalog.T(s.language(), "Expired")})
 	w.InsightVals = jsonStr([]int64{active, expired})
 	return
+}
+
+// expiringRow is one dashboard row; the WhatsApp reminder link is set only when the phone number allows one.
+func (s *Server) expiringRow(settings map[string]string, customerID int64, username, fullname, phone, plan string, expiresAt int64) expiringRow {
+	x := expiringRow{CustomerID: customerID, Username: username, Fullname: fullname, Phone: phone, Plan: plan, Expires: s.ts(expiresAt)}
+	if l := waLink(phone, settings["country_code_phone"]); l != "" {
+		x.WA = l + "?text=" + url.QueryEscape(s.catalog.T(s.language(), "Hello, your internet plan is about to end. Please renew to stay online."))
+	}
+	return x
 }

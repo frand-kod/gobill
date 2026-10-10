@@ -44,7 +44,7 @@ SELECT s.id, s.customer_id, s.expires_at, s.status, c.username, c.fullname, c.ph
 FROM subscriptions s
 JOIN customers c ON c.id = s.customer_id
 JOIN plans p ON p.id = s.plan_id
-WHERE s.status IN ('active', 'expired') AND s.expires_at >= ?1 AND s.expires_at <= ?2
+WHERE s.status = 'active' AND s.expires_at >= ?1 AND s.expires_at <= ?2
 ORDER BY s.expires_at, s.id LIMIT ?3
 `
 
@@ -65,7 +65,7 @@ type ListExpiringSubscriptionsRow struct {
 	PlanName   string
 }
 
-// Active or just-expired subscriptions, soonest expiry first (dashboard widget).
+// Active subscriptions that end from now to the given limit, soonest first (dashboard widget).
 func (q *Queries) ListExpiringSubscriptions(ctx context.Context, arg ListExpiringSubscriptionsParams) ([]ListExpiringSubscriptionsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listExpiringSubscriptions, arg.Since, arg.Until, arg.PageLimit)
 	if err != nil {
@@ -75,6 +75,65 @@ func (q *Queries) ListExpiringSubscriptions(ctx context.Context, arg ListExpirin
 	var items []ListExpiringSubscriptionsRow
 	for rows.Next() {
 		var i ListExpiringSubscriptionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.ExpiresAt,
+			&i.Status,
+			&i.Username,
+			&i.Fullname,
+			&i.Phone,
+			&i.PlanName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRecentlyExpiredSubscriptions = `-- name: ListRecentlyExpiredSubscriptions :many
+SELECT s.id, s.customer_id, s.expires_at, s.status, c.username, c.fullname, c.phone, p.name AS plan_name
+FROM subscriptions s
+JOIN customers c ON c.id = s.customer_id
+JOIN plans p ON p.id = s.plan_id
+WHERE s.status IN ('active', 'expired') AND s.expires_at >= ?1 AND s.expires_at < ?2
+ORDER BY s.expires_at DESC, s.id DESC LIMIT ?3
+`
+
+type ListRecentlyExpiredSubscriptionsParams struct {
+	Since     int64
+	Until     int64
+	PageLimit int64
+}
+
+type ListRecentlyExpiredSubscriptionsRow struct {
+	ID         int64
+	CustomerID int64
+	ExpiresAt  int64
+	Status     string
+	Username   string
+	Fullname   string
+	Phone      string
+	PlanName   string
+}
+
+// Subscriptions that ended inside the window and are not renewed, newest first (dashboard "just expired" card).
+func (q *Queries) ListRecentlyExpiredSubscriptions(ctx context.Context, arg ListRecentlyExpiredSubscriptionsParams) ([]ListRecentlyExpiredSubscriptionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRecentlyExpiredSubscriptions, arg.Since, arg.Until, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRecentlyExpiredSubscriptionsRow
+	for rows.Next() {
+		var i ListRecentlyExpiredSubscriptionsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.CustomerID,
