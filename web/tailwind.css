@@ -87,10 +87,10 @@
   :root[data-accent="orange"] { --accent: #f38020; --on-accent: #111418; }
   :root[data-density="compact"] { --d: 0.75; --ctl-h: 32px; --ctl-h-sm: 28px; --row-h: 36px; }
   :root[data-density="roomy"] { --d: 1.25; --ctl-h: 44px; --ctl-h-sm: 40px; --row-h: 52px; }
-  /* text size: root 14/15/17px (Tema popover, data-font on html; medium is the default). Every --fs-* and text-* is rem. */
+  /* text size: root 14/16/18px (Tema popover, data-font on html; medium is the default). Every --fs-* and text-* is rem. */
   :root[data-font="small"] { font-size: 14px; }
-  :root[data-font="medium"] { font-size: 15px; }
-  :root[data-font="large"] { font-size: 17px; }
+  :root[data-font="medium"] { font-size: 16px; }
+  :root[data-font="large"] { font-size: 18px; }
   @media (max-width: 639px) {
     /* touch targets: >=40px even when compact, >=44px when roomy. compact is repeated because its selector outranks :root */
     :root, :root[data-density="compact"] { --ctl-h: 40px; --ctl-h-sm: 40px; --row-h: 44px; }
