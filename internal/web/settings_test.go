@@ -474,3 +474,19 @@ func TestSettingsTwoLargeUploads(t *testing.T) {
 		t.Fatalf("not stored: %q %q", v["logo"], v["login_page_wallpaper"])
 	}
 }
+
+// The stored static QRIS is redrawn on the payment tab so the admin can check it.
+func TestSettingsQRISPreview(t *testing.T) {
+	_, h, q := settingsSetup(t)
+	c := login(t, h, "alice")
+	if strings.Contains(do(h, "GET", "/admin/settings/payment", nil, c).Body.String(), "data:image/png;base64") {
+		t.Fatal("preview without a stored QRIS")
+	}
+	payload := "00020101021126520016ID.CO.CONTOH.WWW01129360000000010212ID10000000015204549953033605802ID5911CONTOH QRIS6006CONTOH9989XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX63048FAE"
+	if err := q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "qris_payload", Value: payload}); err != nil {
+		t.Fatal(err)
+	}
+	if b := do(h, "GET", "/admin/settings/payment", nil, c).Body.String(); !strings.Contains(b, "data:image/png;base64") {
+		t.Fatal("no QRIS preview")
+	}
+}
