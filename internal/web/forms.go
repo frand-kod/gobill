@@ -19,6 +19,7 @@ type field struct {
 	Gen                                   bool   // "Generate" button fills the field with a random value
 	Fold                                  bool   // its card sits inside a collapsed "Advanced options"
 	Balance                               bool   // customer picker lists each customer's balance
+	Btn                                   string // link field: button text, default "Download backup"
 }
 
 type option struct{ Value, Label string }

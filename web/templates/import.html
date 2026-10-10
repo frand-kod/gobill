@@ -1,0 +1,73 @@
+{{define "content"}}
+{{with .Data}}
+<div class="page-head"><h1 class="page-title">{{T "Import PHPNuxBill"}}</h1></div>
+<form class="card mb-4" method="post" action="/admin/settings/miscellaneous/import" enctype="multipart/form-data">
+  <div class="card-body space-y-4">
+    <div>
+      <label class="label" for="backup">{{T "PHPNuxBill backup file (.json)"}} <span class="text-err-fg" aria-hidden="true">*</span></label>
+      <input class="input" id="backup" name="backup" type="file" accept=".json,application/json" required>
+      <p class="hint">{{T "From PHPNuxBill: Settings > Database Status > Backup file."}}</p>
+    </div>
+    <div>
+      <label class="label" for="notifications">{{T "Message templates file (optional)"}}</label>
+      <input class="input" id="notifications" name="notifications" type="file" accept=".json,application/json">
+      <p class="hint">{{T "From PHPNuxBill: system/uploads/notifications.json."}}</p>
+    </div>
+    <div class="flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">{{T "Check"}}</button></div>
+  </div>
+</form>
+
+{{if .Token}}
+<div x-data>
+<section class="card mb-4"><div class="card-body space-y-4">
+  <h2 class="card-title">{{T "Preview"}}</h2>
+  <p class="text-sm">{{T "Current data in this app"}}: {{.Current.Customers}} {{T "Customers"}}, {{.Current.Plans}} {{T "Plans"}}, {{.Current.Subscriptions}} {{T "Subscriptions"}}, {{.Current.Transactions}} {{T "Transactions"}}, {{.Current.Admins}} {{T "Admins"}}</p>
+  <div class="overflow-x-auto"><table class="table">
+    <thead><tr><th>{{T "Table"}}</th><th>{{T "Read"}}</th><th>{{T "Will import"}}</th><th>{{T "Skipped"}}</th></tr></thead>
+    <tbody>
+    {{range .Rows}}
+      <tr><td>{{.Name}}</td><td>{{.Read}}</td><td>{{.Loaded}}</td><td>{{.Skipped}}</td></tr>
+      {{if or .Reasons .Notes}}<tr><td colspan="4" class="text-sm">
+        {{range .Reasons}}<p class="text-err-fg">{{.}}</p>{{end}}
+        {{if .More}}<p>{{.More}} {{T "more skipped"}}</p>{{end}}
+        {{range .Notes}}<p class="text-ink-2">{{.}}</p>{{end}}
+      </td></tr>{{end}}
+    {{end}}
+    </tbody>
+  </table></div>
+  <p class="hint">{{T "Not imported yet: coupons, ODP, inbox."}}</p>
+  <div class="flex flex-wrap gap-2">
+    {{if .Filled}}
+    <button class="btn btn-primary" type="button" @click="$refs.dlg.showModal()">{{T "Import now"}}</button>
+    {{else}}
+    <form method="post" action="/admin/settings/miscellaneous/import/confirm">
+      <input type="hidden" name="token" value="{{.Token}}">
+      <button class="btn btn-primary" type="submit">{{T "Import now"}}</button>
+    </form>
+    {{end}}
+    <form method="post" action="/admin/settings/miscellaneous/import/cancel">
+      <button class="btn btn-ghost" type="submit">{{T "Cancel"}}</button>
+    </form>
+  </div>
+</div></section>
+
+{{if .Filled}}
+<dialog x-ref="dlg" class="m-auto w-[calc(100%-2rem)] max-w-lg bg-transparent p-0 text-inherit backdrop:bg-black/50" aria-labelledby="import-dlg-title">
+  <form class="card" method="post" action="/admin/settings/miscellaneous/import/confirm">
+    <div class="card-body space-y-4">
+      <h2 class="card-title" id="import-dlg-title">{{T "Overwrite existing data?"}}</h2>
+      <p class="text-sm">{{T "Existing data will be OVERWRITTEN:"}} {{.Current.Customers}} {{T "Customers"}}, {{.Current.Plans}} {{T "Plans"}}, {{.Current.Subscriptions}} {{T "Subscriptions"}}, {{.Current.Transactions}} {{T "Transactions"}}, {{.Current.Admins}} {{T "Admins"}}. {{T "A backup is made automatically first."}}</p>
+      <input type="hidden" name="token" value="{{.Token}}">
+      <label class="flex items-center gap-2 py-2 text-sm font-medium"><input type="checkbox" class="size-4 rounded accent-brand-500" name="understand" value="1" required> {{T "I understand the existing data will be overwritten"}}</label>
+      <div class="flex flex-wrap gap-2">
+        <button class="btn btn-primary" type="submit">{{T "Import now"}}</button>
+        <button class="btn btn-ghost" type="button" @click="$refs.dlg.close()">{{T "Cancel"}}</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+{{end}}
+</div>
+{{end}}
+{{end}}
+{{end}}
