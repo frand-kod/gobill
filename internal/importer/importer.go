@@ -74,10 +74,26 @@ type imp struct {
 	custIDs                          map[int64]bool
 }
 
-// each runs q on MySQL and calls fn with every row as strings ("" for NULL).
+// missing turns an absent table/column error (MySQL or SQLite text) into a report note; "" = a real error.
+func missing(err error) string {
+	s := err.Error()
+	switch {
+	case strings.Contains(s, "doesn't exist"), strings.Contains(s, "no such table"):
+		return "tidak ada di sumber, dilewati"
+	case strings.Contains(s, "Unknown column"), strings.Contains(s, "no such column"):
+		return "kolom tidak ada, dilewati: " + s
+	}
+	return ""
+}
+
+// each runs q on the source and calls fn with every row as strings ("" for NULL).
 func (m *imp) each(t *Table, q string, n int, fn func(row)) error {
 	rows, err := m.my.QueryContext(m.ctx, q)
 	if err != nil {
+		if why := missing(err); why != "" {
+			t.Notes = append(t.Notes, why)
+			return nil
+		}
 		return fmt.Errorf("%s: %w", t.Name, err)
 	}
 	defer rows.Close()
@@ -202,7 +218,7 @@ func (m *imp) admin() error {
 		return err
 	}
 	// Second pass for sub-accounts, once every parent exists.
-	return m.each(&Table{Name: "admins"}, "SELECT id, root FROM tbl_users WHERE root > 0", 2, func(r row) {
+	return m.each(&Table{Name: "admins"}, "SELECT id, root FROM tbl_users", 2, func(r row) {
 		if m.admins[r.i(0)] && m.admins[r.i(1)] {
 			m.tx.ExecContext(m.ctx, "UPDATE admins SET root_id = ? WHERE id = ?", r.i(1), r.i(0))
 		}
@@ -505,14 +521,6 @@ func (m *imp) logs() error {
 
 func (m *imp) nas() error {
 	t := m.table("nas")
-	var n int
-	if err := m.my.QueryRowContext(m.ctx, "SELECT count(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'nas'").Scan(&n); err != nil {
-		return err
-	}
-	if n == 0 {
-		t.Notes = append(t.Notes, "no nas table in the MySQL database (radius not used)")
-		return nil
-	}
 	return m.each(t, "SELECT id, nasname, COALESCE(NULLIF(shortname,''), nasname), secret, COALESCE(description,'') FROM nas ORDER BY id", 5, func(r row) {
 		enc, err := secret.Seal(m.o.Key, []byte(r[3]))
 		if err != nil {
