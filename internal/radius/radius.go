@@ -43,6 +43,8 @@ type Server struct {
 	// Redeem activates an unused voucher for a customer (billing.Service.RedeemVoucher).
 	// nil disables hotspot voucher login.
 	Redeem func(ctx context.Context, code string, customerID int64) error
+	// Start begins a start_on_first_login subscription at the customer's first login (billing.StartPending).
+	Start func(ctx context.Context, customerID int64) error
 
 	userFails   failLimiter // failed password checks per username
 	dups        dupCache    // answered requests, for retransmits
@@ -251,6 +253,13 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 			return Decision{Reject: "Voucher Expired..."}
 		}
 		return Decision{Reject: "Internet Plan Expired.."}
+	}
+	if pl.PendingStart == 1 && s.Start != nil { // before the expiry check: a pending row's provisional expiry is not the real one
+		if err := s.Start(ctx, c.ID); err != nil {
+			slog.Error("radius: start pending subscription", "user", user, "err", err)
+		} else if p, err := s.Q.GetRadiusPlan(ctx, c.ID); err == nil {
+			pl = p
+		}
 	}
 	left := pl.ExpiresAt - s.now().Unix()
 	if left <= 0 {

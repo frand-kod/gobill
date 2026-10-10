@@ -57,6 +57,7 @@ type pPlan struct {
 	Name    string
 	Ends    string // expiry date and time
 	Expires int64
+	Pending bool // start_on_first_login: no countdown until the first login
 	Left    string
 }
 
@@ -220,14 +221,17 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 	// the active plan: the one that ends last
 	var sub *db.Subscription
 	for i := range subs {
-		if subs[i].Status == "active" && subs[i].ExpiresAt > now && (sub == nil || subs[i].ExpiresAt > sub.ExpiresAt) {
+		if subs[i].Status == "active" && (subs[i].ExpiresAt > now || subs[i].PendingStart == 1) && (sub == nil || subs[i].ExpiresAt > sub.ExpiresAt) {
 			sub = &subs[i]
 		}
 	}
 	if sub != nil {
 		p, _ := s.queries.GetPlan(ctx, sub.PlanID)
 		left := sub.ExpiresAt - now
-		d.Plan = &pPlan{Name: p.Name, Ends: s.ts(sub.ExpiresAt), Expires: sub.ExpiresAt, Left: d.Words.countdown(left)}
+		d.Plan = &pPlan{Name: p.Name, Ends: s.subExpiry(sub.PendingStart, sub.ExpiresAt), Expires: sub.ExpiresAt, Left: d.Words.countdown(left)}
+		if sub.PendingStart == 1 {
+			d.Plan.Pending, d.Plan.Left = true, s.catalog.T(s.language(), "Starts on first login")
+		}
 		d.Usage = s.pUsage(ctx, names, *sub, p, d.Words)
 	} else {
 		d.Usage.Note = s.catalog.T(s.language(), "No active plan")

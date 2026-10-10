@@ -126,7 +126,7 @@ func run() error {
 	go job.Run(ctx, "backup", time.Minute, backup.Run)
 
 	errCh := make(chan error, 2)
-	rs := &radius.Server{Q: db.New(conn), Key: key, Trusted: guard.Trusted, Redeem: svc.RedeemVoucher}
+	rs := &radius.Server{Q: db.New(conn), Key: key, Trusted: guard.Trusted, Redeem: svc.RedeemVoucher, Start: svc.StartPending}
 	app.Radius = rs // shared with /radius.php so throttles and dedup state are common
 	if ra, on := radiusAddr(); on {
 		host, port, err := net.SplitHostPort(ra)

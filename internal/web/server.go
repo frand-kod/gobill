@@ -150,6 +150,14 @@ func (s *Server) ts(unix int64) string {
 	return time.Unix(unix, 0).In(s.location()).Format("2006-01-02 15:04")
 }
 
+// subExpiry is a subscription's expiry as shown: a start_on_first_login subscription has none until its first login.
+func (s *Server) subExpiry(pending, unix int64) string {
+	if pending == 1 {
+		return s.catalog.T(s.language(), "Starts on first login")
+	}
+	return s.ts(unix)
+}
+
 // language returns the current app language.
 func (s *Server) language() string { return s.lang.Load().(string) }
 

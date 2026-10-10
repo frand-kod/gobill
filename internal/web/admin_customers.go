@@ -255,7 +255,7 @@ func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, x := range subs {
-		d.Subs = append(d.Subs, subRow{plans[x.PlanID].Name, x.Type, s.ts(x.ExpiresAt), x.Status})
+		d.Subs = append(d.Subs, subRow{plans[x.PlanID].Name, x.Type, s.subExpiry(x.PendingStart, x.ExpiresAt), x.Status})
 	}
 	if d.Trx, err = s.queries.ListTransactionsByCustomer(ctx, db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, Limit: 10}); err != nil {
 		s.fail(w, "list transactions", err)

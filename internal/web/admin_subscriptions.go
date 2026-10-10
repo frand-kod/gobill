@@ -72,7 +72,7 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 		lp.Actions = lp.Actions[:1]
 	}
 	for _, x := range rows {
-		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Username, x.PlanName, x.Type, s.ts(x.StartedAt), s.ts(x.ExpiresAt), x.Method, x.RouterName, x.Status}})
+		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Username, x.PlanName, x.Type, s.ts(x.StartedAt), s.subExpiry(x.PendingStart, x.ExpiresAt), x.Method, x.RouterName, x.Status}})
 	}
 	lp.Links = []option{{"/admin/subscriptions/export?" + lp.query().Encode(), "Export CSV"}}
 	lp.finish(page)

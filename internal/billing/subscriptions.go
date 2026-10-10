@@ -192,6 +192,45 @@ func (s *Service) ExtendExpired(ctx context.Context, customerID, subID int64) (t
 	return until, nil
 }
 
+// pendingStartText is what the customer and the recharge message show instead of a date while
+// a start_on_first_login subscription has not been used yet.
+const pendingStartText = "Mulai saat login pertama"
+
+func b2i(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// StartPending starts the customer's pending subscription at its first RADIUS login: the usage
+// window and expiry run from now with the full plan validity. The conditional UPDATE makes
+// concurrent first logins safe; only the first one starts it.
+func (s *Service) StartPending(ctx context.Context, customerID int64) error {
+	subs, err := s.Q.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: customerID, Limit: 1000})
+	if err != nil {
+		return err
+	}
+	for _, sub := range subs {
+		if sub.Status != "active" || sub.PendingStart == 0 {
+			continue
+		}
+		plan, err := s.Q.GetPlan(ctx, sub.PlanID)
+		if err != nil {
+			return err
+		}
+		c, err := s.Q.GetCustomer(ctx, customerID)
+		if err != nil {
+			return err
+		}
+		now := s.now()
+		exp := NewExpiry(now, int(plan.Validity), Unit(plan.ValidityUnit), Options{BillingDay: billingDay(c, plan)})
+		_, err = s.Q.StartPendingSubscription(ctx, db.StartPendingSubscriptionParams{StartedAt: now.Unix(), ExpiresAt: exp.Unix(), ID: sub.ID})
+		return err
+	}
+	return nil
+}
+
 // activeSub finds the customer's active subscription for (router, type); the partial unique
 // index guarantees at most one.
 func activeSub(ctx context.Context, q *db.Queries, customerID int64, routerID sql.NullInt64, typ string) (db.Subscription, bool, error) {

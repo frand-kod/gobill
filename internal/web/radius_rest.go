@@ -198,6 +198,7 @@ func (s *Server) radiusServer() *radius.Server {
 		s.Radius = &radius.Server{Q: s.queries, Key: s.SecretKey, Trusted: func() bool { return s.ClockWarning == nil || s.ClockWarning() == "" }}
 		if s.Billing != nil {
 			s.Radius.Redeem = s.Billing.RedeemVoucher
+			s.Radius.Start = s.Billing.StartPending
 		}
 	})
 	return s.Radius
