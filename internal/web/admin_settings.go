@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
+	"github.com/frand-kod/gobill/internal/payment"
 	"io"
 	"os"
 	"strconv"
@@ -92,6 +93,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		// Their stored values stay: save only writes the keys listed here.
 		out := section([]field{
 			text("company_name", "Company Name", v, e).req().hint("Name of your business. Shown on invoices, messages and the login page."),
+			text("app_url", "App URL", v, e).hint("Public address of this app, e.g. https://billing.example.com. Used for links in WhatsApp messages (QRIS, invoice)."),
 			upl("logo", "Company Logo").hint("Logo in the menu bar. Transparent PNG works best, 2 MB max."),
 			upl("logo_dark", "Company Logo (dark mode)").hint("Shown in dark mode. Empty = use the light logo."),
 			upl("login_page_favicon", "Favicon").hint("Browser tab icon. Empty = default icon."),
@@ -194,13 +196,22 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		}, "Webhook", "")...)
 	case "payment":
 		f := sel("payment_gateway", "Payment Gateway", option{"", "Disabled"}, option{"tripay", "Tripay"})
-		return section([]field{f,
+		out := section([]field{f,
 			sec("tripay_api_key", "Tripay API Key"),
 			sec("tripay_private_key", "Tripay Private Key"),
 			text("tripay_merchant_code", "Tripay Merchant Code", v, e),
 			sel("tripay_mode", "Tripay Mode", option{"sandbox", "Sandbox"}, option{"production", "Production"}),
 			text("tripay_channel", "Default Channel", v, e).hint("Optional channel code, e.g. QRIS"),
 		}, "Tripay", "")
+		qris := field{Name: "qris_payload", Label: "Static QRIS", Type: "qris", Value: v["qris_payload"], Error: e["qris_payload"],
+			Hint: "Unggah foto QRIS statis merchant (PNG/JPG). Sistem hanya menyimpan teksnya"}
+		if m, n := payment.QRISInfo(v["qris_payload"]); m != "" {
+			qris.Hint = "Aktif: " + m
+			if n != "" {
+				qris.Hint += " (NMID " + n + ")"
+			}
+		}
+		return append(out, section([]field{qris}, "QRIS", "")...)
 	case "miscellaneous":
 		out := section([]field{
 			sel("extend_expiry", "Extend Package Expiry", settingsYesNo...),
@@ -343,6 +354,9 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	if x := v["payment_gateway"]; x != "" && x != "tripay" {
 		e["payment_gateway"] = "Choose one of the listed gateways"
 	}
+	if x := v["qris_payload"]; x != "" && payment.QRISValid(x) != nil {
+		e["qris_payload"] = "Paste the full static QRIS text, the CRC must match"
+	}
 	if x := v["tripay_mode"]; x != "" && !oneOf(x, "sandbox", "production") {
 		e["tripay_mode"] = "Choose sandbox or production"
 	}
@@ -443,7 +457,7 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(maxUpload); err != nil && !errors.Is(err, http.ErrNotMultipart) {
 		e := map[string]string{}
 		for _, k := range keys {
-			if settingsFile[k] {
+			if settingsFile[k] || k == "qris_payload" {
 				e[k] = "File must be 2 MB or less"
 			}
 		}
@@ -467,8 +481,16 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if e := s.settingsErrors(v); len(e) > 0 {
-		s.renderSettings(w, r, http.StatusUnprocessableEntity, tab, v, e)
+	if r.PostFormValue("qris_payload_remove") == "1" {
+		v["qris_payload"] = ""
+	}
+	qerr := qrisUpload(r, v)
+	errs := s.settingsErrors(v)
+	if qerr != "" {
+		errs["qris_payload"] = qerr
+	}
+	if len(errs) > 0 {
+		s.renderSettings(w, r, http.StatusUnprocessableEntity, tab, v, errs)
 		return
 	}
 	e := map[string]string{}

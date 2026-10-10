@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
+	"github.com/frand-kod/gobill/internal/payment"
 	"strconv"
 	"strings"
 	"time"
@@ -283,6 +284,7 @@ func (s *Service) notifyRecharge(p *pending) {
 		"plan_price": notify.Money(p.trx.Price), "price": notify.Money(p.trx.Price), "expired_date": expired,
 		"trx_date": time.Unix(p.trx.PeriodStart, 0).In(loc).Format(layout), "note": p.trx.Note,
 		"bills": p.trx.Note + "Total : " + notify.Money(p.trx.Price) + "\n", "invoice_link": fmt.Sprintf("/portal/orders/%d/invoice", p.trxID)}
+	vars["qris_link"] = s.qrisLink(p, n)
 	data := map[string]any{"invoice": p.trx.Invoice, "username": p.cust.Username, "plan": p.plan.Name, "type": p.trx.Type,
 		"price": p.trx.Price, "method": p.trx.Method, "router": p.trx.RouterName, "expires_at": p.expiry.Unix()}
 	if p.plan.Type != "Balance" { // Package.php #recharge (extend) / #buy (new)
@@ -301,6 +303,17 @@ func (s *Service) notifyRecharge(p *pending) {
 			return n.Webhook(ctx, "customer.activated", map[string]any{"username": p.cust.Username, "plan": p.plan.Name, "expires_at": p.expiry.Unix()})
 		})
 	}
+}
+
+// qrisLink is the public amount-locked QRIS page for a recharge the system did not collect
+// (not balance, gateway or voucher). "" when there is no payload or no app_url to make it absolute.
+func (s *Service) qrisLink(p *pending, n *notify.Notifier) string {
+	m := p.trx.Method
+	if n.Settings["qris_payload"] == "" || n.Settings["app_url"] == "" || p.trx.Price <= 0 ||
+		strings.HasPrefix(m, "Customer - Balance") || strings.HasPrefix(m, "Tripay - ") || strings.HasPrefix(m, "Voucher - ") {
+		return ""
+	}
+	return fmt.Sprintf("%s/qris/%d/%s", strings.TrimRight(n.Settings["app_url"], "/"), p.trxID, payment.QRISToken(s.Key, p.trxID))
 }
 
 // RechargePreview is what a recharge would do, computed without writing anything.
