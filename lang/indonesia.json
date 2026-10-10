@@ -1815,5 +1815,5 @@
     "Use_a_PNG_or_JPG_image": "Gunakan gambar PNG atau JPG",
     "Static_QRIS": "QRIS statis",
     "App URL": "URL Aplikasi",
-    "Public address of this app, e.g. https://billing.example.com. Used for links in WhatsApp messages (QRIS, invoice).": "Alamat publik aplikasi ini, misalnya https://billing.example.com. Dipakai untuk tautan di pesan WhatsApp (QRIS, invoice)."
+    "Public address of this app, e.g. https://billing.example.com. Fills itself from the address used at the first admin login; change it here if needed. Used for links in WhatsApp messages (QRIS, invoice).": "Alamat publik aplikasi ini, misalnya https://billing.example.com. Terisi otomatis dari alamat yang dipakai saat admin pertama kali login; ubah di sini bila perlu. Dipakai untuk tautan di pesan WhatsApp (QRIS, invoice)."
 }
