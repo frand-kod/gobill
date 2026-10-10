@@ -15,39 +15,13 @@
     <a class="btn btn-ghost" href="/admin/customers">{{icon "users"}}<span>{{T "Customer"}}</span></a>
   </div>
 </div>
-<section class="card mb-4" aria-labelledby="diag-title">
-  <h2 class="card-title" id="diag-title">{{T "Diagnosis"}}</h2>
-  <div class="card-body space-y-3">
-    <ul class="space-y-2">
-      {{range .Diag.Items}}<li class="flex flex-wrap items-start gap-x-3 gap-y-1"><span class="badge {{.Cls}} shrink-0">{{T .Label}}<span class="sr-only">: {{T .State}}</span></span><span class="min-w-0 flex-1">{{.Text}}</span></li>{{end}}
-    </ul>
-    <p class="callout !mb-0"><span class="callout-title">{{T "Advice"}}:</span> {{.Diag.Advice}}</p>
-  </div>
+<section class="mb-3 flex flex-wrap items-center gap-2" aria-label="{{T "Diagnosis"}}">
+  {{range .Diag.Items}}<span class="badge {{.Cls}}">{{T .Label}}{{with .Short}}: {{.}}{{end}}<span class="sr-only">: {{T .State}}</span></span>{{end}}
 </section>
+{{if .Diag.NeedsAction}}<p class="callout !py-2"><span class="callout-title">{{T "Advice"}}:</span> {{.Diag.Advice}}</p>{{end}}
 <div class="grid gap-4 xl:grid-cols-3">
-  <section class="card xl:col-span-2">
-    <h2 class="card-title">{{T "Customer"}}</h2>
-    <div class="card-body">
-      <dl class="dl">
-        <dt>{{T "Full Name"}}</dt><dd>{{.C.Fullname}}</dd>
-        <dt>{{T "Phone Number"}}</dt><dd>{{.C.Phone}}</dd>
-        <dt>{{T "Email"}}</dt><dd>{{.C.Email}}</dd>
-        <dt>{{T "Address"}}</dt><dd>{{.C.Address}}</dd>
-        <dt>{{T "Service Type"}}</dt><dd>{{.C.ServiceType}}</dd>
-        <dt>{{T "PPPoE Username"}}</dt><dd>{{.C.PppoeUsername}}</dd>
-        <dt>{{T "PPPoE IP"}}</dt><dd>{{.C.PppoeIp}}</dd>
-        <dt>{{T "Router Secret"}}</dt><dd>{{if .SecretSet}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd>
-        <dt>{{T "Balance"}}</dt><dd>{{money .C.Balance}}</dd>
-        <dt>{{T "Billing Day"}}</dt><dd>{{if .C.BillingDay.Valid}}{{.C.BillingDay.Int64}}{{end}}</dd>
-        <dt>{{T "Auto Renewal"}}</dt><dd>{{if eq .C.AutoRenewal 1}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd>
-        {{with .Online}}<dt>{{T "Connection"}}</dt><dd><span class="badge {{badge .}}">{{T .}}</span></dd>{{end}}
-        <dt>{{T "Created"}}</dt><dd>{{.Created}}</dd>
-        {{range .Custom}}<dt>{{T .Label}}</dt><dd>{{.Value}}</dd>{{end}}
-      </dl>
-    </div>
-  </section>
   {{if .CanSell}}
-  <form id="recharge" class="card self-start scroll-mt-20" method="post" action="/admin/customers/{{.C.ID}}/recharge/confirm" data-recharge>
+  <form id="recharge" class="card scroll-mt-20 xl:col-start-3 xl:row-start-1" method="post" action="/admin/customers/{{.C.ID}}/recharge/confirm" data-recharge>
     <h2 class="card-title">{{T "Recharge Account"}}</h2>
     <div class="card-body space-y-4">
       <div><label class="label" for="plan">{{T "Service Plan"}}</label>
@@ -62,16 +36,37 @@
   </form>
   {{template "recharge_dialog"}}
   {{end}}
+  <section class="card xl:col-span-2 xl:col-start-1 xl:row-start-1">
+    <h2 class="card-title">{{T "Customer"}}</h2>
+    <div class="card-body">
+      <dl class="dl">
+        <div><dt>{{T "Full Name"}}</dt><dd>{{with .C.Fullname}}{{.}}{{else}}<span class="text-ink-2">—</span>{{end}}</dd></div>
+        <div><dt>{{T "Phone Number"}}</dt><dd>{{with .C.Phone}}{{.}}{{else}}<span class="text-ink-2">—</span>{{end}}</dd></div>
+        <div><dt>{{T "Email"}}</dt><dd>{{with .C.Email}}{{.}}{{else}}<span class="text-ink-2">—</span>{{end}}</dd></div>
+        <div><dt>{{T "Address"}}</dt><dd>{{with .C.Address}}{{.}}{{else}}<span class="text-ink-2">—</span>{{end}}</dd></div>
+        <div><dt>{{T "Service Type"}}</dt><dd>{{with .C.ServiceType}}{{.}}{{else}}<span class="text-ink-2">—</span>{{end}}</dd></div>
+        <div><dt>{{T "PPPoE Username"}}</dt><dd>{{with .C.PppoeUsername}}{{.}}{{else}}<span class="text-ink-2">—</span>{{end}}</dd></div>
+        <div><dt>{{T "PPPoE IP"}}</dt><dd>{{with .C.PppoeIp}}{{.}}{{else}}<span class="text-ink-2">—</span>{{end}}</dd></div>
+        <div><dt>{{T "Router Secret"}}</dt><dd>{{if .SecretSet}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd></div>
+        <div><dt>{{T "Balance"}}</dt><dd class="tabular-nums">{{money .C.Balance}}</dd></div>
+        <div><dt>{{T "Billing Day"}}</dt><dd>{{if .C.BillingDay.Valid}}{{.C.BillingDay.Int64}}{{else}}<span class="text-ink-2">—</span>{{end}}</dd></div>
+        <div><dt>{{T "Auto Renewal"}}</dt><dd>{{if eq .C.AutoRenewal 1}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd></div>
+        {{with .Online}}<div><dt>{{T "Connection"}}</dt><dd><span class="badge {{badge .}}">{{T .}}</span></dd></div>{{end}}
+        <div><dt>{{T "Created"}}</dt><dd>{{.Created}}</dd></div>
+        {{range .Custom}}<div><dt>{{T .Label}}</dt><dd>{{.Value}}</dd></div>{{end}}
+      </dl>
+    </div>
+  </section>
+  <section class="card overflow-hidden{{if .CanSell}} xl:col-start-3 xl:row-start-2{{end}}">
+    <h2 class="card-title">{{T "Service Plan"}}</h2>
+    <div class="overflow-x-auto"><table class="table">
+      <thead><tr><th>{{T "Plan Name"}}</th><th>{{T "Type"}}</th><th>{{T "Expires"}}</th><th>{{T "Status"}}</th></tr></thead>
+      <tbody>{{range .Subs}}<tr><td>{{.Plan}}</td><td>{{.Router}}</td><td>{{.Expires}}</td><td><span class="badge {{badge .Status}}">{{T .Status}}</span></td></tr>
+      {{else}}<tr><td class="py-8 text-center text-ink-2" colspan="4">{{T "No plan yet. Choose one in the Recharge Account box to switch the internet on."}}</td></tr>{{end}}</tbody>
+    </table></div>
+  </section>
 </div>
 
-<section class="card mt-4 overflow-hidden">
-  <h2 class="card-title">{{T "Service Plan"}}</h2>
-  <div class="overflow-x-auto"><table class="table">
-    <thead><tr><th>{{T "Plan Name"}}</th><th>{{T "Type"}}</th><th>{{T "Expires"}}</th><th>{{T "Status"}}</th></tr></thead>
-    <tbody>{{range .Subs}}<tr><td>{{.Plan}}</td><td>{{.Router}}</td><td>{{.Expires}}</td><td><span class="badge {{badge .Status}}">{{T .Status}}</span></td></tr>
-    {{else}}<tr><td class="py-8 text-center text-ink-2" colspan="4">{{T "No plan yet. Choose one in the Recharge Account box to switch the internet on."}}</td></tr>{{end}}</tbody>
-  </table></div>
-</section>
 <section class="card mt-4 overflow-hidden">
   <div class="card-body flex items-center justify-between gap-2"><h2 class="card-title">{{T "Transactions"}}</h2><a class="btn btn-ghost" href="/admin/transactions?customer={{.C.ID}}">{{T "View all transactions"}}</a></div>
   <div class="overflow-x-auto"><table class="table">
