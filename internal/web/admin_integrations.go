@@ -80,13 +80,13 @@ func waTestError(err error) string {
 	case we.Status == 0 && we.Detail == "invalid phone number":
 		return "Invalid phone number. Use 10 to 15 digits, e.g. 08123456789"
 	case we.Status == 0:
-		return "Cannot reach the WA server. Check the URL and that the server is running"
+		return "Cannot reach GOWA. Check the URL and that the server is running"
 	case we.Status == 401 || we.Status == 403:
-		return "The WA server refused the username or password"
+		return "GOWA refused the username or password"
 	case we.Status == 404:
-		return "The WA server does not know this address. Check the WA server URL"
+		return "GOWA does not know this address. Check the GOWA URL"
 	}
-	return "The WA server answered with an error"
+	return "GOWA answered with an error"
 }
 
 // integrationTest sends one short test through a channel of the Integrations tab, using the SAVED
