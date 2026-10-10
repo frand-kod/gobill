@@ -1,4 +1,4 @@
-// Customer picker (customer_pick.html): Alpine combobox over /admin/search. The chosen username
+// Customer picker (customer_pick.html): Alpine combobox over /admin/customers/pick. The chosen username
 // lives in a hidden input named like the old text box, so the form handlers stay unchanged.
 function gbCustomerPick(cfg) {
   var seq = 0;
@@ -9,7 +9,7 @@ function gbCustomerPick(cfg) {
       // prefill (?customer=): look the chosen username up once to get its name and status
       if (!this.username) return;
       var me = this;
-      fetch('/admin/search?q=' + encodeURIComponent(this.username) + '&limit=1', { headers: { Accept: 'application/json' } })
+      fetch('/admin/customers/pick?q=' + encodeURIComponent(this.username) + '&limit=1', { headers: { Accept: 'application/json' } })
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (rows) { var r = rows.find(function (x) { return x.username === me.username; }); if (r) { me.fill(r); me.$dispatch('customer-picked', { id: r.id }); } })
         .catch(function () {});
@@ -20,7 +20,7 @@ function gbCustomerPick(cfg) {
     find: function () {
       var me = this, q = this.$refs.q.value.trim(), n = ++seq;
       this.open = true;
-      fetch('/admin/search?q=' + encodeURIComponent(q) + '&limit=20', { headers: { Accept: 'application/json' } })
+      fetch('/admin/customers/pick?q=' + encodeURIComponent(q) + '&limit=20', { headers: { Accept: 'application/json' } })
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (rows) { if (n === seq) { me.items = rows; me.active = -1; } })
         .catch(function () {});
