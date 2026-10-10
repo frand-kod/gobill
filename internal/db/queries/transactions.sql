@@ -36,3 +36,7 @@ ORDER BY
 -- Income: like PHP top_widget, purchases paid from balance are not income (the top-up already was).
 SELECT CAST(COALESCE(SUM(price), 0) AS INTEGER) FROM transactions WHERE created_at >= ? AND created_at < ?
   AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%';
+
+-- name: ListActivationsByCustomer :many
+-- Plan purchases and activations of the customer; balance moves are not activations.
+SELECT * FROM transactions WHERE customer_id = ? AND type <> 'Balance' ORDER BY id DESC LIMIT ? OFFSET ?;

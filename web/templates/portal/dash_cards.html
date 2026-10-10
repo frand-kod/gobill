@@ -1,0 +1,105 @@
+{{define "pmeter"}}{{if .Bar}}<div class="h-3 w-full overflow-hidden rounded-full border border-line bg-surface-2" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Pct}}" aria-label="{{.Text}}"><div class="h-full {{if .Warn}}bg-warn-fg{{else}}bg-brand-500{{end}}" style="width: {{.Pct}}%"></div></div>{{end}}{{end}}
+{{define "dash_cards"}}
+<script>
+// Countdown ticker for the active plan. Same wording as Go's pWords.countdown (portal_dashboard.go).
+window.gbCountdown = function (end, now, w) {
+  var t0 = Date.now() / 1000;
+  return {
+    tick: 0,
+    init: function () { var self = this; setInterval(function () { self.tick++; }, 1000); },
+    get left() {
+      this.tick;
+      var s = Math.floor(end - (now + Date.now() / 1000 - t0));
+      if (s <= 0) return w.done;
+      var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), t;
+      if (d > 0) t = d + " " + w.days + (h > 0 ? " " + h + " " + w.hours : "");
+      else if (h > 0) t = h + " " + w.hours + (m > 0 ? " " + m + " " + w.minutes : "");
+      else t = (m === 0 ? 1 : m) + " " + w.minutes;
+      return t + " " + w.left;
+    }
+  };
+};
+</script>
+
+<section class="card mb-4" aria-labelledby="c-plan"><div class="card-body">
+  <h2 id="c-plan" class="card-title">{{T "Active Plan"}}</h2>
+  {{with .Data.Plan}}
+  <div x-data="gbCountdown({{.Expires}}, {{$.Data.Now}}, {{$.Data.Words.JSON}})">
+    <p class="text-lg font-semibold">{{.Name}}</p>
+    <p class="mt-1 text-2xl font-semibold text-accent-fg" x-text="left">{{.Left}}</p>
+  </div>
+  <p class="mt-1 text-sm text-ink-2">{{T "Expires On"}}: {{.Ends}}</p>
+  {{else}}
+  <p class="text-base">{{with $.Data.PlanEnded}}{{.}}{{else}}{{T "You have no active plan yet."}}{{end}}</p>
+  {{with $.Data.Extend}}<form class="mt-3" method="post" action="/portal/extend/{{.ID}}" data-confirm="{{T "Extend"}} {{.Plan}}?"><button class="btn btn-ghost min-h-12 w-full px-6 text-base" type="submit">{{icon "calendar-plus"}}<span>{{T "Extend"}} {{.Plan}}</span></button></form>{{end}}
+  {{end}}
+  <a class="btn btn-primary mt-4 min-h-12 w-full px-6 text-base" href="/portal/plans">{{icon "wallet"}}<span>{{T "Buy / Extend"}}</span></a>
+</div></section>
+
+<section class="card mb-4" aria-labelledby="c-usage"><div class="card-body">
+  <h2 id="c-usage" class="card-title">{{T "Usage"}}</h2>
+  {{with .Data.Usage}}
+    {{with .Note}}<p class="text-sm text-ink-2">{{.}}</p>{{else}}
+    <div class="mb-4">
+      <div class="mb-1 flex flex-wrap justify-between gap-2 text-sm"><span class="font-medium">{{T "Data"}}</span><span>{{.Data.Text}}{{if .Data.Warn}} <span class="badge badge-warn">{{T "Almost used up"}}</span>{{end}}</span></div>
+      {{template "pmeter" .Data}}
+    </div>
+    {{if .HasTime}}
+    <div>
+      <div class="mb-1 flex flex-wrap justify-between gap-2 text-sm"><span class="font-medium">{{T "Online time"}}</span><span>{{.Time.Text}}{{if .Time.Warn}} <span class="badge badge-warn">{{T "Almost used up"}}</span>{{end}}</span></div>
+      {{template "pmeter" .Time}}
+    </div>
+    {{end}}
+    {{end}}
+  {{end}}
+</div></section>
+
+<section class="card mb-4" aria-labelledby="c-conn"><div class="card-body">
+  <h2 id="c-conn" class="card-title">{{T "Connection status"}}</h2>
+  {{with .Data.Conn}}
+    {{if .Online}}
+      <p><span class="badge badge-ok">{{T "Online"}}</span></p>
+      <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+        <dt class="text-ink-2">{{T "IP"}}</dt><dd class="font-mono">{{.IP}}</dd>
+        <dt class="text-ink-2">{{T "Device"}}</dt><dd class="font-mono">{{if .MAC}}{{.MAC}}{{else}}-{{end}}</dd>
+        <dt class="text-ink-2">{{T "Connected since"}}</dt><dd>{{.Since}}</dd>
+        <dt class="text-ink-2">{{T "Connected for"}}</dt><dd>{{.For}}</dd>
+      </dl>
+    {{else if .Has}}
+      <p><span class="badge badge-warn">{{T "Offline"}}</span></p>
+      <p class="mt-2 text-sm">{{T "Last seen"}}: {{.Seen}}</p>
+    {{else}}
+      <p class="text-sm text-ink-2">{{T "No connection record yet"}}</p>
+    {{end}}
+  {{end}}
+</div></section>
+
+<section class="card mb-4" id="riwayat" aria-labelledby="c-hist"><div class="card-body pb-0">
+  <h2 id="c-hist" class="card-title">{{T "Connection History"}}</h2>
+</div>
+<div class="overflow-x-auto"><table class="table">
+<thead><tr><th>{{T "Start"}}</th><th>{{T "Duration"}}</th><th>{{T "Upload"}}</th><th>{{T "Download"}}</th><th>{{T "Device"}}</th></tr></thead>
+<tbody>{{range .Data.Sessions}}<tr><td>{{.Start}}{{if .Open}} <span class="badge badge-ok">{{T "Online"}}</span>{{end}}</td><td>{{.For}}</td><td>{{.Up}}</td><td>{{.Down}}</td><td class="font-mono">{{if .MAC}}{{.MAC}}{{else}}-{{end}}</td></tr>
+{{else}}<tr><td class="py-8 text-center text-ink-2" colspan="5">{{T "No data"}}</td></tr>{{end}}</tbody></table></div>
+{{if or .Data.SPrev .Data.SNext}}
+<p class="flex justify-end gap-2 p-4">
+  {{if .Data.SPrev}}<a class="btn btn-ghost" href="/portal?spage={{.Data.SPrev}}#riwayat">{{T "Previous"}}</a>{{end}}
+  {{if .Data.SNext}}<a class="btn btn-ghost" href="/portal?spage={{.Data.SNext}}#riwayat">{{T "Next"}}</a>{{end}}
+</p>
+{{end}}
+</section>
+
+<section class="card mb-4" aria-labelledby="c-sec"><div class="card-body flex flex-wrap items-center justify-between gap-3">
+  <div>
+    <h2 id="c-sec" class="card-title">{{T "Account Security"}}</h2>
+    <p class="text-sm">{{T "Last Login"}}: {{with .Data.LastLogin}}{{.}}{{else}}-{{end}}</p>
+  </div>
+  <a class="btn btn-ghost" href="/portal/profile#password">{{T "Change Password"}}</a>
+</div></section>
+
+<section class="card mb-4" aria-labelledby="c-trx"><div class="card-body flex items-center justify-between gap-2"><h2 id="c-trx" class="card-title">{{T "Recent Transactions"}}</h2><a class="btn btn-ghost" href="/portal/orders">{{T "See all"}}</a></div>
+<div class="overflow-x-auto"><table class="table">
+<thead><tr><th>{{T "Invoice"}}</th><th>{{T "Package Name"}}</th><th>{{T "Package Price"}}</th><th>{{T "Created On"}}</th></tr></thead>
+<tbody>{{range .Data.Trx}}<tr><td><a class="underline" href="/portal/orders/{{.ID}}/invoice">{{.Invoice}}</a></td><td>{{.PlanName}}</td><td>{{money .Price}}</td><td>{{ts .CreatedAt}}</td></tr>
+{{else}}<tr><td class="py-8 text-center text-ink-2" colspan="4">{{T "No data"}}</td></tr>{{end}}</tbody></table></div></section>
+{{end}}

@@ -1779,5 +1779,22 @@
     "Background image of the left panel on the login page.": "Gambar latar panel kiri halaman login.",
     "Leave empty to use the company name.": "Kosongkan untuk memakai nama usaha.",
     "Leave empty to use the company logo.": "Kosongkan untuk memakai logo perusahaan.",
-    "Only used together with the login page logo above.": "Hanya dipakai bersama logo halaman login di atasnya."
+    "Only used together with the login page logo above.": "Hanya dipakai bersama logo halaman login di atasnya.",
+    "Active Plan": "Paket Aktif",
+    "Usage": "Pemakaian",
+    "Online time": "Waktu online",
+    "No limit": "Tanpa batas",
+    "Usage is not recorded for this plan": "Pemakaian paket ini tidak dicatat di portal",
+    "Almost used up": "Hampir habis",
+    "Connection status": "Status koneksi",
+    "Connected since": "Terhubung sejak",
+    "Connected for": "Lama terhubung",
+    "No connection record yet": "Belum ada catatan koneksi",
+    "Last seen": "Terakhir terlihat",
+    "Connection History": "Riwayat koneksi",
+    "Account Security": "Keamanan akun",
+    "hours": "jam",
+    "minutes": "menit",
+    "left": "lagi",
+    "Ended": "Sudah habis"
 }

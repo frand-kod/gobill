@@ -134,27 +134,15 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 	}
 
 	// quota: same arithmetic as the RADIUS login check
-	if sub != nil && plan.Limited == 1 && plan.Device == "Radius" {
-		lt, quotaOut := plan.LimitType.String, false
-		if (lt == "Time_Limit" || lt == "Both_Limit") && plan.TimeLimit.Valid {
-			var used int64
-			for _, n := range names {
-				u, _ := s.queries.SumRadiusSessionTime(ctx, db.SumRadiusSessionTimeParams{Username: n, StartedAt: sub.StartedAt})
-				used += u
-			}
-			lim := radius.LimitSeconds(plan.TimeLimit.Int64, plan.TimeUnit.String)
-			quotaOut = quotaOut || used >= lim
-			add("Quota", quotaLevel(used, lim), t("Online time used %s of %s", humanDur(used), humanDur(lim)))
+	if sub != nil && plan.Device == "Radius" {
+		q, quotaOut := s.planQuota(ctx, names, *sub, plan), false
+		if q.HasTime {
+			quotaOut = quotaOut || q.Time >= q.TimeLim
+			add("Quota", quotaLevel(q.Time, q.TimeLim), t("Online time used %s of %s", humanDur(q.Time), humanDur(q.TimeLim)))
 		}
-		if (lt == "Data_Limit" || lt == "Both_Limit") && plan.DataLimit.Valid {
-			var used int64
-			for _, n := range names {
-				u, _ := s.queries.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: n, StartedAt: sub.StartedAt})
-				used += u
-			}
-			lim := radius.LimitBytes(plan.DataLimit.Int64, plan.DataUnit.String)
-			quotaOut = quotaOut || used >= lim
-			add("Quota", quotaLevel(used, lim), t("Data used %s of %s", humanBytes(used), humanBytes(lim)))
+		if q.HasData {
+			quotaOut = quotaOut || q.Data >= q.DataLim
+			add("Quota", quotaLevel(q.Data, q.DataLim), t("Data used %s of %s", humanBytes(q.Data), humanBytes(q.DataLim)))
 		}
 		if quotaOut && !expired {
 			tip("Quota used up: press Recharge for a new plan")
@@ -196,6 +184,38 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 		d.Advice = t("Everything looks normal")
 	}
 	return d
+}
+
+// quotaUse is what a limited plan has used since its subscription started, summed over the
+// customer's login names. Has* is false when the plan has no such limit (or is not a RADIUS plan).
+type quotaUse struct {
+	HasTime, HasData bool
+	Time, TimeLim    int64 // seconds
+	Data, DataLim    int64 // bytes
+}
+
+// planQuota: the same sums the RADIUS login check (radius.authorize) uses to reject or cut off a session.
+func (s *Server) planQuota(ctx context.Context, names []string, sub db.Subscription, plan db.Plan) quotaUse {
+	var q quotaUse
+	if plan.Limited != 1 || plan.Device != "Radius" {
+		return q
+	}
+	lt := plan.LimitType.String
+	if (lt == "Time_Limit" || lt == "Both_Limit") && plan.TimeLimit.Valid {
+		q.HasTime, q.TimeLim = true, radius.LimitSeconds(plan.TimeLimit.Int64, plan.TimeUnit.String)
+		for _, n := range names {
+			u, _ := s.queries.SumRadiusSessionTime(ctx, db.SumRadiusSessionTimeParams{Username: n, StartedAt: sub.StartedAt})
+			q.Time += u
+		}
+	}
+	if (lt == "Data_Limit" || lt == "Both_Limit") && plan.DataLimit.Valid {
+		q.HasData, q.DataLim = true, radius.LimitBytes(plan.DataLimit.Int64, plan.DataUnit.String)
+		for _, n := range names {
+			u, _ := s.queries.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: n, StartedAt: sub.StartedAt})
+			q.Data += u
+		}
+	}
+	return q
 }
 
 // quotaLevel is ok until 90% is used, warn after, bad at the limit.

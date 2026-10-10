@@ -87,3 +87,9 @@ WHERE username = ? AND started_at >= ?;
 SELECT p.name FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id
 WHERE s.status = 'active' AND (c.username = sqlc.arg(name) OR (c.pppoe_username <> '' AND c.pppoe_username = sqlc.arg(name)))
 ORDER BY s.expires_at DESC LIMIT 1;
+
+-- name: ListRadiusSessionsByUsers :many
+-- One page of sessions under the customer's two login names (username, pppoe_username; the same name twice when there is no PPPoE name).
+SELECT * FROM radius_sessions
+WHERE username = sqlc.arg(name1) OR username = sqlc.arg(name2)
+ORDER BY started_at DESC, id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);

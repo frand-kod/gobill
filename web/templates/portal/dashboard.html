@@ -1,6 +1,7 @@
 {{define "content"}}
 <h1 class="page-title mb-4">{{T "Dashboard"}}</h1>
 {{template "callout" .Intro}}
+{{template "dash_cards" .}}
 <div class="card mb-4"><div class="card-body flex flex-wrap items-center justify-between gap-4"><div><p class="text-sm text-ink-2">{{T "Balance"}}</p><p class="page-title">{{money .Customer.Balance}}</p></div>
   <a class="btn btn-primary min-h-12 px-6 text-base" href="/portal/plans">{{icon "wallet"}}<span>{{T "Buy / Extend"}}</span></a></div></div>
 {{if or .Data.Phone .Data.WA}}<div class="card mb-4"><div class="card-body flex flex-wrap items-center justify-between gap-3 text-sm"><p><span class="font-semibold">{{T "Need help? Contact"}} {{with .Data.Company}}{{.}}{{else}}{{T "your operator"}}{{end}}</span>{{with .Data.Phone}}<br><a class="text-accent-fg hover:underline" href="tel:{{.}}">{{.}}</a>{{end}}</p>
@@ -12,14 +13,4 @@
   <div class="self-end"><button class="btn" type="submit">{{T "Send Balance"}}</button></div>
 </div></form>{{end}}
 {{with .Data.Notice}}<div class="card mb-4"><h2 class="card-title">{{T "Announcement"}}</h2><div class="card-body whitespace-pre-line text-sm">{{.}}</div></div>{{end}}
-<div class="card"><h2 class="card-title">{{T "Active Subscriptions"}}</h2>
-<div class="overflow-x-auto"><table class="table">
-<thead><tr><th>{{T "Package Name"}}</th><th>{{T "Type"}}</th><th>{{T "Expires On"}}</th><th>{{T "Status"}}</th></tr></thead>
-<tbody>{{range .Data.Subs}}<tr><td>{{.Plan}}</td><td>{{.Type}}</td><td>{{ts .Expires}}</td><td><span class="badge {{badge .Status}}">{{T .Status}}</span>{{if .CanExtend}} <form class="inline" method="post" action="/portal/extend/{{.ID}}" data-confirm="{{T "Extend"}} {{.Plan}}?"><button class="btn btn-ghost btn-icon tip-end" type="submit" aria-label="{{T "Extend"}}" data-tip="{{T "Extend"}}">{{icon "calendar-plus"}}</button></form>{{end}}</td></tr>
-{{else}}<tr><td class="py-8 text-center text-ink-2" colspan="4"><p>{{T "You have no active plan yet."}}</p><a class="btn btn-primary mt-3" href="/portal/plans">{{T "Buy / Extend"}}</a></td></tr>{{end}}</tbody></table></div></div>
-<div class="card mt-4"><div class="card-body flex items-center justify-between gap-2"><h2 class="card-title">{{T "Recent Transactions"}}</h2><a class="btn btn-ghost" href="/portal/orders">{{T "See all"}}</a></div>
-<div class="overflow-x-auto"><table class="table">
-<thead><tr><th>{{T "Invoice"}}</th><th>{{T "Package Name"}}</th><th>{{T "Package Price"}}</th><th>{{T "Created On"}}</th></tr></thead>
-<tbody>{{range .Data.Trx}}<tr><td><a class="underline" href="/portal/orders/{{.ID}}/invoice">{{.Invoice}}</a></td><td>{{.PlanName}}</td><td>{{money .Price}}</td><td>{{ts .CreatedAt}}</td></tr>
-{{else}}<tr><td class="py-8 text-center text-ink-2" colspan="4">{{T "No data"}}</td></tr>{{end}}</tbody></table></div></div>
 {{end}}
