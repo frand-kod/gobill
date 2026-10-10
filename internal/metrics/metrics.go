@@ -22,6 +22,14 @@ func Started() time.Time { return started }
 
 const ringMinutes = 1440
 
+// maxSeries caps the label series of one metric name; the least recently updated one is dropped first.
+const maxSeries = 256
+
+// expiring names are gauges whose value is a Unix timestamp; series older than expireAfter are dropped.
+var expiring = map[string]bool{"radius_nas_last_packet_timestamp": true}
+
+const expireAfter = 24 * time.Hour
+
 // help holds the # HELP text of every counter and gauge name (without the gobill_ prefix).
 var help = map[string]string{
 	"radius_auth_accepted_total":         "RADIUS Access-Accept packets.",
@@ -43,6 +51,7 @@ type entry struct {
 	name string
 	kv   []string // label name, value, name, value...
 	val  float64
+	at   int64 // Unix seconds of the last update
 }
 
 type ring struct {
@@ -68,8 +77,10 @@ func Add(name string, delta float64, kv ...string) {
 	if e == nil {
 		e = &entry{name: name, kv: kv}
 		counters[k] = e
+		capSeries(name, k)
 	}
 	e.val += delta
+	e.at = Now().Unix()
 	r := rings[name]
 	if r == nil {
 		r = &ring{}
@@ -90,13 +101,48 @@ func Inc(name string, kv ...string) { Add(name, 1, kv...) }
 func Set(name string, v float64, kv ...string) {
 	mu.Lock()
 	defer mu.Unlock()
+	now := Now()
 	k := key(name, kv)
 	e := gauges[k]
 	if e == nil {
 		e = &entry{name: name, kv: kv}
 		gauges[k] = e
+		capSeries(name, k)
 	}
-	e.val = v
+	e.val, e.at = v, now.Unix()
+	if expiring[name] {
+		cutoff := float64(now.Add(-expireAfter).Unix())
+		for gk, g := range gauges {
+			if g.name == name && g.val < cutoff {
+				delete(gauges, gk)
+			}
+		}
+	}
+}
+
+// capSeries drops the least recently updated series of name, other than keep, while name has more than maxSeries.
+func capSeries(name, keep string) {
+	for {
+		var oldM map[string]*entry
+		var oldK string
+		var oldAt int64
+		n := 0
+		for _, m := range []map[string]*entry{counters, gauges} {
+			for k, e := range m {
+				if e.name != name {
+					continue
+				}
+				n++
+				if k != keep && (oldM == nil || e.at < oldAt) {
+					oldM, oldK, oldAt = m, k, e.at
+				}
+			}
+		}
+		if n <= maxSeries || oldM == nil {
+			return
+		}
+		delete(oldM, oldK)
+	}
 }
 
 // Value returns the counter or gauge name{kv...}, 0 when never set.

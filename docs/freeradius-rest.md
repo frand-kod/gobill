@@ -18,7 +18,7 @@ Perbedaan: voucher yang login lewat username tanpa password (mode voucher RADIUS
 
 ## Allow-list
 
-`radius.php` lama tidak punya autentikasi. Di NuxBill, isi setting `radius_rest_allow` dengan IP FreeRADIUS (pisahkan koma, boleh CIDR). Kosong = hanya loopback (127.0.0.0/8, ::1), dan NuxBill mencatat peringatan saat start; isi dengan IP FreeRADIUS jika berjalan di host lain. `X-Forwarded-For` hanya dipercaya jika `trust_proxy=yes`. Endpoint ini bebas CSRF karena dipanggil mesin; allow-list adalah pengamannya.
+`radius.php` lama tidak punya autentikasi. Di NuxBill, isi setting `radius_rest_allow` dengan IP FreeRADIUS (pisahkan koma, boleh CIDR). Kosong = hanya loopback (127.0.0.0/8, ::1), dan NuxBill mencatat peringatan saat start; isi dengan IP FreeRADIUS jika berjalan di host lain. `X-Forwarded-For` hanya dipercaya jika `trust_proxy=yes` dan koneksi langsung datang dari loopback atau dari `trusted_proxies`; allow-list selalu memakai alamat koneksi asli. Endpoint ini bebas CSRF karena dipanggil mesin; allow-list adalah pengamannya.
 
 ## Disconnect
 

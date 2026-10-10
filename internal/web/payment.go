@@ -4,6 +4,7 @@ package web
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -87,10 +88,18 @@ func (s *Server) settlePayment(ctx context.Context, pr db.PaymentRequest, st pay
 		if pr.Status == "expired" || pr.Status == "failed" {
 			slog.Warn("payment paid after request was closed", "ref", pr.Ref)
 		}
-		if !pr.CustomerID.Valid { // customer deleted after ordering: nothing to recharge; record the payment as paid
+		if !pr.CustomerID.Valid { // customer deleted after ordering: nothing to recharge; record the payment as paid and tell the operator
 			slog.Warn("payment paid for a deleted customer", "ref", pr.Ref, "username", pr.Username)
-			_, err := s.queries.ClaimPaymentPaid(ctx, pr.Ref)
-			return err
+			n, err := s.queries.ClaimPaymentPaid(ctx, pr.Ref)
+			if err != nil || n == 0 { // n == 0: an earlier callback claimed it and already alerted
+				return err
+			}
+			msg := fmt.Sprintf("Pembayaran diterima untuk pelanggan yang sudah dihapus: perlu refund/recharge manual\nGateway: %s %s\nRef: %s\nJumlah: %s\nUsername: %s",
+				pr.Gateway, pr.Channel, pr.Ref, money(pr.Amount), pr.Username)
+			if err := s.Billing.Alert(ctx, msg); err != nil {
+				slog.Error("operator alert", "ref", pr.Ref, "err", err)
+			}
+			return nil
 		}
 		claim := func(q *db.Queries) (bool, error) {
 			n, err := q.ClaimPaymentPaid(ctx, pr.Ref)

@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"html/template"
 	"net/http"
+	"net/netip"
 	"sync/atomic"
 
 	"context"
@@ -74,9 +75,10 @@ type Server struct {
 	failed   map[string][]time.Time // client IP -> times of recent failed logins
 	totpLast map[int64]int64        // admin id -> last accepted TOTP time step, see totpVerify
 
-	idle   atomic.Int64 // admin idle timeout in ns, see ReloadSessionSettings
-	single atomic.Bool  // single_session
-	trust  atomic.Bool  // trust_proxy, see realIP
+	idle    atomic.Int64 // admin idle timeout in ns, see ReloadSessionSettings
+	single  atomic.Bool  // single_session
+	trust   atomic.Bool  // trust_proxy, see realIP
+	proxies atomic.Value // []netip.Prefix from trusted_proxies, see realIP
 }
 
 // Page is the data every template receives.
@@ -199,14 +201,77 @@ func contains(list []string, v string) bool {
 	return false
 }
 
-// realIP replaces RemoteAddr with the rightmost X-Forwarded-For entry (added by our own proxy) when trust_proxy=yes.
+type peerKey struct{}
+
+// realIP replaces RemoteAddr with the rightmost X-Forwarded-For entry (added by our own proxy) when
+// trust_proxy=yes and the TCP peer is loopback or in trusted_proxies. The TCP peer is kept in the
+// context, see originalPeer.
 func (s *Server) realIP(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if xf := r.Header.Get("X-Forwarded-For"); xf != "" && s.trust.Load() {
+		peer := r.RemoteAddr
+		r = r.WithContext(context.WithValue(r.Context(), peerKey{}, peer))
+		if xf := r.Header.Get("X-Forwarded-For"); xf != "" && s.trust.Load() && s.fromProxy(peer) {
 			r.RemoteAddr = strings.TrimSpace(xf[strings.LastIndexByte(xf, ',')+1:])
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// fromProxy reports whether the TCP peer may set X-Forwarded-For: loopback, or inside trusted_proxies.
+func (s *Server) fromProxy(peer string) bool {
+	a, ok := peerAddr(peer)
+	if !ok {
+		return false
+	}
+	if a.IsLoopback() {
+		return true
+	}
+	ps, _ := s.proxies.Load().([]netip.Prefix)
+	for _, p := range ps {
+		if p.Contains(a) {
+			return true
+		}
+	}
+	return false
+}
+
+// originalPeer is the TCP peer address, before realIP rewrote RemoteAddr.
+func originalPeer(r *http.Request) string {
+	if p, ok := r.Context().Value(peerKey{}).(string); ok {
+		return p
+	}
+	return r.RemoteAddr
+}
+
+// peerAddr parses host:port (or a bare host) into an address; IPv4-mapped IPv6 becomes IPv4.
+func peerAddr(remote string) (netip.Addr, bool) {
+	host, _, err := net.SplitHostPort(remote)
+	if err != nil {
+		host = remote
+	}
+	a, err := netip.ParseAddr(host)
+	if err != nil {
+		return netip.Addr{}, false
+	}
+	return a.Unmap(), true
+}
+
+// parseTrustedProxies parses a comma-separated list of IPs and CIDRs. ok is false if any entry is invalid.
+func parseTrustedProxies(spec string) (ps []netip.Prefix, ok bool) {
+	ok = true
+	for _, e := range strings.Split(spec, ",") {
+		if e = strings.TrimSpace(e); e == "" {
+			continue
+		}
+		if p, err := netip.ParsePrefix(e); err == nil {
+			ps = append(ps, p)
+		} else if a, err := netip.ParseAddr(e); err == nil {
+			ps = append(ps, netip.PrefixFrom(a, a.BitLen()))
+		} else {
+			ok = false
+		}
+	}
+	return ps, ok
 }
 
 // clientIP is the host part of RemoteAddr.

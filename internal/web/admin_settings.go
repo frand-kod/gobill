@@ -205,9 +205,9 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		}, "Webhook", "")...)
 		return append(out, section([]field{
 			sec("metrics_token", "Token /metrics"),
-			{Name: "metrics_new", Label: "Buat token baru", Type: "formbtn", Value: "/admin/settings/integrations/metrics-token", Btn: "Buat token baru",
+			{Name: "metrics_new", Label: "Create new token", Type: "formbtn", Value: "/admin/settings/integrations/metrics-token", Btn: "Create new token",
 				Hint: "Replaces the current token. Old scrapers stop working until they get the new one"},
-			{Name: "metrics_off", Label: "Nonaktifkan", Type: "formbtn", Value: "/admin/settings/integrations/metrics-token/disable", Btn: "Nonaktifkan",
+			{Name: "metrics_off", Label: "Disable", Type: "formbtn", Value: "/admin/settings/integrations/metrics-token/disable", Btn: "Disable",
 				Hint: "Clears the token: /metrics returns 404"},
 		}, "Prometheus /metrics", "")...)
 	case "payment":
@@ -220,9 +220,9 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			text("tripay_channel", "Default Channel", v, e).hint("Optional channel code, e.g. QRIS"),
 		}, "Tripay", "")
 		qris := field{Name: "qris_payload", Label: "Static QRIS", Type: "qris", Value: v["qris_payload"], Error: e["qris_payload"],
-			Hint: "Unggah foto QRIS statis merchant (PNG/JPG). Sistem hanya menyimpan teksnya"}
+			Hint: "Upload the merchant's static QRIS photo (PNG/JPG). The system only stores its text"}
 		if m, n := payment.QRISInfo(v["qris_payload"]); m != "" {
-			qris.Hint = "Aktif: " + m
+			qris.Hint = s.catalog.T(s.language(), "Active") + ": " + m
 			if n != "" {
 				qris.Hint += " (NMID " + n + ")"
 			}
@@ -256,6 +256,8 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			chk("maintenance_mode_logout", "Log Out Customers During Maintenance"),
 			text("maintenance_date", "Maintenance Date", v, e).as("date"),
 			sel("clock_guard", "Clock Guard", settingsOnOff...).hint("Off disables the clock check"),
+			sel("trust_proxy", "Trust Proxy", settingsYesNo...).hint("Honour X-Forwarded-For only from loopback or Trusted Proxies"),
+			text("trusted_proxies", "Trusted Proxies", v, e).hint("Comma-separated IPs or CIDRs of your reverse proxies, e.g. 172.16.0.0/16"),
 			sel("router_check", "Router Check", settingsYesNo...).hint("Pings enabled routers every 5 minutes and alerts when one goes down"),
 			sel("check_customer_online", "Check Customer Online", option{"no", "No"}, option{"yes", "Yes"}).hint("Shows on the customer page whether the customer is connected"),
 		}, "System", "")...)
@@ -336,6 +338,11 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	}
 	if x := v["alert_channel"]; x != "" && !oneOf(x, "telegram", "wa", "both") {
 		e["alert_channel"] = "Choose Telegram, WhatsApp or both"
+	}
+	if x := v["trusted_proxies"]; x != "" {
+		if _, ok := parseTrustedProxies(x); !ok {
+			e["trusted_proxies"] = "Enter IP addresses or CIDR ranges, separated by commas"
+		}
 	}
 	if x := v["alert_nas_silent_minutes"]; x != "" && !inRange(x, 1, 1440) {
 		e["alert_nas_silent_minutes"] = "Enter whole minutes, 1 to 1440"
@@ -480,19 +487,20 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 
 // backupStatus is the one-line status under "Download backup", written by job.Backup. The mirror path is SuperAdmin only.
 func (s *Server) backupStatus(st map[string]string) string {
-	out := "Last local backup: none yet"
+	t := func(k string) string { return s.catalog.T(s.language(), k) }
+	out := t("Last local backup: none yet")
 	if st["backup_last_at"] != "" {
-		out = "Last local backup: " + st["backup_last_at"] + " " + st["backup_last_file"]
+		out = fmt.Sprintf(t("Last local backup: %s %s"), st["backup_last_at"], st["backup_last_file"])
 	}
 	switch {
 	case s.BackupMirror == "":
-		return out + ". Off-site mirror: off (NUXBILL_BACKUP_MIRROR)"
+		return fmt.Sprintf(t("%s. Off-site mirror: off (NUXBILL_BACKUP_MIRROR)"), out)
 	case st["backup_mirror_error"] != "":
-		return out + ". Mirror " + s.BackupMirror + " ERROR: " + st["backup_mirror_error"]
+		return fmt.Sprintf(t("%s. Mirror %s ERROR: %s"), out, s.BackupMirror, st["backup_mirror_error"])
 	case st["backup_mirror_at"] != "":
-		return out + ". Mirror " + s.BackupMirror + ", last copy " + st["backup_mirror_at"]
+		return fmt.Sprintf(t("%s. Mirror %s, last copy %s"), out, s.BackupMirror, st["backup_mirror_at"])
 	}
-	return out + ". Mirror " + s.BackupMirror + ", no copy yet"
+	return fmt.Sprintf(t("%s. Mirror %s, no copy yet"), out, s.BackupMirror)
 }
 
 func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {

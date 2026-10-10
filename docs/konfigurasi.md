@@ -38,7 +38,8 @@ Ubah di menu Settings (kunci di bawah muncul di tabel `settings`).
 | `timezone` | Zona waktu tampilan (mis. `Asia/Jakarta`). Waktu disimpan UTC. Kosong dianggap UTC, jadi isi saat pertama kali setup |
 | `default_plan_device` | Device bawaan paket baru: `MikrotikHotspot`, `MikrotikPppoe`, `Dummy`, `Radius`, atau kosong (ikut tipe paket) |
 | `radius_rest_allow` | Daftar IP/CIDR (pisahkan koma) yang boleh memanggil `/radius.php`. Kosong = hanya loopback (127.0.0.0/8, ::1); isi dengan IP FreeRADIUS jika berjalan di host lain |
-| `trust_proxy` | `yes` agar `X-Forwarded-For` dipercaya. Biarkan `no` tanpa reverse proxy. Entri paling kanan dipakai sebagai IP klien, jadi proxy harus menulis IP asli di sana. Jika Cloudflare ada di depan nginx, atur nginx `set_real_ip_from` (rentang IP Cloudflare) + `real_ip_header CF-Connecting-IP`, dan `proxy_set_header X-Forwarded-For $remote_addr;` |
+| `trusted_proxies` | Daftar IP atau CIDR reverse proxy, dipisah koma, mis. `172.16.0.0/16, 10.0.0.2`. Dipakai bersama `trust_proxy=yes`: `X-Forwarded-For` dari alamat lain diabaikan. Loopback selalu dipercaya. Allow-list `/radius.php` tetap memakai alamat koneksi asli, bukan hasil `X-Forwarded-For`. |
+| `trust_proxy` | `yes` agar `X-Forwarded-For` dipercaya, tetapi hanya jika koneksi langsung datang dari loopback (127.0.0.0/8, ::1) atau dari IP/CIDR di `trusted_proxies`. Biarkan `no` tanpa reverse proxy. Entri paling kanan dipakai sebagai IP klien, jadi proxy harus menulis IP asli di sana. Jika Cloudflare ada di depan nginx, atur nginx `set_real_ip_from` (rentang IP Cloudflare) + `real_ip_header CF-Connecting-IP`, dan `proxy_set_header X-Forwarded-For $remote_addr;` |
 | `clock_guard` | `off` mematikan guard jam (hanya jika ada RTC akurat) |
 | `log_keep_days` | Hapus log lebih lama dari N hari. Bawaan 90 (bila belum pernah diisi). `0` = simpan selamanya |
 | `backup_keep` | Jumlah file backup harian yang disimpan (bawaan 7) |

@@ -1,6 +1,8 @@
 package db
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"io/fs"
 	"log/slog"
@@ -30,7 +32,8 @@ func LatestVersion() (int, error) {
 
 // ApplyPendingRestore swaps in a backup staged as path+".restore" by the Restore database page.
 // Call it before Open. The live database and its -wal move aside next to it as <path>.pre-restore-<ts>
-// (the same directory, so the rename never crosses filesystems). The -wal may hold committed data not
+// (the same directory, so the rename never crosses filesystems). The name ends in a random suffix, so
+// two restores within the same second do not collide. The -wal may hold committed data not
 // yet checkpointed. The -shm is deleted. A stale -wal left beside the restored file would be replayed
 // onto it. Then the staged file takes the name path.
 func ApplyPendingRestore(path string) error {
@@ -40,7 +43,11 @@ func ApplyPendingRestore(path string) error {
 	} else if err != nil {
 		return err
 	}
-	old := path + ".pre-restore-" + time.Now().Format("20060102-150405")
+	var suffix [4]byte
+	if _, err := rand.Read(suffix[:]); err != nil {
+		return err
+	}
+	old := path + ".pre-restore-" + time.Now().Format("20060102-150405") + "-" + hex.EncodeToString(suffix[:])
 	if err := os.Remove(path + "-shm"); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}

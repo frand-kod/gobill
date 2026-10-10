@@ -104,7 +104,7 @@ func (s *Server) metricsTokenOff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.logActivity(r, "metrics.token_off", "")
-	s.flashTo(w, r, "/admin/settings/integrations", "Monitoring /metrics dinonaktifkan")
+	s.flashTo(w, r, "/admin/settings/integrations", "Monitoring /metrics disabled")
 }
 
 // fileSize is the size of path in bytes, 0 when it cannot be read.
