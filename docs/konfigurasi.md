@@ -12,6 +12,7 @@ Untuk operator. Ada dua lapis: variabel lingkungan `NUXBILL_*` (dibaca sebelum d
 | `NUXBILL_SECRET_KEY` | kosong | Kunci AES-GCM untuk secret. Kosong: dibuat otomatis di `<NUXBILL_DB>.key`. Jika diisi, nilainya menggantikan file `.key` dan harus disimpan aman |
 | `NUXBILL_RADIUS` | `:1812` | Alamat listen RADIUS UDP (auth; accounting di port+1). Kosong atau `off` mematikan listener UDP; `/radius.php` tetap jalan |
 | `NUXBILL_BACKUP_DIR` | `<folder DB>/backup` | Folder backup harian |
+| `NUXBILL_BACKUP_MIRROR` | kosong (mati) | Salinan kedua backup harian di folder lain (USB, NAS, rclone). Harus sudah ada; lihat [instalasi.md](instalasi.md#4-backup-ke-usb-atau-nas) |
 
 Contoh `/etc/nuxbill/config.env`:
 

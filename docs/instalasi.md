@@ -70,6 +70,42 @@ Data ada di `/var/lib/nuxbill`: `nuxbill.db` (SQLite) dan `nuxbill.db.key` (kunc
 
 Backup harian dibuat otomatis (`VACUUM INTO`); jumlah file yang disimpan diatur setting `backup_keep` (bawaan 7).
 
+**Salinan kedua (mirror) di luar SD card.** Jika SD card atau STB rusak, backup di `NUXBILL_BACKUP_DIR` ikut hilang. Isi `NUXBILL_BACKUP_MIRROR` dengan folder kedua; setiap backup harian langsung disalin ke sana dan dipangkas dengan `backup_keep` yang sama. Folder harus sudah ada (tidak dibuat otomatis, supaya disk yang belum ter-mount tidak menulis ke SD card). Jika gagal, Telegram operator mendapat peringatan (sekali sehari selama masih gagal, dan sekali saat pulih); backup lokal tetap dibuat. Status terakhir tampil di Settings > Miscellaneous, di bawah "Download backup".
+
+Pilihan tujuan mirror:
+
+- **USB stick.** Pasang di `/mnt/usb` dengan fstab `nofail` seperti di atas. Pilih `NUXBILL_BACKUP_MIRROR=/mnt/usb/nuxbill-mirror`.
+- **NAS (NFS atau SMB).** Buat unit mount systemd agar mount menunggu jaringan. Contoh NFS `/etc/systemd/system/mnt-nas.mount`:
+
+        [Unit]
+        Description=NAS backup
+        Wants=network-online.target
+        After=network-online.target
+
+        [Mount]
+        What=192.168.1.10:/volume1/nuxbill
+        Where=/mnt/nas
+        Type=nfs
+        Options=_netdev,soft,timeo=50
+
+        [Install]
+        WantedBy=multi-user.target
+
+  Lalu `sudo systemctl enable --now mnt-nas.mount`. Untuk SMB, ganti `Type=cifs` dan tambahkan `credentials=/etc/nuxbill/smb.cred` di `Options`. Nama file unit harus sama dengan path mount (`/mnt/nas` menjadi `mnt-nas.mount`). Lalu tambahkan drop-in `sudo systemctl edit nuxbill`:
+
+        [Unit]
+        RequiresMountsFor=/mnt/nas
+
+        [Service]
+        ReadWritePaths=/mnt/nas/nuxbill-backup
+
+  `RequiresMountsFor=` membuat nuxbill menunggu mount siap. Setelah itu isi `NUXBILL_BACKUP_MIRROR=/mnt/nas/nuxbill-backup` (folder ini dibuat sekali manual di NAS).
+- **rclone ke Google Drive.** Pasang `rclone mount gdrive: /mnt/gdrive --vfs-cache-mode writes --daemon` (lewat unit systemd juga bisa, dengan `RequiresMountsFor=/mnt/gdrive` dan `After=network-online.target`). Pilih `NUXBILL_BACKUP_MIRROR=/mnt/gdrive/nuxbill-backup`. Tambahkan juga `ReadWritePaths=/mnt/gdrive/nuxbill-backup` di drop-in. Google Drive punya kuota dan jeda, jadi cek folder itu sesekali.
+
+Tambahkan `NUXBILL_BACKUP_MIRROR` di `/etc/nuxbill/config.env` dan restart nuxbill.
+
+**Uji restore dari mirror.** Uji sekali setelah mirror pertama kali diatur, dan setelah tujuannya diganti, jangan tunggu bencana. Salin file terbaru dari folder mirror ke `/tmp/uji.db`, lalu jalankan `NUXBILL_DB=/tmp/uji.db` pada instance terpisah (port lain, mis. `NUXBILL_HTTP=:8099`) dan cek data pelanggan di UI. Ingat salin juga `nuxbill.db.key` yang sesuai, karena tanpa kunci secret tidak bisa dibaca.
+
 **Backup `nuxbill.db.key` bersama database.** Tanpa file ini, data terenkripsi (password perangkat, gateway) tidak terbaca. Jika memakai `NUXBILL_SECRET_KEY`, simpan nilainya di tempat aman karena menggantikan file `.key`. Salinan manual:
 
     sudo cp /var/lib/nuxbill/nuxbill.db /var/lib/nuxbill/nuxbill.db.key /mnt/usb/manual-backup/
