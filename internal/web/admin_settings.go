@@ -562,7 +562,7 @@ func (s *Server) brand(ctx context.Context) map[string]string {
 		return out
 	}
 	out["company_name"] = m["company_name"]
-	for _, k := range []string{"logo", "logo_dark", "login_page_logo", "login_page_logo_dark", "login_page_favicon", "login_page_head", "login_page_description", "disable_registration"} {
+	for _, k := range []string{"logo", "logo_dark", "login_page_logo", "login_page_logo_dark", "login_page_favicon", "login_page_head", "login_page_description", "login_page_wallpaper", "disable_registration"} {
 		out[k] = m[k]
 	}
 	// the logo each layout shows, light and dark; a missing dark one falls back to the light one
@@ -583,6 +583,7 @@ func (s *Server) brand(ctx context.Context) map[string]string {
 	}
 	out["theme_mode"], out["theme_accent"], out["theme_density"] = themeDefaults(m)
 	out["theme_font"] = themeFont(m)
+	out["phone"], out["wa"] = m["phone"], waLink(m["phone"], m["country_code_phone"]) // operator contact for the portal login
 	out["theme_color"], _ = pwaColors(out["theme_accent"], out["theme_mode"])
 	if out["app_icon"] = pwaIcon(m); out["app_icon"] == "" {
 		out["app_icon"] = "/static/icons/app-192.png"

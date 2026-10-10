@@ -1,22 +1,51 @@
 {{define "body"}}
-<main class="grid min-h-screen place-items-center p-4">
-  <form class="card w-full max-w-sm overflow-hidden" method="post" action="/login">
+<main class="al">
+  <aside class="al-brand{{if .Brand.login_page_wallpaper}} has-wp{{end}}"{{with .Brand.login_page_wallpaper}} style="background-image:url('/uploads/{{.}}')"{{end}}>
+    <svg class="al-motif" viewBox="0 0 600 600" preserveAspectRatio="xMaxYMax slice" aria-hidden="true" focusable="false">
+      <g class="al-shift"><circle class="al-ring" cx="430" cy="360" r="90"/><circle class="al-ring" cx="430" cy="360" r="170"/><circle class="al-ring" cx="430" cy="360" r="260"/>
+      <g>
+        <path class="al-link" d="M430 360 L300 240"/><path class="al-link" d="M430 360 L520 210"/><path class="al-link" d="M430 360 L560 430"/>
+        <path class="al-link" d="M430 360 L330 500"/><path class="al-link" d="M300 240 L190 300"/><path class="al-link" d="M520 210 L470 110"/>
+        <path class="al-link" d="M330 500 L220 540"/><path class="al-link" d="M560 430 L540 540"/>
+      </g>
+      <circle class="al-pulse" cx="430" cy="360" r="14"/>
+      <circle class="al-core" cx="430" cy="360" r="9"/>
+      <g class="al-node"><circle cx="300" cy="240" r="7"/><circle cx="520" cy="210" r="7"/><circle cx="560" cy="430" r="7"/><circle cx="330" cy="500" r="7"/><circle cx="190" cy="300" r="5"/><circle cx="470" cy="110" r="5"/><circle cx="220" cy="540" r="5"/><circle cx="540" cy="540" r="5"/></g>
+    </g></svg>
+    <div class="al-brand-in">
+      <div class="flex flex-wrap items-center gap-3">
+        <span class="logo-chip">{{template "logoL" .Brand}}</span>
+        <span class="al-name">{{with .Brand.login_page_head}}{{.}}{{else}}{{or .Brand.company_name "gobill"}}{{end}}</span>
+      </div>
+      <div class="space-y-3 lg:pb-10">
+        <h2 class="al-tag">{{T "Your network, at a glance"}}</h2>
+        <p class="al-sub hidden sm:block">{{with .Brand.login_page_description}}{{.}}{{else}}{{T "Customers, plans, payments and sessions in one place."}}{{end}}</p>
+      </div>
+    </div>
     <div class="fiber-stripe" aria-hidden="true"></div>
-    <div class="card-body space-y-4">
-      <div class="flex items-center gap-2 text-accent-fg">{{template "logoL" .Brand}}<span class="text-lg font-semibold">{{with .Brand.login_page_head}}{{.}}{{else}}{{or .Brand.company_name "gobill"}}{{end}}</span></div>
-      <h1 class="page-title">{{T "Sign in"}}</h1>
-      {{with .Brand.login_page_description}}<p class="text-sm text-ink-2">{{.}}</p>{{end}}
-      {{if .Error}}<p class="alert alert-error" role="alert">{{icon "circle-alert"}}<span>{{T .Error}}</span></p>{{end}}
+  </aside>
+  <section class="al-form">
+    <form class="al-card space-y-5" method="post" action="/login">
+      <div class="space-y-2">
+        <span class="al-pill">{{icon "server"}}{{T "Administrator"}}</span>
+        <h1 class="al-title">{{T "Sign in"}}</h1>
+      </div>
+      {{if .Error}}<p class="alert alert-error !mb-0" role="alert">{{icon "circle-alert"}}<span>{{T .Error}}</span></p>{{end}}
       <div>
         <label class="label" for="username">{{T "Username"}}</label>
         <input class="input" id="username" name="username" type="text" autocomplete="username" required autofocus value="{{with .Data}}{{.Username}}{{end}}">
       </div>
       <div>
         <label class="label" for="password">{{T "Password"}}</label>
-        <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+        <div class="pw-wrap">
+          <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+          <button class="pw-toggle" type="button" hidden data-pw="password" data-show="{{T "Show"}}" data-hide="{{T "Hide"}}" aria-pressed="false" aria-controls="password">{{T "Show"}}</button>
+        </div>
+        <p class="caps-hint" id="caps" role="status" hidden>{{T "Caps Lock is on"}}</p>
       </div>
       <button class="btn btn-primary w-full" type="submit">{{T "Sign in"}}</button>
-    </div>
-  </form>
+    </form>
+  </section>
 </main>
+{{template "pwscript"}}
 {{end}}

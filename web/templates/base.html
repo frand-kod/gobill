@@ -8,6 +8,15 @@
 </details>{{end}}{{end}}
 {{define "logoA"}}{{with .logo_a}}<img src="/uploads/{{.}}" alt="" class="logo-light h-8 max-w-48 object-contain">{{with $.logo_a_dark}}<img src="/uploads/{{.}}" alt="" class="logo-dark h-8 max-w-48 object-contain">{{end}}{{else}}{{icon "wifi"}}{{end}}<span class="{{with .logo_a}}hidden min-w-0 truncate sm:inline{{else}}truncate{{end}}">{{or .company_name "gobill"}}</span>{{end}}
 {{define "logoL"}}{{with .logo_l}}<img src="/uploads/{{.}}" alt="" class="logo-light h-10 max-w-48 object-contain">{{with $.logo_l_dark}}<img src="/uploads/{{.}}" alt="" class="logo-dark h-10 max-w-48 object-contain">{{end}}{{else}}{{icon "wifi"}}{{end}}{{end}}
+{{define "pwscript"}}<script>
+// Show/hide password (aria-pressed) and a Caps Lock hint. Without JS the button stays hidden and the field works as is.
+document.querySelectorAll('[data-pw]').forEach(function (b) {
+  var i = document.getElementById(b.dataset.pw), cap = document.getElementById('caps');
+  b.hidden = false;
+  b.onclick = function () { var show = i.type === 'password'; i.type = show ? 'text' : 'password'; b.setAttribute('aria-pressed', show); b.textContent = show ? b.dataset.hide : b.dataset.show; };
+  i.addEventListener('keyup', function (e) { if (cap && e.getModifierState) cap.hidden = !e.getModifierState('CapsLock'); });
+});
+</script>{{end}}
 {{define "toastx"}}<button type="button" class="btn btn-sm shrink-0 border-transparent bg-transparent px-2" data-toast-close aria-label="{{T "Close"}}">{{icon "x"}}</button>{{end}}
 {{define "toasts"}}{{if or .Flash .Warn .Error}}<div id="toasts" class="fixed inset-x-4 top-4 z-[60] flex flex-col gap-2 sm:inset-x-auto sm:end-4 sm:w-[420px] sm:max-w-[calc(100vw-2rem)]">
   {{with .Flash}}<div class="alert alert-ok toast" role="status" data-toast="4000">{{icon "circle-check"}}<span class="min-w-0 flex-1">{{.}}</span>{{template "toastx"}}</div>{{end}}

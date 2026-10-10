@@ -1,31 +1,52 @@
 {{define "body"}}
-<main class="grid min-h-screen place-items-center p-4">
-  <form class="card w-full max-w-sm overflow-hidden" method="post" action="/portal/login">
-    <div class="fiber-stripe" aria-hidden="true"></div>
+<main class="pl">
+  <header class="pl-hero{{if .Brand.login_page_wallpaper}} has-wp{{end}}"{{with .Brand.login_page_wallpaper}} style="background-image:url('/uploads/{{.}}')"{{end}}>
+    <span class="pl-bubble" style="width:14rem;height:14rem;inset-inline-end:-4rem;top:-5rem" aria-hidden="true"></span>
+    <span class="pl-bubble" style="width:8rem;height:8rem;inset-inline-start:-2rem;bottom:2rem" aria-hidden="true"></span>
+    <div class="space-y-3">
+      {{if .Brand.logo_l}}<span class="logo-chip">{{template "logoL" .Brand}}</span>{{else}}
+      <svg class="pl-wifi" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path class="pl-arc" d="M4 19a29 29 0 0 1 40 0"/><path class="pl-arc" d="M11 27a19 19 0 0 1 26 0"/><path class="pl-arc" d="M18 35a9 9 0 0 1 12 0"/><circle cx="24" cy="42" r="3"/></svg>{{end}}
+      <p class="pl-name">{{with .Brand.login_page_head}}{{.}}{{else}}{{or .Brand.company_name "gobill"}}{{end}}</p>
+      <p class="pl-sub mx-auto max-w-xs">{{with .Brand.login_page_description}}{{.}}{{else}}{{T "Sign in to check your package, top up and pay."}}{{end}}</p>
+    </div>
+  </header>
+  <form class="card pl-card" method="post" action="/portal/login">
     <div class="card-body space-y-4">
-      <div class="flex items-center gap-2 text-accent-fg">{{template "logoL" .Brand}}<span class="text-lg font-semibold">{{with .Brand.login_page_head}}{{.}}{{else}}{{or .Brand.company_name "gobill"}}{{end}}</span></div>
-      <h1 class="page-title">{{T "Sign in"}}</h1>
-      {{with .Brand.login_page_description}}<p class="text-sm text-ink-2">{{.}}</p>{{end}}
-      {{if .Flash}}<p class="alert alert-ok" role="status">{{icon "circle-check"}}<span>{{.Flash}}</span></p>{{end}}
-      {{if .Error}}<p class="alert alert-error" role="alert">{{icon "circle-alert"}}<span>{{T .Error}}</span></p>{{end}}
+      <h1 class="text-xl font-bold">{{T "Welcome back"}}</h1>
+      {{if .Flash}}<p class="alert alert-ok !mb-0" role="status">{{icon "circle-check"}}<span>{{.Flash}}</span></p>{{end}}
+      {{if .Error}}<p class="alert alert-error !mb-0" role="alert">{{icon "circle-alert"}}<span>{{T .Error}}</span></p>{{end}}
       <div><label class="label" for="username">{{T "Username"}}</label>
-        <input class="input" id="username" name="username" autocomplete="username" required autofocus value="{{with .Data}}{{.}}{{end}}"></div>
+        <input class="input" id="username" name="username" autocomplete="username" autocapitalize="none" required autofocus value="{{with .Data}}{{.}}{{end}}"></div>
       <div><label class="label" for="password">{{T "Password"}}</label>
-        <input class="input" id="password" name="password" type="password" autocomplete="current-password" required></div>
+        <div class="pw-wrap">
+          <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+          <button class="pw-toggle" type="button" hidden data-pw="password" data-show="{{T "Show"}}" data-hide="{{T "Hide"}}" aria-pressed="false" aria-controls="password">{{T "Show"}}</button>
+        </div>
+        <p class="caps-hint" id="caps" role="status" hidden>{{T "Caps Lock is on"}}</p></div>
       <button class="btn btn-primary w-full" type="submit">{{T "Sign in"}}</button>
-      {{if or (eq .Brand.disable_registration "") (eq .Brand.disable_registration "no")}}<a class="btn btn-ghost w-full" href="/portal/register">{{T "Register"}}</a>{{end}}
-      <a class="btn btn-ghost w-full" href="/portal/forgot">{{T "Forgot Password"}}</a>
+      <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <a class="btn pl-ghost" href="/portal/forgot">{{T "Forgot Password"}}</a>
+        {{if or (eq .Brand.disable_registration "") (eq .Brand.disable_registration "no")}}<a class="btn pl-ghost" href="/portal/register">{{T "Register"}}</a>{{end}}
+      </div>
     </div>
   </form>
   {{if eq .Brand.disable_registration "yes"}}
-  <form class="card w-full max-w-sm mt-4" method="post" action="/portal/login/activation">
+  <form class="card pl-card !mt-4" method="post" action="/portal/login/activation">
     <div class="card-body space-y-4">
-      <h2 class="text-lg font-semibold">{{T "Login / Activate Voucher"}}</h2>
-      <div><label class="label" for="v_username">{{T "Username"}}</label><input class="input" id="v_username" name="username" required></div>
-      <div><label class="label" for="v_code">{{T "Enter voucher code here"}}</label><input class="input" id="v_code" name="voucher" required></div>
+      <h2 class="flex items-center gap-2 text-lg font-bold">{{icon "ticket"}}{{T "Login / Activate Voucher"}}</h2>
+      <div><label class="label" for="v_username">{{T "Username"}}</label><input class="input" id="v_username" name="username" autocapitalize="none" required></div>
+      <div><label class="label" for="v_code">{{T "Enter voucher code here"}}</label><input class="input" id="v_code" name="voucher" autocapitalize="none" required></div>
       <button class="btn btn-primary w-full" type="submit">{{T "Login / Activate Voucher"}}</button>
     </div>
   </form>
   {{end}}
+  {{if or .Brand.wa .Brand.phone}}
+  <div class="pl-help flex flex-wrap items-center justify-between gap-3 text-sm">
+    <p class="text-ink-2"><span class="font-semibold text-ink">{{T "Need help?"}}</span>{{with .Brand.phone}}<br><a class="link" href="tel:{{.}}">{{.}}</a>{{end}}</p>
+    {{with .Brand.wa}}<a class="btn" href="{{.}}" target="_blank" rel="noopener">{{icon "message-circle"}}{{T "Chat on WhatsApp"}}</a>{{end}}
+  </div>
+  {{end}}
+  <p class="pb-8 pt-6 text-center text-xs text-ink-2">{{or .Brand.company_name "gobill"}}</p>
 </main>
+{{template "pwscript"}}
 {{end}}

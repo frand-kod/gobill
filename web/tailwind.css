@@ -309,3 +309,81 @@
   .prose-doc th { background: var(--surface-2); font-weight: var(--fw-bold); }
   .prose-doc hr { border-color: var(--border); margin: 2rem 0; }
 }
+
+/* ---- login pages: admin (.al, control room) and customer (.pl, friendly phone-first) ---- */
+@layer components {
+  .logo-chip { @apply inline-flex items-center gap-2 rounded-lg bg-white px-2.5 py-1.5 text-[#0b1014]; }
+  .logo-chip .logo-dark { display: none !important; }
+  .logo-chip .logo-light { display: inline-block !important; }
+  .pw-wrap { position: relative; }
+  .pw-wrap .input { padding-inline-end: 4.75rem; }
+  .pw-toggle { position: absolute; inset-block: 0; inset-inline-end: 0; min-width: 3.75rem; padding-inline: 0.75rem; font-size: var(--fs-small); font-weight: var(--fw-medium); color: var(--accent-fg); border-radius: 0 var(--r-sm) var(--r-sm) 0; cursor: pointer; }
+  .pw-toggle:hover { text-decoration: underline; }
+  .pw-toggle[hidden] { display: none; }
+  .caps-hint { font-size: var(--fs-small); @apply mt-1 text-warn-fg; }
+  .caps-hint[hidden] { display: none; }
+
+  /* admin: split screen, dark brand panel with a quiet network motif on the left */
+  .al { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+  @media (min-width: 1024px) { .al { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); grid-template-rows: none; } }
+  .al-brand { position: relative; isolation: isolate; overflow: hidden; color: #fff; padding: 1.25rem 1rem 1.5rem;
+    background: radial-gradient(120% 90% at 85% 100%, color-mix(in srgb, var(--accent) 38%, #0a0f14), transparent 70%), color-mix(in srgb, var(--accent) 14%, #0a0f14);
+    background-size: cover; background-position: center; }
+  .al-brand.has-wp::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(to top, rgb(8 12 16 / 0.88), rgb(8 12 16 / 0.45)); }
+  .al-brand-in { display: flex; flex-direction: column; gap: 2.5rem; height: 100%; }
+  .al-name { font-size: 1.125rem; font-weight: var(--fw-bold); letter-spacing: 0.01em; overflow-wrap: anywhere; }
+  .al-tag { font-size: 1.25rem; line-height: 1.2; font-weight: 650; letter-spacing: -0.015em; max-width: 18ch; }
+  .al-sub { color: rgb(255 255 255 / 0.78); max-width: 38ch; }
+  .al-motif { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; color: color-mix(in srgb, var(--accent) 55%, white); }
+  .al-brand .fiber-stripe { position: absolute; inset-inline: 0; bottom: 0; }
+  @media (min-width: 1024px) {
+    .al-brand { padding: 3rem 3.5rem 3.5rem; }
+    .al-brand-in { justify-content: space-between; }
+    .al-tag { font-size: clamp(2rem, 3.2vw, 2.75rem); }
+  }
+  .al-form { display: grid; place-items: start center; padding: 2rem 1rem 2.5rem; }
+  @media (min-width: 1024px) { .al-form { place-items: center; } }
+  .al-motif { opacity: 0.7; }
+  @media (min-width: 1024px) { .al-motif { opacity: 1; } .al-shift { transform: translateY(-110px); } }
+  .al-card { width: 100%; max-width: 24rem; }
+  .al-pill { font-size: var(--fs-small); @apply inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-0.5 font-medium text-accent-fg; }
+  .al-title { font-size: 1.75rem; line-height: 1.15; font-weight: 650; letter-spacing: -0.02em; }
+  .al-card .input { min-height: 2.75rem; font-size: 1rem; }
+  .al-card .btn-primary { min-height: 2.75rem; font-size: 1rem; }
+  .al-link { stroke: currentColor; stroke-width: 1.2; fill: none; opacity: 0.35; stroke-dasharray: 3 7; animation: al-flow 5s linear infinite; }
+  .al-ring { stroke: currentColor; fill: none; opacity: 0.12; }
+  .al-node { fill: #0a0f14; stroke: currentColor; stroke-width: 1.5; }
+  .al-core { fill: currentColor; }
+  .al-pulse { fill: none; stroke: currentColor; transform-box: fill-box; transform-origin: center; animation: al-pulse 3.2s ease-out infinite; }
+  @keyframes al-flow { to { stroke-dashoffset: -40; } }
+  @keyframes al-pulse { from { transform: scale(1); opacity: 0.6; } to { transform: scale(3.2); opacity: 0; } }
+
+  /* customer: accent gradient hero, card overlapping it, big touch targets */
+  .pl { min-height: 100vh; }
+  .pl-hero { position: relative; isolation: isolate; overflow: hidden; color: #fff; text-align: center; padding: 2rem 1rem 6rem; border-radius: 0 0 2rem 2rem;
+    background: radial-gradient(60% 80% at 8% 0%, color-mix(in srgb, var(--accent) 85%, transparent), transparent 70%), linear-gradient(165deg, color-mix(in srgb, var(--accent) 46%, #0a0f14), color-mix(in srgb, var(--accent) 20%, #0a0f14));
+    background-size: cover; background-position: center; }
+  .pl-hero.has-wp::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(to bottom, rgb(8 12 16 / 0.35), rgb(8 12 16 / 0.7)); }
+  .pl-bubble { position: absolute; z-index: -1; border-radius: 50%; background: radial-gradient(circle at 30% 30%, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0)); }
+  .pl-wifi { width: 3.25rem; height: 3.25rem; margin-inline: auto; color: #fff; }
+  .pl-wifi path { fill: none; stroke: currentColor; stroke-width: 4; stroke-linecap: round; }
+  .pl-wifi circle { fill: currentColor; }
+  .pl-arc { animation: pl-arc 2.4s ease-in-out infinite; }
+  .pl-arc:nth-of-type(2) { animation-delay: 0.25s; }
+  .pl-arc:nth-of-type(1) { animation-delay: 0.5s; }
+  @keyframes pl-arc { 0%, 100% { opacity: 1; } 45% { opacity: 0.25; } }
+  .pl-name { font-size: 1.5rem; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+  .pl-sub { color: rgb(255 255 255 / 0.85); font-size: 1rem; }
+  .pl-card { position: relative; width: calc(100% - 2rem); max-width: 26rem; margin: -4.25rem auto 0; border-radius: 1.25rem; box-shadow: 0 12px 32px -12px rgb(10 15 20 / 0.35); }
+  .pl-card .input { min-height: 3rem; font-size: 1rem; border-radius: 0.75rem; }
+  .pl-card .btn { min-height: 3rem; font-size: 1rem; }
+  .pl-card .btn-primary { font-weight: 600; }
+  .pl-card .label { font-size: 0.9375rem; }
+  .pl-ghost { @apply rounded-full border-transparent text-accent-fg hover:bg-brand-50; }
+  .pl-help { width: calc(100% - 2rem); max-width: 26rem; margin: 1.25rem auto 0; }
+  @media (min-width: 640px) { .pl-hero { padding-top: 3rem; padding-bottom: 7rem; } .pl-name { font-size: 1.875rem; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .al-link, .al-pulse, .pl-arc { animation: none; }
+  .al-pulse { opacity: 0; }
+}
