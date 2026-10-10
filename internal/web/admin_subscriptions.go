@@ -71,6 +71,9 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 	if lp.DeleteOnly {
 		lp.Actions = lp.Actions[:1]
 	}
+	if !s.canExtend(r) { // setting admin_extend
+		lp.Actions = lp.Actions[1:]
+	}
 	for _, x := range rows {
 		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Username, x.PlanName, x.Type, s.ts(x.StartedAt), s.subExpiry(x.PendingStart, x.ExpiresAt), x.Method, x.RouterName, x.Status}})
 	}
@@ -201,7 +204,29 @@ func (s *Server) subAct(w http.ResponseWriter, r *http.Request, do func(id int64
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
+// canExtend applies the admin_extend setting: who may add free days from the subscriptions list.
+func (s *Server) canExtend(r *http.Request) bool {
+	st, err := s.loadSettings(r.Context())
+	if err != nil {
+		return false
+	}
+	role := adminFrom(r).Role
+	switch st["admin_extend"] {
+	case "off":
+		return false
+	case "super":
+		return role == "SuperAdmin"
+	case "managers":
+		return oneOf(role, "SuperAdmin", "Admin")
+	}
+	return true // staff (default); the route already limits it to staff roles
+}
+
 func (s *Server) subExtend(w http.ResponseWriter, r *http.Request) {
+	if !s.canExtend(r) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
 	days, err := strconv.Atoi(r.PostFormValue("days"))
 	if err != nil || days < 1 || days > 3650 {
 		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Enter a number greater than 0"))
