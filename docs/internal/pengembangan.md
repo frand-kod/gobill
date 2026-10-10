@@ -2,6 +2,8 @@
 
 Untuk developer yang ingin membangun, mengubah, atau merilis NuxBill. Gambaran sistem ada di [arsitektur.md](arsitektur.md).
 
+**Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
+
 ## Layout repo
 
 | Path | Isi |
@@ -21,7 +23,7 @@ Untuk developer yang ingin membangun, mengubah, atau merilis NuxBill. Gambaran s
 | `web/` | `templates/`, `static/` (CSS, JS, ikon), `tailwind.css` |
 | `deploy/` | `install.sh` dan unit systemd |
 | `tools/tailwind.sh` | Build CSS |
-| `docs/` | Dokumentasi ([indeks](README.md)) |
+| `docs/` | Dokumentasi ([indeks](../README.md)) |
 
 ## Build dan test
 
@@ -55,7 +57,7 @@ Sejak v0.1.0, file di `internal/db/migrations/` tidak boleh diubah. Schema baru 
 
 ## Versi dan rilis
 
-Versi mengikuti SemVer; selama 0.x, perubahan yang memutus kompatibilitas bisa masuk di versi minor. Catat perubahan di [CHANGELOG.md](../CHANGELOG.md) (bagian `[Unreleased]`, lalu pindahkan saat rilis).
+Versi mengikuti SemVer; selama 0.x, perubahan yang memutus kompatibilitas bisa masuk di versi minor. Catat perubahan di [CHANGELOG.md](../../CHANGELOG.md) (bagian `[Unreleased]`, lalu pindahkan saat rilis).
 
     git tag -a v0.1.1 -m "v0.1.1"
     git push --tags
@@ -64,7 +66,7 @@ CI (`.github/workflows/ci.yml`) menjalankan cek `app.css`, `go vet`, dan `go tes
 
 ## Konvensi kode
 
-Dari [plan/02-keputusan-stack.md](plan/02-keputusan-stack.md):
+Dari [rencana/keputusan-stack.md](rencana/keputusan-stack.md):
 
 - Handler HTTP adalah fungsi biasa `func(w http.ResponseWriter, r *http.Request)`; routing pakai `net/http` stdlib.
 - Tanpa DI container, ORM, atau reflection; satu-satunya code generation adalah `sqlc`.
@@ -74,3 +76,24 @@ Dari [plan/02-keputusan-stack.md](plan/02-keputusan-stack.md):
 - Pintasan sengaja ditandai komentar `ponytail:` (cari dengan `grep -rn "ponytail:" --include=*.go .`).
 - Uang selalu INTEGER rupiah; perubahan saldo atomik dalam satu transaksi; router dihubungi setelah commit.
 - Jangan commit rahasia atau dump database; pakai placeholder `<SECRET>` di dokumen dan test.
+
+## Aturan efisiensi
+
+Aturan ini berlaku untuk setiap fitur baru. Target: RSS saat idle di STB di bawah 100 MB.
+
+- Setiap query berat punya indeks. Cek dengan `EXPLAIN QUERY PLAN`.
+- Setiap daftar dipaginasi.
+- Setiap map, cache, atau ring di memori punya batas ukuran keras.
+- Data lama punya retensi. Atur lewat `log_keep_days`, lihat [konfigurasi](../id/configuration.md).
+- Jangan polling lebih sering dari perlu. Polling router atau NAS minimal 1 menit. Lebih baik pakai push atau event.
+- Pengaturan yang dibaca di setiap request tidak boleh memicu query DB per request. Simpan di cache, dan muat ulang saat disimpan.
+- Job latar belakang punya timeout.
+- Ukur RSS sebelum dan sesudah fitur besar.
+
+## Lihat juga
+
+- [arsitektur](arsitektur.md)
+- [panduan-menulis-docs](panduan-menulis-docs.md)
+- [CONTRIBUTING](../../CONTRIBUTING.md)
+- [configuration](../id/configuration.md)
+- [progres](progres.md)

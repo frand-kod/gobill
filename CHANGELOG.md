@@ -101,7 +101,7 @@ Still pre-1.0: behaviour parity with PHPNuxBill, UI and operator workflow. Not y
 
 ### Changed
 
-- Business behaviour aligned with PHPNuxBill after an audit (docs/BUSINESS-PARITY.md): extend restarts expired subscriptions, recharge refused for non-Active customers, one price formula (plan or Invoice, coupon, tax, bills), payment methods from `payment_usings` plus Recharge Zero, dashboard income excludes balance-paid rows and uses `reset_day`, data usage resets on reactivation, cumulative time limit in the built-in RADIUS.
+- Business behaviour aligned with PHPNuxBill after an audit (docs/internal/paritas-bisnis.md): extend restarts expired subscriptions, recharge refused for non-Active customers, one price formula (plan or Invoice, coupon, tax, bills), payment methods from `payment_usings` plus Recharge Zero, dashboard income excludes balance-paid rows and uses `reset_day`, data usage resets on reactivation, cumulative time limit in the built-in RADIUS.
 - Deleting a customer keeps the transactions and removes active plans from the router.
 - Username can be edited and is synced to the router.
 - New design system (tokens, typography, spacing), light sidebar, phone layout without horizontal overflow.

@@ -1,6 +1,6 @@
 # Berkontribusi ke NuxBill
 
-Kontribusi sangat diterima, baik berupa issue maupun pull request. Untuk gambaran sistem, baca [docs/arsitektur.md](docs/arsitektur.md). Untuk aturan kode dan rilis, baca [docs/pengembangan.md](docs/pengembangan.md); dokumen itu adalah sumber aturan, jadi tidak diulang di sini.
+Kontribusi sangat diterima, baik berupa issue maupun pull request. Untuk gambaran sistem, baca [docs/internal/arsitektur.md](docs/internal/arsitektur.md). Untuk aturan kode dan rilis, baca [docs/internal/pengembangan.md](docs/internal/pengembangan.md); dokumen itu adalah sumber aturan, jadi tidak diulang di sini.
 
 ## Persiapan
 
@@ -16,7 +16,7 @@ Untuk perubahan billing, radius, atau job, jalankan juga test dengan race detect
 
 ## Aturan kontribusi
 
-- **Gaya kode**: ikuti [konvensi kode](docs/pengembangan.md#konvensi-kode). Pintasan sengaja ditandai `ponytail:`.
+- **Gaya kode**: ikuti [konvensi kode](docs/internal/pengembangan.md#konvensi-kode). Pintasan sengaja ditandai `ponytail:`.
 - **Migration freeze**: file di `internal/db/migrations/` yang sudah rilis tidak boleh diubah. Perubahan schema hanya lewat file bernomor baru, dan hash-nya ditambahkan ke `internal/db/migrations.sum`.
 - **sqlc**: jika mengubah SQL di `internal/db/queries` atau `internal/db/migrations`, jalankan `sqlc generate`. Jangan pernah mengedit kode hasil generate secara manual.
 - **Pesan commit**: singkat, kalimat perintah dalam bahasa Inggris (imperative), sesuai riwayat yang ada, misalnya `Add RADIUS CoA retry`.

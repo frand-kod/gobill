@@ -1,8 +1,10 @@
 # Status Progres
 
-Jurnal ini dijaga di bawah 1000 kata. Rencana awal: [plan/](plan/README.md). Paritas per layar dan field: [UI-PARITY.md](UI-PARITY.md). Audit perilaku bisnis: [BUSINESS-PARITY.md](BUSINESS-PARITY.md).
+Jurnal ini dijaga di bawah 1000 kata. Rencana awal: [rencana/](rencana/README.md). Paritas per layar dan field: [paritas-ui.md](paritas-ui.md). Audit perilaku bisnis: [paritas-bisnis.md](paritas-bisnis.md).
 
-**Pembaruan terakhir:** 2026-10-10, persiapan rilis v0.1.4 (lihat [CHANGELOG.md](../CHANGELOG.md)).
+**Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
+
+**Pembaruan terakhir:** 2026-10-10, persiapan rilis v0.1.4 (lihat [CHANGELOG.md](../../CHANGELOG.md)).
 
 ## Status
 
@@ -20,7 +22,7 @@ Jurnal ini dijaga di bawah 1000 kata. Rencana awal: [plan/](plan/README.md). Par
 
 ## Menunggu pengguna
 
-1. **Uji paralel.** Impor data terbaru, set `notify_customers` = Tidak, lalu jalankan NuxBill berdampingan dengan PHPNuxBill selama 1 sampai 3 hari dalam mode baca. Bandingkan sesi, expiry, dan saldo. Langkah lengkap ada di [migrasi-phpnuxbill.md](migrasi-phpnuxbill.md#checklist-jalan-paralel).
+1. **Uji paralel.** Impor data terbaru, set `notify_customers` = Tidak, lalu jalankan NuxBill berdampingan dengan PHPNuxBill selama 1 sampai 3 hari dalam mode baca. Bandingkan sesi, expiry, dan saldo. Langkah lengkap ada di [migrasi-phpnuxbill.md](../id/migration-phpnuxbill.md#checklist-jalan-paralel).
 2. **Drill restore.** Uji pemulihan dari file mirror dan dari UI restore di instance uji. Catat hasilnya di sini.
 3. **Screenshot UI.** Pengguna mengambil screenshot halaman baru (Status Sistem, 2FA, impor, restore, QRIS, pengaturan alert) untuk direview.
 4. **Bersihkan router uji.** Hapus user `claude-test` di MikroTik, profil dan entry `/radius` uji, dan pastikan `split-user-domain=no` di profil yang dipakai pelanggan.
@@ -74,3 +76,11 @@ Ditandai `ponytail:` di kode (`grep -rn ponytail: .`). Yang paling relevan:
 - Migrasi di `internal/db/migrations/` beku sejak v0.1.0. Hash di `migrations.sum`, dijaga `TestMigrationsFrozen`. Schema baru masuk file bernomor berikutnya.
 - Setiap perubahan lolos `go vet` dan `go test ./...`. Panduan build dan rilis ada di [pengembangan.md](pengembangan.md).
 - Dump produksi (`docs/*.sql`, `docs/phpnuxbill_*.json`) di-gitignore dan tidak boleh di-commit.
+
+## Lihat juga
+
+- [paritas-ui](paritas-ui.md)
+- [paritas-bisnis](paritas-bisnis.md)
+- [README](rencana/README.md)
+- [pengembangan](pengembangan.md)
+- [CHANGELOG](../../CHANGELOG.md)

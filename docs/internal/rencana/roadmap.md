@@ -1,11 +1,13 @@
 # 04 — Roadmap
 
-Setiap fase menghasilkan binary yang bisa dijalankan. Fase berikutnya baru dimulai setelah kriteria selesai fase sebelumnya terpenuhi. Checklist fitur per controller lama ada di [01-audit-legacy.md](01-audit-legacy.md#checklist-fitur-parity).
+Setiap fase menghasilkan binary yang bisa dijalankan. Fase berikutnya baru dimulai setelah kriteria selesai fase sebelumnya terpenuhi. Checklist fitur per controller lama ada di [audit-legacy.md](audit-legacy.md#checklist-fitur-parity).
+
+**Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
 
 ## F0 — Fondasi
 
 Isi:
-- Repo baru, `go.mod`, struktur folder sesuai [03-arsitektur.md](03-arsitektur.md).
+- Repo baru, `go.mod`, struktur folder sesuai [arsitektur-awal.md](arsitektur-awal.md).
 - Config dari env, `slog`, graceful shutdown.
 - Migrator (`PRAGMA user_version`) dan migrasi `0001_init.sql` (admin, settings).
 - Login/logout admin (bcrypt + scs), middleware role, CSRF.
@@ -75,7 +77,7 @@ Isi:
 - Job `reminder` dan `backup`.
 
 Selesai jika:
-- Checklist parity di [01-audit-legacy.md](01-audit-legacy.md) terpenuhi untuk semua baris kecuali `Tunda` dan non-goal.
+- Checklist parity di [audit-legacy.md](audit-legacy.md) terpenuhi untuk semua baris kecuali `Tunda` dan non-goal.
 
 ## F6 — Migrasi data & rilis
 
@@ -105,3 +107,9 @@ Selesai jika:
 | Endpoint `rlm_rest` kompatibel FreeRADIUS | Tunda | RADIUS built-in sudah cukup |
 | PostgreSQL | Tunda | SQLite cukup. Lihat ADR |
 | Windows / shared hosting | Tidak didukung | Non-goal |
+
+## Lihat juga
+
+- [README](README.md)
+- [audit-legacy](audit-legacy.md)
+- [arsitektur-awal](arsitektur-awal.md)

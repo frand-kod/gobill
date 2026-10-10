@@ -1,6 +1,8 @@
 # Audit Alur Tugas dan Arsitektur Informasi (UX Flow Audit)
 
-Cakupan: alur kerja operator (RT-RW-net, sering lewat HP) dan pelanggan (Android low-end). Bukan audit per layar (itu sudah di `docs/UX-AUDIT.md`). Read-only, tanpa perubahan kode. Hitungan klik = ketukan dari layar setelah login sampai selesai; menu HP dihitung 1 ketukan (hamburger) + 1 (item).
+Cakupan: alur kerja operator (RT-RW-net, sering lewat HP) dan pelanggan (Android low-end). Bukan audit per layar (itu sudah di `docs/internal/audit-ux.md`). Read-only, tanpa perubahan kode. Hitungan klik = ketukan dari layar setelah login sampai selesai; menu HP dihitung 1 ketukan (hamburger) + 1 (item).
+
+**Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
 
 Ringkasan: mesinnya lengkap, tetapi tidak ada "jalan pintas" antar tugas. Dashboard hanya laporan (tanpa tombol aksi), pembuatan pelanggan berakhir di daftar (bukan di tombol Isi Ulang), dan tidak ada panduan urutan setup. Kebanyakan perbaikan cukup berupa link, urutan, default, dan hint.
 
@@ -196,3 +198,8 @@ Yang kurang:
 10. Tulis ulang pesan error teknis (router test, Disconnect, "Invalid plan", "Insufficient balance" + tombol Tambah saldo) - string + 2 link.
 
 Jumlah temuan: Tinggi 9, Sedang 9, Rendah 6 (total 24).
+
+## Lihat juga
+
+- [audit-ux](audit-ux.md)
+- [paritas-ui](paritas-ui.md)
