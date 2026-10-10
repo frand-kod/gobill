@@ -97,6 +97,7 @@ Di Settings > Notifications, bagian "Global switches" paling atas:
 |---|---|
 | `notify_customers` | `no` menghentikan semua pesan ke pelanggan: pengingat, kedaluwarsa, faktur dan tautan QRIS, pesan selamat datang dan saldo, serta pesan manual. Ringkasan dan notifikasi operator tetap jalan |
 | `notify_otp` | `no` mematikan kode OTP untuk pendaftaran, lupa kata sandi, dan ganti kontak. Fitur itu menampilkan bahwa kode tidak tersedia |
+| `expired_notify_minutes_before` | Pesan expired dikirim N menit sebelum paket berakhir, agar pelanggan yang masih online tetap menerimanya. Pesannya tetap satu per periode (tidak ada pesan tambahan), dan paket tetap berakhir pada waktunya. Bawaan 0 = saat paket berakhir, rentang 0-1440. Perpanjangan atau recharge baru mengirim pesan lagi pada periode barunya |
 
 Keduanya bawaan `yes` jika belum diisi.
 

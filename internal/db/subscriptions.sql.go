@@ -10,10 +10,29 @@ import (
 	"database/sql"
 )
 
+const claimExpiryNotice = `-- name: ClaimExpiryNotice :execrows
+UPDATE subscriptions SET expired_notified_at = CAST(?1 AS INTEGER) WHERE id = ?2 AND expires_at = ?3 AND expired_notified_at IS NULL
+`
+
+type ClaimExpiryNoticeParams struct {
+	Now       int64
+	ID        int64
+	ExpiresAt int64
+}
+
+// Marks the period's expired message as sent before it goes out. 0 rows = already claimed, or the period was renewed.
+func (q *Queries) ClaimExpiryNotice(ctx context.Context, arg ClaimExpiryNoticeParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, claimExpiryNotice, arg.Now, arg.ID, arg.ExpiresAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const createSubscription = `-- name: CreateSubscription :one
 INSERT INTO subscriptions (customer_id, plan_id, router_id, type, started_at, expires_at, method, admin_id, pending_start)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start
+RETURNING id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at
 `
 
 type CreateSubscriptionParams struct {
@@ -53,6 +72,7 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		&i.Method,
 		&i.AdminID,
 		&i.PendingStart,
+		&i.ExpiredNotifiedAt,
 	)
 	return i, err
 }
@@ -185,7 +205,7 @@ func (q *Queries) FilterSubscriptions(ctx context.Context, arg FilterSubscriptio
 }
 
 const getSubscription = `-- name: GetSubscription :one
-SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start FROM subscriptions WHERE id = ?
+SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at FROM subscriptions WHERE id = ?
 `
 
 func (q *Queries) GetSubscription(ctx context.Context, id int64) (Subscription, error) {
@@ -203,12 +223,13 @@ func (q *Queries) GetSubscription(ctx context.Context, id int64) (Subscription, 
 		&i.Method,
 		&i.AdminID,
 		&i.PendingStart,
+		&i.ExpiredNotifiedAt,
 	)
 	return i, err
 }
 
 const listActiveExpiringBetween = `-- name: ListActiveExpiringBetween :many
-SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expires_at >= ?1 AND expires_at < ?2 ORDER BY expires_at
+SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expires_at >= ?1 AND expires_at < ?2 ORDER BY expires_at
 `
 
 type ListActiveExpiringBetweenParams struct {
@@ -237,6 +258,7 @@ func (q *Queries) ListActiveExpiringBetween(ctx context.Context, arg ListActiveE
 			&i.Method,
 			&i.AdminID,
 			&i.PendingStart,
+			&i.ExpiredNotifiedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -300,7 +322,7 @@ func (q *Queries) ListActiveSubscriptionsWithPlan(ctx context.Context, customerI
 }
 
 const listExpiredActiveSubscriptions = `-- name: ListExpiredActiveSubscriptions :many
-SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expires_at <= ?1 ORDER BY expires_at
+SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expires_at <= ?1 ORDER BY expires_at
 `
 
 func (q *Queries) ListExpiredActiveSubscriptions(ctx context.Context, now int64) ([]Subscription, error) {
@@ -324,6 +346,7 @@ func (q *Queries) ListExpiredActiveSubscriptions(ctx context.Context, now int64)
 			&i.Method,
 			&i.AdminID,
 			&i.PendingStart,
+			&i.ExpiredNotifiedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -339,7 +362,7 @@ func (q *Queries) ListExpiredActiveSubscriptions(ctx context.Context, now int64)
 }
 
 const listSubscriptionsByCustomer = `-- name: ListSubscriptionsByCustomer :many
-SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start FROM subscriptions WHERE customer_id = ? ORDER BY id DESC LIMIT ? OFFSET ?
+SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at FROM subscriptions WHERE customer_id = ? ORDER BY id DESC LIMIT ? OFFSET ?
 `
 
 type ListSubscriptionsByCustomerParams struct {
@@ -369,6 +392,53 @@ func (q *Queries) ListSubscriptionsByCustomer(ctx context.Context, arg ListSubsc
 			&i.Method,
 			&i.AdminID,
 			&i.PendingStart,
+			&i.ExpiredNotifiedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSubscriptionsExpiringUnnotified = `-- name: ListSubscriptionsExpiringUnnotified :many
+SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expired_notified_at IS NULL AND expires_at > ?1 AND expires_at <= ?2 ORDER BY expires_at
+`
+
+type ListSubscriptionsExpiringUnnotifiedParams struct {
+	Now   int64
+	Until int64
+}
+
+// Active periods that end within the early-notice window and have not been notified yet.
+func (q *Queries) ListSubscriptionsExpiringUnnotified(ctx context.Context, arg ListSubscriptionsExpiringUnnotifiedParams) ([]Subscription, error) {
+	rows, err := q.db.QueryContext(ctx, listSubscriptionsExpiringUnnotified, arg.Now, arg.Until)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Subscription
+	for rows.Next() {
+		var i Subscription
+		if err := rows.Scan(
+			&i.ID,
+			&i.CustomerID,
+			&i.PlanID,
+			&i.RouterID,
+			&i.Type,
+			&i.StartedAt,
+			&i.ExpiresAt,
+			&i.Status,
+			&i.Method,
+			&i.AdminID,
+			&i.PendingStart,
+			&i.ExpiredNotifiedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -385,7 +455,7 @@ func (q *Queries) ListSubscriptionsByCustomer(ctx context.Context, arg ListSubsc
 
 const renewSubscription = `-- name: RenewSubscription :exec
 UPDATE subscriptions SET plan_id = ?, router_id = ?, type = ?, started_at = ?, expires_at = ?,
-    status = 'active', method = ?, admin_id = ?, pending_start = ?
+    status = 'active', method = ?, admin_id = ?, pending_start = ?, expired_notified_at = NULL
 WHERE id = ?
 `
 
@@ -417,7 +487,7 @@ func (q *Queries) RenewSubscription(ctx context.Context, arg RenewSubscriptionPa
 }
 
 const restartSubscription = `-- name: RestartSubscription :exec
-UPDATE subscriptions SET started_at = ? WHERE id = ?
+UPDATE subscriptions SET started_at = ?, expired_notified_at = NULL WHERE id = ?
 `
 
 type RestartSubscriptionParams struct {
@@ -432,7 +502,7 @@ func (q *Queries) RestartSubscription(ctx context.Context, arg RestartSubscripti
 }
 
 const startPendingSubscription = `-- name: StartPendingSubscription :execrows
-UPDATE subscriptions SET pending_start = 0, started_at = ?1, expires_at = ?2 WHERE id = ?3 AND pending_start = 1
+UPDATE subscriptions SET pending_start = 0, started_at = ?1, expires_at = ?2, expired_notified_at = NULL WHERE id = ?3 AND pending_start = 1
 `
 
 type StartPendingSubscriptionParams struct {
@@ -451,7 +521,9 @@ func (q *Queries) StartPendingSubscription(ctx context.Context, arg StartPending
 }
 
 const updateSubscription = `-- name: UpdateSubscription :exec
-UPDATE subscriptions SET plan_id = ?, router_id = ?, type = ?, expires_at = ?, status = ?, admin_id = ? WHERE id = ?
+UPDATE subscriptions SET plan_id = ?1, router_id = ?2, type = ?3, expires_at = ?4, status = ?5, admin_id = ?6,
+    expired_notified_at = CASE WHEN expires_at = ?4 THEN expired_notified_at END
+WHERE id = ?7
 `
 
 type UpdateSubscriptionParams struct {
@@ -464,6 +536,7 @@ type UpdateSubscriptionParams struct {
 	ID        int64
 }
 
+// The expired notice is kept only while the expiry does not change, so an edit that keeps the date does not notify again.
 func (q *Queries) UpdateSubscription(ctx context.Context, arg UpdateSubscriptionParams) error {
 	_, err := q.db.ExecContext(ctx, updateSubscription,
 		arg.PlanID,
