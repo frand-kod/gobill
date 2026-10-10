@@ -35,12 +35,12 @@ func qrisUpload(r *http.Request, v map[string]string) string {
 	}
 	f, err := fh.Open()
 	if err != nil {
-		return "QRIS tidak terbaca"
+		return "QRIS image could not be read"
 	}
 	defer f.Close()
 	b, err := io.ReadAll(io.LimitReader(f, maxUpload))
 	if err != nil {
-		return "QRIS tidak terbaca"
+		return "QRIS image could not be read"
 	}
 	if t := http.DetectContentType(b); t != "image/png" && t != "image/jpeg" {
 		return "Use a PNG or JPG image"
@@ -57,18 +57,18 @@ func qrisUpload(r *http.Request, v map[string]string) string {
 func qrisFromImage(b []byte) (string, error) {
 	img, _, err := image.Decode(bytes.NewReader(b))
 	if err != nil {
-		return "", errors.New("QRIS tidak terbaca")
+		return "", errors.New("QRIS image could not be read")
 	}
 	bmp, err := gozxing.NewBinaryBitmapFromImage(img)
 	if err != nil {
-		return "", errors.New("QRIS tidak terbaca")
+		return "", errors.New("QRIS image could not be read")
 	}
 	res, err := zxqr.NewQRCodeReader().Decode(bmp, map[gozxing.DecodeHintType]interface{}{gozxing.DecodeHintType_TRY_HARDER: true})
 	if err != nil {
-		return "", errors.New("QRIS tidak terbaca")
+		return "", errors.New("QRIS image could not be read")
 	}
 	if err := payment.QRISValid(res.GetText()); err != nil {
-		return "", errors.New("Bukan QRIS valid")
+		return "", errors.New("Not a valid QRIS")
 	}
 	return strings.TrimSpace(res.GetText()), nil
 }

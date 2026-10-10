@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -130,7 +131,9 @@ func (a *AlertJob) checkNAS(ctx context.Context, st map[string]string, now time.
 			last = append(last, seen{kv[1], time.Unix(int64(v), 0)})
 		}
 	})
+	live := map[string]bool{}
 	for _, p := range last {
+		live["nas:"+p.ip] = true
 		name := p.ip // any NAS that sent a packet since start; the nas table name is only a label
 		for _, n := range nas {
 			if n.Ip == p.ip {
@@ -140,6 +143,13 @@ func (a *AlertJob) checkNAS(ctx context.Context, st map[string]string, now time.
 		a.edge(ctx, "nas:"+p.ip, now.Sub(p.at) >= time.Duration(silent)*time.Minute,
 			fmt.Sprintf("NAS %s (%s) tidak mengirim paket RADIUS selama %d menit", name, p.ip, silent),
 			fmt.Sprintf("NAS %s (%s) kembali mengirim paket RADIUS", name, p.ip))
+	}
+	// A NAS whose series the metrics registry evicted (older than 24 h or over the cap) is forgotten
+	// silently: no alert, so a NAS that returns later starts a fresh episode.
+	for k := range a.active {
+		if strings.HasPrefix(k, "nas:") && !live[k] {
+			delete(a.active, k)
+		}
 	}
 }
 

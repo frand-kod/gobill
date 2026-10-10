@@ -27,7 +27,7 @@ Angka "sejak start" di halaman ini hanya ada di memori. Restart aplikasi mengoso
 | Format | JSON | teks Prometheus |
 | Autentikasi | tidak perlu | bearer token |
 | Aktif | selalu | hanya jika token diisi |
-| Isi | status database, disk kosong, versi | semua counter dan gauge di atas |
+| Isi | status database dan status disk (`ok` atau `degraded`) | semua counter dan gauge di atas, termasuk sisa disk dan versi di halaman Status Sistem |
 
 `/health` mengembalikan `200` (ok atau degraded), atau `503` jika database tidak bisa dibaca. Endpoint ini tidak memerlukan sesi dan tidak terpengaruh mode maintenance.
 

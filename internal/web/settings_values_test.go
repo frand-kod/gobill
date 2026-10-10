@@ -22,7 +22,7 @@ var settingSample = map[string]string{
 	"reset_day": "5", "session_timeout_duration": "30", "daily_summary_time": "07:30", "maintenance_date": "2026-10-31",
 	"sms_url": "http://gw.test/send?to=[number]&text=[text]", "wa_url": "http://gw.test/wa?to=[number]&text=[text]",
 	"alt_wga_server_url": "http://127.0.0.1:3030", "smtp_port": "587", "webhook_url": "https://hook.test/x",
-	"voucher_redirect": "https://192.168.88.1/status", "extend_days": "3", "minimum_transfer": "5000",
+	"voucher_redirect": "https://192.168.88.1/status", "trusted_proxies": "172.16.0.0/16, 10.0.0.2", "extend_days": "3", "minimum_transfer": "5000",
 	"language":     "english",
 	"qris_payload": "00020101021126520016ID.CO.CONTOH.WWW01129360000000010212ID10000000015204549953033605802ID5911CONTOH QRIS6006CONTOH9989XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX63048FAE",
 }

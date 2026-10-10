@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -16,6 +17,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/notify"
 	"github.com/frand-kod/gobill/internal/payment"
 )
 
@@ -263,6 +265,53 @@ func TestPaymentAdminPages(t *testing.T) {
 	}
 	if w := do(e.h, "GET", "/admin/payment-gateway/audit/"+itoa(pr.ID), nil, e.c); w.Code != 200 || !strings.Contains(w.Body.String(), "T123") {
 		t.Fatalf("view: %d", w.Code)
+	}
+}
+
+// A paid callback for a deleted customer is marked paid, and the operator is alerted once.
+func TestTripayPaidForDeletedCustomerAlerts(t *testing.T) {
+	e := payApp(t)
+	got := make(chan string, 10)
+	tg := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		got <- r.URL.RawQuery + " " + string(b) // the telegram notifier puts the text in the query
+	}))
+	t.Cleanup(tg.Close)
+	for k, v := range map[string]string{"telegram_bot": "T", "telegram_target_id": "1"} {
+		if err := e.q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: k, Value: v}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	n, err := notify.Load(t.Context(), e.q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n.TelegramAPI = tg.URL
+	e.s.Billing.Reload(n, time.UTC)
+
+	e.order(t, url.Values{"channel": {"QRIS"}})
+	pr := e.pending(t)
+	if _, err := e.s.conn.Exec("UPDATE payment_requests SET customer_id = NULL WHERE id = ?", pr.ID); err != nil {
+		t.Fatal(err)
+	}
+	body := fmt.Sprintf(`{"merchant_ref":%q,"status":"PAID"}`, pr.Ref)
+	postCallback(e.h, body, signed(body))
+	postCallback(e.h, body, signed(body))
+	if e.pending(t).Status != "paid" || e.trxCount(t) != 0 {
+		t.Fatalf("status=%s trx=%d", e.pending(t).Status, e.trxCount(t))
+	}
+	select {
+	case msg := <-got:
+		if !strings.Contains(msg, "dihapus") || !strings.Contains(msg, pr.Ref) {
+			t.Fatalf("alert text: %s", msg)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no operator alert")
+	}
+	select {
+	case msg := <-got:
+		t.Fatalf("second callback alerted again: %s", msg)
+	case <-time.After(300 * time.Millisecond):
 	}
 }
 

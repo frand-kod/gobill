@@ -20,17 +20,16 @@ import (
 
 func isRadiusRest(path string) bool { return path == "/radius.php" || path == "/radius/rest" }
 
-// radiusRestAllowed: empty allow-list = loopback only. clientIP honours X-Forwarded-For with trust_proxy=yes.
+// radiusRestAllowed: empty allow-list = loopback only. It checks the TCP peer, never X-Forwarded-For.
 func radiusRestAllowed(r *http.Request, m map[string]string) bool {
 	allow := strings.TrimSpace(m["radius_rest_allow"])
 	if allow == "" {
 		allow = "127.0.0.0/8,::1"
 	}
-	a, err := netip.ParseAddr(clientIP(r))
-	if err != nil {
+	a, ok := peerAddr(originalPeer(r))
+	if !ok {
 		return false
 	}
-	a = a.Unmap()
 	for _, e := range strings.Split(allow, ",") {
 		e = strings.TrimSpace(e)
 		if pf, err := netip.ParsePrefix(e); err == nil {
@@ -102,6 +101,7 @@ func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
 			return subtle.ConstantTimeCompare([]byte(pass), pw) == 1, ""
 		}
 		// Voucher login (user == password, or empty password) is handled inside Authorize.
+		rs.NoteNAS(r.FormValue("nasIpAddress"))
 		d := rs.Authorize(r.Context(), radius.AuthRequest{User: user, Check: check,
 			FramedIP: r.FormValue("framedIPAddress"), MAC: r.FormValue("macAddr"), NAS: r.FormValue("nasIpAddress")})
 		if d.Reject != "" {

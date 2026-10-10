@@ -150,30 +150,36 @@ func TestRadiusRestAccountingOneRow(t *testing.T) {
 func TestRadiusRestAllowList(t *testing.T) {
 	s, q := restSetup(t, false)
 	h := s.Handler()
-	q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "radius_rest_allow", Value: "10.0.0.0/24, 192.168.1.9"})
+	q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "radius_rest_allow", Value: "10.0.0.0/24, 192.168.1.9, 127.0.0.1"})
 	form := url.Values{"username": {"bob"}, "password": {"pw"}}
 	for remote, want := range map[string]int{"10.0.0.7:5000": 200, "192.168.1.9:1": 200, "8.8.8.8:1": 403} {
 		if w := post(h, "/radius.php?action=authorize", form, remote); w.Code != want {
 			t.Errorf("%s: %d want %d", remote, w.Code, want)
 		}
 	}
-	// X-Forwarded-For ignored unless trust_proxy=yes
-	spoof := func() int {
+	// X-Forwarded-For is only honoured with trust_proxy=yes and a loopback or trusted TCP peer.
+	spoof := func(peer, xff string) int {
 		r := httptest.NewRequest("POST", "/radius.php?action=authorize", strings.NewReader(form.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		r.Header.Set("X-Forwarded-For", "10.0.0.7")
-		r.RemoteAddr = "8.8.8.8:1"
+		r.Header.Set("X-Forwarded-For", xff)
+		r.RemoteAddr = peer
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		return w.Code
 	}
-	if c := spoof(); c != 403 {
+	if c := spoof("8.8.8.8:1", "10.0.0.7"); c != 403 {
 		t.Fatalf("spoofed XFF accepted: %d", c)
 	}
 	q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "trust_proxy", Value: "yes"})
 	s.ReloadSessionSettings(t.Context())
-	if c := spoof(); c != 200 {
-		t.Fatalf("trusted XFF: %d", c)
+	if c := spoof("8.8.8.8:1", "10.0.0.7"); c != 403 {
+		t.Fatalf("XFF from a non-proxy peer accepted with trust_proxy=yes: %d", c)
+	}
+	if c := spoof("8.8.8.8:1", "127.0.0.1"); c != 403 {
+		t.Fatalf("spoofed XFF 127.0.0.1 from a non-loopback peer accepted: %d", c)
+	}
+	if c := spoof("127.0.0.1:1", "8.8.8.8"); c != 200 {
+		t.Fatalf("loopback peer (FreeRADIUS via local proxy) refused: %d", c)
 	}
 }
 
@@ -211,22 +217,41 @@ func TestRadiusRestEmptyAllowLoopbackOnly(t *testing.T) {
 }
 
 func TestRealIPMiddleware(t *testing.T) {
-	s, _ := restSetup(t, false)
+	s, q := restSetup(t, false)
 	var got string
 	h := s.realIP(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { got = clientIP(r) }))
-	call := func() {
+	call := func(peer string) string {
 		r := httptest.NewRequest("GET", "/", nil)
-		r.RemoteAddr = "10.0.0.2:99"
+		r.RemoteAddr = peer
 		r.Header.Set("X-Forwarded-For", "1.1.1.1, 9.9.9.9")
 		h.ServeHTTP(nil, r)
+		return got
 	}
-	call()
-	if got != "10.0.0.2" {
-		t.Fatalf("untrusted: %s", got)
+	reload := func(kv map[string]string) {
+		for k, v := range kv {
+			q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: k, Value: v})
+		}
+		s.ReloadSessionSettings(t.Context())
 	}
-	s.trust.Store(true)
-	call()
-	if got != "9.9.9.9" {
-		t.Fatalf("trusted: %s", got)
+	reload(map[string]string{"trust_proxy": "yes"})
+	if g := call("10.0.0.2:99"); g != "10.0.0.2" {
+		t.Fatalf("XFF from a non-proxy peer honoured: %s", g)
+	}
+	if g := call("127.0.0.1:99"); g != "9.9.9.9" {
+		t.Fatalf("XFF from loopback ignored: %s", g)
+	}
+	reload(map[string]string{"trusted_proxies": "10.0.0.0/24, 192.168.5.5"})
+	if g := call("10.0.0.2:99"); g != "9.9.9.9" {
+		t.Fatalf("XFF from trusted CIDR ignored: %s", g)
+	}
+	if g := call("192.168.5.5:1"); g != "9.9.9.9" {
+		t.Fatalf("XFF from trusted IP ignored: %s", g)
+	}
+	if g := call("172.16.0.1:1"); g != "172.16.0.1" {
+		t.Fatalf("XFF from untrusted peer honoured: %s", g)
+	}
+	reload(map[string]string{"trust_proxy": "no"})
+	if g := call("127.0.0.1:99"); g != "127.0.0.1" {
+		t.Fatalf("trust_proxy=no still honoured XFF: %s", g)
 	}
 }
