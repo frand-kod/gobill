@@ -88,24 +88,33 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 	}
 	switch tab {
 	case "app":
+		// company_footer and currency_code have no consumer in gobill, so they are not in the form.
+		// Their stored values stay: save only writes the keys listed here.
 		out := section([]field{
-			text("company_name", "Company Name", v, e).req(),
-			text("company_footer", "Company Footer", v, e),
-			area("address", "Address"),
-			text("phone", "Phone Number", v, e),
-			area("note", "Invoice Footer"),
-			text("currency_code", "Currency Code", v, e).req(),
-			upl("logo", "Company Logo"),
-			upl("logo_dark", "Company Logo (dark mode)"),
-		}, "General", "")
-		return append(out, section([]field{
-			text("login_page_head", "Page Heading / Company Name", v, e),
-			area("login_page_description", "Page Description"),
-			upl("login_page_logo", "Login Page Logo"),
-			upl("login_page_logo_dark", "Login Page Logo (dark mode)"),
-			upl("login_page_favicon", "Favicon"),
-			upl("login_page_wallpaper", "Login Page Wallpaper"),
-		}, "Login page", "")...)
+			text("company_name", "Company Name", v, e).req().hint("Name of your business. Shown on invoices, messages and the login page."),
+			upl("logo", "Company Logo").hint("Logo in the menu bar. Transparent PNG works best, 2 MB max."),
+			upl("logo_dark", "Company Logo (dark mode)").hint("Shown in dark mode. Empty = use the light logo."),
+			upl("login_page_favicon", "Favicon").hint("Browser tab icon. Empty = default icon."),
+		}, "Identitas usaha", "")
+		out = append(out, section([]field{
+			text("phone", "Phone Number", v, e).hint("Operator phone or WhatsApp. Shown to customers on the portal."),
+			area("address", "Address").hint("Printed at the top of invoices."),
+			area("note", "Invoice Footer").hint("Printed at the bottom of invoices, e.g. your bank account."),
+		}, "Kontak & faktur", "")...)
+		out = append(out, section([]field{
+			area("login_page_description", "Page Description").hint("Short line under the title on the login page."),
+			upl("login_page_wallpaper", "Login Page Wallpaper").hint("Background image of the left panel on the login page."),
+		}, "Tampilan halaman login", "")...)
+		// the overrides fall back to the main name and logo when empty
+		override := section([]field{
+			text("login_page_head", "Judul halaman login (kosong = nama usaha)", v, e).hint("Leave empty to use the company name."),
+			upl("login_page_logo", "Logo halaman login (kosong = logo utama)").hint("Leave empty to use the company logo."),
+			upl("login_page_logo_dark", "Logo halaman login (mode gelap)").hint("Only used together with the login page logo above."),
+		}, "Judul & logo halaman login", "")
+		for i := range override {
+			override[i].Fold = true // inside the collapsed "Advanced options"
+		}
+		return append(out, override...)
 	case "localisation":
 		zones := append([]string(nil), settingsZones...)
 		if z := v["timezone"]; z != "" && !contains(zones, z) {
@@ -271,7 +280,7 @@ func inRange(x string, lo, hi int) bool {
 // settingsErrors checks the posted values of one sub-page. Only keys present in v are checked.
 func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	e := map[string]string{}
-	for _, k := range []string{"company_name", "currency_code", "timezone", "reminder_hour"} {
+	for _, k := range []string{"company_name", "timezone", "reminder_hour"} {
 		if x, ok := v[k]; ok && x == "" {
 			e[k] = "This field is required"
 		}

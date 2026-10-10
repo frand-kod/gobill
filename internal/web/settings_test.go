@@ -424,3 +424,25 @@ func TestSettingsDefaultPlanDevice(t *testing.T) {
 		t.Fatalf("bad value was stored: %q", got)
 	}
 }
+
+// TestSettingsGeneralHiddenKeysKept: company_footer and currency_code have no consumer in gobill, so
+// the General form no longer shows them. Their stored values (e.g. imported from PHPNuxBill) survive a save.
+func TestSettingsGeneralHiddenKeysKept(t *testing.T) {
+	_, h, q := settingsSetup(t)
+	c := login(t, h, "alice")
+	for _, kv := range [][2]string{{"company_footer", "Legacy footer"}, {"currency_code", "IDR"}} {
+		if err := q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: kv[0], Value: kv[1]}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	body := getBody(t, h, c, "/admin/settings/app")
+	if strings.Contains(body, `name="company_footer"`) || strings.Contains(body, `name="currency_code"`) {
+		t.Fatal("hidden no-consumer field still rendered")
+	}
+	if w := do(h, "POST", "/admin/settings/app", url.Values{"company_name": {"Acme"}}, c); w.Code != http.StatusSeeOther {
+		t.Fatalf("save: %d %s", w.Code, w.Body.String())
+	}
+	if got := settingValues(t, q); got["company_footer"] != "Legacy footer" || got["currency_code"] != "IDR" {
+		t.Fatalf("hidden keys changed: %v", got)
+	}
+}
