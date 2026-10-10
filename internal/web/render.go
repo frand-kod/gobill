@@ -32,6 +32,22 @@ func safeRedirect(u string) string {
 
 // ---- templates ----
 
+// navActive returns the entry of keys that owns path: the longest key equal to path or one of its parents.
+// "/admin" only matches itself, otherwise the dashboard would be active on every admin page.
+// Returns "" when no key matches.
+func navActive(path string, keys ...string) string {
+	best := ""
+	for _, k := range keys {
+		if len(k) <= len(best) {
+			continue
+		}
+		if path == k || (k != "/admin" && strings.HasPrefix(path, k+"/")) {
+			best = k
+		}
+	}
+	return best
+}
+
 func (s *Server) parseTemplates() error {
 	icons, err := loadIcons()
 	if err != nil {
@@ -47,6 +63,7 @@ func (s *Server) parseTemplates() error {
 			return s.catalog.T(s.language(), text)
 		},
 		"hasPrefix": strings.HasPrefix,
+		"navActive": navActive,
 		"money":     money,
 		"badge":     badge,
 		"ts":        s.ts,

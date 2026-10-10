@@ -1,88 +1,114 @@
 {{define "body"}}{{template "toasts" .}}
 {{$mgr := or (eq .Admin.Role "SuperAdmin") (eq .Admin.Role "Admin")}}
 {{$staff := or $mgr (eq .Admin.Role "Agent") (eq .Admin.Role "Sales")}}
-<div x-data="{drawer:false}" class="min-h-screen lg:flex">
+<script>
+// Admin shell: mobile drawer plus the desktop icon rail. The rail choice is remembered in localStorage (gb-sidebar); storage errors are ignored.
+function gbShell() {
+  var rail = false;
+  try { rail = localStorage.getItem('gb-sidebar') === 'rail'; } catch (e) {}
+  return {
+    drawer: false,
+    rail: rail,
+    toggleRail: function () {
+      this.rail = !this.rail;
+      try { localStorage.setItem('gb-sidebar', this.rail ? 'rail' : 'open'); } catch (e) {}
+    },
+    // the rail tooltip is position:fixed (the sidebar scrolls, so it would clip); this puts it level with the hovered item
+    tip: function (e) {
+      var t = e.target.closest ? e.target.closest('.sidebar-rail [data-tip]') : null;
+      if (t) t.style.setProperty('--tip-y', (t.getBoundingClientRect().top + t.offsetHeight / 2) + 'px');
+    }
+  };
+}
+</script>
+<div x-data="gbShell()" class="min-h-screen lg:flex">
+  {{$act := navActive .Path "/admin" "/admin/docs" "/admin/customers" "/admin/recharge" "/admin/vouchers/redeem" "/admin/deposit" "/admin/vouchers" "/admin/subscriptions" "/admin/radius" "/admin/message" "/admin/reports" "/admin/reports/period" "/admin/transactions" "/admin/plans" "/admin/bandwidth" "/admin/pool" "/admin/coupons" "/admin/routers" "/admin/nas" "/admin/maps/customers" "/admin/maps/routers" "/admin/maps/odp" "/admin/odp" "/admin/payment-gateway" "/admin/logs" "/admin/users" "/admin/pages" "/admin/fields" "/admin/settings"}}
   <div x-show="drawer" x-cloak @click="drawer=false" class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
-  <aside :class="drawer ? '' : 'max-lg:hidden'" class="flex w-64 shrink-0 flex-col overflow-y-auto bg-sidebar text-ink max-lg:fixed max-lg:inset-y-0 max-lg:start-0 max-lg:z-40 lg:sticky lg:top-0 lg:h-screen">
+  <aside :class="[drawer ? '' : 'max-lg:hidden', rail ? 'lg:w-16 sidebar-rail' : 'lg:w-64']" @pointerover="tip($event)" @focusin="tip($event)" class="sb-scroll flex w-64 shrink-0 flex-col overflow-y-auto bg-surface text-ink max-lg:fixed max-lg:inset-y-0 max-lg:start-0 max-lg:z-40 lg:sticky lg:top-0 lg:z-30 lg:h-screen">
     <div class="fiber-stripe" aria-hidden="true"></div>
-    <a href="/admin" class="flex items-center gap-2 px-5 py-4 text-lg font-semibold text-ink">{{template "logoA" .Brand}}</a>
-    <nav class="flex-1 px-3 pb-6" aria-label="Main">
-      <a class="nav-item" href="/admin"{{if eq .Path "/admin"}} aria-current="page"{{end}}>{{icon "layout-dashboard"}}<span>{{T "Dashboard"}}</span></a>
-      <a class="nav-item" href="/admin/docs"{{if hasPrefix .Path "/admin/docs"}} aria-current="page"{{end}}>{{icon "circle-help"}}<span>{{T "Guide"}}</span></a>
-      <a class="nav-item" href="/admin/customers"{{if hasPrefix .Path "/admin/customers"}} aria-current="page"{{end}}>{{icon "users"}}<span>{{T "Customer"}}</span></a>
-      {{if $staff}}<a class="nav-item" href="/admin/recharge"{{if eq .Path "/admin/recharge"}} aria-current="page"{{end}}>{{icon "wallet"}}<span>{{T "Recharge Account"}}</span></a>
-      <a class="nav-item" href="/admin/vouchers/redeem"{{if eq .Path "/admin/vouchers/redeem"}} aria-current="page"{{end}}>{{icon "ticket"}}<span>{{T "Redeem Voucher"}}</span></a>
-      <a class="nav-item" href="/admin/deposit"{{if eq .Path "/admin/deposit"}} aria-current="page"{{end}}>{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>{{end}}
-      <a class="nav-item" href="/admin/vouchers"{{if or (eq .Path "/admin/vouchers") (eq .Path "/admin/vouchers/new") (eq .Path "/admin/vouchers/print")}} aria-current="page"{{end}}>{{icon "ticket"}}<span>{{T "Voucher"}}</span></a>
-      <a class="nav-item" href="/admin/subscriptions"{{if hasPrefix .Path "/admin/subscriptions"}} aria-current="page"{{end}}>{{icon "circle-check"}}<span>{{T "Subscriptions"}}</span></a>
-      {{if $mgr}}<a class="nav-item" href="/admin/radius/sessions"{{if hasPrefix .Path "/admin/radius"}} aria-current="page"{{end}}>{{icon "activity"}}<span>{{T "Online Sessions"}}</span></a>{{end}}
-      {{if $staff}}<a class="nav-item" href="/admin/message/send"{{if hasPrefix .Path "/admin/message"}} aria-current="page"{{end}}>{{icon "pencil"}}<span>{{T "Send Message"}}</span></a>{{end}}
+    <div class="sb-head flex items-center gap-2">
+      <a href="/admin" class="brand-link min-w-0 items-center gap-2 px-5 py-4 text-lg font-semibold text-ink">{{template "logoA" .Brand}}</a>
+      <button type="button" class="btn sb-toggle hidden shrink-0 px-2 lg:inline-flex" @click="toggleRail()" :aria-expanded="rail ? 'false' : 'true'" aria-controls="gb-nav" aria-label="{{T "Toggle menu"}}">{{icon "panel-left-close"}}</button>
+    </div>
+    <nav id="gb-nav" class="flex-1 px-3 pb-6" aria-label="Main">
+      <a class="nav-item" href="/admin" data-tip="{{T "Dashboard"}}"{{if eq $act "/admin"}} aria-current="page"{{end}}>{{icon "layout-dashboard"}}<span>{{T "Dashboard"}}</span></a>
+      <a class="nav-item" href="/admin/customers" data-tip="{{T "Customer"}}"{{if eq $act "/admin/customers"}} aria-current="page"{{end}}>{{icon "users"}}<span>{{T "Customer"}}</span></a>
+      {{if $staff}}<a class="nav-item" href="/admin/recharge" data-tip="{{T "Recharge Account"}}"{{if eq $act "/admin/recharge"}} aria-current="page"{{end}}>{{icon "wallet"}}<span>{{T "Recharge Account"}}</span></a>
+      <a class="nav-item" href="/admin/vouchers/redeem" data-tip="{{T "Redeem Voucher"}}"{{if eq $act "/admin/vouchers/redeem"}} aria-current="page"{{end}}>{{icon "ticket"}}<span>{{T "Redeem Voucher"}}</span></a>
+      <a class="nav-item" href="/admin/deposit" data-tip="{{T "Add balance"}}"{{if eq $act "/admin/deposit"}} aria-current="page"{{end}}>{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>{{end}}
+      <a class="nav-item" href="/admin/vouchers" data-tip="{{T "Voucher"}}"{{if eq $act "/admin/vouchers"}} aria-current="page"{{end}}>{{icon "ticket"}}<span>{{T "Voucher"}}</span></a>
+      <a class="nav-item" href="/admin/subscriptions" data-tip="{{T "Subscriptions"}}"{{if eq $act "/admin/subscriptions"}} aria-current="page"{{end}}>{{icon "circle-check"}}<span>{{T "Subscriptions"}}</span></a>
+      {{if $mgr}}<a class="nav-item" href="/admin/radius/sessions" data-tip="{{T "Online Sessions"}}"{{if eq $act "/admin/radius"}} aria-current="page"{{end}}>{{icon "activity"}}<span>{{T "Online Sessions"}}</span></a>{{end}}
+      {{if $staff}}<a class="nav-item" href="/admin/message/send" data-tip="{{T "Send Message"}}"{{if eq $act "/admin/message"}} aria-current="page"{{end}}>{{icon "pencil"}}<span>{{T "Send Message"}}</span></a>{{end}}
 
       <div x-data="{o:true}">
-        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o"><span>{{T "Reports"}}</span>{{icon "chevron-down"}}</button>
+        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Reports"}}</span>{{icon "chevron-down"}}</button>
         <div x-show="o" class="space-y-1">
-          <a class="nav-item" href="/admin/reports"{{if eq .Path "/admin/reports"}} aria-current="page"{{end}}>{{icon "chart-column"}}<span>{{T "Daily Report"}}</span></a>
-          <a class="nav-item" href="/admin/reports/period"{{if eq .Path "/admin/reports/period"}} aria-current="page"{{end}}>{{icon "calendar-days"}}<span>{{T "Period Report"}}</span></a>
-          <a class="nav-item" href="/admin/transactions"{{if hasPrefix .Path "/admin/transactions"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Transactions"}}</span></a>
+          <a class="nav-item" href="/admin/reports" data-tip="{{T "Daily Report"}}"{{if eq $act "/admin/reports"}} aria-current="page"{{end}}>{{icon "chart-column"}}<span>{{T "Daily Report"}}</span></a>
+          <a class="nav-item" href="/admin/reports/period" data-tip="{{T "Period Report"}}"{{if eq $act "/admin/reports/period"}} aria-current="page"{{end}}>{{icon "calendar-days"}}<span>{{T "Period Report"}}</span></a>
+          <a class="nav-item" href="/admin/transactions" data-tip="{{T "Transactions"}}"{{if eq $act "/admin/transactions"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Transactions"}}</span></a>
         </div>
       </div>
 
       {{/* technical groups start closed, and open by themselves when the current page is inside */}}
       {{if or $mgr (eq .Admin.Role "Sales")}}
       <div x-data="{o:{{if or (hasPrefix .Path "/admin/plans") (hasPrefix .Path "/admin/bandwidth") (hasPrefix .Path "/admin/pool") (hasPrefix .Path "/admin/coupons")}}true{{else}}false{{end}}}">
-        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o"><span>{{T "Plan setup"}}</span>{{icon "chevron-down"}}</button>
+        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Plan setup"}}</span>{{icon "chevron-down"}}</button>
         <div x-show="o" x-cloak class="space-y-1">
-          {{if $mgr}}<a class="nav-item" href="/admin/plans"{{if hasPrefix .Path "/admin/plans"}} aria-current="page"{{end}}>{{icon "package"}}<span>{{T "Service Plan"}}</span></a>
-          <a class="nav-item" href="/admin/bandwidth"{{if hasPrefix .Path "/admin/bandwidth"}} aria-current="page"{{end}}>{{icon "gauge"}}<span>{{T "Bandwidth"}}</span></a>
-          <a class="nav-item" href="/admin/pool"{{if hasPrefix .Path "/admin/pool"}} aria-current="page"{{end}}>{{icon "network"}}<span>{{T "Pool"}}</span></a>{{end}}
-          <a class="nav-item" href="/admin/coupons"{{if hasPrefix .Path "/admin/coupons"}} aria-current="page"{{end}}>{{icon "ticket"}}<span>{{T "Coupons"}}</span></a>
+          {{if $mgr}}<a class="nav-item" href="/admin/plans" data-tip="{{T "Service Plan"}}"{{if eq $act "/admin/plans"}} aria-current="page"{{end}}>{{icon "package"}}<span>{{T "Service Plan"}}</span></a>
+          <a class="nav-item" href="/admin/bandwidth" data-tip="{{T "Bandwidth"}}"{{if eq $act "/admin/bandwidth"}} aria-current="page"{{end}}>{{icon "gauge"}}<span>{{T "Bandwidth"}}</span></a>
+          <a class="nav-item" href="/admin/pool" data-tip="{{T "Pool"}}"{{if eq $act "/admin/pool"}} aria-current="page"{{end}}>{{icon "network"}}<span>{{T "Pool"}}</span></a>{{end}}
+          <a class="nav-item" href="/admin/coupons" data-tip="{{T "Coupons"}}"{{if eq $act "/admin/coupons"}} aria-current="page"{{end}}>{{icon "ticket"}}<span>{{T "Coupons"}}</span></a>
         </div>
       </div>
       {{end}}
 
       {{if $mgr}}
       <div x-data="{o:{{if or (hasPrefix .Path "/admin/routers") (hasPrefix .Path "/admin/nas")}}true{{else}}false{{end}}}">
-        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o"><span>{{T "Network"}}</span>{{icon "chevron-down"}}</button>
+        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Network"}}</span>{{icon "chevron-down"}}</button>
         <div x-show="o" x-cloak class="space-y-1">
-          <a class="nav-item" href="/admin/routers"{{if hasPrefix .Path "/admin/routers"}} aria-current="page"{{end}}>{{icon "router"}}<span>{{T "Routers"}}</span></a>
-          <a class="nav-item" href="/admin/nas"{{if hasPrefix .Path "/admin/nas"}} aria-current="page"{{end}}>{{icon "radio-tower"}}<span>{{T "NAS"}}</span></a>
+          <a class="nav-item" href="/admin/routers" data-tip="{{T "Routers"}}"{{if eq $act "/admin/routers"}} aria-current="page"{{end}}>{{icon "router"}}<span>{{T "Routers"}}</span></a>
+          <a class="nav-item" href="/admin/nas" data-tip="{{T "NAS"}}"{{if eq $act "/admin/nas"}} aria-current="page"{{end}}>{{icon "radio-tower"}}<span>{{T "NAS"}}</span></a>
         </div>
       </div>
       {{end}}
 
-      <div x-data="{o:{{if hasPrefix .Path "/admin/maps"}}true{{else if hasPrefix .Path "/admin/odp"}}true{{else}}false{{end}}}">
-        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o"><span>{{T "Maps"}}</span>{{icon "chevron-down"}}</button>
+      <div x-data="{o:{{if or (hasPrefix .Path "/admin/maps") (hasPrefix .Path "/admin/odp")}}true{{else}}false{{end}}}">
+        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Maps"}}</span>{{icon "chevron-down"}}</button>
         <div x-show="o" x-cloak class="space-y-1">
-          <a class="nav-item" href="/admin/maps/customers"{{if hasPrefix .Path "/admin/maps/customers"}} aria-current="page"{{end}}>{{icon "map"}}<span>{{T "Customer Map"}}</span></a>
+          <a class="nav-item" href="/admin/maps/customers" data-tip="{{T "Customer Map"}}"{{if eq $act "/admin/maps/customers"}} aria-current="page"{{end}}>{{icon "map"}}<span>{{T "Customer Map"}}</span></a>
           {{if $mgr}}
-          <a class="nav-item" href="/admin/maps/routers"{{if hasPrefix .Path "/admin/maps/routers"}} aria-current="page"{{end}}>{{icon "router"}}<span>{{T "Router Map"}}</span></a>
-          <a class="nav-item" href="/admin/maps/odp"{{if hasPrefix .Path "/admin/maps/odp"}} aria-current="page"{{end}}>{{icon "map"}}<span>{{T "ODP Map"}}</span></a>
-          <a class="nav-item" href="/admin/odp"{{if hasPrefix .Path "/admin/odp"}} aria-current="page"{{end}}>{{icon "network"}}<span>{{T "ODP"}}</span></a>
+          <a class="nav-item" href="/admin/maps/routers" data-tip="{{T "Router Map"}}"{{if eq $act "/admin/maps/routers"}} aria-current="page"{{end}}>{{icon "router"}}<span>{{T "Router Map"}}</span></a>
+          <a class="nav-item" href="/admin/maps/odp" data-tip="{{T "ODP Map"}}"{{if eq $act "/admin/maps/odp"}} aria-current="page"{{end}}>{{icon "map"}}<span>{{T "ODP Map"}}</span></a>
+          <a class="nav-item" href="/admin/odp" data-tip="{{T "ODP"}}"{{if eq $act "/admin/odp"}} aria-current="page"{{end}}>{{icon "network"}}<span>{{T "ODP"}}</span></a>
           {{end}}
         </div>
       </div>
 
       {{if $mgr}}
       <div x-data="{o:{{if or (hasPrefix .Path "/admin/payment-gateway") (hasPrefix .Path "/admin/logs")}}true{{else}}false{{end}}}">
-        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o"><span>{{T "Admin"}}</span>{{icon "chevron-down"}}</button>
+        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Admin"}}</span>{{icon "chevron-down"}}</button>
         <div x-show="o" x-cloak class="space-y-1">
-          <a class="nav-item" href="/admin/payment-gateway"{{if hasPrefix .Path "/admin/payment-gateway"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Payment Gateway"}}</span></a>
-          <a class="nav-item" href="/admin/logs"{{if hasPrefix .Path "/admin/logs"}} aria-current="page"{{end}}>{{icon "scroll-text"}}<span>{{T "Logs"}}</span></a>
+          <a class="nav-item" href="/admin/payment-gateway" data-tip="{{T "Payment Gateway"}}"{{if eq $act "/admin/payment-gateway"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Payment Gateway"}}</span></a>
+          <a class="nav-item" href="/admin/logs" data-tip="{{T "Logs"}}"{{if eq $act "/admin/logs"}} aria-current="page"{{end}}>{{icon "scroll-text"}}<span>{{T "Logs"}}</span></a>
         </div>
       </div>
       {{end}}
 
       {{if or $mgr (eq .Admin.Role "Agent")}}
       <div class="mt-4 border-t border-line pt-3">
-        <a class="nav-item" href="/admin/users"{{if hasPrefix .Path "/admin/users"}} aria-current="page"{{end}}>{{icon "user-round"}}<span>{{T "Admin Users"}}</span></a>
+        <a class="nav-item" href="/admin/users" data-tip="{{T "Admin Users"}}"{{if eq $act "/admin/users"}} aria-current="page"{{end}}>{{icon "user-round"}}<span>{{T "Admin Users"}}</span></a>
       </div>
       {{end}}
       {{if $mgr}}
       <div class="mt-4 border-t border-line pt-3">
-        <a class="nav-item" href="/admin/pages/announcement"{{if or (hasPrefix .Path "/admin/pages") (hasPrefix .Path "/admin/fields")}} aria-current="page"{{end}}>{{icon "scroll-text"}}<span>{{T "Pages"}}</span></a>
-        <a class="nav-item" href="/admin/settings"{{if eq .Path "/admin/settings"}} aria-current="page"{{end}}>{{icon "settings"}}<span>{{T "Settings"}}</span></a>
+        <a class="nav-item" href="/admin/pages/announcement" data-tip="{{T "Pages"}}"{{if or (eq $act "/admin/pages") (eq $act "/admin/fields")}} aria-current="page"{{end}}>{{icon "scroll-text"}}<span>{{T "Pages"}}</span></a>
+        <a class="nav-item" href="/admin/settings" data-tip="{{T "Settings"}}"{{if eq $act "/admin/settings"}} aria-current="page"{{end}}>{{icon "settings"}}<span>{{T "Settings"}}</span></a>
       </div>
       {{end}}
+      <div class="mt-4 border-t border-line pt-3">
+        <a class="nav-item" href="/admin/docs" data-tip="{{T "Guide"}}"{{if eq $act "/admin/docs"}} aria-current="page"{{end}}>{{icon "circle-help"}}<span>{{T "Guide"}}</span></a>
+      </div>
     </nav>
   </aside>
 
@@ -197,8 +223,7 @@ function gbSearch() {
     </main>
     <footer class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line px-4 py-3 text-xs text-ink-2 lg:px-6">
       <span class="font-medium text-ink">{{or .Brand.company_name "gobill"}}</span>
-      <span>{{with .Version}}v{{.}}{{else}}dev{{end}}</span>
-      <a class="link" href="/admin/docs">{{T "User guide"}}</a>
+      <span>{{with .Version}}{{if or (eq . "dev") (hasPrefix . "v")}}{{.}}{{else}}v{{.}}{{end}}{{else}}dev{{end}}</span>
       <a class="link" href="https://github.com/frand-kod/gobill" target="_blank" rel="noopener">GitHub</a>
       <span>GPL-3.0</span>
     </footer>
