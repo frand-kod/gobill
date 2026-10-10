@@ -122,9 +122,10 @@ func run() error {
 	go job.Run(ctx, "router_check", 5*time.Minute, svc.RouterCheck)
 	go job.Run(ctx, "daily_summary", time.Minute, svc.DailySummaryJob(guard.Trusted))
 	backup := &job.Backup{Conn: conn, Q: db.New(conn), Trusted: guard.Trusted,
-		Dir: env("NUXBILL_BACKUP_DIR", filepath.Join(filepath.Dir(dbPath), "backup"))}
+		Dir:    env("NUXBILL_BACKUP_DIR", filepath.Join(filepath.Dir(dbPath), "backup")),
+		Mirror: env("NUXBILL_BACKUP_MIRROR", ""), Alert: svc.Alert}
 	go job.Run(ctx, "backup", time.Minute, backup.Run)
-	app.BackupDir = backup.Dir
+	app.BackupDir, app.BackupMirror = backup.Dir, backup.Mirror
 
 	errCh := make(chan error, 2)
 	rs := &radius.Server{Q: db.New(conn), Key: key, Trusted: guard.Trusted, Redeem: svc.RedeemVoucher, Start: svc.StartPending}

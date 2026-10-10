@@ -54,6 +54,8 @@ type Server struct {
 	SettingsChanged func(ctx context.Context) // called after settings are saved
 	// BackupDir receives the database backup taken before a PHPNuxBill import, see admin_import.go.
 	BackupDir string
+	// BackupMirror is the optional off-site backup folder (NUXBILL_BACKUP_MIRROR), shown to SuperAdmin.
+	BackupMirror string
 	// Billing recharges customers and syncs plans to routers; nil disables both.
 	Billing *billing.Service
 	// CoAPort is the NAS Disconnect-Request port; empty = 3799.
