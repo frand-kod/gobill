@@ -1987,5 +1987,7 @@
     "%s. Mirror %s ERROR: %s": "%s. Mirror %s GAGAL: %s",
     "%s. Mirror %s, last copy %s": "%s. Mirror %s, salinan terakhir %s",
     "%s. Mirror %s, no copy yet": "%s. Mirror %s, belum ada salinan",
-    "Minutes of inactivity before an admin is logged out. Empty = 120.": "Menit tanpa aktivitas sebelum admin otomatis logout. Kosong = 120."
+    "Minutes of inactivity before an admin is logged out. Empty = 120.": "Menit tanpa aktivitas sebelum admin otomatis logout. Kosong = 120.",
+    "No vouchers yet": "Belum ada voucher",
+    "Generate vouchers": "Buat voucher"
 }

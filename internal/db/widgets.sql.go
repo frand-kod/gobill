@@ -162,7 +162,7 @@ SELECT p.id, p.name,
   COUNT(CASE WHEN v.status = 'unused' THEN 1 END) AS unused,
   COUNT(CASE WHEN v.status = 'used' THEN 1 END) AS used
 FROM plans p
-LEFT JOIN vouchers v ON v.plan_id = p.id
+JOIN vouchers v ON v.plan_id = p.id
 GROUP BY p.id, p.name
 ORDER BY p.name
 `

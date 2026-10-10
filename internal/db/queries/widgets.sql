@@ -17,11 +17,12 @@ WHERE s.status IN ('active', 'expired') AND s.expires_at >= sqlc.arg(since) AND 
 ORDER BY s.expires_at DESC, s.id DESC LIMIT sqlc.arg(page_limit);
 
 -- name: VoucherStockByPlan :many
+-- Only plans that have vouchers; a plan never sold as voucher is noise on the card.
 SELECT p.id, p.name,
   COUNT(CASE WHEN v.status = 'unused' THEN 1 END) AS unused,
   COUNT(CASE WHEN v.status = 'used' THEN 1 END) AS used
 FROM plans p
-LEFT JOIN vouchers v ON v.plan_id = p.id
+JOIN vouchers v ON v.plan_id = p.id
 GROUP BY p.id, p.name
 ORDER BY p.name;
 
