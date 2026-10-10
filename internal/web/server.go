@@ -44,8 +44,10 @@ type Server struct {
 	Radius     *radius.Server
 	radiusOnce sync.Once
 
-	// Version is shown in the admin sidebar footer.
+	// Version is shown in the admin sidebar footer and on /health.
 	Version string
+	// DBPath is the SQLite file; /health reports its disk space and strips it from errors.
+	DBPath string
 
 	// ClockWarning, if set, returns a non-empty reason while the clock is untrusted.
 	ClockWarning func() string
