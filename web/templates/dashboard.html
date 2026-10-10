@@ -5,11 +5,11 @@
 {{template "callout" $.Intro}}
 {{$mgr := or (eq $.Admin.Role "SuperAdmin") (eq $.Admin.Role "Admin")}}
 {{if or $mgr (eq $.Admin.Role "Agent") (eq $.Admin.Role "Sales")}}
-<nav class="mb-4 flex flex-wrap gap-2" aria-label="{{T "Quick actions"}}">
-  <a class="btn btn-primary" href="/admin/recharge">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
-  <a class="btn" href="/admin/customers/new">{{icon "users"}}<span>{{T "Add Customer"}}</span></a>
-  <a class="btn" href="/admin/vouchers/new">{{icon "ticket"}}<span>{{T "Make vouchers"}}</span></a>
-  <a class="btn" href="/admin/deposit">{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>
+<nav class="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap" aria-label="{{T "Quick actions"}}">
+  <a class="btn btn-primary min-w-0 px-2" href="/admin/recharge">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
+  <a class="btn min-w-0 px-2" href="/admin/customers/new">{{icon "users"}}<span>{{T "Add Customer"}}</span></a>
+  <a class="btn min-w-0 px-2" href="/admin/vouchers/new">{{icon "ticket"}}<span>{{T "Make vouchers"}}</span></a>
+  <a class="btn min-w-0 px-2" href="/admin/deposit">{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>
 </nav>
 {{end}}
 {{if and $mgr (not .SetupDone)}}
@@ -81,17 +81,17 @@
 <div class="mb-4 grid gap-4 md:grid-cols-2">
   <section class="card">
     <h2 class="card-title">{{T "New customers per month"}}</h2>
-    <div class="card-body"><div class="h-52"><canvas data-chart="bar" data-label="{{T "Customer"}}" data-labels="{{.Labels}}" data-values="{{.Regs}}" role="img" aria-label="{{T "New customers per month"}}"></canvas></div></div>
+    <div class="card-body"><div class="h-44 sm:h-52"><canvas data-chart="bar" data-label="{{T "Customer"}}" data-labels="{{.Labels}}" data-values="{{.Regs}}" role="img" aria-label="{{T "New customers per month"}}"></canvas></div></div>
   </section>
   <section class="card">
     <h2 class="card-title">{{T "Sales per month"}}</h2>
-    <div class="card-body"><div class="h-52"><canvas data-chart="bar" data-money="1" data-label="{{T "Sales"}}" data-labels="{{.Labels}}" data-values="{{.Sales}}" role="img" aria-label="{{T "Sales per month"}}"></canvas></div></div>
+    <div class="card-body"><div class="h-44 sm:h-52"><canvas data-chart="bar" data-money="1" data-label="{{T "Sales"}}" data-labels="{{.Labels}}" data-values="{{.Sales}}" role="img" aria-label="{{T "Sales per month"}}"></canvas></div></div>
   </section>
 </div>
 <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
   <section class="card">
     <h2 class="card-title">{{T "All Users Insights"}}</h2>
-    <div class="card-body"><div class="h-64"><canvas data-chart="pie" data-labels="{{.Insight}}" data-values="{{.InsightVals}}" role="img" aria-label="{{T "All Users Insights"}}"></canvas></div></div>
+    <div class="card-body"><div class="h-44 sm:h-64"><canvas data-chart="pie" data-labels="{{.Insight}}" data-values="{{.InsightVals}}" role="img" aria-label="{{T "All Users Insights"}}"></canvas></div></div>
   </section>
   <section class="card overflow-hidden">
     <h2 class="card-title">{{T "Voucher Stock"}}</h2>

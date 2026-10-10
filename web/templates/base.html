@@ -15,14 +15,15 @@
   {{with .Error}}<div class="alert alert-error toast" role="alert">{{icon "circle-alert"}}<span class="min-w-0 flex-1">{{T .}}{{with $.Detail}}<details class="mt-1 text-xs opacity-80"><summary class="cursor-pointer">{{T "Technical details"}}</summary><code class="break-all">{{.}}</code></details>{{end}}</span>{{with $.ErrLink}}<a class="btn btn-ghost btn-sm" href="{{.}}">{{icon "wallet"}}<span>{{T "Add Balance"}}</span></a>{{end}}{{template "toastx"}}</div>{{end}}
 </div>{{end}}{{end}}
 {{define "base"}}<!doctype html>
-<html data-def-mode="{{.Brand.theme_mode}}" data-def-accent="{{.Brand.theme_accent}}" data-def-density="{{.Brand.theme_density}}" lang="{{if eq .Lang "indonesia"}}id{{else if eq .Lang "english"}}en{{else if eq .Lang "arabic"}}ar{{else if eq .Lang "spanish"}}es{{else if eq .Lang "turkish"}}tr{{else}}id{{end}}" dir="{{.Dir}}">
+<html data-def-mode="{{.Brand.theme_mode}}" data-def-accent="{{.Brand.theme_accent}}" data-def-density="{{.Brand.theme_density}}" data-def-font="{{.Brand.theme_font}}" lang="{{if eq .Lang "indonesia"}}id{{else if eq .Lang "english"}}en{{else if eq .Lang "arabic"}}ar{{else if eq .Lang "spanish"}}es{{else if eq .Lang "turkish"}}tr{{else}}id{{end}}" dir="{{.Dir}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{TT .Title}} - {{or .Brand.company_name "gobill"}}</title>
 <script>
 // Theme, applied before first paint. A local choice (localStorage gb-theme) wins over the SuperAdmin defaults
-// (data-def-* on <html>). mode light|dark|system, accent teal|orange|#rrggbb, density compact|normal|roomy.
+// (data-def-* on <html>). mode light|dark|system, accent teal|orange|#rrggbb, density compact|normal|roomy,
+// font small|medium|large (root size 14/15/17px, all type is rem so it scales).
 (function () {
   var d = document.documentElement, mq = matchMedia('(prefers-color-scheme: dark)');
   function rgb(h) { return [1, 3, 5].map(function (i) { return parseInt(h.substr(i, 2), 16); }); }
@@ -36,12 +37,13 @@
     get: function () {
       var s = {}, old = null;
       try { s = JSON.parse(localStorage.getItem('gb-theme') || '{}') || {}; old = localStorage.getItem('theme'); } catch (e) {}
-      return { mode: s.mode || old || d.dataset.defMode || 'system', accent: s.accent || d.dataset.defAccent || 'teal', density: s.density || d.dataset.defDensity || 'normal' };
+      return { mode: s.mode || old || d.dataset.defMode || 'system', accent: s.accent || d.dataset.defAccent || 'teal', density: s.density || d.dataset.defDensity || 'normal', font: s.font || d.dataset.defFont || 'medium' };
     },
     save: function (t) { try { localStorage.setItem('gb-theme', JSON.stringify(t)); } catch (e) {} },
     apply: function (t) {
       d.classList.toggle('dark', t.mode === 'dark' || (t.mode === 'system' && mq.matches));
       if (t.density === 'compact' || t.density === 'roomy') d.dataset.density = t.density; else delete d.dataset.density;
+      d.dataset.font = t.font === 'small' || t.font === 'large' ? t.font : 'medium';
       var st = d.style;
       if (/^#[0-9a-f]{6}$/i.test(t.accent)) {
         var c = rgb(t.accent);
@@ -62,8 +64,8 @@
   window.gbThemeCtl = function () {
     var t = g.get();
     return {
-      o: false, mode: t.mode, accent: t.accent, density: t.density, custom: t.accent.charAt(0) === '#' ? t.accent : '#2563eb',
-      set: function (k, v) { this[k] = v; var n = { mode: this.mode, accent: this.accent, density: this.density }; g.apply(n); g.save(n); },
+      o: false, mode: t.mode, accent: t.accent, density: t.density, font: t.font, custom: t.accent.charAt(0) === '#' ? t.accent : '#2563eb',
+      set: function (k, v) { this[k] = v; var n = { mode: this.mode, accent: this.accent, density: this.density, font: this.font }; g.apply(n); g.save(n); },
       pick: function (v) { this.custom = v; this.set('accent', v); }
     };
   };

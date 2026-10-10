@@ -1,6 +1,7 @@
 package web
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -51,5 +52,28 @@ func TestListSortIndicator(t *testing.T) {
 	}
 	if !strings.Contains(body, `<th class="num">`) {
 		t.Error("Balance header not right-aligned")
+	}
+}
+
+// Phones hide secondary columns with max-sm:hidden. The first column never gets the class, numeric columns keep num.
+func TestListSecondaryColumns(t *testing.T) {
+	_, h, q, c := crudApp(t)
+	newCust(t, q, "bulk1", "Bulk One", "0899", "", "Active")
+	body := do(h, "GET", "/admin/customers", nil, c).Body.String()
+	for _, re := range []string{
+		`<th class="max-sm:hidden"><a class="sort-link" href="[^"]*sort=fullname`, // Full Name: secondary
+		`<th class="num">`, // Balance: amount, stays on phones
+		`<th><a class="sort-link" href="[^"]*sort=username`,
+		`<td class="max-sm:hidden">`,
+	} {
+		if ok, _ := regexp.MatchString(re, body); !ok {
+			t.Errorf("customers list lacks %q", re)
+		}
+	}
+	if ok, _ := regexp.MatchString(`<th class="max-sm:hidden"><a class="sort-link" href="[^"]*sort=username`, body); ok {
+		t.Error("first column hidden on phones")
+	}
+	if !strings.Contains(body, `class="flex flex-nowrap justify-end gap-1"`) {
+		t.Error("row actions may wrap")
 	}
 }

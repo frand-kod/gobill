@@ -77,19 +77,24 @@
     --d: 1;
     --sp-1: calc(4px * var(--d)); --sp-2: calc(8px * var(--d)); --sp-3: calc(12px * var(--d));
     --sp-4: calc(16px * var(--d)); --sp-6: calc(24px * var(--d)); --sp-8: calc(32px * var(--d));
-    --ctl-h: 2.5rem;     /* control height: input, button */
-    --ctl-h-sm: 2.25rem; /* small button; never below 40px on phones, see below */
+    /* control and row heights are px: touch targets and density do not follow the text size (--fs-*, rem) */
+    --ctl-h: 40px;       /* control height: input, button */
+    --ctl-h-sm: 36px;    /* small button; never below 40px on phones, see below */
     --row-py: var(--sp-1); /* table cell padding: buttons set the height, not the padding */
-    --row-h: 2.75rem;    /* table row min height: 44px normal, 36px compact */
+    --row-h: 44px;       /* table row min height: 44px normal, 36px compact */
     --icon: 1.125rem;    /* icons sit on the text size */
   }
   :root[data-accent="orange"] { --accent: #f38020; --on-accent: #111418; }
-  :root[data-density="compact"] { --d: 0.75; --ctl-h: 2rem; --ctl-h-sm: 1.75rem; --row-h: 2.25rem; }
-  :root[data-density="roomy"] { --d: 1.25; --ctl-h: 2.75rem; --ctl-h-sm: 2.5rem; --row-h: 3.25rem; }
+  :root[data-density="compact"] { --d: 0.75; --ctl-h: 32px; --ctl-h-sm: 28px; --row-h: 36px; }
+  :root[data-density="roomy"] { --d: 1.25; --ctl-h: 44px; --ctl-h-sm: 40px; --row-h: 52px; }
+  /* text size: root 14/15/17px (Tema popover, data-font on html; medium is the default). Every --fs-* and text-* is rem. */
+  :root[data-font="small"] { font-size: 14px; }
+  :root[data-font="medium"] { font-size: 15px; }
+  :root[data-font="large"] { font-size: 17px; }
   @media (max-width: 639px) {
     /* touch targets: >=40px even when compact, >=44px when roomy. compact is repeated because its selector outranks :root */
-    :root, :root[data-density="compact"] { --ctl-h: 2.5rem; --ctl-h-sm: 2.5rem; --row-h: 2.75rem; }
-    :root[data-density="roomy"] { --ctl-h: 2.75rem; --ctl-h-sm: 2.75rem; --row-h: 3.25rem; }
+    :root, :root[data-density="compact"] { --ctl-h: 40px; --ctl-h-sm: 40px; --row-h: 44px; }
+    :root[data-density="roomy"] { --ctl-h: 44px; --ctl-h-sm: 44px; --row-h: 52px; }
   }
   :root.dark {
     --accent-fg: var(--fg-d, color-mix(in srgb, var(--accent) 50%, white));
@@ -125,6 +130,14 @@
   /* page header: title, one-line description (the callout), primary action top-right */
   .page-head { @apply mb-4 flex flex-wrap items-center justify-between gap-2; }
   .page-title { font-size: var(--fs-title); font-weight: var(--fw-bold); line-height: 1.25; }
+  /* phones: title on its own line, the actions (and the "?" intro) in one row under it */
+  @media (max-width: 639px) {
+    .page-head { @apply flex-col items-stretch; }
+    .page-head > .flex { @apply flex flex-wrap items-center gap-2; }
+    .page-title { overflow-wrap: anywhere; }
+  }
+  /* a grid without column classes is one column (minmax(0,1fr)), not auto: wide children cannot push the page sideways */
+  .grid { grid-template-columns: minmax(0, 1fr); }
   .link { color: var(--accent-fg); @apply font-medium hover:underline; }
 
   .card { @apply rounded-lg border border-line bg-surface; }
@@ -192,6 +205,15 @@
   .table .num { font-variant-numeric: tabular-nums; @apply text-end; }
   /* scroll region for long lists: the header stays visible */
   .table-scroll { max-height: min(70vh, 40rem); @apply overflow-auto; }
+  /* phones: long cells end in an ellipsis so each row stays one line. The last column (row actions) is pinned to the
+     right edge of the scroll region, with a shadow as the edge hint, so the actions stay reachable while the rest scrolls. */
+  @media (max-width: 639px) {
+    .table th, .table td { padding-inline: var(--sp-2); }
+    .table td:not(:last-child) { max-width: 7.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .table td:last-child { white-space: nowrap; }
+    .table th:last-child, .table td:last-child { position: sticky; inset-inline-end: 0; z-index: 2; background: var(--surface); box-shadow: -0.5rem 0 0.5rem -0.5rem color-mix(in srgb, var(--text) 30%, transparent); }
+    .table th:last-child { background: color-mix(in srgb, var(--surface-2) 60%, var(--border)); }
+  }
   /* selection bar: hidden, shown above the table only while a row is checked */
   .bulk-bar { display: none; }
   .list-results:has(input[name=ids]:checked) > .bulk-bar { @apply flex flex-wrap items-center justify-end gap-2 border-b border-line bg-surface-2 px-3 py-2; }
@@ -251,6 +273,11 @@
   .seg span { min-height: calc(var(--ctl-h) - 0.5rem); @apply flex cursor-pointer items-center justify-center gap-1.5 rounded-sm px-2 text-sm text-ink; }
   .seg input:checked + span { @apply bg-surface font-medium ring-1 ring-line-strong; }
   .seg input:focus-visible + span { outline: 2px solid var(--accent-fg); outline-offset: 1px; }
+  /* phones: the Tema popover is a bottom sheet, its options stack with large tap targets */
+  @media (max-width: 639px) {
+    .seg-sheet { @apply flex-col; }
+    .seg-sheet span { min-height: 2.75rem; @apply justify-start px-3 text-base; }
+  }
   .swatch { @apply inline-block size-4 rounded-full border border-line-strong; }
 
   /* "Panduan" guide body: 72ch measure, plain document styling from the tokens above */

@@ -160,7 +160,7 @@ function gbSearch() {
   };
 }
 </script>{{end}}
-      <form method="get" action="/admin/customers" role="search" class="relative max-w-sm flex-1"{{if $staff}} x-data="gbSearch()" @click.outside="open=false" @keydown.window="slash($event)"{{end}}>
+      <form method="get" action="/admin/customers" role="search" class="relative min-w-0 max-w-sm flex-1"{{if $staff}} x-data="gbSearch()" @click.outside="open=false" @keydown.window="slash($event)"{{end}}>
         <span class="pointer-events-none absolute inset-y-0 start-3 flex items-center text-ink-2">{{icon "search"}}</span>
         <input class="input ps-10" type="search" name="q" placeholder="{{T "Search"}}: {{T "Customer"}}" aria-label="{{T "Search"}}" autocomplete="off"{{if $staff}} x-ref="q" x-model="q" role="combobox" aria-autocomplete="list" aria-controls="gb-search-list" aria-expanded="false" :aria-expanded="open" :aria-activedescendant="active >= 0 ? 'gb-sr-' + active : false" @input.debounce.250ms="find()" @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.escape="open=false;active=-1" @keydown.enter="enter($event)"{{end}}>
         {{if $staff}}<ul id="gb-search-list" role="listbox" aria-label="{{T "Customer"}}" x-show="open" x-cloak class="absolute inset-x-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border border-line bg-surface py-1 shadow-lg">
@@ -176,29 +176,35 @@ function gbSearch() {
         <div class="relative" x-data="gbThemeCtl()" @click.outside="o=false" @keydown.escape="o=false;$refs.btn.focus()">
           <button type="button" class="btn" x-ref="btn" @click="o=!o;if(o)$nextTick(function(){$refs.first.focus()})" :aria-expanded="o" aria-haspopup="dialog" aria-controls="theme-pop" aria-label="{{T "Theme"}}">{{icon "palette"}}<span class="hidden sm:inline">{{T "Theme"}}</span></button>
           <div x-show="o" x-cloak class="fixed inset-0 z-40 bg-black/40 sm:hidden" @click="o=false" aria-hidden="true"></div>
-          <div id="theme-pop" role="dialog" aria-label="{{T "Theme"}}" x-show="o" x-cloak class="z-50 space-y-4 border border-line bg-surface p-4 max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:max-h-[85vh] max-sm:overflow-y-auto max-sm:rounded-t-lg max-sm:pb-8 sm:absolute sm:end-0 sm:mt-2 sm:w-80 sm:rounded-lg sm:shadow-sm">
+          <div id="theme-pop" role="dialog" aria-label="{{T "Theme"}}" x-show="o" x-cloak class="z-50 space-y-4 border border-line bg-surface p-4 max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:max-h-[75vh] max-sm:overflow-y-auto max-sm:rounded-t-xl max-sm:border-x-0 max-sm:border-b-0 max-sm:pb-8 sm:absolute sm:end-0 sm:mt-2 sm:w-80 sm:rounded-lg sm:shadow-sm">
             <div class="flex items-center justify-between"><p class="font-semibold">{{T "Theme"}}</p><button type="button" class="btn btn-sm border-transparent px-2 sm:hidden" @click="o=false" aria-label="{{T "Close"}}">{{icon "x"}}</button></div>
             <fieldset><legend class="label">{{T "Mode"}}</legend>
-              <div class="seg">
+              <div class="seg seg-sheet">
                 <label><input type="radio" class="sr-only" name="gb-mode" x-ref="first" :checked="mode==='light'" @change="set('mode','light')"><span>{{T "Light"}}</span></label>
                 <label><input type="radio" class="sr-only" name="gb-mode" :checked="mode==='dark'" @change="set('mode','dark')"><span>{{T "Dark"}}</span></label>
                 <label><input type="radio" class="sr-only" name="gb-mode" :checked="mode==='system'" @change="set('mode','system')"><span>{{T "System"}}</span></label>
               </div></fieldset>
             <fieldset><legend class="label">{{T "Colour"}}</legend>
-              <div class="seg">
+              <div class="seg seg-sheet">
                 <label><input type="radio" class="sr-only" name="gb-accent" :checked="accent==='teal'" @change="set('accent','teal')"><span><i class="swatch" style="background:#0b7f79"></i>{{T "Teal"}}</span></label>
                 <label><input type="radio" class="sr-only" name="gb-accent" :checked="accent==='orange'" @change="set('accent','orange')"><span><i class="swatch" style="background:#f38020"></i>{{T "Orange"}}</span></label>
                 <label><input type="radio" class="sr-only" name="gb-accent" :checked="accent.charAt(0)==='#'" @change="set('accent',custom)"><span><input type="color" class="swatch size-5 cursor-pointer p-0" :value="custom" @input="pick($event.target.value)" aria-label="{{T "Custom colour"}}">{{T "Custom"}}</span></label>
               </div></fieldset>
             <fieldset><legend class="label">{{T "Density"}}</legend>
-              <div class="seg">
+              <div class="seg seg-sheet">
                 <label><input type="radio" class="sr-only" name="gb-density" :checked="density==='compact'" @change="set('density','compact')"><span>{{T "Compact"}}</span></label>
                 <label><input type="radio" class="sr-only" name="gb-density" :checked="density==='normal'" @change="set('density','normal')"><span>{{T "Normal"}}</span></label>
                 <label><input type="radio" class="sr-only" name="gb-density" :checked="density==='roomy'" @change="set('density','roomy')"><span>{{T "Roomy"}}</span></label>
               </div></fieldset>
+            <fieldset><legend class="label">{{T "Text size"}}</legend>
+              <div class="seg seg-sheet">
+                <label><input type="radio" class="sr-only" name="gb-font" :checked="font==='small'" @change="set('font','small')"><span>{{T "Small"}}</span></label>
+                <label><input type="radio" class="sr-only" name="gb-font" :checked="font==='medium'" @change="set('font','medium')"><span>{{T "Medium"}}</span></label>
+                <label><input type="radio" class="sr-only" name="gb-font" :checked="font==='large'" @change="set('font','large')"><span>{{T "Large"}}</span></label>
+              </div></fieldset>
             {{if eq .Admin.Role "SuperAdmin"}}
             <form method="post" action="/admin/theme/default" class="space-y-2 border-t border-line pt-3" data-confirm="{{T "Make this the default for everyone?"}}">
-              <input type="hidden" name="mode" :value="mode"><input type="hidden" name="accent" :value="accent"><input type="hidden" name="density" :value="density"><input type="hidden" name="next" :value="location.pathname">
+              <input type="hidden" name="mode" :value="mode"><input type="hidden" name="accent" :value="accent"><input type="hidden" name="density" :value="density"><input type="hidden" name="font" :value="font"><input type="hidden" name="next" :value="location.pathname">
               <button type="submit" class="btn w-full">{{T "Make default for everyone"}}</button>
               <a class="link block text-sm" href="/admin/settings/app#logo">{{T "Change logo"}} &rarr;</a>
             </form>

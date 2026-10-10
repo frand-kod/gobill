@@ -3,9 +3,9 @@
 <noscript><input class="input" id="{{.Name}}" name="{{.Name}}" value="{{.Value}}" autocomplete="off" required{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}></noscript>
 <div class="relative" x-data="gbCustomerPick({{.PickConfig}})" @click.outside="open=false">
   <input type="hidden" name="{{.Name}}" :value="username">
-  <div x-show="username && !editing" x-cloak class="input flex items-center gap-3">
+  <div x-show="username && !editing" x-cloak class="input flex flex-wrap items-center gap-x-3 gap-y-2 py-1">
     <span class="size-2.5 shrink-0 rounded-full" :class="statusDot()" aria-hidden="true"></span>
-    <span class="min-w-0 flex-1 truncate"><span class="font-semibold" x-text="username"></span> <span class="text-ink-2" x-text="fullname"></span></span>
+    <span class="min-w-0 flex-1 basis-40 truncate"><span class="font-semibold" x-text="username"></span> <span class="text-ink-2" x-text="fullname"></span></span>
     {{if .Balance}}<span class="text-sm text-ink-2" x-text="balance"></span>{{end}}
     <button type="button" class="btn btn-ghost min-h-10" @click="change()">{{T "Change customer"}}</button>
   </div>
@@ -15,7 +15,7 @@
       @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.enter="enter($event)" @keydown.escape="close()"
       role="combobox" aria-autocomplete="list" aria-controls="{{.Name}}-list" :aria-expanded="open" :aria-activedescendant="active >= 0 ? '{{.Name}}-opt-' + active : false"
       {{- if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
-    <ul id="{{.Name}}-list" role="listbox" x-show="open" x-cloak class="absolute inset-x-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border border-line bg-surface py-1 shadow-lg">
+    <ul id="{{.Name}}-list" role="listbox" x-show="open" x-cloak class="absolute inset-x-0 top-full z-50 mt-1 max-h-[min(20rem,60vh)] overflow-y-auto rounded-lg border border-line bg-surface py-1 shadow-lg">
       <template x-for="(r, i) in items" :key="r.id">
         <li :id="'{{.Name}}-opt-' + i" role="option" :aria-selected="i === active" class="min-h-11 cursor-pointer px-4 py-2 text-sm" :class="i === active ? 'bg-sidebar' : 'hover:bg-sidebar'" @mouseenter="active = i" @click="choose(r)">
           <div class="flex items-center gap-2">

@@ -99,9 +99,36 @@ func (lp listPage) query() url.Values {
 var numericCols = map[string]bool{"Balance": true, "Plan Price": true, "Value": true, "Max Usage": true, "Used": true,
 	"Min Order": true, "Download": true, "Upload": true, "Port Amount": true, "Attenuation": true}
 
+// secondaryCols are hidden below sm (phones): the first column, status, amounts and the row actions stay.
+// Matched by header name, like numericCols; the first column is never hidden (see IsSecondary).
+var secondaryCols = map[string]bool{"Full Name": true, "Package": true, "Service Type": true, "PPPoE Username": true,
+	"Phone": true, "Type": true, "Options": true, "Required": true, "Order": true, "Max Usage": true, "Min Order": true,
+	"Start Date": true, "End Date": true, "Used": true, "Created": true, "Created On": true, "Method": true,
+	"Location": true, "Username": true, "Actor": true, "Description": true, "IP": true, "IP / CIDR": true,
+	"Address": true, "Coverage": true, "Coordinates": true, "Local IP": true, "IP Range": true, "Router": true,
+	"Host": true, "Enabled": true, "Last Seen": true, "Last Login": true, "User Type": true, "Burst": true,
+	"Plan Validity": true}
+
 // IsNum reports whether column i is numeric (right-aligned, header included).
 func (lp listPage) IsNum(i int) bool {
 	return i < len(lp.Cols) && numericCols[lp.Cols[i]]
+}
+
+// IsSecondary reports whether column i is hidden on phones (max-sm:hidden). Column 0 always stays.
+func (lp listPage) IsSecondary(i int) bool {
+	return i > 0 && i < len(lp.Cols) && secondaryCols[lp.Cols[i]]
+}
+
+// ColClass is the class list of the header and body cells of column i ("" for plain columns).
+func (lp listPage) ColClass(i int) string {
+	var c []string
+	if lp.IsNum(i) {
+		c = append(c, "num")
+	}
+	if lp.IsSecondary(i) {
+		c = append(c, "max-sm:hidden")
+	}
+	return strings.Join(c, " ")
 }
 
 // Filtered reports whether a search, date, filter or sort is applied; the Reset control shows then.
