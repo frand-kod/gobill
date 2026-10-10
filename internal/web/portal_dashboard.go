@@ -45,7 +45,14 @@ type pDashData struct {
 	Voucher  bool
 	Company  string // operator contact from Settings
 	Phone    string
-	WA       string // wa.me link of Phone, "" when it is not a usable number
+	WA       string           // wa.me link of Phone, "" when it is not a usable number
+	Trx      []db.Transaction // latest 10 orders, "See all" opens /portal/orders
+}
+
+// pOrdersData is one page of the order history.
+type pOrdersData struct {
+	Rows       []db.Transaction
+	Prev, Next int // page numbers, 0 = none
 }
 
 func (s *Server) pDashboard(w http.ResponseWriter, r *http.Request) { s.pDash(w, r, 200, "") }
@@ -69,6 +76,11 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		p, _ := s.queries.GetPlan(r.Context(), sub.PlanID)
 		d.Subs = append(d.Subs, pSubRow{sub.ID, p.Name, sub.Type, sub.Status, sub.ExpiresAt, canExtend && sub.Status != "active"})
 	}
+	d.Trx, err = s.queries.ListTransactionsByCustomer(r.Context(), db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, Limit: 10})
+	if err != nil {
+		s.fail(w, "portal dashboard orders", err)
+		return
+	}
 	ann, err := s.queries.GetPage(r.Context(), "announcement")
 	if err != nil {
 		s.fail(w, "portal announcement", err)
@@ -78,13 +90,23 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 	s.prender(w, r, code, "p_dashboard", Page{Title: "Dashboard", Error: errMsg, Data: d})
 }
 
+// pOrders lists the customer's own transactions, perPage at a time.
 func (s *Server) pOrders(w http.ResponseWriter, r *http.Request) {
-	trx, err := s.queries.ListTransactionsByCustomer(r.Context(), db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: customerFrom(r).ID, Valid: true}, Limit: 100})
+	_, page, limit, off := paging(r)
+	trx, err := s.queries.ListTransactionsByCustomer(r.Context(), db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: customerFrom(r).ID, Valid: true}, Limit: limit, Offset: off})
 	if err != nil {
 		s.fail(w, "portal orders", err)
 		return
 	}
-	s.prender(w, r, 200, "p_orders", Page{Title: "Order History", Data: trx})
+	d := pOrdersData{Rows: trx}
+	if len(trx) > perPage {
+		d.Rows = trx[:perPage]
+		d.Next = page + 1
+	}
+	if page > 1 {
+		d.Prev = page - 1
+	}
+	s.prender(w, r, 200, "p_orders", Page{Title: "Order History", Data: d})
 }
 
 // pInvoice shows the invoice only for the customer's own transaction.
