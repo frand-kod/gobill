@@ -32,7 +32,7 @@ Di UI NuxBill, tambah router: IP MikroTik, user `nuxbill`, dan passwordnya. Lalu
 
 **Daftarkan NAS di NuxBill** (menu NAS): IP router, secret yang sama, dan opsi "require Message-Authenticator" bila router mendukung. `address` pada `/radius` harus sama dengan IP host NuxBill yang dijangkau router. Tanpa baris NAS, paket dari router dibuang dan dicatat di log, dan disconnect hanya jadi peringatan.
 
-Login voucher di halaman hotspot (kode sebagai username) diaktifkan langsung lewat RADIUS. Percobaan voucher gagal dibatasi 10 kali per 15 menit per NAS dan MAC.
+Login voucher di halaman hotspot (kode sebagai username) diaktifkan langsung lewat RADIUS. Percobaan voucher gagal dibatasi 10 kali per 15 menit per NAS dan MAC, dan 100 kali per 15 menit per NAS.
 
 ## Pelajaran dari uji lapangan
 

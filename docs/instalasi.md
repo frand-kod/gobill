@@ -72,7 +72,7 @@ Data ada di `/var/lib/nuxbill`: `nuxbill.db` (SQLite) dan `nuxbill.db.key` (kunc
 
 Backup harian dibuat otomatis (`VACUUM INTO`); jumlah file yang disimpan diatur setting `backup_keep` (bawaan 7).
 
-**Salinan kedua (mirror) di luar SD card.** Jika SD card atau STB rusak, backup di `NUXBILL_BACKUP_DIR` ikut hilang. Isi `NUXBILL_BACKUP_MIRROR` dengan folder kedua; setiap backup harian langsung disalin ke sana dan dipangkas dengan `backup_keep` yang sama. Folder harus sudah ada (tidak dibuat otomatis, supaya disk yang belum ter-mount tidak menulis ke SD card). Jika gagal, Telegram operator mendapat peringatan (sekali sehari selama masih gagal, dan sekali saat pulih); backup lokal tetap dibuat. Status terakhir tampil di Settings > Miscellaneous, di bawah "Download backup".
+**Salinan kedua (mirror) di luar SD card.** Jika SD card atau STB rusak, backup di `NUXBILL_BACKUP_DIR` ikut hilang. Isi `NUXBILL_BACKUP_MIRROR` dengan folder kedua; setiap backup harian langsung disalin ke sana dan dipangkas dengan `backup_keep` yang sama. Folder harus sudah ada (tidak dibuat otomatis, supaya disk yang belum ter-mount tidak menulis ke SD card). Jika gagal, alert operator dikirim sekali saat mirror mulai gagal dan sekali saat pulih (lewat kanal di `alert_channel`); backup lokal tetap dibuat. Mirror yang gagal dicoba ulang tiap jam. Status terakhir tampil di Settings > Miscellaneous, di bawah "Download backup".
 
 Pilihan tujuan mirror:
 
@@ -112,7 +112,7 @@ Tambahkan `NUXBILL_BACKUP_MIRROR` di `/etc/nuxbill/config.env` dan restart nuxbi
 
     sudo cp /var/lib/nuxbill/nuxbill.db /var/lib/nuxbill/nuxbill.db.key /mnt/usb/manual-backup/
 
-**Pulihkan database.** SuperAdmin bisa memulihkan file backup gobill (`.db`) dari Pengaturan > Miscellaneous > Restore database (`/admin/settings/miscellaneous/restore`). Aplikasi memeriksa file dulu (integritas, versi skema tidak lebih baru dari aplikasi ini, dan kunci enkripsi) lalu menampilkan jumlah data di backup dibanding data saat ini. Setelah dikonfirmasi, data saat ini dibackup otomatis ke folder backup (nama berakhiran `-pre-restore.db`), file dipasang sebagai `nuxbill.db.restore`, dan aplikasi keluar dengan kode 3. Systemd (`Restart=on-failure`) menjalankannya lagi. Saat start, database lama dipindah ke samping file database dengan nama `nuxbill.db.pre-restore-<waktu>` beserta `-wal`-nya, lalu backup diterapkan sebelum database dibuka. Backup dari versi lama naik versi sendiri lewat migrasi. Setelah yakin pemulihan berhasil, file `nuxbill.db.pre-restore-*` boleh dihapus, karena backup otomatis sudah ada.
+**Pulihkan database.** SuperAdmin bisa memulihkan file backup gobill (`.db`) dari Pengaturan > Miscellaneous > Restore database (`/admin/settings/miscellaneous/restore`). Aplikasi memeriksa file dulu (integritas, versi skema tidak lebih baru dari aplikasi ini, dan kunci enkripsi) lalu menampilkan jumlah data di backup dibanding data saat ini. Setelah dikonfirmasi, data saat ini dibackup otomatis ke folder backup (nama berakhiran `-pre-restore.db`), file dipasang sebagai `nuxbill.db.restore`, dan aplikasi keluar dengan kode 3. Systemd (`Restart=on-failure`) menjalankannya lagi. Saat start, database lama dipindah ke samping file database dengan nama `nuxbill.db.pre-restore-<waktu>-<acak>` beserta `-wal`-nya, lalu backup diterapkan sebelum database dibuka. Backup dari versi lama naik versi sendiri lewat migrasi. Setelah yakin pemulihan berhasil, file `nuxbill.db.pre-restore-*` boleh dihapus, karena backup otomatis sudah ada.
 
 Backup harus dibuat dengan `NUXBILL_SECRET_KEY` (atau file `nuxbill.db.key`) yang sama dengan aplikasi tujuan. Jika tidak, pemulihan ditolak.
 
@@ -149,6 +149,15 @@ Atau manual:
 
 Cek versi: `/usr/local/bin/nuxbill --version`. Backup database dan `.key` dulu.
 
+**Upgrade dari v0.1.3 ke v0.1.4.** Sebelum start, backup `nuxbill.db` dan `nuxbill.db.key`. Migrasi 0011 sampai 0014 jalan otomatis saat start (kolom `start_on_first_login`, indeks, snapshot pelanggan pada pembayaran, dan 2FA admin). Sebelum upgrade, periksa juga:
+
+- Jika FreeRADIUS berjalan di host lain, isi `radius_rest_allow` dengan IP-nya. Kosong sekarang berarti hanya loopback.
+- Jika UI diakses lewat HTTP polos ke IP LAN, set `NUXBILL_HTTPS=0` di `config.env`. Default-nya cookie `Secure`, sehingga login gagal tanpa ini.
+- Di belakang reverse proxy, lihat `trust_proxy` dan `trusted_proxies` di [konfigurasi.md](konfigurasi.md#jaringan-dan-proxy).
+- Pemantau yang membaca versi atau disk dari `/health` perlu pindah ke `/metrics` atau `/admin/status.json`.
+
+Daftar lengkap perubahan ada di [CHANGELOG.md](../CHANGELOG.md).
+
 ### 7. Pemecahan masalah
 
     journalctl -u nuxbill -n 100 --no-pager
@@ -173,9 +182,9 @@ gobill tidak bisa memberi tahu kalau dirinya sendiri mati. Pasang monitor ekster
 - `status` `ok`: normal. `degraded`: disk kosong di bawah 200 MB (tetap HTTP 200). `down`: database tidak bisa dibaca (HTTP 503).
 - Endpoint ini tanpa login dan tidak menampilkan data pelanggan. Ia tetap bisa diakses saat mode maintenance.
 
-Alarm dari gobill sendiri lewat Telegram (`telegram_bot`), bila sudah diatur:
+Alarm dari gobill sendiri dikirim lewat kanal alert operator (`alert_channel`, bawaan Telegram, lihat [monitoring.md](monitoring.md)):
 
-- **Disk hampir penuh** (di bawah 200 MB pada folder database): dikirim sekali saat turun, dan sekali lagi saat pulih. Cek setiap 10 menit.
+- **Disk hampir penuh** (di bawah 200 MB pada folder database): dikirim sekali saat turun, dan sekali lagi saat pulih. Dicek setiap menit.
 - **`gobill dimulai ulang setelah berhenti tidak normal`**: gobill berhenti karena crash, kill paksa, atau listrik mati. Start dan stop bersih tidak memicu alarm. Penanda ada di `<folder database>/.running`; jangan hapus manual saat gobill berjalan.
 
 ## VPS
@@ -184,7 +193,7 @@ Langkahnya sama dengan STB (`install.sh`, binary `amd64`). Perbedaan penting:
 
 - Jam VPS sudah sinkron, jadi clock guard jarang berpengaruh.
 - Jangan kirim UDP RADIUS/CoA lewat internet terbuka. Pakai WireGuard atau RadSec, lihat [keamanan.md](keamanan.md#link-jarak-jauh-vps).
-- Pasang reverse proxy (HTTPS) di depan `:8080`, lalu pastikan `NUXBILL_HTTPS` tidak diset `0` (default aktif) dan set setting `trust_proxy=yes`.
+- Pasang reverse proxy (HTTPS) di depan `:8080`. Biarkan `NUXBILL_HTTPS` tidak diset (default aktif, cookie `Secure`), set setting `trust_proxy=yes`, dan jika proxy tidak berjalan di host yang sama, isi `trusted_proxies` dengan IP-nya. Lihat [konfigurasi.md](konfigurasi.md#jaringan-dan-proxy).
 
 ## Docker
 
