@@ -180,10 +180,14 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		out := section([]field{
 			sec("telegram_bot", "Telegram Bot Token"),
 			text("telegram_target_id", "Telegram User/Channel/Group ID", v, e),
+			{Name: "telegram_test", Label: "Test Telegram", Type: "test", Value: "/admin/settings/integrations/test/telegram", Btn: "Send Telegram test message",
+				Hint: "Save first. The test uses the saved values and sends a short message to the saved ID"},
 		}, "Telegram", "")
 		out = append(out, section([]field{
 			text("sms_url", "SMS Server URL", v, e).hint("Must contain [number] and [text]"),
 			text("wa_url", "WhatsApp Server URL", v, e).hint("Must contain [number] and [text]"),
+			{Name: "sms_test_phone", Label: "Test SMS", Type: "test", Inp: "tel", Value: "/admin/settings/integrations/test/sms", Btn: "Send SMS test",
+				Hint: "Save first. The test uses the saved SMS Server URL. Type the number to send to"},
 		}, "SMS & WhatsApp", "")...)
 		out = append(out, section([]field{
 			text("alt_wga_server_url", "WA server URL", v, e).hint("Address of the WhatsApp server, e.g. http://127.0.0.1:3030. When filled, WhatsApp is sent straight to this server and the WhatsApp Server URL above is ignored"),
@@ -201,10 +205,14 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			sel("smtp_ssltls", "SMTP Security", option{"", "None"}, option{"ssl", "SSL"}, option{"tls", "TLS"}),
 			text("mail_from", "Mail From", v, e),
 			text("mail_reply_to", "Mail Reply To", v, e),
+			{Name: "email_test_to", Label: "Test email", Type: "test", Inp: "email", Value: "/admin/settings/integrations/test/email", Btn: "Send test email",
+				Hint: "Save first. The test uses the saved SMTP settings. Type the address to send to"},
 		}, "Email (SMTP)", "")...)
 		out = append(out, section([]field{
 			text("webhook_url", "Webhook URL", v, e).hint("http or https. Requests are signed with X-Signature"),
 			sec("webhook_secret", "Webhook Secret"),
+			{Name: "webhook_test", Label: "Test webhook", Type: "test", Value: "/admin/settings/integrations/test/webhook", Btn: "Send test webhook",
+				Hint: "Save first. Sends a signed test event (event \"test\") to the saved URL and shows the HTTP status"},
 		}, "Webhook", "")...)
 		return append(out, section([]field{
 			sec("metrics_token", "Token /metrics"),
@@ -221,6 +229,8 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			text("tripay_merchant_code", "Tripay Merchant Code", v, e),
 			sel("tripay_mode", "Tripay Mode", option{"sandbox", "Sandbox"}, option{"production", "Production"}),
 			text("tripay_channel", "Default Channel", v, e).hint("Optional channel code, e.g. QRIS"),
+			{Name: "tripay_test", Label: "Test connection", Type: "test", Value: "/admin/settings/payment/tripay-test", Btn: "Check connection",
+				Hint: "Save first. Checks the saved keys and merchant code with Tripay's channel list"},
 		}, "Tripay", "")
 		qris := field{Name: "qris_payload", Label: "Static QRIS", Type: "qris", Value: v["qris_payload"], Error: e["qris_payload"],
 			Hint: "Upload the merchant's static QRIS photo (PNG/JPG). The system only stores its text"}
@@ -301,7 +311,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 func fieldNames(fs []field) []string {
 	var out []string
 	for _, f := range fs {
-		if f.Type == "watest" || f.Type == "dsnow" || f.Type == "formbtn" {
+		if f.Type == "watest" || f.Type == "dsnow" || f.Type == "formbtn" || f.Type == "test" {
 			continue // action button, not a setting
 		}
 		out = append(out, f.Name)
@@ -489,7 +499,7 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 			field{Name: "restore", Label: "Restore database", Type: "link", Value: restorePage, Btn: "Open restore page",
 				Hint: "Replaces the data with a gobill backup and restarts the app. A backup is made first.", Section: "System"})
 	}
-	s.render(w, r, status, "form", Page{Title: "Settings", Flash: s.sessions.PopString(r.Context(), "flash"), Tabs: nav, Data: fp})
+	s.render(w, r, status, "form", Page{Title: "Settings", Flash: s.sessions.PopString(r.Context(), "flash"), Error: s.sessions.PopString(r.Context(), "error"), Tabs: nav, Data: fp})
 }
 
 // backupStatus is the one-line status under "Download backup", written by job.Backup. The mirror path is SuperAdmin only.

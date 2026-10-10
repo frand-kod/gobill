@@ -36,6 +36,9 @@
         {{else if eq .Type "watest"}}
         <div class="flex flex-wrap gap-2"><input class="input flex-1" id="{{.Name}}" name="{{.Name}}" value="{{.Value}}" inputmode="tel" placeholder="08123456789"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
         <button type="submit" class="btn btn-ghost" formaction="/admin/settings/integrations/wa-test">{{T "Send test message"}}</button></div>
+        {{else if eq .Type "test"}}
+        <div class="flex flex-wrap gap-2">{{if .Inp}}<input class="input flex-1" id="{{.Name}}" name="{{.Name}}" type="{{.Inp}}" autocomplete="off">{{end}}
+        <button type="submit" class="btn btn-ghost" formaction="{{.Value}}">{{T .Btn}}</button></div>
         {{else if eq .Type "tokenshow"}}
         <code class="block break-all rounded border border-line bg-surface-2 p-3 font-mono text-sm" id="{{.Name}}">{{.Value}}</code>
         <pre class="mt-2 overflow-x-auto rounded border border-line bg-surface-2 p-3 text-xs"><code>{{.Snippet}}</code></pre>

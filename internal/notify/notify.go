@@ -113,6 +113,9 @@ var (
 	scrubPhone = regexp.MustCompile(`\+?\d{7,}`)
 )
 
+// Scrub is scrub for the web layer: error text without URLs, bot tokens or phone numbers.
+func Scrub(s string) string { return scrub(s) }
+
 // scrub removes URLs, bot tokens and phone-like numbers from error text before it is shown.
 func scrub(s string) string {
 	s = scrubURL.ReplaceAllString(s, "<url>")
@@ -180,17 +183,18 @@ func (n *Notifier) Go(name string, fn func(context.Context) error) {
 	}()
 }
 
-func (n *Notifier) do(ctx context.Context, req *http.Request) error {
+// do sends req and returns the HTTP status (0 when there was no answer).
+func (n *Notifier) do(ctx context.Context, req *http.Request) (int, error) {
 	resp, err := n.HTTP.Do(req.WithContext(ctx))
 	if err != nil {
-		return clean(err)
+		return 0, clean(err)
 	}
 	defer resp.Body.Close()
 	io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("%s: HTTP %d", req.URL.Host, resp.StatusCode)
+		return resp.StatusCode, fmt.Errorf("%s: HTTP %d", req.URL.Host, resp.StatusCode)
 	}
-	return nil
+	return resp.StatusCode, nil
 }
 
 func (n *Notifier) getURL(ctx context.Context, u string) error {
@@ -198,7 +202,8 @@ func (n *Notifier) getURL(ctx context.Context, u string) error {
 	if err != nil {
 		return clean(err)
 	}
-	return n.do(ctx, req)
+	_, err = n.do(ctx, req)
+	return err
 }
 
 // Telegram sends text to telegram_target_id (sendTelegram).
@@ -382,26 +387,32 @@ func (n *Notifier) mailer(to, subject, body string) (*mail.Client, *mail.Msg, er
 // Webhook POSTs {"event","time","data"} signed with X-Signature: sha256=HMAC(webhook_secret, body).
 // Events: customer.activated, recharge.expired, payment.paid.
 func (n *Notifier) Webhook(ctx context.Context, event string, payload any) error {
+	_, err := n.PostWebhook(ctx, event, payload)
+	return err
+}
+
+// PostWebhook is Webhook that also returns the HTTP status (0 when there is no URL or no answer).
+func (n *Notifier) PostWebhook(ctx context.Context, event string, payload any) (int, error) {
 	u := n.get("webhook_url")
 	if u == "" {
-		return nil
+		return 0, nil
 	}
 	body, err := json.Marshal(map[string]any{"event": event, "time": time.Now().Unix(), "data": payload})
 	if err != nil {
-		return err
+		return 0, err
 	}
 	req, err := http.NewRequest(http.MethodPost, u, strings.NewReader(string(body)))
 	if err != nil {
-		return err
+		return 0, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Event", event)
 	mac := hmac.New(sha256.New, []byte(n.get("webhook_secret")))
 	mac.Write(body)
 	req.Header.Set("X-Signature", "sha256="+hex.EncodeToString(mac.Sum(nil)))
-	err = n.do(ctx, req)
+	status, err := n.do(ctx, req)
 	record("webhook", err)
-	return err
+	return status, err
 }
 
 // Render replaces [[key]] placeholders; unknown ones stay as-is (str_replace).
