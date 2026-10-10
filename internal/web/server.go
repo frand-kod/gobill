@@ -19,6 +19,7 @@ import (
 	"github.com/frand-kod/gobill/internal/radius"
 	"golang.org/x/crypto/bcrypt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
@@ -66,6 +67,7 @@ type Server struct {
 
 	idle   atomic.Int64 // admin idle timeout in ns, see ReloadSessionSettings
 	single atomic.Bool  // single_session
+	trust  atomic.Bool  // trust_proxy, see realIP
 }
 
 // Page is the data every template receives.
@@ -178,6 +180,16 @@ func contains(list []string, v string) bool {
 		}
 	}
 	return false
+}
+
+// realIP replaces RemoteAddr with the rightmost X-Forwarded-For entry (added by our own proxy) when trust_proxy=yes.
+func (s *Server) realIP(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if xf := r.Header.Get("X-Forwarded-For"); xf != "" && s.trust.Load() {
+			r.RemoteAddr = strings.TrimSpace(xf[strings.LastIndexByte(xf, ',')+1:])
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // clientIP is the host part of RemoteAddr.

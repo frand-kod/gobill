@@ -124,3 +124,14 @@ func TestVoucherThrottle(t *testing.T) {
 		t.Fatal("window did not expire")
 	}
 }
+
+func TestVoucherThrottlePerNAS(t *testing.T) {
+	e, _ := voucherEnv(t)
+	t.Cleanup(func() { voucherFails.reset("nas|10.0.0.1") })
+	for i := 0; i < voucherMaxFails*10; i++ { // rotating the MAC dodges the per-MAC cap only
+		e.auth(t, papMAC(fmt.Sprintf("X%d", i), fmt.Sprintf("X%d", i), fmt.Sprintf("m%d", i)))
+	}
+	if r := e.auth(t, papMAC("V1", "V1", "fresh")); rfc2865.ReplyMessage_GetString(r) != "Too many attempts, try again later" {
+		t.Fatalf("NAS not throttled: %s", rfc2865.ReplyMessage_GetString(r))
+	}
+}

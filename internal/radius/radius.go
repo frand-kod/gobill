@@ -160,7 +160,7 @@ func (s *Server) Authorize(ctx context.Context, rq AuthRequest) Decision {
 	// ponytail: per-user throttle is in-memory, per process (see failLimiter). A retransmit never
 	// gets here: dupCache absorbs it, so retries cannot lock a user out.
 	now := s.now().Unix()
-	if rq.User != "" && s.userFails.blocked(rq.User, now) {
+	if rq.User != "" && s.userFails.blocked(rq.User, now, voucherMaxFails) {
 		return Decision{Reject: "Too many attempts, try again later"}
 	}
 	d := s.decide(ctx, rq)
@@ -182,13 +182,15 @@ func (s *Server) decide(ctx context.Context, rq AuthRequest) Decision {
 	if !vl {
 		return s.authorize(ctx, rq, false)
 	}
-	key, now := rq.NAS+"|"+rq.MAC, s.now().Unix()
-	if voucherFails.blocked(key, now) {
+	key, nasKey, now := rq.NAS+"|"+rq.MAC, "nas|"+rq.NAS, s.now().Unix()
+	// the MAC is client-chosen, so also cap failures per NAS
+	if voucherFails.blocked(key, now, voucherMaxFails) || voucherFails.blocked(nasKey, now, voucherMaxFails*10) {
 		return Decision{Reject: "Too many attempts, try again later"}
 	}
 	d := s.authorize(ctx, rq, true)
 	if d.Reject != "" {
 		voucherFails.fail(key, now)
+		voucherFails.fail(nasKey, now)
 	}
 	return d
 }
@@ -372,10 +374,10 @@ func (l *failLimiter) recent(key string, now int64) []int64 {
 	return t[i:]
 }
 
-func (l *failLimiter) blocked(key string, now int64) bool {
+func (l *failLimiter) blocked(key string, now int64, max int) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return len(l.recent(key, now)) >= voucherMaxFails
+	return len(l.recent(key, now)) >= max
 }
 
 func (l *failLimiter) fail(key string, now int64) {

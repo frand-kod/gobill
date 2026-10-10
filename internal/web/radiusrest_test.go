@@ -48,6 +48,7 @@ func restSetup(t *testing.T, expired bool) (*Server, *db.Queries) {
 func post(h http.Handler, path string, form url.Values, remote string) *httptest.ResponseRecorder {
 	r := httptest.NewRequest("POST", path, strings.NewReader(form.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.RemoteAddr = "127.0.0.1:1"
 	if remote != "" {
 		r.RemoteAddr = remote
 	}
@@ -170,6 +171,7 @@ func TestRadiusRestAllowList(t *testing.T) {
 		t.Fatalf("spoofed XFF accepted: %d", c)
 	}
 	q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "trust_proxy", Value: "yes"})
+	s.ReloadSessionSettings(t.Context())
 	if c := spoof(); c != 200 {
 		t.Fatalf("trusted XFF: %d", c)
 	}
@@ -182,6 +184,7 @@ func TestRadiusRestCSRFAndMaintenance(t *testing.T) {
 	cross := func(path string) int {
 		r := httptest.NewRequest("POST", path, strings.NewReader("username=bob&password=pw"))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		r.RemoteAddr = "127.0.0.1:1"
 		r.Header.Set("Origin", "https://evil.example")
 		r.Header.Set("Sec-Fetch-Site", "cross-site")
 		w := httptest.NewRecorder()
@@ -195,5 +198,35 @@ func TestRadiusRestCSRFAndMaintenance(t *testing.T) {
 	}
 	if c := cross("/portal/login"); c != 403 {
 		t.Errorf("other path must keep CSRF protection, got %d", c)
+	}
+}
+
+func TestRadiusRestEmptyAllowLoopbackOnly(t *testing.T) {
+	m := map[string]string{}
+	for remote, want := range map[string]bool{"127.0.0.1:1": true, "[::1]:1": true, "10.0.0.5:1": false} {
+		if got := radiusRestAllowed(&http.Request{RemoteAddr: remote}, m); got != want {
+			t.Errorf("%s: %v want %v", remote, got, want)
+		}
+	}
+}
+
+func TestRealIPMiddleware(t *testing.T) {
+	s, _ := restSetup(t, false)
+	var got string
+	h := s.realIP(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { got = clientIP(r) }))
+	call := func() {
+		r := httptest.NewRequest("GET", "/", nil)
+		r.RemoteAddr = "10.0.0.2:99"
+		r.Header.Set("X-Forwarded-For", "1.1.1.1, 9.9.9.9")
+		h.ServeHTTP(nil, r)
+	}
+	call()
+	if got != "10.0.0.2" {
+		t.Fatalf("untrusted: %s", got)
+	}
+	s.trust.Store(true)
+	call()
+	if got != "9.9.9.9" {
+		t.Fatalf("trusted: %s", got)
 	}
 }

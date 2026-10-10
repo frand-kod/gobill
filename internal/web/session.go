@@ -27,6 +27,7 @@ func (s *Server) ReloadSessionSettings(ctx context.Context) {
 	}
 	s.idle.Store(int64(idle))
 	s.single.Store(m["single_session"] == "yes")
+	s.trust.Store(m["trust_proxy"] == "yes")
 }
 
 // idleGuard ends admin and portal sessions that were inactive for longer than the idle timeout.

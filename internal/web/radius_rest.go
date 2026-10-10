@@ -19,18 +19,13 @@ import (
 
 func isRadiusRest(path string) bool { return path == "/radius.php" || path == "/radius/rest" }
 
-// radiusRestAllowed: empty allow-list = everybody. X-Forwarded-For (rightmost = added by our proxy) only with trust_proxy=yes.
+// radiusRestAllowed: empty allow-list = loopback only. clientIP honours X-Forwarded-For with trust_proxy=yes.
 func radiusRestAllowed(r *http.Request, m map[string]string) bool {
 	allow := strings.TrimSpace(m["radius_rest_allow"])
 	if allow == "" {
-		return true
+		allow = "127.0.0.0/8,::1"
 	}
-	ip := clientIP(r)
-	if xf := r.Header.Get("X-Forwarded-For"); m["trust_proxy"] == "yes" && xf != "" {
-		parts := strings.Split(xf, ",")
-		ip = strings.TrimSpace(parts[len(parts)-1])
-	}
-	a, err := netip.ParseAddr(ip)
+	a, err := netip.ParseAddr(clientIP(r))
 	if err != nil {
 		return false
 	}

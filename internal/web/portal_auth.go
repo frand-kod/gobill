@@ -57,12 +57,12 @@ func (s *Server) pLoginForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
-	ip := "c:" + clientIP(r)
-	if s.tooManyFailures(ip) {
+	username := strings.TrimSpace(r.PostFormValue("username"))
+	ip, uk := "c:"+clientIP(r), "u:"+strings.ToLower(username)
+	if s.tooManyFailures(ip) || s.tooManyFailures(uk) {
 		s.prender(w, r, http.StatusTooManyRequests, "p_login", Page{Title: "Sign in", Error: "Too many failed attempts. Try again in 15 minutes."})
 		return
 	}
-	username := strings.TrimSpace(r.PostFormValue("username"))
 	c, err := s.queries.GetCustomerByUsername(r.Context(), username)
 	hash := s.dummyHash
 	if err == nil {
@@ -71,10 +71,12 @@ func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
 	ok := bcrypt.CompareHashAndPassword(hash, []byte(r.PostFormValue("password"))) == nil
 	if err != nil || !ok || c.Status == "Banned" || c.Status == "Disabled" {
 		s.recordFailure(ip)
+		s.recordFailure(uk)
 		s.prender(w, r, 200, "p_login", Page{Title: "Sign in", Error: "Invalid Username or Password", Data: username})
 		return
 	}
 	s.clearFailures(ip)
+	s.clearFailures(uk)
 	if err := s.sessions.RenewToken(r.Context()); err != nil {
 		s.fail(w, "renew session", err)
 		return
