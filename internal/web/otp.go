@@ -64,7 +64,7 @@ func otpOff(st map[string]string) bool { return st["notify_otp"] == "no" }
 
 // otpEnabled: old sms_otp_registration, but only when a WA/SMS gateway exists to deliver it.
 func otpEnabled(st map[string]string) bool {
-	return st["sms_otp_registration"] == "yes" && (st["sms_url"] != "" || notify.WAConfigured(st))
+	return st["sms_otp_registration"] == "yes" && (notify.SMSConfigured(st) || notify.WAConfigured(st))
 }
 
 func (s *Server) sendOTP(ctx context.Context, st map[string]string, phone, label, otp string) error {

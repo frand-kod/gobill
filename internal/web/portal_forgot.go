@@ -130,7 +130,7 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "forgot settings", err)
 		return
 	}
-	if st["sms_url"] == "" && !notify.WAConfigured(st) {
+	if !notify.SMSConfigured(st) && !notify.WAConfigured(st) {
 		s.forgotRender(w, r, http.StatusOK, "", "Password reset is not available, please contact admin")
 		return
 	}

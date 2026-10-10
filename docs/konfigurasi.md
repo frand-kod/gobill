@@ -135,14 +135,15 @@ Detail halaman Status, `/health`, dan alert ada di [monitoring.md](monitoring.md
 | `notif_*`, `user_notification_*` | Template pesan (expired, reminder, invoice, selamat datang, saldo) dan kanal per jenis pesan |
 | `telegram_bot`, `telegram_target_id` | Token bot dan ID tujuan Telegram |
 | `alt_wga_server_url`, `alt_wga_device_id`, `alt_wga_username`, `alt_wga_password` | Server WhatsApp langsung (lihat bagian WhatsApp) |
-| `wa_url`, `sms_url` | URL gateway WhatsApp dan SMS dengan placeholder `[number]` dan `[text]` |
+| `wa_url` | URL gateway pesan WhatsApp dan SMS, dengan placeholder `[number]` dan `[text]`. Dipakai untuk semua pesan WhatsApp dan SMS, kecuali GOWA (`alt_wga_server_url`) diisi. Satu URL ini cukup untuk keduanya |
+| `sms_url` | Hanya dibaca untuk kompatibilitas (impor PHPNuxBill). Jika ada dan berisi, SMS memakai `sms_url`. Di Settings > Integrations, nilainya tampil di kolom gateway dan dipindah ke `wa_url` saat disimpan |
 | `smtp_host`, `smtp_port`, `smtp_user`, `smtp_pass`, `smtp_ssltls`, `mail_from`, `mail_reply_to` | Email (SMTP) |
 | `webhook_url`, `webhook_secret` | Webhook keluar, ditandatangani di header `X-Signature` |
 
 Setiap bagian punya tombol uji di Settings > Integrations (SuperAdmin, maksimal 5 tes per menit). Simpan dulu sebelum menguji, karena tes memakai nilai yang tersimpan. Tes tidak terpengaruh `notify_customers`, karena tujuannya operator:
 
 - "Kirim pesan uji Telegram": mengirim pesan singkat ke `telegram_target_id`.
-- "Kirim SMS uji": mengirim pesan ke nomor yang Anda ketik lewat `sms_url`.
+- "Kirim gateway uji": mengirim SMS ke nomor yang Anda ketik lewat URL gateway (`wa_url`).
 - "Kirim email uji": mengirim email ke alamat yang Anda ketik lewat SMTP tersimpan.
 - "Kirim webhook uji": mengirim event `test` yang ditandatangani ke `webhook_url` dan menampilkan status HTTP.
 - "Cek koneksi" (Settings > Payment Gateway, Tripay): memanggil daftar channel pembayaran Tripay untuk memastikan kunci dan merchant code benar.
@@ -159,9 +160,8 @@ Di Settings > Payment Gateway, bagian QRIS, unggah foto QRIS statis merchant And
 
 Ada dua cara mengirim WhatsApp. Yang dipakai ditentukan otomatis:
 
-1. **Server WA langsung** (disarankan): isi di Pengaturan > Integrasi, bagian "WhatsApp (server WA)":
-   `alt_wga_server_url` (mis. `http://127.0.0.1:3030`), `alt_wga_device_id` (opsional), `alt_wga_username` dan `alt_wga_password` (basic auth, jika server memakainya). NuxBill mengirim `POST <alt_wga_server_url>/send/message` dengan body `{"phone":"628xxx@s.whatsapp.net","message":"..."}`, sama seperti plugin "Alternative WhatsApp Gateway" di PHPNuxBill. Nomor yang diawali 0 diubah memakai `country_code_phone`.
-2. **`wa_url`** (URL template dengan `[number]` dan `[text]`): dipakai hanya jika `alt_wga_server_url` kosong.
+1. **GOWA** (disarankan): server [go-whatsapp-web-multidevice](https://github.com/aldinokemal/go-whatsapp-web-multidevice). Isi di Pengaturan > Integrasi, bagian "WhatsApp — GOWA", kolom "GOWA URL": `alt_wga_server_url` (mis. `http://127.0.0.1:3030`), `alt_wga_device_id` (opsional), `alt_wga_username` dan `alt_wga_password` (basic auth, jika server memakainya). NuxBill mengirim `POST <alt_wga_server_url>/send/message` dengan body `{"phone":"628xxx@s.whatsapp.net","message":"..."}`, sama seperti plugin "Alternative WhatsApp Gateway" di PHPNuxBill. Nomor yang diawali 0 diubah memakai `country_code_phone`.
+2. **Gateway pesan `wa_url`** (URL template dengan `[number]` dan `[text]`, sama dengan yang dipakai SMS): dipakai hanya jika `alt_wga_server_url` kosong. Gateway WhatsApp lain (Fonnte, Wablas, WAHA, dan sejenisnya) belum punya integrasi khusus; untuk sementara pakai `wa_url` jika gatewaynya mendukung GET dengan `[number]` dan `[text]`.
 
 Jika `alt_wga_server_url` terisi, `wa_url` diabaikan sepenuhnya. Jika `wa_url` masih berisi alamat plugin PHP lama (`...?_route=plugin/wga_sendMessage&...`), NuxBill mencatat peringatan di log dan tetap mengirim langsung ke server WA. Kosongkan `wa_url` supaya tidak membingungkan.
 
