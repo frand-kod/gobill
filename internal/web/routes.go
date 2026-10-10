@@ -50,6 +50,7 @@ func (s *Server) paymentRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /portal/payments/{id}", s.requireCustomer(s.pPayView))
 	mux.Handle("POST /portal/payments/{id}/check", s.requireCustomer(s.pPayCheck))
 	mux.HandleFunc("POST /callback/tripay", s.tripayCallback)
+	mux.HandleFunc("GET /qris/{id}/{token}", s.qrisPage)
 }
 
 // ---- admin (A71-A73) ----

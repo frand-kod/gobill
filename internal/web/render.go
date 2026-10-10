@@ -96,6 +96,7 @@ func (s *Server) parseTemplates() error {
 		"network":          {"base.html", "app.html", "network.html"},
 
 		"p_login":       {"base.html", "portal/login.html"},
+		"p_qris":        {"base.html", "portal/qris.html"},
 		"p_register":    {"base.html", "portal/register.html"},
 		"p_dashboard":   {"base.html", "portal/layout.html", "portal/dashboard.html", "portal/dash_cards.html"},
 		"p_profile":     {"base.html", "portal/layout.html", "portal/profile.html"},

@@ -23,7 +23,8 @@ var settingSample = map[string]string{
 	"sms_url": "http://gw.test/send?to=[number]&text=[text]", "wa_url": "http://gw.test/wa?to=[number]&text=[text]",
 	"alt_wga_server_url": "http://127.0.0.1:3030", "smtp_port": "587", "webhook_url": "https://hook.test/x",
 	"voucher_redirect": "https://192.168.88.1/status", "extend_days": "3", "minimum_transfer": "5000",
-	"language": "english",
+	"language":     "english",
+	"qris_payload": "00020101021126610014COM.GO-JEK.WWW01189360091431538383250210G1538383250303UMI51440014ID.CO.QRIS.WWW0215ID10264879603990303UMI5204481453033605802ID59164 Keys Solutions6010YOGYAKARTA61055516162140703A0111036216304BA80",
 }
 
 // settingSampleFor picks the value a test saves into a non-secret field: the last real choice of a
@@ -117,6 +118,10 @@ func TestSettingsEveryFieldShowsStoredValue(t *testing.T) {
 				m := regexp.MustCompile(`(?s)name="` + f.Name + `" rows="4"[^>]*>(.*?)</textarea>`).FindStringSubmatch(body)
 				if m == nil || html.UnescapeString(m[1]) != want[f.Name] {
 					t.Errorf("%s/%s: textarea does not show %q", tab.Slug, f.Name, want[f.Name])
+				}
+			case "qris": // the advanced paste box next to the photo upload
+				if !strings.Contains(body, `name="`+f.Name+`" value="`+html.EscapeString(want[f.Name])+`"`) {
+					t.Errorf("%s/%s: value %q not shown", tab.Slug, f.Name, want[f.Name])
 				}
 			default: // text, number, time, date
 				if !strings.Contains(body, `name="`+f.Name+`" type="`+f.Type+`" value="`+html.EscapeString(want[f.Name])+`"`) {
