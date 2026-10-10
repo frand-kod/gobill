@@ -28,15 +28,16 @@ Satu binary `nuxbill` menjalankan semuanya dalam satu proses:
 | Paket | Fungsi |
 |---|---|
 | `cmd/nuxbill` | Entry point: baca env, buka DB, migrasi, start HTTP + RADIUS + job; subperintah `import` |
-| `internal/web` | Handler HTTP admin dan portal, middleware auth/role/CSRF, endpoint `/radius.php`, callback Tripay |
-| `internal/billing` | Logika bisnis: masa aktif, recharge, saldo, voucher, kupon, sinkron paket/router, reminder |
-| `internal/db` | Hasil `sqlc`, migrator (`PRAGMA user_version`), file migrasi dan query |
+| `internal/web` | Handler HTTP admin dan portal, middleware auth/role/CSRF, endpoint `/radius.php`, callback Tripay, `/health`, `/metrics`, halaman Status Sistem, 2FA admin, impor dan restore dari UI |
+| `internal/billing` | Logika bisnis: masa aktif (termasuk `start_on_first_login`), recharge, saldo, voucher, kupon, sinkron paket/router, reminder, alert operator (`health.go`) |
+| `internal/db` | Hasil `sqlc`, migrator (`PRAGMA user_version`), file migrasi (0001-0014), query, dan restore database (`restore.go`) |
 | `internal/device` | Interface `Device` dan driver: MikroTik hotspot/PPPoE (API), `Radius`, `Dummy` |
 | `internal/radius` | Server RADIUS (PAP, CHAP, MS-CHAPv2), accounting, CoA/Disconnect, Message-Authenticator, dedup |
-| `internal/payment` | Interface `PaymentGateway` dan implementasi Tripay |
+| `internal/payment` | Interface `PaymentGateway`, implementasi Tripay, dan pembacaan QRIS statis (QR terkunci nominal) |
 | `internal/notify` | Telegram, WA/SMS (URL gateway), email, webhook; redaksi error |
-| `internal/job` | Loop ticker: clock guard, expiry, backup |
-| `internal/importer` | Impor MySQL PHPNuxBill ke SQLite |
+| `internal/job` | Loop ticker: clock guard, expiry, reminder, pembersihan log, router check, backup (dengan mirror), ringkasan harian, alert; deteksi jam dan disk |
+| `internal/importer` | Impor PHPNuxBill ke SQLite, dari MySQL atau dari file backup JSON |
+| `internal/metrics` | Registry counter dan gauge di memori, dan format teks Prometheus untuk `/metrics` |
 | `internal/secret` | Enkripsi AES-GCM dan pemuatan kunci |
 | `internal/i18n` | Pemuat terjemahan dari `lang/*.json` |
 | `web/`, `assets.go` | Template, CSS, JS, ikon (di-embed ke binary) |
@@ -53,6 +54,12 @@ Satu binary `nuxbill` menjalankan semuanya dalam satu proses:
 
 **CoA/Disconnect.** Saat plan habis atau admin menekan Disconnect, `radius` mengirim Disconnect-Request ke port 3799 NAS dengan identitas NAS-IP-Address yang dilaporkan NAS itu. Balasan NAK didecode (Error-Cause) ke log.
 
+**Recharge dengan `start_on_first_login`.** Untuk paket `Radius` yang baru atau habis, langganan ditandai `pending_start = 1` dan tidak punya tanggal mulai. Auth RADIUS pertama pelanggan memanggil `StartPending`, yang mengisi `started_at` dan `expires_at` dari saat itu.
+
+**Impor dan restore.** Keduanya hanya bisa dijalankan SuperAdmin. Impor (CLI atau UI) membuat backup database di `NUXBILL_BACKUP_DIR` lebih dulu, lalu menimpa data dalam satu transaksi. Restore dari UI memvalidasi file (integritas, versi skema, kunci), menyimpan data saat ini sebagai backup `-pre-restore.db`, memasang file sebagai `nuxbill.db.restore`, lalu keluar dengan kode 3. Systemd menjalankan ulang aplikasi, dan file itu diterapkan sebelum database dibuka.
+
+**Monitoring.** Metrik dicatat ke registry di memori. `/metrics` membacanya (dengan bearer token), `/admin/status` menampilkan ringkasannya, dan job `alert` mengevaluasi aturan alert setiap menit. Detail di [monitoring.md](monitoring.md).
+
 **Callback Tripay.** `POST /callback/tripay` memverifikasi signature, lalu menandai pembayaran dan mengaktifkan paket secara idempoten (callback ganda tidak menggandakan saldo).
 
 ## Model data
@@ -65,12 +72,12 @@ Satu binary `nuxbill` menjalankan semuanya dalam satu proses:
 - Indeks: pencarian login RADIUS (`username` atau `pppoe_username`), sesi RADIUS per user dan sesi terbuka, serta relasi langganan/voucher/transaksi memakai indeks parsial bila cocok. Query login diuji dengan `EXPLAIN QUERY PLAN` (`internal/db/indexes_test.go`).
 - Retensi harian (`log_keep_days`, default 90 hari bila belum diisi): log, sesi RADIUS tertutup, pesan inbox yang sudah dibaca, dan pembayaran yang belum lunas dihapus per 5000 baris. Pembayaran lunas tidak pernah dihapus. Sesi RADIUS terbuka yang tidak diperbarui selama 1 jam ditutup pada waktu pembaruan terakhirnya.
 - Migrasi: file `.sql` bernomor di `internal/db/migrations/`, dibekukan lewat `migrations.sum` ([pengembangan.md](pengembangan.md#migration-freeze)).
-- SQLite: WAL, `synchronous=FULL`, `_txlock=immediate`.
+- SQLite: WAL, `synchronous=FULL`, `_txlock=immediate`, `busy_timeout` 5 detik, `foreign_keys` aktif, batas `journal_size_limit` 16 MB.
 
 ## Aturan khusus STB
 
 1. **Jam tidak dipercaya** setelah boot tanpa RTC: expiry, reminder, backup, dan RADIUS ditahan atau disesuaikan sampai NTP sinkron; `clock_guard=off` bila ada RTC.
 2. **Listrik padam:** WAL + `synchronous=FULL`, sehingga transaksi yang sudah commit tidak hilang.
-3. **eMMC cepat aus:** log ke stdout (journald); accounting interim hanya meng-update baris sesi.
+3. **eMMC cepat aus:** log ke stdout (journald); accounting interim hanya meng-update baris sesi. Pembersihan log dilakukan dalam batch 5000 baris.
 4. **Backup ke luar perangkat:** `NUXBILL_BACKUP_DIR` ([instalasi.md](instalasi.md#4-backup-ke-usb-atau-nas)).
 5. **Build:** `CGO_ENABLED=0` untuk `linux/amd64`, `arm64`, dan `arm` (GOARM=7).
