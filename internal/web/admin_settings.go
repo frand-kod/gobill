@@ -143,7 +143,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		}, "Global switches", "")
 		out = append(out, section([]field{
 			sel("alert_channel", "Operator alert channel", option{"telegram", "Telegram"}, option{"wa", "WhatsApp"}, option{"both", "Telegram and WhatsApp"}).hint("Where alerts about this box go: disk, NAS silent, failing jobs or channels, login attempts, backups. Telegram uses the Telegram ID in Integrations"),
-			text("alert_wa_to", "Operator alert WhatsApp number", v, e).hint("Empty = the daily summary number. Needs the WA server or WhatsApp URL in Integrations"),
+			text("alert_wa_to", "Operator alert WhatsApp number", v, e).hint("Empty = the daily summary number. Needs GOWA or the message gateway URL in Integrations"),
 			text("alert_nas_silent_minutes", "NAS silent alert (minutes)", v, e).as("number").hint("Alert when a NAS that sent RADIUS packets before sends none for this many minutes. Default 15"),
 		}, "Operator alerts", "")...)
 		out = append(out, section([]field{
@@ -172,7 +172,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		return append(out, section([]field{
 			sel("daily_summary_enabled", "Daily summary", settingsYesNo...).hint("Sends a short report to you (the operator) every morning: income yesterday, new customers, subscriptions expiring, routers offline"),
 			text("daily_summary_time", "Daily summary time", v, e).as("time").hint("Server time zone, e.g. 07:00"),
-			sel("daily_summary_channel", "Daily summary channel", option{"", "Disabled"}, option{"telegram", "Telegram"}, option{"wa", "WhatsApp"}, option{"both", "Telegram and WhatsApp"}).hint("Telegram uses the Telegram ID in Integrations. WhatsApp needs the WA server or WhatsApp URL in Integrations"),
+			sel("daily_summary_channel", "Daily summary channel", option{"", "Disabled"}, option{"telegram", "Telegram"}, option{"wa", "WhatsApp"}, option{"both", "Telegram and WhatsApp"}).hint("Telegram uses the Telegram ID in Integrations. WhatsApp needs GOWA or the message gateway URL in Integrations"),
 			text("daily_summary_wa_to", "Operator WhatsApp number", v, e).hint("Your own number, e.g. 08123456789"),
 			{Name: "daily_summary_now", Label: "Send summary now", Type: "dsnow", Value: v["daily_summary_now"], Error: e["daily_summary_now"],
 				Hint: "Sends the summary right now to test it. Save the settings first: the saved values are used"},
@@ -194,8 +194,8 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			{Name: "other_wa_info", Label: "Gateway WhatsApp lain (Fonnte, Wablas, WAHA, …): segera hadir. Untuk sementara pakai URL gateway pesan di atas jika gateway-nya mendukung GET dengan [number] dan [text].", Type: "note"},
 			text("alt_wga_server_url", "GOWA URL", v, e).hint("Address of the GOWA server, e.g. http://127.0.0.1:3030. When filled, WhatsApp is sent straight to this server and the message gateway URL above is ignored"),
 			text("alt_wga_device_id", "WA device ID", v, e).hint("Optional. Sent as the X-Device-Id header. Leave empty if the server has only one device"),
-			text("alt_wga_username", "WA server username", v, e).hint("Basic auth username of the WA server, if it has one"),
-			sec("alt_wga_password", "WA server password"),
+			text("alt_wga_username", "GOWA username", v, e).hint("Basic auth username of GOWA, if it has one"),
+			sec("alt_wga_password", "GOWA password"),
 			{Name: "wa_test_phone", Label: "Send test message", Type: "watest", Error: e["wa_test_phone"], Value: v["wa_test_phone"],
 				Hint: "Type a phone number and press the button. Uses the values typed above, even if not saved yet. Devices and QR login are managed in the WA server's own page, not here"},
 		}, "WhatsApp — GOWA", "")...)

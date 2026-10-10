@@ -34,7 +34,7 @@ func TestWATestButton(t *testing.T) {
 	}
 	wa.Close()
 	w = do(h, "POST", "/admin/settings/integrations/wa-test", url.Values{"alt_wga_server_url": {wa.URL}, "wa_test_phone": {"08123456789"}}, c)
-	if !strings.Contains(w.Body.String(), "Cannot reach the WA server") {
+	if !strings.Contains(w.Body.String(), "GOWA") {
 		t.Fatal("no plain error")
 	}
 	if w := do(h, "POST", "/admin/settings/integrations/wa-test", url.Values{}, login(t, h, "bob")); w.Code != 403 {
