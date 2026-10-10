@@ -431,6 +431,7 @@ type QuickSearchCustomersRow struct {
 
 // Header type-ahead and customer picker. Empty term: the first customers, Active first, then username.
 // Otherwise case-insensitive substring match with instr (no LIKE wildcards to escape); exact matches sort first.
+// ORDER BY uses ?1: sqlc (sqlite) does not rewrite sqlc.arg() inside ORDER BY.
 func (q *Queries) QuickSearchCustomers(ctx context.Context, arg QuickSearchCustomersParams) ([]QuickSearchCustomersRow, error) {
 	rows, err := q.db.QueryContext(ctx, quickSearchCustomers, arg.Term, arg.Limit)
 	if err != nil {

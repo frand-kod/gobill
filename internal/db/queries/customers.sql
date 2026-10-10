@@ -80,6 +80,7 @@ WHERE CAST(sqlc.arg(term) AS TEXT) = ''
    OR instr(lower(fullname), lower(CAST(sqlc.arg(term) AS TEXT))) > 0
    OR instr(lower(phone), lower(CAST(sqlc.arg(term) AS TEXT))) > 0
    OR instr(lower(pppoe_username), lower(CAST(sqlc.arg(term) AS TEXT))) > 0
-ORDER BY (CAST(sqlc.arg(term) AS TEXT) <> '' AND (lower(username) = lower(CAST(sqlc.arg(term) AS TEXT)) OR (pppoe_username <> '' AND lower(pppoe_username) = lower(CAST(sqlc.arg(term) AS TEXT))) OR phone = CAST(sqlc.arg(term) AS TEXT))) DESC,
-   (CAST(sqlc.arg(term) AS TEXT) = '' AND status <> 'Active'), username
+-- ORDER BY uses ?1: sqlc (sqlite) does not rewrite sqlc.arg() inside ORDER BY.
+ORDER BY (CAST(?1 AS TEXT) <> '' AND (lower(username) = lower(CAST(?1 AS TEXT)) OR (pppoe_username <> '' AND lower(pppoe_username) = lower(CAST(?1 AS TEXT))) OR phone = CAST(?1 AS TEXT))) DESC,
+   (CAST(?1 AS TEXT) = '' AND status <> 'Active'), username
 LIMIT sqlc.arg(limit);
