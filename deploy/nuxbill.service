@@ -13,6 +13,7 @@ EnvironmentFile=/etc/nuxbill/config.env
 ExecStart=/usr/local/bin/nuxbill
 StateDirectory=nuxbill
 # Folder backup di USB/NAS: tambahkan lewat drop-in, mis. ReadWritePaths=/mnt/usb/nuxbill-backup
+# Folder mirror backup (NUXBILL_BACKUP_MIRROR) juga perlu drop-in ReadWritePaths sendiri, mis. ReadWritePaths=/mnt/nas/nuxbill-backup
 Restart=on-failure
 RestartSec=5
 

@@ -111,3 +111,11 @@ func (s *Service) telegram(text string) {
 		n.Go("telegram", func(ctx context.Context) error { return n.Telegram(ctx, text) })
 	}
 }
+
+// Alert sends an operator alert synchronously and returns the send error. No-op without telegram_bot.
+func (s *Service) Alert(ctx context.Context, text string) error {
+	if n := s.notifier(); n != nil {
+		return n.Telegram(ctx, text)
+	}
+	return nil
+}
