@@ -135,6 +135,10 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		}, "Money", "")...)
 	case "notifications":
 		out := section([]field{
+			sel("notify_customers", "Send notifications to customers", settingsYesNo...).hint("No stops every message to customers: reminders, expired, invoices and QRIS payment links, welcome and balance messages, and manual messages. Operator alerts are not affected"),
+			sel("notify_otp", "Send OTP codes", settingsYesNo...).hint("Verification codes for registration, forgot password and contact change. When No, these features say codes are unavailable"),
+		}, "Global switches", "")
+		out = append(out, section([]field{
 			notif("notif_expired", "Expired Notification Message"),
 			notif("notif_reminder_7_day", "Reminder Message (7 days)"),
 			notif("notif_reminder_3_day", "Reminder Message (3 days)"),
@@ -144,7 +148,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			notif("notif_welcome_message", "Welcome Message"),
 			notif("notif_balance_send", "Send Balance"),
 			notif("notif_balance_received", "Received Balance"),
-		}, "Message templates", "")
+		}, "Message templates", "")...)
 		out = append(out, section([]field{
 			sel("user_notification_expired", "Expired Notification", settingsChannels...),
 			sel("user_notification_payment", "Payment Notification", settingsChannels...),

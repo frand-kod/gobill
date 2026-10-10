@@ -97,6 +97,10 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if d.OTP {
+		if otpOff(st) {
+			show("Verification code is not available right now")
+			return
+		}
 		if d.Phone == "" {
 			show("Phone Number is required")
 			return
