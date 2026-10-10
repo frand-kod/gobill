@@ -509,8 +509,15 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 	}
 	fields := s.settingsFields(tab, nil, nil, nil)
 	keys := fieldNames(fields)
-	// the body limit covers the image uploads; a bigger body fails the parse, shown on the file fields
-	r.Body = http.MaxBytesReader(w, r.Body, maxUpload+64<<10)
+	// the body limit allows every image field of the tab at its 2 MB cap (each file is checked on its
+	// own when saved); only a bigger body fails the parse, shown on the file fields
+	files := int64(1)
+	for _, k := range keys {
+		if settingsFile[k] {
+			files++
+		}
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, files*maxUpload+64<<10)
 	if err := r.ParseMultipartForm(maxUpload); err != nil && !errors.Is(err, http.ErrNotMultipart) {
 		e := map[string]string{}
 		for _, k := range keys {

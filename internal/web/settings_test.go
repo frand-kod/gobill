@@ -448,3 +448,29 @@ func TestSettingsGeneralHiddenKeysKept(t *testing.T) {
 		t.Fatalf("hidden keys changed: %v", got)
 	}
 }
+
+// Two images near the 2 MB cap in one save: each file is within its limit, so the body must be accepted.
+func TestSettingsTwoLargeUploads(t *testing.T) {
+	_, h, q := settingsSetup(t)
+	c := login(t, h, "alice")
+	big := append(append([]byte{}, uploadPNG...), make([]byte, 3*maxUpload/4)...)
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	mw.WriteField("company_name", "Acme")
+	for _, f := range []string{"logo", "login_page_wallpaper"} {
+		fw, _ := mw.CreateFormFile(f, f+".png")
+		fw.Write(big)
+	}
+	mw.Close()
+	r := httptest.NewRequest("POST", "/admin/settings/app", &buf)
+	r.Header.Set("Content-Type", mw.FormDataContentType())
+	r.AddCookie(c)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("two large images refused: %d", w.Code)
+	}
+	if v := settingValues(t, q); v["logo"] == "" || v["login_page_wallpaper"] == "" {
+		t.Fatalf("not stored: %q %q", v["logo"], v["login_page_wallpaper"])
+	}
+}
