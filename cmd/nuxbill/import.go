@@ -19,6 +19,7 @@ import (
 func runImport(args []string) error {
 	fs := flag.NewFlagSet("import", flag.ContinueOnError)
 	dsn := fs.String("mysql-dsn", "", "MySQL DSN, e.g. user:pass@tcp(127.0.0.1:3306)/phpnuxbill")
+	jsonPath := fs.String("json", "", "PHPNuxBill Database Status > Backup file (JSON) instead of --mysql-dsn")
 	dbPath := fs.String("db", env("NUXBILL_DB", "./nuxbill.db"), "target SQLite file")
 	tz := fs.String("timezone", "", "timezone of the old dates (default: old appconfig timezone)")
 	dry := fs.Bool("dry-run", false, "read and convert everything, then roll back")
@@ -27,18 +28,26 @@ func runImport(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *dsn == "" {
-		return fmt.Errorf("--mysql-dsn is required")
+	if (*dsn == "") == (*jsonPath == "") {
+		return fmt.Errorf("exactly one of --mysql-dsn or --json is required")
 	}
-	my, err := sql.Open("mysql", *dsn)
-	if err != nil {
-		return err
+	ctx := context.Background()
+	var my *sql.DB
+	var err error
+	if *jsonPath != "" {
+		if my, err = importer.OpenJSON(ctx, *jsonPath); err != nil {
+			return err
+		}
+	} else {
+		if my, err = sql.Open("mysql", *dsn); err != nil {
+			return err
+		}
+		if err := my.PingContext(ctx); err != nil {
+			my.Close()
+			return err
+		}
 	}
 	defer my.Close()
-	ctx := context.Background()
-	if err := my.PingContext(ctx); err != nil {
-		return err
-	}
 	if *tz == "" {
 		*tz = importer.Timezone(ctx, my)
 	}
