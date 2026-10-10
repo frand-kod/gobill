@@ -77,7 +77,7 @@ func TestPortalTransfer(t *testing.T) {
 
 func TestPortalRegistrationOptions(t *testing.T) {
 	e := billApp(t)
-	f := url.Values{"username": {"newbie"}, "fullname": {"New Bie"}, "password": {"abc123"}, "cpassword": {"abc123"}}
+	f := url.Values{"username": {"newbie"}, "fullname": {"New Bie"}, "password": {"abc12345"}, "cpassword": {"abc12345"}}
 	setting(t, e, "disable_registration", "noreg")
 	if w := do(e.h, "POST", "/portal/register", f, nil); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/portal/login" {
 		t.Fatalf("disabled: %d", w.Code)

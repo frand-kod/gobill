@@ -160,25 +160,32 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 	s.sessions.Remove(ctx, "forgot_ok")
 
 	c, err := s.queries.GetCustomerByUsername(ctx, username)
-	phone := ""
-	if err == nil {
-		phone = c.Phone
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		s.fail(w, "forgot customer", err)
+		return
 	}
-	if !s.otpAllow(clientIP(r), phone) { // counts unknown usernames too, so the answer stays uniform
+	found := err == nil && c.Phone != ""
+	// The rate limit key is the phone when there is one, else the username, so a known and an
+	// unknown username get the same limits and the 429 does not reveal which exists.
+	key := username
+	if found {
+		key = c.Phone
+	}
+	if !s.otpAllow(clientIP(r), key) {
 		s.forgotClear(r)
 		s.forgotRender(w, r, http.StatusTooManyRequests, "", "Too many verification code requests, please try again later")
 		return
 	}
-	if err == nil && c.Phone != "" {
-		if err := s.sendOTP(ctx, st, c.Phone, "Verification code", otp); err != nil {
-			slog.Error("send forgot otp", "err", err)
-			s.forgotClear(r)
-			s.forgotRender(w, r, http.StatusOK, "", "Failed to send verification code")
-			return
-		}
-	} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		s.fail(w, "forgot customer", err)
-		return
+	if found {
+		// Sent in the background, like pForgotUser, so timing and send failures do not reveal the account.
+		phone := c.Phone
+		go func() {
+			bg, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			if err := s.sendOTP(bg, st, phone, "Verification code", otp); err != nil {
+				slog.Error("send forgot otp", "err", err)
+			}
+		}()
 	}
 	s.forgotRender(w, r, http.StatusOK, s.catalog.T(s.language(), "If your Username is found, Verification Code has been Sent to Your Phone/Email/Whatsapp"), "")
 }
@@ -233,8 +240,8 @@ func (s *Server) pForgotReset(w http.ResponseWriter, r *http.Request) {
 	npass := r.PostFormValue("npass")
 	msg := ""
 	switch {
-	case len(npass) < 3 || len(npass) > 35:
-		msg = "Password should be between 3 to 35 characters"
+	case len(npass) < minPasswordLen || len(npass) > 35:
+		msg = "Password should be between 8 to 35 characters"
 	case npass != r.PostFormValue("cnpass"):
 		msg = "Passwords does not match"
 	}

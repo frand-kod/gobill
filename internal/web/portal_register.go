@@ -25,6 +25,10 @@ type regData struct {
 	Fname, MEmail, MAddress                   bool // mandatory fields (man_fields_*)
 }
 
+// minPasswordLen applies to new customer passwords (registration, change, reset, admin edit).
+// Existing passwords are not checked at login, so older accounts keep working.
+const minPasswordLen = 8
+
 func (s *Server) pRegisterForm(w http.ResponseWriter, r *http.Request) {
 	st, err := s.loadSettings(r.Context())
 	if err != nil {
@@ -88,8 +92,8 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		show("Home Address is required")
 		return
 	}
-	if l := len(f("password")); l < 3 || l > 35 {
-		show("Password should be between 3 to 35 characters")
+	if l := len(f("password")); l < minPasswordLen || l > 35 {
+		show("Password should be between 8 to 35 characters")
 		return
 	}
 	if f("password") != f("cpassword") {

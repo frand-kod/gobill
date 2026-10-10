@@ -130,7 +130,7 @@ func TestPoolCRUD(t *testing.T) {
 
 func TestCustomerCRUD(t *testing.T) {
 	s, h, q, c := crudApp(t)
-	form := url.Values{"username": {"budi"}, "password": {"pw12345"}, "fullname": {"Budi Santoso"}, "phone": {"0812"},
+	form := url.Values{"username": {"budi"}, "password": {"pw123456"}, "fullname": {"Budi Santoso"}, "phone": {"0812"},
 		"service_type": {"PPPoE"}, "status": {"Active"}, "billing_day": {"15"}, "auto_renewal": {"1"}, "secret": {"routerpw"}}
 
 	bad := url.Values{"username": {"x"}, "fullname": {""}, "email": {"nope"}, "service_type": {"PPPoE"}, "status": {"Active"}, "billing_day": {"40"}}
@@ -145,7 +145,7 @@ func TestCustomerCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bcrypt.CompareHashAndPassword([]byte(cu.PasswordHash), []byte("pw12345")) != nil {
+	if bcrypt.CompareHashAndPassword([]byte(cu.PasswordHash), []byte("pw123456")) != nil {
 		t.Fatal("password not bcrypt")
 	}
 	if bytes.Contains(cu.SecretEnc, []byte("routerpw")) {
@@ -244,10 +244,10 @@ func TestActivityLogWritten(t *testing.T) {
 
 func TestCustomerPasswordSyncsSecret(t *testing.T) {
 	s, h, q, c := crudApp(t)
-	form := url.Values{"username": {"solo"}, "password": {"onlypw"}, "fullname": {"Solo"}, "service_type": {"Hotspot"}, "status": {"Active"}}
+	form := url.Values{"username": {"solo"}, "password": {"onlypw12"}, "fullname": {"Solo"}, "service_type": {"Hotspot"}, "status": {"Active"}}
 	wantCode(t, do(h, "POST", "/admin/customers", form, c), 303, "create")
 	cu, _ := q.GetCustomerByUsername(t.Context(), "solo")
-	if p, err := secret.Open(s.SecretKey, cu.SecretEnc); err != nil || string(p) != "onlypw" {
+	if p, err := secret.Open(s.SecretKey, cu.SecretEnc); err != nil || string(p) != "onlypw12" {
 		t.Fatal("secret must default to the password")
 	}
 	form.Set("username", "diff")

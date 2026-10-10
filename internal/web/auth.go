@@ -124,6 +124,11 @@ func (s *Server) tooManyFailures(ip string) bool {
 func (s *Server) recordFailure(ip string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if len(s.failed) > 10000 { // bound memory: recent() drops keys whose failures have expired
+		for k := range s.failed {
+			s.recent(k)
+		}
+	}
 	s.failed[ip] = append(s.recent(ip), time.Now())
 }
 
