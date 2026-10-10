@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -41,7 +42,7 @@ func TestHeaderSearch(t *testing.T) {
 	}
 	get := func(term string) []hit {
 		t.Helper()
-		w := do(h, "GET", "/admin/search?q="+url.QueryEscape(term), nil, c)
+		w := do(h, "GET", "/admin/customers/pick?q="+url.QueryEscape(term), nil, c)
 		wantCode(t, w, 200, "search "+term)
 		if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
 			t.Fatalf("content type %q", ct)
@@ -84,20 +85,19 @@ func TestHeaderSearch(t *testing.T) {
 	mk(t, q, "agnes", "Agent", 1)
 	mk(t, q, "sally", "Sales", 1)
 	for _, u := range []string{"agnes", "sally"} {
-		wantCode(t, do(h, "GET", "/admin/search?q=zed", nil, login(t, h, u)), 200, u)
+		wantCode(t, do(h, "GET", "/admin/customers/pick?q=zed", nil, login(t, h, u)), 200, u)
 	}
-	wantCode(t, do(h, "GET", "/admin/search?q=zed", nil, login(t, h, "rita")), 403, "Report role")
-	wantCode(t, do(h, "GET", "/admin/search?q=zed", nil, nil), 303, "anonymous")
+	wantCode(t, do(h, "GET", "/admin/customers/pick?q=zed", nil, login(t, h, "rita")), 403, "Report role")
+	wantCode(t, do(h, "GET", "/admin/customers/pick?q=zed", nil, nil), 303, "anonymous")
 
-	// the header ships the type-ahead for staff, the plain form for everyone
-	b := do(h, "GET", "/admin", nil, c).Body.String()
-	for _, want := range []string{`action="/admin/customers"`, `name="q"`, `role="combobox"`, "/admin/search?q="} {
-		if !strings.Contains(b, want) {
-			t.Errorf("header lacks %q", want)
+	// the header is the palette form for every admin role; without JS it submits to /admin/search
+	for _, cookie := range []*http.Cookie{c, login(t, h, "rita")} {
+		b := do(h, "GET", "/admin", nil, cookie).Body.String()
+		for _, want := range []string{`action="/admin/search"`, `name="q"`, `role="combobox"`, `role="search"`, "/static/search.js"} {
+			if !strings.Contains(b, want) {
+				t.Errorf("header lacks %q", want)
+			}
 		}
-	}
-	if b := do(h, "GET", "/admin", nil, login(t, h, "rita")).Body.String(); strings.Contains(b, "/admin/search") || !strings.Contains(b, `role="search"`) {
-		t.Error("report role must get the plain form only")
 	}
 }
 

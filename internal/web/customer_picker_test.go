@@ -30,7 +30,7 @@ func TestCustomerPickerSearch(t *testing.T) {
 	}
 
 	// empty q: first 20, Active first then username; the disabled one is left out of the first 20
-	r := get("/admin/search?q=")
+	r := get("/admin/customers/pick?q=")
 	if len(r) != 20 {
 		t.Fatalf("empty q: got %d rows, want 20", len(r))
 	}
@@ -42,29 +42,29 @@ func TestCustomerPickerSearch(t *testing.T) {
 			t.Errorf("empty q: non-active %q ahead of the list", x.Username)
 		}
 	}
-	if n := len(get("/admin/search")); n != 20 {
+	if n := len(get("/admin/customers/pick")); n != 20 {
 		t.Errorf("missing q: got %d rows, want 20", n)
 	}
 
 	// limit: capped at 20, honoured below that, and a search keeps its default of 8
-	if n := len(get("/admin/search?q=&limit=50")); n != 20 {
+	if n := len(get("/admin/customers/pick?q=&limit=50")); n != 20 {
 		t.Errorf("limit=50: got %d rows, want 20", n)
 	}
-	if n := len(get("/admin/search?q=&limit=3")); n != 3 {
+	if n := len(get("/admin/customers/pick?q=&limit=3")); n != 3 {
 		t.Errorf("limit=3: got %d rows, want 3", n)
 	}
-	if n := len(get("/admin/search?q=bulk&limit=50")); n != 20 {
+	if n := len(get("/admin/customers/pick?q=bulk&limit=50")); n != 20 {
 		t.Errorf("search limit=50: got %d rows, want 20", n)
 	}
-	if n := len(get("/admin/search?q=bulk")); n != 8 {
+	if n := len(get("/admin/customers/pick?q=bulk")); n != 8 {
 		t.Errorf("search default: got %d rows, want 8", n)
 	}
-	if n := len(get("/admin/search?q=bulk&limit=junk")); n != 8 {
+	if n := len(get("/admin/customers/pick?q=bulk&limit=junk")); n != 8 {
 		t.Errorf("bad limit: got %d rows, want 8", n)
 	}
 
 	// the picker payload carries the balance formatted
-	if r := get("/admin/search?q=act01&limit=1"); len(r) != 1 || r[0].Balance != money(0) {
+	if r := get("/admin/customers/pick?q=act01&limit=1"); len(r) != 1 || r[0].Balance != money(0) {
 		t.Errorf("picker row: %+v", r)
 	}
 
@@ -72,7 +72,7 @@ func TestCustomerPickerSearch(t *testing.T) {
 	_, h2, q2, c2 := crudApp(t)
 	newCust(t, q2, "zz9", "Disabled One", "0811", "", "Disabled")
 	newCust(t, q2, "act01", "Budi", "0812", "", "Active")
-	w := do(h2, "GET", "/admin/search?q=", nil, c2)
+	w := do(h2, "GET", "/admin/customers/pick?q=", nil, c2)
 	var both []row
 	json.Unmarshal(w.Body.Bytes(), &both)
 	if len(both) != 2 || both[0].Username != "act01" || both[1].Status != "Disabled" {
@@ -80,8 +80,8 @@ func TestCustomerPickerSearch(t *testing.T) {
 	}
 
 	// role check unchanged: staff only
-	wantCode(t, do(h, "GET", "/admin/search?q=", nil, login(t, h, "rita")), 403, "Report role")
-	wantCode(t, do(h, "GET", "/admin/search?q=", nil, nil), 303, "anonymous")
+	wantCode(t, do(h, "GET", "/admin/customers/pick?q=", nil, login(t, h, "rita")), 403, "Report role")
+	wantCode(t, do(h, "GET", "/admin/customers/pick?q=", nil, nil), 303, "anonymous")
 }
 
 // The three single-customer pages render the picker with the username field name and prefill.

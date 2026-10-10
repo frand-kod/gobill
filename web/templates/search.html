@@ -1,0 +1,23 @@
+{{define "content"}}
+{{with .Data}}
+<div class="page-head">
+  <h1 class="page-title">{{T "Search"}}</h1>
+</div>
+<form method="get" action="/admin/search" role="search" class="mb-4 flex max-w-xl gap-2">
+  <input class="input flex-1" type="search" name="q" value="{{.Q}}" maxlength="64" placeholder="{{T "Search customers, menus, settings…"}}" aria-label="{{T "Search"}}">
+  <button class="btn btn-primary" type="submit">{{T "Search"}}</button>
+</form>
+{{range .Groups}}
+<section class="card mb-4">
+  <h2 class="card-title">{{.Title}}</h2>
+  <ul class="divide-y divide-line">
+    {{range .Items}}
+    <li><a class="block px-4 py-3 hover:bg-surface-2" href="{{.URL}}"><span class="font-medium">{{.Title}}</span>{{with .Sub}} <span class="text-sm text-ink-2">{{.}}</span>{{end}}</a></li>
+    {{end}}
+  </ul>
+</section>
+{{else}}
+<p class="text-ink-2">{{T "No data"}}</p>
+{{end}}
+{{end}}
+{{end}}
