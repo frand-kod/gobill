@@ -1,0 +1,22 @@
+{{define "body"}}
+<main class="mx-auto max-w-md p-4">
+  {{with .Data}}
+  <article class="card overflow-hidden">
+    <div class="fiber-stripe" aria-hidden="true"></div>
+    <div class="card-body space-y-4 text-center">
+      <p class="text-sm text-ink-2">{{or $.Brand.company_name "gobill"}}</p>
+      <h1 class="page-title">{{T "Bayar via QRIS"}}</h1>
+      <img class="mx-auto h-72 w-72 max-w-full" src="{{.QR}}" width="288" height="288" alt="QRIS {{.Invoice}}">
+      <p class="text-2xl font-bold">{{.Amount}}</p>
+      <p class="text-sm">{{.Invoice}} · {{.Plan}}</p>
+      <a class="btn btn-primary w-full" href="{{.QR}}" download="{{.Invoice}}.png">{{T "Simpan gambar"}}</a>
+      <ol class="list-decimal space-y-1 text-start text-sm">
+        <li>{{T "Buka aplikasi bank atau e-wallet yang mendukung QRIS"}}</li>
+        <li>{{T "Pindai kode QR ini"}}</li>
+        <li>{{T "Periksa nama merchant dan nominal, lalu bayar"}}</li>
+      </ol>
+    </div>
+  </article>
+  {{end}}
+</main>
+{{end}}

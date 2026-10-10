@@ -1796,5 +1796,20 @@
     "hours": "jam",
     "minutes": "menit",
     "left": "lagi",
-    "Ended": "Sudah habis"
+    "Ended": "Sudah habis",
+    "Bayar_via_QRIS": "Bayar via QRIS",
+    "Simpan_gambar": "Simpan gambar",
+    "Buka_aplikasi_bank_atau_e_wallet_yang_mendukung_QRIS": "Buka aplikasi bank atau e-wallet yang mendukung QRIS",
+    "Pindai_kode_QR_ini": "Pindai kode QR ini",
+    "Periksa_nama_merchant_dan_nominal__lalu_bayar": "Periksa nama merchant dan nominal, lalu bayar",
+    "Static_QRIS_Text": "Teks QRIS statis",
+    "Scan_your_static_QRIS_with_any_QR_reader_app_and_paste_the_text_Empty_turns_it_off": "Pindai QRIS statis Anda dengan aplikasi pembaca QR, lalu tempel teksnya. Kosongkan untuk mematikan",
+    "Paste_the_full_static_QRIS_text_the_CRC_must_match": "Tempel teks QRIS statis lengkap, CRC harus cocok",
+    "Hapus_QRIS": "Hapus QRIS",
+    "Opsi_lanjutan": "Opsi lanjutan",
+    "Teks_QRIS": "Teks QRIS",
+    "QRIS_tidak_terbaca": "QRIS tidak terbaca",
+    "Bukan_QRIS_valid": "Bukan QRIS valid",
+    "Use_a_PNG_or_JPG_image": "Gunakan gambar PNG atau JPG",
+    "Static_QRIS": "QRIS statis"
 }

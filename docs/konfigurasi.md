@@ -49,6 +49,10 @@ Ubah di menu Settings (kunci di bawah muncul di tabel `settings`).
 | `telegram_bot`, `wa_url`, `sms_url`, SMTP | Kanal notifikasi |
 | `tripay_*`, `merchant_code`, `api_key`, `private_key` | Gateway Tripay (lihat [keamanan.md](keamanan.md) soal penyimpanan) |
 
+## QRIS statis
+
+Di Settings > Payment Gateway, bagian QRIS, unggah foto QRIS statis merchant Anda (PNG atau JPG, maks 2 MB). Sistem membaca kode QR-nya, memastikan formatnya QRIS valid, lalu hanya menyimpan teksnya di `qris_payload`; gambarnya tidak disimpan. Nama merchant dan NMID yang aktif ditampilkan di bawah isian, dan "Hapus QRIS" mengosongkannya. Teks QRIS juga bisa ditempel lewat "Opsi lanjutan". Sistem membuat QR yang terkunci nominal untuk setiap invoice dan mengirim tautannya lewat WhatsApp (`[[qris_link]]`, atau ditambahkan di akhir pesan jika template tidak memakainya). Tautan memerlukan `app_url`. Pelanggan tidak perlu login. Sistem tidak memverifikasi pembayaran QRIS: konfirmasi pembayaran tetap dilakukan manual. Recharge yang sudah dibayar lewat saldo, gateway, atau voucher tidak mendapat tautan ini.
+
 ## WhatsApp
 
 Ada dua cara mengirim WhatsApp. Yang dipakai ditentukan otomatis:
