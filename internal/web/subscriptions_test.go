@@ -137,3 +137,21 @@ func TestReportRoleCannotPostBilling(t *testing.T) {
 		t.Fatal("report role changed the balance")
 	}
 }
+
+func TestAdminExtendSetting(t *testing.T) {
+	e := billApp(t)
+	set := func(v string) {
+		if err := e.q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "admin_extend", Value: v}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	set("off")
+	wantCode(t, do(e.h, "POST", "/admin/subscriptions/1/extend", url.Values{"days": {"1"}}, e.c), 403, "extend while off")
+	if strings.Contains(do(e.h, "GET", "/admin/subscriptions", nil, e.c).Body.String(), `/extend"`) {
+		t.Fatal("extend button shown while off")
+	}
+	set("super")
+	if w := do(e.h, "POST", "/admin/subscriptions/1/extend", url.Values{"days": {"1"}}, e.c); w.Code == 403 {
+		t.Fatal("SuperAdmin refused with admin_extend=super")
+	}
+}

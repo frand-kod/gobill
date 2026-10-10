@@ -1989,5 +1989,10 @@
     "%s. Mirror %s, no copy yet": "%s. Mirror %s, belum ada salinan",
     "Minutes of inactivity before an admin is logged out. Empty = 120.": "Menit tanpa aktivitas sebelum admin otomatis logout. Kosong = 120.",
     "No vouchers yet": "Belum ada voucher",
-    "Generate vouchers": "Buat voucher"
+    "Generate vouchers": "Buat voucher",
+    "Extend button on subscriptions": "Tombol perpanjang di daftar langganan",
+    "All staff (Admin, Agent, Sales)": "Semua staf (Admin, Agent, Sales)",
+    "SuperAdmin and Admin": "SuperAdmin dan Admin",
+    "SuperAdmin only": "Hanya SuperAdmin",
+    "Who may add free days to a subscription from the list. Off hides the button": "Siapa yang boleh menambah hari gratis ke langganan dari daftar. Mati = tombol disembunyikan"
 }

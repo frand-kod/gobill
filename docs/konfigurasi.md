@@ -74,6 +74,7 @@ Contoh Nginx di depan aplikasi di host yang sama: set `trust_proxy=yes`, dan pro
 | Pengaturan | Fungsi |
 |---|---|
 | `extend_expiry` | Perpanjang paket yang masih aktif menambah dari tanggal kedaluwarsa. Bawaan aktif jika belum diisi |
+| `admin_extend` | Siapa yang boleh memakai tombol Perpanjang (tambah hari gratis) di daftar langganan: `staff` (bawaan: Admin, Agent, Sales), `managers` (SuperAdmin dan Admin), `super` (hanya SuperAdmin), `off` (tombol disembunyikan) |
 | `enable_balance` | Sistem saldo (recharge saldo, transfer saldo, perpanjang otomatis dari saldo). Bawaan aktif jika belum diisi |
 | `start_on_first_login` | `yes` agar masa aktif paket RADIUS mulai saat login pertama, bukan saat recharge (bawaan `no`). Lihat bagian di bawah |
 | `disable_registration`, `disable_voucher`, `allow_phone_otp`, `registration_username`, `phone_otp_type` | Pembatasan dan metode di portal pelanggan. `phone_otp_type` memilih `sms` atau `wa` |
