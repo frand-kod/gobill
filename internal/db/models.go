@@ -251,17 +251,18 @@ type Setting struct {
 }
 
 type Subscription struct {
-	ID           int64
-	CustomerID   int64
-	PlanID       int64
-	RouterID     sql.NullInt64
-	Type         string
-	StartedAt    int64
-	ExpiresAt    int64
-	Status       string
-	Method       string
-	AdminID      sql.NullInt64
-	PendingStart int64
+	ID                int64
+	CustomerID        int64
+	PlanID            int64
+	RouterID          sql.NullInt64
+	Type              string
+	StartedAt         int64
+	ExpiresAt         int64
+	Status            string
+	Method            string
+	AdminID           sql.NullInt64
+	PendingStart      int64
+	ExpiredNotifiedAt sql.NullInt64
 }
 
 type Transaction struct {
