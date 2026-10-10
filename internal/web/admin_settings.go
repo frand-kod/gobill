@@ -93,7 +93,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		// Their stored values stay: save only writes the keys listed here.
 		out := section([]field{
 			text("company_name", "Company Name", v, e).req().hint("Name of your business. Shown on invoices, messages and the login page."),
-			text("app_url", "App URL", v, e).hint("Public address of this app, e.g. https://billing.example.com. Used for links in WhatsApp messages (QRIS, invoice)."),
+			text("app_url", "App URL", v, e).hint("Public address of this app, e.g. https://billing.example.com. Fills itself from the address used at the first admin login; change it here if needed. Used for links in WhatsApp messages (QRIS, invoice)."),
 			upl("logo", "Company Logo").hint("Logo in the menu bar. Transparent PNG works best, 2 MB max."),
 			upl("logo_dark", "Company Logo (dark mode)").hint("Shown in dark mode. Empty = use the light logo."),
 			upl("login_page_favicon", "Favicon").hint("Browser tab icon. Empty = default icon."),
