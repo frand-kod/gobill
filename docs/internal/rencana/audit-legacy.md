@@ -2,6 +2,8 @@
 
 Audit dilakukan pada 2026-10-08 terhadap branch `master` (commit `d3e05962`).
 
+**Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
+
 ## Ukuran
 
 | Item | Jumlah |
@@ -69,7 +71,7 @@ Audit dilakukan pada 2026-10-08 terhadap branch `master` (commit `d3e05962`).
 
 ## Checklist fitur (parity)
 
-Kolom **Fase** merujuk ke [04-roadmap.md](04-roadmap.md). `Tunda` = tidak dikerjakan sampai ada permintaan nyata.
+Kolom **Fase** merujuk ke [roadmap.md](roadmap.md). `Tunda` = tidak dikerjakan sampai ada permintaan nyata.
 
 | Controller lama | Fitur | Fase |
 |---|---|---|
@@ -95,3 +97,9 @@ Kolom **Fase** merujuk ke [04-roadmap.md](04-roadmap.md). `Tunda` = tidak dikerj
 | `pluginmanager`, `plugin` | Plugin manager runtime | Tidak di-port (non-goal) |
 | Face detection (`accounts`, `customers`, `settings`) | Deteksi wajah untuk foto | Tunda |
 | `update.php`, `install/` | Updater & installer web | Diganti install script + migrasi otomatis saat start |
+
+## Lihat juga
+
+- [README](README.md)
+- [roadmap](roadmap.md)
+- [paritas-ui](../paritas-ui.md)

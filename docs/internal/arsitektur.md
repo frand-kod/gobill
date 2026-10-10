@@ -1,6 +1,8 @@
 # Arsitektur
 
-Untuk developer dan operator teknis yang ingin memahami cara NuxBill bekerja. Dokumen ini menggambarkan kondisi kode saat ini. Rencana awal dan alasan keputusan ada di [plan/](plan/README.md), terutama [plan/03-arsitektur.md](plan/03-arsitektur.md) dan [plan/02-keputusan-stack.md](plan/02-keputusan-stack.md).
+Untuk developer dan operator teknis yang ingin memahami cara NuxBill bekerja. Dokumen ini menggambarkan kondisi kode saat ini. Rencana awal dan alasan keputusan ada di [rencana/](rencana/README.md), terutama [rencana/arsitektur-awal.md](rencana/arsitektur-awal.md) dan [rencana/keputusan-stack.md](rencana/keputusan-stack.md).
+
+**Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
 
 ## Gambaran proses
 
@@ -50,7 +52,7 @@ Satu binary `nuxbill` menjalankan semuanya dalam satu proses:
 
 **Auth RADIUS.** Access-Request dari NAS terdaftar (secret per NAS, Message-Authenticator diverifikasi) diteruskan ke logika keputusan: cari langganan aktif, cek pembatas percobaan, lalu jawab Accept dengan Session-Timeout dan rate-limit dari paket, atau Reject. Voucher dikenali bila username adalah kode voucher dan diaktifkan saat itu. Accounting memperbarui satu baris sesi. Request dari NAS tak terdaftar dibuang dan dicatat.
 
-**RADIUS REST.** `POST /radius.php` dari FreeRADIUS memakai logika keputusan yang sama, dibatasi `radius_rest_allow` ([freeradius-rest.md](freeradius-rest.md)).
+**RADIUS REST.** `POST /radius.php` dari FreeRADIUS memakai logika keputusan yang sama, dibatasi `radius_rest_allow` ([freeradius-rest.md](../id/freeradius-rest.md)).
 
 **CoA/Disconnect.** Saat plan habis atau admin menekan Disconnect, `radius` mengirim Disconnect-Request ke port 3799 NAS dengan identitas NAS-IP-Address yang dilaporkan NAS itu. Balasan NAK didecode (Error-Cause) ke log.
 
@@ -58,7 +60,7 @@ Satu binary `nuxbill` menjalankan semuanya dalam satu proses:
 
 **Impor dan restore.** Keduanya hanya bisa dijalankan SuperAdmin. Impor (CLI atau UI) membuat backup database di `NUXBILL_BACKUP_DIR` lebih dulu, lalu menimpa data dalam satu transaksi. Restore dari UI memvalidasi file (integritas, versi skema, kunci), menyimpan data saat ini sebagai backup `-pre-restore.db`, memasang file sebagai `nuxbill.db.restore`, lalu keluar dengan kode 3. Systemd menjalankan ulang aplikasi, dan file itu diterapkan sebelum database dibuka.
 
-**Monitoring.** Metrik dicatat ke registry di memori. `/metrics` membacanya (dengan bearer token), `/admin/status` menampilkan ringkasannya, dan job `alert` mengevaluasi aturan alert setiap menit. Detail di [monitoring.md](monitoring.md).
+**Monitoring.** Metrik dicatat ke registry di memori. `/metrics` membacanya (dengan bearer token), `/admin/status` menampilkan ringkasannya, dan job `alert` mengevaluasi aturan alert setiap menit. Detail di [monitoring.md](../id/monitoring.md).
 
 **Callback Tripay.** `POST /callback/tripay` memverifikasi signature, lalu menandai pembayaran dan mengaktifkan paket secara idempoten (callback ganda tidak menggandakan saldo).
 
@@ -79,5 +81,12 @@ Satu binary `nuxbill` menjalankan semuanya dalam satu proses:
 1. **Jam tidak dipercaya** setelah boot tanpa RTC: expiry, reminder, backup, dan RADIUS ditahan atau disesuaikan sampai NTP sinkron; `clock_guard=off` bila ada RTC.
 2. **Listrik padam:** WAL + `synchronous=FULL`, sehingga transaksi yang sudah commit tidak hilang.
 3. **eMMC cepat aus:** log ke stdout (journald); accounting interim hanya meng-update baris sesi. Pembersihan log dilakukan dalam batch 5000 baris.
-4. **Backup ke luar perangkat:** `NUXBILL_BACKUP_DIR` ([instalasi.md](instalasi.md#4-backup-ke-usb-atau-nas)).
+4. **Backup ke luar perangkat:** `NUXBILL_BACKUP_DIR` ([backup](../id/backup-restore.md)).
 5. **Build:** `CGO_ENABLED=0` untuk `linux/amd64`, `arm64`, dan `arm` (GOARM=7).
+
+## Lihat juga
+
+- [pengembangan](pengembangan.md)
+- [arsitektur-awal](rencana/arsitektur-awal.md)
+- [installation](../id/installation.md)
+- [monitoring](../id/monitoring.md)

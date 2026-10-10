@@ -45,7 +45,7 @@ Billing ISP untuk hotspot dan PPPoE MikroTik, ditulis ulang dari PHPNuxBill dala
           RADIUS dari MikroTik (UDP)           webhook, Tripay
 ```
 
-Detail: [docs/arsitektur.md](docs/arsitektur.md).
+Detail: [docs/internal/arsitektur.md](docs/internal/arsitektur.md).
 
 ## Mulai cepat
 
@@ -57,26 +57,27 @@ Detail: [docs/arsitektur.md](docs/arsitektur.md).
 3. Ambil password admin pertama dari file `initial-admin-password.txt` di folder database (`./` saat jalan manual, `/var/lib/nuxbill` di systemd). Password tidak dicetak ke log.
 4. Buka http://localhost:8080, login sebagai `admin`, lalu ganti password.
 
-Untuk STB, systemd, atau Docker, lihat [docs/instalasi.md](docs/instalasi.md).
+Untuk STB, systemd, atau Docker, lihat [instalasi](docs/id/installation.md).
 
 ## Dokumentasi
 
-Indeks lengkap: [docs/README.md](docs/README.md).
+Panduan operator tersedia dalam dua bahasa, dengan isi yang sama:
 
-- [docs/instalasi.md](docs/instalasi.md): pasang di STB Armbian, VPS, atau Docker; upgrade dan pemecahan masalah.
-- [docs/konfigurasi.md](docs/konfigurasi.md): semua variabel `NUXBILL_*` dan pengaturan penting di UI.
-- [docs/mikrotik.md](docs/mikrotik.md): setup MikroTik (mode API dan RADIUS) dan pelajaran dari uji lapangan.
-- [docs/freeradius-rest.md](docs/freeradius-rest.md): memakai FreeRADIUS yang sudah ada lewat REST.
-- [docs/keamanan.md](docs/keamanan.md): pengerasan RADIUS, firewall, dan keamanan aplikasi (termasuk 2FA admin).
-- [docs/monitoring.md](docs/monitoring.md): halaman Status Sistem, `/health` dan `/metrics`, alert operator.
-- [docs/migrasi-phpnuxbill.md](docs/migrasi-phpnuxbill.md): impor data, cutover, dan rollback.
-- [docs/arsitektur.md](docs/arsitektur.md): paket, alur request, dan model data.
-- [docs/pengembangan.md](docs/pengembangan.md): panduan developer, test, dan rilis.
-- Riwayat dan status: [CHANGELOG.md](CHANGELOG.md), [docs/PROGRESS.md](docs/PROGRESS.md), [docs/UI-PARITY.md](docs/UI-PARITY.md), [docs/plan/](docs/plan/README.md).
+- [Bahasa Indonesia](docs/id/README.md)
+- [English](docs/en/README.md)
+
+Ringkasan per topik (versi Indonesia):
+
+- Mulai: [instalasi](docs/id/installation.md), [upgrade](docs/id/upgrade.md), [migrasi dari PHPNuxBill](docs/id/migration-phpnuxbill.md).
+- Konfigurasi: [konfigurasi](docs/id/configuration.md), [integrasi](docs/id/integrations.md), [keamanan](docs/id/security.md).
+- Jaringan: [setup MikroTik](docs/id/mikrotik.md), [FreeRADIUS lewat REST](docs/id/freeradius-rest.md).
+- Operasional: [monitoring](docs/id/monitoring.md), [backup dan restore](docs/id/backup-restore.md).
+- Untuk tim, hanya bahasa Indonesia: [arsitektur](docs/internal/arsitektur.md), [pengembangan](docs/internal/pengembangan.md), [progres](docs/internal/progres.md), [rencana](docs/internal/rencana/README.md), dan [panduan menulis dokumentasi](docs/internal/panduan-menulis-docs.md).
+- Riwayat: [CHANGELOG.md](CHANGELOG.md).
 
 ## Versi dan lisensi
 
-Versi mengikuti SemVer, lihat [CHANGELOG.md](CHANGELOG.md) dan [aturan rilis](docs/pengembangan.md#versi-dan-rilis).
+Versi mengikuti SemVer, lihat [CHANGELOG.md](CHANGELOG.md) dan [aturan rilis](docs/internal/pengembangan.md#versi-dan-rilis).
 
 Lisensi: GPL-3.0-or-later — lihat [LICENSE](LICENSE) dan [NOTICE](NOTICE). Turunan dari PHPNuxBill (GPL-2.0-or-later).
 

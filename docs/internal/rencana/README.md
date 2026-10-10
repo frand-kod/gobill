@@ -1,7 +1,9 @@
 # Rencana Refactor PHPNuxBill
 
 Dokumen ini adalah titik masuk untuk rencana rewrite PHPNuxBill ke stack modern.
-> Disalin dari repo `phpnuxbill` (`docs/plan/`). Path seperti `system/...`, `radius.php`, dan `install/...` merujuk ke kode lama di `../phpnuxbill`.
+> Disalin dari repo `phpnuxbill` (`docs/internal/rencana/`). Path seperti `system/...`, `radius.php`, dan `install/...` merujuk ke kode lama di `../phpnuxbill`.
+
+**Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
 
 
 ## Tujuan
@@ -11,7 +13,7 @@ Dokumen ini adalah titik masuk untuk rencana rewrite PHPNuxBill ke stack modern.
 3. **Aman.** Tidak ada SQL injection. Password admin di-hash dengan benar. Secret pelanggan dienkripsi. CSRF dilindungi secara default.
 4. **Data billing benar.** Uang disimpan sebagai integer. Waktu expiry tunggal dan konsisten. Ada guard terhadap jam sistem yang salah.
 5. **Teruji.** Logika billing (masa aktif, saldo, voucher) punya unit test sejak hari pertama.
-6. **Fitur setara (parity)** dengan PHPNuxBill untuk fitur yang dipakai di lapangan. Lihat checklist di [01-audit-legacy.md](01-audit-legacy.md).
+6. **Fitur setara (parity)** dengan PHPNuxBill untuk fitur yang dipakai di lapangan. Lihat checklist di [audit-legacy.md](audit-legacy.md).
 
 ## Non-goals
 
@@ -32,16 +34,16 @@ Dokumen ini adalah titik masuk untuk rencana rewrite PHPNuxBill ke stack modern.
 | RADIUS | Server built-in (`layeh.com/radius`). FreeRADIUS opsional |
 | Deploy | Satu binary + unit systemd |
 
-Detail dan alasan: [02-keputusan-stack.md](02-keputusan-stack.md).
+Detail dan alasan: [keputusan-stack.md](keputusan-stack.md).
 
 ## Daftar dokumen
 
 | File | Isi |
 |---|---|
-| [01-audit-legacy.md](01-audit-legacy.md) | Audit kode lama: arsitektur, titik integrasi, masalah, checklist fitur |
-| [02-keputusan-stack.md](02-keputusan-stack.md) | ADR: perbandingan opsi dan keputusan stack |
-| [03-arsitektur.md](03-arsitektur.md) | Struktur aplikasi baru, interface, schema, aturan khusus STB |
-| [04-roadmap.md](04-roadmap.md) | Fase kerja dan kriteria selesai |
+| [audit-legacy.md](audit-legacy.md) | Audit kode lama: arsitektur, titik integrasi, masalah, checklist fitur |
+| [keputusan-stack.md](keputusan-stack.md) | ADR: perbandingan opsi dan keputusan stack |
+| [arsitektur-awal.md](arsitektur-awal.md) | Struktur aplikasi baru, interface, schema, aturan khusus STB |
+| [roadmap.md](roadmap.md) | Fase kerja dan kriteria selesai |
 
 ## Keputusan terbuka
 
@@ -53,3 +55,8 @@ Keputusan berikut tidak memblokir F0, tetapi harus diputuskan sebelum fase terka
 | 2 | Payment gateway pertama yang di-port | **Tripay** (diputuskan 2026-10-08) | F4 |
 | 3 | Dukungan PostgreSQL untuk instalasi besar | Tidak. SQLite cukup untuk ribuan pelanggan per instance | Saat ada kebutuhan nyata |
 | 4 | Driver MikroTik VPN (`MikrotikVpn.php`) ikut di-port? | Ditunda sampai ada pengguna yang memintanya | F2 |
+
+## Lihat juga
+
+- [progres](../progres.md)
+- [arsitektur](../arsitektur.md)
