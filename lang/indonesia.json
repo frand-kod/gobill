@@ -1482,6 +1482,8 @@
     "Send message to selected": "Kirim pesan ke yang dipilih",
     "Select at least one row": "Pilih minimal satu baris",
     "Select all": "Pilih semua",
+    "Reset filter": "Atur ulang filter",
+    "selected": "dipilih",
     "Recharge Zero": "Isi Ulang Gratis (Rp 0)",
     "WA server URL": "URL server WA",
     "Address of the WhatsApp server, e.g. http://127.0.0.1:3030. When filled, WhatsApp is sent straight to this server and the WhatsApp Server URL above is ignored": "Alamat server WhatsApp, mis. http://127.0.0.1:3030. Jika diisi, pesan WhatsApp dikirim langsung ke server ini dan WhatsApp Server URL di atas diabaikan",
