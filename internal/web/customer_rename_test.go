@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -17,6 +18,11 @@ func TestEditCustomerUsername(t *testing.T) {
 	if err := e.s.Billing.Recharge(t.Context(), e.cust.ID, p.ID, "Admin - Cash", 0); err != nil {
 		t.Fatal(err)
 	}
+	last, err := e.q.ListTransactions(t.Context(), db.ListTransactionsParams{Limit: 1})
+	if err != nil || len(last) != 1 || !regexp.MustCompile(`^INV-\d{4}-\d{6}$`).MatchString(last[0].Invoice) {
+		t.Fatalf("recharge invoice: %+v %v", last, err)
+	}
+	invoice := last[0].Invoice
 	other, err := e.q.CreateCustomer(t.Context(), db.CreateCustomerParams{Username: "other", PasswordHash: "h", Fullname: "O", ServiceType: "PPPoE", PppoeUsername: "other-ppp", Status: "Active"})
 	if err != nil {
 		t.Fatal(err)
@@ -43,7 +49,7 @@ func TestEditCustomerUsername(t *testing.T) {
 	if got := strings.Join(*e.calls, ","); got != "rename u1>u2,add u2" {
 		t.Fatalf("router calls: %q", got)
 	}
-	if trx, err := e.q.GetTransactionByInvoice(t.Context(), "INV-1"); err != nil || trx.Username != "u1" {
+	if trx, err := e.q.GetTransactionByInvoice(t.Context(), invoice); err != nil || trx.Username != "u1" {
 		t.Fatalf("history must keep the old username: %+v %v", trx, err)
 	}
 	// pppoe_username change renames the PPPoE secret from the old effective name

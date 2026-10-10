@@ -7,6 +7,7 @@ import (
 
 	"context"
 	"github.com/frand-kod/gobill/internal/db"
+	"time"
 )
 
 // TopUpPaid credits a paid custom-amount gateway payment to the balance (allow_balance_custom).
@@ -16,12 +17,12 @@ func (s *Service) TopUpPaid(ctx context.Context, claim func(*db.Queries) (bool, 
 		if ok, err := claim(q); err != nil || !ok {
 			return err
 		}
-		return creditPaid(ctx, q, s.now().Unix(), customerID, amount, method, "Custom Balance")
+		return s.creditPaid(ctx, q, s.now(), customerID, amount, method, "Custom Balance")
 	})
 }
 
 // creditPaid adds an already-paid amount to the balance and records it as a Balance transaction.
-func creditPaid(ctx context.Context, q *db.Queries, now, customerID, amount int64, method, name string) error {
+func (s *Service) creditPaid(ctx context.Context, q *db.Queries, now time.Time, customerID, amount int64, method, name string) error {
 	c, err := q.GetCustomer(ctx, customerID)
 	if err != nil {
 		return err
@@ -29,13 +30,13 @@ func creditPaid(ctx context.Context, q *db.Queries, now, customerID, amount int6
 	if _, err = q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: amount, ID: customerID}); err != nil {
 		return err
 	}
-	inv, err := nextInvoice(ctx, q)
+	inv, err := s.nextInvoice(ctx, q, now)
 	if err != nil {
 		return err
 	}
 	_, err = q.CreateTransaction(ctx, db.CreateTransactionParams{Invoice: inv, CustomerID: sql.NullInt64{Int64: customerID, Valid: true},
 		Username: c.Username, PlanName: name, RouterName: "balance", Type: "Balance", Price: amount, Method: method,
-		PeriodStart: now, PeriodEnd: now})
+		PeriodStart: now.Unix(), PeriodEnd: now.Unix()})
 	return err
 }
 
@@ -53,7 +54,7 @@ func (s *Service) RechargePaid(ctx context.Context, claim func(*db.Queries) (boo
 		if c, err := q.GetCustomer(ctx, customerID); err == nil && c.Status != "Active" {
 			// PHP dies here and the payment is left in limbo. It is already claimed, so keep the
 			// money: credit the customer's balance, to be spent once the account is active again.
-			return creditPaid(ctx, q, s.now().Unix(), customerID, price, method, "Payment Credit")
+			return s.creditPaid(ctx, q, s.now(), customerID, price, method, "Payment Credit")
 		}
 		var cp *couponUse
 		if price > 0 { // record what the gateway charged (coupon discount and tax included)

@@ -94,7 +94,7 @@ func TestActivateFailureTelegram(t *testing.T) {
 	if reqs := drain(got); count(reqs, "sync+manually") != 1 || count(reqs, "router+down") != 1 {
 		t.Fatalf("telegram: %v", reqs)
 	}
-	if _, err := e.q.GetTransactionByInvoice(ctx, "INV-1"); err != nil {
+	if _, err := e.q.GetTransactionByInvoice(ctx, "INV-2501-000001"); err != nil {
 		t.Fatal(err)
 	}
 }

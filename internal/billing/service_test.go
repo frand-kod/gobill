@@ -115,7 +115,7 @@ func TestRechargeNewExtendChange(t *testing.T) {
 	if want := e.now.AddDate(0, 0, 1).Unix(); s1.ExpiresAt != want {
 		t.Fatalf("new expiry %d want %d", s1.ExpiresAt, want)
 	}
-	trx, err := e.q.GetTransactionByInvoice(ctx, "INV-1")
+	trx, err := e.q.GetTransactionByInvoice(ctx, "INV-2501-000001")
 	if err != nil || trx.Price != 10000 || trx.RouterName != "r" || trx.Method != "Admin - Cash" {
 		t.Fatalf("trx %+v %v", trx, err)
 	}

@@ -30,7 +30,7 @@ func TestRechargeAddsBills(t *testing.T) {
 	if err := e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0); err != nil {
 		t.Fatal(err)
 	}
-	trx, err := e.q.GetTransactionByInvoice(ctx, "INV-1")
+	trx, err := e.q.GetTransactionByInvoice(ctx, "INV-2501-000001")
 	if err != nil || trx.Price != 10800 {
 		t.Fatalf("trx %+v %v", trx, err)
 	}
@@ -41,7 +41,7 @@ func TestRechargeAddsBills(t *testing.T) {
 	if err := e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0); err != nil {
 		t.Fatal(err)
 	}
-	if trx, _ = e.q.GetTransactionByInvoice(ctx, "INV-2"); trx.Price != 10500 {
+	if trx, _ = e.q.GetTransactionByInvoice(ctx, "INV-2501-000002"); trx.Price != 10500 {
 		t.Fatalf("second price %d", trx.Price)
 	}
 	// balance: 10500 needed

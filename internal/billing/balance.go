@@ -33,11 +33,11 @@ func (s *Service) Deposit(ctx context.Context, customerID, planID, amount int64,
 		if plan.Type != "Balance" || amount <= 0 {
 			return ErrBadDeposit
 		}
-		invoice, err := nextInvoice(ctx, q)
+		now := s.now()
+		invoice, err := s.nextInvoice(ctx, q, now)
 		if err != nil {
 			return err
 		}
-		now := s.now()
 		trx := db.CreateTransactionParams{Invoice: invoice, CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, PlanID: sql.NullInt64{Int64: planID, Valid: planID > 0},
 			Username: c.Username, PlanName: plan.Name, RouterName: "balance", Type: "Balance", Price: amount,
 			Method: "Admin - Deposit", Note: note, AdminID: nullID(adminID), PeriodStart: now.Unix(), PeriodEnd: now.Unix()}

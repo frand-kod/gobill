@@ -65,14 +65,14 @@ func (s *Service) SendPlan(ctx context.Context, fromID int64, friend string, pla
 		if from, err = q.GetCustomer(ctx, from.ID); err != nil {
 			return err
 		}
-		inv, err := nextInvoice(ctx, q)
+		now := s.now()
+		inv, err := s.nextInvoice(ctx, q, now)
 		if err != nil {
 			return err
 		}
-		now := s.now().Unix()
 		_, err = q.CreateTransaction(ctx, db.CreateTransactionParams{Invoice: inv, CustomerID: sql.NullInt64{Int64: from.ID, Valid: true},
 			Username: from.Username, PlanName: "Send Plan: " + plan.Name, RouterName: "balance", Type: "Balance", Price: p.trx.Price,
-			Method: "Customer - Balance", Note: to.Username, PeriodStart: now, PeriodEnd: now})
+			Method: "Customer - Balance", Note: to.Username, PeriodStart: now.Unix(), PeriodEnd: now.Unix()})
 		return err
 	})
 	if err != nil {
@@ -125,18 +125,18 @@ func (s *Service) TransferBalance(ctx context.Context, fromID int64, toUsername 
 		if to.Balance, err = q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: amount, ID: to.ID}); err != nil {
 			return err
 		}
-		now := s.now().Unix()
+		now := s.now()
 		for _, t := range []struct {
 			c          db.Customer
 			name, peer string
 		}{{from, "Send Balance", to.Username}, {to, "Receive Balance", from.Username}} {
-			inv, err := nextInvoice(ctx, q)
+			inv, err := s.nextInvoice(ctx, q, now)
 			if err != nil {
 				return err
 			}
 			if _, err = q.CreateTransaction(ctx, db.CreateTransactionParams{Invoice: inv, CustomerID: sql.NullInt64{Int64: t.c.ID, Valid: true},
 				Username: t.c.Username, PlanName: t.name, RouterName: "balance", Type: "Balance", Price: amount,
-				Method: "Customer - Balance", Note: t.peer, PeriodStart: now, PeriodEnd: now}); err != nil {
+				Method: "Customer - Balance", Note: t.peer, PeriodStart: now.Unix(), PeriodEnd: now.Unix()}); err != nil {
 				return err
 			}
 		}
