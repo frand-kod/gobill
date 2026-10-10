@@ -103,7 +103,7 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | S3 | `admin/settings/notifications.tpl` | `settings/notifications(-post)` | `GET/POST /admin/settings/notifications` | Sebagian | F4 |
 | S4 | `admin/settings/miscellaneous.tpl` | `settings/miscellaneous(-post)` | `GET/POST /admin/settings/miscellaneous` | Sebagian | F4 / F5 |
 | S5 | `admin/settings/maintenance-mode.tpl` | `settings/maintenance` | `maintenance_date` di `/admin/settings/miscellaneous` | Sebagian | F5 |
-| S6 | `admin/settings/dbstatus.tpl` | `settings/dbstatus`, `dbbackup`, `dbrestore` | — | Sebagian | F5 |
+| S6 | `admin/settings/dbstatus.tpl` | `settings/dbstatus`, `dbbackup`, `dbrestore` | `GET /admin/settings/miscellaneous/restore` (restore), `GET /admin/settings/miscellaneous/import` (impor PHPNuxBill), download backup di Miscellaneous | Ada | F5 |
 | S7 | `admin/settings/language-add.tpl` | `settings/language`, `lang-post` | — (bahasa = file JSON `internal/i18n`) | Ditunda | Tunda |
 | S8 | `admin/settings/customfield.tpl` | `customfield` | `/admin/fields` (CRUD) | Sebagian | F5 |
 | S9 | `admin/settings/page.tpl` | `pages/{nama}` | `GET/POST /admin/pages/{slug}`, `GET /pages/{slug}` | Sebagian | F5 |
@@ -124,9 +124,9 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 - `admin/community.tpl`/`rollback.tpl`: hanya tautan komunitas dan tombol update GitHub.
 - `admin/autoload/*.tpl`: hanya dipanggil lewat AJAX dari form paket/voucher.
 
-**Hitungan baris tabel ringkasan (92 baris, dihitung ulang 2026-10-09):** Ada 36 · Sebagian 42 · Non-goal 5 · Ditunda 7 · Belum 2.
+**Hitungan baris tabel ringkasan (92 baris, dihitung ulang 2026-10-10):** Ada 37 · Sebagian 41 · Non-goal 5 · Ditunda 7 · Belum 2.
 
-**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 100 · ⚠️ 54 · ❌ 24; Settings ✅ 58 · ⚠️ 28 · ❌ 27; Portal pelanggan ✅ 30 · ⚠️ 4 · ❌ 9. Total ✅ 188 · ⚠️ 86 · ❌ 60. Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
+**Hitungan baris field bertanda** (bagian 2, 3, 5; satu baris = satu field): Admin ✅ 101 · ⚠️ 54 · ❌ 24; Settings ✅ 58 · ⚠️ 28 · ❌ 27; Portal pelanggan ✅ 30 · ⚠️ 4 · ❌ 9. Total ✅ 189 · ⚠️ 86 · ❌ 60. (termasuk baris 2FA v0.1.4). Baris VPN/Port (Ditunda) ditulis sebagai prosa dan tidak dihitung.
 
 ---
 
@@ -150,6 +150,7 @@ Berisi tata letak widget yang disusun dari `$config['dashboard_Admin']` (lihat b
 |---|---|---|---|---|---|---|
 | `username` | Username | text | required | `username` (`login.html`) | ✅ | |
 | `password` | Password | password | required | `password` | ✅ | Hash lama `sha1` tanpa salt diganti bcrypt; pembatas brute-force |
+| (baru, v0.1.4) | Kode 2FA | 6 digit TOTP | opsional per admin | `/login/2fa` (`login_2fa.html`) | ✅ | Setelah kata sandi benar; kode pemulihan 8 kali pakai. Diatur di `/admin/2fa`. Lihat [keamanan.md](keamanan.md) |
 | (cookie "remember") | — | — | cookie `sha1(id.time.db_pass)` | session `scs` (sqlite3store) | ⚠️ | Disengaja: cookie bertanda tangan password DB dianggap lemah (01-audit keamanan 5) |
 | `csrf_token` | — | hidden | `csrf_enabled` setting | `http.NewCrossOriginProtection` | ⚠️ | CSRF selalu aktif, tidak bisa dimatikan |
 
@@ -197,7 +198,7 @@ Kolom daftar `admin/list.tpl`: Username, Full Name, Phone, Email, Type, Location
 | `fullname` | Full Name | text | required (add), 2-25 karakter | `fullname` | ⚠️ | Baru: required saja, tanpa batas panjang |
 | `email` | Email | email | — | `email` | ✅ | Validasi format `Invalid email address` |
 | `phonenumber` | Phone Number | text | — | `phone` | ⚠️ | Nama beda. Lama menormalkan kode negara (`country_code_phone`); baru belum |
-| `password` | Password | password | required (add), 3-35 | `password` -> `password_hash` | ⚠️ | Disengaja: lama plaintext (01-audit keamanan 4); baru bcrypt untuk login portal. Edit: kosong = tidak diubah |
+| `password` | Password | password | required (add), 8-35 (sejak v0.1.4; sebelumnya 3-35) | `password` -> `password_hash` | ⚠️ | Disengaja: lama plaintext (01-audit keamanan 4); baru bcrypt untuk login portal. Edit: kosong = tidak diubah |
 | `address` | Home Address | textarea | — | `address` | ✅ | |
 | `service_type` | Service Type | select Hotspot/PPPoE/VPN/Others | — | `service_type` | ⚠️ | Opsi `VPN` tidak ada (VPN Ditunda) |
 | `account_type` | Account Type | select Personal/Business | — | — | ❌ | Tidak ada kolom `account_type` |
@@ -713,7 +714,7 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 |---|---|---|---|---|
 | `settings/maintenance-mode` | `maintenance_date` (date) + Save | `maintenance_date` (Miscellaneous > System) | ✅ | F5. Input ada; sub-halaman maintenance terpisah belum |
 | `settings/maintenance-mode` | `maintenance_mode` (checkbox `1`, aktifkan), `maintenance_mode_logout` (checkbox `1`, paksa logout pelanggan), tombol `save` | `maintenance_mode`, `maintenance_mode_logout` (Miscellaneous > System) | ✅ | F5. Kedua checkbox ada di Miscellaneous > System; tombol save memakai form settings |
-| `settings/dbstatus` | Download Backup Database | — | ⚠️ | F5. Handler `dbBackup` (`VACUUM INTO`, SuperAdmin) ada di `settings.go`; rute dan tombol di Miscellaneous belum dipasang. Restore tidak diimplementasikan: restore = stop service, replace file. `json` + Restore Database: non-goal |
+| `settings/dbstatus` | Download Backup Database, Restore Database, impor | — | ✅ | F5. Backup harian (`VACUUM INTO`) dan tautan download di Miscellaneous (SuperAdmin). Restore dari UI (v0.1.4): validasi file, backup `-pre-restore`, lalu restart. Impor PHPNuxBill dari JSON juga ada di UI (v0.1.4). Tombol `json` (unduh JSON) tetap non-goal |
 | `settings/language-add` | satu input per kunci bahasa (`{$lang@key}`) | — | ❌ | Ditunda; bahasa = file JSON di `internal/i18n` |
 | `settings/customfield` | `order[]`, `name[]`, `placeholder[]`, `type[]`, `value[]` (opsi), `register[]`, `required[]` | `sort_order`, `name`, `type`, `options`, `required` | ⚠️ | `placeholder`, `value` (default), `register` belum; urutan lewat angka, bukan drag |
 | `settings/page` | `html` (editor) + `template_name` (Save as template) + `template_save` (checkbox `yes`, simpan sebagai template) | `body` (textarea) | ⚠️ | Teks biasa, bukan HTML; template simpan/reset belum |

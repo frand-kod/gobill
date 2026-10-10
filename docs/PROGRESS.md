@@ -1,104 +1,76 @@
-# Jurnal Progres Refactor
+# Status Progres
 
-Jurnal ini dijaga di bawah 1000 kata. Rencana lengkap: [plan/](plan/README.md). Paritas per field: [UI-PARITY.md](UI-PARITY.md).
+Jurnal ini dijaga di bawah 1000 kata. Rencana awal: [plan/](plan/README.md). Paritas per layar dan field: [UI-PARITY.md](UI-PARITY.md). Audit perilaku bisnis: [BUSINESS-PARITY.md](BUSINESS-PARITY.md).
 
-**Pembaruan terakhir:** 2026-10-09
+**Pembaruan terakhir:** 2026-10-10, persiapan rilis v0.1.4 (lihat [CHANGELOG.md](../CHANGELOG.md)).
 
-## Rencana saat ini
+## Status
 
-1. Rapikan repo, CI hijau, lalu tag v0.1.1.
-2. Uji RADIUS di router: FreeRADIUS REST, lalu voucher dan pembatas MAC saat operasi normal.
-3. Uji STB. **Ditunda oleh pengguna.**
-4. Import dump terbaru, lalu jalan paralel 1–3 hari.
-5. Keputusan pengguna, lalu cutover dan tag v1.0.0.
+- Semua fitur yang direncanakan untuk v0.1.4 ada di kode dan test. Dokumen operator sudah diselaraskan dengan kode.
+- Belum ada uji lapangan untuk perubahan v0.1.4. Uji lapangan terakhir (2026-10-09) ada di bagian "Uji lapangan" di bawah.
+- Tag `v0.1.4` dibuat setelah review pengguna.
 
-Tripay sandbox ditunda sampai setelah v1.0. Audit UX selesai; screenshot pengguna menunggu.
+## Sudah selesai di v0.1.4
 
-## Ringkasan
+- **Keamanan:** `/radius.php` hanya loopback jika allow-list kosong; `NUXBILL_HTTPS` aktif default; pembatas login per IP dan per username; `X-Forwarded-For` hanya dari proxy tepercaya; pembatas tebak voucher per NAS; pembatas OTP kontak; 2FA TOTP opsional untuk admin dengan kode pemulihan; kata sandi pelanggan minimal 8; kata sandi admin pertama di file, bukan log.
+- **Fitur:** `start_on_first_login`; QRIS statis dengan QR terkunci nominal dan tautan WA; `app_url` terisi otomatis; sakelar `notify_customers` dan `notify_otp`; impor PHPNuxBill dari JSON (CLI dan UI, dengan pratinjau dan backup otomatis); restore database dari UI dengan restart.
+- **Database:** migrasi 0011 sampai 0014 (`start_on_first_login`, indeks, snapshot pelanggan di `payment_requests`, 2FA admin); pragma SQLite; retensi log bawaan 90 hari; sesi RADIUS basi ditutup otomatis.
+- **Operasional:** `/health` minimal; backup mirror (`NUXBILL_BACKUP_MIRROR`) dengan percobaan ulang tiap jam; halaman Status Sistem dan JSON-nya; `/metrics` dengan bearer token; alert operator (disk, NAS diam, job dan kanal gagal, brute force, backup, restart tidak normal, callback pembayaran untuk pelanggan yang sudah dihapus) lewat Telegram dan/atau WhatsApp.
+- **Temuan audit bisnis** P1 (recharge pelanggan non-Active ditolak), C2 (template notifikasi ikut impor), dan IM1 (atribut pelanggan ikut impor) sudah dikerjakan.
 
-Semua fase selesai di kode dan test; tersisa uji lapangan.
+## Menunggu pengguna
 
-| Fase | Status |
-|---|---|
-| F0 Fondasi | Selesai |
-| F1 Billing inti | Selesai |
-| F2 Driver MikroTik | Selesai; lolos uji lapangan mode API |
-| F3 RADIUS | Selesai; auth, accounting, CoA Disconnect, dan login voucher lolos uji lapangan; FreeRADIUS REST belum diuji |
-| F4 Portal, notifikasi, Tripay | Selesai di kode. Tripay belum diuji di sandbox |
-| F5 Pelengkap | Selesai (lihat CHANGELOG) |
-| F6 Import & rilis | Selesai; import dump produksi cocok (expiry, total transaksi) |
-
-**Paritas UI:** layar 36 ada, 42 sebagian, 2 belum. Field 188 ada, 86 berbeda, 60 belum (28 di antaranya Non-goal atau Ditunda).
-
-## Sudah selesai (ringkas)
-
-- **Stack:** Go satu binary, SQLite (WAL), `sqlc`, `html/template`, Tailwind v4, Alpine.js, Chart.js, Leaflet.
-- **Keamanan:** bcrypt (sha1 lama di-rehash saat login), secret AES-GCM, CSRF stdlib, brute-force untuk login/voucher/OTP, sesi dicabut saat password, role, atau status berubah, error notifikasi disaring sebelum log.
-- **Uang:** INTEGER rupiah, saldo atomik, voucher/kupon/callback idempoten, transaksi pelanggan terhapus tetap disimpan.
-- **Jam STB:** job expiry, reminder, backup, dan RADIUS ditahan saat jam sistem tidak dipercaya.
-- **Review keamanan akhir:** 9 temuan, semua diperbaiki dengan test regresi.
-- **UX quick wins** (`docs/UX-AUDIT.md`): dialog konfirmasi native, kunci double-submit, halaman error, test kunci i18n, tabel mobile, auto-refresh pembayaran.
-
-## Uji lapangan (MikroTik "4 keys infra", RouterOS 6.49.22, 2026-10-09)
-
-- **Mode API: lolos.** Koneksi, sinkron paket, recharge, login HP, queue, deactivate, ganti paket, expiry otomatis.
-- **RADIUS bawaan: lolos untuk auth dan accounting.** Access-Accept dengan Message-Authenticator diterima, Session-Timeout dan rate-limit terpasang, accounting masuk, expiry lewat Session-Timeout jalan.
-- **CoA Disconnect: lolos.** gobill mengirim Disconnect-Request, router membalas Disconnect-ACK, sesi logout ("radius disconnect").
-- **Login voucher hotspot via RADIUS: lolos.** Voucher aktif, pelanggan dibuat otomatis, rate-limit dan Session-Timeout terpasang. Kode salah ditolak ("Invalid Voucher..."). Re-login kode sama dan pembatas MAC belum diuji lapangan (dicakup `TestVoucherThrottle`, `TestUserThrottle`); diuji saat operasi normal.
-- **Login ulang via cookie** juga lewat RADIUS, jadi pelanggan diputus atau kedaluwarsa tidak bisa kembali via cookie.
-- **Enam bug uji lapangan diperbaiki:** password hotspot kosong, timezone kosong = UTC, REST mereset brute-force, `NUXBILL_RADIUS=` kosong tidak mematikan RADIUS, NAS-IP CoA salah (`52f97f9`), paket NAS tak terdaftar dibuang diam-diam.
-- **Pelajaran jaringan:**
-  - Server nuxbill jangan jadi klien hotspot. Dengan universal NAT, router tidak bisa kirim RADIUS ke IP server ("could not send packet: Operation not permitted") dan diam-diam memakai `/radius` berikutnya (produksi 192.168.99.2). Perbaikan: `ip-binding type=bypassed` untuk MAC server (disarankan), atau `/radius` ke `to-address` hotspot.
-  - Dengan `split-user-domain=yes`, router membuang domain: `r@nuxbilltest` tiba sebagai User-Name `r`, jadi pelanggan harus bernama `r`.
-
-## Repo dan CI
-
-- `main` dan `v0.1.0` sudah di-push ke github.com/frand-kod/gobill (modul Go sudah diganti).
-- CI gagal di langkah app.css (usang). Diperbaiki di `49e4644`, sedang dicek ulang.
-- Belum dirilis (v0.1.1): lisensi GPL-3.0-or-later, `NOTICE`, panduan kontribusi, template issue/PR.
-
-## Akan dikerjakan (checklist sebelum menggantikan PHPNuxBill)
-
-1. Uji FreeRADIUS REST: arahkan `connect_uri` server 192.168.99.2 ke nuxbill di instance uji, jalankan `freeradius -X`.
-2. Uji ulang voucher dengan kode sama dan pembatas MAC saat operasi normal.
-3. Import dump produksi terbaru ke STB, bandingkan pelanggan aktif, expiry, dan saldo dengan sistem lama.
-4. Jalan paralel 1–3 hari mode baca (accounting saja), bandingkan sesi dan expiry.
-5. Build ARM dan uji di STB (ditunda): RAM, startup tanpa RTC, listrik padam, backup ke USB.
-6. Pastikan CI hijau di GitHub, lalu tag v0.1.1.
-7. Cutover dan rollback: ganti `connect_uri` atau `/radius address`. Rollback cukup kembali ke entri lama.
-8. Bersihkan sisa uji di router: `split-user-domain=no` di HSProfMaster, profil `test` dan `test2`, user `claude-test`, `/radius` `nuxbill-test` (kini ke 192.168.20.183, secret baru). Pelanggan uji `r`, `a`, `YW2H6BRK` hanya ada di DB uji sementara.
-
-## Keputusan yang menunggu pengguna
-
-- **Kolom lama sengaja dibuang:** `account_type`, kota/kecamatan/provinsi/kode pos, `price_old`, `plan_type`.
-- **`hs_auth_method`:** samakan nilainya dengan PHP lama (`api`/`hchap`), driver hotspot perlu membacanya.
-- **Default bisnis:** `extend_expiry` dan `enable_balance` aktif jika kosong; aktivasi pertama postpaid Rp0; paket nonaktif tetap bisa di-recharge admin.
+1. **Uji paralel.** Impor data terbaru, set `notify_customers` = Tidak, lalu jalankan NuxBill berdampingan dengan PHPNuxBill selama 1 sampai 3 hari dalam mode baca. Bandingkan sesi, expiry, dan saldo. Langkah lengkap ada di [migrasi-phpnuxbill.md](migrasi-phpnuxbill.md#checklist-jalan-paralel).
+2. **Drill restore.** Uji pemulihan dari file mirror dan dari UI restore di instance uji. Catat hasilnya di sini.
+3. **Screenshot UI.** Pengguna mengambil screenshot halaman baru (Status Sistem, 2FA, impor, restore, QRIS, pengaturan alert) untuk direview.
+4. **Bersihkan router uji.** Hapus user `claude-test` di MikroTik, profil dan entry `/radius` uji, dan pastikan `split-user-domain=no` di profil yang dipakai pelanggan.
+5. **Keputusan rilis.** Review CHANGELOG v0.1.4, lalu tag dan publish.
 
 ## Belum pernah diuji di dunia nyata
 
-Build ARM dan STB, FreeRADIUS REST, Tripay sandbox, SMTP, gateway WA/SMS, re-login voucher dan pembatas MAC, serta tampilan UI terbaru.
+- Build dan jalan di STB ARM (RAM, startup tanpa RTC, listrik padam, backup ke USB).
+- Mirror backup ke NAS atau rclone, dan alert saat mirror gagal.
+- Login 2FA dengan aplikasi authenticator sungguhan di browser.
+- Scrape `/metrics` oleh Prometheus dan alert lewat WhatsApp.
+- FreeRADIUS lewat `/radius.php`, termasuk login voucher lewat REST.
+- Tripay sandbox, SMTP, gateway WA dan SMS.
+- Pembayaran QRIS nyata (konfirmasi tetap manual).
+
+## Parkir (ditunda dengan sengaja)
+
+- **Verifikasi TLS RouterOS.** Sertifikat RouterOS pada port 8729 belum diverifikasi.
+- **Guard SSRF untuk URL notifikasi.** `webhook_url`, `wa_url`, `sms_url`, dan `alt_wga_server_url` belum dibatasi ke alamat publik. Risikonya rendah karena hanya admin yang bisa mengubahnya.
+- **Batch penulisan accounting.** Setiap paket accounting interim masih menulis satu baris. Batch baru perlu jika beban naik.
+- **Tabel invoices dan ledger.** Tidak ada tabel faktur atau buku besar terpisah. Faktur dibuat dari baris `transactions` (nomor `INV-YYMM-NNNNNN`).
+
+Lain-lain yang belum ada: kupon, ODP, dan inbox belum diimpor dari PHPNuxBill; pajak (`enable_tax`) belum diterapkan; RadSec belum dilayani secara native; kunci MPPE belum dikirim; `hs_auth_method` hanya tampilan, tidak dibaca server RADIUS.
 
 ## Utang teknis yang disengaja
 
-Ditandai `ponytail:` di kode (`grep -rn ponytail: .`). Yang terpenting:
-- RouterOS tanpa connection pooling, sertifikat TLS RouterOS tidak diverifikasi.
-- Kunci MPPE belum dikirim.
-- Pembatas percobaan dan status pesan massal hanya di memori, ter-reset saat restart.
+Ditandai `ponytail:` di kode (`grep -rn ponytail: .`). Yang paling relevan:
+
+- Pembatas percobaan (login, voucher, OTP), status pesan massal, dan status alert hanya di memori. Reset saat restart. Alert yang masih berlangsung dikirim ulang setelah restart.
+- Secret integrasi (SMTP, Telegram, Tripay, metrics token) tersimpan plaintext di tabel `settings`, sama seperti aplikasi lama. Lindungi file database dan backup.
 - Penanda perpanjang mandiri disimpan sebagai satu baris setting per pelanggan.
-- Secret integrasi (SMTP, Telegram, Tripay) plaintext di tabel settings, sama seperti aplikasi lama.
 
 ## Perbedaan perilaku dari PHP lama (disengaja)
 
 - Router dihubungi setelah commit DB. Tanggal tidak valid di paket Period dinormalkan.
 - Bug PHP diperbaiki: ganti username hotspot, rename profil PPPoE, CHAP terbalik di `radius.php`, batas perpanjang mandiri yang hanya mencatat bulan.
-- **Login voucher RADIUS:** username harus kode voucher, dan voucher tidak bisa mengambil alih akun yang sudah ada.
-- **Role admin lebih ketat:** Admin tidak bisa mengangkat SuperAdmin, SuperAdmin terakhir dilindungi.
-- **Pengganti fitur lama:** PDF diganti halaman cetak HTML, plugin diganti webhook.
+- Login voucher RADIUS: username harus kode voucher, dan voucher tidak bisa mengambil alih akun yang sudah ada.
+- Role admin lebih ketat: Admin tidak bisa mengangkat SuperAdmin, SuperAdmin terakhir dilindungi.
+- Pengganti fitur lama: PDF diganti halaman cetak HTML, plugin diganti webhook.
+
+## Uji lapangan (MikroTik, RouterOS 6.49.22, 2026-10-09)
+
+- **Mode API:** lolos. Koneksi, sinkron paket, recharge, queue, deactivate, ganti paket, expiry otomatis.
+- **RADIUS bawaan:** lolos untuk auth dan accounting, Session-Timeout, rate-limit, dan expiry lewat Session-Timeout.
+- **CoA Disconnect:** lolos. Router membalas Disconnect-ACK dan sesi logout.
+- **Login voucher hotspot lewat RADIUS:** lolos. Kode salah ditolak. Login ulang dengan kode sama dan pembatas MAC belum diuji lapangan.
+- **Pelajaran jaringan:** server NuxBill jangan jadi klien hotspot (NAT universal membuat RADIUS dan CoA gagal; pakai `ip-binding type=bypassed`). Dengan `split-user-domain=yes`, router membuang domain dari User-Name.
 
 ## Cara kerja
 
-- Opus orkestrator. Sonnet untuk logika bisnis dan keamanan, Haiku untuk form dan dokumen. Tiap agent: worktree terpisah.
-- Setiap merge lolos `go vet`, `go test`, dan race detector (billing, radius, job). `sqlc` di-generate ulang, CSS lewat `make css`.
-- Migrasi di `internal/db/migrations/` beku sejak v0.1.0 (hash di `migrations.sum`, dijaga `TestMigrationsFrozen`). Schema baru masuk file bernomor berikutnya.
-- Versi SemVer, dicatat di `CHANGELOG.md`.
-- Dump produksi (`docs/*.sql`) di-gitignore, jangan di-commit.
+- Migrasi di `internal/db/migrations/` beku sejak v0.1.0. Hash di `migrations.sum`, dijaga `TestMigrationsFrozen`. Schema baru masuk file bernomor berikutnya.
+- Setiap perubahan lolos `go vet` dan `go test ./...`. Panduan build dan rilis ada di [pengembangan.md](pengembangan.md).
+- Dump produksi (`docs/*.sql`, `docs/phpnuxbill_*.json`) di-gitignore dan tidak boleh di-commit.

@@ -70,6 +70,8 @@ Setelah import:
 
 ## Checklist jalan paralel
 
+Sebelum jalan paralel, set Settings > Notifications > `notify_customers` = Tidak. Pelanggan tidak menerima pesan dari dua sistem sekaligus; alert operator tetap jalan ([konfigurasi.md](konfigurasi.md#sakelar-notifikasi-dan-otp)).
+
 1. Uji CoA Disconnect di MikroTik (setelah perbaikan NAS-IP-Address).
 2. Uji jalur FreeRADIUS REST: arahkan `connect_uri` server uji ke NuxBill di instance uji, jalankan `freeradius -X`.
 3. Uji login voucher hotspot lewat RADIUS dan pembatas MAC.

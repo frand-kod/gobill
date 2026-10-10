@@ -10,9 +10,9 @@ Pilih dokumen sesuai peran Anda. Setiap dokumen berdiri sendiri. Ringkasan proye
 | [konfigurasi.md](konfigurasi.md) | Variabel `NUXBILL_*` dan pengaturan penting di UI |
 | [mikrotik.md](mikrotik.md) | Setup MikroTik mode API dan RADIUS bawaan; uji aman di router produksi |
 | [freeradius-rest.md](freeradius-rest.md) | Tetap memakai FreeRADIUS lewat `rlm_rest` |
-| [keamanan.md](keamanan.md) | Pengerasan RADIUS, firewall, dan keamanan aplikasi |
+| [keamanan.md](keamanan.md) | Pengerasan RADIUS, firewall, keamanan aplikasi, dan 2FA admin |
 | [monitoring.md](monitoring.md) | Status Sistem, `/health` vs `/metrics` (Prometheus), alert operator, Uptime Kuma |
-| [migrasi-phpnuxbill.md](migrasi-phpnuxbill.md) | Impor dari PHPNuxBill, cutover, rollback, checklist jalan paralel |
+| [migrasi-phpnuxbill.md](migrasi-phpnuxbill.md) | Impor dari PHPNuxBill (JSON atau MySQL), cutover, rollback, checklist jalan paralel |
 
 ## Untuk developer
 
@@ -34,6 +34,9 @@ Pilih dokumen sesuai peran Anda. Setiap dokumen berdiri sendiri. Ringkasan proye
 | Dokumen | Isi |
 |---|---|
 | [../CHANGELOG.md](../CHANGELOG.md) | Perubahan per versi |
-| [PROGRESS.md](PROGRESS.md) | Jurnal progres dan hasil uji lapangan |
+| [PROGRESS.md](PROGRESS.md) | Status saat ini, yang menunggu pengguna, dan item yang ditunda |
+| [BUSINESS-PARITY.md](BUSINESS-PARITY.md) | Audit perilaku bisnis dibanding PHPNuxBill, dan status temuannya |
+| [UX-AUDIT.md](UX-AUDIT.md) | Audit UX per layar, admin dan portal |
+| [UX-FLOW-AUDIT.md](UX-FLOW-AUDIT.md) | Audit alur tugas operator dan pelanggan |
 | [UI-PARITY.md](UI-PARITY.md) | Perbandingan layar dan field dengan PHPNuxBill lama |
 | [plan/](plan/README.md) | Rencana awal: audit kode lama, keputusan stack, arsitektur, roadmap |
