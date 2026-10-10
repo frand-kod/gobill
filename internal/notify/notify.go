@@ -393,8 +393,15 @@ func (n *Notifier) template(name string) string {
 	return defaults[name]
 }
 
+// CustomersOff is the notify_customers switch: "no" stops every customer message. Missing means on.
+func CustomersOff(st map[string]string) bool { return st["notify_customers"] == "no" }
+
 // send picks the channel like sendPackageNotification: phone must be > 5 chars for sms/wa.
 func (n *Notifier) send(ctx context.Context, c db.Customer, via, subject, msg string) error {
+	if CustomersOff(n.Settings) {
+		slog.Info("customer notification off", "kind", subject)
+		return nil
+	}
 	switch via {
 	case "sms", "wa":
 		if len(c.Phone) <= 5 {

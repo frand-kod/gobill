@@ -35,6 +35,9 @@ func (s *Server) deliver(ctx context.Context, n *notify.Notifier, st map[string]
 	if subject == "" {
 		subject = "Notification Message"
 	}
+	if channel != "inbox" && notify.CustomersOff(st) {
+		return errors.New("customer notifications are off (Settings > Notifications)")
+	}
 	ctx, cancel := context.WithTimeout(ctx, n.Timeout)
 	defer cancel()
 	switch channel {
