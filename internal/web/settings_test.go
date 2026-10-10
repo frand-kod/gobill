@@ -103,7 +103,7 @@ func TestSettingsValidation422(t *testing.T) {
 		want string
 	}{
 		{"localisation", url.Values{"language": {"english"}, "timezone": {"Mars/Base"}, "country_code_phone": {"62"}}, "Unknown timezone"},
-		{"integrations", url.Values{"sms_url": {"http://gw/send?to=x"}}, "URL must contain"},
+		{"integrations", url.Values{"wa_url": {"http://gw/send?to=x"}}, "URL must contain"},
 		{"integrations", url.Values{"wa_url": {"http://gw/send?to=[number]"}}, "URL must contain"},
 		{"integrations", url.Values{"webhook_url": {"ftp://x.test/hook"}}, "http or https"},
 		{"integrations", url.Values{"smtp_port": {"70000"}}, "Enter a port"},
