@@ -8,7 +8,9 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/netip"
 
 	"context"
 	"github.com/frand-kod/gobill/internal/db"
@@ -82,7 +84,12 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 // fillAppURL stores the address of the first successful admin login as app_url, once.
 // Only called after authentication: the Host header is attacker-controlled otherwise.
 func (s *Server) fillAppURL(r *http.Request) {
-	if r.Host == "" {
+	h, _, err := net.SplitHostPort(r.Host)
+	if err != nil {
+		h = r.Host
+	}
+	// a LAN/localhost login during setup is not an address customers can open
+	if a, e := netip.ParseAddr(strings.Trim(h, "[]")); h == "" || h == "localhost" || e == nil && (a.IsPrivate() || a.IsLoopback()) {
 		return
 	}
 	st, err := s.loadSettings(r.Context())
