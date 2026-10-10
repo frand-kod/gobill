@@ -1,6 +1,6 @@
 package web
 
-// Customer diagnosis card ("internet mati"): account, plan, connection, quota and router in plain words.
+// Customer status strip ("internet mati"): account, plan, connection, quota and router in plain words.
 // Read-only and cheap: a few indexed queries, no call to any router.
 
 import (
@@ -12,11 +12,22 @@ import (
 	"github.com/frand-kod/gobill/internal/radius"
 )
 
-type diagItem struct{ Label, Cls, State, Text string }
+// diagItem is one status chip: Short is the chip text, Text the full sentence (the tests read it).
+type diagItem struct{ Label, Cls, State, Short, Text string }
 
 type diagnosis struct {
 	Items  []diagItem
 	Advice string
+}
+
+// NeedsAction: some item is warn or bad, so the page shows the advice.
+func (d diagnosis) NeedsAction() bool {
+	for _, it := range d.Items {
+		if it.Cls == "badge-warn" || it.Cls == "badge-bad" {
+			return true
+		}
+	}
+	return false
 }
 
 // diagnose looks at the customer from the outside in. subs are the customer's subscriptions, online
@@ -31,8 +42,8 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 		return fmt.Sprintf(k, a...)
 	}
 	var d diagnosis
-	add := func(label, level, text string) {
-		it := diagItem{Label: label, Text: text}
+	add := func(label, level, short, text string) {
+		it := diagItem{Label: label, Short: short, Text: text}
 		switch level {
 		case "ok":
 			it.Cls, it.State = "badge-ok", "OK"
@@ -50,9 +61,9 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 
 	// account
 	if c.Status == "Active" {
-		add("Account", "ok", t("Account is Active"))
+		add("Account", "ok", t(c.Status), t("Account is Active"))
 	} else {
-		add("Account", "bad", t("Account is %s: the customer cannot log in", t(c.Status)))
+		add("Account", "bad", t(c.Status), t("Account is %s: the customer cannot log in", t(c.Status)))
 		tip("Account is %s: set it to Active under Edit", t(c.Status))
 	}
 
@@ -70,22 +81,22 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 		if p, err := s.queries.GetPlan(ctx, subs[0].PlanID); err == nil {
 			name = p.Name
 		}
-		add("Plan", "bad", t("Plan %s ended on %s", name, s.ts(subs[0].ExpiresAt)))
+		add("Plan", "bad", t("Ended %s", s.ts(subs[0].ExpiresAt)), t("Plan %s ended on %s", name, s.ts(subs[0].ExpiresAt)))
 		tip("Plan ended: press Recharge")
 	} else if sub == nil {
-		add("Plan", "bad", t("No active plan"))
+		add("Plan", "bad", t("No active plan"), t("No active plan"))
 		tip("No plan: press Recharge")
 	} else if p, err := s.queries.GetPlan(ctx, sub.PlanID); err != nil {
 		sub = nil
-		add("Plan", "warn", t("Plan could not be read"))
+		add("Plan", "warn", t("Plan could not be read"), t("Plan could not be read"))
 	} else {
 		plan = p
 		if sub.ExpiresAt <= now {
 			expired = true
-			add("Plan", "bad", t("Plan %s ended on %s", p.Name, s.ts(sub.ExpiresAt)))
+			add("Plan", "bad", t("Ended %s", s.ts(sub.ExpiresAt)), t("Plan %s ended on %s", p.Name, s.ts(sub.ExpiresAt)))
 			tip("Plan ended: press Recharge")
 		} else {
-			add("Plan", "ok", t("Plan %s is active until %s (%s left)", p.Name, s.ts(sub.ExpiresAt), humanDur(sub.ExpiresAt-now)))
+			add("Plan", "ok", t("Until %s · %s left", s.ts(sub.ExpiresAt), humanDur(sub.ExpiresAt-now)), t("Plan %s is active until %s (%s left)", p.Name, s.ts(sub.ExpiresAt), humanDur(sub.ExpiresAt-now)))
 		}
 	}
 
@@ -114,23 +125,23 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 			}
 		}
 		if age := now - x.UpdatedAt; age > radius.StaleAfter {
-			add("Connection", "warn", t("A session is open but silent for %s (the device may be off)", humanDur(age)))
+			add("Connection", "warn", t("Silent"), t("A session is open but silent for %s (the device may be off)", humanDur(age)))
 		} else {
 			connected = true
-			add("Connection", "ok", t("Online now: IP %s, MAC %s, router %s, last update %s ago", x.FramedIp, x.Mac, x.NasIp, humanDur(age)))
+			add("Connection", "ok", t("Online"), t("Online now: IP %s, MAC %s, router %s, last update %s ago", x.FramedIp, x.Mac, x.NasIp, humanDur(age)))
 		}
 	case last != nil:
 		seen := max(last.UpdatedAt, last.StoppedAt.Int64)
-		add("Connection", "warn", t("Offline. Last seen %s (%s ago)", s.ts(seen), humanDur(now-seen)))
+		add("Connection", "warn", t("Offline"), t("Offline. Last seen %s (%s ago)", s.ts(seen), humanDur(now-seen)))
 	case online != "":
 		lvl := map[string]string{"Online": "ok", "Offline": "warn"}[online]
 		if lvl == "" {
 			lvl = "bad"
 		}
-		add("Connection", lvl, t(online))
+		add("Connection", lvl, t(online), t(online))
 		connected = online == "Online"
 	default:
-		add("Connection", "muted", t("No RADIUS session recorded for this customer"))
+		add("Connection", "muted", t("No data"), t("No RADIUS session recorded for this customer"))
 	}
 
 	// quota: same arithmetic as the RADIUS login check
@@ -138,11 +149,11 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 		q, quotaOut := s.planQuota(ctx, names, *sub, plan), false
 		if q.HasTime {
 			quotaOut = quotaOut || q.Time >= q.TimeLim
-			add("Quota", quotaLevel(q.Time, q.TimeLim), t("Online time used %s of %s", humanDur(q.Time), humanDur(q.TimeLim)))
+			add("Quota", quotaLevel(q.Time, q.TimeLim), pct(q.Time, q.TimeLim), t("Online time used %s of %s", humanDur(q.Time), humanDur(q.TimeLim)))
 		}
 		if q.HasData {
 			quotaOut = quotaOut || q.Data >= q.DataLim
-			add("Quota", quotaLevel(q.Data, q.DataLim), t("Data used %s of %s", humanBytes(q.Data), humanBytes(q.DataLim)))
+			add("Quota", quotaLevel(q.Data, q.DataLim), pct(q.Data, q.DataLim), t("Data used %s of %s", humanBytes(q.Data), humanBytes(q.DataLim)))
 		}
 		if quotaOut && !expired {
 			tip("Quota used up: press Recharge for a new plan")
@@ -154,24 +165,24 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 	switch {
 	case sub == nil:
 	case plan.Device == "Radius":
-		add("Router", "ok", t("Served by RADIUS, no direct router link needed"))
+		add("Router", "ok", t("RADIUS"), t("Served by RADIUS, no direct router link needed"))
 	case plan.RouterID.Valid:
 		if r, err := s.queries.GetRouter(ctx, plan.RouterID.Int64); err != nil {
-			add("Router", "warn", t("The router of this plan was not found"))
+			add("Router", "warn", t("Not found"), t("The router of this plan was not found"))
 		} else if r.Enabled == 0 {
-			add("Router", "warn", t("Router %s is switched off under Routers", r.Name))
+			add("Router", "warn", t("Off"), t("Router %s is switched off under Routers", r.Name))
 		} else if !r.Online.Valid {
-			add("Router", "warn", t("Router %s has not been checked yet", r.Name))
+			add("Router", "warn", t("Not checked"), t("Router %s has not been checked yet", r.Name))
 		} else if r.Online.Int64 == 0 {
 			routerDown = true
 			if r.LastSeenAt.Valid {
-				add("Router", "bad", t("Router %s is offline (last seen %s)", r.Name, s.ts(r.LastSeenAt.Int64)))
+				add("Router", "bad", t("Offline"), t("Router %s is offline (last seen %s)", r.Name, s.ts(r.LastSeenAt.Int64)))
 			} else {
-				add("Router", "bad", t("Router %s is offline (never seen online)", r.Name))
+				add("Router", "bad", t("Offline"), t("Router %s is offline (never seen online)", r.Name))
 			}
 			tip("Router offline: check its power and cables")
 		} else {
-			add("Router", "ok", t("Router %s is online", r.Name))
+			add("Router", "ok", t("Online"), t("Router %s is online", r.Name))
 		}
 	}
 
@@ -184,6 +195,14 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 		d.Advice = t("Everything looks normal")
 	}
 	return d
+}
+
+// pct: share of a limit used, for the short chip text.
+func pct(used, lim int64) string {
+	if lim <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d%%", min(used*100/lim, 100))
 }
 
 // quotaUse is what a limited plan has used since its subscription started, summed over the
