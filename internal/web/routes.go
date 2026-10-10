@@ -260,6 +260,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/settings/miscellaneous/import", superAdmin(http.HandlerFunc(s.importPreview)))
 	mux.Handle("POST /admin/settings/miscellaneous/import/confirm", superAdmin(http.HandlerFunc(s.importConfirm)))
 	mux.Handle("POST /admin/settings/miscellaneous/import/cancel", superAdmin(http.HandlerFunc(s.importCancel)))
+	mux.Handle("GET /admin/settings/miscellaneous/restore", superAdmin(http.HandlerFunc(s.restoreForm)))
+	mux.Handle("POST /admin/settings/miscellaneous/restore", superAdmin(http.HandlerFunc(s.restorePreview)))
+	mux.Handle("POST /admin/settings/miscellaneous/restore/confirm", superAdmin(http.HandlerFunc(s.restoreConfirm)))
+	mux.Handle("POST /admin/settings/miscellaneous/restore/cancel", superAdmin(http.HandlerFunc(s.restoreCancel)))
 	// Old settings.php users-*: list/add/edit for SuperAdmin, Admin and Agent (scoped in admins.go); delete only SuperAdmin and Admin.
 	userMgr := s.requireAdmin("SuperAdmin", "Admin", "Agent")
 	mux.Handle("GET /admin/users", userMgr(http.HandlerFunc(s.adminList)))

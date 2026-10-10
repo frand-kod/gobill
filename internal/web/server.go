@@ -46,7 +46,7 @@ type Server struct {
 
 	// Version is shown in the admin sidebar footer and on /health.
 	Version string
-	// DBPath is the SQLite file; /health reports its disk space and strips it from errors.
+	// DBPath is the SQLite file: /health reports its disk space, restore stages uploads next to it.
 	DBPath string
 
 	// ClockWarning, if set, returns a non-empty reason while the clock is untrusted.
@@ -56,6 +56,8 @@ type Server struct {
 	SettingsChanged func(ctx context.Context) // called after settings are saved
 	// BackupDir receives the database backup taken before a PHPNuxBill import, see admin_import.go.
 	BackupDir string
+	// Restart is called after a restore is staged; main shuts down and exits for systemd to start it again.
+	Restart func()
 	// Billing recharges customers and syncs plans to routers; nil disables both.
 	Billing *billing.Service
 	// CoAPort is the NAS Disconnect-Request port; empty = 3799.
