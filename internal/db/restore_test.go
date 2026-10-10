@@ -46,6 +46,25 @@ func TestApplyPendingRestore(t *testing.T) {
 	}
 }
 
+// Two restores in the same second must not overwrite each other's moved-aside database.
+func TestRestoreBackupNamesDoNotCollide(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nuxbill.db")
+	for i := 0; i < 2; i++ {
+		if err := os.WriteFile(path, []byte("live"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path+".restore", []byte("backup"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := ApplyPendingRestore(path); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if moved, _ := filepath.Glob(path + ".pre-restore-*"); len(moved) != 2 {
+		t.Fatalf("want 2 distinct moved-aside databases, got %v", moved)
+	}
+}
+
 func TestApplyPendingRestoreNoStagedFileIsNoop(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "nuxbill.db")

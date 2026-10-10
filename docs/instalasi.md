@@ -168,7 +168,7 @@ Cek versi: `/usr/local/bin/nuxbill --version`. Backup database dan `.key` dulu.
 gobill tidak bisa memberi tahu kalau dirinya sendiri mati. Pasang monitor eksternal (UptimeRobot, Uptime Kuma) yang memanggil `https://domain-anda/health` tiap 5 menit dan kirim alarm bila tidak 200.
 
     curl -s https://domain-anda/health
-    {"status":"ok","db":"ok","disk_free_mb":5120,"version":"v1.2.0"}
+    {"status":"ok","db":"ok"}
 
 - `status` `ok`: normal. `degraded`: disk kosong di bawah 200 MB (tetap HTTP 200). `down`: database tidak bisa dibaca (HTTP 503).
 - Endpoint ini tanpa login dan tidak menampilkan data pelanggan. Ia tetap bisa diakses saat mode maintenance.

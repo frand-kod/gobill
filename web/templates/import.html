@@ -30,7 +30,7 @@
       {{if or .Reasons .Notes}}<tr><td colspan="4" class="text-sm">
         {{range .Reasons}}<p class="text-err-fg">{{.}}</p>{{end}}
         {{if .More}}<p>{{.More}} {{T "more skipped"}}</p>{{end}}
-        {{range .Notes}}<p class="text-ink-2">{{.}}</p>{{end}}
+        {{range .Notes}}<p class="text-ink-2">{{T .}}</p>{{end}}
       </td></tr>{{end}}
     {{end}}
     </tbody>
