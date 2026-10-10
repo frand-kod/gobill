@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/metrics"
 	"github.com/frand-kod/gobill/internal/payment"
 	"sync"
 	"time"
@@ -121,7 +122,9 @@ func (s *Server) tripayCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ref, status, err := g.HandleCallback(r)
+	metrics.Set("payment_callback_last_timestamp", float64(time.Now().Unix()))
 	if err != nil {
+		metrics.Inc("payment_callbacks_total", "result", "failed")
 		slog.Warn("tripay callback rejected", "ip", clientIP(r), "err", err)
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
@@ -130,9 +133,11 @@ func (s *Server) tripayCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Warn("tripay callback: unknown reference", "ref", ref, "err", err)
 	} else if err := s.settlePayment(r.Context(), pr, status); err != nil {
+		metrics.Inc("payment_callbacks_total", "result", "failed")
 		s.fail(w, "tripay callback settle "+ref, err) // 500 makes Tripay retry
 		return
 	}
+	metrics.Inc("payment_callbacks_total", "result", "ok")
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }

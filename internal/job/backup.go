@@ -3,7 +3,6 @@ package job
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -23,30 +22,35 @@ var backupName = regexp.MustCompile(`^nuxbill-\d{8}\.db$`)
 
 // Backup takes one VACUUM INTO copy of the database per day and keeps the newest backup_keep files.
 // With Mirror set, each new copy is also written there (USB, NFS/SMB or rclone mount). A mirror
-// failure is logged and alerted, and never fails the local backup.
+// failure is recorded in settings (backup_mirror_error) and never fails the local backup; the
+// alert job reports it.
 type Backup struct {
 	Conn    *sql.DB
 	Q       *db.Queries
 	Dir     string
 	Mirror  string // optional; must already exist, so an unmounted disk fails instead of creating a folder on the SD card
 	Trusted func() bool
-	Alert   func(ctx context.Context, msg string) error // operator alert (Telegram); nil = log only
-	Now     func() time.Time                            // injectable for tests; nil = time.Now
+	Now     func() time.Time // injectable for tests; nil = time.Now
 }
 
+// backupTime is the layout of the backup_* status settings.
+const backupTime = "2006-01-02 15:04:05"
+
 // Run is the job.Run body. It ticks every minute; it writes only during the backup hour and
-// only when today's file is missing, so repeated ticks in that hour are harmless.
+// only when today's file is missing, so repeated ticks in that hour are harmless. While today's
+// copy is missing from the mirror, the mirror copy is retried once an hour.
 func (b *Backup) Run(ctx context.Context) error {
 	now := time.Now()
 	if b.Now != nil {
 		now = b.Now()
 	}
-	if now.Hour() != backupHour {
-		return nil
-	}
 	final := filepath.Join(b.Dir, "nuxbill-"+now.Format("20060102")+".db")
 	if _, err := os.Stat(final); err == nil {
-		return nil // never overwrite today's file
+		b.retryMirror(ctx, final, now) // never overwrite today's file
+		return nil
+	}
+	if now.Hour() != backupHour {
+		return nil
 	}
 	if !b.Trusted() {
 		slog.Warn("backup skipped: system clock not trusted")
@@ -74,15 +78,16 @@ func (b *Backup) Run(ctx context.Context) error {
 	return b.rotate(ctx)
 }
 
-// mirror copies the new backup to Mirror, prunes it to backup_keep, and records the result in settings.
-// Attempts happen once a day, so an alert is sent at most once a day while it keeps failing,
-// and once more when the failure clears.
+// mirror copies the new backup to Mirror, prunes it to backup_keep, and records the attempt and
+// the result in settings. backup_mirror_error stays set until a copy succeeds; the alert job
+// reports that state.
 func (b *Backup) mirror(ctx context.Context, src string, now time.Time) {
 	st, err := b.settings(ctx)
 	if err != nil {
 		slog.Error("backup mirror", "err", err)
 		return
 	}
+	b.set(ctx, "backup_mirror_try_at", now.Format(backupTime))
 	dst := filepath.Join(b.Mirror, filepath.Base(src))
 	err = copyFile(src, dst)
 	if err == nil {
@@ -91,25 +96,27 @@ func (b *Backup) mirror(ctx context.Context, src string, now time.Time) {
 	if err != nil {
 		slog.Error("backup mirror failed", "dir", b.Mirror, "err", err)
 		b.set(ctx, "backup_mirror_error", err.Error())
-		b.alert(ctx, fmt.Sprintf("Backup mirror %s failed: %v", b.Mirror, err))
 		return
 	}
 	slog.Info("backup mirrored", "path", dst)
-	b.set(ctx, "backup_mirror_at", now.Format("2006-01-02 15:04:05"))
-	if st["backup_mirror_error"] != "" {
-		b.set(ctx, "backup_mirror_error", "")
-		b.alert(ctx, fmt.Sprintf("Backup mirror %s is working again", b.Mirror))
-	}
+	b.set(ctx, "backup_mirror_at", now.Format(backupTime))
+	b.set(ctx, "backup_mirror_error", "")
 }
 
-// alert sends the operator alert, if one is wired. Failures are logged only.
-func (b *Backup) alert(ctx context.Context, msg string) {
-	if b.Alert == nil {
+// retryMirror retries the mirror copy of today's backup once an hour while it keeps failing.
+// It does nothing unless the last mirror attempt failed for this same file.
+func (b *Backup) retryMirror(ctx context.Context, src string, now time.Time) {
+	if b.Mirror == "" {
 		return
 	}
-	if err := b.Alert(ctx, msg); err != nil {
-		slog.Error("backup alert", "err", err)
+	st, err := b.settings(ctx)
+	if err != nil || st["backup_mirror_error"] == "" || st["backup_last_file"] != filepath.Base(src) {
+		return
 	}
+	if last, err := time.ParseInLocation(backupTime, st["backup_mirror_try_at"], now.Location()); err == nil && now.Sub(last) < time.Hour {
+		return
+	}
+	b.mirror(ctx, src, now)
 }
 
 // rotate deletes the oldest nuxbill-YYYYMMDD.db files beyond backup_keep (default 7).

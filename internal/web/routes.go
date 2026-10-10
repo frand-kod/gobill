@@ -161,6 +161,8 @@ func (s *Server) Handler() http.Handler {
 
 	// dashboard
 	mux.Handle("GET /admin", all(http.HandlerFunc(s.dashboard)))
+	mux.Handle("GET /admin/status", managers(http.HandlerFunc(s.statusPage)))
+	mux.Handle("GET /admin/status.json", managers(http.HandlerFunc(s.statusJSON)))
 
 	// customers: search, list, detail, edit, delete, actions, custom fields, maps
 	mux.Handle("GET /admin/search", staff(http.HandlerFunc(s.custSearch)))
@@ -257,6 +259,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/settings/notifications/daily-summary", managers(http.HandlerFunc(s.dailySummaryNow)))
 	mux.Handle("GET /admin/settings/miscellaneous/backup", managers(http.HandlerFunc(s.dbBackup)))
 	superAdmin := s.requireAdmin("SuperAdmin")
+	mux.Handle("POST /admin/settings/integrations/metrics-token", superAdmin(http.HandlerFunc(s.metricsTokenNew)))
+	mux.Handle("POST /admin/settings/integrations/metrics-token/disable", superAdmin(http.HandlerFunc(s.metricsTokenOff)))
 	mux.Handle("GET /admin/settings/miscellaneous/import", superAdmin(http.HandlerFunc(s.importForm)))
 	mux.Handle("POST /admin/settings/miscellaneous/import", superAdmin(http.HandlerFunc(s.importPreview)))
 	mux.Handle("POST /admin/settings/miscellaneous/import/confirm", superAdmin(http.HandlerFunc(s.importConfirm)))
@@ -296,6 +300,7 @@ func (s *Server) Handler() http.Handler {
 	// /health sits outside the session and maintenance chain so monitors always get an answer
 	top := http.NewServeMux()
 	top.HandleFunc("GET /health", s.health)
+	top.HandleFunc("GET /metrics", s.metricsHandler)
 	top.Handle("/", app)
 	return top
 }
