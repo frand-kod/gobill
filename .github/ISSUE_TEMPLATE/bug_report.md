@@ -1,6 +1,6 @@
 ---
 name: Laporan bug
-about: Laporkan perilaku yang salah di NuxBill
+about: Laporkan perilaku yang salah di gobill
 labels: bug
 ---
 
@@ -12,7 +12,7 @@ Apa yang terjadi, dan apa yang Anda harapkan.
 2.
 
 **Lingkungan**
-- Versi nuxbill (`nuxbill --version`):
+- Versi gobill (`gobill --version`):
 - Versi RouterOS:
 - Mode RADIUS: API / built-in / REST
 

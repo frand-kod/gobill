@@ -1,6 +1,6 @@
 # Konfigurasi
 
-Dokumen ini menjelaskan dua lapis konfigurasi NuxBill: variabel lingkungan `NUXBILL_*` dan pengaturan di UI. Variabel lingkungan dibaca sebelum database dibuka. Di systemd, variabel ini ada di `/etc/nuxbill/config.env`. Pengaturan disimpan di tabel `settings` dan diubah lewat menu **Pengaturan**.
+Dokumen ini menjelaskan dua lapis konfigurasi gobill: variabel lingkungan `GOBILL_*` dan pengaturan di UI. Variabel lingkungan dibaca sebelum database dibuka. Di systemd, variabel ini ada di `/etc/gobill/config.env`. Pengaturan disimpan di tabel `settings` dan diubah lewat menu **Pengaturan**.
 
 **Untuk:** operator
 
@@ -8,34 +8,34 @@ Dokumen ini menjelaskan dua lapis konfigurasi NuxBill: variabel lingkungan `NUXB
 
 ## Variabel lingkungan
 
-Daftar ini berisi semua variabel yang dibaca kode di `cmd/nuxbill`.
+Daftar ini berisi semua variabel yang dibaca kode di `cmd/gobill`.
 
 | Variabel | Bawaan | Fungsi |
 |---|---|---|
-| `NUXBILL_DB` | `./nuxbill.db`. Di Docker: `/data/nuxbill.db` | Lokasi file SQLite. Juga dipakai oleh `nuxbill import` |
-| `NUXBILL_HTTP` | `:8080` | Alamat listen HTTP |
-| `NUXBILL_HTTPS` | aktif | Cookie sesi selalu memakai flag `Secure`. Isi `0` hanya jika UI diakses lewat HTTP biasa, misalnya IP LAN. Browser tidak mengirim cookie `Secure` lewat `http://`, kecuali `localhost`. Saat bernilai `0`, start mencatat peringatan. |
-| `NUXBILL_SECRET_KEY` | kosong | Kunci AES-GCM untuk secret router, pelanggan, dan NAS. Jika kosong, kunci dibuat otomatis di `<NUXBILL_DB>.key`. Jika diisi, nilainya menggantikan file `.key` dan harus disimpan dengan aman. Juga dipakai oleh `nuxbill import`. |
-| `NUXBILL_RADIUS` | `:1812` | Alamat listen RADIUS UDP untuk auth. Accounting memakai port berikutnya. Kosong atau `off` mematikan listener UDP. `/radius.php` tetap berjalan. |
-| `NUXBILL_BACKUP_DIR` | folder `backup` di samping database | Folder backup harian dan backup otomatis sebelum impor, restore, atau pemulihan. Lihat [backup dan restore](backup-restore.md). |
-| `NUXBILL_BACKUP_MIRROR` | kosong, mati | Salinan kedua backup harian di folder lain, misalnya USB, NAS, atau rclone. Folder harus sudah ada. Lihat [backup dan restore](backup-restore.md#mirror). |
-| `NUXBILL_TEST_MYSQL_DSN`, `NUXBILL_TEST_PHP_SQL` | kosong | Hanya untuk test importer. Tidak dibaca saat aplikasi berjalan. Lihat [panduan pengembangan](../internal/pengembangan.md). |
+| `GOBILL_DB` | `./gobill.db`. Di Docker: `/data/gobill.db` | Lokasi file SQLite. Juga dipakai oleh `gobill import` |
+| `GOBILL_HTTP` | `:8080` | Alamat listen HTTP |
+| `GOBILL_HTTPS` | aktif | Cookie sesi selalu memakai flag `Secure`. Isi `0` hanya jika UI diakses lewat HTTP biasa, misalnya IP LAN. Browser tidak mengirim cookie `Secure` lewat `http://`, kecuali `localhost`. Saat bernilai `0`, start mencatat peringatan. |
+| `GOBILL_SECRET_KEY` | kosong | Kunci AES-GCM untuk secret router, pelanggan, dan NAS. Jika kosong, kunci dibuat otomatis di `<GOBILL_DB>.key`. Jika diisi, nilainya menggantikan file `.key` dan harus disimpan dengan aman. Juga dipakai oleh `gobill import`. |
+| `GOBILL_RADIUS` | `:1812` | Alamat listen RADIUS UDP untuk auth. Accounting memakai port berikutnya. Kosong atau `off` mematikan listener UDP. `/radius.php` tetap berjalan. |
+| `GOBILL_BACKUP_DIR` | folder `backup` di samping database | Folder backup harian dan backup otomatis sebelum impor, restore, atau pemulihan. Lihat [backup dan restore](backup-restore.md). |
+| `GOBILL_BACKUP_MIRROR` | kosong, mati | Salinan kedua backup harian di folder lain, misalnya USB, NAS, atau rclone. Folder harus sudah ada. Lihat [backup dan restore](backup-restore.md#mirror). |
+| `GOBILL_TEST_MYSQL_DSN`, `GOBILL_TEST_PHP_SQL` | kosong | Hanya untuk test importer. Tidak dibaca saat aplikasi berjalan. Lihat [panduan pengembangan](../internal/pengembangan.md). |
 
-Contoh `/etc/nuxbill/config.env`:
+Contoh `/etc/gobill/config.env`:
 
-    NUXBILL_DB=/var/lib/nuxbill/nuxbill.db
-    NUXBILL_HTTP=:8080
-    NUXBILL_RADIUS=:1812
-    NUXBILL_SECRET_KEY=<SECRET>
+    GOBILL_DB=/var/lib/gobill/gobill.db
+    GOBILL_HTTP=:8080
+    GOBILL_RADIUS=:1812
+    GOBILL_SECRET_KEY=<SECRET>
 
 Opsi CLI:
 
-- `nuxbill --version` menampilkan versi.
-- `nuxbill import ...` memindahkan data dari PHPNuxBill. Lihat [migrasi](migration-phpnuxbill.md).
+- `gobill --version` menampilkan versi.
+- `gobill import ...` memindahkan data dari PHPNuxBill. Lihat [migrasi](migration-phpnuxbill.md).
 
 ## Admin pertama
 
-Saat database kosong, tanpa admin, NuxBill membuat user `admin` dengan peran SuperAdmin. Password-nya acak dan 16 karakter. Password tidak dicetak ke log. Password ditulis ke `initial-admin-password.txt` di folder database dengan mode 0600.
+Saat database kosong, tanpa admin, gobill membuat user `admin` dengan peran SuperAdmin. Password-nya acak dan 16 karakter. Password tidak dicetak ke log. Password ditulis ke `initial-admin-password.txt` di folder database dengan mode 0600.
 
 Login, ganti password, lalu hapus file itu. Jika file sudah ada dan database masih kosong, start berhenti dengan pesan. Hapus file lama dulu.
 
@@ -71,8 +71,8 @@ Peran admin dan 2FA diatur per akun di menu **Pengguna Admin** dan halaman `/adm
 
 | Pengaturan | Fungsi |
 |---|---|
-| `radius_rest_allow` | Daftar IP atau CIDR, dipisah koma, yang boleh memanggil `/radius.php`. Kosong berarti hanya loopback, yaitu `127.0.0.0/8` dan `::1`. Isi dengan IP FreeRADIUS jika berjalan di host lain. Saat start, NuxBill mencatat peringatan jika kosong. |
-| `trust_proxy` | `yes` agar `X-Forwarded-For` dipercaya. Header hanya dipercaya jika koneksi langsung datang dari loopback atau dari IP atau CIDR di `trusted_proxies`. Bawaan `no`. NuxBill memakai entri paling kanan sebagai IP klien, jadi proxy harus menulis IP asli di sana. |
+| `radius_rest_allow` | Daftar IP atau CIDR, dipisah koma, yang boleh memanggil `/radius.php`. Kosong berarti hanya loopback, yaitu `127.0.0.0/8` dan `::1`. Isi dengan IP FreeRADIUS jika berjalan di host lain. Saat start, gobill mencatat peringatan jika kosong. |
+| `trust_proxy` | `yes` agar `X-Forwarded-For` dipercaya. Header hanya dipercaya jika koneksi langsung datang dari loopback atau dari IP atau CIDR di `trusted_proxies`. Bawaan `no`. gobill memakai entri paling kanan sebagai IP klien, jadi proxy harus menulis IP asli di sana. |
 | `trusted_proxies` | IP atau CIDR reverse proxy, dipisah koma, misalnya `172.16.0.0/16, 10.0.0.2`. Loopback selalu dipercaya. Allow-list `/radius.php` tetap memakai alamat koneksi asli, bukan hasil `X-Forwarded-For`. |
 | `router_check` | `no` mematikan pengecekan router. Bawaannya aktif. Router yang mati memicu alert. Lihat [monitoring](monitoring.md). |
 

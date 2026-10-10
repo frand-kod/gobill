@@ -60,7 +60,7 @@ func restoreUpload(t *testing.T, h http.Handler, c *http.Cookie, body []byte) *h
 	t.Helper()
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
-	fw, err := mw.CreateFormFile("backup", "nuxbill.db")
+	fw, err := mw.CreateFormFile("backup", "gobill.db")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +196,7 @@ func TestRestoreConfirmStagesBacksUpAndRestarts(t *testing.T) {
 	if n := len(stagedFiles(t, s)); n != 0 {
 		t.Fatalf("confirm left %d upload files", n)
 	}
-	backups, _ := filepath.Glob(filepath.Join(s.BackupDir, "nuxbill-*-pre-restore.db"))
+	backups, _ := filepath.Glob(filepath.Join(s.BackupDir, "gobill-*-pre-restore.db"))
 	if len(backups) != 1 {
 		t.Fatalf("want one automatic backup before the restore, got %v", backups)
 	}

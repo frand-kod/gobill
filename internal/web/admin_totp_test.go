@@ -29,7 +29,7 @@ var recoveryRe = regexp.MustCompile(`[A-Z2-7]{4}-[A-Z2-7]{4}`)
 // sessionCookie returns the session cookie set by w, or nil.
 func sessionCookie(w *httptest.ResponseRecorder) *http.Cookie {
 	for _, c := range w.Result().Cookies() {
-		if c.Name == "nuxbill_session" {
+		if c.Name == "gobill_session" {
 			return c
 		}
 	}

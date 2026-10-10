@@ -1,5 +1,5 @@
 [Unit]
-Description=NuxBill billing server
+Description=gobill billing server
 Documentation=https://github.com/frand-kod/gobill
 # STB tidak punya RTC: tunggu NTP sinkron sebelum start.
 After=time-sync.target network-online.target
@@ -7,13 +7,13 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=nuxbill
-Group=nuxbill
-EnvironmentFile=/etc/nuxbill/config.env
-ExecStart=/usr/local/bin/nuxbill
-StateDirectory=nuxbill
-# Folder backup di USB/NAS: tambahkan lewat drop-in, mis. ReadWritePaths=/mnt/usb/nuxbill-backup
-# Folder mirror backup (NUXBILL_BACKUP_MIRROR) juga perlu drop-in ReadWritePaths sendiri, mis. ReadWritePaths=/mnt/nas/nuxbill-backup
+User=gobill
+Group=gobill
+EnvironmentFile=/etc/gobill/config.env
+ExecStart=/usr/local/bin/gobill
+StateDirectory=gobill
+# Folder backup di USB/NAS: tambahkan lewat drop-in, mis. ReadWritePaths=/mnt/usb/gobill-backup
+# Folder mirror backup (GOBILL_BACKUP_MIRROR) juga perlu drop-in ReadWritePaths sendiri, mis. ReadWritePaths=/mnt/nas/gobill-backup
 Restart=on-failure
 RestartSec=5
 
@@ -21,7 +21,7 @@ RestartSec=5
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/var/lib/nuxbill
+ReadWritePaths=/var/lib/gobill
 PrivateTmp=yes
 PrivateDevices=yes
 ProtectKernelTunables=yes

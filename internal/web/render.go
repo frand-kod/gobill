@@ -11,7 +11,7 @@ import (
 
 	"bytes"
 	"fmt"
-	nuxbill "github.com/frand-kod/gobill"
+	gobill "github.com/frand-kod/gobill"
 	"path"
 	"strings"
 )
@@ -123,7 +123,7 @@ func (s *Server) parseTemplates() error {
 		for i, f := range files {
 			files[i] = path.Join("web/templates", f)
 		}
-		t, err := template.New("").Funcs(funcs).ParseFS(nuxbill.FS, files...)
+		t, err := template.New("").Funcs(funcs).ParseFS(gobill.FS, files...)
 		if err != nil {
 			return err
 		}
@@ -135,13 +135,13 @@ func (s *Server) parseTemplates() error {
 // loadIcons reads web/static/icons/*.svg, drops the license comment and
 // marks each icon decorative.
 func loadIcons() (map[string]template.HTML, error) {
-	files, err := fs.Glob(nuxbill.FS, "web/static/icons/*.svg")
+	files, err := fs.Glob(gobill.FS, "web/static/icons/*.svg")
 	if err != nil {
 		return nil, err
 	}
 	icons := map[string]template.HTML{}
 	for _, f := range files {
-		b, err := fs.ReadFile(nuxbill.FS, f)
+		b, err := fs.ReadFile(gobill.FS, f)
 		if err != nil {
 			return nil, err
 		}

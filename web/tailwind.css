@@ -1,4 +1,4 @@
-/* NuxBill admin styles. Build: tools/tailwind.sh (go generate ./...) -> web/static/app.css */
+/* gobill admin styles. Build: tools/tailwind.sh (go generate ./...) -> web/static/app.css */
 @import "tailwindcss" source(none);
 @source "./templates";
 @source "../internal/web";

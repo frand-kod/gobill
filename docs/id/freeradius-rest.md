@@ -1,16 +1,16 @@
 # FreeRADIUS lewat REST
 
-Dokumen ini untuk operator yang sudah memakai FreeRADIUS, biasanya dari PHPNuxBill, dan ingin tetap memakainya. NuxBill menyediakan endpoint `radius.php` yang kompatibel untuk modul `rlm_rest`.
+Dokumen ini untuk operator yang sudah memakai FreeRADIUS, biasanya dari PHPNuxBill, dan ingin tetap memakainya. gobill menyediakan endpoint `radius.php` yang kompatibel untuk modul `rlm_rest`.
 
 **Untuk:** operator
 
-**Prasyarat:** FreeRADIUS sudah berjalan dengan modul `rest`. NuxBill sudah terpasang dan bisa dijangkau dari FreeRADIUS.
+**Prasyarat:** FreeRADIUS sudah berjalan dengan modul `rest`. gobill sudah terpasang dan bisa dijangkau dari FreeRADIUS.
 
 ## Cara pakai
 
-Di `/etc/freeradius/3.0/mods-enabled/rest`, ubah `connect_uri` ke NuxBill:
+Di `/etc/freeradius/3.0/mods-enabled/rest`, ubah `connect_uri` ke gobill:
 
-    connect_uri = "https://<nuxbill>/radius.php"
+    connect_uri = "https://<gobill>/radius.php"
 
 Endpoint `/radius/rest` juga tersedia dan fungsinya sama.
 
@@ -30,10 +30,10 @@ Login voucher juga didukung di endpoint ini. Kode voucher dipakai sebagai userna
 
 ## Allow-list
 
-`radius.php` lama tidak punya autentikasi. Di NuxBill, pengamannya adalah pengaturan `radius_rest_allow`:
+`radius.php` lama tidak punya autentikasi. Di gobill, pengamannya adalah pengaturan `radius_rest_allow`:
 
 - Isi dengan IP FreeRADIUS. Boleh memakai CIDR, dan dipisah koma.
-- Jika kosong, hanya loopback yang diizinkan, yaitu `127.0.0.0/8` dan `::1`. NuxBill mencatat peringatan saat start.
+- Jika kosong, hanya loopback yang diizinkan, yaitu `127.0.0.0/8` dan `::1`. gobill mencatat peringatan saat start.
 - Jika FreeRADIUS berjalan di host lain, isi dengan IP-nya.
 
 `X-Forwarded-For` hanya dipercaya jika `trust_proxy` = `yes` dan koneksi langsung datang dari loopback atau dari `trusted_proxies`. Allow-list selalu memakai alamat koneksi asli.
@@ -54,7 +54,7 @@ Agar ini berfungsi:
 | | FreeRADIUS dan REST | Server bawaan |
 |---|---|---|
 | Perubahan di MikroTik | Tidak ada | Alamat dan secret `/radius` diganti |
-| Komponen | NuxBill dan FreeRADIUS | Satu proses |
+| Komponen | gobill dan FreeRADIUS | Satu proses |
 | Modul lain, misalnya EAP | Bisa | Tidak ada |
 | Metode auth | Sesuai FreeRADIUS | PAP, CHAP, dan MS-CHAPv2 |
 | Latensi | Satu hop HTTP per login | Langsung |
@@ -62,7 +62,7 @@ Agar ini berfungsi:
 
 Pilih server bawaan untuk instalasi baru. Pilih FreeRADIUS saat migrasi bertahap, atau jika butuh modul FreeRADIUS lain.
 
-Jika FreeRADIUS sudah memakai UDP 1812 di host yang sama, set `NUXBILL_RADIUS=off`. Pengerasan FreeRADIUS ada di [keamanan](security.md#freeradius-di-jalur-rest).
+Jika FreeRADIUS sudah memakai UDP 1812 di host yang sama, set `GOBILL_RADIUS=off`. Pengerasan FreeRADIUS ada di [keamanan](security.md#freeradius-di-jalur-rest).
 
 ## Lihat juga
 

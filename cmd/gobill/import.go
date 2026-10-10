@@ -15,12 +15,12 @@ import (
 	"github.com/frand-kod/gobill/internal/secret"
 )
 
-// runImport implements `nuxbill import`: PHPNuxBill MySQL -> SQLite.
+// runImport implements `gobill import`: PHPNuxBill MySQL -> SQLite.
 func runImport(args []string) error {
 	fs := flag.NewFlagSet("import", flag.ContinueOnError)
 	dsn := fs.String("mysql-dsn", "", "MySQL DSN, e.g. user:pass@tcp(127.0.0.1:3306)/phpnuxbill")
 	jsonPath := fs.String("json", "", "PHPNuxBill Database Status > Backup file (JSON) instead of --mysql-dsn")
-	dbPath := fs.String("db", env("NUXBILL_DB", "./nuxbill.db"), "target SQLite file")
+	dbPath := fs.String("db", env("GOBILL_DB", "./gobill.db"), "target SQLite file")
 	tz := fs.String("timezone", "", "timezone of the old dates (default: old appconfig timezone)")
 	dry := fs.Bool("dry-run", false, "read and convert everything, then roll back")
 	force := fs.Bool("force", false, "wipe a non-empty target first")
@@ -55,7 +55,7 @@ func runImport(args []string) error {
 	if err != nil {
 		return err
 	}
-	key, _, err := secret.LoadKey(os.Getenv("NUXBILL_SECRET_KEY"), *dbPath+".key")
+	key, _, err := secret.LoadKey(os.Getenv("GOBILL_SECRET_KEY"), *dbPath+".key")
 	if err != nil {
 		return err
 	}

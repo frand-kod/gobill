@@ -45,7 +45,7 @@ func newGCM(key []byte) (cipher.AEAD, error) {
 	return cipher.NewGCM(block)
 }
 
-// LoadKey returns the 32-byte key from hexKey (NUXBILL_SECRET_KEY). When hexKey
+// LoadKey returns the 32-byte key from hexKey (GOBILL_SECRET_KEY). When hexKey
 // is empty it reads the key from path, creating it with a random key first.
 func LoadKey(hexKey, path string) (key []byte, created bool, err error) {
 	if hexKey == "" {

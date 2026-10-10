@@ -1,16 +1,16 @@
 # FreeRADIUS over REST
 
-This document is for operators who already run FreeRADIUS, usually from PHPNuxBill, and want to keep it. NuxBill provides a `radius.php` endpoint that is compatible with the `rlm_rest` module.
+This document is for operators who already run FreeRADIUS, usually from PHPNuxBill, and want to keep it. gobill provides a `radius.php` endpoint that is compatible with the `rlm_rest` module.
 
 **For:** operators
 
-**Prerequisites:** FreeRADIUS is running with the `rest` module. NuxBill is installed and reachable from FreeRADIUS.
+**Prerequisites:** FreeRADIUS is running with the `rest` module. gobill is installed and reachable from FreeRADIUS.
 
 ## How to use it
 
-In `/etc/freeradius/3.0/mods-enabled/rest`, change `connect_uri` to NuxBill:
+In `/etc/freeradius/3.0/mods-enabled/rest`, change `connect_uri` to gobill:
 
-    connect_uri = "https://<nuxbill>/radius.php"
+    connect_uri = "https://<gobill>/radius.php"
 
 The endpoint `/radius/rest` also exists, and does the same thing.
 
@@ -30,10 +30,10 @@ Voucher login is also supported on this endpoint. The voucher code is used as th
 
 ## Allow-list
 
-The old `radius.php` had no authentication. In NuxBill, the protection is the setting `radius_rest_allow`:
+The old `radius.php` had no authentication. In gobill, the protection is the setting `radius_rest_allow`:
 
 - Fill it with the FreeRADIUS IP. CIDR is allowed, and entries are separated by commas.
-- If it is empty, only loopback is allowed: `127.0.0.0/8` and `::1`. NuxBill writes a warning at startup.
+- If it is empty, only loopback is allowed: `127.0.0.0/8` and `::1`. gobill writes a warning at startup.
 - If FreeRADIUS runs on another host, fill in its IP.
 
 `X-Forwarded-For` is trusted only if `trust_proxy` = `yes` and the direct connection comes from loopback or from `trusted_proxies`. The allow-list always uses the real connection address.
@@ -54,7 +54,7 @@ For this to work:
 | | FreeRADIUS and REST | Built-in server |
 |---|---|---|
 | Changes on MikroTik | None | The `/radius` address and secret are replaced |
-| Components | NuxBill and FreeRADIUS | One process |
+| Components | gobill and FreeRADIUS | One process |
 | Other modules, for example EAP | Yes | No |
 | Auth methods | As supported by FreeRADIUS | PAP, CHAP, and MS-CHAPv2 |
 | Latency | One HTTP hop per login | Direct |
@@ -62,7 +62,7 @@ For this to work:
 
 Choose the built-in server for new installations. Choose FreeRADIUS for a gradual migration, or if you need another FreeRADIUS module.
 
-If FreeRADIUS already uses UDP 1812 on the same host, set `NUXBILL_RADIUS=off`. FreeRADIUS hardening is described in [security](security.md#freeradius-on-the-rest-path).
+If FreeRADIUS already uses UDP 1812 on the same host, set `GOBILL_RADIUS=off`. FreeRADIUS hardening is described in [security](security.md#freeradius-on-the-rest-path).
 
 ## See also
 

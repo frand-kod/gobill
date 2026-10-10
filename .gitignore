@@ -3,7 +3,7 @@
 *.db-shm
 /dist
 /bin/
-/nuxbill
+/gobill
 /.claude/worktrees/
 *.db.key
 

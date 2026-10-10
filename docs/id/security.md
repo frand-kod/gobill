@@ -1,23 +1,23 @@
 # Keamanan
 
-Dokumen ini berisi pengerasan RADIUS, firewall, dan keamanan aplikasi, termasuk 2FA untuk admin. Bagian RADIUS dikerjakan setelah NuxBill dan MikroTik sudah berjalan. Lihat [setup MikroTik](mikrotik.md) dulu.
+Dokumen ini berisi pengerasan RADIUS, firewall, dan keamanan aplikasi, termasuk 2FA untuk admin. Bagian RADIUS dikerjakan setelah gobill dan MikroTik sudah berjalan. Lihat [setup MikroTik](mikrotik.md) dulu.
 
 **Untuk:** operator dan pengembang
 
-**Prasyarat:** NuxBill dan router sudah berjalan. Lihat [instalasi](installation.md) dan [setup MikroTik](mikrotik.md).
+**Prasyarat:** gobill dan router sudah berjalan. Lihat [instalasi](installation.md) dan [setup MikroTik](mikrotik.md).
 
 ## Pengerasan RADIUS
 
 ### Message-Authenticator (BlastRADIUS, CVE-2024-3596)
 
-NuxBill menambahkan Message-Authenticator pada semua balasan dan CoA.
+gobill menambahkan Message-Authenticator pada semua balasan dan CoA.
 
 Di MikroTik, aktifkan:
 
     /radius set [find] require-message-auth=yes-for-request-resp
     /radius print detail
 
-Di form NAS NuxBill, aktifkan opsi "require Message-Authenticator". Perangkat yang tidak mengirim atribut ini akan ditolak. Karena itu, perbarui firmware NAS lebih dulu.
+Di form NAS gobill, aktifkan opsi "require Message-Authenticator". Perangkat yang tidak mengirim atribut ini akan ditolak. Karena itu, perbarui firmware NAS lebih dulu.
 
 ### Shared secret
 
@@ -25,18 +25,18 @@ Di form NAS NuxBill, aktifkan opsi "require Message-Authenticator". Perangkat ya
 - Jangan pakai ulang password hotspot atau password admin.
 - Ganti secret di MikroTik, lalu samakan di form NAS:
 
-        /radius set [find address=IP-NUXBILL] secret=<SECRET-BARU>
+        /radius set [find address=IP-GOBILL] secret=<SECRET-BARU>
 
 ### Firewall
 
-**MikroTik.** Hanya NuxBill yang boleh mengirim CoA ke port 3799:
+**MikroTik.** Hanya gobill yang boleh mengirim CoA ke port 3799:
 
     /ip firewall filter add chain=input protocol=udp dst-port=3799 src-address=192.168.88.10 action=accept
     /ip firewall filter add chain=input protocol=udp dst-port=3799 action=drop
 
 Jika `input` sudah punya rule drop umum, letakkan kedua rule di atasnya dengan `place-before=<nomor>`. Cek nomornya dengan `/ip firewall filter print`.
 
-**Host NuxBill, firewalld.** Buat satu rule per NAS:
+**Host gobill, firewalld.** Buat satu rule per NAS:
 
     sudo firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="192.168.88.1" port port="1812-1813" protocol="udp" accept'
     sudo firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="192.168.1.0/24" port port="8080" protocol="tcp" accept'
@@ -44,9 +44,9 @@ Jika `input` sudah punya rule drop umum, letakkan kedua rule di atasnya dengan `
 
 Jangan memakai `--add-port=1812/udp` atau `--add-port=8080/tcp`. Keduanya membuka port untuk semua IP.
 
-**Host NuxBill, nftables.** Input default drop. Pastikan SSH dari LAN admin diizinkan:
+**Host gobill, nftables.** Input default drop. Pastikan SSH dari LAN admin diizinkan:
 
-    table inet nuxbill {
+    table inet gobill {
         chain input {
             type filter hook input priority 0; policy drop;
             iif lo accept
@@ -67,17 +67,17 @@ Jangan kirim UDP RADIUS atau CoA lewat internet terbuka.
 
 **WireGuard (disarankan, RouterOS 7).** Buat kunci dengan `wg genkey | tee privat.key | wg pubkey`. Lalu di MikroTik:
 
-    /interface wireguard add name=wg-nuxbill listen-port=13231 private-key="<KUNCI-PRIVAT-MIKROTIK>"
-    /ip address add address=10.10.10.2/24 interface=wg-nuxbill
-    /interface wireguard peers add interface=wg-nuxbill public-key="<KUNCI-PUBLIK-VPS>" endpoint-address=<IP-VPS> endpoint-port=51820 allowed-address=10.10.10.1/32 persistent-keepalive=25s
+    /interface wireguard add name=wg-gobill listen-port=13231 private-key="<KUNCI-PRIVAT-MIKROTIK>"
+    /ip address add address=10.10.10.2/24 interface=wg-gobill
+    /interface wireguard peers add interface=wg-gobill public-key="<KUNCI-PUBLIK-VPS>" endpoint-address=<IP-VPS> endpoint-port=51820 allowed-address=10.10.10.1/32 persistent-keepalive=25s
 
-NuxBill di VPS memakai `10.10.10.1`. Daftarkan alamat itu sebagai alamat RADIUS atau NAS, dan pakai sebagai `src-address` untuk rule CoA. RouterOS 6 tidak punya WireGuard. Gunakan L2TP/IPsec, atau upgrade RouterOS.
+gobill di VPS memakai `10.10.10.1`. Daftarkan alamat itu sebagai alamat RADIUS atau NAS, dan pakai sebagai `src-address` untuk rule CoA. RouterOS 6 tidak punya WireGuard. Gunakan L2TP/IPsec, atau upgrade RouterOS.
 
 **RadSec.** Di RouterOS 7:
 
     /radius add service=hotspot,ppp address=<IP-VPS> protocol=radsec certificate=<nama-sertifikat>
 
-NuxBill belum melayani RadSec secara native. Pasang radsecproxy di VPS yang meneruskan ke `127.0.0.1:1812`, atau pakai WireGuard saja.
+gobill belum melayani RadSec secara native. Pasang radsecproxy di VPS yang meneruskan ke `127.0.0.1:1812`, atau pakai WireGuard saja.
 
 ### Login hotspot
 
@@ -122,7 +122,7 @@ Jika `connect_uri` memakai `https`, pastikan `check_cert = yes` di blok `tls` pa
 ## Keamanan aplikasi
 
 - **Password.** Password admin dan pelanggan memakai bcrypt. Hash sha1 lama ditandai `legacy_sha1` dan diganti saat login pertama.
-- **Secret terenkripsi.** Secret router, pelanggan PPPoE dan hotspot, dan NAS memakai AES-GCM. Kuncinya berasal dari `NUXBILL_SECRET_KEY` atau file `.key`. Simpan backup kunci bersama database. Lihat [backup dan restore](backup-restore.md#backup-kunci-bersama-database).
+- **Secret terenkripsi.** Secret router, pelanggan PPPoE dan hotspot, dan NAS memakai AES-GCM. Kuncinya berasal dari `GOBILL_SECRET_KEY` atau file `.key`. Simpan backup kunci bersama database. Lihat [backup dan restore](backup-restore.md#backup-kunci-bersama-database).
 - **Catatan.** Secret integrasi, yaitu SMTP, Telegram, Tripay, dan token metrics, tersimpan dalam teks biasa di tabel `settings`. Ini sama seperti aplikasi lama. Lindungi file database dan backup-nya.
 - **CSRF.** Dilindungi lewat `http.CrossOriginProtection` dari stdlib. Pengecualiannya hanya callback Tripay, yang diverifikasi tanda tangannya, dan `/radius.php`, yang memakai allow-list.
 - **Pembatas percobaan.** Pembatas brute-force tersimpan di memori dan di-reset saat restart.
@@ -137,7 +137,7 @@ Jika `connect_uri` memakai `https`, pastikan `check_cert = yes` di blok `tls` pa
 - **Proxy.** `X-Forwarded-For` dibaca hanya jika koneksi langsung datang dari loopback, atau dari `trusted_proxies` dan `trust_proxy` = `yes`. Pembatas login memakai alamat klien itu. Allow-list `/radius.php` selalu memakai alamat koneksi asli, jadi header dari luar tidak bisa memalsukan IP.
 - **Cetak voucher.** Hanya untuk peran staf: SuperAdmin, Admin, Agent, dan Sales.
 - **Endpoint publik.** `/health` hanya memuat status database dan disk. `/metrics` memakai bearer token dan mengembalikan 404 jika token dimatikan.
-- **Sesi.** Cookie memakai `HttpOnly`, `SameSite=Lax`, dan `Secure` secara bawaan. `Secure` hanya nonaktif dengan `NUXBILL_HTTPS=0`. Sesi dicabut saat password, role, atau status berubah.
+- **Sesi.** Cookie memakai `HttpOnly`, `SameSite=Lax`, dan `Secure` secara bawaan. `Secure` hanya nonaktif dengan `GOBILL_HTTPS=0`. Sesi dicabut saat password, role, atau status berubah.
 - **Batas diam sesi.** Diatur oleh `session_timeout_duration`, dalam menit, bawaan 120. Pengaturan `single_session` = `yes` membatasi satu sesi admin aktif.
 - **Role.** Dicek di middleware untuk tiap route. Admin tidak bisa mengangkat SuperAdmin. SuperAdmin terakhir dilindungi.
 - **SQL.** Semua query lewat `sqlc` dengan parameter terikat.

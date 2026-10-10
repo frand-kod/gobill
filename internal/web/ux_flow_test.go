@@ -12,7 +12,7 @@ import (
 	"github.com/frand-kod/gobill/internal/device"
 	"github.com/frand-kod/gobill/internal/i18n"
 
-	nuxbill "github.com/frand-kod/gobill"
+	gobill "github.com/frand-kod/gobill"
 )
 
 // (1) A new customer lands on its own page, where the plan is chosen.
@@ -187,7 +187,7 @@ func TestPagesHaveIntro(t *testing.T) {
 
 // Every intro string must exist in the Indonesian catalog (they are looked up dynamically, so the template test cannot see them).
 func TestIntrosTranslated(t *testing.T) {
-	cat, err := i18n.Load(nuxbill.FS, "lang")
+	cat, err := i18n.Load(gobill.FS, "lang")
 	if err != nil {
 		t.Fatal(err)
 	}

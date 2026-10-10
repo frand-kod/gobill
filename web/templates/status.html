@@ -104,7 +104,7 @@
       <dt class="text-ink-2">{{T "Last local backup"}}</dt>
       <dd>{{if .Backup.LocalAt}}{{.Backup.LocalAt}} {{.Backup.LocalFile}}{{if .Backup.LocalStale}} <span class="badge badge-bad">{{T "Older than 36 hours"}}</span>{{end}}{{else}}{{T "None yet"}}{{end}}</dd>
       <dt class="text-ink-2">{{T "Off-site mirror"}}</dt>
-      <dd>{{if .Backup.Mirror}}{{.Backup.Mirror}}{{if .Backup.MirrorErr}} <span class="badge badge-bad">{{T "Error"}}: {{.Backup.MirrorErr}}</span>{{else if .Backup.MirrorAt}} <span class="text-ink-2">{{T "last copy"}} {{.Backup.MirrorAt}}</span>{{end}}{{else}}{{T "Off (NUXBILL_BACKUP_MIRROR)"}}{{end}}</dd>
+      <dd>{{if .Backup.Mirror}}{{.Backup.Mirror}}{{if .Backup.MirrorErr}} <span class="badge badge-bad">{{T "Error"}}: {{.Backup.MirrorErr}}</span>{{else if .Backup.MirrorAt}} <span class="text-ink-2">{{T "last copy"}} {{.Backup.MirrorAt}}</span>{{end}}{{else}}{{T "Off (GOBILL_BACKUP_MIRROR)"}}{{end}}</dd>
     </dl>
   </section>
 </div>

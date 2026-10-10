@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: go build -trimpath -ldflags="-s -w -X main.version=$(git describe --tags --always --dirty)" -o dist/nuxbill-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && 'v' }}${{ matrix.goarm }} ./cmd/nuxbill
+      - run: go build -trimpath -ldflags="-s -w -X main.version=$(git describe --tags --always --dirty)" -o dist/gobill-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && 'v' }}${{ matrix.goarm }} ./cmd/gobill
         env:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}
@@ -38,7 +38,7 @@ jobs:
           GOARM: ${{ matrix.goarm }}
       - uses: actions/upload-artifact@v4
         with:
-          name: nuxbill-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && 'v' }}${{ matrix.goarm }}
+          name: gobill-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm && 'v' }}${{ matrix.goarm }}
           path: dist/
 
   release:
@@ -58,10 +58,10 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           mkdir -p dist
-          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/nuxbill-linux-amd64 ./cmd/nuxbill
-          GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/nuxbill-linux-arm64 ./cmd/nuxbill
-          GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/nuxbill-linux-armv7 ./cmd/nuxbill
-          cd dist && sha256sum nuxbill-linux-* > sha256sums.txt
+          GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/gobill-linux-amd64 ./cmd/gobill
+          GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/gobill-linux-arm64 ./cmd/gobill
+          GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/gobill-linux-armv7 ./cmd/gobill
+          cd dist && sha256sum gobill-linux-* > sha256sums.txt
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}

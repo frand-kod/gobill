@@ -7,20 +7,20 @@ import (
 )
 
 func TestRadiusAddr(t *testing.T) {
-	t.Setenv("NUXBILL_RADIUS", "x")
-	os.Unsetenv("NUXBILL_RADIUS")
+	t.Setenv("GOBILL_RADIUS", "x")
+	os.Unsetenv("GOBILL_RADIUS")
 	if a, on := radiusAddr(); a != ":1812" || !on {
 		t.Errorf("unset: got %q, %v", a, on)
 	}
-	t.Setenv("NUXBILL_RADIUS", "")
+	t.Setenv("GOBILL_RADIUS", "")
 	if a, on := radiusAddr(); on {
 		t.Errorf("empty: got %q, enabled", a)
 	}
-	t.Setenv("NUXBILL_RADIUS", "off")
+	t.Setenv("GOBILL_RADIUS", "off")
 	if a, on := radiusAddr(); on {
 		t.Errorf("off: got %q, enabled", a)
 	}
-	t.Setenv("NUXBILL_RADIUS", ":11812")
+	t.Setenv("GOBILL_RADIUS", ":11812")
 	if a, on := radiusAddr(); a != ":11812" || !on {
 		t.Errorf("custom: got %q, %v", a, on)
 	}

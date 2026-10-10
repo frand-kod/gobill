@@ -24,7 +24,7 @@ Satu istilah untuk satu hal. Pakai istilah di kolom kiri, jangan campur dengan s
 |---|---|---|
 | pelanggan | orang yang berlangganan internet | customer, user (untuk pelanggan), klien |
 | akun admin | login staf di aplikasi | user admin, operator (untuk akun) |
-| operator | staf ISP yang menjalankan NuxBill | admin (untuk orang), pengelola |
+| operator | staf ISP yang menjalankan gobill | admin (untuk orang), pengelola |
 | paket | produk internet yang dijual | plan, produk |
 | langganan | satu masa aktif paket milik satu pelanggan | subscription, recharge (untuk langganan) |
 | masa aktif | jangka waktu paket berlaku | validity, periode (untuk masa aktif) |
@@ -33,9 +33,9 @@ Satu istilah untuk satu hal. Pakai istilah di kolom kiri, jangan campur dengan s
 | voucher | kode sekali pakai untuk login hotspot | token |
 | kupon | potongan harga | coupon, diskon (untuk kupon) |
 | router | perangkat MikroTik yang dikelola lewat RouterOS API | mikrotik (untuk perangkat umum), NAS |
-| NAS | perangkat yang mengirim paket RADIUS ke NuxBill, termasuk router dalam mode RADIUS bawaan | client RADIUS |
+| NAS | perangkat yang mengirim paket RADIUS ke gobill, termasuk router dalam mode RADIUS bawaan | client RADIUS |
 | pengaturan | nilai di tabel `settings`, diubah lewat menu **Pengaturan** | setting, konfigurasi (untuk nilai di UI) |
-| variabel lingkungan | `NUXBILL_*`, dibaca saat start | env, env var |
+| variabel lingkungan | `GOBILL_*`, dibaca saat start | env, env var |
 | alert operator | pesan peringatan untuk operator | alarm, notifikasi operator |
 | ringkasan harian | laporan harian untuk operator | daily report |
 | gateway pesan | URL HTTP untuk kirim WhatsApp dan SMS (`wa_url`) | API WA (untuk `wa_url`) |
@@ -43,9 +43,9 @@ Satu istilah untuk satu hal. Pakai istilah di kolom kiri, jangan campur dengan s
 | backup | salinan database harian | cadangan |
 | mirror | salinan kedua backup di luar perangkat | replika |
 | restore | memulihkan database dari file backup | restore data (tanpa "database") |
-| impor | memasukkan data PHPNuxBill | import (kecuali untuk perintah `nuxbill import`) |
-| cutover | pindah resmi dari sistem lama ke NuxBill | switch-over |
-| STB | perangkat kecil ARM tempat NuxBill berjalan | box |
+| impor | memasukkan data PHPNuxBill | import (kecuali untuk perintah `gobill import`) |
+| cutover | pindah resmi dari sistem lama ke gobill | switch-over |
+| STB | perangkat kecil ARM tempat gobill berjalan | box |
 
 Padanan Inggris untuk `docs/en/`: pelanggan = customer, paket = plan, langganan = subscription, saldo = balance, voucher = voucher, kupon = coupon, router = router, NAS = NAS, pengaturan = settings, alert operator = operator alert, backup = backup, mirror = mirror, restore = restore, impor = import, cutover = cutover, masa aktif = validity period, kedaluwarsa = expired, operator = operator (`For: operators`).
 

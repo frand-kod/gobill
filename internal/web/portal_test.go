@@ -17,7 +17,7 @@ func custLogin(t *testing.T, e *billEnv, user, pass string) (*http.Cookie, int) 
 	t.Helper()
 	w := do(e.h, "POST", "/portal/login", url.Values{"username": {user}, "password": {pass}}, nil)
 	for _, c := range w.Result().Cookies() {
-		if c.Name == "nuxbill_session" {
+		if c.Name == "gobill_session" {
 			return c, w.Code
 		}
 	}
@@ -133,7 +133,7 @@ func TestPortalSessionRevokedOnPasswordChange(t *testing.T) {
 	}
 	cur := old
 	for _, c := range w.Result().Cookies() {
-		if c.Name == "nuxbill_session" {
+		if c.Name == "gobill_session" {
 			cur = c
 		}
 	}

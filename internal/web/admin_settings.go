@@ -517,7 +517,7 @@ func (s *Server) backupStatus(st map[string]string) string {
 	}
 	switch {
 	case s.BackupMirror == "":
-		return fmt.Sprintf(t("%s. Off-site mirror: off (NUXBILL_BACKUP_MIRROR)"), out)
+		return fmt.Sprintf(t("%s. Off-site mirror: off (GOBILL_BACKUP_MIRROR)"), out)
 	case st["backup_mirror_error"] != "":
 		return fmt.Sprintf(t("%s. Mirror %s ERROR: %s"), out, s.BackupMirror, st["backup_mirror_error"])
 	case st["backup_mirror_at"] != "":
@@ -650,7 +650,7 @@ func (s *Server) dbBackup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
-	dir, err := os.MkdirTemp("", "nuxbill-backup-")
+	dir, err := os.MkdirTemp("", "gobill-backup-")
 	if err != nil {
 		s.fail(w, "backup dir", err)
 		return
@@ -674,7 +674,7 @@ func (s *Server) dbBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/vnd.sqlite3")
 	w.Header().Set("Content-Length", strconv.FormatInt(st.Size(), 10))
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="nuxbill-%s.db"`, time.Now().Format("20060102-150405")))
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="gobill-%s.db"`, time.Now().Format("20060102-150405")))
 	io.Copy(w, f)
 }
 

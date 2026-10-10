@@ -12,7 +12,7 @@
     <div>
       <label class="label" for="backup">{{T "gobill backup file (.db)"}} <span class="text-err-fg" aria-hidden="true">*</span></label>
       <input class="input" id="backup" name="backup" type="file" accept=".db,application/vnd.sqlite3" required>
-      <p class="hint">{{T "From Settings > Miscellaneous > Database backup. The file must be encrypted with the same NUXBILL_SECRET_KEY as this app."}}</p>
+      <p class="hint">{{T "From Settings > Miscellaneous > Database backup. The file must be encrypted with the same GOBILL_SECRET_KEY as this app."}}</p>
     </div>
     <div class="flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">{{T "Check"}}</button></div>
   </div>

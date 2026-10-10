@@ -13,7 +13,7 @@ import (
 	"context"
 	"github.com/alexedwards/scs/sqlite3store"
 	"github.com/alexedwards/scs/v2"
-	nuxbill "github.com/frand-kod/gobill"
+	gobill "github.com/frand-kod/gobill"
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/i18n"
@@ -38,8 +38,8 @@ type Server struct {
 	catalog   i18n.Catalog
 	templates map[string]*template.Template
 	guides    map[string]*guideSet // rendered "Panduan" pages per language ("id", "en"), see docs.go
-	lang      atomic.Value // string: current language, a global app setting
-	dummyHash []byte       // compared against when the username does not exist
+	lang      atomic.Value         // string: current language, a global app setting
+	dummyHash []byte               // compared against when the username does not exist
 
 	// Radius is shared with the UDP listener so auth throttles apply to /radius.php too.
 	Radius     *radius.Server
@@ -59,7 +59,7 @@ type Server struct {
 	BackupDir string
 	// Restart is called after a restore is staged; main shuts down and exits for systemd to start it again.
 	Restart func()
-	// BackupMirror is the optional off-site backup folder (NUXBILL_BACKUP_MIRROR), shown to SuperAdmin.
+	// BackupMirror is the optional off-site backup folder (GOBILL_BACKUP_MIRROR), shown to SuperAdmin.
 	BackupMirror string
 	// Billing recharges customers and syncs plans to routers; nil disables both.
 	Billing *billing.Service
@@ -114,12 +114,12 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	sm.Store = store
 	sm.Lifetime = 12 * time.Hour
 	// idle timeout is enforced by idleGuard so it can change at runtime
-	sm.Cookie.Name = "nuxbill_session"
+	sm.Cookie.Name = "gobill_session"
 	sm.Cookie.HttpOnly = true
 	sm.Cookie.SameSite = http.SameSiteLaxMode
 	sm.Cookie.Secure = secureCookie
 
-	catalog, err := i18n.Load(nuxbill.FS, "lang")
+	catalog, err := i18n.Load(gobill.FS, "lang")
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
 	}
-	if s.guides, err = loadAllGuides(nuxbill.Docs); err != nil {
+	if s.guides, err = loadAllGuides(gobill.Docs); err != nil {
 		return nil, err
 	}
 	return s, nil

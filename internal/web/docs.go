@@ -50,7 +50,7 @@ type guideGroup struct {
 }
 
 // docsLangCookie remembers the language a viewer picked with the ID | EN toggle.
-const docsLangCookie = "nuxbill_docs_lang"
+const docsLangCookie = "gobill_docs_lang"
 
 const repoURL = "https://github.com/frand-kod/gobill/blob/main/"
 

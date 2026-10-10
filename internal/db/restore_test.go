@@ -9,7 +9,7 @@ import (
 
 func TestApplyPendingRestore(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "nuxbill.db")
+	path := filepath.Join(dir, "gobill.db")
 	for p, body := range map[string]string{path: "old", path + "-wal": "oldwal", path + "-shm": "oldshm", path + ".restore": "new"} {
 		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
 			t.Fatal(err)
@@ -48,7 +48,7 @@ func TestApplyPendingRestore(t *testing.T) {
 
 // Two restores in the same second must not overwrite each other's moved-aside database.
 func TestRestoreBackupNamesDoNotCollide(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "nuxbill.db")
+	path := filepath.Join(t.TempDir(), "gobill.db")
 	for i := 0; i < 2; i++ {
 		if err := os.WriteFile(path, []byte("live"), 0o600); err != nil {
 			t.Fatal(err)
@@ -67,7 +67,7 @@ func TestRestoreBackupNamesDoNotCollide(t *testing.T) {
 
 func TestApplyPendingRestoreNoStagedFileIsNoop(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "nuxbill.db")
+	path := filepath.Join(dir, "gobill.db")
 	if err := os.WriteFile(path, []byte("live"), 0o600); err != nil {
 		t.Fatal(err)
 	}

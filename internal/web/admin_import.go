@@ -24,7 +24,7 @@ import (
 const (
 	importMaxBody = 200 << 20 // a PHPNuxBill backup can be large; only the import routes accept this
 	importTTL     = 30 * time.Minute
-	importPrefix  = "nuxbill-import-"
+	importPrefix  = "gobill-import-"
 	importPage    = "/admin/settings/miscellaneous/import"
 )
 
@@ -165,7 +165,7 @@ func (s *Server) importBackup(ctx context.Context, label string) (string, error)
 	if err := os.MkdirAll(s.BackupDir, 0o700); err != nil {
 		return "", err
 	}
-	name := "nuxbill-" + time.Now().Format("20060102-150405") + "-" + label + ".db"
+	name := "gobill-" + time.Now().Format("20060102-150405") + "-" + label + ".db"
 	final := filepath.Join(s.BackupDir, name)
 	tmp := final + ".tmp"
 	os.Remove(tmp)

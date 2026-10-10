@@ -1,6 +1,6 @@
 # Panduan Developer
 
-Untuk developer yang ingin membangun, mengubah, atau merilis NuxBill. Gambaran sistem ada di [arsitektur.md](arsitektur.md).
+Untuk developer yang ingin membangun, mengubah, atau merilis gobill. Gambaran sistem ada di [arsitektur.md](arsitektur.md).
 
 **Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
 
@@ -8,7 +8,7 @@ Untuk developer yang ingin membangun, mengubah, atau merilis NuxBill. Gambaran s
 
 | Path | Isi |
 |---|---|
-| `cmd/nuxbill/` | Entry point dan subperintah `import` |
+| `cmd/gobill/` | Entry point dan subperintah `import` |
 | `internal/billing/` | Logika bisnis billing |
 | `internal/db/` | Kode `sqlc`, migrator, `migrations/`, `queries/`, `migrations.sum` |
 | `internal/device/` | Driver MikroTik, `Radius`, `Dummy` |
@@ -27,7 +27,7 @@ Untuk developer yang ingin membangun, mengubah, atau merilis NuxBill. Gambaran s
 
 ## Build dan test
 
-    make build     # CGO_ENABLED=0, versi dari git describe -> ./nuxbill
+    make build     # CGO_ENABLED=0, versi dari git describe -> ./gobill
     make test      # go vet ./... && go test ./...
     make css       # build web/static/app.css lewat Tailwind standalone
 
@@ -35,7 +35,7 @@ Test dengan race detector (wajib untuk perubahan billing, radius, job):
 
     go test -race ./internal/billing/... ./internal/radius/... ./internal/job/...
 
-Test importer memakai `NUXBILL_TEST_MYSQL_DSN` dan `NUXBILL_TEST_PHP_SQL`; tanpa keduanya test itu dilewati. Dump produksi tidak boleh di-commit.
+Test importer memakai `GOBILL_TEST_MYSQL_DSN` dan `GOBILL_TEST_PHP_SQL`; tanpa keduanya test itu dilewati. Dump produksi tidak boleh di-commit.
 
 ## sqlc
 

@@ -11,14 +11,14 @@ import (
 	"testing"
 	"time"
 
-	nuxbill "github.com/frand-kod/gobill"
+	gobill "github.com/frand-kod/gobill"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/i18n"
 )
 
 // tr is the text the default language (indonesia) shows for msg.
 func tr(msg string) string {
-	c, err := i18n.Load(nuxbill.FS, "lang")
+	c, err := i18n.Load(gobill.FS, "lang")
 	if err != nil {
 		panic(err)
 	}
@@ -146,7 +146,7 @@ func forgotApp(t *testing.T) (*billEnv, func() string) {
 
 func sessionOf(w *httptest.ResponseRecorder) *http.Cookie {
 	for _, c := range w.Result().Cookies() {
-		if c.Name == "nuxbill_session" {
+		if c.Name == "gobill_session" {
 			return c
 		}
 	}

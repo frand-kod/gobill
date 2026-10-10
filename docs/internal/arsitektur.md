@@ -1,19 +1,19 @@
 # Arsitektur
 
-Untuk developer dan operator teknis yang ingin memahami cara NuxBill bekerja. Dokumen ini menggambarkan kondisi kode saat ini. Rencana awal dan alasan keputusan ada di [rencana/](rencana/README.md), terutama [rencana/arsitektur-awal.md](rencana/arsitektur-awal.md) dan [rencana/keputusan-stack.md](rencana/keputusan-stack.md).
+Untuk developer dan operator teknis yang ingin memahami cara gobill bekerja. Dokumen ini menggambarkan kondisi kode saat ini. Rencana awal dan alasan keputusan ada di [rencana/](rencana/README.md), terutama [rencana/arsitektur-awal.md](rencana/arsitektur-awal.md) dan [rencana/keputusan-stack.md](rencana/keputusan-stack.md).
 
 **Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
 
 ## Gambaran proses
 
-Satu binary `nuxbill` menjalankan semuanya dalam satu proses:
+Satu binary `gobill` menjalankan semuanya dalam satu proses:
 
 ```
  Browser admin/pelanggan --HTTP :8080--+
  Callback Tripay ----------------------+
  FreeRADIUS rlm_rest ---/radius.php----+
                                        v
-              +-------------------- nuxbill ----------------------+
+              +-------------------- gobill ----------------------+
               | internal/web   : admin, portal, callback, REST    |
               | internal/radius: UDP :1812 auth, :1813 acct, CoA  |
               | internal/job   : clock guard, expiry, reminder,   |
@@ -29,7 +29,7 @@ Satu binary `nuxbill` menjalankan semuanya dalam satu proses:
 
 | Paket | Fungsi |
 |---|---|
-| `cmd/nuxbill` | Entry point: baca env, buka DB, migrasi, start HTTP + RADIUS + job; subperintah `import` |
+| `cmd/gobill` | Entry point: baca env, buka DB, migrasi, start HTTP + RADIUS + job; subperintah `import` |
 | `internal/web` | Handler HTTP admin dan portal, middleware auth/role/CSRF, endpoint `/radius.php`, callback Tripay, `/health`, `/metrics`, halaman Status Sistem, 2FA admin, impor dan restore dari UI |
 | `internal/billing` | Logika bisnis: masa aktif (termasuk `start_on_first_login`), recharge, saldo, voucher, kupon, sinkron paket/router, reminder, alert operator (`health.go`) |
 | `internal/db` | Hasil `sqlc`, migrator (`PRAGMA user_version`), file migrasi (0001-0014), query, dan restore database (`restore.go`) |
@@ -58,7 +58,7 @@ Satu binary `nuxbill` menjalankan semuanya dalam satu proses:
 
 **Recharge dengan `start_on_first_login`.** Untuk paket `Radius` yang baru atau habis, langganan ditandai `pending_start = 1` dan tidak punya tanggal mulai. Auth RADIUS pertama pelanggan memanggil `StartPending`, yang mengisi `started_at` dan `expires_at` dari saat itu.
 
-**Impor dan restore.** Keduanya hanya bisa dijalankan SuperAdmin. Impor (CLI atau UI) membuat backup database di `NUXBILL_BACKUP_DIR` lebih dulu, lalu menimpa data dalam satu transaksi. Restore dari UI memvalidasi file (integritas, versi skema, kunci), menyimpan data saat ini sebagai backup `-pre-restore.db`, memasang file sebagai `nuxbill.db.restore`, lalu keluar dengan kode 3. Systemd menjalankan ulang aplikasi, dan file itu diterapkan sebelum database dibuka.
+**Impor dan restore.** Keduanya hanya bisa dijalankan SuperAdmin. Impor (CLI atau UI) membuat backup database di `GOBILL_BACKUP_DIR` lebih dulu, lalu menimpa data dalam satu transaksi. Restore dari UI memvalidasi file (integritas, versi skema, kunci), menyimpan data saat ini sebagai backup `-pre-restore.db`, memasang file sebagai `gobill.db.restore`, lalu keluar dengan kode 3. Systemd menjalankan ulang aplikasi, dan file itu diterapkan sebelum database dibuka.
 
 **Monitoring.** Metrik dicatat ke registry di memori. `/metrics` membacanya (dengan bearer token), `/admin/status` menampilkan ringkasannya, dan job `alert` mengevaluasi aturan alert setiap menit. Detail di [monitoring.md](../id/monitoring.md).
 
@@ -81,7 +81,7 @@ Satu binary `nuxbill` menjalankan semuanya dalam satu proses:
 1. **Jam tidak dipercaya** setelah boot tanpa RTC: expiry, reminder, backup, dan RADIUS ditahan atau disesuaikan sampai NTP sinkron; `clock_guard=off` bila ada RTC.
 2. **Listrik padam:** WAL + `synchronous=FULL`, sehingga transaksi yang sudah commit tidak hilang.
 3. **eMMC cepat aus:** log ke stdout (journald); accounting interim hanya meng-update baris sesi. Pembersihan log dilakukan dalam batch 5000 baris.
-4. **Backup ke luar perangkat:** `NUXBILL_BACKUP_DIR` ([backup](../id/backup-restore.md)).
+4. **Backup ke luar perangkat:** `GOBILL_BACKUP_DIR` ([backup](../id/backup-restore.md)).
 5. **Build:** `CGO_ENABLED=0` untuk `linux/amd64`, `arm64`, dan `arm` (GOARM=7).
 
 ## Lihat juga
