@@ -37,8 +37,8 @@ func (s *Service) DeactivateCustomer(ctx context.Context, customerID, adminID in
 	return n, err
 }
 
-// DeleteCustomer removes the customer and its recharges but keeps transactions (customer_id becomes
-// NULL), like the old customers/delete. The router is contacted after the commit: a device failure
+// DeleteCustomer removes the customer and its recharges but keeps transactions and payment requests
+// (customer_id becomes NULL), like the old customers/delete. The router is contacted after the commit: a device failure
 // is returned as an error but the delete stays.
 func (s *Service) DeleteCustomer(ctx context.Context, id int64) error {
 	c, err := s.Q.GetCustomer(ctx, id)

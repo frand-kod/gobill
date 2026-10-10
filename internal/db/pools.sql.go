@@ -103,39 +103,6 @@ func (q *Queries) ListPools(ctx context.Context, arg ListPoolsParams) ([]Pool, e
 	return items, nil
 }
 
-const listPoolsByRouter = `-- name: ListPoolsByRouter :many
-SELECT id, name, local_ip, range_ip, router_id FROM pools WHERE router_id = ? ORDER BY name
-`
-
-func (q *Queries) ListPoolsByRouter(ctx context.Context, routerID int64) ([]Pool, error) {
-	rows, err := q.db.QueryContext(ctx, listPoolsByRouter, routerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Pool
-	for rows.Next() {
-		var i Pool
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.LocalIp,
-			&i.RangeIp,
-			&i.RouterID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const searchPools = `-- name: SearchPools :many
 SELECT id, name, local_ip, range_ip, router_id FROM pools WHERE name LIKE '%' || CAST(?1 AS TEXT) || '%' ORDER BY name LIMIT ?3 OFFSET ?2
 `

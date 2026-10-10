@@ -114,7 +114,7 @@ func (s *Server) payOrder(w http.ResponseWriter, r *http.Request, g Gateway, c *
 	rand.Read(raw)
 	exp := time.Now().Add(payExpiry)
 	pr, err := s.queries.CreatePaymentRequest(r.Context(), db.CreatePaymentRequestParams{Ref: "NB" + strings.ToUpper(hex.EncodeToString(raw)),
-		Gateway: g.Name(), CustomerID: c.ID, PlanID: planID, Amount: amount, Coupon: code, Channel: channel, ExpiresAt: exp.Unix()})
+		Gateway: g.Name(), CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, Username: c.Username, PlanID: planID, Amount: amount, Coupon: code, Channel: channel, ExpiresAt: exp.Unix()})
 	if err != nil {
 		s.fail(w, "portal pay", err)
 		return
@@ -137,7 +137,7 @@ func (s *Server) payOrder(w http.ResponseWriter, r *http.Request, g Gateway, c *
 // ownPayment loads the payment of the logged-in customer (404 for anyone else's).
 func (s *Server) ownPayment(w http.ResponseWriter, r *http.Request) (db.PaymentRequest, bool) {
 	pr, err := s.queries.GetPaymentRequest(r.Context(), pathID(r))
-	if err != nil || pr.CustomerID != customerFrom(r).ID {
+	if err != nil || !pr.CustomerID.Valid || pr.CustomerID.Int64 != customerFrom(r).ID { // NULL = customer deleted: not yours
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			slog.Error("load payment", "err", err)
 		}

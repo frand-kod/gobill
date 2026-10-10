@@ -66,6 +66,19 @@ func (q *Queries) CreateMessageLog(ctx context.Context, arg CreateMessageLogPara
 	return err
 }
 
+const deleteReadInboxBefore = `-- name: DeleteReadInboxBefore :execrows
+DELETE FROM customers_inbox WHERE rowid IN (SELECT i.rowid FROM customers_inbox i WHERE i.read_at IS NOT NULL AND i.created_at < ? LIMIT 5000)
+`
+
+// One batch of read messages; the caller loops until 0 rows.
+func (q *Queries) DeleteReadInboxBefore(ctx context.Context, createdAt int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteReadInboxBefore, createdAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getInboxMessage = `-- name: GetInboxMessage :one
 SELECT id, customer_id, from_name, subject, body, read_at, created_at FROM customers_inbox WHERE id = ? AND customer_id = ?
 `

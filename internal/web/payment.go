@@ -86,14 +86,19 @@ func (s *Server) settlePayment(ctx context.Context, pr db.PaymentRequest, st pay
 		if pr.Status == "expired" || pr.Status == "failed" {
 			slog.Warn("payment paid after request was closed", "ref", pr.Ref)
 		}
+		if !pr.CustomerID.Valid { // customer deleted after ordering: nothing to recharge; record the payment as paid
+			slog.Warn("payment paid for a deleted customer", "ref", pr.Ref, "username", pr.Username)
+			_, err := s.queries.ClaimPaymentPaid(ctx, pr.Ref)
+			return err
+		}
 		claim := func(q *db.Queries) (bool, error) {
 			n, err := q.ClaimPaymentPaid(ctx, pr.Ref)
 			return n > 0, err
 		}
 		if pr.PlanID == 0 { // custom balance top-up
-			return s.Billing.TopUpPaid(ctx, claim, pr.CustomerID, pr.Amount, "Tripay - "+pr.Channel)
+			return s.Billing.TopUpPaid(ctx, claim, pr.CustomerID.Int64, pr.Amount, "Tripay - "+pr.Channel)
 		}
-		return s.Billing.RechargePaid(ctx, claim, pr.CustomerID, pr.PlanID, "Tripay - "+pr.Channel, pr.Coupon, pr.Amount)
+		return s.Billing.RechargePaid(ctx, claim, pr.CustomerID.Int64, pr.PlanID, "Tripay - "+pr.Channel, pr.Coupon, pr.Amount)
 	case payment.Failed, payment.Expired:
 		_, err := s.queries.ClosePaymentRequest(ctx, db.ClosePaymentRequestParams{Status: string(st), Ref: pr.Ref})
 		return err
