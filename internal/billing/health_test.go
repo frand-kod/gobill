@@ -14,14 +14,15 @@ func TestDiskAlertOncePerCrossing(t *testing.T) {
 	ctx := context.Background()
 	var mb int64
 	var ferr error
-	job := e.s.DiskAlertJob(func() (int64, error) { return mb, ferr })
+	job := &AlertJob{S: e.s, Free: func() (int64, error) { return mb, ferr }}
 	check := func(free int64, want int, what string) {
 		t.Helper()
 		mb = free
-		if err := job(ctx); err != nil {
+		if err := job.Run(ctx); err != nil {
 			t.Fatal(err)
 		}
-		if n := count(drain(got), "sendMessage"); n != want {
+		// only the disk messages: other rules may send their own alerts in the same process
+		if n := count(drain(got), "database"); n != want {
 			t.Fatalf("%s: %d alerts, want %d", what, n, want)
 		}
 	}
@@ -32,7 +33,7 @@ func TestDiskAlertOncePerCrossing(t *testing.T) {
 	check(300, 0, "still fine")
 
 	ferr = errors.New("statfs failed")
-	if err := job(ctx); err == nil {
+	if err := job.Run(ctx); err == nil {
 		t.Fatal("free-space error not returned")
 	}
 }

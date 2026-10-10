@@ -105,17 +105,39 @@ func setting(ctx context.Context, q *db.Queries, key string) string {
 	return ""
 }
 
-// telegram sends an admin alert in the background; no-op without telegram_bot, never blocks or fails billing.
+// telegram sends an operator alert in the background; never blocks or fails billing.
 func (s *Service) telegram(text string) {
 	if n := s.notifier(); n != nil {
-		n.Go("telegram", func(ctx context.Context) error { return n.Telegram(ctx, text) })
+		n.Go("alert", func(ctx context.Context) error { return s.Alert(ctx, text) })
 	}
 }
 
-// Alert sends an operator alert synchronously and returns the send error. No-op without telegram_bot.
+// Alert sends an operator alert synchronously over the channels in alert_channel
+// (telegram, wa or both; default telegram) and returns the send errors. WhatsApp goes to
+// alert_wa_to, or daily_summary_wa_to when that is empty. No-op without a configured channel.
 func (s *Service) Alert(ctx context.Context, text string) error {
-	if n := s.notifier(); n != nil {
-		return n.Telegram(ctx, text)
+	n := s.notifier()
+	if n == nil {
+		return nil
 	}
-	return nil
+	ch := n.Settings["alert_channel"]
+	if ch == "" {
+		ch = "telegram"
+	}
+	var errs []error
+	if ch == "telegram" || ch == "both" {
+		errs = append(errs, n.Telegram(ctx, text))
+	}
+	if to := alertWATo(n.Settings); (ch == "wa" || ch == "both") && to != "" && notify.WAConfigured(n.Settings) {
+		errs = append(errs, n.WhatsApp(ctx, to, text))
+	}
+	return errors.Join(errs...)
+}
+
+// alertWATo is the WhatsApp number for operator alerts.
+func alertWATo(st map[string]string) string {
+	if st["alert_wa_to"] != "" {
+		return st["alert_wa_to"]
+	}
+	return st["daily_summary_wa_to"]
 }

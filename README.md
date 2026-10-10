@@ -66,6 +66,7 @@ Indeks lengkap: [docs/README.md](docs/README.md).
 - [docs/mikrotik.md](docs/mikrotik.md): setup MikroTik (mode API dan RADIUS) dan pelajaran dari uji lapangan.
 - [docs/freeradius-rest.md](docs/freeradius-rest.md): memakai FreeRADIUS yang sudah ada lewat REST.
 - [docs/keamanan.md](docs/keamanan.md): pengerasan RADIUS dan catatan keamanan aplikasi.
+- [docs/monitoring.md](docs/monitoring.md): halaman Status Sistem, `/health` dan `/metrics`, alert operator.
 - [docs/migrasi-phpnuxbill.md](docs/migrasi-phpnuxbill.md): impor data, cutover, dan rollback.
 - [docs/arsitektur.md](docs/arsitektur.md): paket, alur request, dan model data.
 - [docs/pengembangan.md](docs/pengembangan.md): panduan developer, test, dan rilis.

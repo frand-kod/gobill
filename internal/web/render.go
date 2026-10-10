@@ -63,6 +63,7 @@ func (s *Server) parseTemplates() error {
 			return s.catalog.T(s.language(), text)
 		},
 		"hasPrefix": strings.HasPrefix,
+		"spark":     sparkline,
 		"navActive": navActive,
 		"money":     money,
 		"badge":     badge,
@@ -81,6 +82,7 @@ func (s *Server) parseTemplates() error {
 		"login_2fa":        {"base.html", "login_2fa.html"},
 		"admin_2fa":        {"base.html", "app.html", "admin_2fa.html"},
 		"dashboard":        {"base.html", "app.html", "dashboard.html"},
+		"status":           {"base.html", "app.html", "status.html"},
 		"list":             {"base.html", "app.html", "list.html"},
 		"form":             {"base.html", "app.html", "form.html", "customer_pick.html"},
 		"customer":         {"base.html", "app.html", "customer.html", "radius_usage.html", "recharge_dialog.html"},
