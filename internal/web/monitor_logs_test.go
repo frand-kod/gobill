@@ -107,6 +107,42 @@ func TestRechargeConfirmPreviewWritesNothing(t *testing.T) {
 	wantCode(t, do(e.h, "POST", base+"/confirm", url.Values{"plan": {"999"}, "method": {"Cash"}}, e.c), 303, "bad plan")
 }
 
+// The dialog asks with X-Fragment: 1: the card alone on success, the messages with 422; still no writes.
+func TestRechargeFragmentModal(t *testing.T) {
+	e := billApp(t)
+	p := e.plan(t, "day", "PPPoE", 10000)
+	base := "/admin/customers/" + itoa(e.cust.ID) + "/recharge"
+	form := url.Values{"plan": {itoa(p.ID)}, "method": {"Cash"}}
+	subs := func() int {
+		s, _ := e.q.ListSubscriptionsByCustomer(t.Context(), db.ListSubscriptionsByCustomerParams{CustomerID: e.cust.ID, Limit: 10})
+		return len(s)
+	}
+	w := do(e.h, "POST", base+"/confirm", form, e.c, "X-Fragment", "1")
+	wantCode(t, w, 200, "fragment preview")
+	if b := w.Body.String(); strings.Contains(b, "<html") || !strings.Contains(b, "Rp 10.000") || !strings.Contains(b, `action="`+base+`"`) || !strings.Contains(b, "data-recharge-close") {
+		t.Fatalf("fragment card: %s", b)
+	}
+	if subs() != 0 {
+		t.Fatal("fragment preview wrote a subscription")
+	}
+	w = do(e.h, "POST", base+"/confirm", url.Values{"plan": {"999"}, "method": {"Cash"}}, e.c, "X-Fragment", "1")
+	if b := w.Body.String(); w.Code != 422 || strings.Contains(b, "<html") || !strings.Contains(b, "alert-error") {
+		t.Fatalf("fragment error: %d %s", w.Code, b)
+	}
+	// recharge page: a missing customer answers with the messages inside the dialog, not a redirect
+	w = do(e.h, "POST", "/admin/recharge", url.Values{"plan": {itoa(p.ID)}, "method": {"Cash"}}, e.c, "X-Fragment", "1")
+	if b := w.Body.String(); w.Code != 422 || strings.Contains(b, "<html") || !strings.Contains(b, "alert-error") {
+		t.Fatalf("recharge fragment error: %d %s", w.Code, b)
+	}
+	w = do(e.h, "POST", "/admin/recharge", url.Values{"customer": {e.cust.Username}, "plan": {itoa(p.ID)}, "method": {"Cash"}}, e.c, "X-Fragment", "1")
+	if b := w.Body.String(); w.Code != 200 || strings.Contains(b, "<html") || !strings.Contains(b, `action="`+base+`"`) {
+		t.Fatalf("recharge fragment card: %d %s", w.Code, b)
+	}
+	if subs() != 0 {
+		t.Fatal("fragment preview wrote a subscription")
+	}
+}
+
 func TestVoucherViewAfterGenerate(t *testing.T) {
 	e := billApp(t)
 	p := e.plan(t, "day", "PPPoE", 10000)

@@ -3,6 +3,7 @@ package web
 // Admin-side customer recharge with confirmation.
 
 import (
+	"bytes"
 	"database/sql"
 	"log/slog"
 	"net/http"
@@ -25,6 +26,22 @@ type rechargeConfirm struct {
 	Price, Expiry, Extends string
 	Balance, After         string
 	Insufficient           bool
+	Fragment               bool // the card alone, for the recharge dialog (X-Fragment: 1)
+}
+
+// isFragment: the recharge forms post with X-Fragment: 1 and show the answer in a dialog.
+func isFragment(r *http.Request) bool { return r.Header.Get("X-Fragment") == "1" }
+
+// rechargeErrors answers a fragment request with the messages to show inside the dialog (422).
+func (s *Server) rechargeErrors(w http.ResponseWriter, msgs ...string) {
+	for i, m := range msgs {
+		msgs[i] = s.catalog.T(s.language(), m)
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusUnprocessableEntity)
+	if err := s.templates["recharge_confirm"].ExecuteTemplate(w, "recharge_error", msgs); err != nil {
+		slog.Error("recharge errors", "err", err)
+	}
 }
 
 // custRechargeConfirm shows what the recharge will do (old recharge-confirm); it writes nothing.
@@ -35,6 +52,10 @@ func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 	back := fmt.Sprint("/admin/customers/", c.ID)
 	fail := func(msg string) {
+		if isFragment(r) {
+			s.rechargeErrors(w, msg)
+			return
+		}
 		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), msg))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 	}
@@ -54,7 +75,7 @@ func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 		fail(planErrMsg(perr == nil, pl.Enabled))
 		return
 	}
-	d := rechargeConfirm{C: c, Plan: pv.Plan.Name, PlanID: planID, Method: method, MethodLabel: label, Price: money(pv.Price), Balance: money(c.Balance), After: money(c.Balance)}
+	d := rechargeConfirm{C: c, Plan: pv.Plan.Name, PlanID: planID, Method: method, MethodLabel: label, Price: money(pv.Price), Balance: money(c.Balance), After: money(c.Balance), Fragment: isFragment(r)}
 	if !pv.Expiry.IsZero() {
 		d.Expiry = pv.Expiry.In(s.location()).Format("2006-01-02 15:04")
 	}
@@ -66,6 +87,16 @@ func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 	if method == "Balance" {
 		d.After, d.Insufficient = money(c.Balance-pv.Price), c.Balance < pv.Price
+	}
+	if d.Fragment {
+		var buf bytes.Buffer
+		if err := s.templates["recharge_confirm"].ExecuteTemplate(&buf, "recharge_card", d); err != nil {
+			s.fail(w, "recharge card", err)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write(buf.Bytes())
+		return
 	}
 	s.render(w, r, 200, "recharge_confirm", Page{Title: "Recharge Account", Data: d})
 }
@@ -231,6 +262,16 @@ func (s *Server) rechargeStart(w http.ResponseWriter, r *http.Request) {
 		d.ErrMethod = "Invalid payment method"
 	}
 	if d.ErrCustomer != "" || d.ErrPlan != "" || d.ErrMethod != "" {
+		if isFragment(r) {
+			var msgs []string
+			for _, m := range []string{d.ErrCustomer, d.ErrPlan, d.ErrMethod} {
+				if m != "" {
+					msgs = append(msgs, m)
+				}
+			}
+			s.rechargeErrors(w, msgs...)
+			return
+		}
 		s.rechargeForm(w, r, http.StatusUnprocessableEntity, d, plans)
 		return
 	}

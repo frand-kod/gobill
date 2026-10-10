@@ -47,7 +47,7 @@
     </div>
   </section>
   {{if .CanSell}}
-  <form id="recharge" class="card self-start scroll-mt-20" method="post" action="/admin/customers/{{.C.ID}}/recharge/confirm">
+  <form id="recharge" class="card self-start scroll-mt-20" method="post" action="/admin/customers/{{.C.ID}}/recharge/confirm" data-recharge>
     <h2 class="card-title">{{T "Recharge Account"}}</h2>
     <div class="card-body space-y-4">
       <div><label class="label" for="plan">{{T "Service Plan"}}</label>
@@ -60,6 +60,7 @@
       </div>
     </div>
   </form>
+  {{template "recharge_dialog"}}
   {{end}}
 </div>
 

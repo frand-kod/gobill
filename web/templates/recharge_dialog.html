@@ -1,0 +1,40 @@
+{{define "recharge_card"}}
+<form class="card max-w-xl" method="post" action="/admin/customers/{{.C.ID}}/recharge">
+  <div class="card-body space-y-4">
+    {{if .Fragment}}<h2 class="card-title" id="recharge-dlg-title">{{T "Recharge Account"}}: {{.C.Username}}</h2>{{end}}
+    <input type="hidden" name="plan" value="{{.PlanID}}">
+    <input type="hidden" name="method" value="{{.Method}}">
+    <dl class="grid grid-cols-2 gap-2 text-sm">
+      <dt class="text-ink-2">{{T "Customer"}}</dt><dd>{{.C.Fullname}} ({{.C.Username}})</dd>
+      <dt class="text-ink-2">{{T "Service Plan"}}</dt><dd>{{.Plan}}</dd>
+      <dt class="text-ink-2">{{T "Plan Price"}}</dt><dd>{{.Price}}</dd>
+      <dt class="text-ink-2">{{T "Payment Method"}}</dt><dd>{{T .MethodLabel}}</dd>
+      {{if .Expiry}}<dt class="text-ink-2">{{T "Expires On"}}</dt><dd id="new-expiry">{{.Expiry}}</dd>{{end}}
+      <dt class="text-ink-2">{{T "Balance"}}</dt><dd>{{.Balance}}</dd>
+      <dt class="text-ink-2">{{T "Balance after"}}</dt><dd id="balance-after">{{.After}}</dd>
+    </dl>
+    {{if .Insufficient}}<div class="alert alert-warn flex-wrap" role="alert"><span class="flex-1">{{T "The customer's balance is not enough. Add balance first, or choose Cash."}}</span><a class="btn btn-ghost btn-sm" href="/admin/deposit?customer={{.C.Username}}">{{icon "banknote"}}<span>{{T "Add Balance"}}</span></a></div>{{end}}
+    <div class="flex flex-wrap gap-2">
+      <button class="btn btn-primary" type="submit"{{if .Insufficient}} disabled{{end}}>{{icon "wallet"}}<span>{{T "Recharge"}}</span></button>
+      {{if .Fragment}}<button class="btn btn-ghost" type="button" data-recharge-close>{{T "Cancel"}}</button>
+      {{else}}<a class="btn btn-ghost" href="/admin/customers/{{.C.ID}}">{{T "Cancel"}}</a>{{end}}
+    </div>
+  </div>
+</form>
+{{end}}
+
+{{define "recharge_error"}}
+<div class="card max-w-xl"><div class="card-body space-y-4">
+  {{range .}}<p class="alert alert-error" role="alert">{{.}}</p>{{end}}
+  <div class="flex flex-wrap gap-2"><button class="btn btn-ghost" type="button" data-recharge-close>{{T "Cancel"}}</button></div>
+</div></div>
+{{end}}
+
+{{define "recharge_dialog"}}
+{{/* Modal for the recharge forms (data-recharge): static/recharge-dialog.js fills it with the summary card. */}}
+<dialog id="recharge-dlg" class="m-auto w-[calc(100%-2rem)] max-w-xl bg-transparent p-0 text-inherit backdrop:bg-black/50 max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:m-0 max-sm:w-full max-sm:max-w-none max-sm:max-h-[85vh] max-sm:overflow-y-auto" aria-label="{{T "Recharge Account"}}">
+  <div id="recharge-dlg-body"></div>
+</dialog>
+<template id="recharge-dlg-fail"><div class="card max-w-xl"><div class="card-body space-y-4"><p class="alert alert-error" role="alert">{{T "Something went wrong"}}</p><div class="flex flex-wrap gap-2"><button class="btn btn-ghost" type="button" data-recharge-close>{{T "Cancel"}}</button></div></div></div></template>
+<script src="/static/recharge-dialog.js"></script>
+{{end}}

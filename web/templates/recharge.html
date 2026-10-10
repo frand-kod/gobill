@@ -2,7 +2,7 @@
 {{with .Data}}
 <div class="mb-4"><h1 class="page-title">{{T "Recharge Account"}}</h1></div>
 <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,36rem)_minmax(0,1fr)]" x-data="gbCustomerSummary({{.Summary}})" @customer-picked.window="pick($event.detail.id)" @plan-picked.window="setPlan($event.detail)">
-<form class="card max-w-xl" method="post" action="/admin/recharge">
+<form class="card max-w-xl" method="post" action="/admin/recharge" data-recharge>
   <div class="card-body space-y-4">
     <div><label class="label" for="customer">{{T "Username"}}</label>
       {{template "customer_pick" .CustomerField}}
@@ -30,6 +30,7 @@
   </div>
 </form>
 {{template "customer_summary"}}
+{{template "recharge_dialog"}}
 </div>
 {{end}}
 {{end}}
