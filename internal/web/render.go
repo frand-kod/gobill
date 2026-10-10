@@ -78,6 +78,8 @@ func (s *Server) parseTemplates() error {
 	}
 	pages := map[string][]string{
 		"login":            {"base.html", "login.html"},
+		"login_2fa":        {"base.html", "login_2fa.html"},
+		"admin_2fa":        {"base.html", "app.html", "admin_2fa.html"},
 		"dashboard":        {"base.html", "app.html", "dashboard.html"},
 		"list":             {"base.html", "app.html", "list.html"},
 		"form":             {"base.html", "app.html", "form.html", "customer_pick.html"},

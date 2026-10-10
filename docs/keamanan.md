@@ -111,3 +111,36 @@ Jika EAP tidak dipakai, nonaktifkan:
 - **SQL:** semua query lewat `sqlc` dengan parameter terikat.
 - **Log:** error notifikasi disaring agar token dan API key tidak bocor.
 - **Dump database:** file `docs/*.sql` dan `*.sql.gz` ada di `.gitignore` dan tidak boleh di-commit. Jangan menaruh kredensial nyata di dokumen atau test; pakai placeholder seperti `<SECRET>`.
+
+## Verifikasi dua langkah (2FA) admin
+
+Opsional untuk setiap akun admin (bukan pelanggan). Setelah kata sandi benar, login meminta kode 6 digit dari aplikasi authenticator (Google Authenticator, Authy, dll.). Kode berlaku 30 detik dan diterima dengan toleransi satu langkah (±30 detik).
+
+**Disarankan untuk setiap SuperAdmin.** Akun SuperAdmin bisa mengubah semua pengaturan dan pengguna.
+
+### Mengaktifkan
+
+1. Masuk, buka **Ganti Kata Sandi** lalu **Kelola 2FA** (atau langsung `/admin/2fa`).
+2. Klik **Aktifkan 2FA**. Pindai kode QR dengan aplikasi authenticator, atau ketik kunci yang tertulis di bawahnya.
+3. Masukkan kode 6 digit dari aplikasi. 2FA baru aktif setelah kode ini benar.
+4. Simpan 8 **kode pemulihan** yang muncul. Kode hanya ditampilkan sekali.
+
+### Kode pemulihan
+
+- Berbentuk `XXXX-XXXX`, masing-masing hanya bisa dipakai sekali, dan disimpan sebagai hash bcrypt.
+- Dipakai di layar kedua login jika aplikasi authenticator tidak bisa diakses. Ketik dengan atau tanpa tanda strip.
+- Setelah dipakai, kode itu mati. Jika habis, nonaktifkan lalu aktifkan lagi 2FA untuk mendapat 8 kode baru.
+
+### Menonaktifkan
+
+Di `/admin/2fa` isi kata sandi saat ini dan satu kode 6 digit dari aplikasi. Kode pemulihan yang tersisa ikut dihapus.
+
+### Reset oleh SuperAdmin
+
+Jika admin kehilangan aplikasi dan kode pemulihan, SuperAdmin membuka **Pengguna Admin**, memilih akun tersebut, lalu klik **Reset 2FA**. Admin itu bisa masuk dengan kata sandi saja, dan 2FA harus diaktifkan lagi. Tindakan ini tercatat di log aktivitas (`users.2fa.reset`). Reset tidak meminta kata sandi SuperAdmin, jadi jaga akun SuperAdmin sendiri dengan 2FA.
+
+### Batasan
+
+- Percobaan kode salah dihitung bersama pembatas login (10 kali gagal dalam 15 menit per IP dan per nama pengguna). Kode yang sudah dipakai tidak bisa dipakai ulang.
+- Riwayat kode yang sudah dipakai disimpan di memori. Setelah aplikasi di-restart, kode yang sama bisa diterima lagi selama sisa langkah waktu (maksimal sekitar 90 detik).
+- Login sebagai pelanggan dan API tidak memakai 2FA admin. Sesi admin hanya dibuka lewat halaman login.

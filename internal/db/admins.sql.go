@@ -23,6 +23,15 @@ func (q *Queries) BumpAdminSession(ctx context.Context, id int64) (int64, error)
 	return session_version, err
 }
 
+const clearAdminTOTP = `-- name: ClearAdminTOTP :exec
+UPDATE admins SET totp_secret_enc = '', totp_enabled = 0 WHERE id = ?
+`
+
+func (q *Queries) ClearAdminTOTP(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, clearAdminTOTP, id)
+	return err
+}
+
 const countAdmins = `-- name: CountAdmins :one
 SELECT count(*) FROM admins
 `
@@ -37,7 +46,7 @@ func (q *Queries) CountAdmins(ctx context.Context) (int64, error) {
 const createAdmin = `-- name: CreateAdmin :one
 INSERT INTO admins (username, fullname, password_hash, role, email, phone, city, root_id)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, username, fullname, password_hash, legacy_sha1, role, status, email, phone, city, root_id, session_version, last_login_at, created_at
+RETURNING id, username, fullname, password_hash, legacy_sha1, role, status, email, phone, city, root_id, session_version, last_login_at, created_at, totp_secret_enc, totp_enabled
 `
 
 type CreateAdminParams struct {
@@ -78,8 +87,24 @@ func (q *Queries) CreateAdmin(ctx context.Context, arg CreateAdminParams) (Admin
 		&i.SessionVersion,
 		&i.LastLoginAt,
 		&i.CreatedAt,
+		&i.TotpSecretEnc,
+		&i.TotpEnabled,
 	)
 	return i, err
+}
+
+const createRecoveryCode = `-- name: CreateRecoveryCode :exec
+INSERT INTO admin_recovery_codes (admin_id, code_hash) VALUES (?, ?)
+`
+
+type CreateRecoveryCodeParams struct {
+	AdminID  int64
+	CodeHash string
+}
+
+func (q *Queries) CreateRecoveryCode(ctx context.Context, arg CreateRecoveryCodeParams) error {
+	_, err := q.db.ExecContext(ctx, createRecoveryCode, arg.AdminID, arg.CodeHash)
+	return err
 }
 
 const deleteAdmin = `-- name: DeleteAdmin :execrows
@@ -97,8 +122,26 @@ func (q *Queries) DeleteAdmin(ctx context.Context, id int64) (int64, error) {
 	return result.RowsAffected()
 }
 
+const deleteRecoveryCodes = `-- name: DeleteRecoveryCodes :exec
+DELETE FROM admin_recovery_codes WHERE admin_id = ?
+`
+
+func (q *Queries) DeleteRecoveryCodes(ctx context.Context, adminID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteRecoveryCodes, adminID)
+	return err
+}
+
+const enableAdminTOTP = `-- name: EnableAdminTOTP :exec
+UPDATE admins SET totp_enabled = 1 WHERE id = ?
+`
+
+func (q *Queries) EnableAdminTOTP(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, enableAdminTOTP, id)
+	return err
+}
+
 const getAdmin = `-- name: GetAdmin :one
-SELECT id, username, fullname, password_hash, legacy_sha1, role, status, email, phone, city, root_id, session_version, last_login_at, created_at FROM admins WHERE id = ? LIMIT 1
+SELECT id, username, fullname, password_hash, legacy_sha1, role, status, email, phone, city, root_id, session_version, last_login_at, created_at, totp_secret_enc, totp_enabled FROM admins WHERE id = ? LIMIT 1
 `
 
 func (q *Queries) GetAdmin(ctx context.Context, id int64) (Admin, error) {
@@ -119,12 +162,14 @@ func (q *Queries) GetAdmin(ctx context.Context, id int64) (Admin, error) {
 		&i.SessionVersion,
 		&i.LastLoginAt,
 		&i.CreatedAt,
+		&i.TotpSecretEnc,
+		&i.TotpEnabled,
 	)
 	return i, err
 }
 
 const getAdminByUsername = `-- name: GetAdminByUsername :one
-SELECT id, username, fullname, password_hash, legacy_sha1, role, status, email, phone, city, root_id, session_version, last_login_at, created_at FROM admins WHERE username = ? LIMIT 1
+SELECT id, username, fullname, password_hash, legacy_sha1, role, status, email, phone, city, root_id, session_version, last_login_at, created_at, totp_secret_enc, totp_enabled FROM admins WHERE username = ? LIMIT 1
 `
 
 func (q *Queries) GetAdminByUsername(ctx context.Context, username string) (Admin, error) {
@@ -145,12 +190,14 @@ func (q *Queries) GetAdminByUsername(ctx context.Context, username string) (Admi
 		&i.SessionVersion,
 		&i.LastLoginAt,
 		&i.CreatedAt,
+		&i.TotpSecretEnc,
+		&i.TotpEnabled,
 	)
 	return i, err
 }
 
 const listAgents = `-- name: ListAgents :many
-SELECT id, username, fullname, password_hash, legacy_sha1, role, status, email, phone, city, root_id, session_version, last_login_at, created_at FROM admins WHERE role = 'Agent' ORDER BY username
+SELECT id, username, fullname, password_hash, legacy_sha1, role, status, email, phone, city, root_id, session_version, last_login_at, created_at, totp_secret_enc, totp_enabled FROM admins WHERE role = 'Agent' ORDER BY username
 `
 
 func (q *Queries) ListAgents(ctx context.Context) ([]Admin, error) {
@@ -177,6 +224,8 @@ func (q *Queries) ListAgents(ctx context.Context) ([]Admin, error) {
 			&i.SessionVersion,
 			&i.LastLoginAt,
 			&i.CreatedAt,
+			&i.TotpSecretEnc,
+			&i.TotpEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -191,8 +240,40 @@ func (q *Queries) ListAgents(ctx context.Context) ([]Admin, error) {
 	return items, nil
 }
 
+const listUnusedRecoveryCodes = `-- name: ListUnusedRecoveryCodes :many
+SELECT id, code_hash FROM admin_recovery_codes WHERE admin_id = ? AND used_at IS NULL ORDER BY id
+`
+
+type ListUnusedRecoveryCodesRow struct {
+	ID       int64
+	CodeHash string
+}
+
+func (q *Queries) ListUnusedRecoveryCodes(ctx context.Context, adminID int64) ([]ListUnusedRecoveryCodesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUnusedRecoveryCodes, adminID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUnusedRecoveryCodesRow
+	for rows.Next() {
+		var i ListUnusedRecoveryCodesRow
+		if err := rows.Scan(&i.ID, &i.CodeHash); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchAdmins = `-- name: SearchAdmins :many
-SELECT id, username, fullname, password_hash, legacy_sha1, role, status, email, phone, city, root_id, session_version, last_login_at, created_at FROM admins
+SELECT id, username, fullname, password_hash, legacy_sha1, role, status, email, phone, city, root_id, session_version, last_login_at, created_at, totp_secret_enc, totp_enabled FROM admins
 WHERE (username LIKE '%' || ?1 || '%' OR fullname LIKE '%' || ?1 || '%')
   AND (?2 = 'all'
     OR (?2 = 'admin' AND (role IN ('Report', 'Agent', 'Sales') OR id = ?3))
@@ -240,6 +321,8 @@ func (q *Queries) SearchAdmins(ctx context.Context, arg SearchAdminsParams) ([]A
 			&i.SessionVersion,
 			&i.LastLoginAt,
 			&i.CreatedAt,
+			&i.TotpSecretEnc,
+			&i.TotpEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -270,6 +353,21 @@ func (q *Queries) SetAdminPassword(ctx context.Context, arg SetAdminPasswordPara
 	var session_version int64
 	err := row.Scan(&session_version)
 	return session_version, err
+}
+
+const setAdminTOTPSecret = `-- name: SetAdminTOTPSecret :exec
+UPDATE admins SET totp_secret_enc = ? WHERE id = ? AND totp_enabled = 0
+`
+
+type SetAdminTOTPSecretParams struct {
+	TotpSecretEnc string
+	ID            int64
+}
+
+// Stores a pending (not yet confirmed) secret. Refused once 2FA is enabled.
+func (q *Queries) SetAdminTOTPSecret(ctx context.Context, arg SetAdminTOTPSecretParams) error {
+	_, err := q.db.ExecContext(ctx, setAdminTOTPSecret, arg.TotpSecretEnc, arg.ID)
+	return err
 }
 
 const touchAdminLogin = `-- name: TouchAdminLogin :exec
@@ -324,6 +422,19 @@ func (q *Queries) UpdateAdmin(ctx context.Context, arg UpdateAdminParams) (int64
 		arg.Bump,
 		arg.ID,
 	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const useRecoveryCode = `-- name: UseRecoveryCode :execrows
+UPDATE admin_recovery_codes SET used_at = unixepoch() WHERE id = ? AND used_at IS NULL
+`
+
+// 0 rows = the code was already spent, so a recovery code works once even under parallel logins.
+func (q *Queries) UseRecoveryCode(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, useRecoveryCode, id)
 	if err != nil {
 		return 0, err
 	}
