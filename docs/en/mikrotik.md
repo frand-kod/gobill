@@ -18,7 +18,7 @@ NuxBill calls the RouterOS API to create hotspot users, create PPPoE secrets, cr
 Create a dedicated user on MikroTik:
 
     /user group add name=nuxbill policy=read,write,api,test
-    /user add name=nuxbill group=nuxbill password=<PASSWORD-KUAT>
+    /user add name=nuxbill group=nuxbill password=<STRONG-PASSWORD>
 
 In the NuxBill UI, add the router with:
 
