@@ -105,7 +105,7 @@
     <div id="vouchers-body" data-collapse-body><div class="overflow-x-auto"><table class="table">
       <thead><tr><th>{{T "Package Name"}}</th><th>{{T "Unused"}}</th><th>{{T "Used"}}</th></tr></thead>
       <tbody>
-      {{range .Vouchers}}<tr><td>{{.Name}}</td><td>{{.Unused}}</td><td>{{.Used}}</td></tr>{{else}}<tr><td colspan="3">{{T "No data"}}</td></tr>{{end}}
+      {{range .Vouchers}}<tr><td>{{.Name}}</td><td>{{.Unused}}</td><td>{{.Used}}</td></tr>{{else}}<tr><td colspan="3">{{T "No vouchers yet"}} · <a class="link" href="/admin/vouchers/new">{{T "Generate vouchers"}}</a></td></tr>{{end}}
       </tbody>
     </table></div></div>
   </section>
