@@ -1,5 +1,5 @@
 {{define "customer_pick"}}
-{{/* Customer picker: a combobox over /admin/search. Without JS the plain username box (same name) is shown. */}}
+{{/* Customer picker: a combobox over /admin/customers/pick. Without JS the plain username box (same name) is shown. */}}
 <noscript><input class="input" id="{{.Name}}" name="{{.Name}}" value="{{.Value}}" autocomplete="off" required{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}></noscript>
 <div class="relative" x-data="gbCustomerPick({{.PickConfig}})" @click.outside="open=false">
   <input type="hidden" name="{{.Name}}" :value="username">

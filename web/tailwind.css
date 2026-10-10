@@ -395,3 +395,9 @@
   .al-link, .al-pulse, .pl-arc { animation: none; }
   .al-pulse { opacity: 0; }
 }
+
+/* settings search: a result link to #f-<field> scrolls to the field and flashes it once */
+.field-wrap { scroll-margin-top: 5rem; border-radius: var(--r-sm); }
+.field-wrap:target { animation: field-flash 2.4s ease-out 1; }
+@keyframes field-flash { from { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent); } to { box-shadow: 0 0 0 4px transparent; } }
+@media (prefers-reduced-motion: reduce) { .field-wrap:target { animation: none; outline: 2px solid var(--accent); } }

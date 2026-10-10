@@ -14,6 +14,10 @@ Pilih dokumen sesuai peran Anda. Setiap dokumen berdiri sendiri. Ringkasan proye
 | [monitoring.md](monitoring.md) | Status Sistem, `/health` vs `/metrics` (Prometheus), alert operator, Uptime Kuma |
 | [migrasi-phpnuxbill.md](migrasi-phpnuxbill.md) | Impor dari PHPNuxBill (JSON atau MySQL), cutover, rollback, checklist jalan paralel |
 
+### Pencarian cepat
+
+Kotak cari di bilah atas mencari pelanggan, langganan, invoice, voucher, paket, router, NAS, menu, aksi cepat, dan pengaturan. Tekan `/` atau `Ctrl+K` (`Cmd+K` di Mac) untuk langsung mengetik di kotak itu; panah atas/bawah memilih hasil, Enter membuka, Esc menutup. Di HP, hasil tampil selebar layar. Pengaturan langsung menuju kolomnya, dan kolom itu disorot sebentar. Hasil yang bisa dibuka sesuai peran Anda.
+
 ## Untuk developer
 
 | Dokumen | Isi |
