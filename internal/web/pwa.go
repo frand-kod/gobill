@@ -21,7 +21,7 @@ func pwaColors(accent, mode string) (theme, bg string) {
 	if theme == "" {
 		theme = accentColors["teal"]
 	}
-	bg = "#f6f7f9"
+	bg = "#eceef2"
 	if mode == "dark" {
 		bg = "#171b21"
 	}
