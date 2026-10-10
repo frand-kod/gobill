@@ -57,6 +57,10 @@ Jika `yes`, recharge paket RADIUS (device `Radius`) baru atau setelah paket habi
 - Hanya paket RADIUS. Paket MikroTik (Hotspot/PPPoE dengan router) selalu mulai saat recharge, pengaturan ini tidak berlaku untuk mereka.
 - Recharge ulang paket yang belum dipakai menunggu lagi dari awal. Perpanjang paket yang sedang berjalan tetap mengikuti `extend_expiry`.
 
+## QRIS statis
+
+Di Settings > Payment Gateway, bagian QRIS, unggah foto QRIS statis merchant Anda (PNG atau JPG, maks 2 MB). Sistem membaca kode QR-nya, memastikan formatnya QRIS valid, lalu hanya menyimpan teksnya di `qris_payload`; gambarnya tidak disimpan. Nama merchant dan NMID yang aktif ditampilkan di bawah isian, dan "Hapus QRIS" mengosongkannya. Teks QRIS juga bisa ditempel lewat "Opsi lanjutan". Sistem membuat QR yang terkunci nominal untuk setiap invoice dan mengirim tautannya lewat WhatsApp (`[[qris_link]]`, atau ditambahkan di akhir pesan jika template tidak memakainya). Tautan memerlukan `app_url`. Pelanggan tidak perlu login. Sistem tidak memverifikasi pembayaran QRIS: konfirmasi pembayaran tetap dilakukan manual. Recharge yang sudah dibayar lewat saldo, gateway, atau voucher tidak mendapat tautan ini.
+
 ## WhatsApp
 
 Ada dua cara mengirim WhatsApp. Yang dipakai ditentukan otomatis:

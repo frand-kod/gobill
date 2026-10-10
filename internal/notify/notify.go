@@ -379,7 +379,11 @@ func (n *Notifier) fill(tpl string, v map[string]string) string {
 			}
 		}
 	}
-	return anyPlaceholder.ReplaceAllString(Render(tpl, out), "")
+	msg := anyPlaceholder.ReplaceAllString(Render(tpl, out), "")
+	if out["qris_link"] != "" && !strings.Contains(tpl, "[[qris_link]]") {
+		msg += "\n\nBayar via QRIS: " + out["qris_link"]
+	}
+	return msg
 }
 
 func (n *Notifier) template(name string) string {

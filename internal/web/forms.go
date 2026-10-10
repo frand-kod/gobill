@@ -130,7 +130,7 @@ func (s *Server) renderForm(w http.ResponseWriter, r *http.Request, status int, 
 // HasFile reports whether a field posts a file, so the form needs multipart encoding.
 func (fp formPage) HasFile() bool {
 	for _, f := range fp.Fields {
-		if f.Type == "file" {
+		if f.Type == "file" || f.Type == "qris" {
 			return true
 		}
 	}
