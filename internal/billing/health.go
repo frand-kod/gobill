@@ -107,8 +107,9 @@ func (a *AlertJob) Run(ctx context.Context) error {
 	return errors.Join(errs...)
 }
 
-// checkNAS alerts when a NAS from the nas table has sent RADIUS packets before and none for
-// alert_nas_silent_minutes. The samples are copied first: metrics.Each holds the registry lock.
+// checkNAS alerts when a NAS IP that has sent RADIUS packets since start sends none for
+// alert_nas_silent_minutes. The nas table only supplies a display name. The samples are copied
+// first: metrics.Each holds the registry lock.
 func (a *AlertJob) checkNAS(ctx context.Context, st map[string]string, now time.Time) {
 	silent, err := strconv.Atoi(st["alert_nas_silent_minutes"])
 	if err != nil || silent < 1 {
@@ -130,14 +131,11 @@ func (a *AlertJob) checkNAS(ctx context.Context, st map[string]string, now time.
 		}
 	})
 	for _, p := range last {
-		name := ""
+		name := p.ip // any NAS that sent a packet since start; the nas table name is only a label
 		for _, n := range nas {
 			if n.Ip == p.ip {
 				name = n.Name
 			}
-		}
-		if name == "" {
-			continue // only NAS that are registered under Network > NAS
 		}
 		a.edge(ctx, "nas:"+p.ip, now.Sub(p.at) >= time.Duration(silent)*time.Minute,
 			fmt.Sprintf("NAS %s (%s) tidak mengirim paket RADIUS selama %d menit", name, p.ip, silent),
