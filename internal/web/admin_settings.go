@@ -53,7 +53,8 @@ var (
 )
 
 // settingsFields builds one sub-page. With nil maps it only names the fields, which is how save finds the keys.
-func (s *Server) settingsFields(tab string, v, e map[string]string) []field {
+// st is the stored settings: it tells whether a secret or an image is already saved.
+func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field {
 	sel := func(name, label string, opts ...option) field {
 		f := text(name, label, v, e).as("select")
 		f.Options = opts
@@ -65,21 +66,25 @@ func (s *Server) settingsFields(tab string, v, e map[string]string) []field {
 		return f
 	}
 	area := func(name, label string) field { return text(name, label, v, e).as("textarea") }
-	// secrets are never filled from v, so they are never rendered back
+	// secrets are never filled from v, so they are never rendered back; a saved one gets a hint
 	sec := func(name, label string) field {
-		return text(name, label, nil, e).as("password").hint("Leave empty to keep the current secret")
+		hint := "Leave empty to keep the current secret"
+		if st[name] != "" {
+			hint = "Saved. Leave empty to keep the current secret"
+		}
+		return text(name, label, nil, e).as("password").hint(hint)
 	}
-	// notif shows the built-in message while the stored template is empty
+	// notif shows the built-in message only when the setting was never saved; a cleared one stays empty
 	notif := func(name, label string) field {
 		f := area(name, label)
-		if f.Value == "" {
+		if _, ok := v[name]; !ok {
 			f.Value = notify.DefaultTemplate(strings.TrimPrefix(name, "notif_"))
 		}
 		return f
 	}
-	// upl is an image upload; the stored filename is kept when nothing is posted.
+	// upl is an image upload. Value is the stored filename, shown with a preview and a remove box.
 	upl := func(name, label string) field {
-		return field{Name: name, Label: label, Type: "file", Error: e[name], Hint: "PNG, JPG, WebP or ICO, 2 MB max. Leave empty to keep the current image"}
+		return field{Name: name, Label: label, Type: "file", Value: v[name], Error: e[name], Hint: "PNG, JPG, WebP or ICO, 2 MB max. Uploading replaces the current image"}
 	}
 	switch tab {
 	case "app":
@@ -143,7 +148,7 @@ func (s *Server) settingsFields(tab string, v, e map[string]string) []field {
 		return append(out, section([]field{
 			sel("daily_summary_enabled", "Daily summary", settingsYesNo...).hint("Sends a short report to you (the operator) every morning: income yesterday, new customers, subscriptions expiring, routers offline"),
 			text("daily_summary_time", "Daily summary time", v, e).as("time").hint("Server time zone, e.g. 07:00"),
-			sel("daily_summary_channel", "Daily summary channel", option{"telegram", "Telegram"}, option{"wa", "WhatsApp"}, option{"both", "Telegram and WhatsApp"}).hint("Telegram uses the Telegram ID in Integrations. WhatsApp needs the WA server or WhatsApp URL in Integrations"),
+			sel("daily_summary_channel", "Daily summary channel", option{"", "Disabled"}, option{"telegram", "Telegram"}, option{"wa", "WhatsApp"}, option{"both", "Telegram and WhatsApp"}).hint("Telegram uses the Telegram ID in Integrations. WhatsApp needs the WA server or WhatsApp URL in Integrations"),
 			text("daily_summary_wa_to", "Operator WhatsApp number", v, e).hint("Your own number, e.g. 08123456789"),
 			{Name: "daily_summary_now", Label: "Send summary now", Type: "dsnow", Value: v["daily_summary_now"], Error: e["daily_summary_now"],
 				Hint: "Sends the summary right now to test it. Save the settings first: the saved values are used"},
@@ -395,7 +400,18 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 			nav = append(nav, option{"/admin/settings/" + t.Slug, t.Label})
 		}
 	}
-	fp := formPage{Heading: "Settings", Action: "/admin/settings/" + tab, Cancel: "/admin", Fields: s.settingsFields(tab, v, e)}
+	st, err := s.loadSettings(r.Context())
+	if err != nil {
+		s.fail(w, "load settings", err)
+		return
+	}
+	// a field absent from v (e.g. after a body too big to parse) shows the stored value
+	for k, x := range st {
+		if _, ok := v[k]; !ok {
+			v[k] = x
+		}
+	}
+	fp := formPage{Heading: "Settings", Action: "/admin/settings/" + tab, Cancel: "/admin", Fields: s.settingsFields(tab, v, e, st)}
 	if tab == "payment" { // the URL to paste into the Tripay merchant dashboard
 		fp.Fields[0].Hint = "Callback URL for Tripay: " + baseURL(r) + "/callback/tripay"
 	}
@@ -410,7 +426,7 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	fields := s.settingsFields(tab, nil, nil)
+	fields := s.settingsFields(tab, nil, nil, nil)
 	keys := fieldNames(fields)
 	// the body limit covers the image uploads; a bigger body fails the parse, shown on the file fields
 	r.Body = http.MaxBytesReader(w, r.Body, maxUpload+64<<10)
@@ -424,10 +440,21 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 		s.renderSettings(w, r, http.StatusUnprocessableEntity, tab, map[string]string{}, e)
 		return
 	}
+	st, err := s.loadSettings(r.Context())
+	if err != nil {
+		s.fail(w, "load settings", err)
+		return
+	}
 	v := formVals(r, keys...)
 	for _, f := range fields {
 		if f.Type == "checkbox" { // stored as yes/no, the PHP convention every reader expects
 			v[f.Name] = map[bool]string{true: "yes", false: "no"}[v[f.Name] == "1"]
+		}
+		if f.Type == "file" { // the stored image stays unless "remove" is ticked or a new one is uploaded
+			v[f.Name] = st[f.Name]
+			if r.PostFormValue(f.Name+"_remove") == "1" {
+				v[f.Name] = ""
+			}
 		}
 	}
 	if e := s.settingsErrors(v); len(e) > 0 {
@@ -459,8 +486,8 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	q := s.queries.WithTx(tx)
 	for _, k := range keys {
-		if (settingsSecret[k] || settingsFile[k]) && v[k] == "" {
-			continue // empty secret or image keeps the stored value
+		if settingsSecret[k] && v[k] == "" {
+			continue // empty secret keeps the stored value
 		}
 		if err := q.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: k, Value: v[k]}); err != nil {
 			s.fail(w, "save setting "+k, err)
@@ -471,6 +498,13 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "commit settings", err)
 		return
 	}
+	var replaced []string // images no longer in use: replaced or removed
+	for _, k := range keys {
+		if settingsFile[k] && st[k] != "" && st[k] != v[k] {
+			replaced = append(replaced, st[k])
+		}
+	}
+	s.removeUnused(r.Context(), replaced)
 
 	if l, ok := v["language"]; ok {
 		s.lang.Store(l)

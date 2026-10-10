@@ -40,6 +40,15 @@
         <p><button type="submit" class="btn btn-ghost" id="{{.Name}}" formaction="/admin/settings/notifications/daily-summary">{{T "Send summary now"}}</button></p>
         {{else if eq .Type "link"}}
         <p><a class="btn" href="{{.Value}}">{{T "Download backup"}}</a></p>
+        {{else if eq .Type "file"}}
+        {{if .Value}}
+        <div class="mb-2 flex items-center gap-3">
+          <span class="grid h-16 w-24 shrink-0 place-items-center rounded border border-line" style="background:repeating-conic-gradient(#d4d4d8 0 25%,#fff 0 50%) 0 0/16px 16px"><img src="/uploads/{{.Value}}" alt="" style="max-height:64px;max-width:88px"></span>
+          <span class="min-w-0 break-all text-sm">{{.Value}}</span>
+        </div>
+        <label class="mb-2 flex items-center gap-2 text-sm"><input type="checkbox" class="size-4 rounded accent-brand-500" name="{{.Name}}_remove" value="1"> {{T "Remove image"}}</label>
+        {{end}}
+        <input class="input" id="{{.Name}}" name="{{.Name}}" type="file" accept="image/png,image/jpeg,image/webp,image/x-icon"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
         {{else}}
         <input class="input" id="{{.Name}}" name="{{.Name}}" type="{{.Type}}" value="{{.Value}}"{{if .Required}} required{{end}}{{if eq .Type "password"}} autocomplete="new-password"{{end}}{{if eq .Type "number"}} min="0"{{end}}{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
         {{if .Gen}}<button type="button" class="btn btn-ghost mt-2" @click="const a='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_',b=crypto.getRandomValues(new Uint8Array(24)),i=$el.previousElementSibling;i.type='text';i.value=Array.from(b,x=>a[x&63]).join('')">{{T "Generate"}}</button>{{end}}

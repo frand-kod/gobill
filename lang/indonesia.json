@@ -1090,6 +1090,8 @@
     "Edit NAS": "Ubah NAS",
     "e.g. 10.0.0.1 or 10.0.0.0/24": "mis. 10.0.0.1 atau 10.0.0.0/24",
     "Leave empty to keep the current secret": "Kosongkan untuk mempertahankan secret saat ini",
+    "Saved. Leave empty to keep the current secret": "Tersimpan. Kosongkan untuk mempertahankan secret saat ini",
+    "Remove image": "Hapus gambar",
     "Enter a valid IP address or CIDR": "Masukkan alamat IP atau CIDR yang valid",
     "IP already exists": "IP sudah ada",
     "NAS is in use": "NAS sedang digunakan",

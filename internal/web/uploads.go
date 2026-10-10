@@ -3,8 +3,10 @@ package web
 // Uploaded files: storage, validation and serving.
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
@@ -71,6 +73,36 @@ func (s *Server) storeUpload(fh *multipart.FileHeader) (string, error) {
 		return "", err
 	}
 	return name, out.Close()
+}
+
+// removeUnused deletes stored images that no setting points to any more (replaced or removed).
+// Only names in the upload format are touched, so nothing outside the uploads folder can go.
+func (s *Server) removeUnused(ctx context.Context, names []string) {
+	if len(names) == 0 {
+		return
+	}
+	st, err := s.loadSettings(ctx)
+	if err != nil {
+		slog.Error("remove unused uploads", "err", err)
+		return
+	}
+	used := map[string]bool{}
+	for _, x := range st {
+		used[x] = true
+	}
+	dir, err := s.uploadDir()
+	if err != nil {
+		slog.Error("remove unused uploads", "err", err)
+		return
+	}
+	for _, n := range names {
+		if !uploadName.MatchString(n) || used[n] {
+			continue
+		}
+		if err := os.Remove(filepath.Join(dir, n)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			slog.Error("remove unused upload", "name", n, "err", err)
+		}
+	}
 }
 
 // serveUpload serves a stored image. The name must match uploadName, so no path can leave the folder.
