@@ -94,7 +94,7 @@ func waTestError(err error) string {
 // and the channel's own checks still do. Result: a flash, or an error toast with the scrubbed text.
 func (s *Server) integrationTest(w http.ResponseWriter, r *http.Request) {
 	kind := r.PathValue("kind")
-	if !oneOf(kind, "telegram", "sms", "email", "webhook") {
+	if !oneOf(kind, "telegram", "gateway", "email", "webhook") {
 		http.NotFound(w, r)
 		return
 	}
@@ -123,16 +123,16 @@ func (s *Server) integrationTest(w http.ResponseWriter, r *http.Request) {
 		}
 		err = n.Telegram(ctx, text)
 		ok = s.catalog.T(lang, "Telegram test message sent. Check the chat to be sure it arrived.")
-	case "sms":
-		to := r.PostFormValue("sms_test_phone")
+	case "gateway":
+		to := r.PostFormValue("gateway_test_phone")
 		switch {
-		case n.Settings["sms_url"] == "":
+		case !notify.SMSConfigured(n.Settings):
 			err = errTestNotSet
 		case to == "":
 			err = errors.New(s.catalog.T(lang, "Enter a phone number for the test"))
 		default:
 			err = n.SMS(ctx, to, text)
-			ok = s.catalog.T(lang, "SMS test sent. Check the phone to be sure it arrived.")
+			ok = s.catalog.T(lang, "Gateway test sent. Check the phone to be sure it arrived.")
 		}
 	case "email":
 		to := r.PostFormValue("email_test_to")

@@ -171,7 +171,10 @@ func TestWAChannelDispatch(t *testing.T) {
 	if len(got) != 1 || got[0] != "62812345|Hi wati name from ACME" {
 		t.Fatalf("gateway got %q", got)
 	}
-	// sms has no gateway configured: reported as an error, nothing sent
+	// sms has no gateway configured: reported as an error, nothing sent (wa_url serves SMS too, so clear it)
+	if err := e.q.UpsertSetting(ctx, db.UpsertSettingParams{Key: "wa_url", Value: ""}); err != nil {
+		t.Fatal(err)
+	}
 	form["channel"] = []string{"sms"}
 	if resp := do(e.h, "POST", "/admin/message/send", form, e.c); !strings.Contains(resp.Body.String(), "gateway not configured") {
 		t.Fatal("sms without gateway should say so")

@@ -7,6 +7,17 @@ import (
 	"testing"
 )
 
+// wa_url alone is enough for the phone OTP to be offered.
+func TestOTPEnabledWithWAURLOnly(t *testing.T) {
+	st := map[string]string{"sms_otp_registration": "yes", "wa_url": "http://gw.test/?to=[number]&text=[text]"}
+	if !otpEnabled(st) {
+		t.Fatal("wa_url only: OTP not enabled")
+	}
+	if otpEnabled(map[string]string{"sms_otp_registration": "yes"}) {
+		t.Fatal("no gateway: OTP enabled")
+	}
+}
+
 // notify_otp=no: no code is sent for registration or forgot password, and the answer is the same
 // for known and unknown usernames.
 func TestOTPSwitchOff(t *testing.T) {

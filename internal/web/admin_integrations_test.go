@@ -30,10 +30,36 @@ func integrationPage(t *testing.T, h http.Handler, c *http.Cookie, path string, 
 	return do(h, "GET", page, nil, c).Body.String()
 }
 
+// Integrations has one gateway field. A legacy sms_url is shown in it and moved to wa_url on save.
+func TestIntegrationsGatewayField(t *testing.T) {
+	_, h, q := settingsSetup(t)
+	const legacy = "http://old.test/sms/[number]/[text]"
+	setSettings(t, q, map[string]string{"sms_url": legacy})
+	c := login(t, h, "alice")
+	page := do(h, "GET", "/admin/settings/integrations", nil, c).Body.String()
+	if strings.Contains(page, `name="sms_url"`) || !strings.Contains(page, legacy) {
+		t.Fatal("legacy sms_url not shown in the gateway field")
+	}
+	if w := do(h, "POST", "/admin/settings/integrations", url.Values{"wa_url": {legacy}}, c); w.Code != http.StatusSeeOther {
+		t.Fatalf("save: %d %s", w.Code, w.Body.String())
+	}
+	rows, err := q.ListSettings(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, r := range rows {
+		got[r.Key] = r.Value
+	}
+	if got["wa_url"] != legacy || got["sms_url"] != "" {
+		t.Fatalf("after save: wa_url=%q sms_url=%q", got["wa_url"], got["sms_url"])
+	}
+}
+
 func TestIntegrationTestSuperAdminOnly(t *testing.T) {
 	_, h, _ := settingsSetup(t)
 	bob := login(t, h, "bob")
-	for _, p := range []string{"telegram", "sms", "email", "webhook"} {
+	for _, p := range []string{"telegram", "gateway", "email", "webhook"} {
 		if w := do(h, "POST", "/admin/settings/integrations/test/"+p, url.Values{}, bob); w.Code != http.StatusForbidden {
 			t.Fatalf("%s: admin got %d", p, w.Code)
 		}
@@ -43,7 +69,7 @@ func TestIntegrationTestSuperAdminOnly(t *testing.T) {
 	}
 }
 
-func TestIntegrationTestSMSAndWebhook(t *testing.T) {
+func TestIntegrationTestGatewayAndWebhook(t *testing.T) {
 	_, h, q := settingsSetup(t)
 	var smsTo, hookBody, hookSig string
 	var hookCode = http.StatusAccepted
@@ -58,12 +84,12 @@ func TestIntegrationTestSMSAndWebhook(t *testing.T) {
 	}))
 	defer stub.Close()
 	// notify_customers=no must not stop the test: it targets the operator
-	setSettings(t, q, map[string]string{"notify_customers": "no", "sms_url": stub.URL + "/sms?to=[number]&text=[text]",
+	setSettings(t, q, map[string]string{"notify_customers": "no", "wa_url": stub.URL + "/sms?to=[number]&text=[text]",
 		"webhook_url": stub.URL + "/hook", "webhook_secret": "WHSEC"})
 	c := login(t, h, "alice")
 
-	if p := integrationPage(t, h, c, "/admin/settings/integrations/test/sms", url.Values{"sms_test_phone": {"08123456789"}}, "/admin/settings/integrations"); !strings.Contains(p, "SMS test sent") || smsTo != "08123456789" {
-		t.Fatalf("sms: to=%q page=%s", smsTo, p)
+	if p := integrationPage(t, h, c, "/admin/settings/integrations/test/gateway", url.Values{"gateway_test_phone": {"08123456789"}}, "/admin/settings/integrations"); !strings.Contains(p, "Gateway test sent") || smsTo != "08123456789" {
+		t.Fatalf("gateway: to=%q page=%s", smsTo, p)
 	}
 	if p := integrationPage(t, h, c, "/admin/settings/integrations/test/webhook", nil, "/admin/settings/integrations"); !strings.Contains(p, "Webhook answered HTTP 202") ||
 		!strings.Contains(hookBody, `"event":"test"`) || !strings.HasPrefix(hookSig, "sha256=") {
@@ -74,7 +100,7 @@ func TestIntegrationTestSMSAndWebhook(t *testing.T) {
 	if !strings.Contains(p, "Test failed") || !strings.Contains(p, "HTTP 500") || strings.Contains(p, "WHSEC") {
 		t.Fatalf("webhook failure: %s", p)
 	}
-	if p := integrationPage(t, h, c, "/admin/settings/integrations/test/sms", url.Values{}, "/admin/settings/integrations"); !strings.Contains(p, "Enter a phone number for the test") {
+	if p := integrationPage(t, h, c, "/admin/settings/integrations/test/gateway", url.Values{}, "/admin/settings/integrations"); !strings.Contains(p, "Enter a phone number for the test") {
 		t.Fatal("empty phone accepted")
 	}
 }

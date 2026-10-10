@@ -14,7 +14,9 @@
       {{range .Fields}}
       {{if eq .Type "hidden"}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{else}}
       <div{{with .Show}} x-show="{{.}}" x-cloak{{end}}>
-        {{if eq .Type "checkbox"}}
+        {{if eq .Type "note"}}
+        <p class="text-sm text-ink-2">{{T .Label}}{{if .Value}} <a class="link" href="{{.Value}}" target="_blank" rel="noopener">{{T .Btn}}</a>{{end}}</p>
+        {{else if eq .Type "checkbox"}}
         <label class="flex items-center gap-2 py-2 text-sm font-medium"><input type="checkbox" class="size-4 rounded accent-brand-500" name="{{.Name}}" value="1"{{if .Checked}} checked{{end}}{{if .Bind}} x-model="{{.Name}}"{{end}}> {{T .Label}}</label>
         {{else}}
         <label class="label" for="{{.Name}}">{{T .Label}}{{if .Required}} <span class="text-err-fg" aria-hidden="true">*</span>{{end}}</label>

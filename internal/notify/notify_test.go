@@ -37,6 +37,22 @@ func nt(s map[string]string) *Notifier {
 	return &Notifier{Settings: s, HTTP: http.DefaultClient, TelegramAPI: "https://api.telegram.org"}
 }
 
+// One gateway URL serves SMS: wa_url, unless an old install still has sms_url (then sms_url wins).
+func TestSMSUsesWAURLOrLegacySMSURL(t *testing.T) {
+	var path string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { path = r.URL.Path }))
+	defer srv.Close()
+	ctx := context.Background()
+	n := nt(map[string]string{"wa_url": srv.URL + "/wa?to=[number]&m=[text]"})
+	if err := n.SMS(ctx, "0812", "hi"); err != nil || path != "/wa" {
+		t.Fatalf("wa_url only: path %q err %v", path, err)
+	}
+	n.Settings["sms_url"] = srv.URL + "/sms?to=[number]&m=[text]"
+	if err := n.SMS(ctx, "0812", "hi"); err != nil || path != "/sms" {
+		t.Fatalf("sms_url set: path %q err %v", path, err)
+	}
+}
+
 func TestRender(t *testing.T) {
 	got := Render("Hi [[name]] [[x]] [[name]]", map[string]string{"name": "Ann"})
 	if got != "Hi Ann [[x]] Ann" {
