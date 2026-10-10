@@ -57,5 +57,6 @@ var pageIntros = map[string]intro{
 	"recharge":        {"Recharge Account", "Add a plan to a customer. Type the customer's username, pick the plan and how they paid, then check the summary before saving.", "You can also do this from the customer page."},
 	"maps":            {"Map", "Pins show where customers, routers or ODP boxes are. Tap a pin for its details.", ""},
 	"docs":            {"Guide", "Step-by-step notes for the operator: install, settings, MikroTik and RADIUS, moving from PHPNuxBill, and security. Pick a topic on the left.", ""},
+	"network":         {"Network health", "Every router and RADIUS NAS with its status. Open one to see its details. Press Check now to ask a router for its live state.", "Live stats only come from routers added with an API user. A NAS only shows what the RADIUS side has seen."},
 	"p_dashboard":     {"Your internet account", "Your balance, your plans and the date each one ends. Press Buy / Extend before it ends so you stay online.", ""},
 }

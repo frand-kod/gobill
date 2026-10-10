@@ -92,6 +92,7 @@ func (s *Server) parseTemplates() error {
 		"maps":             {"base.html", "app.html", "maps.html"},
 		"pay_audit":        {"base.html", "app.html", "pay_audit.html"},
 		"docs":             {"base.html", "app.html", "docs.html"},
+		"network":          {"base.html", "app.html", "network.html"},
 
 		"p_login":       {"base.html", "portal/login.html"},
 		"p_register":    {"base.html", "portal/register.html"},

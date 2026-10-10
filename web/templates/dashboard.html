@@ -41,6 +41,25 @@
     <span class="text-ink-2">{{icon "users"}}</span>
   </a>
 </div>
+{{if $mgr}}
+<section class="card mb-4" aria-labelledby="network-title">
+  <h2 class="card-title flex flex-wrap items-center justify-between gap-2" id="network-title"><span>{{T "Network"}} <span class="font-normal text-ink-2" id="network-summary">{{.Network.Online}}/{{len .Network.Rows}} {{T "Online"}}</span></span><a class="link" href="/admin/routers">{{T "See all"}}</a></h2>
+  {{if .Network.Rows}}
+  <ul class="divide-y divide-line">
+    {{range .Network.Rows}}<li>
+      <a class="flex items-center gap-3 px-4 py-3 hover:bg-surface-2" href="{{.Href}}">
+        <span class="size-2.5 shrink-0 rounded-full {{.Dot}}" aria-hidden="true"></span>
+        <span class="min-w-0 flex-1"><span class="block truncate font-medium">{{.Name}}</span><span class="block truncate text-xs text-ink-2">{{.Metric}}</span></span>
+        <span class="badge hidden sm:inline-flex">{{T .Type}}</span>
+        <span class="shrink-0 text-sm">{{T .Status}}</span>
+      </a>
+    </li>{{end}}
+  </ul>
+  {{else}}
+  <p class="card-body text-sm text-ink-2">{{T "No routers or NAS yet."}} <a class="link" href="/admin/routers/new">{{T "Add a router"}}</a> · <a class="link" href="/admin/nas/new">{{T "Add a NAS"}}</a></p>
+  {{end}}
+</section>
+{{end}}
   <section class="card mb-4 overflow-hidden">
     <h2 class="card-title flex flex-wrap items-center justify-between gap-2"><span>{{T "Expiring Soon"}} ({{T "next 7 days"}})</span><a class="link" href="/admin/subscriptions?status=active&sort=expires&dir=asc">{{T "See all"}}</a></h2>
     <div class="overflow-x-auto"><table class="table">

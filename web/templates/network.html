@@ -1,0 +1,74 @@
+{{define "content"}}
+{{with .Data}}
+<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+  <div class="min-w-0">
+    <p class="text-sm text-ink-2"><a class="link" href="/admin">{{T "Dashboard"}}</a> / {{T "Network"}}</p>
+    <h1 class="page-title truncate">{{.Name}}</h1>
+    <p class="text-sm text-ink-2">{{T .TypeLabel}}</p>
+  </div>
+  <a class="btn" href="{{.Edit}}">{{icon "pencil"}}<span>{{T "Edit"}}</span></a>
+</div>
+{{template "callout" $.Intro}}
+
+<div class="mb-4 grid gap-4 md:grid-cols-2">
+  <section class="card" aria-labelledby="net-status">
+    <h2 class="card-title" id="net-status">{{T "Status"}}</h2>
+    <div class="card-body flex items-center gap-3">
+      <span class="size-3 shrink-0 rounded-full {{.Row.Dot}}" aria-hidden="true"></span>
+      <div><p class="font-medium">{{T .Row.Status}}</p><p class="text-sm text-ink-2">{{.Row.Metric}}</p></div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="net-info">
+    <h2 class="card-title" id="net-info">{{T "Details"}}</h2>
+    <dl class="card-body grid gap-3 text-sm">
+      <div><dt class="text-ink-2">{{if eq .Kind "router"}}{{T "Router address"}}{{else}}{{T "IP / CIDR"}}{{end}}</dt><dd class="font-medium break-all">{{.Address}}</dd></div>
+      {{if eq .Kind "router"}}
+      <div><dt class="text-ink-2">{{T "API user"}}</dt><dd class="font-medium">{{if .APIUser}}{{.APIUser}}{{else}}-{{end}}</dd></div>
+      <div><dt class="text-ink-2">{{T "Enabled"}}</dt><dd class="font-medium">{{if .Enabled}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd></div>
+      {{end}}
+      <div><dt class="text-ink-2">{{T "Description"}}</dt><dd class="font-medium">{{if .Description}}{{.Description}}{{else}}-{{end}}</dd></div>
+    </dl>
+  </section>
+</div>
+
+{{if eq .Kind "router"}}
+<section class="card mb-4" aria-labelledby="net-live">
+  <h2 class="card-title flex flex-wrap items-center justify-between gap-2" id="net-live"><span>{{T "Live check"}}</span>
+    {{if .CanCheck}}<form method="post" action="{{.Row.Href}}/check"><button class="btn btn-primary" type="submit">{{icon "gauge"}}<span>{{T "Check now"}}</span></button></form>{{end}}
+  </h2>
+  <div class="card-body text-sm">
+    {{if not .CanCheck}}
+      <p class="text-ink-2">{{T "This router has no API user or password. Add them under Routers to check it live."}}</p>
+    {{else if .LiveErr}}
+      <p class="alert alert-warn" role="alert">{{icon "triangle-alert"}}<span>{{.LiveErr}}</span></p>
+      {{if .LiveRaw}}<details class="mt-2 text-xs text-ink-2"><summary>{{T "Technical details"}}</summary><pre class="mt-1 whitespace-pre-wrap break-all">{{.LiveRaw}}</pre></details>{{end}}
+    {{else if .Live}}
+      <dl class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div><dt class="text-ink-2">{{T "Uptime"}}</dt><dd class="font-medium">{{.Live.Uptime}}</dd></div>
+        <div><dt class="text-ink-2">{{T "CPU load"}}</dt><dd class="font-medium">{{.Live.CPU}}</dd></div>
+        <div><dt class="text-ink-2">{{T "Memory"}}</dt><dd class="font-medium">{{.Live.Memory}}</dd></div>
+        <div><dt class="text-ink-2">{{T "RouterOS version"}}</dt><dd class="font-medium">{{.Live.Version}}</dd></div>
+        <div><dt class="text-ink-2">{{T "Board"}}</dt><dd class="font-medium">{{.Live.Board}}</dd></div>
+        <div><dt class="text-ink-2">{{T "Hotspot users online"}}</dt><dd class="font-medium">{{.Live.Hotspot}}</dd></div>
+        <div><dt class="text-ink-2">{{T "PPP users online"}}</dt><dd class="font-medium">{{.Live.PPP}}</dd></div>
+      </dl>
+      <p class="mt-3 text-xs text-ink-2">{{T "Checked at"}} {{.Live.At}}</p>
+    {{else}}
+      <p class="text-ink-2">{{T "Press Check now to read the router's live state."}}</p>
+    {{end}}
+  </div>
+</section>
+{{else}}
+<section class="card mb-4" aria-labelledby="net-radius">
+  <h2 class="card-title" id="net-radius">{{T "RADIUS side"}}</h2>
+  <dl class="card-body grid gap-3 text-sm sm:grid-cols-3">
+    <div><dt class="text-ink-2">{{T "Active sessions"}}</dt><dd class="font-medium">{{.Active}}</dd></div>
+    <div><dt class="text-ink-2">{{T "Last packet"}}</dt><dd class="font-medium">{{.LastPacket}}</dd></div>
+    <div><dt class="text-ink-2">{{T "Shared secret"}}</dt><dd class="font-medium">{{if .SecretOK}}<span class="badge badge-ok">{{T "Strong enough"}}</span>{{else}}<span class="badge badge-bad">{{.SecretMsg}}</span>{{end}}</dd></div>
+  </dl>
+  <p class="card-body pt-0 text-sm text-ink-2">{{T "Live stats (CPU, memory, users online) need the router to be added under Routers with an API user. This NAS only shows what RADIUS has seen."}}</p>
+</section>
+{{end}}
+{{end}}
+{{end}}
