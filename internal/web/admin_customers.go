@@ -122,10 +122,10 @@ func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 	s.renderList(w, r, lp)
 }
 
-// custSearch is the header type-ahead and the customer picker, as JSON. Non-empty q matches username,
+// custPick is the customer picker's suggestions, as JSON. Non-empty q matches username,
 // full name, phone or PPPoE username; empty q lists the first customers (Active first). limit is capped at
 // 20 (default 8 for a search, 20 for the empty list). Staff only (route).
-func (s *Server) custSearch(w http.ResponseWriter, r *http.Request) {
+func (s *Server) custPick(w http.ResponseWriter, r *http.Request) {
 	out := []map[string]any{}
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	limit := int64(8)

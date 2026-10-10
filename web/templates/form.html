@@ -13,7 +13,7 @@
     <div class="card-body grid gap-x-6 gap-y-4 md:grid-cols-2">
       {{range .Fields}}
       {{if eq .Type "hidden"}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{else}}
-      <div{{with .Show}} x-show="{{.}}" x-cloak{{end}}>
+      <div id="f-{{.Name}}" class="field-wrap"{{with .Show}} x-show="{{.}}" x-cloak{{end}}>
         {{if eq .Type "note"}}
         <p class="text-sm text-ink-2">{{T .Label}}{{if .Value}} <a class="link" href="{{.Value}}" target="_blank" rel="noopener">{{T .Btn}}</a>{{end}}</p>
         {{else if eq .Type "checkbox"}}
