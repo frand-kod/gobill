@@ -33,6 +33,15 @@ type Admin struct {
 	SessionVersion int64
 	LastLoginAt    sql.NullInt64
 	CreatedAt      int64
+	TotpSecretEnc  string
+	TotpEnabled    int64
+}
+
+type AdminRecoveryCode struct {
+	ID       int64
+	AdminID  int64
+	CodeHash string
+	UsedAt   sql.NullInt64
 }
 
 type Bandwidth struct {

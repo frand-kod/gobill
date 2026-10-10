@@ -58,14 +58,32 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if admin.TotpEnabled == 1 {
+		// Failures are counted in the second step. Clearing them here would let a correct password reset the count.
+		if err := s.sessions.RenewToken(r.Context()); err != nil {
+			slog.Error("renew session", "err", err)
+			s.errorPage(w, "-")
+			return
+		}
+		s.sessions.Put(r.Context(), "pending_2fa", admin.ID)
+		s.sessions.Put(r.Context(), "pending_2fa_until", time.Now().Add(pending2FAWindow).Unix())
+		http.Redirect(w, r, "/login/2fa", http.StatusSeeOther)
+		return
+	}
 	s.clearFailures(ip)
 	s.clearFailures(uk)
+	s.finishLogin(w, r, admin)
+}
+
+// finishLogin opens the admin session. Called once the password, and the second factor if any, is verified.
+func (s *Server) finishLogin(w http.ResponseWriter, r *http.Request, admin db.Admin) {
 	if err := s.sessions.RenewToken(r.Context()); err != nil {
 		slog.Error("renew session", "err", err)
 		s.errorPage(w, "-")
 		return
 	}
 	if s.single.Load() { // single_session: a new login invalidates the other sessions
+		var err error
 		if admin.SessionVersion, err = s.queries.BumpAdminSession(r.Context(), admin.ID); err != nil {
 			slog.Error("bump session", "err", err)
 			s.errorPage(w, "-")

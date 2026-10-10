@@ -57,3 +57,26 @@ DELETE FROM admins WHERE admins.id = ?
 -- name: BumpAdminSession :one
 UPDATE admins SET session_version = admins.session_version + 1 WHERE admins.id = ?
 RETURNING session_version;
+
+-- Stores a pending (not yet confirmed) secret. Refused once 2FA is enabled.
+-- name: SetAdminTOTPSecret :exec
+UPDATE admins SET totp_secret_enc = ? WHERE id = ? AND totp_enabled = 0;
+
+-- name: EnableAdminTOTP :exec
+UPDATE admins SET totp_enabled = 1 WHERE id = ?;
+
+-- name: ClearAdminTOTP :exec
+UPDATE admins SET totp_secret_enc = '', totp_enabled = 0 WHERE id = ?;
+
+-- name: DeleteRecoveryCodes :exec
+DELETE FROM admin_recovery_codes WHERE admin_id = ?;
+
+-- name: CreateRecoveryCode :exec
+INSERT INTO admin_recovery_codes (admin_id, code_hash) VALUES (?, ?);
+
+-- name: ListUnusedRecoveryCodes :many
+SELECT id, code_hash FROM admin_recovery_codes WHERE admin_id = ? AND used_at IS NULL ORDER BY id;
+
+-- 0 rows = the code was already spent, so a recovery code works once even under parallel logins.
+-- name: UseRecoveryCode :execrows
+UPDATE admin_recovery_codes SET used_at = unixepoch() WHERE id = ? AND used_at IS NULL;

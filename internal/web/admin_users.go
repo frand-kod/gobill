@@ -102,6 +102,10 @@ func (s *Server) adminFields(r *http.Request, target *db.Admin, v, e map[string]
 		if target != nil {
 			acc = append(acc, field{Name: "status", Label: "Status", Type: "select", Value: v["status"],
 				Options: []option{{"Active", "Active"}, {"Inactive", "Inactive"}}})
+			if actor.Role == "SuperAdmin" && !self && target.TotpEnabled == 1 {
+				acc = append(acc, field{Name: "reset2fa", Label: "Two-factor login", Type: "formbtn", Hint: "Use when the admin lost the authenticator and recovery codes.",
+					Value: "/admin/users/" + strconv.FormatInt(target.ID, 10) + "/2fa/reset", Btn: "Reset 2FA"})
+			}
 		}
 	}
 	return append(out, section(acc, "Account", "")...)
@@ -319,11 +323,13 @@ func (s *Server) adminDelete(w http.ResponseWriter, r *http.Request) {
 // ---- change own password ----
 
 func pwFields(e map[string]string) []field {
-	return section([]field{
+	return append(section([]field{
 		text("current", "Current Password", nil, e).as("password").req(),
 		text("password", "New Password", nil, e).as("password").req().hint("6 to 72 characters"),
 		text("cpassword", "Confirm New Password", nil, e).as("password").req(),
-	}, "", "")
+	}, "", ""), section([]field{
+		{Name: "2fa", Label: "Two-factor login", Type: "link", Value: "/admin/2fa", Btn: "Manage 2FA"},
+	}, "Two-factor login", "")...)
 }
 
 func (s *Server) passwordForm(w http.ResponseWriter, r *http.Request) {
