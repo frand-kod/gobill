@@ -159,6 +159,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		}, "Message templates", "")...)
 		out = append(out, section([]field{
 			sel("user_notification_expired", "Expired Notification", settingsChannels...),
+			text("expired_notify_minutes_before", "Send expired message earlier (minutes)", v, e).as("number").hint("The expired message is sent this many minutes before the plan ends, so a customer still online receives it. The plan itself still ends at its time. 0 = at the end of the plan"),
 			sel("user_notification_payment", "Payment Notification", settingsChannels...),
 			sel("user_notification_reminder", "Reminder Notification", settingsChannels...),
 		}, "Channels", "")...)
@@ -363,6 +364,9 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	}
 	if x := v["alert_nas_silent_minutes"]; x != "" && !inRange(x, 1, 1440) {
 		e["alert_nas_silent_minutes"] = "Enter whole minutes, 1 to 1440"
+	}
+	if x := v["expired_notify_minutes_before"]; x != "" && !inRange(x, 0, 1440) {
+		e["expired_notify_minutes_before"] = "Enter whole minutes, 0 to 1440"
 	}
 	if x := v["reset_day"]; x != "" && !inRange(x, 1, 28) {
 		e["reset_day"] = "Enter a day from 1 to 28"

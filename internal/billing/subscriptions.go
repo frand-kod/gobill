@@ -272,6 +272,11 @@ func billingDay(c db.Customer, p db.Plan) int {
 // Like cron.php, the router is touched first: if it fails the row stays active and is retried
 // next run. ExpireSubscription is the idempotent claim (0 rows = already expired).
 func (s *Service) ExpireDue(ctx context.Context) error {
+	if mins, _ := strconv.Atoi(setting(ctx, s.Q, "expired_notify_minutes_before")); mins > 0 {
+		if err := s.noticeBeforeExpiry(ctx, mins); err != nil {
+			slog.Error("early expired notice", "err", err)
+		}
+	}
 	subs, err := s.Q.ListExpiredActiveSubscriptions(ctx, s.now().Unix())
 	if err != nil {
 		return err
@@ -282,6 +287,51 @@ func (s *Service) ExpireDue(ctx context.Context) error {
 			slog.Error("expiry failed", "subscription", sub.ID, "err", err)
 		}
 	}
+	return nil
+}
+
+// noticeBeforeExpiry sends the expired message minutes ahead of each plan end in the window, once per
+// period. The plan still ends at its own time; expireOne then skips the notice that already went out.
+func (s *Service) noticeBeforeExpiry(ctx context.Context, minutes int) error {
+	if s.notifier() == nil {
+		return nil
+	}
+	now := s.now()
+	subs, err := s.Q.ListSubscriptionsExpiringUnnotified(ctx, db.ListSubscriptionsExpiringUnnotifiedParams{Now: now.Unix(),
+		Until: now.Add(time.Duration(minutes) * time.Minute).Unix()})
+	if err != nil {
+		return err
+	}
+	for _, sub := range subs {
+		c, err := s.Q.GetCustomer(ctx, sub.CustomerID)
+		if err != nil {
+			return err
+		}
+		plan, err := s.Q.GetPlan(ctx, sub.PlanID)
+		if err != nil {
+			return err
+		}
+		if err := s.sendExpiredNotice(ctx, sub, c, plan); err != nil {
+			slog.Error("early expired notice", "subscription", sub.ID, "err", err)
+		}
+	}
+	return nil
+}
+
+// sendExpiredNotice sends the expired message for sub's period, at most once. The conditional claim
+// runs first, so a concurrent run or the expiry itself finds it taken and sends nothing.
+func (s *Service) sendExpiredNotice(ctx context.Context, sub db.Subscription, c db.Customer, plan db.Plan) error {
+	nf := s.notifier()
+	if nf == nil {
+		return nil
+	}
+	n, err := s.Q.ClaimExpiryNotice(ctx, db.ClaimExpiryNoticeParams{Now: s.now().Unix(), ID: sub.ID, ExpiresAt: sub.ExpiresAt})
+	if err != nil || n == 0 {
+		return err
+	}
+	v := s.packageVars(ctx, c.ID, plan.Price)
+	v["expired_date"] = time.Unix(sub.ExpiresAt, 0).In(s.now().Location()).Format("2006-01-02 15:04:05")
+	nf.Go("expired", func(ctx context.Context) error { return nf.Expired(ctx, c, plan.Name, v) })
 	return nil
 }
 
@@ -314,9 +364,9 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 	}
 	nf := s.notifier()
 	if nf != nil {
-		v := s.packageVars(ctx, c.ID, plan.Price)
-		v["expired_date"] = time.Unix(sub.ExpiresAt, 0).In(s.now().Location()).Format("2006-01-02 15:04:05")
-		nf.Go("expired", func(ctx context.Context) error { return nf.Expired(ctx, c, plan.Name, v) })
+		if err := s.sendExpiredNotice(ctx, sub, c, plan); err != nil { // skipped when the early notice already went out
+			slog.Error("expired notice", "subscription", sub.ID, "err", err)
+		}
 		nf.Go("webhook", func(ctx context.Context) error {
 			return nf.Webhook(ctx, "recharge.expired", map[string]any{"username": c.Username, "plan": plan.Name, "expires_at": sub.ExpiresAt})
 		})
