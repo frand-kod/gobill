@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/netip"
 
+	"github.com/frand-kod/gobill/internal/metrics"
 	"github.com/frand-kod/gobill/internal/radius"
 	"layeh.com/radius/rfc2866"
 	"strconv"
@@ -72,6 +73,7 @@ func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !radiusRestAllowed(r, m) {
+		metrics.Inc("radius_rest_forbidden_total")
 		jsonOut(w, http.StatusForbidden, kv{"Reply-Message": "forbidden"})
 		return
 	}

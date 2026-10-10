@@ -14,6 +14,7 @@ import (
 
 	"context"
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/metrics"
 	"golang.org/x/crypto/bcrypt"
 	"strings"
 	"time"
@@ -48,6 +49,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	passOK := bcrypt.CompareHashAndPassword(hash, []byte(password)) == nil
 	passOK = passOK || (err == nil && s.legacyLogin(r.Context(), admin.ID, password))
 	if err != nil || !passOK || admin.Status != "Active" {
+		metrics.Inc("login_failures_total", "scope", "admin")
 		s.recordFailure(ip)
 		s.recordFailure(uk)
 		s.render(w, r, http.StatusOK, "login", Page{
@@ -148,6 +150,19 @@ func (s *Server) recordFailure(ip string) {
 		}
 	}
 	s.failed[ip] = append(s.recent(ip), time.Now())
+}
+
+// lockedCount returns how many login keys (client IPs and usernames) are over the failure limit now.
+func (s *Server) lockedCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for k := range s.failed {
+		if len(s.recent(k)) >= maxFailedLogins {
+			n++
+		}
+	}
+	return n
 }
 
 func (s *Server) clearFailures(ip string) {

@@ -21,7 +21,7 @@ import (
 )
 
 // guideSlugs is the whitelist of guides, in index order. Must match the files in nuxbill.Docs.
-var guideSlugs = []string{"README", "instalasi", "konfigurasi", "mikrotik", "freeradius-rest", "migrasi-phpnuxbill", "keamanan"}
+var guideSlugs = []string{"README", "instalasi", "konfigurasi", "mikrotik", "freeradius-rest", "migrasi-phpnuxbill", "keamanan", "monitoring"}
 
 const repoURL = "https://github.com/frand-kod/gobill/blob/main/"
 

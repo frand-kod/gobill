@@ -1,0 +1,113 @@
+{{define "content"}}
+{{with .Data}}
+<div class="page-head"><h1 class="page-title">{{T "System Status"}}</h1><p class="hint">{{T "Refreshes every 30 seconds."}}</p></div>
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+
+  <section class="card" aria-labelledby="st-app">
+    <h2 class="card-title" id="st-app">{{T "Application"}}</h2>
+    <dl class="card-body grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+      <dt class="text-ink-2">{{T "Version"}}</dt><dd>{{.Version}}</dd>
+      <dt class="text-ink-2">{{T "Started"}}</dt><dd>{{.Started}}</dd>
+      <dt class="text-ink-2">{{T "Uptime"}}</dt><dd>{{.Uptime}}</dd>
+      <dt class="text-ink-2">{{T "Memory in use"}}</dt><dd>{{printf "%.1f" .HeapMB}} MB ({{T "system"}} {{printf "%.1f" .SysMB}} MB)</dd>
+      <dt class="text-ink-2">{{T "Goroutines"}}</dt><dd>{{.Goroutines}}</dd>
+      <dt class="text-ink-2">/metrics</dt><dd>{{if .MetricsOn}}<span class="badge badge-ok">{{T "On"}}</span>{{else}}<span class="badge">{{T "Off"}}</span>{{end}}</dd>
+    </dl>
+  </section>
+
+  <section class="card" aria-labelledby="st-storage">
+    <h2 class="card-title" id="st-storage">{{T "Storage"}}</h2>
+    <dl class="card-body grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+      <dt class="text-ink-2">{{T "Database"}}</dt><dd>{{printf "%.2f" .DBMB}} MB</dd>
+      <dt class="text-ink-2">WAL</dt><dd>{{printf "%.2f" .WALMB}} MB</dd>
+      <dt class="text-ink-2">{{T "Free disk"}}</dt><dd>{{.DiskFreeMB}} MB</dd>
+      <dt class="text-ink-2">{{T "Database growth"}}</dt><dd>{{if .HistDays}}{{if gt .GrowthMB 0.0}}{{printf "%.2f" .GrowthMB}} MB/{{T "day"}}{{else}}{{T "No growth"}}{{end}}{{else}}{{T "Not enough data yet"}}{{end}}</dd>
+      <dt class="text-ink-2">{{T "Days until disk full"}}</dt><dd>{{if ge .DaysToFull 0.0}}{{printf "%.0f" .DaysToFull}} {{T "days"}}{{else}}{{T "Not known"}}{{end}}</dd>
+    </dl>
+  </section>
+
+  <section class="card lg:col-span-2" aria-labelledby="st-radius">
+    <h2 class="card-title" id="st-radius">RADIUS</h2>
+    <div class="card-body">
+      <div class="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <div class="stat"><div><p class="stat-label">{{T "Accepted (24 h)"}}</p><p class="stat-num">{{printf "%.0f" .Accepted24h}}</p></div></div>
+        <div class="stat"><div><p class="stat-label">{{T "Rejected (24 h)"}}</p><p class="stat-num">{{printf "%.0f" .Rejected24h}}</p></div></div>
+        <div class="stat"><div><p class="stat-label">{{T "Average time (ms)"}}</p><p class="stat-num">{{printf "%.1f" .AvgMs}}</p></div></div>
+        <div class="stat"><div><p class="stat-label">{{T "Open sessions"}}</p><p class="stat-num">{{.Open}}</p></div></div>
+      </div>
+      <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div><p class="text-xs text-ink-2">{{T "Accepted per 15 min, last 24 h"}}</p>{{spark $.Data.RadiusAcc}}</div>
+        <div><p class="text-xs text-ink-2">{{T "Rejected per 15 min, last 24 h"}}</p>{{spark $.Data.RadiusRej}}</div>
+      </div>
+      {{if .NAS}}
+      <ul class="divide-y divide-line">
+        {{range .NAS}}<li class="flex flex-wrap items-center gap-2 py-2 text-sm">
+          <span class="font-medium">{{.Name}}</span><span class="text-ink-2">{{.IP}}</span>
+          <span class="ms-auto">{{if not .Seen}}<span class="text-ink-2">{{T "No packet since start"}}</span>{{else if .Warn}}<span class="badge badge-bad">{{icon "triangle-alert"}}<span class="ms-1">{{T "Last packet"}}: {{printf "diam %d menit" .Minutes}}</span></span>{{else}}<span class="badge badge-ok">{{T "Last packet"}}: {{printf "%d min ago" .Minutes}}</span>{{end}}</span>
+        </li>{{end}}
+      </ul>
+      {{else}}<p class="text-sm text-ink-2">{{T "No NAS registered. Add one under Network > NAS."}}</p>{{end}}
+    </div>
+  </section>
+
+  <section class="card lg:col-span-2" aria-labelledby="st-jobs">
+    <h2 class="card-title" id="st-jobs">{{T "Background jobs"}}</h2>
+    {{if .Jobs}}
+    <div class="overflow-x-auto"><table class="table">
+      <thead><tr><th>{{T "Job"}}</th><th>{{T "Last run"}}</th><th>{{T "Duration"}}</th><th>{{T "Last error"}}</th><th>{{T "Failures in a row"}}</th></tr></thead>
+      <tbody>{{range .Jobs}}<tr{{if ge .Failures 3}} class="text-err-fg"{{end}}>
+        <td>{{.Name}}</td><td>{{.LastRun}}</td><td>{{.DurMs}} ms</td><td class="break-all">{{.LastErr}}</td><td>{{.Failures}}</td>
+      </tr>{{end}}</tbody>
+    </table></div>
+    {{else}}<p class="card-body text-sm text-ink-2">{{T "No job has run yet."}}</p>{{end}}
+  </section>
+
+  <section class="card" aria-labelledby="st-notify">
+    <h2 class="card-title" id="st-notify">{{T "Notifications"}}</h2>
+    <div class="card-body">
+      <p class="mb-2 text-xs text-ink-2">{{T "Failed per 15 min, last 24 h"}}</p>{{spark $.Data.NotifyErr}}
+      <div class="overflow-x-auto"><table class="table">
+        <thead><tr><th>{{T "Channel"}}</th><th>{{T "Sent"}}</th><th>{{T "Failed"}}</th><th>{{T "Last error"}}</th></tr></thead>
+        <tbody>{{range .Notify}}<tr{{if ge .Streak 5}} class="text-err-fg"{{end}}>
+          <td>{{.Name}}</td><td>{{printf "%.0f" .Sent}}</td><td>{{printf "%.0f" .Failed}}</td><td class="break-all text-xs">{{if .LastErr}}{{.LastErr}} <span class="text-ink-2">({{.LastAt}})</span>{{else}}-{{end}}</td>
+        </tr>{{end}}</tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="st-pay">
+    <h2 class="card-title" id="st-pay">{{T "Payments"}}</h2>
+    <dl class="card-body grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+      <dt class="text-ink-2">Tripay {{T "callbacks OK"}}</dt><dd>{{printf "%.0f" .PayOK}}</dd>
+      <dt class="text-ink-2">Tripay {{T "callbacks failed"}}</dt><dd>{{printf "%.0f" .PayFailed}}</dd>
+      <dt class="text-ink-2">{{T "Last callback"}}</dt><dd>{{if .PayLast}}{{.PayLast}}{{else}}-{{end}}</dd>
+    </dl>
+  </section>
+
+  <section class="card" aria-labelledby="st-sec">
+    <h2 class="card-title" id="st-sec">{{T "Security"}}</h2>
+    <div class="card-body">
+      <p class="mb-2 text-xs text-ink-2">{{T "Login failures per 15 min, last 24 h"}}</p>{{spark $.Data.LoginFail}}
+      <dl class="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+        <dt class="text-ink-2">{{T "Login failures (24 h)"}}</dt><dd>{{printf "%.0f" .Sec.Fail24h}}</dd>
+        <dt class="text-ink-2">{{T "Login failures (10 min)"}}</dt><dd>{{printf "%.0f" .Sec.Fail10m}}</dd>
+        <dt class="text-ink-2">{{T "2FA failures"}}</dt><dd>{{printf "%.0f" .Sec.TwoFA}}</dd>
+        <dt class="text-ink-2">{{T "Locked now"}}</dt><dd>{{.Sec.Locked}}</dd>
+        <dt class="text-ink-2">/radius.php {{T "forbidden"}}</dt><dd>{{printf "%.0f" .Sec.Forbidden}}</dd>
+      </dl>
+    </div>
+  </section>
+
+  <section class="card lg:col-span-2" aria-labelledby="st-backup">
+    <h2 class="card-title" id="st-backup">Backup</h2>
+    <dl class="card-body grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
+      <dt class="text-ink-2">{{T "Last local backup"}}</dt>
+      <dd>{{if .Backup.LocalAt}}{{.Backup.LocalAt}} {{.Backup.LocalFile}}{{if .Backup.LocalStale}} <span class="badge badge-bad">{{T "Older than 36 hours"}}</span>{{end}}{{else}}{{T "None yet"}}{{end}}</dd>
+      <dt class="text-ink-2">{{T "Off-site mirror"}}</dt>
+      <dd>{{if .Backup.Mirror}}{{.Backup.Mirror}}{{if .Backup.MirrorErr}} <span class="badge badge-bad">{{T "Error"}}: {{.Backup.MirrorErr}}</span>{{else if .Backup.MirrorAt}} <span class="text-ink-2">{{T "last copy"}} {{.Backup.MirrorAt}}</span>{{end}}{{else}}{{T "Off (NUXBILL_BACKUP_MIRROR)"}}{{end}}</dd>
+    </dl>
+  </section>
+</div>
+<script>setTimeout(function () { location.reload(); }, 30000);</script>
+{{end}}
+{{end}}
