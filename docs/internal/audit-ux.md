@@ -1,6 +1,8 @@
 # Audit UX: admin UI dan portal pelanggan
 
-Dibuat 2026-10-09 dari pembacaan kode di `main` (read-only; aplikasi tidak dijalankan, tidak ada router atau layanan eksternal yang dihubungi). Sumber: `web/templates/**`, `web/tailwind.css`, `internal/web/*.go`, `lang/indonesia.json`, `docs/UI-PARITY.md`.
+Dibuat 2026-10-09 dari pembacaan kode di `main` (read-only; aplikasi tidak dijalankan, tidak ada router atau layanan eksternal yang dihubungi). Sumber: `web/templates/**`, `web/tailwind.css`, `internal/web/*.go`, `lang/indonesia.json`, `docs/internal/paritas-ui.md`.
+
+**Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
 
 ## Ringkasan
 
@@ -148,3 +150,9 @@ Jumlah temuan: **Tinggi 6, Sedang 11, Rendah 8** (total 25).
 8. **Pakai kelas `.table` di semua tabel portal** dan sembunyikan kolom sekunder di HP (S2).
 9. **Flash deposit menyebut jumlah dan saldo baru**, plus tautan "Isi Saldo" dari halaman pelanggan (S7).
 10. **Auto-refresh + hint di halaman pembayaran pending** (S4) dan perbaiki kontras ubin amber (S10).
+
+## Lihat juga
+
+- [audit-alur-ux](audit-alur-ux.md)
+- [paritas-ui](paritas-ui.md)
+- [progres](progres.md)

@@ -1,12 +1,14 @@
 # Paritas perilaku bisnis: PHPNuxBill vs gobill
 
-Audit baca-saja (tanpa mengubah kode), dibuat 2026-10-10 dari `main`. **Status v0.1.4:** temuan P1, C2, dan IM1 sudah dikerjakan (ditandai di bawah). Baris lain belum diverifikasi ulang, kecuali disebut. Pertanyaannya: apa yang terjadi saat admin, pelanggan, cron, atau RADIUS memicu aksi X, dan di mana hasilnya beda dari PHP. Beda UI/label tidak dibahas (lihat `UI-PARITY.md`). Beda yang sudah tercatat di PROGRESS "disengaja" tidak diulang.
+Audit baca-saja (tanpa mengubah kode), dibuat 2026-10-10 dari `main`. **Status v0.1.4:** temuan P1, C2, dan IM1 sudah dikerjakan (ditandai di bawah). Baris lain belum diverifikasi ulang, kecuali disebut. Pertanyaannya: apa yang terjadi saat admin, pelanggan, cron, atau RADIUS memicu aksi X, dan di mana hasilnya beda dari PHP. Beda UI/label tidak dibahas (lihat `paritas-ui.md`). Beda yang sudah tercatat di progres "disengaja" tidak diulang.
+
+**Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
 
 Sumber PHP: `system/controllers/*.php`, `system/cron.php`, `cron_reminder.php`, `radius.php`, `autoload/Package.php`, `Message.php`, `widgets/top_widget.php`, `devices/*`. Sumber gobill: `internal/billing`, `internal/web`, `internal/radius`, `internal/device`, `internal/notify`, `internal/importer`. Semua baris dicek di kedua kode.
 
 Dampak: **Tinggi** = uang, akses, data hilang, atau operator tidak bisa mengerjakan tugas harian. **Sedang** = beda yang terasa, ada jalan memutar. **Rendah** = kosmetik atau jarang.
 
-Sudah diperiksa dan **sama** (tidak ada temuan): hitung expiry Days/Hrs/Mins/Months/Period dan `extend_expiry`, ganti paket = hitung dari sekarang, auto-renewal dari saldo, urutan cron expiry (router dulu, status kemudian), jadwal reminder H-7/3/1, hapus pelanggan (transaksi dipertahankan), transfer saldo, perpanjang mandiri sebulan sekali, redeem voucher, keputusan RADIUS (status Active, login lewat pppoe_username, expired, shared_users, rate, kuota data, CHAP), peran admin untuk pelanggan/plan/router/laporan.
+Sudah diperiksa dan **sama** (tidak ada temuan): hitung expiry Days/Hrs/Mins/Months/Period dan `extend_expiry`, ganti paket = hitung dari sekarang, auto-renewal dari saldo, urutan cron expiry (router dulu, status kemudian), jadwal reminder H-7/3/1, hapus pelanggan (transaksi dipertahankan), transfer saldo, perpanjang mandiri sebulan sekali, redeem voucher, keputusan RADIUS (status Active, login lewat pppoe_username, expired, shared_users, rate, kuota data, CHAP), peran admin untuk pelanggan/rencana/router/laporan.
 
 ## Pelanggan
 
@@ -28,7 +30,7 @@ Sudah diperiksa dan **sama** (tidak ada temuan): hitung expiry Days/Hrs/Mins/Mon
 | R3 | Sedang | `Package.php:293-300` (sudah punya baris recharge, walau `off`: harga `plan.price`), `:405-411` (nol hanya pembelian pertama) | `billing/service.go:251,567`: `Period && !found`, `found` hanya langganan **aktif** | Beli ulang paket Period setelah expired (auto-renew dan Tripay ikut) dicatat Rp 0, sementara saldo dipotong penuh (`RechargeWithBalance` memakai `plan.Price`). Hanya paket Period | Tentukan "pertama" dari riwayat langganan apa pun |
 | R4 | Sedang | `devices/RadiusRest.php:31-41`: `remove_customer` (saat expired) nol-kan `acctInput/OutputOctets` untuk plan Data/Both limit; extend tidak menyentuh usage | `radius/radius.go:277` `SumRadiusUsage(started_at >= sub.StartedAt)`; `ExtendSubscription`, `EditSubscription`, `ExtendExpired` (portal) tidak mengubah `started_at` | Pelanggan plan berkuota data yang kuotanya habis lalu diperpanjang admin atau mandiri tetap kena "You have exceeded your data limit" (usage periode lama ikut dihitung). Recharge normal aman (`started_at = now`) | Saat reaktivasi expired -> aktif set `started_at = now` |
 | R5 | Sedang | `Package.php:240,356` Telegram "System Error. When activate Package. You need to sync manually"; `:335,458` Telegram `#recharge`/`#buy`; `customers.php:268` Telegram deactivate | `billing/service.go:317` `apply()` hanya `slog.Error` bila router gagal; Telegram admin hanya untuk transfer, extend, registrasi, router, renewal gagal | Operator tidak tahu bila paket sudah dibayar tetapi gagal diaktifkan di router (plan Mikrotik langsung). Tidak ada notif admin per pembelian/deactivate | Kirim Telegram saat `activate` gagal (paling penting); opsional `#buy`, `#deactivate` |
-| R6 | Rendah | `plan.php:37`, `services.php:19`, `pool.php:71`, `customers.php:274`: sync massal (semua pelanggan aktif, semua profil, semua pool) | tidak ada (hanya sync per pelanggan/langganan dan saat plan/pool diubah) | Setelah router diganti/reset tidak ada tombol "sync semua". Tidak berlaku untuk plan `Radius` | Tombol sync massal (loop `SyncSubscription`/`AddPlan`) |
+| R6 | Rendah | `plan.php:37`, `services.php:19`, `pool.php:71`, `customers.php:274`: sync massal (semua pelanggan aktif, semua profil, semua pool) | tidak ada (hanya sync per pelanggan/langganan dan saat rencana/pool diubah) | Setelah router diganti/reset tidak ada tombol "sync semua". Tidak berlaku untuk plan `Radius` | Tombol sync massal (loop `SyncSubscription`/`AddPlan`) |
 | R7 | Sedang | `plan.php:126,155,216`, `order.php:238`: pajak (`enable_tax`, `tax_rate`) menambah harga dan potongan saldo | tidak ada (`UI-PARITY`: Ditunda); setting ikut terimpor tetapi diabaikan | Bila operator mengaktifkan PPN, pelanggan ditagih/dipotong lebih kecil dari PHP tanpa peringatan | Importer memperingatkan bila `enable_tax=yes`, atau implementasikan di `recharge()` |
 | R8 | Rendah | `Package.php:198`, `cron.php:102`: `extend_expiry` dan `enable_balance` harus `== 'yes'` | `billing/service.go:243,371`: `!= "no"` (kosong dianggap aktif) | Hanya beda bila key tidak ada di DB (instalasi baru): auto-renew bisa menyala padahal PHP mati | Samakan dengan `== "yes"` |
 
@@ -102,3 +104,9 @@ Pendapatan dashboard dan baris transfer di laporan: lihat S1.
 8. **P2/P3/R3/R7** Edit username, recharge plan nonaktif oleh Admin, harga Period setelah expired, pajak.
 
 Hitungan temuan saat audit: **Tinggi 4** (R1, P1, S1, IM1), **Sedang 10** (P2, P3, R2, R3, R4, R5, R7, C1, C2, D1), **Rendah 17** (P4, P5, P6, R6, R8, V1, V2, S2, S3, T1, T2, T3, C3, C4, D2, L1, IM2).
+
+## Lihat juga
+
+- [progres](progres.md)
+- [paritas-ui](paritas-ui.md)
+- [audit-legacy](rencana/audit-legacy.md)

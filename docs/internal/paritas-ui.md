@@ -2,7 +2,9 @@
 
 Dokumen ini membandingkan UI lama (`../phpnuxbill/ui/ui`, 157 template) dengan rewrite Go. Hanya dokumentasi, tidak ada kode yang diubah. Dibuat 2026-10-08 dari kode di `main`.
 
-Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; controller `system/controllers/*.php`; sisi baru `internal/web/*.go`, `web/templates/*.html`, `internal/db/migrations/0001-0003`. Fase dan non-goal dari `plan/01-audit-legacy.md` dan `PROGRESS.md`.
+**Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
+
+Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; controller `system/controllers/*.php`; sisi baru `internal/web/*.go`, `web/templates/*.html`, `internal/db/migrations/0001-0003`. Fase dan non-goal dari `rencana/audit-legacy.md` dan `progres.md`.
 
 ## 1. Legenda dan ringkasan
 
@@ -59,18 +61,18 @@ Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; co
 | A36 | `admin/radius/nas.tpl` | `radius/nas-list` | `GET /admin/nas` | Ada | F3 |
 | A37 | `admin/radius/nas-add.tpl` | `radius/nas-add(-post)` | `/admin/nas/new` | Ada | F3 |
 | A38 | `admin/radius/nas-edit.tpl` | `radius/nas-edit(-post)` | `/admin/nas/{id}/edit` | Ada | F3 |
-| A39 | `admin/voucher/list.tpl` | `plan/voucher`, `remove-voucher` | `GET /admin/vouchers` | Sebagian | F1 |
-| A40 | `admin/voucher/add.tpl` | `plan/add-voucher`, `voucher-post` | `GET /admin/vouchers/new`, `POST /admin/vouchers` | Sebagian | F1 |
-| A41 | `admin/voucher/view.tpl` | `plan/voucher-view` | `GET /admin/vouchers/view` (`voucher_view.html`) | Ada | F5 |
-| A42 | `admin/print/voucher.tpl` | `plan/print-voucher` | `GET /admin/vouchers/print` (`print.html`) | Sebagian | F1 |
-| A43 | `admin/plan/recharge.tpl` | `plan/recharge`, `recharge-post` | `POST /admin/customers/{id}/recharge` (form di `customer.html`) | Sebagian | F1 |
-| A44 | `admin/plan/recharge-confirm.tpl` | `plan/recharge-confirm`, `customers/recharge` | `POST /admin/customers/{id}/recharge/confirm` (`recharge_confirm.html`) | Ada | F1 |
-| A45 | `admin/plan/refill.tpl` | `plan/refill`, `refill-post` | `GET/POST /admin/vouchers/redeem` | Ada | F1 |
-| A46 | `admin/plan/deposit.tpl` | `plan/deposit`, `deposit-post` | `GET/POST /admin/deposit` | Ada | F1 |
-| A47 | `admin/plan/active.tpl` | `plan/list`, `sync`, `csv`, `extend` | `GET /admin/subscriptions`, `GET /admin/subscriptions/export`, `POST .../{id}/extend`, `POST .../{id}/deactivate`, `POST .../{id}/sync` | Ada | F1 |
-| A48 | `admin/plan/edit.tpl` | `plan/edit`, `edit-post` | `GET /admin/subscriptions/{id}/edit`, `POST /admin/subscriptions/{id}` | Ada | F1 |
-| A49 | `admin/plan/invoice.tpl` | `plan/view`, `viewx` | `GET /admin/transactions/{id}/invoice` (`invoice.html`) | Sebagian | F5 |
-| A50 | `admin/plan/invoice-print.tpl` | `plan/print` | `GET /admin/transactions/{id}/invoice` (tombol Print) | Ada | F5 |
+| A39 | `admin/voucher/list.tpl` | `rencana/voucher`, `remove-voucher` | `GET /admin/vouchers` | Sebagian | F1 |
+| A40 | `admin/voucher/add.tpl` | `rencana/add-voucher`, `voucher-post` | `GET /admin/vouchers/new`, `POST /admin/vouchers` | Sebagian | F1 |
+| A41 | `admin/voucher/view.tpl` | `rencana/voucher-view` | `GET /admin/vouchers/view` (`voucher_view.html`) | Ada | F5 |
+| A42 | `admin/print/voucher.tpl` | `rencana/print-voucher` | `GET /admin/vouchers/print` (`print.html`) | Sebagian | F1 |
+| A43 | `admin/rencana/recharge.tpl` | `rencana/recharge`, `recharge-post` | `POST /admin/customers/{id}/recharge` (form di `customer.html`) | Sebagian | F1 |
+| A44 | `admin/rencana/recharge-confirm.tpl` | `rencana/recharge-confirm`, `customers/recharge` | `POST /admin/customers/{id}/recharge/confirm` (`recharge_confirm.html`) | Ada | F1 |
+| A45 | `admin/rencana/refill.tpl` | `rencana/refill`, `refill-post` | `GET/POST /admin/vouchers/redeem` | Ada | F1 |
+| A46 | `admin/rencana/deposit.tpl` | `rencana/deposit`, `deposit-post` | `GET/POST /admin/deposit` | Ada | F1 |
+| A47 | `admin/rencana/active.tpl` | `rencana/list`, `sync`, `csv`, `extend` | `GET /admin/subscriptions`, `GET /admin/subscriptions/export`, `POST .../{id}/extend`, `POST .../{id}/deactivate`, `POST .../{id}/sync` | Ada | F1 |
+| A48 | `admin/rencana/edit.tpl` | `rencana/edit`, `edit-post` | `GET /admin/subscriptions/{id}/edit`, `POST /admin/subscriptions/{id}` | Ada | F1 |
+| A49 | `admin/rencana/invoice.tpl` | `rencana/view`, `viewx` | `GET /admin/transactions/{id}/invoice` (`invoice.html`) | Sebagian | F5 |
+| A50 | `admin/rencana/invoice-print.tpl` | `rencana/print` | `GET /admin/transactions/{id}/invoice` (tombol Print) | Ada | F5 |
 | A51 | `admin/reports/activation.tpl` | `reports/activation` | `GET /admin/transactions` | Sebagian | F5 |
 | A52 | `admin/reports/list.tpl` | `reports/daily-report`, `by-date` | `GET /admin/reports`, `GET /admin/reports/export` (`report.html`) | Ada | F5 |
 | A53 | `admin/reports/period.tpl` | `reports/period-report` | `GET /admin/reports/period` | Ada | F5 |
@@ -150,7 +152,7 @@ Berisi tata letak widget yang disusun dari `$config['dashboard_Admin']` (lihat b
 |---|---|---|---|---|---|---|
 | `username` | Username | text | required | `username` (`login.html`) | ✅ | |
 | `password` | Password | password | required | `password` | ✅ | Hash lama `sha1` tanpa salt diganti bcrypt; pembatas brute-force |
-| (baru, v0.1.4) | Kode 2FA | 6 digit TOTP | opsional per admin | `/login/2fa` (`login_2fa.html`) | ✅ | Setelah kata sandi benar; kode pemulihan 8 kali pakai. Diatur di `/admin/2fa`. Lihat [keamanan.md](keamanan.md) |
+| (baru, v0.1.4) | Kode 2FA | 6 digit TOTP | opsional per admin | `/login/2fa` (`login_2fa.html`) | ✅ | Setelah kata sandi benar; kode pemulihan 8 kali pakai. Diatur di `/admin/2fa`. Lihat [keamanan.md](../id/security.md) |
 | (cookie "remember") | — | — | cookie `sha1(id.time.db_pass)` | session `scs` (sqlite3store) | ⚠️ | Disengaja: cookie bertanda tangan password DB dianggap lemah (01-audit keamanan 5) |
 | `csrf_token` | — | hidden | `csrf_enabled` setting | `http.NewCrossOriginProtection` | ⚠️ | CSRF selalu aktif, tidak bisa dimatikan |
 
@@ -299,7 +301,7 @@ Kolom daftar lama: Package Name, Package Price, Manage. Baru: bagian dari daftar
 
 ### A21-A23. Paket VPN (`vpn/*`) dan A30-A32 Port (`port/*`)
 
-Ditunda (PROGRESS: "port dan vpn (VPN ditunda)"; tidak ada driver `MikrotikVpn` di `plans.device` CHECK; tidak ada tabel port). Form VPN identik dengan PPPoE (`name_plan`, `id_bw`, `price`, `price_old`, `validity`, `validity_unit`, `expired_date`, `routers`, `pool_name`, `plan_expired`, `on_login`, `on_logout`, `enabled`, `prepaid`, `plan_type`, `device`). Form Port: `name`, `public_ip`, `port_range` (add) / `range_port` (edit), `routers`. Semua ❌ (Ditunda), tidak dihitung sebagai target saat ini.
+Ditunda (progres: "port dan vpn (VPN ditunda)"; tidak ada driver `MikrotikVpn` di `plans.device` CHECK; tidak ada tabel port). Form VPN identik dengan PPPoE (`name_plan`, `id_bw`, `price`, `price_old`, `validity`, `validity_unit`, `expired_date`, `routers`, `pool_name`, `plan_expired`, `on_login`, `on_logout`, `enabled`, `prepaid`, `plan_type`, `device`). Form Port: `name`, `public_ip`, `port_range` (add) / `range_port` (edit), `routers`. Semua ❌ (Ditunda), tidak dihitung sebagai target saat ini.
 
 ### A24-A26. Bandwidth (`bandwidth/*`)
 
@@ -398,7 +400,7 @@ QR code di voucher cetak baru (`print.html`, `.QR`) = fitur tambahan.
 
 ### A43-A50. Recharge, aktivasi, deposit, langganan, invoice
 
-**A43 `plan/recharge.tpl` (+ A44 `recharge-confirm.tpl`)**
+**A43 `rencana/recharge.tpl` (+ A44 `recharge-confirm.tpl`)**
 
 | Field lama | Label | Tipe | Wajib/validasi PHP | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
@@ -409,14 +411,14 @@ QR code di voucher cetak baru (`print.html`, `.QR`) = fitur tambahan.
 | `stoken` | — | hidden | token anti-ganda | — | ⚠️ | Diganti CSRF stdlib |
 | (halaman konfirmasi: ringkasan paket, harga, kupon) | — | — | — | `recharge/confirm` | ✅ | A44: pelanggan, paket, harga, kedaluwarsa baru (`billing.NewExpiry`), saldo sesudah; tidak menulis data. Pajak belum |
 
-**A45 `plan/refill.tpl`** (baru: `GET/POST /admin/vouchers/redeem`)
+**A45 `rencana/refill.tpl`** (baru: `GET/POST /admin/vouchers/redeem`)
 
 | Field lama | Label | Tipe | Wajib | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
 | `id_customer` | Select Account | select | required | `customer` | ⚠️ | Baru: input username (teks), prefill `?customer=` |
 | `code` | Code Voucher | text | required | `code` | ✅ | |
 
-**A46 `plan/deposit.tpl`** (baru: `GET/POST /admin/deposit`, `billing.Service.Deposit`; staff)
+**A46 `rencana/deposit.tpl`** (baru: `GET/POST /admin/deposit`, `billing.Service.Deposit`; staff)
 
 | Field lama | Label | Tipe | Wajib | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
@@ -428,7 +430,7 @@ QR code di voucher cetak baru (`print.html`, `.QR`) = fitur tambahan.
 
 Menulis transaksi (tipe Balance, metode `Admin - Deposit`), menaikkan saldo, activity log, dan mengirim notifikasi recharge. Recharge paket Balance (A43, voucher) kini juga mengirim notifikasi.
 
-**A48 `plan/edit.tpl`** (baru: `subscriptions.go`, `billing.Service.EditSubscription`; managers)
+**A48 `rencana/edit.tpl`** (baru: `subscriptions.go`, `billing.Service.EditSubscription`; managers)
 
 | Field lama | Label | Tipe | Wajib | Field baru | St | Catatan |
 |---|---|---|---|---|---|---|
@@ -437,9 +439,9 @@ Menulis transaksi (tipe Balance, metode `Admin - Deposit`), menaikkan saldo, act
 | `expiration` + `time` | Expires On | date + time | required | `expires_at` | ⚠️ | Satu input `datetime-local` (zona waktu billing), disimpan UTC; status mengikuti (lewat = expired) |
 | `id` | — | hidden | — | `{id}` di URL | ⚠️ | Activity log `subscription.update` |
 
-**A47 `plan/active.tpl`** (baru: `GET /admin/subscriptions`) — Kolom: Username, Plan Name, Type, Created On, Expires On, Method, Location (router), Status; filter `q`, `status`, `type`, `router`; paging. Aksi: Edit (A48), Extend N hari (`POST .../extend`, input `days`), Deactivate (kedaluwarsa sekarang + `RemoveCustomer`, idempoten, `POST .../deactivate`). Sync (`POST .../sync`), CSV (`GET /admin/subscriptions/export`), dan filter `plan` sudah ada. Belum: Delete.
+**A47 `rencana/active.tpl`** (baru: `GET /admin/subscriptions`) — Kolom: Username, Plan Name, Type, Created On, Expires On, Method, Location (router), Status; filter `q`, `status`, `type`, `router`; paging. Aksi: Edit (A48), Extend N hari (`POST .../extend`, input `days`), Deactivate (kedaluwarsa sekarang + `RemoveCustomer`, idempoten, `POST .../deactivate`). Sync (`POST .../sync`), CSV (`GET /admin/subscriptions/export`), dan filter `plan` sudah ada. Belum: Delete.
 
-**A49 `plan/invoice.tpl` / A50 `invoice-print.tpl`:** tampilan invoice (textarea `content`, tombol Finish, Download, WhatsApp, Resend, Print HTML, Print Text, NuxPrint). Sekarang: invoice cetak (perusahaan, alamat, pelanggan, paket, periode, harga, metode, footer `note`), ditautkan dari daftar transaksi dan detail pelanggan. Belum: Resend, WhatsApp, NuxPrint, versi teks.
+**A49 `rencana/invoice.tpl` / A50 `invoice-print.tpl`:** tampilan invoice (textarea `content`, tombol Finish, Download, WhatsApp, Resend, Print HTML, Print Text, NuxPrint). Sekarang: invoice cetak (perusahaan, alamat, pelanggan, paket, periode, harga, metode, footer `note`), ditautkan dari daftar transaksi dan detail pelanggan. Belum: Resend, WhatsApp, NuxPrint, versi teks.
 
 ### A51-A56. Laporan dan transaksi
 
@@ -542,7 +544,7 @@ Kolom hasil: Customer, Phone, Status, Message, Router, Service Type. Baru: halam
 ### A74-A76. Halaman sistem
 
 - **A74 `maintenance.tpl`:** halaman statis dengan tanggal berakhir (`maintenance_date`). Belum.
-- **A75 `404/error/alert`:** baru memakai `http.Error` teks polos dan flash di `app.html` (`.Flash`); halaman 404 dan error yang rapi belum (PROGRESS "Admin, belum ada").
+- **A75 `404/error/alert`:** baru memakai `http.Error` teks polos dan flash di `app.html` (`.Flash`); halaman 404 dan error yang rapi belum (progres "Admin, belum ada").
 - **A76 `community/rollback`:** Non-goal.
 
 ---
@@ -661,7 +663,7 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 
 | Key lama | Label | Tipe | Wajib | Key baru | St | Catatan / Fase |
 |---|---|---|---|---|---|---|
-| `tzone` | Timezone | select | required | `timezone` | ⚠️ | Divalidasi `time.LoadLocation`; saat ini hanya dibaca saat start (PROGRESS item 2) |
+| `tzone` | Timezone | select | required | `timezone` | ⚠️ | Divalidasi `time.LoadLocation`; saat ini hanya dibaca saat start (progres item 2) |
 | `date_format` | Date Format | select | required | `date_format` | ✅ | F5 |
 | `lan` | Default Language | select | required | `language` | ⚠️ | Nama beda; opsi dari katalog JSON |
 | `dec_point` | Decimal Point | text | required | `dec_point` | ⚠️ | F5. Tersimpan; `money` belum memakai (rupiah tanpa desimal) |
@@ -861,7 +863,7 @@ Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, das
 | `export` (value `csv`) | `admin/customers/list.tpl` | Aksi | Tombol export CSV pelanggan (A8); belum ada (F5) |
 | `general` | `admin/settings/app.tpl` | Aksi | Tombol submit Save per kartu S1; baru satu tombol Save di `/admin/settings` |
 | `save` | `paymentgateway/list`, `settings/widgets`, `maintenance-mode`, `miscellaneous` | Aksi | Tombol submit Save; pada baru satu tombol submit standar `form.html` |
-| `nux` | `admin/plan/invoice-print.tpl` | Aksi | Tombol NuxPrint (printer Android); Ditunda |
+| `nux` | `admin/rencana/invoice-print.tpl` | Aksi | Tombol NuxPrint (printer Android); Ditunda |
 | `add_coupon` | `customer/selectGateway.tpl` | Aksi | Tombol Apply Coupon (C9); belum, bergantung kupon F5 |
 | `pay` | `customer/selectGateway.tpl` | Aksi | Tombol Pay Now (C9); belum (F4) |
 | `send` | `customer/sendPlan.tpl` | Aksi | Tombol kirim paket ke teman (C9); belum (F4) |
@@ -875,8 +877,8 @@ Satu baris per item. Urutan prioritas dalam fase: atas = lebih dulu. Rujukan lay
 
 ### F1 Billing inti (paritas operasional admin)
 
-1. Top-up saldo oleh admin (A46 `plan/deposit`: `id_customer`, `id_plan`, `amount`, `note`); simpan ke `transactions.note`, tipe Balance. (SELESAI di F1)
-2. Layar langganan aktif (A47): daftar `subscriptions` dengan filter router/plan/status, kolom Username/Plan/Type/Created/Expires/Method/Location. (SELESAI di F1)
+1. Top-up saldo oleh admin (A46 `rencana/deposit`: `id_customer`, `id_plan`, `amount`, `note`); simpan ke `transactions.note`, tipe Balance. (SELESAI di F1)
+2. Layar langganan aktif (A47): daftar `subscriptions` dengan filter router/rencana/status, kolom Username/Plan/Type/Created/Expires/Method/Location. (SELESAI di F1)
 3. Edit langganan (A48): ubah `plan_id` dan `expires_at` dengan satu input datetime (bukan date+time terpisah). (SELESAI di F1)
 4. Perpanjang (Extend) dan nonaktifkan (Deactivate) langganan dari A11/A47.
 5. Sinkron ke router per pelanggan dan per paket secara manual (tombol Sync A8/A11/A12).
@@ -913,7 +915,7 @@ Satu baris per item. Urutan prioritas dalam fase: atas = lebih dulu. Rujukan lay
 27. Halaman admin payment gateway (A71-A73): konfigurasi Tripay, audit transaksi PG (butuh tabel `payment_transactions`).
 28. Halaman setting notifikasi (S3), kanal (Telegram, SMS, WA, SMTP, webhook; S1) dan `user_notification_*`.
 29. Kirim pesan tunggal ke pelanggan (A63) dan log pesan (A59, butuh tabel).
-30. Sambungkan notifikasi ke recharge/expired/reminder (PROGRESS "akan dikerjakan" 1), checkbox `send_welcome_message` + `sms/wa/mail` di form pelanggan (A9).
+30. Sambungkan notifikasi ke recharge/expired/reminder (progres "akan dikerjakan" 1), checkbox `send_welcome_message` + `sms/wa/mail` di form pelanggan (A9).
 31. Extend mandiri (`extend_expired`, `extend_days`, `extend_confirmation`), transfer saldo (`allow_balance_transfer`, `minimum_transfer`), `allow_balance_custom`.
 32. Login as Customer dari admin (A11) setelah portal ada.
 33. `country_code_phone` di Localisation (S2).
@@ -932,7 +934,7 @@ Satu baris per item. Urutan prioritas dalam fase: atas = lebih dulu. Rujukan lay
 43. Backup/restore (S6): backup harian `VACUUM INTO` sudah ada (`NUXBILL_BACKUP_DIR`, `backup_keep`); unduh dan restore dari UI belum.
 44. Setting umum sisanya: `date_format`, `dec_point`, `thousands_sep`, `reset_day`, logo/alamat/telepon/footer, `session_timeout_duration`, `single_session`, `voucher_format` default.
 45. Widget dashboard sisa: W9 monitor router, W10 total saldo.
-46. Setting timezone diterapkan tanpa restart (PROGRESS item 2).
+46. Setting timezone diterapkan tanpa restart (progres item 2).
 47. CSV export dan import pelanggan (A8), CSV log (A57), bersihkan log (`keep`) (A57).
 48. Log sistem: kolom Type/User ID setara; sudah ada `actor_type`, `actor_id`.
 
@@ -945,3 +947,10 @@ Satu baris per item. Urutan prioritas dalam fase: atas = lebih dulu. Rujukan lay
 
 - Ditunda: VPN (A21-A23), Port (A30-A32), foto + face detection, tambah bahasa lewat UI (S7), pajak (`enable_tax`), proxy, API token, tawk.to, printer thermal (`printer_cols`, NuxPrint).
 - Non-goal: plugin manager (S12), widget dinamis (S11, W12-W13), devices (S10), community/rollback (A76), updater `new_version_notify`, `github_*`, `frrest_interim_update`, `login_Page_template` (tema moon), `url_canonical`, `dashboard_cr`.
+
+## Lihat juga
+
+- [progres](progres.md)
+- [paritas-bisnis](paritas-bisnis.md)
+- [audit-ux](audit-ux.md)
+- [audit-legacy](rencana/audit-legacy.md)

@@ -3,7 +3,21 @@
 {{with .Data}}
 <div class="page-head">
   <h1 class="page-title">{{if .Guide}}{{.Guide.Title}}{{else}}{{T "Guide"}}{{end}}</h1>
-  {{if .Guide}}<a class="btn btn-ghost" href="/admin/docs">{{T "All guides"}}</a>{{end}}
+  {{if .Guide}}<a class="btn btn-ghost" href="/admin/docs?lang={{.Lang}}">{{T "All guides"}}</a>{{end}}
+</div>
+<div class="mb-4 flex flex-wrap items-center gap-3">
+  <nav class="flex gap-1" aria-label="{{if eq .Lang "en"}}Language{{else}}Bahasa{{end}}">{{range .Toggle}}<a class="btn {{if .Active}}font-semibold{{else}}btn-ghost{{end}}" href="{{.Href}}"{{if .Active}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</nav>
+  <label class="flex min-w-0 flex-1 items-center gap-2 text-sm sm:flex-none">
+    <span class="shrink-0 text-ink-2">{{if eq .Lang "en"}}Document{{else}}Dokumen{{end}}</span>
+    <select class="input min-w-0 flex-1 sm:w-80" data-doc-picker>
+      {{$lang := .Lang}}{{$cur := .Slug}}{{range .Groups}}<optgroup label="{{.Name}}">{{range .Items}}<option value="/admin/docs/{{.Slug}}?lang={{$lang}}"{{if eq $cur .Slug}} selected{{end}}>{{.Title}}</option>{{end}}</optgroup>{{end}}
+    </select>
+  </label>
+  <script>
+  document.querySelectorAll('select[data-doc-picker]').forEach(function (s) {
+    s.addEventListener('change', function () { location.href = s.value; });
+  });
+  </script>
 </div>
 {{template "callout" $.Intro}}
 {{if .Guide}}
