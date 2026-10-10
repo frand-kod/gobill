@@ -9,4 +9,5 @@
 
 # Real production dumps: never commit
 docs/*.sql
+docs/phpnuxbill_*.json
 *.sql.gz
