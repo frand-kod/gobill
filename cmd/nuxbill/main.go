@@ -82,6 +82,7 @@ func run() error {
 	}
 	app.SecretKey = key
 	app.Version = version
+	app.DBPath = dbPath
 	guard := job.NewClockGuard(db.New(conn))
 	app.ClockWarning = guard.Reason
 	srv := &http.Server{
@@ -114,12 +115,17 @@ func run() error {
 		svc.Reload(n, loadZone(n.Settings["timezone"], loc))
 	}
 	reload(ctx)
+	marker := filepath.Join(filepath.Dir(dbPath), ".running") // stays only after a crash or kill
+	if err := svc.StartMarker(marker); err != nil {
+		slog.Error("running marker", "err", err)
+	}
 	app.SettingsChanged = func(ctx context.Context) { reload(ctx); app.ReloadSessionSettings(ctx) }
 	app.Billing = svc
 	go job.Run(ctx, "expiry", time.Minute, svc.ExpiryJob(guard.Trusted))
 	go job.Run(ctx, "reminder", time.Minute, svc.ReminderJob(guard.Trusted))
 	go job.Run(ctx, "log_clean", 10*time.Minute, svc.LogCleanJob(guard.Trusted)) // once a day, setting log_keep_days
 	go job.Run(ctx, "router_check", 5*time.Minute, svc.RouterCheck)
+	go job.Run(ctx, "disk_check", 10*time.Minute, svc.DiskAlertJob(func() (int64, error) { return job.DiskFreeMB(filepath.Dir(dbPath)) }))
 	go job.Run(ctx, "daily_summary", time.Minute, svc.DailySummaryJob(guard.Trusted))
 	backup := &job.Backup{Conn: conn, Q: db.New(conn), Trusted: guard.Trusted,
 		Dir: env("NUXBILL_BACKUP_DIR", filepath.Join(filepath.Dir(dbPath), "backup"))}
@@ -161,6 +167,7 @@ func run() error {
 	if err := srv.Shutdown(shutCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
+	os.Remove(marker) // clean stop: the next start must not report a crash
 	return nil
 }
 

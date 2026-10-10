@@ -114,6 +114,21 @@ Cek versi: `/usr/local/bin/nuxbill --version`. Backup database dan `.key` dulu.
 - **Pelanggan tidak bisa login hotspot**: `journalctl -u nuxbill | grep -i radius`. Cek secret cocok dan port 1812 tidak diblokir.
 - **Port 8080/1812 sudah dipakai**: `ss -ulnp | grep 1812` atau `ss -tlnp | grep 8080`. Ubah `NUXBILL_HTTP`/`NUXBILL_RADIUS`. Jika FreeRADIUS memakai 1812 di host yang sama, isi `NUXBILL_RADIUS=off`; `/radius.php` tetap jalan.
 
+### 8. Pantau dari luar
+
+gobill tidak bisa memberi tahu kalau dirinya sendiri mati. Pasang monitor eksternal (UptimeRobot, Uptime Kuma) yang memanggil `https://domain-anda/health` tiap 5 menit dan kirim alarm bila tidak 200.
+
+    curl -s https://domain-anda/health
+    {"status":"ok","db":"ok","disk_free_mb":5120,"version":"v1.2.0"}
+
+- `status` `ok`: normal. `degraded`: disk kosong di bawah 200 MB (tetap HTTP 200). `down`: database tidak bisa dibaca (HTTP 503).
+- Endpoint ini tanpa login dan tidak menampilkan data pelanggan. Ia tetap bisa diakses saat mode maintenance.
+
+Alarm dari gobill sendiri lewat Telegram (`telegram_bot`), bila sudah diatur:
+
+- **Disk hampir penuh** (di bawah 200 MB pada folder database): dikirim sekali saat turun, dan sekali lagi saat pulih. Cek setiap 10 menit.
+- **`gobill dimulai ulang setelah berhenti tidak normal`**: gobill berhenti karena crash, kill paksa, atau listrik mati. Start dan stop bersih tidak memicu alarm. Penanda ada di `<folder database>/.running`; jangan hapus manual saat gobill berjalan.
+
 ## VPS
 
 Langkahnya sama dengan STB (`install.sh`, binary `amd64`). Perbedaan penting:
