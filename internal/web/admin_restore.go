@@ -247,7 +247,7 @@ func (s *Server) restoreConfirm(w http.ResponseWriter, r *http.Request) {
 		s.renderRestore(w, r, http.StatusUnprocessableEntity, restoreView{}, "Tick the box to confirm the overwrite.", "")
 		return
 	}
-	bak, err := s.importBackup(ctx)
+	bak, err := s.importBackup(ctx, "pre-restore")
 	if err != nil {
 		s.dropRestore(ctx)
 		slog.Error("restore backup", "err", err)

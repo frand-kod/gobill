@@ -196,7 +196,7 @@ func TestRestoreConfirmStagesBacksUpAndRestarts(t *testing.T) {
 	if n := len(stagedFiles(t, s)); n != 0 {
 		t.Fatalf("confirm left %d upload files", n)
 	}
-	backups, _ := filepath.Glob(filepath.Join(s.BackupDir, "nuxbill-*-pre-import.db"))
+	backups, _ := filepath.Glob(filepath.Join(s.BackupDir, "nuxbill-*-pre-restore.db"))
 	if len(backups) != 1 {
 		t.Fatalf("want one automatic backup before the restore, got %v", backups)
 	}

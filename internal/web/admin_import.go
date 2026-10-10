@@ -159,13 +159,13 @@ func (s *Server) runImport(ctx context.Context, files map[string]string, dry boo
 	return importer.Run(ctx, src, s.conn, importer.Options{Key: s.SecretKey, Loc: loc, DryRun: dry, Force: true, Notifications: files["notifications"]})
 }
 
-// importBackup writes a VACUUM INTO copy of the database to BackupDir and returns its file name.
+// importBackup writes a VACUUM INTO copy of the database to BackupDir, named with label (pre-import or pre-restore), and returns its file name.
 // The name does not match the daily backup pattern, so the daily rotation never deletes it.
-func (s *Server) importBackup(ctx context.Context) (string, error) {
+func (s *Server) importBackup(ctx context.Context, label string) (string, error) {
 	if err := os.MkdirAll(s.BackupDir, 0o700); err != nil {
 		return "", err
 	}
-	name := "nuxbill-" + time.Now().Format("20060102-150405") + "-pre-import.db"
+	name := "nuxbill-" + time.Now().Format("20060102-150405") + "-" + label + ".db"
 	final := filepath.Join(s.BackupDir, name)
 	tmp := final + ".tmp"
 	os.Remove(tmp)
@@ -284,7 +284,7 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 		s.renderImport(w, r, http.StatusUnprocessableEntity, importView{}, "Tick the box to confirm the overwrite.", "")
 		return
 	}
-	bak, err := s.importBackup(ctx)
+	bak, err := s.importBackup(ctx, "pre-import")
 	if err != nil {
 		s.dropImport(ctx)
 		slog.Error("import backup", "err", err)
