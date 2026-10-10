@@ -276,9 +276,10 @@
     .sidebar-rail .nav-item[data-tip]::after { display: block; position: fixed; top: var(--tip-y, 50%); inset-inline-start: 4.25rem; bottom: auto; margin: 0; translate: 0 -50%; }
   }
 
-  .dl { @apply grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-[max-content_1fr]; }
-  .dl dt { @apply pt-2 text-sm font-medium text-ink-2 sm:py-1; }
-  .dl dd { @apply pb-2 sm:py-1; }
+  .dl { @apply grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2; }
+  .dl > div { @apply min-w-0 border-b border-line pb-2; }
+  .dl dt { @apply text-sm text-ink-2; }
+  .dl dd { @apply font-medium break-words; }
 
   /* logos: the dark variant is a second <img> after the light one, switched by the .dark class (no flash) */
   .logo-dark { display: none; }

@@ -227,12 +227,15 @@ func TestDiagnose(t *testing.T) {
 		t.Errorf("online router: %+v", d.Items)
 	}
 
-	// the card is on the customer page
+	// the strip is on the customer page; advice only when something is wrong
 	body := do(h, "GET", "/admin/customers/"+itoa(on.ID), nil, c).Body.String()
-	for _, want := range []string{"Diagnosa", "Saran", "10.9.9.9"} {
+	for _, want := range []string{"Diagnosa", "Online"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("customer page lacks %q", want)
 		}
+	}
+	if strings.Contains(body, "Saran") {
+		t.Error("customer page shows advice although everything is ok")
 	}
 }
 
