@@ -8,6 +8,21 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-10
+
+### Added
+
+- Redesigned login pages: admin "control room" split layout and a phone-first customer login with WhatsApp help.
+- Customer portal dashboard: active plan countdown, data/time usage bars, connection status with masked MAC, paginated connection history, last login, recent transactions.
+- Recharge confirmation as a modal on the recharge page and customer page.
+- Reports compute totals in SQL and paginate rows; portal order and activation history paginated; "view all transactions" per customer.
+
+### Changed
+
+- Invoice numbers are now `INV-YYMM-NNNNNN` (global sequence; imported invoices keep their numbers).
+- Light mode uses softer off-white surfaces; custom accent colours are toned down in dark mode (contrast still WCAG AA).
+- Settings > General simplified: grouped sections, login-page overrides under "advanced", unused legacy fields hidden (values kept).
+
 ## [0.1.2] - 2026-10-10
 
 Still pre-1.0: behaviour parity with PHPNuxBill, UI and operator workflow. Not yet field-tested against the WhatsApp server or in a parallel run.
