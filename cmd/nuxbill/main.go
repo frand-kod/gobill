@@ -66,7 +66,7 @@ func run() error {
 	slog.Info("nuxbill starting", "version", version)
 
 	backupDir := env("NUXBILL_BACKUP_DIR", filepath.Join(filepath.Dir(dbPath), "backup"))
-	if err := db.ApplyPendingRestore(dbPath, backupDir); err != nil {
+	if err := db.ApplyPendingRestore(dbPath); err != nil {
 		return fmt.Errorf("restore: %w", err)
 	}
 	conn, err := db.Open(dbPath)

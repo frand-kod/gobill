@@ -10,13 +10,12 @@ import (
 func TestApplyPendingRestore(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "nuxbill.db")
-	backups := filepath.Join(dir, "backup")
 	for p, body := range map[string]string{path: "old", path + "-wal": "oldwal", path + "-shm": "oldshm", path + ".restore": "new"} {
 		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := ApplyPendingRestore(path, backups); err != nil {
+	if err := ApplyPendingRestore(path); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := os.ReadFile(path); string(got) != "new" {
@@ -27,9 +26,9 @@ func TestApplyPendingRestore(t *testing.T) {
 			t.Fatalf("%s still there: %v", p, err)
 		}
 	}
-	moved, _ := filepath.Glob(filepath.Join(backups, "nuxbill.db.pre-restore-*"))
-	if len(moved) != 2 { // the db and its -wal
-		t.Fatalf("want the old db and wal moved to the backup dir, got %v", moved)
+	moved, _ := filepath.Glob(path + ".pre-restore-*")
+	if len(moved) != 2 { // the db and its -wal, next to the live db
+		t.Fatalf("want the old db and wal moved aside, got %v", moved)
 	}
 	var oldDB, oldWAL string
 	for _, m := range moved {
@@ -56,7 +55,7 @@ func TestApplyPendingRestoreNoStagedFileIsNoop(t *testing.T) {
 	if err := os.WriteFile(path+"-wal", []byte("wal"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ApplyPendingRestore(path, filepath.Join(dir, "backup")); err != nil {
+	if err := ApplyPendingRestore(path); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := os.ReadFile(path); string(got) != "live" {

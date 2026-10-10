@@ -5,7 +5,6 @@ import (
 	"io/fs"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -30,20 +29,18 @@ func LatestVersion() (int, error) {
 }
 
 // ApplyPendingRestore swaps in a backup staged as path+".restore" by the Restore database page.
-// Call it before Open. The live database and its -wal move into backupDir: the -wal may hold
-// committed data not yet checkpointed. The -shm is deleted. A stale -wal left beside the restored
-// file would be replayed onto it. Then the staged file takes the name path.
-func ApplyPendingRestore(path, backupDir string) error {
+// Call it before Open. The live database and its -wal move aside next to it as <path>.pre-restore-<ts>
+// (the same directory, so the rename never crosses filesystems). The -wal may hold committed data not
+// yet checkpointed. The -shm is deleted. A stale -wal left beside the restored file would be replayed
+// onto it. Then the staged file takes the name path.
+func ApplyPendingRestore(path string) error {
 	staged := path + ".restore"
 	if _, err := os.Stat(staged); errors.Is(err, fs.ErrNotExist) {
 		return nil
 	} else if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(backupDir, 0o700); err != nil {
-		return err
-	}
-	old := filepath.Join(backupDir, filepath.Base(path)+".pre-restore-"+time.Now().Format("20060102-150405"))
+	old := path + ".pre-restore-" + time.Now().Format("20060102-150405")
 	if err := os.Remove(path + "-shm"); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
@@ -52,7 +49,7 @@ func ApplyPendingRestore(path, backupDir string) error {
 			return err
 		}
 	}
-	slog.Info("restore: current database moved aside", "to", old)
+	slog.Info("restore: current database moved aside", "db", old, "wal", old+"-wal")
 	if err := os.Rename(staged, path); err != nil {
 		return err
 	}
