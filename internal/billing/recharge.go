@@ -159,7 +159,7 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 			return nil, err
 		}
 		extend := found && active.PlanID == plan.ID && active.PendingStart == 0 && setting(ctx, q, "extend_expiry") != "no"
-		pendStart := !rid.Valid && settingOn(setting(ctx, q, "start_on_first_login")) && (!found || active.PendingStart == 1)
+		pendStart := plan.Device == "Radius" && settingOn(setting(ctx, q, "start_on_first_login")) && (!found || active.PendingStart == 1)
 		from, start := now, now.Unix()
 		if extend {
 			from, start = time.Unix(active.ExpiresAt, 0).In(now.Location()), active.StartedAt
