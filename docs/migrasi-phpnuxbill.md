@@ -78,14 +78,25 @@ Sebelum jalan paralel, set Settings > Notifications > `notify_customers` = Tidak
 4. Import dump produksi terbaru ke STB, bandingkan pelanggan aktif, expiry, dan saldo dengan sistem lama.
 5. Jalankan paralel 1-3 hari dalam mode baca (accounting saja), bandingkan sesi dan expiry.
 6. Build ARM dan uji di STB: RAM, startup tanpa RTC, listrik padam, backup ke USB.
-7. Bersihkan sisa uji di router: `split-user-domain=no`, hapus entry `/radius` uji, profil dan user uji ([mikrotik.md](mikrotik.md#pelajaran-dari-uji-lapangan)).
+7. Bersihkan sisa uji di router: `split-user-domain=no`, hapus entry `/radius` uji, profil dan user uji ([mikrotik.md](mikrotik.md#pelajaran-dari-uji-lapangan)). Untuk router produksi ini sudah dilakukan 2026-10-10, kecuali user sistem `claude-test`.
+
+## Satu STB bersama PHPNuxBill, FreeRADIUS, dan server WA
+
+Jika NuxBill dipasang di STB yang sudah menjalankan PHPNuxBill, FreeRADIUS, dan server WA (misalnya `192.168.99.2`), tidak ada yang perlu dipasang ulang untuk WhatsApp: server WA tetap dipakai, NuxBill hanya mengirim ke sana. Yang perlu diperhatikan adalah bentrok port:
+
+1. **Port HTTP.** Bawaan NuxBill `:8080`. Jika port itu sudah dipakai aplikasi lain, set `NUXBILL_HTTP` ke port lain di `/etc/nuxbill/config.env`, misalnya `NUXBILL_HTTP=:8090`. Cek dulu dengan `ss -ltn`.
+2. **Port RADIUS.** FreeRADIUS sudah memakai UDP 1812/1813. Selama FreeRADIUS tetap jadi server RADIUS (jalur `/radius.php`), set `NUXBILL_RADIUS=off`. Jika suatu saat MikroTik diarahkan langsung ke NuxBill, matikan FreeRADIUS dulu, baru aktifkan RADIUS NuxBill.
+3. **Allow-list `/radius.php`.** FreeRADIUS di host yang sama memanggil lewat loopback, yang diizinkan oleh `radius_rest_allow` kosong. Tidak perlu diisi.
+4. **Server WA.** `alt_wga_server_url` hasil impor (`http://127.0.0.1:3030`) langsung benar karena server WA ada di STB yang sama. Kosongkan `wa_url` (plugin PHP), lalu kirim pesan uji ke nomor sendiri.
+5. **Notifikasi selama paralel.** `notify_customers` = Tidak sampai cutover. PHPNuxBill tetap yang mengirim pesan ke pelanggan.
 
 ## Cutover dan rollback
 
 **Cutover:**
-1. Hentikan perubahan di sistem lama (jendela singkat), ambil dump MySQL terakhir.
-2. `nuxbill import` ke database baru, cek laporan, lalu start NuxBill.
+1. Hentikan perubahan di sistem lama (jendela singkat), ambil backup JSON terakhir (atau dump MySQL).
+2. Impor ke NuxBill (UI atau `nuxbill import --json=...`), cek laporan. Pastikan `notify_customers` masih Tidak.
 3. Pindahkan RADIUS: ubah `connect_uri` FreeRADIUS ke NuxBill, atau ubah `address` dan `secret` pada `/radius` MikroTik ke NuxBill.
-4. Pantau log RADIUS dan sesi aktif beberapa jam.
+4. Matikan notifikasi di PHPNuxBill (atau hentikan cron-nya), lalu set `notify_customers` = Ya di NuxBill. Urutan ini mencegah pesan ganda.
+5. Pantau log RADIUS, sesi aktif, dan halaman Status Sistem beberapa jam.
 
 **Rollback:** kembalikan `connect_uri` atau `/radius address` ke entri lama. Data sistem lama tidak berubah, tetapi transaksi yang terjadi di NuxBill setelah cutover tidak ikut kembali. Catat dan masukkan manual bila perlu.
