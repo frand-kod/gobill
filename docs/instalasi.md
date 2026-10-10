@@ -74,6 +74,17 @@ Backup harian dibuat otomatis (`VACUUM INTO`); jumlah file yang disimpan diatur 
 
     sudo cp /var/lib/nuxbill/nuxbill.db /var/lib/nuxbill/nuxbill.db.key /mnt/usb/manual-backup/
 
+**Pulihkan database.** SuperAdmin bisa memulihkan file backup gobill (`.db`) dari Pengaturan > Miscellaneous > Restore database (`/admin/settings/miscellaneous/restore`). Aplikasi memeriksa file dulu (integritas, versi skema tidak lebih baru dari aplikasi ini, dan kunci enkripsi) lalu menampilkan jumlah data di backup dibanding data saat ini. Setelah dikonfirmasi, data saat ini dibackup otomatis ke folder backup (nama berakhiran `-pre-restore.db`), file dipasang sebagai `nuxbill.db.restore`, dan aplikasi keluar dengan kode 3. Systemd (`Restart=on-failure`) menjalankannya lagi. Saat start, database lama dipindah ke samping file database dengan nama `nuxbill.db.pre-restore-<waktu>` beserta `-wal`-nya, lalu backup diterapkan sebelum database dibuka. Backup dari versi lama naik versi sendiri lewat migrasi. Setelah yakin pemulihan berhasil, file `nuxbill.db.pre-restore-*` boleh dihapus, karena backup otomatis sudah ada.
+
+Backup harus dibuat dengan `NUXBILL_SECRET_KEY` (atau file `nuxbill.db.key`) yang sama dengan aplikasi tujuan. Jika tidak, pemulihan ditolak.
+
+Restore manual, jika aplikasi tidak kembali atau tidak berjalan di systemd: hentikan layanan, ganti file database, hapus `-wal` dan `-shm`, lalu jalankan lagi. File `-wal` lama wajib dihapus. Jika tidak, isinya ikut diputar ulang ke database yang sudah dipulihkan.
+
+    sudo systemctl stop nuxbill
+    sudo cp /mnt/usb/manual-backup/nuxbill.db /var/lib/nuxbill/nuxbill.db
+    sudo rm -f /var/lib/nuxbill/nuxbill.db-wal /var/lib/nuxbill/nuxbill.db-shm
+    sudo systemctl start nuxbill
+
 ### 5. Port firewall
 
 | Arah | Port | Protokol | Keterangan |

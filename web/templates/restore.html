@@ -1,0 +1,63 @@
+{{define "content"}}
+{{with .Data}}
+<div class="page-head"><h1 class="page-title">{{T "Restore database"}}</h1></div>
+{{if .Done}}
+<section class="card mb-4"><div class="card-body space-y-4">
+  <p class="text-sm">{{T "Restore scheduled. The app is restarting…"}}</p>
+  <p class="hint">{{T "If the app does not come back within a minute, restart it yourself: stop the service, then start it again. The backup is applied at startup."}}</p>
+</div></section>
+{{else}}
+<form class="card mb-4" method="post" action="/admin/settings/miscellaneous/restore" enctype="multipart/form-data">
+  <div class="card-body space-y-4">
+    <div>
+      <label class="label" for="backup">{{T "gobill backup file (.db)"}} <span class="text-err-fg" aria-hidden="true">*</span></label>
+      <input class="input" id="backup" name="backup" type="file" accept=".db,application/vnd.sqlite3" required>
+      <p class="hint">{{T "From Settings > Miscellaneous > Database backup. The file must be encrypted with the same NUXBILL_SECRET_KEY as this app."}}</p>
+    </div>
+    <div class="flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">{{T "Check"}}</button></div>
+  </div>
+</form>
+
+{{if .Token}}
+<div x-data>
+<section class="card mb-4"><div class="card-body space-y-4">
+  <h2 class="card-title">{{T "Check result"}}</h2>
+  <p class="text-sm">{{T "File size"}}: {{.Size}} {{T "bytes"}}</p>
+  <div class="overflow-x-auto"><table class="table">
+    <thead><tr><th>{{T "Table"}}</th><th>{{T "In backup"}}</th><th>{{T "Current data"}}</th></tr></thead>
+    <tbody>
+      <tr><td>{{T "Customers"}}</td><td>{{.Backup.Customers}}</td><td>{{.Current.Customers}}</td></tr>
+      <tr><td>{{T "Plans"}}</td><td>{{.Backup.Plans}}</td><td>{{.Current.Plans}}</td></tr>
+      <tr><td>{{T "Subscriptions"}}</td><td>{{.Backup.Subscriptions}}</td><td>{{.Current.Subscriptions}}</td></tr>
+      <tr><td>{{T "Transactions"}}</td><td>{{.Backup.Transactions}}</td><td>{{.Current.Transactions}}</td></tr>
+      <tr><td>{{T "Admins"}}</td><td>{{.Backup.Admins}}</td><td>{{.Current.Admins}}</td></tr>
+    </tbody>
+  </table></div>
+  <p class="text-sm">{{T "Newest transaction in backup"}}: {{if .Newest}}{{.Newest}}{{else}}{{T "none"}}{{end}}</p>
+  <div class="flex flex-wrap gap-2">
+    <button class="btn btn-primary" type="button" @click="$refs.dlg.showModal()">{{T "Restore now"}}</button>
+    <form method="post" action="/admin/settings/miscellaneous/restore/cancel">
+      <button class="btn btn-ghost" type="submit">{{T "Cancel"}}</button>
+    </form>
+  </div>
+</div></section>
+
+<dialog x-ref="dlg" class="m-auto w-[calc(100%-2rem)] max-w-lg bg-transparent p-0 text-inherit backdrop:bg-black/50" aria-labelledby="restore-dlg-title">
+  <form class="card" method="post" action="/admin/settings/miscellaneous/restore/confirm">
+    <div class="card-body space-y-4">
+      <h2 class="card-title" id="restore-dlg-title">{{T "Restore database?"}}</h2>
+      <p class="text-sm">{{T "Current data will be replaced with the backup. A backup of the current data is made first. The app will restart."}}</p>
+      <input type="hidden" name="token" value="{{.Token}}">
+      <label class="flex items-center gap-2 py-2 text-sm font-medium"><input type="checkbox" class="size-4 rounded accent-brand-500" name="understand" value="1" required> {{T "I understand the current data will be replaced"}}</label>
+      <div class="flex flex-wrap gap-2">
+        <button class="btn btn-primary" type="submit">{{T "Restore now"}}</button>
+        <button class="btn btn-ghost" type="button" @click="$refs.dlg.close()">{{T "Cancel"}}</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+</div>
+{{end}}
+{{end}}
+{{end}}
+{{end}}

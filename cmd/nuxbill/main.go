@@ -31,6 +31,12 @@ import (
 // version is set at build time with -ldflags "-X main.version=...".
 var version = "dev"
 
+// errRestart ends run after a database restore is staged. main exits with exitRestart, which
+// systemd (Restart=on-failure) treats as a failure and starts the app again.
+var errRestart = errors.New("restart after restore")
+
+const exitRestart = 3
+
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "--version" {
 		fmt.Println(version)
@@ -41,7 +47,10 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "import" {
 		run = func() error { return runImport(os.Args[2:]) }
 	}
-	if err := run(); err != nil {
+	if err := run(); errors.Is(err, errRestart) {
+		slog.Warn("exiting for restart after restore", "code", exitRestart)
+		os.Exit(exitRestart)
+	} else if err != nil {
 		slog.Error("fatal", "err", err)
 		os.Exit(1)
 	}
@@ -56,6 +65,10 @@ func run() error {
 	}
 	slog.Info("nuxbill starting", "version", version)
 
+	backupDir := env("NUXBILL_BACKUP_DIR", filepath.Join(filepath.Dir(dbPath), "backup"))
+	if err := db.ApplyPendingRestore(dbPath); err != nil {
+		return fmt.Errorf("restore: %w", err)
+	}
 	conn, err := db.Open(dbPath)
 	if err != nil {
 		return err
@@ -127,10 +140,16 @@ func run() error {
 	go job.Run(ctx, "router_check", 5*time.Minute, svc.RouterCheck)
 	go job.Run(ctx, "disk_check", 10*time.Minute, svc.DiskAlertJob(func() (int64, error) { return job.DiskFreeMB(filepath.Dir(dbPath)) }))
 	go job.Run(ctx, "daily_summary", time.Minute, svc.DailySummaryJob(guard.Trusted))
-	backup := &job.Backup{Conn: conn, Q: db.New(conn), Trusted: guard.Trusted,
-		Dir: env("NUXBILL_BACKUP_DIR", filepath.Join(filepath.Dir(dbPath), "backup"))}
+	backup := &job.Backup{Conn: conn, Q: db.New(conn), Trusted: guard.Trusted, Dir: backupDir}
 	go job.Run(ctx, "backup", time.Minute, backup.Run)
 	app.BackupDir = backup.Dir
+	restartCh := make(chan struct{}, 1)
+	app.Restart = func() {
+		select {
+		case restartCh <- struct{}{}:
+		default:
+		}
+	}
 
 	errCh := make(chan error, 2)
 	rs := &radius.Server{Q: db.New(conn), Key: key, Trusted: guard.Trusted, Redeem: svc.RedeemVoucher, Start: svc.StartPending}
@@ -154,10 +173,13 @@ func run() error {
 		errCh <- srv.ListenAndServe()
 	}()
 
+	restarting := false
 	select {
 	case err := <-errCh:
 		return err
 	case <-ctx.Done():
+	case <-restartCh:
+		restarting = true
 	}
 	slog.Info("shutting down")
 	stop()
@@ -168,6 +190,9 @@ func run() error {
 		return err
 	}
 	os.Remove(marker) // clean stop: the next start must not report a crash
+	if restarting {
+		return errRestart
+	}
 	return nil
 }
 
