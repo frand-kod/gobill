@@ -14,7 +14,7 @@ func TestPortalRegistrationModes(t *testing.T) {
 	e := billApp(t)
 	p := e.plan(t, "Gold", "PPPoE", 10000)
 	e.q.CreateVoucher(t.Context(), db.CreateVoucherParams{Code: "VCH1", PlanID: p.ID})
-	reg := url.Values{"username": {"newbie"}, "fullname": {"New Bie"}, "password": {"abc123"}, "cpassword": {"abc123"}}
+	reg := url.Values{"username": {"newbie"}, "fullname": {"New Bie"}, "password": {"abc12345"}, "cpassword": {"abc12345"}}
 	act := func(user, code string) *httptest.ResponseRecorder {
 		return do(e.h, "POST", "/portal/login/activation", url.Values{"username": {user}, "voucher": {code}}, nil)
 	}

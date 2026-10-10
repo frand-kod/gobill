@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	nuxbill "github.com/frand-kod/gobill"
 	"github.com/frand-kod/gobill/internal/db"
@@ -130,7 +131,12 @@ func forgotApp(t *testing.T) (*billEnv, func() string) {
 	}
 	portalCust(t, e, 0)
 	return e, func() string {
-		m := otpRe.FindString(last())
+		// the code is sent in the background now, so wait for it
+		var m string
+		for i := 0; i < 100 && m == ""; i++ {
+			m = otpRe.FindString(last())
+			time.Sleep(20 * time.Millisecond)
+		}
 		if m == "" {
 			t.Fatal("no OTP sent")
 		}
@@ -158,16 +164,16 @@ func TestForgotPasswordEndToEnd(t *testing.T) {
 	if w := do(e.h, "POST", "/portal/forgot/verify", url.Values{"otp_code": {code}}, ck); !strings.Contains(w.Body.String(), `name="npass"`) {
 		t.Fatal("correct code not accepted")
 	}
-	if w := do(e.h, "POST", "/portal/forgot/reset", url.Values{"npass": {"newpw1"}, "cnpass": {"other"}}, ck); !strings.Contains(w.Body.String(), tr("Passwords does not match")) {
+	if w := do(e.h, "POST", "/portal/forgot/reset", url.Values{"npass": {"newpass1"}, "cnpass": {"other"}}, ck); !strings.Contains(w.Body.String(), tr("Passwords does not match")) {
 		t.Fatal("mismatch accepted")
 	}
-	if w := do(e.h, "POST", "/portal/forgot/reset", url.Values{"npass": {"newpw1"}, "cnpass": {"newpw1"}}, ck); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/portal/login" {
+	if w := do(e.h, "POST", "/portal/forgot/reset", url.Values{"npass": {"newpass1"}, "cnpass": {"newpass1"}}, ck); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/portal/login" {
 		t.Fatalf("reset: %d", w.Code)
 	}
 	if _, code := custLogin(t, e, "u1", "pw12345"); code == http.StatusSeeOther {
 		t.Fatal("old password still works")
 	}
-	if c, code := custLogin(t, e, "u1", "newpw1"); code != http.StatusSeeOther || c == nil {
+	if c, code := custLogin(t, e, "u1", "newpass1"); code != http.StatusSeeOther || c == nil {
 		t.Fatalf("new password: %d", code)
 	}
 }

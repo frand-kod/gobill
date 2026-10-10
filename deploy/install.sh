@@ -129,5 +129,5 @@ systemctl daemon-reload
 systemctl enable --now nuxbill
 
 log "terpasang: $("$BIN" --version 2>/dev/null || echo tidak-diketahui)"
-echo "Jika ini instalasi baru, password admin pertama hanya dicetak sekali saat start:"
-echo "  journalctl -u nuxbill | grep \"first admin\""
+echo "Jika ini instalasi baru, password admin pertama ada di file berikut (hapus setelah ganti password):"
+echo "  $STATE_DIR/initial-admin-password.txt"
