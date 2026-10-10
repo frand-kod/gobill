@@ -4,8 +4,20 @@ Untuk operator yang pindah dari PHPNuxBill (MySQL) ke NuxBill Go. Impor dilakuka
 
 ## Perintah impor
 
+Cara yang disarankan: backup JSON dari PHPNuxBill, tanpa akses MySQL.
+
+1. Di PHPNuxBill buka Pengaturan > Database Status, centang semua tabel (minimal `tbl_customers`, `tbl_plans`, `tbl_bandwidth`, `tbl_routers`, `tbl_pool`, `tbl_user_recharges`, `tbl_voucher`, `tbl_users`, `tbl_appconfig`), lalu klik Backup.
+2. Jalankan:
+
+        nuxbill import --json=/path/phpnuxbill_backup.json --db=./nuxbill.db [--timezone=Asia/Jakarta] [--dry-run] [--force] [--notifications=/path/phpnuxbill/system/uploads/notifications.json]
+
+File backup berisi password pelanggan dan secret router dalam bentuk lama (plain/legacy). Simpan file itu hanya untuk Anda, dan hapus setelah impor.
+
+Alternatif lewat MySQL langsung (pilih salah satu, `--json` atau `--mysql-dsn`):
+
     nuxbill import --mysql-dsn='<user>:<password>@tcp(127.0.0.1:3306)/phpnuxbill' --db=./nuxbill.db [--timezone=Asia/Jakarta] [--dry-run] [--force] [--notifications=/path/phpnuxbill/system/uploads/notifications.json]
 
+- Tabel yang tidak ada di file backup (atau di database) dilewati dan dicatat di laporan sebagai "tidak ada di sumber, dilewati". Impor tidak gagal karena itu.
 - Semua berjalan dalam satu transaksi SQLite. Target harus kosong (`--force` menghapus isinya).
 - `--dry-run` hanya membuat laporan: baris dibaca, diimpor, dilewati, beserta alasannya.
 - Zona waktu bawaan diambil dari setting lama (atau `Asia/Jakarta`).
