@@ -2,6 +2,18 @@
 
 Untuk operator yang pindah dari PHPNuxBill (MySQL) ke NuxBill Go. Impor dilakukan satu kali dengan perintah `nuxbill import`; sistem lama tidak diubah.
 
+## Lewat UI
+
+Tanpa terminal: SuperAdmin buka Pengaturan > Miscellaneous > Import PHPNuxBill (`/admin/settings/miscellaneous/import`). Pakai backup JSON seperti di bawah.
+
+1. Unggah file backup JSON (wajib) dan `system/uploads/notifications.json` (opsional), lalu klik **Periksa**. Tidak ada data yang berubah. Laporan menampilkan per tabel: jumlah dibaca, akan diimpor, dan dilewati beserta alasannya, serta jumlah data gobill saat ini.
+2. Klik **Impor sekarang**. Karena selalu ada admin, konfirmasi dulu: centang "Saya mengerti data akan ditimpa".
+3. Sebelum impor, gobill membuat backup database otomatis di `NUXBILL_BACKUP_DIR` (bawaan folder `backup` di samping database), namanya `nuxbill-YYYYMMDD-HHMMSS-pre-import.db`. Bila backup gagal, impor tidak dijalankan.
+4. Data lama ditimpa, termasuk admin. Anda lalu diarahkan ke halaman login: masuk dengan akun admin PHPNuxBill lama dan password yang sama. Password sha1 lama diganti ke bcrypt saat login pertama.
+5. Setelah impor selesai, hapus file backup JSON dari komputer Anda, karena isinya password lama.
+
+File yang diunggah maksimal 200 MB. Upload yang belum dikonfirmasi dihapus otomatis setelah 30 menit, atau saat dibatalkan.
+
 ## Perintah impor
 
 Cara yang disarankan: backup JSON dari PHPNuxBill, tanpa akses MySQL.

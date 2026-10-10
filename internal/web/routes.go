@@ -255,6 +255,11 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/settings/integrations/wa-test", managers(http.HandlerFunc(s.waTest)))
 	mux.Handle("POST /admin/settings/notifications/daily-summary", managers(http.HandlerFunc(s.dailySummaryNow)))
 	mux.Handle("GET /admin/settings/miscellaneous/backup", managers(http.HandlerFunc(s.dbBackup)))
+	superAdmin := s.requireAdmin("SuperAdmin")
+	mux.Handle("GET /admin/settings/miscellaneous/import", superAdmin(http.HandlerFunc(s.importForm)))
+	mux.Handle("POST /admin/settings/miscellaneous/import", superAdmin(http.HandlerFunc(s.importPreview)))
+	mux.Handle("POST /admin/settings/miscellaneous/import/confirm", superAdmin(http.HandlerFunc(s.importConfirm)))
+	mux.Handle("POST /admin/settings/miscellaneous/import/cancel", superAdmin(http.HandlerFunc(s.importCancel)))
 	// Old settings.php users-*: list/add/edit for SuperAdmin, Admin and Agent (scoped in admins.go); delete only SuperAdmin and Admin.
 	userMgr := s.requireAdmin("SuperAdmin", "Admin", "Agent")
 	mux.Handle("GET /admin/users", userMgr(http.HandlerFunc(s.adminList)))
