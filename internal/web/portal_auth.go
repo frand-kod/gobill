@@ -58,7 +58,7 @@ func (s *Server) pLoginForm(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.PostFormValue("username"))
-	ip, uk := "c:"+clientIP(r), "u:"+strings.ToLower(username)
+	ip, uk := "c:"+clientIP(r), "cu:"+strings.ToLower(username)
 	if s.tooManyFailures(ip) || s.tooManyFailures(uk) {
 		s.prender(w, r, http.StatusTooManyRequests, "p_login", Page{Title: "Sign in", Error: "Too many failed attempts. Try again in 15 minutes."})
 		return
