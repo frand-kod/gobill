@@ -38,6 +38,8 @@
         <button type="submit" class="btn btn-ghost" formaction="/admin/settings/integrations/wa-test">{{T "Send test message"}}</button></div>
         {{else if eq .Type "dsnow"}}
         <p><button type="submit" class="btn btn-ghost" id="{{.Name}}" formaction="/admin/settings/notifications/daily-summary">{{T "Send summary now"}}</button></p>
+        {{else if eq .Type "formbtn"}}
+        <p><button type="submit" class="btn btn-ghost" formaction="{{.Value}}">{{T .Btn}}</button></p>
         {{else if eq .Type "link"}}
         <p><a class="btn" href="{{.Value}}">{{T (or .Btn "Download backup")}}</a></p>
         {{else if eq .Type "qris"}}

@@ -153,6 +153,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /logout", s.logout)
 	mux.Handle("GET /admin/password", all(http.HandlerFunc(s.passwordForm)))
 	mux.Handle("POST /admin/password", all(http.HandlerFunc(s.passwordSave)))
+	s.totpRoutes(mux, all)
 
 	// app manifests (public: the browser fetches them without cookies)
 	mux.HandleFunc("GET /admin/manifest.webmanifest", s.manifest(" Admin", "/admin", "/admin/"))
