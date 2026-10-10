@@ -4,15 +4,17 @@ Billing ISP untuk hotspot dan PPPoE MikroTik, ditulis ulang dari PHPNuxBill dala
 
 ## Fitur utama
 
-- Paket hotspot, PPPoE, dan saldo (prepaid/postpaid), voucher dengan QR, kupon, dan perpanjangan otomatis.
+- Paket hotspot, PPPoE, dan saldo (prepaid/postpaid), voucher dengan QR, kupon, perpanjangan otomatis, dan opsi mulai masa aktif saat login pertama (RADIUS).
 - Server RADIUS bawaan (auth, accounting, CoA, login voucher hotspot) dan endpoint kompatibel FreeRADIUS REST (`/radius.php`).
 - Driver MikroTik lewat RouterOS API, atau mode RADIUS tanpa API.
 - Portal pelanggan: pesan paket, aktivasi voucher, transfer saldo, OTP, inbox.
-- Pembayaran online lewat Tripay (opsional).
-- Notifikasi Telegram, WhatsApp/SMS (URL gateway), email, dan webhook.
-- Dashboard, laporan, peta/ODP, multi-role admin, dan 5 bahasa.
+- Pembayaran online lewat Tripay (opsional), atau QRIS statis: QR terkunci nominal per recharge dikirim lewat WhatsApp.
+- Notifikasi Telegram, WhatsApp (server WA langsung), SMS (URL gateway), email, dan webhook. Sakelar global untuk pesan pelanggan dan kode OTP.
+- Dashboard, laporan, peta/ODP, multi-role admin, verifikasi dua langkah (TOTP) untuk admin, dan 5 bahasa.
 - Aman untuk perangkat tanpa RTC: job expiry menolak jalan saat jam sistem tidak dipercaya.
-- Impor satu kali dari database MySQL PHPNuxBill.
+- Impor satu kali dari PHPNuxBill: lewat MySQL, atau dari file backup JSON di UI atau CLI.
+- Backup harian, salinan mirror di luar perangkat, dan restore database dari UI.
+- Halaman Status Sistem, `/health` untuk uptime monitor, `/metrics` untuk Prometheus, dan alert operator lewat Telegram atau WhatsApp.
 
 ## Teknologi
 
@@ -52,7 +54,7 @@ Detail: [docs/arsitektur.md](docs/arsitektur.md).
 
        NUXBILL_DB=./nuxbill.db NUXBILL_HTTP=:8080 ./nuxbill
 
-3. Ambil password admin pertama dari log (dicetak sekali): cari baris `first admin`. Di systemd: `journalctl -u nuxbill | grep "first admin"`.
+3. Ambil password admin pertama dari file `initial-admin-password.txt` di folder database (`./` saat jalan manual, `/var/lib/nuxbill` di systemd). Password tidak dicetak ke log.
 4. Buka http://localhost:8080, login sebagai `admin`, lalu ganti password.
 
 Untuk STB, systemd, atau Docker, lihat [docs/instalasi.md](docs/instalasi.md).
@@ -65,7 +67,7 @@ Indeks lengkap: [docs/README.md](docs/README.md).
 - [docs/konfigurasi.md](docs/konfigurasi.md): semua variabel `NUXBILL_*` dan pengaturan penting di UI.
 - [docs/mikrotik.md](docs/mikrotik.md): setup MikroTik (mode API dan RADIUS) dan pelajaran dari uji lapangan.
 - [docs/freeradius-rest.md](docs/freeradius-rest.md): memakai FreeRADIUS yang sudah ada lewat REST.
-- [docs/keamanan.md](docs/keamanan.md): pengerasan RADIUS dan catatan keamanan aplikasi.
+- [docs/keamanan.md](docs/keamanan.md): pengerasan RADIUS, firewall, dan keamanan aplikasi (termasuk 2FA admin).
 - [docs/monitoring.md](docs/monitoring.md): halaman Status Sistem, `/health` dan `/metrics`, alert operator.
 - [docs/migrasi-phpnuxbill.md](docs/migrasi-phpnuxbill.md): impor data, cutover, dan rollback.
 - [docs/arsitektur.md](docs/arsitektur.md): paket, alur request, dan model data.

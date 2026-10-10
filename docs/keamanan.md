@@ -53,7 +53,7 @@ Jangan memakai `--add-port=1812/udp` atau `--add-port=8080/tcp` (terbuka untuk s
 
 Simpan di `/etc/nftables.conf`, periksa `sudo nft list ruleset`, terapkan `sudo nft -f /etc/nftables.conf`. FreeRADIUS di host lain: tambahkan `ip saddr IP-FREERADIUS tcp dport 8080 accept`.
 
-**Batasi `/radius.php`:** kosong = hanya loopback; isi `radius_rest_allow` dengan IP FreeRADIUS jika di host lain, dan biarkan `trust_proxy=no` tanpa reverse proxy ([freeradius-rest.md](freeradius-rest.md)).
+**Batasi `/radius.php`:** kosong = hanya loopback (bawaan sejak v0.1.4); isi `radius_rest_allow` dengan IP FreeRADIUS jika di host lain. `trust_proxy` tidak memengaruhi allow-list ini ([freeradius-rest.md](freeradius-rest.md)).
 
 ### Link jarak jauh (VPS)
 
@@ -105,8 +105,20 @@ Jika EAP tidak dipakai, nonaktifkan:
 - **Secret terenkripsi:** secret router, pelanggan (PPPoE/hotspot), dan NAS memakai AES-GCM. Kunci dari `NUXBILL_SECRET_KEY` atau file `.key`; backup kunci bersama database.
 - **Catatan:** secret integrasi (SMTP, Telegram, Tripay) tersimpan plaintext di tabel `settings`, sama seperti aplikasi lama. Lindungi file database dan backup-nya.
 - **CSRF:** lewat `http.CrossOriginProtection` stdlib. Pengecualian hanya callback Tripay (diverifikasi signature) dan `/radius.php` (allow-list).
-- **Rate limit:** pembatas brute-force untuk login, voucher, OTP, dan auth RADIUS per user. Tersimpan di memori, jadi reset saat restart.
+- **Rate limit:** pembatas brute-force, tersimpan di memori (reset saat restart):
+  - Login admin dan portal: 10 kegagalan dalam 15 menit, dihitung per IP dan per username. Login 2FA memakai pembatas yang sama.
+  - Voucher RADIUS: 10 kegagalan dalam 15 menit per NAS dan MAC, dan 100 per NAS.
+  - Auth RADIUS per username: pembatas terpisah untuk password yang salah.
+  - Kirim OTP: per IP 5 kali dalam 15 menit; per nomor jeda 60 detik dan maksimal 5 kali per jam. Di `notify_otp` = `no`, OTP tidak dikirim sama sekali.
+  - Brute force terdeteksi juga memicu alert operator (lihat [monitoring.md](monitoring.md)).
+- **Lupa kata sandi:** balasan sama untuk username yang ada maupun tidak, jadi tidak bisa dipakai untuk menebak akun.
+- **Kata sandi pelanggan:** minimal 8 karakter, maksimal 35. Berlaku untuk registrasi, ganti, reset, dan edit oleh admin.
+- **Kata sandi admin pertama:** dibuat acak (16 karakter) dan ditulis ke `initial-admin-password.txt` di folder database (mode 0600), tidak ke log. Hapus file itu setelah login.
+- **Proxy:** `X-Forwarded-For` dibaca hanya jika koneksi langsung dari loopback atau dari `trusted_proxies` dan `trust_proxy=yes`. Pembatas login memakai alamat klien itu. Allow-list `/radius.php` selalu memakai alamat koneksi asli, jadi header dari klien luar tidak bisa memalsukan IP.
+- **Cetak voucher:** hanya peran staf (SuperAdmin, Admin, Agent, Sales).
+- **Endpoint publik:** `/health` hanya memuat status database dan disk. `/metrics` butuh bearer token dan 404 jika token dimatikan.
 - **Sesi:** cookie `HttpOnly`, `SameSite=Lax`, `Secure` secara default (nonaktif hanya dengan `NUXBILL_HTTPS=0`). Sesi dicabut saat password, role, atau status berubah.
+- **Batas diam sesi:** `session_timeout_duration` (menit, bawaan 120). `single_session=yes` membatasi satu sesi admin aktif.
 - **Role:** dicek di middleware per route. Admin tidak bisa mengangkat SuperAdmin; SuperAdmin terakhir dilindungi.
 - **SQL:** semua query lewat `sqlc` dengan parameter terikat.
 - **Log:** error notifikasi disaring agar token dan API key tidak bocor.

@@ -14,7 +14,7 @@ Di `/etc/freeradius/3.0/mods-enabled/rest`, ubah `connect_uri` ke NuxBill:
 
 Format sama dengan `radius.php` lama: JSON `control:` / `reply:`, status 204 untuk authenticate sukses, 401 untuk ditolak. Keputusan auth memakai logika yang sama dengan server UDP bawaan.
 
-Perbedaan: voucher yang login lewat username tanpa password (mode voucher RADIUS di `radius.php` lama) belum didukung di endpoint ini; gunakan server bawaan untuk itu.
+Login voucher (kode sebagai username, dengan password sama dengan kode atau kosong) juga didukung di endpoint ini, dengan pembatas yang sama seperti server bawaan.
 
 ## Allow-list
 
@@ -33,6 +33,6 @@ Plan `Radius` tidak memanggil API router. Putus paksa (plan habis atau admin men
 | Modul lain (EAP, dll.) | Bisa | Tidak ada |
 | Metode auth | Sesuai FreeRADIUS | PAP, CHAP, MS-CHAPv2 |
 | Latensi | Satu hop HTTP per login | Langsung |
-| Login voucher tanpa password | Belum | Ya |
+| Login voucher | Ya | Ya |
 
 Pilih bawaan untuk instalasi baru. Pilih FreeRADIUS saat migrasi bertahap, atau jika butuh modul FreeRADIUS lain. Jika FreeRADIUS sudah memakai UDP 1812 di host yang sama, set `NUXBILL_RADIUS=off`. Pengerasan FreeRADIUS ada di [keamanan.md](keamanan.md#freeradius-di-jalur-rest).

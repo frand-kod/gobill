@@ -1,6 +1,6 @@
 # Paritas perilaku bisnis: PHPNuxBill vs gobill
 
-Audit baca-saja (tanpa mengubah kode), dibuat 2026-10-10 dari `main`. Pertanyaannya: apa yang terjadi saat admin, pelanggan, cron, atau RADIUS memicu aksi X, dan di mana hasilnya beda dari PHP. Beda UI/label tidak dibahas (lihat `UI-PARITY.md`). Beda yang sudah tercatat di PROGRESS "disengaja" tidak diulang.
+Audit baca-saja (tanpa mengubah kode), dibuat 2026-10-10 dari `main`. **Status v0.1.4:** temuan P1, C2, dan IM1 sudah dikerjakan (ditandai di bawah). Baris lain belum diverifikasi ulang, kecuali disebut. Pertanyaannya: apa yang terjadi saat admin, pelanggan, cron, atau RADIUS memicu aksi X, dan di mana hasilnya beda dari PHP. Beda UI/label tidak dibahas (lihat `UI-PARITY.md`). Beda yang sudah tercatat di PROGRESS "disengaja" tidak diulang.
 
 Sumber PHP: `system/controllers/*.php`, `system/cron.php`, `cron_reminder.php`, `radius.php`, `autoload/Package.php`, `Message.php`, `widgets/top_widget.php`, `devices/*`. Sumber gobill: `internal/billing`, `internal/web`, `internal/radius`, `internal/device`, `internal/notify`, `internal/importer`. Semua baris dicek di kedua kode.
 
@@ -12,7 +12,7 @@ Sudah diperiksa dan **sama** (tidak ada temuan): hitung expiry Days/Hrs/Mins/Mon
 
 | ID | Dampak | PHP | gobill | Beda | Saran |
 |---|---|---|---|---|---|
-| P1 | Tinggi | `Package.php:44-48`: `rechargeUser` memanggil `_alert` (lalu `die`) bila `status != Active`; berlaku untuk recharge admin, voucher, bayar saldo, gateway | `billing/service.go:197` `recharge()`, `web/customers.go:321` `custRecharge`, `web/portal.go:513` `pBuyBalance`, `web/payment.go:92` `pPay`, `vouchers.go` `vchRedeem`: tidak ada cek status | Pelanggan Suspended/Inactive/Limited bisa diisi ulang (uang masuk atau saldo terpotong), tetapi RADIUS menolaknya (`GetCustomerForRadius` hanya `status='Active'`). Tidak ada peringatan. Portal hanya menolak Banned/Disabled | Tolak di handler web bila `status != Active` (cron auto-renew dikecualikan; di PHP CLI `_alert` juga lolos) |
+| P1 | Tinggi | `Package.php:44-48`: `rechargeUser` memanggil `_alert` (lalu `die`) bila `status != Active`; berlaku untuk recharge admin, voucher, bayar saldo, gateway | `billing/service.go:197` `recharge()`, `web/customers.go:321` `custRecharge`, `web/portal.go:513` `pBuyBalance`, `web/payment.go:92` `pPay`, `vouchers.go` `vchRedeem`: tidak ada cek status | Pelanggan Suspended/Inactive/Limited bisa diisi ulang (uang masuk atau saldo terpotong), tetapi RADIUS menolaknya (`GetCustomerForRadius` hanya `status='Active'`). Tidak ada peringatan. Portal hanya menolak Banned/Disabled | Tolak di handler web bila `status != Active` (cron auto-renew dikecualikan; di PHP CLI `_alert` juga lolos) | **[Selesai v0.1.4]** Cek status Active ada di `billing/recharge.go`.
 | P2 | Sedang | `customers.php:638-650,788-815`: edit username memanggil `change_username` di router dan memperbarui `tbl_user_recharges.username`; ubah pppoe_username/ip/password juga di-sync | `web/customers.go:380` `custSave`: username read-only saat edit; `device.ChangeUsername` ada tetapi tidak dipanggil; hanya perubahan password yang memanggil `SyncCustomer` | Operator yang memakai nomor HP sebagai username tidak bisa memperbaiki salah ketik. Ubah `pppoe_username`/`pppoe_ip` tidak didorong ke router | Izinkan edit username (Admin) lalu `ChangeUsername` + `SyncCustomer`; sync juga saat `pppoe_*` berubah |
 | P3 | Sedang | `Package.php:75-81`: plan nonaktif tetap bisa direcharge SuperAdmin/Admin | `web/customers.go:321` dan `billing.Preview` menolak plan `enabled != 1` untuk semua peran | Trik "sembunyikan paket lama dari portal tapi pelanggan lama tetap diperpanjang admin" tidak jalan; admin harus mengaktifkan paket sementara | Izinkan SuperAdmin/Admin merecharge plan nonaktif |
 | P4 | Rendah | `customers.php:440,441`: hapus pelanggan dengan `plan_expired = 0`, user dihapus dari router | `billing/extras.go:46` `DeleteCustomer` -> `prepare()` memuat `ExpiredPlan`; `device/mikrotik_hotspot.go:59` `RemoveCustomer` memindahkan user ke profil expired | Pada plan Mikrotik langsung yang punya "Expired Plan", pelanggan yang dihapus tertinggal di router dengan profil expired. Tidak berlaku untuk plan `Radius` | Kosongkan `dp.ExpiredPlan` saat hapus pelanggan |
@@ -60,7 +60,7 @@ Sudah diperiksa dan **sama** (tidak ada temuan): hitung expiry Days/Hrs/Mins/Mon
 | ID | Dampak | PHP | gobill | Beda | Saran |
 |---|---|---|---|---|---|
 | C1 | Sedang | `Message.php:199-307` (`sendPackageNotification`: `[[price]]`, `[[bills]]`, `[[payment_link]]`), `:309-` (`sendInvoice`: `[[invoice_link]]`, `[[password]]`, `[[note]]`); `cron_reminder.php` mengirim harga | `notify/notify.go:300,322` (`Expired`, `Reminder`) hanya mengisi `name, username, package/plan, expired_date` | Template WA operator yang memuat `[[price]]` atau `[[payment_link]]` mengirim teks mentah "[[price]]" ke pelanggan (reminder dan expired) | Isi `price` (dan `invoice_link`) di `sendReminders`/`expireOne`/`notifyRecharge` |
-| C2 | Sedang | Template disimpan di file `uploads/notifications.json` (`init.php:96`) | `importer/importer.go:170` hanya `tbl_appconfig`; template bawaan gobill berbahasa Inggris (`notify.go:28-36`) | Setelah cutover semua pesan expired/reminder/invoice kembali ke bahasa Inggris bawaan | `nuxbill import --notifications=<json>` -> `settings.notif_*` |
+| C2 | Sedang | Template disimpan di file `uploads/notifications.json` (`init.php:96`) | `importer/importer.go:170` hanya `tbl_appconfig`; template bawaan gobill berbahasa Inggris (`notify.go:28-36`) | Setelah cutover semua pesan expired/reminder/invoice kembali ke bahasa Inggris bawaan | `nuxbill import --notifications=<json>` -> `settings.notif_*` | **[Selesai v0.1.4]** Impor `notifications.json` lewat `--notifications` dan UI.
 | C3 | Rendah | `cron.php:138-153`: `frrest_interim_update` menutup sesi Start yang basi | `radius/radius.go:34` `staleAfter = 600` tetap; setting tidak dibaca (Non-goal) | Bila interim NAS > 10 menit, sesi dianggap basi dan batas `shared_users` tidak berlaku | Baca `frrest_interim_update` bila diisi |
 | C4 | Rendah | `cron.php:155`: `router_check` harus aktif; email + Telegram tiap cron | `billing/routermonitor.go:16` default aktif; Telegram hanya saat status berubah; tanpa email | Beda ringan (gobill lebih tenang) | Tidak perlu |
 
@@ -87,20 +87,18 @@ Pendapatan dashboard dan baris transfer di laporan: lihat S1.
 
 | ID | Dampak | PHP | gobill | Beda | Saran |
 |---|---|---|---|---|---|
-| IM1 | Tinggi | `User::getBills/getAttribute`: atribut `Bill` (tagihan tambahan, cicilan `biaya:sisa`), `Invoice`, `Expired Date` di `tbl_customers_fields` dipakai `rechargeUser`, `sendInvoice`, `cron.php:103-106` | `importer/importer.go:124` tidak mengimpor `tbl_customers_fields`; `docs/migrasi-phpnuxbill.md` hanya menyebut kupon, ODP, inbox sebagai belum diimpor; `recharge()` tidak membaca `Bill` | Tagihan tambahan per pelanggan hilang diam-diam: pelanggan ditagih lebih murah, tanggal tagih khusus hilang. Tidak ada di dokumen migrasi | Minimal: laporan impor menyebut jumlah baris fields yang dilewati dan dokumentasikan; ideal: impor ke `customer_fields` dan baca `Bill` di `recharge()` |
+| IM1 | Tinggi | `User::getBills/getAttribute`: atribut `Bill` (tagihan tambahan, cicilan `biaya:sisa`), `Invoice`, `Expired Date` di `tbl_customers_fields` dipakai `rechargeUser`, `sendInvoice`, `cron.php:103-106` | `importer/importer.go:124` tidak mengimpor `tbl_customers_fields`; `docs/migrasi-phpnuxbill.md` hanya menyebut kupon, ODP, inbox sebagai belum diimpor; `recharge()` tidak membaca `Bill` | Tagihan tambahan per pelanggan hilang diam-diam: pelanggan ditagih lebih murah, tanggal tagih khusus hilang. Tidak ada di dokumen migrasi | Minimal: laporan impor menyebut jumlah baris fields yang dilewati dan dokumentasikan; ideal: impor ke `customer_fields` dan baca `Bill` di `recharge()` | **[Selesai v0.1.4]** Atribut pelanggan diimpor (`importer/fields.go`) dan dijelaskan di `migrasi-phpnuxbill.md`.
 | IM2 | Rendah | `settings.php`: banyak key berefek (`payment_usings`, `enable_coupons`, `reset_day`, `enable_tax`, `frrest_interim_update`) | tidak dibaca (R2, R7, V2, S1, C3) | Setting terimpor tetapi tanpa efek dan tanpa peringatan | Importer: daftar "setting tidak didukung" di laporan |
 
 ## Daftar prioritas
 
 1. **R1** Extend admin tidak bekerja untuk pelanggan yang sudah lama expired (tugas harian).
-2. **P1** Recharge pelanggan non-Active diterima (uang masuk, akses tetap ditolak RADIUS).
-3. **S1** Pendapatan dashboard menghitung ganda saldo/transfer; `reset_day` diabaikan.
-4. **IM1** Atribut pelanggan (`Bill`, `Invoice`, `Expired Date`) hilang saat impor dan tidak didokumentasikan.
-5. **R2** Metode bayar kustom (`payment_usings`) dan Recharge Zero tidak ada.
-6. **R4** Kuota data tidak di-reset saat reaktivasi (extend admin, edit langganan, perpanjang mandiri).
-7. **C1/C2** `[[price]]`/`[[payment_link]]` tidak terisi; template notifikasi Indonesia tidak ikut impor.
-8. **R5** Tidak ada Telegram saat aktivasi router gagal setelah bayar.
-9. **D1** Time_Limit tidak kumulatif di RADIUS bawaan.
-10. **P2/P3/R3/R7** Edit username, recharge plan nonaktif oleh Admin, harga Period setelah expired, pajak.
+2. **S1** Pendapatan dashboard menghitung ganda saldo/transfer; `reset_day` diabaikan.
+3. **R2** Metode bayar kustom (`payment_usings`) dan Recharge Zero tidak ada.
+4. **R4** Kuota data tidak di-reset saat reaktivasi (extend admin, edit langganan, perpanjang mandiri).
+5. **C1** `[[price]]`/`[[payment_link]]` tidak terisi di beberapa template.
+6. **R5** Tidak ada Telegram saat aktivasi router gagal setelah bayar.
+7. **D1** Time_Limit tidak kumulatif di RADIUS bawaan.
+8. **P2/P3/R3/R7** Edit username, recharge plan nonaktif oleh Admin, harga Period setelah expired, pajak.
 
-Hitungan temuan: **Tinggi 4** (R1, P1, S1, IM1), **Sedang 10** (P2, P3, R2, R3, R4, R5, R7, C1, C2, D1), **Rendah 17** (P4, P5, P6, R6, R8, V1, V2, S2, S3, T1, T2, T3, C3, C4, D2, L1, IM2).
+Hitungan temuan saat audit: **Tinggi 4** (R1, P1, S1, IM1), **Sedang 10** (P2, P3, R2, R3, R4, R5, R7, C1, C2, D1), **Rendah 17** (P4, P5, P6, R6, R8, V1, V2, S2, S3, T1, T2, T3, C3, C4, D2, L1, IM2).
