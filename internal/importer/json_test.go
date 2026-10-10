@@ -65,7 +65,7 @@ func TestImportFromJSON(t *testing.T) {
 	for _, name := range []string{"transactions", "activity_logs"} {
 		var missing bool
 		for _, tb := range rep.Tables {
-			if tb.Name == name && len(tb.Notes) == 1 && strings.Contains(tb.Notes[0], "kosong di sumber") {
+			if tb.Name == name && len(tb.Notes) == 1 && strings.Contains(tb.Notes[0], "missing or empty in source") {
 				missing = true
 			}
 		}

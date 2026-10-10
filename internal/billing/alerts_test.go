@@ -156,6 +156,39 @@ func TestBruteForceAlertOnceAndRecovery(t *testing.T) {
 	}
 }
 
+// A NAS whose metric series expired is forgotten without an alert, so it starts fresh if it returns.
+func TestNASEvictionClearsStateSilently(t *testing.T) {
+	metrics.Reset()
+	t.Cleanup(func() { metrics.Now = time.Now; metrics.Reset() })
+	e := setup(t)
+	got := withNotify(t, e)
+	ctx := context.Background()
+	now := time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC)
+	metrics.Now = func() time.Time { return now }
+	alert := &AlertJob{S: e.s, Free: func() (int64, error) { return 9999, nil }, Now: func() time.Time { return now }}
+	metrics.Set("radius_nas_last_packet_timestamp", float64(now.Add(-time.Hour).Unix()), "nas", "10.9.0.8")
+	if err := alert.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n := alertsFor(drain(got), "10.9.0.8"); n != 1 {
+		t.Fatalf("silent NAS: %d alerts, want 1", n)
+	}
+
+	// A day later the registry sweeps the old series (another NAS reports now).
+	now = now.Add(25 * time.Hour)
+	metrics.Now = func() time.Time { return now }
+	metrics.Set("radius_nas_last_packet_timestamp", float64(now.Unix()), "nas", "10.9.0.9")
+	if err := alert.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n := alertsFor(drain(got), "10.9.0.8"); n != 0 {
+		t.Fatalf("eviction sent %d alerts for 10.9.0.8, want 0", n)
+	}
+	if _, ok := alert.active["nas:10.9.0.8"]; ok {
+		t.Fatal("evicted NAS state not cleared")
+	}
+}
+
 // alert_channel=wa sends the operator alert through the WA server only.
 func TestAlertChannelWhatsApp(t *testing.T) {
 	e := setup(t)

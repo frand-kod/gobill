@@ -164,7 +164,6 @@ func (s *Server) Authorize(ctx context.Context, rq AuthRequest) Decision {
 	defer func() {
 		metrics.Add("radius_auth_duration_seconds_sum", time.Since(start).Seconds())
 		metrics.Inc("radius_auth_duration_seconds_count")
-		metrics.Set("radius_nas_last_packet_timestamp", float64(s.now().Unix()), "nas", rq.NAS)
 	}()
 	// ponytail: per-user throttle is in-memory, per process (see failLimiter). A retransmit never
 	// gets here: dupCache absorbs it, so retries cannot lock a user out.
@@ -442,12 +441,12 @@ func (s *Server) HandleAuth(w radius.ResponseWriter, r *radius.Request) {
 }
 
 func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
-	required := false
+	required, known := false, false
 	ip := addrIP(r.RemoteAddr)
 	if rows, err := s.Q.ListNAS(r.Context()); err == nil {
 		for _, n := range rows {
 			if matchIP(n.Ip, ip) {
-				required = n.RequireMessageAuth == 1
+				required, known = n.RequireMessageAuth == 1, true
 				break
 			}
 		}
@@ -455,6 +454,9 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 	if !checkMA(r.Packet, required) {
 		slog.Warn("radius: dropping Access-Request, bad or missing Message-Authenticator", "nas", ip)
 		return
+	}
+	if known { // unknown sources must not create metric series
+		s.NoteNAS(ip.String())
 	}
 	user := rfc2865.UserName_GetString(r.Packet)
 	rq := AuthRequest{User: user, NAS: addrIP(r.RemoteAddr).String(), MAC: rfc2865.CallingStationID_GetString(r.Packet),
@@ -549,6 +551,12 @@ type AcctRequest struct {
 	MAC, FramedIP        string
 	SessionTime          int64
 	InOctets, OutOctets  int64 // gigawords already folded in
+}
+
+// NoteNAS records a packet from NAS nas in radius_nas_last_packet_timestamp. Callers must only pass
+// sources they have validated (nas table, or the allow-listed REST API).
+func (s *Server) NoteNAS(nas string) {
+	metrics.Set("radius_nas_last_packet_timestamp", float64(s.now().Unix()), "nas", nas)
 }
 
 // Account applies Start, Interim-Update, Stop and Accounting-On/Off to radius_sessions.

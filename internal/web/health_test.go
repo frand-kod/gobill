@@ -19,8 +19,8 @@ func TestHealth(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
 		t.Fatal(err)
 	}
-	if out["status"] != "ok" || out["db"] != "ok" {
-		t.Fatalf("health body = %v", out)
+	if out["status"] != "ok" || out["db"] != "ok" || len(out) != 2 {
+		t.Fatalf("health body = %v, want only status and db", out)
 	}
 
 	s.conn.Close()
