@@ -102,7 +102,7 @@ func (s *Server) radiusRestRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /radius.php", s.radiusRest)
 	mux.HandleFunc("POST /radius/rest", s.radiusRest)
 	if m, err := s.loadSettings(context.Background()); err == nil && strings.TrimSpace(m["radius_rest_allow"]) == "" {
-		slog.Warn("radius.php endpoint is open to every client; set radius_rest_allow to the FreeRADIUS IP (comma-separated IPs/CIDRs)")
+		slog.Warn("radius.php endpoint accepts loopback only (radius_rest_allow is empty); if FreeRADIUS runs on another host, set radius_rest_allow to its IP (comma-separated IPs/CIDRs)")
 	}
 }
 
@@ -281,5 +281,5 @@ func (s *Server) Handler() http.Handler {
 	cop.AddInsecureBypassPattern("POST /callback/tripay")
 	cop.AddInsecureBypassPattern("POST /radius.php")
 	cop.AddInsecureBypassPattern("POST /radius/rest")
-	return cop.Handler(s.sessions.LoadAndSave(s.idleGuard(s.maintenance(mux))))
+	return s.realIP(cop.Handler(s.sessions.LoadAndSave(s.idleGuard(s.maintenance(mux)))))
 }

@@ -168,6 +168,10 @@ func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
 		s.profilePage(w, r, 200, fmt.Sprintf("Please wait %d seconds before sending another code", exp-time.Now().Unix()))
 		return
 	}
+	if !s.otpAllow(clientIP(r), val) {
+		s.profilePage(w, r, 200, "Too many verification code requests, please try again later")
+		return
+	}
 	otp, err := newOTP()
 	var hash []byte
 	if err == nil {

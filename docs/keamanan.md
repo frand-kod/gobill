@@ -53,7 +53,7 @@ Jangan memakai `--add-port=1812/udp` atau `--add-port=8080/tcp` (terbuka untuk s
 
 Simpan di `/etc/nftables.conf`, periksa `sudo nft list ruleset`, terapkan `sudo nft -f /etc/nftables.conf`. FreeRADIUS di host lain: tambahkan `ip saddr IP-FREERADIUS tcp dport 8080 accept`.
 
-**Batasi `/radius.php`:** isi `radius_rest_allow`, dan biarkan `trust_proxy=no` tanpa reverse proxy ([freeradius-rest.md](freeradius-rest.md)).
+**Batasi `/radius.php`:** kosong = hanya loopback; isi `radius_rest_allow` dengan IP FreeRADIUS jika di host lain, dan biarkan `trust_proxy=no` tanpa reverse proxy ([freeradius-rest.md](freeradius-rest.md)).
 
 ### Link jarak jauh (VPS)
 
@@ -106,7 +106,7 @@ Jika EAP tidak dipakai, nonaktifkan:
 - **Catatan:** secret integrasi (SMTP, Telegram, Tripay) tersimpan plaintext di tabel `settings`, sama seperti aplikasi lama. Lindungi file database dan backup-nya.
 - **CSRF:** lewat `http.CrossOriginProtection` stdlib. Pengecualian hanya callback Tripay (diverifikasi signature) dan `/radius.php` (allow-list).
 - **Rate limit:** pembatas brute-force untuk login, voucher, OTP, dan auth RADIUS per user. Tersimpan di memori, jadi reset saat restart.
-- **Sesi:** cookie `HttpOnly`, `SameSite=Lax`, `Secure` bila `NUXBILL_HTTPS=1`. Sesi dicabut saat password, role, atau status berubah.
+- **Sesi:** cookie `HttpOnly`, `SameSite=Lax`, `Secure` secara default (nonaktif hanya dengan `NUXBILL_HTTPS=0`). Sesi dicabut saat password, role, atau status berubah.
 - **Role:** dicek di middleware per route. Admin tidak bisa mengangkat SuperAdmin; SuperAdmin terakhir dilindungi.
 - **SQL:** semua query lewat `sqlc` dengan parameter terikat.
 - **Log:** error notifikasi disaring agar token dan API key tidak bocor.

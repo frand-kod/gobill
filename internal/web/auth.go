@@ -26,8 +26,9 @@ func (s *Server) loginForm(w http.ResponseWriter, r *http.Request) {
 type loginData struct{ Username string }
 
 func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
-	ip := clientIP(r)
-	if s.tooManyFailures(ip) {
+	username := strings.TrimSpace(r.PostFormValue("username"))
+	ip, uk := clientIP(r), "u:"+strings.ToLower(username)
+	if s.tooManyFailures(ip) || s.tooManyFailures(uk) {
 		s.render(w, r, http.StatusTooManyRequests, "login", Page{
 			Title: "Sign in",
 			Error: "Too many failed attempts. Try again in 15 minutes.",
@@ -35,7 +36,6 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username := strings.TrimSpace(r.PostFormValue("username"))
 	password := r.PostFormValue("password")
 
 	admin, err := s.queries.GetAdminByUsername(r.Context(), username)
@@ -47,6 +47,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	passOK = passOK || (err == nil && s.legacyLogin(r.Context(), admin.ID, password))
 	if err != nil || !passOK || admin.Status != "Active" {
 		s.recordFailure(ip)
+		s.recordFailure(uk)
 		s.render(w, r, http.StatusOK, "login", Page{
 			Title: "Sign in",
 			Error: "Invalid Username or Password",
@@ -56,6 +57,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.clearFailures(ip)
+	s.clearFailures(uk)
 	if err := s.sessions.RenewToken(r.Context()); err != nil {
 		slog.Error("renew session", "err", err)
 		s.errorPage(w, "-")

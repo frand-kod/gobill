@@ -120,7 +120,7 @@ Langkahnya sama dengan STB (`install.sh`, binary `amd64`). Perbedaan penting:
 
 - Jam VPS sudah sinkron, jadi clock guard jarang berpengaruh.
 - Jangan kirim UDP RADIUS/CoA lewat internet terbuka. Pakai WireGuard atau RadSec, lihat [keamanan.md](keamanan.md#link-jarak-jauh-vps).
-- Pasang reverse proxy (HTTPS) di depan `:8080`, lalu set `NUXBILL_HTTPS=1` dan setting `trust_proxy=yes`.
+- Pasang reverse proxy (HTTPS) di depan `:8080`, lalu pastikan `NUXBILL_HTTPS` tidak diset `0` (default aktif) dan set setting `trust_proxy=yes`.
 
 ## Docker
 
