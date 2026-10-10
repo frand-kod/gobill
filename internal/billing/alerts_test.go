@@ -51,6 +51,32 @@ func TestNASSilentAlertOncePerEpisode(t *testing.T) {
 	run("still fine", 0)
 }
 
+// A NAS that is not in the nas table (FreeRADIUS in front of /radius.php) still alerts once and recovers once.
+func TestNASSilentWithoutTableEntry(t *testing.T) {
+	metrics.Reset()
+	t.Cleanup(metrics.Reset)
+	e := setup(t)
+	got := withNotify(t, e)
+	ctx := context.Background()
+	now := time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC)
+	alert := &AlertJob{S: e.s, Free: func() (int64, error) { return 9999, nil }, Now: func() time.Time { return now }}
+	metrics.Set("radius_nas_last_packet_timestamp", float64(now.Add(-time.Hour).Unix()), "nas", "10.9.0.7")
+	run := func(what string, want int) {
+		t.Helper()
+		if err := alert.Run(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if n := alertsFor(drain(got), "10.9.0.7"); n != want {
+			t.Fatalf("%s: %d alerts, want %d", what, n, want)
+		}
+	}
+	run("silent for an hour", 1)
+	run("still silent", 0)
+	metrics.Set("radius_nas_last_packet_timestamp", float64(now.Unix()), "nas", "10.9.0.7")
+	run("packets back", 1)
+	run("still fine", 0)
+}
+
 func TestJobFailingAlertOnceAndRecovery(t *testing.T) {
 	e := setup(t)
 	got := withNotify(t, e)
