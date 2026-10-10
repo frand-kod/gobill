@@ -166,6 +166,7 @@ type rechargePage struct {
 	Customer, Plan, Method          string
 	Plans, Methods                  []option
 	ErrCustomer, ErrPlan, ErrMethod string
+	Summary                         string // JSON labels for the customer summary panel
 }
 
 // CustomerField is the customer picker for the recharge form (name "customer", as before).
@@ -181,7 +182,7 @@ func (s *Server) rechargeOptions(r *http.Request) ([]option, error) {
 }
 
 func (s *Server) rechargeForm(w http.ResponseWriter, r *http.Request, status int, d rechargePage, plans []option) {
-	d.Plans, d.Methods = plans, s.rechargeMethods(r.Context())
+	d.Plans, d.Methods, d.Summary = plans, s.rechargeMethods(r.Context()), s.summaryLabels()
 	s.render(w, r, status, "recharge", Page{Title: "Recharge Account", Data: d})
 }
 

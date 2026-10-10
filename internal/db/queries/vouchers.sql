@@ -8,6 +8,11 @@ SELECT * FROM vouchers WHERE id = ?;
 -- name: GetVoucherByCode :one
 SELECT * FROM vouchers WHERE code = ?;
 
+-- name: LastVoucherUsedBy :one
+-- The voucher a customer redeemed last; a voucher account is one that redeemed a voucher.
+SELECT v.code, p.name AS plan_name FROM vouchers v JOIN plans p ON p.id = v.plan_id
+WHERE v.used_by = ? ORDER BY v.used_at DESC, v.id DESC LIMIT 1;
+
 -- name: ListVouchers :many
 SELECT * FROM vouchers ORDER BY id DESC LIMIT ? OFFSET ?;
 

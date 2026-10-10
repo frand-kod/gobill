@@ -11,7 +11,7 @@ function gbCustomerPick(cfg) {
       var me = this;
       fetch('/admin/search?q=' + encodeURIComponent(this.username) + '&limit=1', { headers: { Accept: 'application/json' } })
         .then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (rows) { var r = rows.find(function (x) { return x.username === me.username; }); if (r) me.fill(r); })
+        .then(function (rows) { var r = rows.find(function (x) { return x.username === me.username; }); if (r) { me.fill(r); me.$dispatch('customer-picked', { id: r.id }); } })
         .catch(function () {});
     },
     fill: function (r) { this.username = r.username; this.fullname = r.fullname || ''; this.status = r.status; this.balance = r.balance || ''; },
@@ -32,6 +32,7 @@ function gbCustomerPick(cfg) {
     },
     choose: function (r) {
       this.fill(r);
+      this.$dispatch('customer-picked', { id: r.id }); // the recharge page shows this customer's summary
       this.editing = false; this.open = false; this.q = ''; this.items = []; this.active = -1;
     },
     enter: function (e) {
@@ -43,6 +44,7 @@ function gbCustomerPick(cfg) {
     change: function () {
       this.username = ''; this.fullname = ''; this.status = ''; this.balance = '';
       this.editing = true;
+      this.$dispatch('customer-picked', { id: 0 });
       var me = this;
       this.$nextTick(function () { me.$refs.q.focus(); me.openList(); });
     },

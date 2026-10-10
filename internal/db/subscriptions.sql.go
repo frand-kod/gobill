@@ -253,6 +253,52 @@ func (q *Queries) ListActiveExpiringBetween(ctx context.Context, arg ListActiveE
 	return items, nil
 }
 
+const listActiveSubscriptionsWithPlan = `-- name: ListActiveSubscriptionsWithPlan :many
+SELECT s.id, s.plan_id, s.router_id, s.type, s.expires_at, p.name AS plan_name
+FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+WHERE s.customer_id = ? AND s.status = 'active' ORDER BY s.expires_at
+`
+
+type ListActiveSubscriptionsWithPlanRow struct {
+	ID        int64
+	PlanID    int64
+	RouterID  sql.NullInt64
+	Type      string
+	ExpiresAt int64
+	PlanName  string
+}
+
+// Customer summary: the subscriptions still active (any expiry, as billing treats them) with the plan name.
+func (q *Queries) ListActiveSubscriptionsWithPlan(ctx context.Context, customerID int64) ([]ListActiveSubscriptionsWithPlanRow, error) {
+	rows, err := q.db.QueryContext(ctx, listActiveSubscriptionsWithPlan, customerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActiveSubscriptionsWithPlanRow
+	for rows.Next() {
+		var i ListActiveSubscriptionsWithPlanRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PlanID,
+			&i.RouterID,
+			&i.Type,
+			&i.ExpiresAt,
+			&i.PlanName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listExpiredActiveSubscriptions = `-- name: ListExpiredActiveSubscriptions :many
 SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id FROM subscriptions WHERE status = 'active' AND expires_at <= ?1 ORDER BY expires_at
 `
