@@ -20,6 +20,7 @@ type field struct {
 	Fold                                  bool   // its card sits inside a collapsed "Advanced options"
 	Balance                               bool   // customer picker lists each customer's balance
 	Btn                                   string // link field: button text, default "Download backup"
+	Snippet                               string // tokenshow field: text shown in a code block
 }
 
 type option struct{ Value, Label string }

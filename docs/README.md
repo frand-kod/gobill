@@ -11,6 +11,7 @@ Pilih dokumen sesuai peran Anda. Setiap dokumen berdiri sendiri. Ringkasan proye
 | [mikrotik.md](mikrotik.md) | Setup MikroTik mode API dan RADIUS bawaan; uji aman di router produksi |
 | [freeradius-rest.md](freeradius-rest.md) | Tetap memakai FreeRADIUS lewat `rlm_rest` |
 | [keamanan.md](keamanan.md) | Pengerasan RADIUS, firewall, dan keamanan aplikasi |
+| [monitoring.md](monitoring.md) | Status Sistem, `/health` vs `/metrics` (Prometheus), alert operator, Uptime Kuma |
 | [migrasi-phpnuxbill.md](migrasi-phpnuxbill.md) | Impor dari PHPNuxBill, cutover, rollback, checklist jalan paralel |
 
 ## Untuk developer

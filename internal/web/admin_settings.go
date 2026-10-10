@@ -37,7 +37,7 @@ var settingsTabs = []struct {
 
 // settingsSecret are write-only: never rendered, and an empty post keeps the stored value.
 // ponytail: stored plaintext in settings, as the old app did; move to internal/secret if needed.
-var settingsSecret = map[string]bool{"telegram_bot": true, "smtp_pass": true, "webhook_secret": true, "alt_wga_password": true, "tripay_api_key": true, "tripay_private_key": true}
+var settingsSecret = map[string]bool{"telegram_bot": true, "smtp_pass": true, "webhook_secret": true, "alt_wga_password": true, "tripay_api_key": true, "tripay_private_key": true, "metrics_token": true}
 
 // settingsFile are image uploads. The setting holds the stored filename; an empty post keeps it.
 var settingsFile = map[string]bool{"logo": true, "logo_dark": true, "login_page_logo": true, "login_page_logo_dark": true, "login_page_favicon": true, "login_page_wallpaper": true}
@@ -139,6 +139,11 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			sel("notify_otp", "Send OTP codes", settingsYesNo...).hint("Verification codes for registration, forgot password and contact change. When No, these features say codes are unavailable"),
 		}, "Global switches", "")
 		out = append(out, section([]field{
+			sel("alert_channel", "Operator alert channel", option{"telegram", "Telegram"}, option{"wa", "WhatsApp"}, option{"both", "Telegram and WhatsApp"}).hint("Where alerts about this box go: disk, NAS silent, failing jobs or channels, login attempts, backups. Telegram uses the Telegram ID in Integrations"),
+			text("alert_wa_to", "Operator alert WhatsApp number", v, e).hint("Empty = the daily summary number. Needs the WA server or WhatsApp URL in Integrations"),
+			text("alert_nas_silent_minutes", "NAS silent alert (minutes)", v, e).as("number").hint("Alert when a NAS that sent RADIUS packets before sends none for this many minutes. Default 15"),
+		}, "Operator alerts", "")...)
+		out = append(out, section([]field{
 			notif("notif_expired", "Expired Notification Message"),
 			notif("notif_reminder_7_day", "Reminder Message (7 days)"),
 			notif("notif_reminder_3_day", "Reminder Message (3 days)"),
@@ -194,10 +199,17 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			text("mail_from", "Mail From", v, e),
 			text("mail_reply_to", "Mail Reply To", v, e),
 		}, "Email (SMTP)", "")...)
-		return append(out, section([]field{
+		out = append(out, section([]field{
 			text("webhook_url", "Webhook URL", v, e).hint("http or https. Requests are signed with X-Signature"),
 			sec("webhook_secret", "Webhook Secret"),
 		}, "Webhook", "")...)
+		return append(out, section([]field{
+			sec("metrics_token", "Token /metrics"),
+			{Name: "metrics_new", Label: "Buat token baru", Type: "formbtn", Value: "/admin/settings/integrations/metrics-token", Btn: "Buat token baru",
+				Hint: "Replaces the current token. Old scrapers stop working until they get the new one"},
+			{Name: "metrics_off", Label: "Nonaktifkan", Type: "formbtn", Value: "/admin/settings/integrations/metrics-token/disable", Btn: "Nonaktifkan",
+				Hint: "Clears the token: /metrics returns 404"},
+		}, "Prometheus /metrics", "")...)
 	case "payment":
 		f := sel("payment_gateway", "Payment Gateway", option{"", "Disabled"}, option{"tripay", "Tripay"})
 		out := section([]field{f,
@@ -280,7 +292,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 func fieldNames(fs []field) []string {
 	var out []string
 	for _, f := range fs {
-		if f.Type == "watest" || f.Type == "dsnow" {
+		if f.Type == "watest" || f.Type == "dsnow" || f.Type == "formbtn" {
 			continue // action button, not a setting
 		}
 		out = append(out, f.Name)
@@ -321,6 +333,12 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	}
 	if x := v["daily_summary_channel"]; x != "" && !oneOf(x, "telegram", "wa", "both") {
 		e["daily_summary_channel"] = "Choose Telegram, WhatsApp or both"
+	}
+	if x := v["alert_channel"]; x != "" && !oneOf(x, "telegram", "wa", "both") {
+		e["alert_channel"] = "Choose Telegram, WhatsApp or both"
+	}
+	if x := v["alert_nas_silent_minutes"]; x != "" && !inRange(x, 1, 1440) {
+		e["alert_nas_silent_minutes"] = "Enter whole minutes, 1 to 1440"
 	}
 	if x := v["reset_day"]; x != "" && !inRange(x, 1, 28) {
 		e["reset_day"] = "Enter a day from 1 to 28"
@@ -442,6 +460,13 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 	fp := formPage{Heading: "Settings", Action: "/admin/settings/" + tab, Cancel: "/admin", Fields: s.settingsFields(tab, v, e, st)}
 	if tab == "payment" { // the URL to paste into the Tripay merchant dashboard
 		fp.Fields[0].Hint = "Callback URL for Tripay: " + baseURL(r) + "/callback/tripay"
+	}
+	if tok := s.sessions.PopString(r.Context(), "metrics_token_once"); tok != "" && tab == "integrations" {
+		snippet := "scrape_configs:\n  - job_name: gobill\n    metrics_path: /metrics\n    authorization:\n      type: Bearer\n      credentials: " + tok +
+			"\n    static_configs:\n      - targets: ['" + r.Host + "']"
+		once := field{Name: "metrics_token_once", Label: "Token /metrics baru", Type: "tokenshow", Value: tok, Snippet: snippet,
+			Section: "Token baru", Hint: "Copy it now. It is not shown again"}
+		fp.Fields = append([]field{once}, fp.Fields...)
 	}
 	if tab == "miscellaneous" && adminFrom(r).Role == "SuperAdmin" { // backup is SuperAdmin only, as in the old dbstatus page
 		fp.Fields = append(fp.Fields, field{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/miscellaneous/backup", Section: "System", Hint: s.backupStatus(st)},

@@ -86,11 +86,12 @@ function gbShell() {
       </div>
 
       {{if $mgr}}
-      <div x-data="{o:{{if or (hasPrefix .Path "/admin/payment-gateway") (hasPrefix .Path "/admin/logs")}}true{{else}}false{{end}}}">
+      <div x-data="{o:{{if or (hasPrefix .Path "/admin/payment-gateway") (hasPrefix .Path "/admin/logs") (hasPrefix .Path "/admin/status")}}true{{else}}false{{end}}}">
         <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Admin"}}</span>{{icon "chevron-down"}}</button>
         <div x-show="o" x-cloak class="space-y-1">
           <a class="nav-item" href="/admin/payment-gateway" data-tip="{{T "Payment Gateway"}}"{{if eq $act "/admin/payment-gateway"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Payment Gateway"}}</span></a>
           <a class="nav-item" href="/admin/logs" data-tip="{{T "Logs"}}"{{if eq $act "/admin/logs"}} aria-current="page"{{end}}>{{icon "scroll-text"}}<span>{{T "Logs"}}</span></a>
+          <a class="nav-item" href="/admin/status" data-tip="{{T "System Status"}}"{{if eq $act "/admin/status"}} aria-current="page"{{end}}>{{icon "activity"}}<span>{{T "System Status"}}</span></a>
         </div>
       </div>
       {{end}}

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/metrics"
 )
 
 // pending2FAWindow is how long a password-verified admin has to enter the second factor.
@@ -54,6 +55,7 @@ func (s *Server) login2FASubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.verify2FA(r, admin, cleanCode(r.PostFormValue("code"))) {
+		metrics.Inc("login_failures_total", "scope", "2fa")
 		s.recordFailure(ip)
 		s.recordFailure(uk)
 		s.render(w, r, http.StatusOK, "login_2fa", Page{Title: "Two-factor login", Error: "Invalid code"})

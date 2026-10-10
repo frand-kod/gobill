@@ -49,10 +49,8 @@ func (s *Service) RouterCheck(ctx context.Context) error {
 		if !up {
 			msg = "Router " + r.Name + " is OFFLINE: " + perr.Error()
 		}
-		if nf := s.notifier(); nf != nil {
-			if err := nf.Telegram(ctx, msg); err != nil {
-				slog.Error("router alert", "router", r.Name, "err", err)
-			}
+		if err := s.Alert(ctx, msg); err != nil {
+			slog.Error("router alert", "router", r.Name, "err", err)
 		}
 	}
 	return nil

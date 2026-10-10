@@ -138,10 +138,11 @@ func run() error {
 	go job.Run(ctx, "reminder", time.Minute, svc.ReminderJob(guard.Trusted))
 	go job.Run(ctx, "log_clean", 10*time.Minute, svc.LogCleanJob(guard.Trusted)) // once a day, setting log_keep_days
 	go job.Run(ctx, "router_check", 5*time.Minute, svc.RouterCheck)
-	go job.Run(ctx, "disk_check", 10*time.Minute, svc.DiskAlertJob(func() (int64, error) { return job.DiskFreeMB(filepath.Dir(dbPath)) }))
+	alerts := &billing.AlertJob{S: svc, DBPath: dbPath, Free: func() (int64, error) { return job.DiskFreeMB(filepath.Dir(dbPath)) }}
+	go job.Run(ctx, "alert", time.Minute, alerts.Run)
 	go job.Run(ctx, "daily_summary", time.Minute, svc.DailySummaryJob(guard.Trusted))
 	backup := &job.Backup{Conn: conn, Q: db.New(conn), Trusted: guard.Trusted, Dir: backupDir,
-		Mirror: env("NUXBILL_BACKUP_MIRROR", ""), Alert: svc.Alert}
+		Mirror: env("NUXBILL_BACKUP_MIRROR", "")}
 	go job.Run(ctx, "backup", time.Minute, backup.Run)
 	app.BackupDir, app.BackupMirror = backup.Dir, backup.Mirror
 	restartCh := make(chan struct{}, 1)

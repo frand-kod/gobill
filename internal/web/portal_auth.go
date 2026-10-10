@@ -10,6 +10,7 @@ import (
 	"errors"
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/metrics"
 	"github.com/frand-kod/gobill/internal/secret"
 	"golang.org/x/crypto/bcrypt"
 	"strings"
@@ -70,6 +71,7 @@ func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	ok := bcrypt.CompareHashAndPassword(hash, []byte(r.PostFormValue("password"))) == nil
 	if err != nil || !ok || c.Status == "Banned" || c.Status == "Disabled" {
+		metrics.Inc("login_failures_total", "scope", "portal")
 		s.recordFailure(ip)
 		s.recordFailure(uk)
 		s.prender(w, r, 200, "p_login", Page{Title: "Sign in", Error: "Invalid Username or Password", Data: username})

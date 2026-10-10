@@ -26,6 +26,7 @@ import (
 	"layeh.com/radius/vendors/mikrotik"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/metrics"
 	"github.com/frand-kod/gobill/internal/secret"
 )
 
@@ -159,23 +160,47 @@ type Decision struct {
 // Authorize is the shared decision: customer lookup, password, active and unexpired plan
 // (clock-guarded), shared_users, time and data limits. Old PHP radius.php semantics.
 func (s *Server) Authorize(ctx context.Context, rq AuthRequest) Decision {
+	start := time.Now()
+	defer func() {
+		metrics.Add("radius_auth_duration_seconds_sum", time.Since(start).Seconds())
+		metrics.Inc("radius_auth_duration_seconds_count")
+		metrics.Set("radius_nas_last_packet_timestamp", float64(s.now().Unix()), "nas", rq.NAS)
+	}()
 	// ponytail: per-user throttle is in-memory, per process (see failLimiter). A retransmit never
 	// gets here: dupCache absorbs it, so retries cannot lock a user out.
 	now := s.now().Unix()
 	if rq.User != "" && s.userFails.blocked(rq.User, now, voucherMaxFails) {
+		metrics.Inc("radius_auth_rejected_total", "reason", "other")
 		return Decision{Reject: "Too many attempts, try again later"}
 	}
 	d := s.decide(ctx, rq)
 	switch d.Reject {
 	case "":
 		s.userFails.reset(rq.User)
+		metrics.Inc("radius_auth_accepted_total")
 	case badPassword:
 		s.userFails.fail(rq.User, now)
+		metrics.Inc("radius_auth_rejected_total", "reason", "bad_password")
+	default:
+		metrics.Inc("radius_auth_rejected_total", "reason", rejectReason(d.Reject))
 	}
 	return d
 }
 
 const badPassword = "Username or Password is wrong"
+
+// rejectReason maps a reject message to the metric label reason.
+func rejectReason(msg string) string {
+	switch {
+	case strings.Contains(msg, "Voucher") || strings.Contains(msg, "voucher"):
+		return "voucher"
+	case strings.Contains(msg, "xpired"):
+		return "expired"
+	case strings.Contains(msg, "limit") || strings.Contains(msg, "already logged in"):
+		return "limit"
+	}
+	return "other"
+}
 
 func (s *Server) decide(ctx context.Context, rq AuthRequest) Decision {
 	// Old radius.php: password == username (or empty, or CHAP of either) means "voucher login".
@@ -529,6 +554,8 @@ type AcctRequest struct {
 // Account applies Start, Interim-Update, Stop and Accounting-On/Off to radius_sessions.
 func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 	now := s.now().Unix()
+	metrics.Inc("radius_acct_packets_total", "status", a.Type.String())
+	metrics.Set("radius_nas_last_packet_timestamp", float64(now), "nas", a.NAS)
 	switch a.Type {
 	case rfc2866.AcctStatusType_Value_AccountingOn, rfc2866.AcctStatusType_Value_AccountingOff:
 		// NAS rebooted: its open sessions are gone.
