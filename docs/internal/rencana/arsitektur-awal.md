@@ -2,6 +2,8 @@
 
 ## Gambaran proses
 
+**Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
+
 Satu binary `nuxbill` menjalankan semua komponen dalam satu proses:
 
 ```
@@ -152,3 +154,10 @@ Pengaturan lain (nama usaha, mata uang, notifikasi, gateway) disimpan di tabel `
 ## i18n
 
 Teks memakai ulang `system/lan/*.json` lama dengan format key → teks yang sama. Di template dipanggil lewat fungsi `{{ T "Customer" }}`. Bahasa default diatur di settings.
+
+## Lihat juga
+
+- [README](README.md)
+- [keputusan-stack](keputusan-stack.md)
+- [roadmap](roadmap.md)
+- [arsitektur](../arsitektur.md)

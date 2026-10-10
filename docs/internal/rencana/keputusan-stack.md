@@ -3,9 +3,11 @@
 - **Status:** Diterima
 - **Tanggal:** 2026-10-08
 
+**Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
+
 ## Konteks
 
-- Kode lama tidak memakai framework, tidak punya test, dan memiliki masalah keamanan yang struktural (lihat [01-audit-legacy.md](01-audit-legacy.md)).
+- Kode lama tidak memakai framework, tidak punya test, dan memiliki masalah keamanan yang struktural (lihat [audit-legacy.md](audit-legacy.md)).
 - Strategi yang dipilih adalah **rewrite total** dengan migrasi data satu kali.
 - Target deploy utama adalah **STB Armbian** (ARM64/ARMv7, RAM 1–2 GB, storage eMMC, tanpa RTC). Aplikasi juga harus jalan di VPS dan Docker.
 - Prioritas: stabil, lalu mudah di-maintain, baru kemudian fitur.
@@ -89,3 +91,9 @@ Library lain hanya boleh ditambahkan jika stdlib dan daftar di atas terbukti tid
 - **FreeRADIUS jadi opsional.** RADIUS built-in menangani auth dan accounting. Pengguna yang tetap ingin memakai FreeRADIUS cukup mengganti `connect_uri` rlm_rest ke `https://<nuxbill>/radius.php`: endpoint kompatibel `radius.php` PHPNuxBill sudah tersedia (`internal/web/radiusrest.go`) dan memakai logika keputusan yang sama dengan server UDP.
 - **SQLite artinya satu instance per database.** Ini cukup untuk ISP kecil-menengah (ribuan pelanggan). `ponytail:` jika butuh multi-instance atau puluhan ribu sesi aktif, tambahkan dukungan PostgreSQL. `sqlc` mendukung PostgreSQL, sehingga yang perlu ditulis ulang hanya file query.
 - **Pengelola perlu belajar Go dasar.** Untuk memitigasinya, gaya kode dibatasi oleh aturan di atas, dan setiap package diberi contoh test.
+
+## Lihat juga
+
+- [README](README.md)
+- [arsitektur-awal](arsitektur-awal.md)
+- [pengembangan](../pengembangan.md)
