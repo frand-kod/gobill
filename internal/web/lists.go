@@ -95,6 +95,28 @@ func (lp listPage) query() url.Values {
 	return v
 }
 
+// numericCols are right-aligned in lists: amounts, counts and sizes.
+var numericCols = map[string]bool{"Balance": true, "Plan Price": true, "Value": true, "Max Usage": true, "Used": true,
+	"Min Order": true, "Download": true, "Upload": true, "Port Amount": true, "Attenuation": true}
+
+// IsNum reports whether column i is numeric (right-aligned, header included).
+func (lp listPage) IsNum(i int) bool {
+	return i < len(lp.Cols) && numericCols[lp.Cols[i]]
+}
+
+// Filtered reports whether a search, date, filter or sort is applied; the Reset control shows then.
+func (lp listPage) Filtered() bool {
+	if lp.Q != "" || lp.From != "" || lp.To != "" || lp.Sort != "" {
+		return true
+	}
+	for _, f := range lp.Filters {
+		if f.Val != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // SortKey is the sort key of column i, "" when it is not sortable.
 func (lp listPage) SortKey(i int) string {
 	if i < len(lp.SortKeys) {

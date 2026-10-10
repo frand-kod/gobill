@@ -13,49 +13,57 @@
   <input class="input w-32" type="number" name="keep" min="1" required placeholder="{{T "Keep logs (days)"}}" aria-label="{{T "Keep logs (days)"}}">
   <button class="btn btn-danger" type="submit">{{icon "trash-2"}}<span>{{T "Clean Logs"}}</span></button>
 </form>{{end}}
-{{if .Bulk}}<form id="bulk" method="post" class="mb-3 flex flex-wrap gap-2">
-  {{range .Bulk}}<button class="btn {{if .Danger}}btn-danger{{else}}btn-ghost{{end}}" type="submit" formaction="{{$d.Base}}/{{.Path}}" data-confirm="{{T .Label}}{{if not .All}} ({n}){{end}}?"{{if .Danger}} data-confirm-danger{{end}}>{{if .Danger}}{{icon "trash-2"}}{{end}}<span>{{T .Label}}</span></button>{{end}}
-</form>{{end}}
+<div data-list>
 <div class="card overflow-hidden">
   {{if .Searchable}}
-  <form class="flex flex-wrap items-center gap-2 border-b border-line p-3" method="get" action="{{.Base}}" role="search">
+  <form class="flex flex-wrap items-center gap-2 border-b border-line p-3" method="get" action="{{.Base}}" role="search" data-live>
     <div class="relative min-w-48 flex-1 sm:max-w-xs">
       <span class="pointer-events-none absolute inset-y-0 start-3 flex items-center text-ink-2">{{icon "search"}}</span>
       <input class="input ps-10" type="search" name="q" value="{{.Q}}" placeholder="{{T "Search"}}" aria-label="{{T "Search"}}">
     </div>
     {{if .Dates}}<input class="input w-auto" type="date" name="from" value="{{.From}}" aria-label="{{T "From"}}"><input class="input w-auto" type="date" name="to" value="{{.To}}" aria-label="{{T "To"}}">{{end}}
     {{range .Filters}}{{$cur := .Val}}<select class="input w-auto" name="{{.Name}}" aria-label="{{T .Name}}">{{range .Opts}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{T .Label}}</option>{{end}}</select>{{end}}
+    {{if .Sort}}<input type="hidden" name="sort" value="{{.Sort}}"><input type="hidden" name="dir" value="{{.Dir}}">{{end}}
     <button class="btn btn-ghost" type="submit">{{T "Search"}}</button>
+    {{if .Filtered}}<a class="btn btn-ghost btn-icon tip-end" href="{{.Base}}" aria-label="{{T "Reset filter"}}" data-tip="{{T "Reset filter"}}">{{icon "x"}}</a>{{end}}
   </form>
+  {{else if .Filtered}}
+  <div class="flex justify-end border-b border-line p-3"><a class="btn btn-ghost btn-icon tip-end" href="{{.Base}}" aria-label="{{T "Reset filter"}}" data-tip="{{T "Reset filter"}}">{{icon "x"}}</a></div>
   {{end}}
-  <div class="overflow-x-auto">
-    <table class="table">
-      <thead><tr>{{if .Bulk}}<th class="w-10"><label class="flex size-10 items-center justify-center"><input type="checkbox" class="size-4 accent-brand-500" aria-label="{{T "Select all"}}" onchange="document.querySelectorAll('input[name=ids]').forEach(function(c){c.checked=event.target.checked})"></label></th>{{end}}{{range $i, $c := .Cols}}<th>{{with $d.SortKey $i}}<a class="hover:underline" href="{{$d.SortURL .}}">{{T $c}}{{if eq $d.Sort .}} {{if eq $d.Dir "asc"}}&uarr;{{else}}&darr;{{end}}{{end}}</a>{{else}}{{T $c}}{{end}}</th>{{end}}{{if .CanEdit}}<th></th>{{end}}</tr></thead>
-      <tbody>
-      {{range $r := .Rows}}
-        <tr>
-          {{if $d.Bulk}}<td class="w-10"><label class="flex size-10 items-center justify-center"><input type="checkbox" class="size-4 accent-brand-500" name="ids" value="{{$r.ID}}" form="bulk" aria-label="{{index $r.Cells 0}}"></label></td>{{end}}
-          {{range $i, $c := $r.Cells}}<td>
-            {{if eq (index $d.Cols $i) "Status"}}<span class="badge {{badge $c}}">{{T $c}}</span>
-            {{else if eq (index $d.Cols $i) "Secret"}}{{if $c}}<span class="badge badge-warn">{{T $c}}</span>{{end}}
-            {{else if and (eq $i 0) (or $d.ViewLink $d.InvoiceLink)}}<a class="link" href="{{$d.Base}}/{{$r.ID}}{{if $d.InvoiceLink}}/invoice{{end}}">{{$c}}</a>
-            {{else}}{{$c}}{{end}}
-          </td>{{end}}
-          {{if $d.CanEdit}}<td class="whitespace-nowrap text-end">
-            <div class="flex flex-wrap justify-end gap-1">
-              {{range $d.Actions}}{{$ic := "circle-check"}}{{if eq .Path "extend"}}{{$ic = "calendar-plus"}}{{else if eq .Path "deactivate"}}{{$ic = "power"}}{{else if eq .Path "toggle"}}{{$ic = "power"}}{{else if eq .Path "sync"}}{{$ic = "refresh-cw"}}{{else if eq .Path "test"}}{{$ic = "wifi"}}{{end}}<form class="flex items-center gap-1" method="post" action="{{$d.Base}}/{{$r.ID}}/{{.Path}}"{{if .Confirm}} data-confirm="{{T .Label}} {{index $r.Cells 0}}{{with .Field}} (+{{printf "{%s}" .}} {{T "days"}}){{end}}?"{{if eq .Path "deactivate"}} data-confirm-danger{{end}}{{end}}>{{with .Field}}<input class="input input-sm" type="number" name="{{.}}" value="7" min="1" aria-label="{{T .}}">{{end}}<button class="btn btn-ghost btn-icon tip-end" type="submit" aria-label="{{T .Label}}" data-tip="{{T .Label}}">{{icon $ic}}</button></form>{{end}}
-              {{if not $d.DeleteOnly}}<a class="btn btn-ghost btn-icon tip-end" href="{{$d.Base}}/{{$r.ID}}/edit" aria-label="{{T "Edit"}}" data-tip="{{T "Edit"}}">{{icon "pencil"}}</a>{{end}}
-              {{if not $d.NoDelete}}<form method="post" action="{{$d.Base}}/{{$r.ID}}/delete" data-confirm="{{T "Delete"}} {{index $r.Cells 0}}?" data-confirm-danger>
-                <button class="btn btn-danger btn-icon tip-end" type="submit" aria-label="{{T "Delete"}}" data-tip="{{T "Delete"}}">{{icon "trash-2"}}</button>
-              </form>{{end}}
-            </div>
-          </td>{{end}}
-        </tr>
-      {{else}}
-        <tr><td class="py-8 text-center text-ink-2" colspan="99"><p>{{T "Nothing here yet."}}</p>{{if .CanCreate}}<a class="btn btn-primary mt-3" href="{{.Base}}/new">{{icon "plus"}}<span>{{T "Add"}}</span></a>{{end}}</td></tr>
-      {{end}}
-      </tbody>
-    </table>
+  <div class="list-results">
+    {{if .Bulk}}<form id="bulk" method="post" class="bulk-bar">
+      <span class="mr-auto text-sm text-ink-2"><span data-bulk-count>0</span> {{T "selected"}}</span>
+      {{range .Bulk}}<button class="btn {{if .Danger}}btn-danger{{else}}btn-ghost{{end}}" type="submit" formaction="{{$d.Base}}/{{.Path}}" data-confirm="{{T .Label}}{{if not .All}} ({n}){{end}}?"{{if .Danger}} data-confirm-danger{{end}}>{{if .Danger}}{{icon "trash-2"}}{{end}}<span>{{T .Label}}</span></button>{{end}}
+    </form>{{end}}
+    <div class="table-scroll">
+      <table class="table">
+        <thead><tr>{{if .Bulk}}<th class="w-10"><label class="flex size-10 items-center justify-center"><input type="checkbox" class="size-4 accent-brand-500" aria-label="{{T "Select all"}}" data-select-all></label></th>{{end}}{{range $i, $c := .Cols}}<th{{if $d.IsNum $i}} class="num"{{end}}>{{with $d.SortKey $i}}<a class="sort-link" href="{{$d.SortURL .}}"{{if eq $d.Sort .}} aria-sort="{{if eq $d.Dir "asc"}}ascending{{else}}descending{{end}}"{{end}}>{{T $c}}<span class="sort-ic{{if eq $d.Sort .}} sort-on{{end}}" aria-hidden="true">{{if and (eq $d.Sort .) (eq $d.Dir "desc")}}{{icon "arrow-down"}}{{else if eq $d.Sort .}}{{icon "arrow-up"}}{{else}}{{icon "arrow-up-down"}}{{end}}</span></a>{{else}}{{T $c}}{{end}}</th>{{end}}{{if .CanEdit}}<th></th>{{end}}</tr></thead>
+        <tbody>
+        {{range $r := .Rows}}
+          <tr>
+            {{if $d.Bulk}}<td class="w-10"><label class="flex size-10 items-center justify-center"><input type="checkbox" class="size-4 accent-brand-500" name="ids" value="{{$r.ID}}" form="bulk" aria-label="{{index $r.Cells 0}}"></label></td>{{end}}
+            {{range $i, $c := $r.Cells}}<td{{if $d.IsNum $i}} class="num"{{end}}>
+              {{if eq (index $d.Cols $i) "Status"}}<span class="badge {{badge $c}}">{{T $c}}</span>
+              {{else if eq (index $d.Cols $i) "Secret"}}{{if $c}}<span class="badge badge-warn">{{T $c}}</span>{{end}}
+              {{else if and (eq $i 0) (or $d.ViewLink $d.InvoiceLink)}}<a class="link" href="{{$d.Base}}/{{$r.ID}}{{if $d.InvoiceLink}}/invoice{{end}}">{{$c}}</a>
+              {{else}}{{$c}}{{end}}
+            </td>{{end}}
+            {{if $d.CanEdit}}<td class="whitespace-nowrap text-end">
+              <div class="flex flex-wrap justify-end gap-1">
+                {{range $d.Actions}}{{$ic := "circle-check"}}{{if eq .Path "extend"}}{{$ic = "calendar-plus"}}{{else if eq .Path "deactivate"}}{{$ic = "power"}}{{else if eq .Path "toggle"}}{{$ic = "power"}}{{else if eq .Path "sync"}}{{$ic = "refresh-cw"}}{{else if eq .Path "test"}}{{$ic = "wifi"}}{{end}}<form class="flex items-center gap-1" method="post" action="{{$d.Base}}/{{$r.ID}}/{{.Path}}"{{if .Confirm}} data-confirm="{{T .Label}} {{index $r.Cells 0}}{{with .Field}} (+{{printf "{%s}" .}} {{T "days"}}){{end}}?"{{if eq .Path "deactivate"}} data-confirm-danger{{end}}{{end}}>{{with .Field}}<input class="input input-sm" type="number" name="{{.}}" value="7" min="1" aria-label="{{T .}}">{{end}}<button class="btn btn-ghost btn-icon tip-end" type="submit" aria-label="{{T .Label}}" data-tip="{{T .Label}}">{{icon $ic}}</button></form>{{end}}
+                {{if not $d.DeleteOnly}}<a class="btn btn-ghost btn-icon tip-end" href="{{$d.Base}}/{{$r.ID}}/edit" aria-label="{{T "Edit"}}" data-tip="{{T "Edit"}}">{{icon "pencil"}}</a>{{end}}
+                {{if not $d.NoDelete}}<form method="post" action="{{$d.Base}}/{{$r.ID}}/delete" data-confirm="{{T "Delete"}} {{index $r.Cells 0}}?" data-confirm-danger>
+                  <button class="btn btn-danger btn-icon tip-end" type="submit" aria-label="{{T "Delete"}}" data-tip="{{T "Delete"}}">{{icon "trash-2"}}</button>
+                </form>{{end}}
+              </div>
+            </td>{{end}}
+          </tr>
+        {{else}}
+          <tr><td class="py-8 text-center text-ink-2" colspan="99"><p>{{T "Nothing here yet."}}</p>{{if .CanCreate}}<a class="btn btn-primary mt-3" href="{{.Base}}/new">{{icon "plus"}}<span>{{T "Add"}}</span></a>{{end}}</td></tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 {{if or .Prev .Next}}
@@ -64,5 +72,7 @@
   {{if .Next}}<a class="btn btn-ghost" href="{{.PageURL .Next}}">{{T "Next"}}</a>{{end}}
 </p>
 {{end}}
+</div>
+<script defer src="/static/list.js"></script>
 {{end}}
 {{end}}

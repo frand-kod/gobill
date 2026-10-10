@@ -136,6 +136,7 @@
   /* stat tile on the dashboard: neutral, the number does the talking */
   .stat { padding: var(--sp-4); @apply flex items-center justify-between rounded-lg border border-line bg-surface; }
   a.stat { @apply hover:bg-surface-2; }
+  a.stat:hover { box-shadow: inset 3px 0 0 var(--accent); }
   .stat-num { font-size: var(--fs-title); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; line-height: 1.25; }
   .stat-label { font-size: var(--fs-small); @apply text-ink-2; }
 
@@ -174,12 +175,26 @@
   .toast { @apply mb-0 pointer-events-auto shadow-lg; }
 
   .table { line-height: var(--lh-table); @apply w-full text-left text-sm; }
-  .table th { font-size: var(--fs-small); padding: var(--sp-2) var(--sp-4); @apply whitespace-nowrap border-b border-line bg-surface-2 font-medium text-ink-2; }
+  /* header: tinted with the neutral tokens, sticky inside .table-scroll; sort arrows dim when unsorted, accent when active */
+  .table th { font-size: var(--fs-small); padding: var(--sp-2) var(--sp-4); font-weight: var(--fw-medium); @apply whitespace-nowrap border-b border-line text-ink-2; background: color-mix(in srgb, var(--surface-2) 60%, var(--border)); }
+  .table thead th { position: sticky; top: 0; z-index: 1; }
+  .table .sort-link { @apply inline-flex items-center gap-1 hover:text-ink; }
+  .table .sort-ic { @apply inline-flex opacity-40; }
+  .table .sort-ic.sort-on { @apply text-accent-fg opacity-100; }
   .table td { height: var(--row-h); padding: var(--row-py) var(--sp-4); font-variant-numeric: tabular-nums; }
   /* zebra: a light mix of the neutral surface tokens, so it follows light and dark. Declared before the hover rule, which must win on equal specificity. */
   .table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--surface-2) 55%, var(--surface)); }
   .table tbody tr { @apply border-t border-line first:border-t-0 hover:bg-surface-2; }
+  /* row hover and keyboard focus: a 3px accent edge on the first cell (plus a frame on focus), on top of the tint */
+  .table tbody tr:hover > td:first-child, .table tbody tr:focus-within > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+  .table tbody tr:focus-within > td { box-shadow: inset 0 1px 0 var(--accent), inset 0 -1px 0 var(--accent); }
+  .table tbody tr:focus-within > td:first-child { box-shadow: inset 3px 0 0 var(--accent), inset 0 1px 0 var(--accent), inset 0 -1px 0 var(--accent); }
   .table .num { font-variant-numeric: tabular-nums; @apply text-end; }
+  /* scroll region for long lists: the header stays visible */
+  .table-scroll { max-height: min(70vh, 40rem); @apply overflow-auto; }
+  /* selection bar: hidden, shown above the table only while a row is checked */
+  .bulk-bar { display: none; }
+  .list-results:has(input[name=ids]:checked) > .bulk-bar { @apply flex flex-wrap items-center justify-end gap-2 border-b border-line bg-surface-2 px-3 py-2; }
   /* compact status badge in tables: dot + short text */
   .table .badge { @apply gap-1 px-1.5 py-0 leading-5; }
 
