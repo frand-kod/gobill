@@ -199,8 +199,27 @@
 
   /* sidebar: light surface, thin border, accent only on the active item */
   .sidebar { @apply border-e border-line bg-surface text-ink; }
-  .nav-item { min-height: 2.25rem; @apply flex items-center gap-3 rounded-md px-3 py-1.5 text-sm text-ink hover:bg-surface-2 aria-[current=page]:bg-brand-50 aria-[current=page]:font-medium aria-[current=page]:text-accent-fg; }
+  .nav-item { min-height: 2.25rem; @apply flex items-center gap-3 rounded-md border-s-2 border-transparent px-3 py-1.5 text-sm text-ink hover:bg-surface-2 aria-[current=page]:border-[var(--accent)] aria-[current=page]:bg-brand-50 aria-[current=page]:font-medium aria-[current=page]:text-accent-fg; }
   .nav-group { @apply flex w-full cursor-pointer items-center justify-between px-3 pb-1 pt-4 text-xs font-medium text-ink-2; }
+  /* group chevron: right when closed, down when open */
+  .nav-group > svg { rotate: -90deg; transition: rotate 150ms ease; }
+  .nav-group[aria-expanded="true"] > svg { rotate: 0deg; }
+  .sb-head { padding-inline-end: 0.75rem; }
+  .brand-link { display: flex; }
+  /* thin scrollbar that stays out of the way; the sidebar still scrolls */
+  .sb-scroll { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text-2) 40%, transparent) transparent; }
+  .nav-item[data-tip]::after { display: none; }
+  /* desktop icon rail: labels, groups and the logo hide; tooltips show the label (position set by gbShell.tip) */
+  @media (min-width: 64rem) {
+    .sidebar-rail .sb-head { justify-content: center; padding-inline: 0; }
+    .sidebar-rail .brand-link { display: none; }
+    .sidebar-rail .sb-toggle svg { rotate: 180deg; }
+    .sidebar-rail .nav-group { display: none; }
+    .sidebar-rail [x-show] { display: block !important; }
+    .sidebar-rail .nav-item { justify-content: center; padding-inline: 0; }
+    .sidebar-rail .nav-item > span { display: none; }
+    .sidebar-rail .nav-item[data-tip]::after { display: block; position: fixed; top: var(--tip-y, 50%); inset-inline-start: 4.25rem; bottom: auto; margin: 0; translate: 0 -50%; }
+  }
 
   .dl { @apply grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-[max-content_1fr]; }
   .dl dt { @apply pt-2 text-sm font-medium text-ink-2 sm:py-1; }
