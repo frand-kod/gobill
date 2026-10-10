@@ -8,9 +8,6 @@ SELECT * FROM pools WHERE id = ?;
 -- name: ListPools :many
 SELECT * FROM pools ORDER BY name LIMIT ? OFFSET ?;
 
--- name: ListPoolsByRouter :many
-SELECT * FROM pools WHERE router_id = ? ORDER BY name;
-
 -- name: SearchPools :many
 SELECT * FROM pools WHERE name LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' ORDER BY name LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 

@@ -13,6 +13,10 @@ UPDATE customers_inbox SET read_at = unixepoch() WHERE id = ? AND customer_id = 
 -- name: CountUnreadInbox :one
 SELECT COUNT(*) FROM customers_inbox WHERE customer_id = ? AND read_at IS NULL;
 
+-- name: DeleteReadInboxBefore :execrows
+-- One batch of read messages; the caller loops until 0 rows.
+DELETE FROM customers_inbox WHERE rowid IN (SELECT i.rowid FROM customers_inbox i WHERE i.read_at IS NOT NULL AND i.created_at < ? LIMIT 5000);
+
 -- name: ListMessageRecipients :many
 -- Empty service_type/sub_status and router_id 0 = any. Filters on router/status match a subscription.
 SELECT c.* FROM customers c

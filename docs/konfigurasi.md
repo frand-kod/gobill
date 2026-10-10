@@ -39,7 +39,7 @@ Ubah di menu Settings (kunci di bawah muncul di tabel `settings`).
 | `radius_rest_allow` | Daftar IP/CIDR (pisahkan koma) yang boleh memanggil `/radius.php`. Kosong = hanya loopback (127.0.0.0/8, ::1); isi dengan IP FreeRADIUS jika berjalan di host lain |
 | `trust_proxy` | `yes` agar `X-Forwarded-For` dipercaya. Biarkan `no` tanpa reverse proxy. Entri paling kanan dipakai sebagai IP klien, jadi proxy harus menulis IP asli di sana. Jika Cloudflare ada di depan nginx, atur nginx `set_real_ip_from` (rentang IP Cloudflare) + `real_ip_header CF-Connecting-IP`, dan `proxy_set_header X-Forwarded-For $remote_addr;` |
 | `clock_guard` | `off` mematikan guard jam (hanya jika ada RTC akurat) |
-| `log_keep_days` | Hapus log lebih lama dari N hari. `0`/kosong = simpan selamanya |
+| `log_keep_days` | Hapus log lebih lama dari N hari. Bawaan 90 (bila belum pernah diisi). `0` = simpan selamanya |
 | `backup_keep` | Jumlah file backup harian yang disimpan (bawaan 7) |
 | `reminder_hour` | Jam kirim pengingat harian |
 | `daily_summary_enabled`, `daily_summary_time`, `daily_summary_channel`, `daily_summary_wa_to` | Ringkasan harian untuk operator (bukan pelanggan): `yes`/`no` (bawaan `no`), jam `HH:MM` zona waktu server (bawaan `07:00`), saluran `telegram`/`wa`/`both`, nomor WA operator. Telegram memakai `telegram_target_id`. Dikirim sekali sehari (tanggal terakhir di `daily_summary_last`, aman saat restart), ditunda bila jam sistem tidak tepercaya. Tombol "Kirim ringkasan sekarang" di Settings > Notifications untuk uji coba |
