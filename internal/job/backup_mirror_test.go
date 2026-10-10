@@ -66,8 +66,8 @@ func TestBackupMirror(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	want(backupDir, "nuxbill-20261002.db", "nuxbill-20261003.db")
-	want(mirrorDir, "nuxbill-20261002.db", "nuxbill-20261003.db")
+	want(backupDir, "gobill-20261002.db", "gobill-20261003.db")
+	want(mirrorDir, "gobill-20261002.db", "gobill-20261003.db")
 	if st := status(); st["backup_mirror_error"] != "" {
 		t.Fatalf("error while healthy: %v", st)
 	}
@@ -80,8 +80,8 @@ func TestBackupMirror(t *testing.T) {
 	if err := b.Run(ctx); err != nil {
 		t.Fatalf("local backup failed with the mirror down: %v", err)
 	}
-	want(backupDir, "nuxbill-20261003.db", "nuxbill-20261004.db")
-	if st := status(); st["backup_mirror_error"] == "" || st["backup_last_file"] != "nuxbill-20261004.db" {
+	want(backupDir, "gobill-20261003.db", "gobill-20261004.db")
+	if st := status(); st["backup_mirror_error"] == "" || st["backup_last_file"] != "gobill-20261004.db" {
 		t.Fatalf("status not recorded: %v", st)
 	}
 
@@ -109,7 +109,7 @@ func TestBackupMirror(t *testing.T) {
 	if err := b.Run(ctx); err != nil {
 		t.Fatal(err)
 	}
-	want(mirrorDir, "nuxbill-20261005.db")
+	want(mirrorDir, "gobill-20261005.db")
 	st := status()
 	if st["backup_mirror_error"] != "" || st["backup_mirror_at"] == "" {
 		t.Fatalf("recovery not recorded: %v", st)
@@ -145,14 +145,14 @@ func TestBackupMirrorRetrySucceeds(t *testing.T) {
 	if err := b.Run(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(mirrorDir, "nuxbill-20261009.db")); err == nil {
+	if _, err := os.Stat(filepath.Join(mirrorDir, "gobill-20261009.db")); err == nil {
 		t.Fatal("copy made before the hourly retry")
 	}
 	b.Now = func() time.Time { return at(3, 0) }
 	if err := b.Run(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(mirrorDir, "nuxbill-20261009.db")); err != nil {
+	if _, err := os.Stat(filepath.Join(mirrorDir, "gobill-20261009.db")); err != nil {
 		t.Fatalf("retry did not copy the backup: %v", err)
 	}
 	st, err := b.settings(ctx)

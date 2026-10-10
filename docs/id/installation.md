@@ -1,6 +1,6 @@
 # Instalasi
 
-Dokumen ini menjelaskan cara memasang NuxBill di STB Armbian, VPS Linux, atau Docker. NuxBill berupa satu binary, tanpa PHP dan tanpa web server.
+Dokumen ini menjelaskan cara memasang gobill di STB Armbian, VPS Linux, atau Docker. gobill berupa satu binary, tanpa PHP dan tanpa web server.
 
 **Untuk:** operator
 
@@ -16,25 +16,25 @@ Dokumen ini menjelaskan cara memasang NuxBill di STB Armbian, VPS Linux, atau Do
 
         apt update && apt -y upgrade
 
-### 2. Pasang NuxBill
+### 2. Pasang gobill
 
 Ambil `install.sh` dari rilis, atau pakai `deploy/install.sh` dari repo. Lalu jalankan salah satu perintah berikut.
 
 Dari binary yang sudah diunduh:
 
-    sudo sh install.sh ./nuxbill-linux-arm64
+    sudo sh install.sh ./gobill-linux-arm64
 
 Langsung dari URL rilis. `{arch}` diganti otomatis menjadi `arm64`, `armv7`, atau `amd64`:
 
-    sudo sh install.sh https://github.com/frand-kod/gobill/releases/latest/download/nuxbill-linux-{arch}
+    sudo sh install.sh https://github.com/frand-kod/gobill/releases/latest/download/gobill-linux-{arch}
 
 Script ini:
 
-- mendeteksi arsitektur dan memasang binary ke `/usr/local/bin/nuxbill`;
-- membuat user sistem `nuxbill` dan folder `/var/lib/nuxbill`;
-- membuat `/etc/nuxbill/config.env` dengan `NUXBILL_SECRET_KEY` acak, hanya jika file belum ada, dengan mode 600;
+- mendeteksi arsitektur dan memasang binary ke `/usr/local/bin/gobill`;
+- membuat user sistem `gobill` dan folder `/var/lib/gobill`;
+- membuat `/etc/gobill/config.env` dengan `GOBILL_SECRET_KEY` acak, hanya jika file belum ada, dengan mode 600;
 - mengaktifkan chrony atau systemd-timesyncd jika ada;
-- mengaktifkan dan menjalankan service `nuxbill`.
+- mengaktifkan dan menjalankan service `gobill`.
 
 Script aman dijalankan ulang. Untuk menghapus service dan binary tanpa menghapus data:
 
@@ -42,7 +42,7 @@ Script aman dijalankan ulang. Untuk menghapus service dan binary tanpa menghapus
 
 Password admin pertama ada di file `initial-admin-password.txt` di folder database. File ini memakai mode 0600 dan password-nya tidak ditulis ke log. Untuk instalasi default:
 
-    sudo cat /var/lib/nuxbill/initial-admin-password.txt
+    sudo cat /var/lib/gobill/initial-admin-password.txt
 
 Lalu:
 
@@ -51,11 +51,11 @@ Lalu:
 3. Ganti password.
 4. Hapus file password awal:
 
-        sudo rm /var/lib/nuxbill/initial-admin-password.txt
+        sudo rm /var/lib/gobill/initial-admin-password.txt
 
 ### 3. Jam dan NTP
 
-STB umumnya tidak punya RTC. Setelah boot, jam bisa kembali ke 1970 atau ke waktu build image, sampai NTP sinkron. Karena itu NuxBill memakai guard jam.
+STB umumnya tidak punya RTC. Setelah boot, jam bisa kembali ke 1970 atau ke waktu build image, sampai NTP sinkron. Karena itu gobill memakai guard jam.
 
 - Service menunggu `time-sync.target` dan `network-online.target` sebelum start.
 - Job expiry menolak berjalan jika jam lebih awal dari waktu terakhir yang tercatat di database, atau jika NTP belum sinkron. Penolakan dicatat di log dan tampil sebagai banner di dashboard.
@@ -71,7 +71,7 @@ Baris pertama `timedatectl status` harus berisi `System clock synchronized: yes`
 
 ### 4. Backup ke USB atau NAS
 
-Data ada di `/var/lib/nuxbill`: `nuxbill.db` dan `nuxbill.db.key`. Simpan backup di luar eMMC atau SD card, karena keduanya cepat aus dan rentan saat listrik padam. Langkah lengkapnya ada di [backup dan restore](backup-restore.md).
+Data ada di `/var/lib/gobill`: `gobill.db` dan `gobill.db.key`. Simpan backup di luar eMMC atau SD card, karena keduanya cepat aus dan rentan saat listrik padam. Langkah lengkapnya ada di [backup dan restore](backup-restore.md).
 
 ### 5. Port firewall
 
@@ -91,36 +91,36 @@ Langkahnya sama seperti di STB, dengan binary `amd64`. Ada tiga perbedaan pentin
 
 - Jam VPS sudah sinkron, jadi guard jam jarang berpengaruh.
 - Jangan kirim UDP RADIUS atau CoA lewat internet terbuka. Gunakan WireGuard atau RadSec. Lihat [keamanan](security.md#link-jarak-jauh-vps).
-- Pasang reverse proxy dengan HTTPS di depan `:8080`. Biarkan `NUXBILL_HTTPS` tidak diset agar cookie tetap `Secure`. Set pengaturan `trust_proxy` = `yes`. Jika proxy tidak berjalan di host yang sama, isi `trusted_proxies` dengan IP proxy. Lihat [konfigurasi](configuration.md#jaringan-dan-proxy).
+- Pasang reverse proxy dengan HTTPS di depan `:8080`. Biarkan `GOBILL_HTTPS` tidak diset agar cookie tetap `Secure`. Set pengaturan `trust_proxy` = `yes`. Jika proxy tidak berjalan di host yang sama, isi `trusted_proxies` dengan IP proxy. Lihat [konfigurasi](configuration.md#jaringan-dan-proxy).
 
 ## Docker
 
-    docker build --build-arg VERSION=dev -t nuxbill .
-    docker run -d --name nuxbill -p 8080:8080 -p 1812:1812/udp -p 1813:1813/udp \
-      -v nuxbill-data:/data nuxbill
+    docker build --build-arg VERSION=dev -t gobill .
+    docker run -d --name gobill -p 8080:8080 -p 1812:1812/udp -p 1813:1813/udp \
+      -v gobill-data:/data gobill
 
-Database SQLite dan `nuxbill.db.key` ada di volume `/data`. Untuk mengelola kunci sendiri, tambahkan `-e NUXBILL_SECRET_KEY=<SECRET>`.
+Database SQLite dan `gobill.db.key` ada di volume `/data`. Untuk mengelola kunci sendiri, tambahkan `-e GOBILL_SECRET_KEY=<SECRET>`.
 
 Password admin pertama ada di `/data/initial-admin-password.txt`:
 
-    docker exec nuxbill cat /data/initial-admin-password.txt
+    docker exec gobill cat /data/initial-admin-password.txt
 
 Setelah login dan mengganti password, hapus file itu:
 
-    docker exec nuxbill rm /data/initial-admin-password.txt
+    docker exec gobill rm /data/initial-admin-password.txt
 
 ## Tanpa installer
 
 Jalankan binary langsung:
 
-    NUXBILL_DB=./nuxbill.db ./nuxbill
+    GOBILL_DB=./gobill.db ./gobill
 
-Atau dengan `go run ./cmd/nuxbill` dari root repo.
+Atau dengan `go run ./cmd/gobill` dari root repo.
 
 Build manual untuk STB:
 
-    CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o nuxbill ./cmd/nuxbill
-    CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -ldflags="-s -w" -o nuxbill ./cmd/nuxbill
+    CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o gobill ./cmd/gobill
+    CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -ldflags="-s -w" -o gobill ./cmd/gobill
 
 Untuk pengembangan, lihat [panduan pengembangan](../internal/pengembangan.md).
 
@@ -128,24 +128,24 @@ Untuk pengembangan, lihat [panduan pengembangan](../internal/pengembangan.md).
 
 Lihat log service:
 
-    journalctl -u nuxbill -n 100 --no-pager
-    journalctl -u nuxbill -f
-    systemctl status nuxbill
+    journalctl -u gobill -n 100 --no-pager
+    journalctl -u gobill -f
+    systemctl status gobill
 
 | Gejala | Penyebab dan solusi |
 |---|---|
 | Log berisi `clock`, dan expiry ditolak | Jam belum sinkron. Cek `timedatectl status` dan pastikan internet bisa diakses. |
 | Log berisi `first admin created` | Admin pertama dibuat karena database baru. Password ada di `initial-admin-password.txt` di folder database. |
-| Log berisi `NUXBILL_RADIUS ... want host:port` | Format salah. Pakai `:1812`, atau `off` untuk mematikan listener. |
-| `permission denied` saat menulis database | Jalankan `sudo chown -R nuxbill:nuxbill /var/lib/nuxbill`. |
-| Service terus restart | Lihat log. Pastikan `/etc/nuxbill/config.env` ada dan berisi `NUXBILL_SECRET_KEY`. |
-| Pelanggan tidak bisa login hotspot | Jalankan `journalctl -u nuxbill \| grep -i radius`. Pastikan secret cocok dan port 1812 tidak diblokir. |
-| Port 8080 atau 1812 sudah dipakai | Cek dengan `ss -ulnp \| grep 1812` atau `ss -tlnp \| grep 8080`. Ubah `NUXBILL_HTTP` atau `NUXBILL_RADIUS`. Jika FreeRADIUS memakai 1812 di host yang sama, set `NUXBILL_RADIUS=off`. `/radius.php` tetap berjalan. |
+| Log berisi `GOBILL_RADIUS ... want host:port` | Format salah. Pakai `:1812`, atau `off` untuk mematikan listener. |
+| `permission denied` saat menulis database | Jalankan `sudo chown -R gobill:gobill /var/lib/gobill`. |
+| Service terus restart | Lihat log. Pastikan `/etc/gobill/config.env` ada dan berisi `GOBILL_SECRET_KEY`. |
+| Pelanggan tidak bisa login hotspot | Jalankan `journalctl -u gobill \| grep -i radius`. Pastikan secret cocok dan port 1812 tidak diblokir. |
+| Port 8080 atau 1812 sudah dipakai | Cek dengan `ss -ulnp \| grep 1812` atau `ss -tlnp \| grep 8080`. Ubah `GOBILL_HTTP` atau `GOBILL_RADIUS`. Jika FreeRADIUS memakai 1812 di host yang sama, set `GOBILL_RADIUS=off`. `/radius.php` tetap berjalan. |
 
 ## Lihat juga
 
 - [Upgrade](upgrade.md): mengganti binary ke versi baru.
-- [Konfigurasi](configuration.md): semua variabel `NUXBILL_*` dan pengaturan.
+- [Konfigurasi](configuration.md): semua variabel `GOBILL_*` dan pengaturan.
 - [Setup MikroTik](mikrotik.md): menghubungkan router.
 - [Keamanan](security.md): pengerasan RADIUS, firewall, dan 2FA admin.
 - [Monitoring](monitoring.md): memantau dari luar dan alert operator.

@@ -241,7 +241,7 @@ func TestChangeOwnPassword(t *testing.T) {
 	}
 	var nc *http.Cookie
 	for _, ck := range cookies {
-		if ck.Name == "nuxbill_session" {
+		if ck.Name == "gobill_session" {
 			nc = ck
 		}
 	}

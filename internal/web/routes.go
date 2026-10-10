@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	"context"
-	nuxbill "github.com/frand-kod/gobill"
+	gobill "github.com/frand-kod/gobill"
 	"strings"
 )
 
@@ -123,7 +123,7 @@ func (s *Server) reportRoutes(mux *http.ServeMux, all func(http.Handler) http.Ha
 
 // Handler returns the router wrapped in CSRF protection and session loading.
 func (s *Server) Handler() http.Handler {
-	static, err := fs.Sub(nuxbill.FS, "web/static")
+	static, err := fs.Sub(gobill.FS, "web/static")
 	if err != nil {
 		panic(err) // the path is embedded at build time
 	}

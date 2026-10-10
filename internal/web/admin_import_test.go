@@ -157,7 +157,7 @@ func TestImportConfirmBacksUpReplacesAndEndsSession(t *testing.T) {
 	if loc := w.Header().Get("Location"); loc != "/login" {
 		t.Fatalf("redirect to %q", loc)
 	}
-	backups, _ := filepath.Glob(filepath.Join(s.BackupDir, "nuxbill-*-pre-import.db"))
+	backups, _ := filepath.Glob(filepath.Join(s.BackupDir, "gobill-*-pre-import.db"))
 	if len(backups) != 1 {
 		t.Fatalf("want one pre-import backup, got %v", backups)
 	}
@@ -176,7 +176,7 @@ func TestImportConfirmBacksUpReplacesAndEndsSession(t *testing.T) {
 	}
 	var fresh *http.Cookie
 	for _, ck := range w.Result().Cookies() {
-		if ck.Name == "nuxbill_session" {
+		if ck.Name == "gobill_session" {
 			fresh = ck
 		}
 	}

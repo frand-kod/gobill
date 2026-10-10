@@ -1,6 +1,6 @@
 # Configuration
 
-This document describes the two configuration layers in NuxBill: the `NUXBILL_*` environment variables and the settings in the UI. Environment variables are read before the database opens. With systemd, they are in `/etc/nuxbill/config.env`. Settings are stored in the `settings` table and changed in the **Settings** menu.
+This document describes the two configuration layers in gobill: the `GOBILL_*` environment variables and the settings in the UI. Environment variables are read before the database opens. With systemd, they are in `/etc/gobill/config.env`. Settings are stored in the `settings` table and changed in the **Settings** menu.
 
 **For:** operators
 
@@ -8,34 +8,34 @@ This document describes the two configuration layers in NuxBill: the `NUXBILL_*`
 
 ## Environment variables
 
-This list contains every variable the code reads in `cmd/nuxbill`.
+This list contains every variable the code reads in `cmd/gobill`.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `NUXBILL_DB` | `./nuxbill.db`. In Docker: `/data/nuxbill.db` | Location of the SQLite file. `nuxbill import` also uses it |
-| `NUXBILL_HTTP` | `:8080` | HTTP listen address |
-| `NUXBILL_HTTPS` | enabled | The session cookie always has the `Secure` flag. Set `0` only if the UI is reached over plain HTTP, for example by a LAN IP. Browsers do not send `Secure` cookies over `http://`, except for `localhost`. When set to `0`, startup logs a warning. |
-| `NUXBILL_SECRET_KEY` | empty | AES-GCM key for router, customer, and NAS secrets. If empty, the key is created automatically at `<NUXBILL_DB>.key`. If set, the value replaces the `.key` file and must be stored safely. `nuxbill import` also uses it. |
-| `NUXBILL_RADIUS` | `:1812` | RADIUS UDP listen address for authentication. Accounting uses the next port. An empty value or `off` turns off the UDP listener. `/radius.php` keeps running. |
-| `NUXBILL_BACKUP_DIR` | a `backup` folder next to the database | Folder for daily backups and for automatic backups before an import, restore, or recovery. See [backup and restore](backup-restore.md). |
-| `NUXBILL_BACKUP_MIRROR` | empty, off | A second copy of the daily backups in another folder, for example USB, NAS, or rclone. The folder must already exist. See [backup and restore](backup-restore.md#mirror). |
-| `NUXBILL_TEST_MYSQL_DSN`, `NUXBILL_TEST_PHP_SQL` | empty | Only for importer tests. They are not read while the application runs. See the [developer guide](../internal/pengembangan.md), which is in Indonesian only. |
+| `GOBILL_DB` | `./gobill.db`. In Docker: `/data/gobill.db` | Location of the SQLite file. `gobill import` also uses it |
+| `GOBILL_HTTP` | `:8080` | HTTP listen address |
+| `GOBILL_HTTPS` | enabled | The session cookie always has the `Secure` flag. Set `0` only if the UI is reached over plain HTTP, for example by a LAN IP. Browsers do not send `Secure` cookies over `http://`, except for `localhost`. When set to `0`, startup logs a warning. |
+| `GOBILL_SECRET_KEY` | empty | AES-GCM key for router, customer, and NAS secrets. If empty, the key is created automatically at `<GOBILL_DB>.key`. If set, the value replaces the `.key` file and must be stored safely. `gobill import` also uses it. |
+| `GOBILL_RADIUS` | `:1812` | RADIUS UDP listen address for authentication. Accounting uses the next port. An empty value or `off` turns off the UDP listener. `/radius.php` keeps running. |
+| `GOBILL_BACKUP_DIR` | a `backup` folder next to the database | Folder for daily backups and for automatic backups before an import, restore, or recovery. See [backup and restore](backup-restore.md). |
+| `GOBILL_BACKUP_MIRROR` | empty, off | A second copy of the daily backups in another folder, for example USB, NAS, or rclone. The folder must already exist. See [backup and restore](backup-restore.md#mirror). |
+| `GOBILL_TEST_MYSQL_DSN`, `GOBILL_TEST_PHP_SQL` | empty | Only for importer tests. They are not read while the application runs. See the [developer guide](../internal/pengembangan.md), which is in Indonesian only. |
 
-Example `/etc/nuxbill/config.env`:
+Example `/etc/gobill/config.env`:
 
-    NUXBILL_DB=/var/lib/nuxbill/nuxbill.db
-    NUXBILL_HTTP=:8080
-    NUXBILL_RADIUS=:1812
-    NUXBILL_SECRET_KEY=<SECRET>
+    GOBILL_DB=/var/lib/gobill/gobill.db
+    GOBILL_HTTP=:8080
+    GOBILL_RADIUS=:1812
+    GOBILL_SECRET_KEY=<SECRET>
 
 CLI options:
 
-- `nuxbill --version` shows the version.
-- `nuxbill import ...` moves data from PHPNuxBill. See [migration](migration-phpnuxbill.md).
+- `gobill --version` shows the version.
+- `gobill import ...` moves data from PHPNuxBill. See [migration](migration-phpnuxbill.md).
 
 ## First admin
 
-When the database is empty and has no admin, NuxBill creates the user `admin` with the SuperAdmin role. Its password is random and 16 characters long. The password is not printed to the log. It is written to `initial-admin-password.txt` in the database folder, with mode 0600.
+When the database is empty and has no admin, gobill creates the user `admin` with the SuperAdmin role. Its password is random and 16 characters long. The password is not printed to the log. It is written to `initial-admin-password.txt` in the database folder, with mode 0600.
 
 Log in, change the password, then delete that file. If the file already exists and the database is still empty, startup stops with a message. Delete the old file first.
 
@@ -71,8 +71,8 @@ Admin roles and 2FA are set per account in **Admin Users** and on the `/admin/2f
 
 | Setting | Purpose |
 |---|---|
-| `radius_rest_allow` | Comma-separated list of IPs or CIDRs that may call `/radius.php`. Empty means loopback only: `127.0.0.0/8` and `::1`. Fill it with the FreeRADIUS IP if FreeRADIUS runs on another host. At startup, NuxBill logs a warning if it is empty. |
-| `trust_proxy` | `yes` trusts `X-Forwarded-For`. The header is trusted only if the direct connection comes from loopback or from an IP or CIDR in `trusted_proxies`. Default `no`. NuxBill uses the rightmost entry as the client IP, so the proxy must write the real IP there. |
+| `radius_rest_allow` | Comma-separated list of IPs or CIDRs that may call `/radius.php`. Empty means loopback only: `127.0.0.0/8` and `::1`. Fill it with the FreeRADIUS IP if FreeRADIUS runs on another host. At startup, gobill logs a warning if it is empty. |
+| `trust_proxy` | `yes` trusts `X-Forwarded-For`. The header is trusted only if the direct connection comes from loopback or from an IP or CIDR in `trusted_proxies`. Default `no`. gobill uses the rightmost entry as the client IP, so the proxy must write the real IP there. |
 | `trusted_proxies` | Comma-separated IPs or CIDRs of reverse proxies, for example `172.16.0.0/16, 10.0.0.2`. Loopback is always trusted. The `/radius.php` allow-list still uses the real connection address, not the `X-Forwarded-For` value. |
 | `router_check` | `no` turns off the router check. It is on by default. A down router triggers an alert. See [monitoring](monitoring.md). |
 

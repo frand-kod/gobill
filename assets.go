@@ -1,5 +1,5 @@
-// Package nuxbill only holds the files embedded into the binary.
-package nuxbill
+// Package gobill only holds the files embedded into the binary.
+package gobill
 
 import "embed"
 

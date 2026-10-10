@@ -1,4 +1,4 @@
-# Berkontribusi ke NuxBill
+# Berkontribusi ke gobill
 
 Kontribusi sangat diterima, baik berupa issue maupun pull request. Untuk gambaran sistem, baca [docs/internal/arsitektur.md](docs/internal/arsitektur.md). Untuk aturan kode dan rilis, baca [docs/internal/pengembangan.md](docs/internal/pengembangan.md); dokumen itu adalah sumber aturan, jadi tidak diulang di sini.
 
@@ -6,7 +6,7 @@ Kontribusi sangat diterima, baik berupa issue maupun pull request. Untuk gambara
 
 Butuh Go sesuai `go.mod`. Untuk membangun CSS, `make css` mengunduh Tailwind standalone CLI yang dipatok versinya.
 
-    make build     # binary ./nuxbill
+    make build     # binary ./gobill
     make test      # go vet ./... && go test ./...
     make css       # build web/static/app.css
 

@@ -1,10 +1,10 @@
 # Monitoring
 
-This document describes how to monitor NuxBill. There are three ways: the System Status page in admin, the `/health` endpoint for uptime monitors, and the `/metrics` endpoint for Prometheus. NuxBill also sends alerts to the operator automatically.
+This document describes how to monitor gobill. There are three ways: the System Status page in admin, the `/health` endpoint for uptime monitors, and the `/metrics` endpoint for Prometheus. gobill also sends alerts to the operator automatically.
 
 **For:** operators
 
-**Prerequisites:** NuxBill is running. For alerts, the Telegram or WhatsApp channel is set up in [integrations](integrations.md).
+**Prerequisites:** gobill is running. For alerts, the Telegram or WhatsApp channel is set up in [integrations](integrations.md).
 
 ## System Status page
 
@@ -83,11 +83,11 @@ Use a monitor of type **HTTP(s) - Keyword** for `http://IP:8080/health`, with th
 
 ### Monitoring from outside
 
-NuxBill cannot report that it is down by itself. Set up an external monitor, for example UptimeRobot or Uptime Kuma. This monitor calls `https://domain-anda/health` every 5 minutes, and sends an alarm if the response is not 200.
+gobill cannot report that it is down by itself. Set up an external monitor, for example UptimeRobot or Uptime Kuma. This monitor calls `https://domain-anda/health` every 5 minutes, and sends an alarm if the response is not 200.
 
 ## Operator alerts
 
-NuxBill checks the following rules every minute. Each rule sends one alert when a problem starts, and one alert when it recovers. While the problem continues, no more messages are sent. The state is kept in memory. After a restart, a problem that is still active is reported again.
+gobill checks the following rules every minute. Each rule sends one alert when a problem starts, and one alert when it recovers. While the problem continues, no more messages are sent. The state is kept in memory. After a restart, a problem that is still active is reported again.
 
 | Rule | Triggered when | Recovered when |
 |---|---|---|
@@ -97,7 +97,7 @@ NuxBill checks the following rules every minute. Each rule sends one alert when 
 | Notification channel failed | A channel fails 5 times in a row | One send succeeds |
 | Brute force | More than 30 login failures, admin, portal, and 2FA, in 10 minutes | Failures drop below the limit |
 | Backup | The last local backup is more than 36 hours old, or a mirror copy failed | A new backup exists, or a mirror copy succeeds |
-| Abnormal restart | NuxBill stopped because of a crash, a forced kill, or a power cut | - |
+| Abnormal restart | gobill stopped because of a crash, a forced kill, or a power cut | - |
 
 A failed mirror backup is retried once an hour, for the rest of that day, until it succeeds.
 

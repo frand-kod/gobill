@@ -18,7 +18,7 @@ import (
 // backupHour is the local hour (02:00) when the daily backup is taken.
 const backupHour = 2
 
-var backupName = regexp.MustCompile(`^nuxbill-\d{8}\.db$`)
+var backupName = regexp.MustCompile(`^gobill-\d{8}\.db$`)
 
 // Backup takes one VACUUM INTO copy of the database per day and keeps the newest backup_keep files.
 // With Mirror set, each new copy is also written there (USB, NFS/SMB or rclone mount). A mirror
@@ -44,7 +44,7 @@ func (b *Backup) Run(ctx context.Context) error {
 	if b.Now != nil {
 		now = b.Now()
 	}
-	final := filepath.Join(b.Dir, "nuxbill-"+now.Format("20060102")+".db")
+	final := filepath.Join(b.Dir, "gobill-"+now.Format("20060102")+".db")
 	if _, err := os.Stat(final); err == nil {
 		b.retryMirror(ctx, final, now) // never overwrite today's file
 		return nil
@@ -119,7 +119,7 @@ func (b *Backup) retryMirror(ctx context.Context, src string, now time.Time) {
 	b.mirror(ctx, src, now)
 }
 
-// rotate deletes the oldest nuxbill-YYYYMMDD.db files beyond backup_keep (default 7).
+// rotate deletes the oldest gobill-YYYYMMDD.db files beyond backup_keep (default 7).
 func (b *Backup) rotate(ctx context.Context) error {
 	st, err := b.settings(ctx)
 	if err != nil {

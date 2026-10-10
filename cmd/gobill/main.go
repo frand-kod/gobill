@@ -1,4 +1,4 @@
-// Command nuxbill runs the NuxBill admin server.
+// Command gobill runs the gobill admin server.
 package main
 
 import (
@@ -57,15 +57,15 @@ func main() {
 }
 
 func run() error {
-	dbPath := env("NUXBILL_DB", "./nuxbill.db")
-	addr := env("NUXBILL_HTTP", ":8080")
-	secure := os.Getenv("NUXBILL_HTTPS") != "0"
+	dbPath := env("GOBILL_DB", "./gobill.db")
+	addr := env("GOBILL_HTTP", ":8080")
+	secure := os.Getenv("GOBILL_HTTPS") != "0"
 	if !secure {
-		slog.Warn("NUXBILL_HTTPS=0: session cookies are sent without the Secure flag")
+		slog.Warn("GOBILL_HTTPS=0: session cookies are sent without the Secure flag")
 	}
-	slog.Info("nuxbill starting", "version", version)
+	slog.Info("gobill starting", "version", version)
 
-	backupDir := env("NUXBILL_BACKUP_DIR", filepath.Join(filepath.Dir(dbPath), "backup"))
+	backupDir := env("GOBILL_BACKUP_DIR", filepath.Join(filepath.Dir(dbPath), "backup"))
 	if err := db.ApplyPendingRestore(dbPath); err != nil {
 		return fmt.Errorf("restore: %w", err)
 	}
@@ -81,7 +81,7 @@ func run() error {
 		return err
 	}
 
-	key, created, err := secret.LoadKey(os.Getenv("NUXBILL_SECRET_KEY"), dbPath+".key")
+	key, created, err := secret.LoadKey(os.Getenv("GOBILL_SECRET_KEY"), dbPath+".key")
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func run() error {
 	go job.Run(ctx, "alert", time.Minute, alerts.Run)
 	go job.Run(ctx, "daily_summary", time.Minute, svc.DailySummaryJob(guard.Trusted))
 	backup := &job.Backup{Conn: conn, Q: db.New(conn), Trusted: guard.Trusted, Dir: backupDir,
-		Mirror: env("NUXBILL_BACKUP_MIRROR", "")}
+		Mirror: env("GOBILL_BACKUP_MIRROR", "")}
 	go job.Run(ctx, "backup", time.Minute, backup.Run)
 	app.BackupDir, app.BackupMirror = backup.Dir, backup.Mirror
 	restartCh := make(chan struct{}, 1)
@@ -160,7 +160,7 @@ func run() error {
 		host, port, err := net.SplitHostPort(ra)
 		p, perr := strconv.Atoi(port)
 		if err != nil || perr != nil {
-			return fmt.Errorf("NUXBILL_RADIUS %q: want host:port", ra)
+			return fmt.Errorf("GOBILL_RADIUS %q: want host:port", ra)
 		}
 		rs.AuthAddr, rs.AcctAddr = ra, net.JoinHostPort(host, strconv.Itoa(p+1))
 		go func() {
@@ -201,7 +201,7 @@ func run() error {
 // radiusAddr returns the UDP RADIUS listen address. Unset means ":1812";
 // empty or "off" disables the UDP listener (the REST /radius.php still works).
 func radiusAddr() (addr string, enabled bool) {
-	v, ok := os.LookupEnv("NUXBILL_RADIUS")
+	v, ok := os.LookupEnv("GOBILL_RADIUS")
 	if !ok {
 		return ":1812", true
 	}

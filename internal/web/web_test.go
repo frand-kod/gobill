@@ -76,7 +76,7 @@ func login(t *testing.T, h http.Handler, user string) *http.Cookie {
 		t.Fatalf("login %s: got %d %q", user, w.Code, w.Header().Get("Location"))
 	}
 	for _, c := range w.Result().Cookies() {
-		if c.Name == "nuxbill_session" {
+		if c.Name == "gobill_session" {
 			return c
 		}
 	}

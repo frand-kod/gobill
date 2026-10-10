@@ -61,11 +61,11 @@ func TestStatusMapping(t *testing.T) {
 
 // TestImportFromMySQL needs a MySQL/MariaDB user that may create databases:
 //
-//	NUXBILL_TEST_MYSQL_DSN=user:pass@tcp(127.0.0.1:3306)/ NUXBILL_TEST_PHP_SQL=.../phpnuxbill/install/phpnuxbill.sql
+//	GOBILL_TEST_MYSQL_DSN=user:pass@tcp(127.0.0.1:3306)/ GOBILL_TEST_PHP_SQL=.../phpnuxbill/install/phpnuxbill.sql
 func TestImportFromMySQL(t *testing.T) {
-	dsn, schema := os.Getenv("NUXBILL_TEST_MYSQL_DSN"), os.Getenv("NUXBILL_TEST_PHP_SQL")
+	dsn, schema := os.Getenv("GOBILL_TEST_MYSQL_DSN"), os.Getenv("GOBILL_TEST_PHP_SQL")
 	if dsn == "" || schema == "" {
-		t.Skip("NUXBILL_TEST_MYSQL_DSN / NUXBILL_TEST_PHP_SQL not set")
+		t.Skip("GOBILL_TEST_MYSQL_DSN / GOBILL_TEST_PHP_SQL not set")
 	}
 	ctx := context.Background()
 	admin, err := sql.Open("mysql", dsn+"?multiStatements=true")
@@ -73,7 +73,7 @@ func TestImportFromMySQL(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer admin.Close()
-	name := fmt.Sprintf("nuxbill_import_test_%d", os.Getpid())
+	name := fmt.Sprintf("gobill_import_test_%d", os.Getpid())
 	if _, err := admin.Exec("CREATE DATABASE " + name); err != nil {
 		t.Fatal(err)
 	}

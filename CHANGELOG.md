@@ -13,7 +13,7 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 ### Keamanan
 
 - `/radius.php`: `radius_rest_allow` kosong sekarang berarti hanya loopback (sebelumnya semua IP boleh).
-- `NUXBILL_HTTPS` aktif secara default: cookie sesi selalu diberi flag `Secure`. `NUXBILL_HTTPS=0` untuk opt-out.
+- `GOBILL_HTTPS` aktif secara default: cookie sesi selalu diberi flag `Secure`. `GOBILL_HTTPS=0` untuk opt-out.
 - Pembatas login per username (10 kegagalan dalam 15 menit) selain per IP. Tabel kegagalan dibatasi ukurannya.
 - `trust_proxy=yes` hanya membaca `X-Forwarded-For` dari loopback atau dari `trusted_proxies`. Allow-list `/radius.php` tidak pernah memakai `X-Forwarded-For`.
 - Pembatas tebak voucher per NAS (100 kegagalan dalam 15 menit), selain per NAS dan MAC.
@@ -31,9 +31,9 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 - QRIS statis: unggah foto QRIS merchant di Settings > Payment Gateway. Sistem menyimpan teks QRIS, membuat QR terkunci nominal untuk setiap recharge (halaman `/qris`), dan mengirim tautannya lewat WhatsApp. Pembayaran QRIS tetap dikonfirmasi manual.
 - `app_url` terisi otomatis dari alamat yang dipakai admin pertama kali login. Field "App URL" ada di Settings.
 - Sakelar global `notify_customers` (semua pesan ke pelanggan) dan `notify_otp` (kode OTP).
-- Impor PHPNuxBill dari file backup JSON: `nuxbill import --json=...`, dan halaman admin (Settings > Miscellaneous) dengan pratinjau, konfirmasi, serta backup otomatis sebelum impor.
+- Impor PHPNuxBill dari file backup JSON: `gobill import --json=...`, dan halaman admin (Settings > Miscellaneous) dengan pratinjau, konfirmasi, serta backup otomatis sebelum impor.
 - Restore database dari UI (SuperAdmin) dengan restart otomatis. Data saat ini dibackup dulu.
-- Salinan mirror backup harian di luar perangkat (`NUXBILL_BACKUP_MIRROR`), dengan percobaan ulang tiap jam.
+- Salinan mirror backup harian di luar perangkat (`GOBILL_BACKUP_MIRROR`), dengan percobaan ulang tiap jam.
 
 ### Database & performa
 
@@ -55,9 +55,9 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ### Perubahan perilaku dan konfigurasi (perlu diperhatikan saat upgrade dari 0.1.3)
 
-1. Backup database dan file `nuxbill.db.key` dulu. Migrasi 0011 sampai 0014 berjalan otomatis saat start.
+1. Backup database dan file `gobill.db.key` dulu. Migrasi 0011 sampai 0014 berjalan otomatis saat start.
 2. `radius_rest_allow` kosong sekarang hanya loopback. Jika FreeRADIUS berjalan di host lain, isi dengan IP-nya. Jika tidak, `/radius.php` menolak permintaan.
-3. `NUXBILL_HTTPS` aktif secara default. Jika UI diakses lewat HTTP polos ke IP LAN, set `NUXBILL_HTTPS=0`, karena browser tidak mengirim cookie `Secure` di sana.
+3. `GOBILL_HTTPS` aktif secara default. Jika UI diakses lewat HTTP polos ke IP LAN, set `GOBILL_HTTPS=0`, karena browser tidak mengirim cookie `Secure` di sana.
 4. Di belakang reverse proxy: set `trust_proxy=yes`. Jika proxy tidak di host yang sama, isi juga `trusted_proxies`. Tanpa ini, IP klien yang tercatat dan pembatas login adalah IP proxy.
 5. Kata sandi pelanggan baru dan yang diganti harus minimal 8 karakter. Kata sandi lama tidak diubah.
 6. Kata sandi admin pertama ada di `initial-admin-password.txt` di folder database, bukan di log. Hapus file itu setelah login dan ganti kata sandi.
@@ -90,7 +90,7 @@ Still pre-1.0: behaviour parity with PHPNuxBill, UI and operator workflow. Not y
 
 - WhatsApp sent straight to the "Alternative WhatsApp Gateway" server (`alt_wga_*` settings), with a test button; a `wa_url` pointing at the old PHP plugin is ignored.
 - Daily summary for the operator via Telegram and/or WhatsApp.
-- `nuxbill import --notifications` imports the PHP notification templates; customer attributes (`Bill`, `Invoice`, `Expired Date`) are imported and honoured.
+- `gobill import --notifications` imports the PHP notification templates; customer attributes (`Bill`, `Invoice`, `Expired Date`) are imported and honoured.
 - Recharge page with a customer picker and a customer summary panel that warns about an active package (double charge guard); the same picker on Add balance and Redeem voucher.
 - Bulk delete for vouchers and coupons, prune of used vouchers older than 3 months, message to selected customers, bulk disconnect of online sessions.
 - Live search, filters, sorting and reset on lists; global customer search in the header.
@@ -158,6 +158,6 @@ First release: a single-binary rewrite of PHPNuxBill (MikroTik hotspot and PPPoE
 - Hotspot and PPPoE users created with an empty password.
 - Empty timezone setting fell back to UTC.
 - The REST path reset brute-force throttles; now one shared RADIUS server holds them.
-- `NUXBILL_RADIUS=` (empty) did not disable the UDP listener.
+- `GOBILL_RADIUS=` (empty) did not disable the UDP listener.
 - CoA sent the wrong NAS-IP-Address. Also decodes Error-Cause and logs unknown NAS.
 - Requests from unregistered NAS were dropped without a log entry.

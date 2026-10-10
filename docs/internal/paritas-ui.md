@@ -1,4 +1,4 @@
-# Paritas UI: PHPNuxBill lama vs NuxBill Go
+# Paritas UI: PHPNuxBill lama vs gobill
 
 Dokumen ini membandingkan UI lama (`../phpnuxbill/ui/ui`, 157 template) dengan rewrite Go. Hanya dokumentasi, tidak ada kode yang diubah. Dibuat 2026-10-08 dari kode di `main`.
 
@@ -931,7 +931,7 @@ Satu baris per item. Urutan prioritas dalam fase: atas = lebih dulu. Rujukan lay
 40. Pesan massal (A64) dengan filter router/service/group.
 41. Custom field (S8) + isi di form pelanggan (A9/A10) dan portal (C5).
 42. Halaman statis (S9, C10), halaman 404/error rapi (A75); UI setting maintenance mode (S5, tanggal `maintenance_date`); middleware 503 dan `maintenance_mode_logout` sudah ada.
-43. Backup/restore (S6): backup harian `VACUUM INTO` sudah ada (`NUXBILL_BACKUP_DIR`, `backup_keep`); unduh dan restore dari UI belum.
+43. Backup/restore (S6): backup harian `VACUUM INTO` sudah ada (`GOBILL_BACKUP_DIR`, `backup_keep`); unduh dan restore dari UI belum.
 44. Setting umum sisanya: `date_format`, `dec_point`, `thousands_sep`, `reset_day`, logo/alamat/telepon/footer, `session_timeout_duration`, `single_session`, `voucher_format` default.
 45. Widget dashboard sisa: W9 monitor router, W10 total saldo.
 46. Setting timezone diterapkan tanpa restart (progres item 2).
@@ -940,7 +940,7 @@ Satu baris per item. Urutan prioritas dalam fase: atas = lebih dulu. Rujukan lay
 
 ### F6 Migrasi data dan rilis
 
-49. `nuxbill import`: petakan field lama ke baru, termasuk `expiration`+`time` -> `expires_at`, `price varchar` -> INTEGER, `pppoe_password`/`password` plaintext -> `secret_enc` + bcrypt `password_hash`, `tbl_appconfig` -> `settings`.
+49. `gobill import`: petakan field lama ke baru, termasuk `expiration`+`time` -> `expires_at`, `price varchar` -> INTEGER, `pppoe_password`/`password` plaintext -> `secret_enc` + bcrypt `password_hash`, `tbl_appconfig` -> `settings`.
 50. Pemetaan kolom yang belum punya padanan (lihat butir 9, 10, 18, 39) harus diputuskan sebelum import agar data tidak hilang.
 
 ### Ditunda / Non-goal (tidak masuk gap aktif)

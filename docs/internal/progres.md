@@ -14,15 +14,15 @@ Jurnal ini dijaga di bawah 1000 kata. Rencana awal: [rencana/](rencana/README.md
 
 ## Sudah selesai di v0.1.4
 
-- **Keamanan:** `/radius.php` hanya loopback jika allow-list kosong; `NUXBILL_HTTPS` aktif default; pembatas login per IP dan per username; `X-Forwarded-For` hanya dari proxy tepercaya; pembatas tebak voucher per NAS; pembatas OTP kontak; 2FA TOTP opsional untuk admin dengan kode pemulihan; kata sandi pelanggan minimal 8; kata sandi admin pertama di file, bukan log.
+- **Keamanan:** `/radius.php` hanya loopback jika allow-list kosong; `GOBILL_HTTPS` aktif default; pembatas login per IP dan per username; `X-Forwarded-For` hanya dari proxy tepercaya; pembatas tebak voucher per NAS; pembatas OTP kontak; 2FA TOTP opsional untuk admin dengan kode pemulihan; kata sandi pelanggan minimal 8; kata sandi admin pertama di file, bukan log.
 - **Fitur:** `start_on_first_login`; QRIS statis dengan QR terkunci nominal dan tautan WA; `app_url` terisi otomatis; sakelar `notify_customers` dan `notify_otp`; impor PHPNuxBill dari JSON (CLI dan UI, dengan pratinjau dan backup otomatis); restore database dari UI dengan restart.
 - **Database:** migrasi 0011 sampai 0014 (`start_on_first_login`, indeks, snapshot pelanggan di `payment_requests`, 2FA admin); pragma SQLite; retensi log bawaan 90 hari; sesi RADIUS basi ditutup otomatis.
-- **Operasional:** `/health` minimal; backup mirror (`NUXBILL_BACKUP_MIRROR`) dengan percobaan ulang tiap jam; halaman Status Sistem dan JSON-nya; `/metrics` dengan bearer token; alert operator (disk, NAS diam, job dan kanal gagal, brute force, backup, restart tidak normal, callback pembayaran untuk pelanggan yang sudah dihapus) lewat Telegram dan/atau WhatsApp.
+- **Operasional:** `/health` minimal; backup mirror (`GOBILL_BACKUP_MIRROR`) dengan percobaan ulang tiap jam; halaman Status Sistem dan JSON-nya; `/metrics` dengan bearer token; alert operator (disk, NAS diam, job dan kanal gagal, brute force, backup, restart tidak normal, callback pembayaran untuk pelanggan yang sudah dihapus) lewat Telegram dan/atau WhatsApp.
 - **Temuan audit bisnis** P1 (recharge pelanggan non-Active ditolak), C2 (template notifikasi ikut impor), dan IM1 (atribut pelanggan ikut impor) sudah dikerjakan.
 
 ## Menunggu pengguna
 
-1. **Uji paralel.** Impor data terbaru, set `notify_customers` = Tidak, lalu jalankan NuxBill berdampingan dengan PHPNuxBill selama 1 sampai 3 hari dalam mode baca. Bandingkan sesi, expiry, dan saldo. Langkah lengkap ada di [migrasi-phpnuxbill.md](../id/migration-phpnuxbill.md#checklist-jalan-paralel).
+1. **Uji paralel.** Impor data terbaru, set `notify_customers` = Tidak, lalu jalankan gobill berdampingan dengan PHPNuxBill selama 1 sampai 3 hari dalam mode baca. Bandingkan sesi, expiry, dan saldo. Langkah lengkap ada di [migrasi-phpnuxbill.md](../id/migration-phpnuxbill.md#checklist-jalan-paralel).
 2. **Drill restore.** Uji pemulihan dari file mirror dan dari UI restore di instance uji. Catat hasilnya di sini.
 3. **Screenshot UI.** Pengguna mengambil screenshot halaman baru (Status Sistem, 2FA, impor, restore, QRIS, pengaturan alert) untuk direview.
 4. **Bersihkan router uji.** Hapus user `claude-test` di MikroTik, profil dan entry `/radius` uji, dan pastikan `split-user-domain=no` di profil yang dipakai pelanggan.
@@ -69,7 +69,7 @@ Ditandai `ponytail:` di kode (`grep -rn ponytail: .`). Yang paling relevan:
 - **RADIUS bawaan:** lolos untuk auth dan accounting, Session-Timeout, rate-limit, dan expiry lewat Session-Timeout.
 - **CoA Disconnect:** lolos. Router membalas Disconnect-ACK dan sesi logout.
 - **Login voucher hotspot lewat RADIUS:** lolos. Kode salah ditolak. Login ulang dengan kode sama dan pembatas MAC belum diuji lapangan.
-- **Pelajaran jaringan:** server NuxBill jangan jadi klien hotspot (NAT universal membuat RADIUS dan CoA gagal; pakai `ip-binding type=bypassed`). Dengan `split-user-domain=yes`, router membuang domain dari User-Name.
+- **Pelajaran jaringan:** server gobill jangan jadi klien hotspot (NAT universal membuat RADIUS dan CoA gagal; pakai `ip-binding type=bypassed`). Dengan `split-user-domain=yes`, router membuang domain dari User-Name.
 
 ## Cara kerja
 

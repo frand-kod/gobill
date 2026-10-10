@@ -137,7 +137,7 @@ func inspectBackup(ctx context.Context, path string, key []byte, loc *time.Locat
 	if err != nil {
 		return importCounts{}, "", notBackup(err)
 	}
-	// the sealed columns are encrypted with NUXBILL_SECRET_KEY: one non-empty value tells whether the key matches
+	// the sealed columns are encrypted with GOBILL_SECRET_KEY: one non-empty value tells whether the key matches
 	for _, q := range []string{
 		"SELECT password_enc FROM routers WHERE length(password_enc) > 0 LIMIT 1",
 		"SELECT secret_enc FROM nas WHERE length(secret_enc) > 0 LIMIT 1",
@@ -152,7 +152,7 @@ func inspectBackup(ctx context.Context, path string, key []byte, loc *time.Locat
 			return importCounts{}, "", notBackup(err)
 		}
 		if _, err := secret.Open(key, sealed); err != nil {
-			return importCounts{}, "", &refusal{msg: "Different encryption key: this backup was made with another NUXBILL_SECRET_KEY"}
+			return importCounts{}, "", &refusal{msg: "Different encryption key: this backup was made with another GOBILL_SECRET_KEY"}
 		}
 		break
 	}

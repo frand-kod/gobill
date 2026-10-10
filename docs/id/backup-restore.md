@@ -1,50 +1,50 @@
 # Backup dan restore
 
-Dokumen ini menjelaskan cara membuat backup NuxBill, menyimpan salinan di luar perangkat, dan memulihkan database. Backup harian dibuat otomatis. Salinan kedua, atau mirror, bisa disimpan di USB, NAS, atau Google Drive lewat rclone.
+Dokumen ini menjelaskan cara membuat backup gobill, menyimpan salinan di luar perangkat, dan memulihkan database. Backup harian dibuat otomatis. Salinan kedua, atau mirror, bisa disimpan di USB, NAS, atau Google Drive lewat rclone.
 
 **Untuk:** operator
 
-**Prasyarat:** NuxBill sudah terpasang. Untuk mirror, tujuan mirror sudah ter-mount dan bisa ditulis. Lihat [instalasi](installation.md).
+**Prasyarat:** gobill sudah terpasang. Untuk mirror, tujuan mirror sudah ter-mount dan bisa ditulis. Lihat [instalasi](installation.md).
 
 ## Backup harian
 
-Data ada di `/var/lib/nuxbill`:
+Data ada di `/var/lib/gobill`:
 
-- `nuxbill.db`: database SQLite.
-- `nuxbill.db.key`: kunci enkripsi.
+- `gobill.db`: database SQLite.
+- `gobill.db.key`: kunci enkripsi.
 
-Backup harian dibuat otomatis dengan `VACUUM INTO`. Folder tujuannya diatur oleh `NUXBILL_BACKUP_DIR`. Jumlah file yang disimpan diatur oleh pengaturan `backup_keep`, bawaannya 7.
+Backup harian dibuat otomatis dengan `VACUUM INTO`. Folder tujuannya diatur oleh `GOBILL_BACKUP_DIR`. Jumlah file yang disimpan diatur oleh pengaturan `backup_keep`, bawaannya 7.
 
 Untuk memakai folder lain, misalnya USB:
 
 1. Mount penyimpanan, misalnya di `/mnt/usb`. Gunakan opsi fstab `nofail`, agar boot tidak macet jika USB tidak terpasang.
 2. Buat drop-in service:
 
-        sudo systemctl edit nuxbill
+        sudo systemctl edit gobill
 
    Isi dengan:
 
         [Service]
-        ReadWritePaths=/mnt/usb/nuxbill-backup
+        ReadWritePaths=/mnt/usb/gobill-backup
 
-3. Tambahkan di `/etc/nuxbill/config.env`:
+3. Tambahkan di `/etc/gobill/config.env`:
 
-        NUXBILL_BACKUP_DIR=/mnt/usb/nuxbill-backup
+        GOBILL_BACKUP_DIR=/mnt/usb/gobill-backup
 
 4. Restart service:
 
-        sudo systemctl restart nuxbill
+        sudo systemctl restart gobill
 
 ## Mirror
 
-Simpan backup di luar SD card. Jika SD card atau STB rusak, backup di `NUXBILL_BACKUP_DIR` ikut hilang. Mirror adalah salinan kedua di folder lain.
+Simpan backup di luar SD card. Jika SD card atau STB rusak, backup di `GOBILL_BACKUP_DIR` ikut hilang. Mirror adalah salinan kedua di folder lain.
 
 Cara kerjanya:
 
-- Isi `NUXBILL_BACKUP_MIRROR` dengan folder kedua.
+- Isi `GOBILL_BACKUP_MIRROR` dengan folder kedua.
 - Setiap backup harian langsung disalin ke folder itu.
 - Mirror dipangkas dengan `backup_keep` yang sama.
-- Folder harus sudah ada. NuxBill tidak membuatnya otomatis, supaya disk yang belum ter-mount tidak menulis ke SD card.
+- Folder harus sudah ada. gobill tidak membuatnya otomatis, supaya disk yang belum ter-mount tidak menulis ke SD card.
 - Jika salinan gagal, alert dikirim sekali saat mirror mulai gagal, dan sekali saat pulih. Alert memakai kanal di `alert_channel`. Backup lokal tetap dibuat.
 - Mirror yang gagal dicoba ulang tiap jam.
 - Status terakhir tampil di **Pengaturan > Aneka ragam**, di bawah "Download backup".
@@ -53,7 +53,7 @@ Cara kerjanya:
 
 **USB stick.** Pasang di `/mnt/usb` dengan fstab `nofail`, seperti di atas. Set:
 
-    NUXBILL_BACKUP_MIRROR=/mnt/usb/nuxbill-mirror
+    GOBILL_BACKUP_MIRROR=/mnt/usb/gobill-mirror
 
 **NAS (NFS atau SMB).** Buat unit mount systemd, agar mount menunggu jaringan. Contoh NFS di `/etc/systemd/system/mnt-nas.mount`:
 
@@ -63,7 +63,7 @@ Cara kerjanya:
     After=network-online.target
 
     [Mount]
-    What=192.168.1.10:/volume1/nuxbill
+    What=192.168.1.10:/volume1/gobill
     Where=/mnt/nas
     Type=nfs
     Options=_netdev,soft,timeo=50
@@ -75,43 +75,43 @@ Lalu aktifkan unit:
 
     sudo systemctl enable --now mnt-nas.mount
 
-Untuk SMB, ganti `Type=cifs` dan tambahkan `credentials=/etc/nuxbill/smb.cred` di `Options`. Nama file unit harus sama dengan path mount. Misalnya `/mnt/nas` menjadi `mnt-nas.mount`.
+Untuk SMB, ganti `Type=cifs` dan tambahkan `credentials=/etc/gobill/smb.cred` di `Options`. Nama file unit harus sama dengan path mount. Misalnya `/mnt/nas` menjadi `mnt-nas.mount`.
 
-Lalu tambahkan drop-in service dengan `sudo systemctl edit nuxbill`:
+Lalu tambahkan drop-in service dengan `sudo systemctl edit gobill`:
 
     [Unit]
     RequiresMountsFor=/mnt/nas
 
     [Service]
-    ReadWritePaths=/mnt/nas/nuxbill-backup
+    ReadWritePaths=/mnt/nas/gobill-backup
 
-`RequiresMountsFor=` membuat NuxBill menunggu mount siap. Set `NUXBILL_BACKUP_MIRROR=/mnt/nas/nuxbill-backup`. Buat folder itu sekali secara manual di NAS.
+`RequiresMountsFor=` membuat gobill menunggu mount siap. Set `GOBILL_BACKUP_MIRROR=/mnt/nas/gobill-backup`. Buat folder itu sekali secara manual di NAS.
 
 **rclone ke Google Drive.** Pasang dengan:
 
     rclone mount gdrive: /mnt/gdrive --vfs-cache-mode writes --daemon
 
-Anda juga bisa memasangnya lewat unit systemd, dengan `RequiresMountsFor=/mnt/gdrive` dan `After=network-online.target`. Set `NUXBILL_BACKUP_MIRROR=/mnt/gdrive/nuxbill-backup`, dan tambahkan `ReadWritePaths=/mnt/gdrive/nuxbill-backup` di drop-in. Google Drive punya kuota dan jeda, jadi cek folder itu sesekali.
+Anda juga bisa memasangnya lewat unit systemd, dengan `RequiresMountsFor=/mnt/gdrive` dan `After=network-online.target`. Set `GOBILL_BACKUP_MIRROR=/mnt/gdrive/gobill-backup`, dan tambahkan `ReadWritePaths=/mnt/gdrive/gobill-backup` di drop-in. Google Drive punya kuota dan jeda, jadi cek folder itu sesekali.
 
-Setelah mengisi `NUXBILL_BACKUP_MIRROR` di `/etc/nuxbill/config.env`, restart NuxBill.
+Setelah mengisi `GOBILL_BACKUP_MIRROR` di `/etc/gobill/config.env`, restart gobill.
 
 ### Uji restore dari mirror
 
 Lakukan uji ini sekali setelah mirror pertama kali diatur, dan setiap tujuan mirror diganti. Jangan menunggu bencana.
 
-1. Salin file terbaru dari folder mirror ke `/tmp/uji.db`. Salin juga `nuxbill.db.key` yang sesuai. Tanpa kunci, data tidak bisa dibaca.
-2. Jalankan instance terpisah dengan port lain, misalnya `NUXBILL_DB=/tmp/uji.db` dan `NUXBILL_HTTP=:8099`.
+1. Salin file terbaru dari folder mirror ke `/tmp/uji.db`. Salin juga `gobill.db.key` yang sesuai. Tanpa kunci, data tidak bisa dibaca.
+2. Jalankan instance terpisah dengan port lain, misalnya `GOBILL_DB=/tmp/uji.db` dan `GOBILL_HTTP=:8099`.
 3. Cek data pelanggan di UI.
 
 ## Backup kunci bersama database
 
-Backup `nuxbill.db.key` bersama database. Tanpa file ini, data terenkripsi, yaitu password perangkat dan gateway, tidak bisa dibaca.
+Backup `gobill.db.key` bersama database. Tanpa file ini, data terenkripsi, yaitu password perangkat dan gateway, tidak bisa dibaca.
 
-Jika memakai `NUXBILL_SECRET_KEY`, simpan nilainya di tempat aman. Nilai itu menggantikan file `.key`.
+Jika memakai `GOBILL_SECRET_KEY`, simpan nilainya di tempat aman. Nilai itu menggantikan file `.key`.
 
 Salinan manual:
 
-    sudo cp /var/lib/nuxbill/nuxbill.db /var/lib/nuxbill/nuxbill.db.key /mnt/usb/manual-backup/
+    sudo cp /var/lib/gobill/gobill.db /var/lib/gobill/gobill.db.key /mnt/usb/manual-backup/
 
 ## Pulihkan database
 
@@ -122,14 +122,14 @@ Alur restore:
 1. Aplikasi memeriksa file: integritas, versi skema yang tidak lebih baru dari aplikasi ini, dan kunci enkripsi.
 2. Aplikasi menampilkan jumlah data di backup, dibanding data saat ini.
 3. Setelah dikonfirmasi, data saat ini dibackup otomatis ke folder backup, dengan nama berakhiran `-pre-restore.db`.
-4. File backup dipasang sebagai `nuxbill.db.restore`.
+4. File backup dipasang sebagai `gobill.db.restore`.
 5. Aplikasi keluar dengan kode 3. Systemd dengan `Restart=on-failure` menjalankannya lagi.
-6. Saat start, database lama dipindah ke samping file database, dengan nama `nuxbill.db.pre-restore-<waktu>-<acak>`. Nama itu beserta `-wal`-nya ikut dipindah.
+6. Saat start, database lama dipindah ke samping file database, dengan nama `gobill.db.pre-restore-<waktu>-<acak>`. Nama itu beserta `-wal`-nya ikut dipindah.
 7. Backup diterapkan sebelum database dibuka. Backup dari versi lama naik versi sendiri lewat migrasi.
 
-Setelah yakin pemulihan berhasil, file `nuxbill.db.pre-restore-*` boleh dihapus. Backup otomatis sudah tersedia.
+Setelah yakin pemulihan berhasil, file `gobill.db.pre-restore-*` boleh dihapus. Backup otomatis sudah tersedia.
 
-Backup harus dibuat dengan `NUXBILL_SECRET_KEY` atau file `nuxbill.db.key` yang sama dengan aplikasi tujuan. Jika tidak sama, pemulihan ditolak.
+Backup harus dibuat dengan `GOBILL_SECRET_KEY` atau file `gobill.db.key` yang sama dengan aplikasi tujuan. Jika tidak sama, pemulihan ditolak.
 
 ### Restore manual
 
@@ -140,19 +140,19 @@ Gunakan langkah ini jika aplikasi tidak kembali, atau tidak berjalan di systemd.
 3. Hapus file `-wal` dan `-shm`. File `-wal` lama wajib dihapus. Jika tidak, isinya ikut diputar ulang ke database yang sudah dipulihkan.
 4. Jalankan lagi layanan.
 
-    sudo systemctl stop nuxbill
-    sudo cp /mnt/usb/manual-backup/nuxbill.db /var/lib/nuxbill/nuxbill.db
-    sudo rm -f /var/lib/nuxbill/nuxbill.db-wal /var/lib/nuxbill/nuxbill.db-shm
-    sudo systemctl start nuxbill
+    sudo systemctl stop gobill
+    sudo cp /mnt/usb/manual-backup/gobill.db /var/lib/gobill/gobill.db
+    sudo rm -f /var/lib/gobill/gobill.db-wal /var/lib/gobill/gobill.db-shm
+    sudo systemctl start gobill
 
 ## Pengaman impor
 
-Sebelum impor data dari PHPNuxBill, NuxBill membuat backup database otomatis di `NUXBILL_BACKUP_DIR`. Namanya `nuxbill-YYYYMMDD-HHMMSS-pre-import.db`. Jika backup gagal, impor tidak dijalankan. Langkah impor ada di [migrasi](migration-phpnuxbill.md).
+Sebelum impor data dari PHPNuxBill, gobill membuat backup database otomatis di `GOBILL_BACKUP_DIR`. Namanya `gobill-YYYYMMDD-HHMMSS-pre-import.db`. Jika backup gagal, impor tidak dijalankan. Langkah impor ada di [migrasi](migration-phpnuxbill.md).
 
 ## Lihat juga
 
 - [Instalasi](installation.md): pemasangan dan folder data.
 - [Upgrade](upgrade.md): backup sebelum upgrade dan rollback.
-- [Konfigurasi](configuration.md): `NUXBILL_BACKUP_DIR`, `NUXBILL_BACKUP_MIRROR`, dan `backup_keep`.
+- [Konfigurasi](configuration.md): `GOBILL_BACKUP_DIR`, `GOBILL_BACKUP_MIRROR`, dan `backup_keep`.
 - [Monitoring](monitoring.md): alert backup dan mirror.
 - [Migrasi dari PHPNuxBill](migration-phpnuxbill.md): impor dan pengaman impor.

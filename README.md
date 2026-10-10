@@ -1,4 +1,4 @@
-# NuxBill Go
+# gobill
 
 Billing ISP untuk hotspot dan PPPoE MikroTik, ditulis ulang dari PHPNuxBill dalam Go. Satu binary, satu database SQLite, tanpa PHP dan tanpa web server terpisah. Cocok untuk RT/RW Net dan ISP kecil-menengah yang ingin menjalankannya di STB Armbian (RAM 1-2 GB), VPS, atau Docker.
 
@@ -34,7 +34,7 @@ Billing ISP untuk hotspot dan PPPoE MikroTik, ditulis ulang dari PHPNuxBill dala
  Tripay (callback) ----------HTTP--------+
  FreeRADIUS (rlm_rest) ------/radius.php-+
                                          v
-                     +------------- nuxbill (1 proses) -------------+
+                     +------------- gobill (1 proses) -------------+
                      |  Web (admin, portal)   RADIUS :1812/:1813    |
                      |  Job: expiry, reminder, backup, clock guard  |
                      |                    |                         |
@@ -49,12 +49,12 @@ Detail: [docs/internal/arsitektur.md](docs/internal/arsitektur.md).
 
 ## Mulai cepat
 
-1. Unduh binary dari [Releases](https://github.com/frand-kod/gobill/releases) (`nuxbill-linux-amd64`, `-arm64`, `-armv7`), atau build sendiri: `make build`.
+1. Unduh binary dari [Releases](https://github.com/frand-kod/gobill/releases) (`gobill-linux-amd64`, `-arm64`, `-armv7`), atau build sendiri: `make build`.
 2. Jalankan:
 
-       NUXBILL_DB=./nuxbill.db NUXBILL_HTTP=:8080 ./nuxbill
+       GOBILL_DB=./gobill.db GOBILL_HTTP=:8080 ./gobill
 
-3. Ambil password admin pertama dari file `initial-admin-password.txt` di folder database (`./` saat jalan manual, `/var/lib/nuxbill` di systemd). Password tidak dicetak ke log.
+3. Ambil password admin pertama dari file `initial-admin-password.txt` di folder database (`./` saat jalan manual, `/var/lib/gobill` di systemd). Password tidak dicetak ke log.
 4. Buka http://localhost:8080, login sebagai `admin`, lalu ganti password.
 
 Untuk STB, systemd, atau Docker, lihat [instalasi](docs/id/installation.md).

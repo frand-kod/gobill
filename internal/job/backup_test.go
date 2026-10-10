@@ -35,7 +35,7 @@ func TestBackupWritesRotatesAndSkips(t *testing.T) {
 	if err := b.Run(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(backupDir, "nuxbill-20261001.db")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(backupDir, "gobill-20261001.db")); !os.IsNotExist(err) {
 		t.Fatalf("untrusted run wrote a backup: %v", err)
 	}
 
@@ -45,7 +45,7 @@ func TestBackupWritesRotatesAndSkips(t *testing.T) {
 	if err := b.Run(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(backupDir, "nuxbill-20261001.db")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(backupDir, "gobill-20261001.db")); !os.IsNotExist(err) {
 		t.Fatalf("run outside 02:00 wrote a backup")
 	}
 
@@ -68,12 +68,12 @@ func TestBackupWritesRotatesAndSkips(t *testing.T) {
 	for _, e := range entries {
 		names = append(names, e.Name())
 	}
-	if len(names) != 2 || names[0] != "nuxbill-20261002.db" || names[1] != "nuxbill-20261003.db" {
+	if len(names) != 2 || names[0] != "gobill-20261002.db" || names[1] != "gobill-20261003.db" {
 		t.Fatalf("rotation kept %v, want the two newest", names)
 	}
 
 	// The copy is a real database with the same schema.
-	copyConn, err := db.Open(filepath.Join(backupDir, "nuxbill-20261003.db"))
+	copyConn, err := db.Open(filepath.Join(backupDir, "gobill-20261003.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestBackupWritesRotatesAndSkips(t *testing.T) {
 	}
 
 	// Today's file already exists: the run must not overwrite it.
-	marker := filepath.Join(backupDir, "nuxbill-20261003.db")
+	marker := filepath.Join(backupDir, "gobill-20261003.db")
 	if err := os.WriteFile(marker, []byte("keep me"), 0o600); err != nil {
 		t.Fatal(err)
 	}

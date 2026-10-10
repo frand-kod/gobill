@@ -1,10 +1,10 @@
 # Monitoring
 
-Dokumen ini menjelaskan cara memantau kondisi NuxBill. Ada tiga cara: halaman Status Sistem di admin, endpoint `/health` untuk uptime monitor, dan endpoint `/metrics` untuk Prometheus. NuxBill juga mengirim alert ke operator secara otomatis.
+Dokumen ini menjelaskan cara memantau kondisi gobill. Ada tiga cara: halaman Status Sistem di admin, endpoint `/health` untuk uptime monitor, dan endpoint `/metrics` untuk Prometheus. gobill juga mengirim alert ke operator secara otomatis.
 
 **Untuk:** operator
 
-**Prasyarat:** NuxBill sudah berjalan. Untuk alert, kanal Telegram atau WhatsApp sudah diatur di [integrasi](integrations.md).
+**Prasyarat:** gobill sudah berjalan. Untuk alert, kanal Telegram atau WhatsApp sudah diatur di [integrasi](integrations.md).
 
 ## Halaman Status Sistem
 
@@ -85,11 +85,11 @@ Untuk memantau RADIUS, pakai monitor TCP atau UDP ke port 1812 di server.
 
 ### Pantau dari luar
 
-NuxBill tidak bisa memberi tahu jika dirinya sendiri mati. Pasang monitor eksternal, misalnya UptimeRobot atau Uptime Kuma. Monitor ini memanggil `https://domain-anda/health` setiap 5 menit, dan mengirim alarm jika respons bukan 200.
+gobill tidak bisa memberi tahu jika dirinya sendiri mati. Pasang monitor eksternal, misalnya UptimeRobot atau Uptime Kuma. Monitor ini memanggil `https://domain-anda/health` setiap 5 menit, dan mengirim alarm jika respons bukan 200.
 
 ## Alert operator
 
-NuxBill memeriksa aturan berikut setiap menit. Tiap aturan mengirim satu alert saat mulai bermasalah, dan satu alert saat pulih. Selama masih bermasalah, tidak ada pesan lagi. Status disimpan di memori. Setelah restart, kondisi yang masih berjalan dilaporkan ulang.
+gobill memeriksa aturan berikut setiap menit. Tiap aturan mengirim satu alert saat mulai bermasalah, dan satu alert saat pulih. Selama masih bermasalah, tidak ada pesan lagi. Status disimpan di memori. Setelah restart, kondisi yang masih berjalan dilaporkan ulang.
 
 | Aturan | Terpicu saat | Pulih saat |
 |---|---|---|
@@ -99,7 +99,7 @@ NuxBill memeriksa aturan berikut setiap menit. Tiap aturan mengirim satu alert s
 | Kanal notifikasi gagal | Satu kanal gagal 5 kali berturut-turut | Satu kirim berhasil |
 | Brute force | Lebih dari 30 kegagalan login, admin, portal, dan 2FA, dalam 10 menit | Kegagalan turun di bawah batas |
 | Backup | Backup lokal lebih dari 36 jam lalu, atau salinan mirror gagal | Backup baru, atau salinan mirror berhasil |
-| Restart tidak normal | NuxBill berhenti karena crash, kill paksa, atau listrik mati | - |
+| Restart tidak normal | gobill berhenti karena crash, kill paksa, atau listrik mati | - |
 
 Backup mirror yang gagal dicoba ulang sekali per jam, sepanjang hari itu, sampai berhasil.
 

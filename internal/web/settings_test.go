@@ -302,7 +302,7 @@ func TestUploadsServeRejectsTraversal(t *testing.T) {
 		s.serveUpload(w, r)
 		return w
 	}
-	for _, bad := range []string{"../" + name, "..%2F" + name, "sub/" + name, "../nuxbill.db", name + "/.."} {
+	for _, bad := range []string{"../" + name, "..%2F" + name, "sub/" + name, "../gobill.db", name + "/.."} {
 		if w := serve(bad); w.Code != http.StatusNotFound {
 			t.Fatalf("%q served: %d", bad, w.Code)
 		}
@@ -350,7 +350,7 @@ func TestBrandingAndBackupRoutesReachable(t *testing.T) {
 	if w := do(h, "GET", "/uploads/"+name, nil, nil); w.Code != http.StatusOK || !bytes.HasPrefix(w.Body.Bytes(), uploadPNG[:8]) {
 		t.Fatalf("/uploads: %d", w.Code)
 	}
-	if w := do(h, "GET", "/uploads/../nuxbill.db", nil, nil); w.Code == http.StatusOK {
+	if w := do(h, "GET", "/uploads/../gobill.db", nil, nil); w.Code == http.StatusOK {
 		t.Fatal("traversal served")
 	}
 	do(h, "POST", "/admin/settings/app", url.Values{"company_name": {"Acme"}, "currency_code": {"Rp"},

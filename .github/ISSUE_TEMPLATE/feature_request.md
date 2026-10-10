@@ -11,6 +11,6 @@ Apa kebutuhan Anda, dan kenapa cara sekarang belum cukup.
 Gambaran perubahan yang Anda harapkan.
 
 **Lingkungan**
-- Versi nuxbill (`nuxbill --version`):
+- Versi gobill (`gobill --version`):
 - Versi RouterOS:
 - Mode RADIUS: API / built-in / REST

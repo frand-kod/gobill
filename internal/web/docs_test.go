@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	nuxbill "github.com/frand-kod/gobill"
+	gobill "github.com/frand-kod/gobill"
 )
 
 // internal docs must never show up in the app, in either language
@@ -83,7 +83,7 @@ func TestDocsRewriteLinks(t *testing.T) {
 }
 
 func TestDocsCrossLinkAndAnchorRendered(t *testing.T) {
-	gs, err := loadAllGuides(nuxbill.Docs)
+	gs, err := loadAllGuides(gobill.Docs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestDocsCrossLinkAndAnchorRendered(t *testing.T) {
 }
 
 func TestDocsEveryGuideInBothLanguages(t *testing.T) {
-	gs, err := loadAllGuides(nuxbill.Docs)
+	gs, err := loadAllGuides(gobill.Docs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +195,7 @@ func TestDocsStaffReadAnonymousRedirected(t *testing.T) {
 // Guard: only the whitelisted Markdown files are embedded, never SQL dumps or internal notes.
 func TestDocsEmbedIsWhitelistOnly(t *testing.T) {
 	var got []string
-	err := fs.WalkDir(nuxbill.Docs, ".", func(p string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(gobill.Docs, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}

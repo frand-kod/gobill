@@ -10,7 +10,7 @@ import (
 
 func TestHealth(t *testing.T) {
 	s, _ := newTestApp(t)
-	s.DBPath = filepath.Join(t.TempDir(), "nuxbill.db")
+	s.DBPath = filepath.Join(t.TempDir(), "gobill.db")
 	h := s.Handler()
 
 	w := do(h, "GET", "/health", nil, nil)

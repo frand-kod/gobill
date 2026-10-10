@@ -14,7 +14,7 @@ This document is the index of the operator guide in English. The guide is also a
 
 ## Configuration
 
-- [Configuration](configuration.md): `NUXBILL_*` variables and settings in the UI.
+- [Configuration](configuration.md): `GOBILL_*` variables and settings in the UI.
 - [Integrations](integrations.md): WhatsApp, SMS, Telegram, email, webhooks, Tripay, and QRIS.
 - [Security](security.md): RADIUS hardening, firewall, application security, and admin 2FA.
 

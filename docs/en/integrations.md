@@ -1,6 +1,6 @@
 # Integrations
 
-This document explains how to connect NuxBill to WhatsApp, SMS, Telegram, email, webhooks, and online payments. Online payments use Tripay or a static QRIS.
+This document explains how to connect gobill to WhatsApp, SMS, Telegram, email, webhooks, and online payments. Online payments use Tripay or a static QRIS.
 
 **For:** operators
 
@@ -28,7 +28,7 @@ Templates can use placeholders such as `[[price]]`. Unknown placeholders are rem
 
 ## WhatsApp
 
-There are two ways to send WhatsApp messages. NuxBill chooses the one to use automatically.
+There are two ways to send WhatsApp messages. gobill chooses the one to use automatically.
 
 1. **GOWA (recommended).** Use the [go-whatsapp-web-multidevice](https://github.com/aldinokemal/go-whatsapp-web-multidevice) server.
 2. **Message gateway `wa_url`.** Used only when `alt_wga_server_url` is empty.
@@ -43,7 +43,7 @@ Fill in **Settings > Integrations**, section "WhatsApp — GOWA":
 | `alt_wga_device_id` | Optional. |
 | `alt_wga_username` and `alt_wga_password` | Basic auth, if the server uses it. |
 
-NuxBill sends `POST <alt_wga_server_url>/send/message` with the body `{"phone":"628xxx@s.whatsapp.net","message":"..."}`. This is the same method as the "Alternative WhatsApp Gateway" plugin in PHPNuxBill. Numbers that start with `0` are converted using `country_code_phone`.
+gobill sends `POST <alt_wga_server_url>/send/message` with the body `{"phone":"628xxx@s.whatsapp.net","message":"..."}`. This is the same method as the "Alternative WhatsApp Gateway" plugin in PHPNuxBill. Numbers that start with `0` are converted using `country_code_phone`.
 
 ### Option 2: message gateway `wa_url`
 
@@ -52,11 +52,11 @@ NuxBill sends `POST <alt_wga_server_url>/send/message` with the body `{"phone":"
 ### Priority rules
 
 - If `alt_wga_server_url` is set, `wa_url` is ignored completely.
-- If `wa_url` still contains the address of the old PHP plugin, that is, `...?_route=plugin/wga_sendMessage&...`, NuxBill writes a warning to the log. NuxBill still sends directly to the WA server. Clear `wa_url` to avoid confusion.
+- If `wa_url` still contains the address of the old PHP plugin, that is, `...?_route=plugin/wga_sendMessage&...`, gobill writes a warning to the log. gobill still sends directly to the WA server. Clear `wa_url` to avoid confusion.
 
 The "Send test message" button on the same page sends one message to a number you type. It uses the values in the form, even if they are not saved yet. The server's reply is shown in plain language.
 
-WhatsApp devices and QR login are not managed in NuxBill. Do those on the WA server's own page.
+WhatsApp devices and QR login are not managed in gobill. Do those on the WA server's own page.
 
 ## SMS
 

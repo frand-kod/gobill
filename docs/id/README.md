@@ -14,7 +14,7 @@ Dokumen ini adalah indeks panduan operator dalam Bahasa Indonesia. Panduan ini j
 
 ## Konfigurasi
 
-- [Konfigurasi](configuration.md): variabel `NUXBILL_*` dan pengaturan di UI.
+- [Konfigurasi](configuration.md): variabel `GOBILL_*` dan pengaturan di UI.
 - [Integrasi](integrations.md): WhatsApp, SMS, Telegram, email, webhook, Tripay, dan QRIS.
 - [Keamanan](security.md): pengerasan RADIUS, firewall, keamanan aplikasi, dan 2FA admin.
 
