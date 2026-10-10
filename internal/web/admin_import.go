@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
+	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -51,13 +52,13 @@ type importView struct {
 	Filled  bool // gobill has data: confirm asks first
 }
 
-func (s *Server) currentCounts(ctx context.Context) (importCounts, error) {
+func countImportRows(ctx context.Context, conn *sql.DB) (importCounts, error) {
 	var c importCounts
 	for _, t := range []struct {
 		table string
 		n     *int64
 	}{{"customers", &c.Customers}, {"plans", &c.Plans}, {"subscriptions", &c.Subscriptions}, {"transactions", &c.Transactions}, {"admins", &c.Admins}} {
-		if err := s.conn.QueryRowContext(ctx, "SELECT count(*) FROM "+t.table).Scan(t.n); err != nil {
+		if err := conn.QueryRowContext(ctx, "SELECT count(*) FROM "+t.table).Scan(t.n); err != nil {
 			return c, err
 		}
 	}
@@ -252,7 +253,7 @@ func (s *Server) importPreview(w http.ResponseWriter, r *http.Request) {
 		s.renderImport(w, r, http.StatusUnprocessableEntity, importView{}, "Could not read this file as a PHPNuxBill backup.", err.Error())
 		return
 	}
-	cur, err := s.currentCounts(ctx)
+	cur, err := countImportRows(ctx, s.conn)
 	if err != nil {
 		removeFiles(files)
 		s.fail(w, "import counts", err)
@@ -274,7 +275,7 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 		s.renderImport(w, r, http.StatusUnprocessableEntity, importView{}, "The import file has expired. Upload it again.", "")
 		return
 	}
-	cur, err := s.currentCounts(ctx)
+	cur, err := countImportRows(ctx, s.conn)
 	if err != nil {
 		s.fail(w, "import counts", err)
 		return

@@ -54,6 +54,10 @@ type Server struct {
 	SettingsChanged func(ctx context.Context) // called after settings are saved
 	// BackupDir receives the database backup taken before a PHPNuxBill import, see admin_import.go.
 	BackupDir string
+	// DBPath is the live database file. Restore stages its upload next to it, see admin_restore.go.
+	DBPath string
+	// Restart is called after a restore is staged; main shuts down and exits for systemd to start it again.
+	Restart func()
 	// Billing recharges customers and syncs plans to routers; nil disables both.
 	Billing *billing.Service
 	// CoAPort is the NAS Disconnect-Request port; empty = 3799.

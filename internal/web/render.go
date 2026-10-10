@@ -95,6 +95,7 @@ func (s *Server) parseTemplates() error {
 		"docs":             {"base.html", "app.html", "docs.html"},
 		"network":          {"base.html", "app.html", "network.html"},
 		"import":           {"base.html", "app.html", "import.html"},
+		"restore":          {"base.html", "app.html", "restore.html"},
 
 		"p_login":       {"base.html", "portal/login.html"},
 		"p_qris":        {"base.html", "portal/qris.html"},
