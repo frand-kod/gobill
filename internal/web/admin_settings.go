@@ -446,7 +446,9 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 	if tab == "miscellaneous" && adminFrom(r).Role == "SuperAdmin" { // backup is SuperAdmin only, as in the old dbstatus page
 		fp.Fields = append(fp.Fields, field{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/miscellaneous/backup", Section: "System"},
 			field{Name: "import", Label: "Import PHPNuxBill", Type: "link", Value: importPage, Btn: "Open import page",
-				Hint: "Replaces the data in this app. A backup is made first.", Section: "System"})
+				Hint: "Replaces the data in this app. A backup is made first.", Section: "System"},
+			field{Name: "restore", Label: "Restore database", Type: "link", Value: restorePage, Btn: "Open restore page",
+				Hint: "Replaces the data with a gobill backup and restarts the app. A backup is made first.", Section: "System"})
 	}
 	s.render(w, r, status, "form", Page{Title: "Settings", Flash: s.sessions.PopString(r.Context(), "flash"), Tabs: nav, Data: fp})
 }
