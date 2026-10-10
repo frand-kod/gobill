@@ -98,12 +98,12 @@ func TestPortalBalanceOrder(t *testing.T) {
 
 func TestPortalRegister(t *testing.T) {
 	e := billApp(t)
-	f := url.Values{"username": {"newbie"}, "fullname": {"New Bie"}, "password": {"abc123"}, "cpassword": {"abc123"}}
+	f := url.Values{"username": {"newbie"}, "fullname": {"New Bie"}, "password": {"abc12345"}, "cpassword": {"abc12345"}}
 	if w := do(e.h, "POST", "/portal/register", f, nil); w.Code != http.StatusSeeOther {
 		t.Fatalf("register: %d %s", w.Code, w.Body.String())
 	}
 	c, err := e.q.GetCustomerByUsername(t.Context(), "newbie")
-	if err != nil || bcrypt.CompareHashAndPassword([]byte(c.PasswordHash), []byte("abc123")) != nil {
+	if err != nil || bcrypt.CompareHashAndPassword([]byte(c.PasswordHash), []byte("abc12345")) != nil {
 		t.Fatalf("customer not created with bcrypt hash: %v", err)
 	}
 	if w := do(e.h, "POST", "/portal/register", f, nil); w.Code != 200 {
@@ -127,7 +127,7 @@ func TestPortalSessionRevokedOnPasswordChange(t *testing.T) {
 	portalCust(t, e, 0)
 	old, _ := custLogin(t, e, "u1", "pw12345")
 	other, _ := custLogin(t, e, "u1", "pw12345")
-	w := do(e.h, "POST", "/portal/password", url.Values{"password": {"pw12345"}, "npass": {"newpw1"}, "cnpass": {"newpw1"}}, old)
+	w := do(e.h, "POST", "/portal/password", url.Values{"password": {"pw12345"}, "npass": {"newpass1"}, "cnpass": {"newpass1"}}, old)
 	if w.Code != http.StatusSeeOther {
 		t.Fatalf("change: %d", w.Code)
 	}

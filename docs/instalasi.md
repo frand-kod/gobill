@@ -32,11 +32,13 @@ Script aman dijalankan ulang. Hapus service dan binary tanpa menghapus data:
 
     sudo sh install.sh --uninstall
 
-Ambil password admin pertama (hanya dicetak sekali):
+Password admin pertama disimpan di file `initial-admin-password.txt` di folder database (mode 0600, tidak ditulis ke log). Untuk instalasi default:
 
-    journalctl -u nuxbill | grep "first admin"
+    sudo cat /var/lib/nuxbill/initial-admin-password.txt
 
-Buka `http://IP-STB:8080`, login sebagai `admin`, lalu ganti password.
+Buka `http://IP-STB:8080`, login sebagai `admin`, lalu ganti password. Setelah itu hapus file tersebut:
+
+    sudo rm /var/lib/nuxbill/initial-admin-password.txt
 
 ### 3. Jam dan NTP
 
@@ -154,7 +156,7 @@ Cek versi: `/usr/local/bin/nuxbill --version`. Backup database dan `.key` dulu.
     systemctl status nuxbill
 
 - **Log berisi `clock`, expiry ditolak**: jam belum sinkron. Cek `timedatectl status` dan pastikan internet bisa diakses.
-- **`first admin created`**: password admin pertama, hanya muncul saat DB baru dibuat.
+- **`first admin created`**: admin pertama dibuat saat DB baru; passwordnya ada di `initial-admin-password.txt` (folder database).
 - **`NUXBILL_RADIUS ... want host:port`**: format salah. Pakai `:1812`, atau `off` untuk mematikan.
 - **`permission denied` saat tulis DB**: `sudo chown -R nuxbill:nuxbill /var/lib/nuxbill`.
 - **Service terus restart**: lihat log; pastikan `/etc/nuxbill/config.env` ada dan berisi `NUXBILL_SECRET_KEY`.
@@ -190,9 +192,10 @@ Langkahnya sama dengan STB (`install.sh`, binary `amd64`). Perbedaan penting:
     docker run -d --name nuxbill -p 8080:8080 -p 1812:1812/udp -p 1813:1813/udp \
       -v nuxbill-data:/data nuxbill
 
-Data SQLite dan `nuxbill.db.key` ada di volume `/data`. Tambahkan `-e NUXBILL_SECRET_KEY=<SECRET>` untuk mengelola kunci sendiri. Password admin pertama:
+Data SQLite dan `nuxbill.db.key` ada di volume `/data`. Tambahkan `-e NUXBILL_SECRET_KEY=<SECRET>` untuk mengelola kunci sendiri. Password admin pertama ada di file `initial-admin-password.txt` dalam volume `/data`:
 
-    docker logs nuxbill | grep "first admin"
+    docker exec nuxbill cat /data/initial-admin-password.txt
+    docker exec nuxbill rm /data/initial-admin-password.txt   # setelah login dan ganti password
 
 ## Tanpa installer
 

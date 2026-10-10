@@ -40,6 +40,13 @@ func (s *Server) otpAllow(ip, phone string) bool {
 		}
 		return l
 	}
+	if len(s.otpSent) > 10000 { // bound memory: drop keys with no send in the last hour
+		for k := range s.otpSent {
+			if len(recent(k, time.Hour)) == 0 {
+				delete(s.otpSent, k)
+			}
+		}
+	}
 	ik, pk := "ip:"+ip, "ph:"+phone
 	il, pl := recent(ik, 15*time.Minute), recent(pk, time.Hour)
 	if len(il) >= 5 || phone != "" && (len(pl) >= 5 || len(pl) > 0 && now.Sub(pl[len(pl)-1]) < time.Minute) {

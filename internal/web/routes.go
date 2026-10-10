@@ -203,7 +203,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/vouchers", all(http.HandlerFunc(s.vchList)))
 	mux.Handle("GET /admin/vouchers/new", staff(http.HandlerFunc(s.vchNew)))
 	mux.Handle("POST /admin/vouchers", staff(http.HandlerFunc(s.vchGenerate)))
-	mux.Handle("GET /admin/vouchers/print", all(http.HandlerFunc(s.vchPrint)))
+	mux.Handle("GET /admin/vouchers/print", staff(http.HandlerFunc(s.vchPrint)))
 	mux.Handle("GET /admin/vouchers/view", staff(http.HandlerFunc(s.vchView)))
 	mux.Handle("GET /admin/vouchers/redeem", staff(http.HandlerFunc(s.vchRedeemForm)))
 	mux.Handle("POST /admin/vouchers/redeem", staff(http.HandlerFunc(s.vchRedeem)))

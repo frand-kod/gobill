@@ -18,7 +18,7 @@ import (
 // (1) A new customer lands on its own page, where the plan is chosen.
 func TestCreateCustomerRedirectsToDetail(t *testing.T) {
 	_, h, q, c := crudApp(t)
-	form := url.Values{"username": {"budi"}, "password": {"pw12345"}, "fullname": {"Budi"}, "service_type": {"PPPoE"}, "status": {"Active"}}
+	form := url.Values{"username": {"budi"}, "password": {"pw123456"}, "fullname": {"Budi"}, "service_type": {"PPPoE"}, "status": {"Active"}}
 	w := do(h, "POST", "/admin/customers", form, c)
 	wantCode(t, w, 303, "create")
 	cu, err := q.GetCustomerByUsername(t.Context(), "budi")

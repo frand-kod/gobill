@@ -77,7 +77,7 @@ func run() error {
 	if err := db.Migrate(conn); err != nil {
 		return err
 	}
-	if err := bootstrapAdmin(context.Background(), db.New(conn)); err != nil {
+	if err := bootstrapAdmin(context.Background(), db.New(conn), filepath.Dir(dbPath)); err != nil {
 		return err
 	}
 
@@ -218,8 +218,9 @@ func env(key, fallback string) string {
 }
 
 // bootstrapAdmin creates the first SuperAdmin when the database has no admins.
-// The random password is logged once; the operator must change it.
-func bootstrapAdmin(ctx context.Context, q *db.Queries) error {
+// The random password is written to initial-admin-password.txt in dir (0600, never logged);
+// the operator must read it, sign in and change it, then delete the file.
+func bootstrapAdmin(ctx context.Context, q *db.Queries, dir string) error {
 	n, err := q.CountAdmins(ctx)
 	if err != nil {
 		return err
@@ -232,17 +233,29 @@ func bootstrapAdmin(ctx context.Context, q *db.Queries) error {
 	if err != nil {
 		return err
 	}
-	_, err = q.CreateAdmin(ctx, db.CreateAdminParams{
-		Username:     "admin",
-		Fullname:     "Administrator",
-		PasswordHash: string(hash),
-		Role:         "SuperAdmin",
-	})
+	path := filepath.Join(dir, "initial-admin-password.txt")
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
+		return fmt.Errorf("initial admin password file %s: %w (remove it to bootstrap again)", path, err)
+	}
+	_, err = fmt.Fprintln(f, password)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		_, err = q.CreateAdmin(ctx, db.CreateAdminParams{
+			Username:     "admin",
+			Fullname:     "Administrator",
+			PasswordHash: string(hash),
+			Role:         "SuperAdmin",
+		})
+	}
+	if err != nil {
+		os.Remove(path)
 		return err
 	}
-	slog.Warn("first admin created, change this password after signing in",
-		"username", "admin", "password", password)
+	slog.Warn("first admin created: read the password from the file, sign in, change it, then delete the file",
+		"username", "admin", "file", path)
 	return nil
 }
 
