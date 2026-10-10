@@ -56,6 +56,12 @@ ORDER BY
   CASE WHEN sort_key = 'expires_asc' THEN s.expires_at END ASC,
   s.expires_at DESC, s.id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
+-- name: ListActiveSubscriptionsWithPlan :many
+-- Customer summary: the subscriptions still active (any expiry, as billing treats them) with the plan name.
+SELECT s.id, s.plan_id, s.router_id, s.type, s.expires_at, p.name AS plan_name
+FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+WHERE s.customer_id = ? AND s.status = 'active' ORDER BY s.expires_at;
+
 -- name: UpdateSubscription :exec
 UPDATE subscriptions SET plan_id = ?, router_id = ?, type = ?, expires_at = ?, status = ?, admin_id = ? WHERE id = ?;
 

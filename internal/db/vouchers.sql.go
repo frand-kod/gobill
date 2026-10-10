@@ -124,6 +124,24 @@ func (q *Queries) GetVoucherByCode(ctx context.Context, code string) (Voucher, e
 	return i, err
 }
 
+const lastVoucherUsedBy = `-- name: LastVoucherUsedBy :one
+SELECT v.code, p.name AS plan_name FROM vouchers v JOIN plans p ON p.id = v.plan_id
+WHERE v.used_by = ? ORDER BY v.used_at DESC, v.id DESC LIMIT 1
+`
+
+type LastVoucherUsedByRow struct {
+	Code     string
+	PlanName string
+}
+
+// The voucher a customer redeemed last; a voucher account is one that redeemed a voucher.
+func (q *Queries) LastVoucherUsedBy(ctx context.Context, usedBy sql.NullInt64) (LastVoucherUsedByRow, error) {
+	row := q.db.QueryRowContext(ctx, lastVoucherUsedBy, usedBy)
+	var i LastVoucherUsedByRow
+	err := row.Scan(&i.Code, &i.PlanName)
+	return i, err
+}
+
 const listVouchers = `-- name: ListVouchers :many
 SELECT id, code, plan_id, status, used_by, used_at, generated_by, created_at FROM vouchers ORDER BY id DESC LIMIT ? OFFSET ?
 `

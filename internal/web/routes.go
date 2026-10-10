@@ -181,6 +181,7 @@ func (s *Server) Handler() http.Handler {
 	// recharge and billing: recharge, deposit, customer plans, transactions, payment gateway admin
 	mux.Handle("POST /admin/customers/{id}/recharge/confirm", staff(http.HandlerFunc(s.custRechargeConfirm)))
 	mux.Handle("POST /admin/customers/{id}/recharge", staff(http.HandlerFunc(s.custRecharge)))
+	mux.Handle("GET /admin/customers/{id}/summary", staff(http.HandlerFunc(s.custSummary)))
 	mux.Handle("GET /admin/recharge", staff(http.HandlerFunc(s.rechargePick)))
 	mux.Handle("POST /admin/recharge", staff(http.HandlerFunc(s.rechargeStart)))
 	mux.Handle("GET /admin/deposit", staff(http.HandlerFunc(s.depositForm)))

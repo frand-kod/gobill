@@ -1,0 +1,56 @@
+{{define "customer_summary"}}
+{{/* Customer summary panel for the recharge page: state and data come from customer-summary.js (gbCustomerSummary). */}}
+<section class="card" aria-labelledby="summary-h">
+  <div class="card-body space-y-4">
+    <h2 id="summary-h" class="text-base font-semibold">{{T "Customer summary"}}</h2>
+    <p class="text-sm text-ink-2" x-show="state === 'empty'" x-text="L.empty"></p>
+    <div class="space-y-3" x-show="state === 'loading'" x-cloak aria-busy="true" aria-label="{{T "Loading summary"}}">
+      <div class="h-5 w-2/3 animate-pulse rounded bg-sidebar"></div>
+      <div class="h-4 w-1/3 animate-pulse rounded bg-sidebar"></div>
+      <div class="h-16 animate-pulse rounded-lg bg-sidebar"></div>
+    </div>
+    <p class="alert alert-error" x-show="state === 'error'" x-cloak role="alert" x-text="L.error"></p>
+    <template x-if="state === 'ready' && d">
+      <div class="space-y-4">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span class="font-semibold" x-text="d.username"></span>
+          <span class="min-w-0 text-ink-2" x-show="d.fullname" x-text="d.fullname"></span>
+          <span class="badge" :class="d.blocks_recharge ? 'badge-bad' : 'badge-ok'" x-text="d.status_label"></span>
+          <span class="badge badge-warn" x-show="d.voucher" x-text="L.voucher"></span>
+        </div>
+        <p class="alert alert-error" x-show="d.blocks_recharge" x-text="L.blocked"></p>
+        <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+          <template x-for="f in facts()" :key="f.k">
+            <div class="contents"><dt class="text-ink-2" x-text="f.k"></dt><dd class="min-w-0 break-words" x-text="f.v"></dd></div>
+          </template>
+        </dl>
+        <div class="space-y-2">
+          <h3 class="text-sm font-semibold" x-text="L.active"></h3>
+          <p class="text-sm text-ink-2" x-show="!d.subscriptions.length" x-text="L.none"></p>
+          <template x-for="s in d.subscriptions" :key="s.plan + s.expires_at">
+            <div class="text-sm" :class="warn(s) ? 'alert alert-warn mb-0' : 'rounded-lg border border-line px-3 py-2'">
+              <span x-text="warn(s) || line(s)"></span>
+            </div>
+          </template>
+        </div>
+        <div class="space-y-2">
+          <h3 class="text-sm font-semibold" x-text="L.txns"></h3>
+          <p class="text-sm text-ink-2" x-show="!d.transactions.length" x-text="L.noTxns"></p>
+          <div class="table-scroll" x-show="d.transactions.length">
+            <table class="table">
+              <thead><tr><th x-text="L.date"></th><th class="hidden sm:table-cell" x-text="L.invoice"></th><th x-text="L.plan"></th><th class="text-end" x-text="L.price"></th></tr></thead>
+              <tbody>
+                <template x-for="t in d.transactions" :key="t.invoice + t.date">
+                  <tr><td x-text="t.date"></td><td class="hidden break-all sm:table-cell" x-text="t.invoice"></td><td><div x-text="t.plan"></div><div class="text-xs text-ink-2" x-text="t.method"></div></td><td class="whitespace-nowrap text-end" x-text="t.price"></td></tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <a class="btn btn-ghost" :href="'/admin/customers/' + d.id" x-text="L.view"></a>
+      </div>
+    </template>
+  </div>
+</section>
+<script src="/static/customer-summary.js"></script>
+{{end}}
