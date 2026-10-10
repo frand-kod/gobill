@@ -8,6 +8,38 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-10-11
+
+### Perubahan nama
+
+- Aplikasi sekarang bernama **gobill** di semua tempat: binary `gobill`, variabel lingkungan `GOBILL_*`, `/etc/gobill`, `/var/lib/gobill`, layanan `gobill.service`, user sistem `gobill`, database bawaan `gobill.db`, cookie `gobill_session`, dan nama file backup `gobill-*`.
+
+### Fitur
+
+- Pencarian global di navbar (`/` atau `Ctrl+K`): pelanggan, paket, router, NAS, voucher, invoice, langganan, halaman menu, setiap kolom pengaturan, dan aksi cepat. Hasil mengikuti role.
+- Pesan expired bisa dikirim lebih awal: `expired_notify_minutes_before`. Satu pesan per periode, tidak ada pesan tambahan (migrasi 0015).
+- Tombol uji untuk setiap integrasi: Telegram, gateway pesan, email, webhook, GOWA, dan cek koneksi Tripay.
+- Satu URL gateway pesan untuk WhatsApp dan SMS (`wa_url`). Bagian GOWA diberi nama jelas dengan tautan ke proyeknya.
+- Pengaturan `admin_extend`: siapa yang boleh memakai tombol Perpanjang di daftar langganan, atau matikan.
+- Gambar QRIS aktif ditampilkan di pengaturan Payment Gateway.
+- Halaman detail pelanggan lebih padat: strip status, data dua kolom, kartu Recharge di samping.
+- Panduan dalam aplikasi dua bahasa (ID dan EN) dengan pemilih dokumen. Dokumentasi ditata ulang ke `docs/id`, `docs/en`, dan `docs/internal`.
+- `tools/dev.sh` untuk menjalankan instance pengembangan lokal.
+
+### Perbaikan
+
+- Simpan pengaturan General dengan beberapa gambar sekaligus tidak lagi ditolak.
+- Cek router yang berhasil langsung mencatat router online.
+- Kartu Voucher Stock hanya menampilkan paket yang punya voucher.
+- Kotak hari di tombol Perpanjang diberi label.
+
+### Upgrade dari 0.1.4
+
+1. Ganti variabel lingkungan `NUXBILL_*` menjadi `GOBILL_*` di file konfigurasi.
+2. Pindahkan `/etc/nuxbill` ke `/etc/gobill` dan `/var/lib/nuxbill` ke `/var/lib/gobill`, lalu pasang `gobill.service` menggantikan `nuxbill.service`.
+3. Pelanggan dan admin perlu login ulang karena nama cookie berubah.
+4. Migrasi 0015 berjalan otomatis saat start. Backup dulu.
+
 ## [0.1.4] - 2026-10-10
 
 ### Keamanan
