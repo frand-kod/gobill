@@ -83,7 +83,7 @@ func TestSettingsEveryFieldShowsStoredValue(t *testing.T) {
 		form, want, checked := url.Values{}, map[string]string{}, map[string]bool{}
 		for i, f := range fields {
 			switch f.Type {
-			case "watest", "dsnow", "formbtn", "link", "password", "file", "hidden":
+			case "watest", "dsnow", "formbtn", "test", "link", "password", "file", "hidden":
 				continue
 			case "checkbox":
 				checked[f.Name] = i%2 == 0 // a mix of ticked and unticked
@@ -101,7 +101,7 @@ func TestSettingsEveryFieldShowsStoredValue(t *testing.T) {
 		body := getBody(t, h, c, "/admin/settings/"+tab.Slug)
 		for _, f := range fields {
 			switch f.Type {
-			case "watest", "dsnow", "formbtn", "password", "file", "hidden":
+			case "watest", "dsnow", "formbtn", "test", "password", "file", "hidden":
 				continue
 			case "checkbox":
 				m := regexp.MustCompile(`name="` + f.Name + `" value="1"( checked)?>`).FindStringSubmatch(body)

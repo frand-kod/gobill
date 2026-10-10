@@ -138,6 +138,14 @@ Detail halaman Status, `/health`, dan alert ada di [monitoring.md](monitoring.md
 | `smtp_host`, `smtp_port`, `smtp_user`, `smtp_pass`, `smtp_ssltls`, `mail_from`, `mail_reply_to` | Email (SMTP) |
 | `webhook_url`, `webhook_secret` | Webhook keluar, ditandatangani di header `X-Signature` |
 
+Setiap bagian punya tombol uji di Settings > Integrations (SuperAdmin, maksimal 5 tes per menit). Simpan dulu sebelum menguji, karena tes memakai nilai yang tersimpan. Tes tidak terpengaruh `notify_customers`, karena tujuannya operator:
+
+- "Kirim pesan uji Telegram": mengirim pesan singkat ke `telegram_target_id`.
+- "Kirim SMS uji": mengirim pesan ke nomor yang Anda ketik lewat `sms_url`.
+- "Kirim email uji": mengirim email ke alamat yang Anda ketik lewat SMTP tersimpan.
+- "Kirim webhook uji": mengirim event `test` yang ditandatangani ke `webhook_url` dan menampilkan status HTTP.
+- "Cek koneksi" (Settings > Payment Gateway, Tripay): memanggil daftar channel pembayaran Tripay untuk memastikan kunci dan merchant code benar.
+
 ### Tampilan
 
 `logo`, `logo_dark`, `login_page_*` (logo, favicon, wallpaper, judul), `date_format`, `dec_point`, `thousands_sep`, `language`. Diatur di Settings. Tema (terang/gelap, warna aksen) diatur dari header, bukan dari setting ini.
