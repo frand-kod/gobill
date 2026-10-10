@@ -75,15 +75,6 @@ func (q *Queries) DeactivateSubscription(ctx context.Context, arg DeactivateSubs
 	return result.RowsAffected()
 }
 
-const deleteSubscription = `-- name: DeleteSubscription :exec
-DELETE FROM subscriptions WHERE id = ?
-`
-
-func (q *Queries) DeleteSubscription(ctx context.Context, id int64) error {
-	_, err := q.db.ExecContext(ctx, deleteSubscription, id)
-	return err
-}
-
 const expireSubscription = `-- name: ExpireSubscription :execrows
 UPDATE subscriptions SET status = 'expired' WHERE id = ?1 AND status = 'active' AND pending_start = 0 AND expires_at <= ?2
 `
@@ -347,50 +338,6 @@ func (q *Queries) ListExpiredActiveSubscriptions(ctx context.Context, now int64)
 	return items, nil
 }
 
-const listSubscriptions = `-- name: ListSubscriptions :many
-SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start FROM subscriptions ORDER BY id DESC LIMIT ? OFFSET ?
-`
-
-type ListSubscriptionsParams struct {
-	Limit  int64
-	Offset int64
-}
-
-func (q *Queries) ListSubscriptions(ctx context.Context, arg ListSubscriptionsParams) ([]Subscription, error) {
-	rows, err := q.db.QueryContext(ctx, listSubscriptions, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Subscription
-	for rows.Next() {
-		var i Subscription
-		if err := rows.Scan(
-			&i.ID,
-			&i.CustomerID,
-			&i.PlanID,
-			&i.RouterID,
-			&i.Type,
-			&i.StartedAt,
-			&i.ExpiresAt,
-			&i.Status,
-			&i.Method,
-			&i.AdminID,
-			&i.PendingStart,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listSubscriptionsByCustomer = `-- name: ListSubscriptionsByCustomer :many
 SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start FROM subscriptions WHERE customer_id = ? ORDER BY id DESC LIMIT ? OFFSET ?
 `
@@ -482,53 +429,6 @@ type RestartSubscriptionParams struct {
 func (q *Queries) RestartSubscription(ctx context.Context, arg RestartSubscriptionParams) error {
 	_, err := q.db.ExecContext(ctx, restartSubscription, arg.StartedAt, arg.ID)
 	return err
-}
-
-const searchSubscriptions = `-- name: SearchSubscriptions :many
-SELECT s.id, s.customer_id, s.plan_id, s.router_id, s.type, s.started_at, s.expires_at, s.status, s.method, s.admin_id, s.pending_start FROM subscriptions s JOIN customers c ON c.id = s.customer_id
-WHERE c.username LIKE '%' || CAST(?1 AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(?1 AS TEXT) || '%'
-ORDER BY s.id DESC LIMIT ?3 OFFSET ?2
-`
-
-type SearchSubscriptionsParams struct {
-	Q          string
-	PageOffset int64
-	PageLimit  int64
-}
-
-func (q *Queries) SearchSubscriptions(ctx context.Context, arg SearchSubscriptionsParams) ([]Subscription, error) {
-	rows, err := q.db.QueryContext(ctx, searchSubscriptions, arg.Q, arg.PageOffset, arg.PageLimit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Subscription
-	for rows.Next() {
-		var i Subscription
-		if err := rows.Scan(
-			&i.ID,
-			&i.CustomerID,
-			&i.PlanID,
-			&i.RouterID,
-			&i.Type,
-			&i.StartedAt,
-			&i.ExpiresAt,
-			&i.Status,
-			&i.Method,
-			&i.AdminID,
-			&i.PendingStart,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const startPendingSubscription = `-- name: StartPendingSubscription :execrows

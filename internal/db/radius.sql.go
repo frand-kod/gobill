@@ -37,6 +37,19 @@ func (q *Queries) CloseRadiusSessionsByNAS(ctx context.Context, arg CloseRadiusS
 	return err
 }
 
+const closeStaleRadiusSessions = `-- name: CloseStaleRadiusSessions :execrows
+UPDATE radius_sessions SET stopped_at = updated_at WHERE stopped_at IS NULL AND updated_at < ?
+`
+
+// Open sessions whose last update is older than the cutoff: the NAS lost them. Stop them at their last update.
+func (q *Queries) CloseStaleRadiusSessions(ctx context.Context, updatedAt int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, closeStaleRadiusSessions, updatedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const countOtherOpenRadiusSessions = `-- name: CountOtherOpenRadiusSessions :one
 SELECT COUNT(*) FROM radius_sessions
 WHERE username = ? AND stopped_at IS NULL AND updated_at >= ?
