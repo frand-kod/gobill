@@ -25,7 +25,7 @@ In the NAS form in NuxBill, turn on "require Message-Authenticator". Devices tha
 - Do not reuse the hotspot password or an admin password.
 - Change the secret on MikroTik, then match it in the NAS form:
 
-        /radius set [find address=IP-NUXBILL] secret=<SECRET-BARU>
+        /radius set [find address=NUXBILL-IP] secret=<NEW-SECRET>
 
 ### Firewall
 
@@ -67,7 +67,7 @@ Do not send RADIUS UDP or CoA over the open internet.
 
 **WireGuard (recommended, RouterOS 7).** Create keys with `wg genkey | tee privat.key | wg pubkey`. Then on MikroTik:
 
-    /interface wireguard add name=wg-nuxbill listen-port=13231 private-key="<KUNCI-PRIVAT-MIKROTIK>"
+    /interface wireguard add name=wg-nuxbill listen-port=13231 private-key="<MIKROTIK-PRIVATE-KEY>"
     /ip address add address=10.10.10.2/24 interface=wg-nuxbill
     /interface wireguard peers add interface=wg-nuxbill public-key="<KUNCI-PUBLIK-VPS>" endpoint-address=<IP-VPS> endpoint-port=51820 allowed-address=10.10.10.1/32 persistent-keepalive=25s
 
@@ -75,7 +75,7 @@ NuxBill on the VPS uses `10.10.10.1`. Register that address as the RADIUS or NAS
 
 **RadSec.** On RouterOS 7:
 
-    /radius add service=hotspot,ppp address=<IP-VPS> protocol=radsec certificate=<nama-sertifikat>
+    /radius add service=hotspot,ppp address=<IP-VPS> protocol=radsec certificate=<certificate-name>
 
 NuxBill does not serve RadSec natively yet. Run radsecproxy on the VPS, forwarding to `127.0.0.1:1812`, or use WireGuard alone.
 
@@ -90,7 +90,7 @@ Use CHAP:
 Use HTTPS. The device must trust the certificate, or the captive portal shows a warning:
 
     /certificate import file-name=hotspot.pem passphrase=""
-    /ip hotspot profile set [find] login-by=https,http-chap ssl-certificate=<nama-sertifikat>
+    /ip hotspot profile set [find] login-by=https,http-chap ssl-certificate=<certificate-name>
 
 ### PPPoE with MS-CHAPv2
 

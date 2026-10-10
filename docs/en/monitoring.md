@@ -67,13 +67,13 @@ A request without the correct header gets `401`. The token is compared with a co
         scrape_interval: 60s
         authorization:
           type: Bearer
-          credentials: TOKEN_DARI_PENGATURAN
+          credentials: TOKEN_FROM_SETTINGS
         static_configs:
           - targets: ['192.168.1.10:8080']
 
 Test with curl:
 
-    curl -H 'Authorization: Bearer TOKEN_DARI_PENGATURAN' http://192.168.1.10:8080/metrics
+    curl -H 'Authorization: Bearer TOKEN_FROM_SETTINGS' http://192.168.1.10:8080/metrics
 
 Metric names use the prefix `gobill_`, for example `gobill_radius_auth_accepted_total`, `gobill_notifications_failed_total{channel="wa"}`, and `gobill_db_size_bytes`.
 
