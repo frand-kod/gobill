@@ -197,6 +197,13 @@ func TestNetworkLiveCheck(t *testing.T) {
 	if strings.Join(*sent, " ") != "/system/resource/print /ip/hotspot/active/print /ppp/active/print" {
 		t.Fatalf("sent %v", *sent)
 	}
+	// a successful manual check records the router as seen online
+	if got, _ := q.GetRouter(t.Context(), r.ID); got.Online.Int64 != 1 || !got.LastSeenAt.Valid {
+		t.Fatalf("check not recorded: %+v %+v", got.Online, got.LastSeenAt)
+	}
+	if strings.Contains(body, "Never seen online") || strings.Contains(body, s.catalog.T(s.language(), "Never seen online")) {
+		t.Fatal("status card still says never seen after a successful check")
+	}
 
 	// a timeout is mapped to the plain message; the raw text stays in technical details
 	fail = errors.New("dial tcp 10.1.0.1:8728: i/o timeout")

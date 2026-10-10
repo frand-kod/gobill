@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sort"
 	"time"
@@ -243,8 +244,18 @@ func (s *Server) networkPage(w http.ResponseWriter, r *http.Request, check bool)
 			return
 		}
 		p = s.routerPage(x)
-		if check && p.CanCheck {
-			s.liveCheck(ctx, x, &p)
+		if check && p.CanCheck && s.liveCheck(ctx, x, &p) {
+			// a successful manual check is a sighting too: the status card must not say "never seen"
+			now := time.Now().Unix()
+			if err := s.queries.SetRouterStatus(ctx, db.SetRouterStatusParams{ID: x.ID,
+				Online: sql.NullInt64{Int64: 1, Valid: true}, LastSeenAt: sql.NullInt64{Int64: now, Valid: true}}); err != nil {
+				slog.Error("router status", "router", x.Name, "err", err)
+			} else {
+				x.Online, x.LastSeenAt = sql.NullInt64{Int64: 1, Valid: true}, sql.NullInt64{Int64: now, Valid: true}
+				live, raw, lerr := p.Live, p.LiveRaw, p.LiveErr
+				p = s.routerPage(x)
+				p.Live, p.LiveRaw, p.LiveErr = live, raw, lerr
+			}
 		}
 	case "nas":
 		if check {
@@ -271,11 +282,11 @@ func (s *Server) networkPage(w http.ResponseWriter, r *http.Request, check bool)
 }
 
 // liveCheck asks the router for its health with a short timeout. Errors are mapped to plain text.
-func (s *Server) liveCheck(ctx context.Context, x db.Router, p *netPage) {
+func (s *Server) liveCheck(ctx context.Context, x db.Router, p *netPage) bool {
 	lang := s.language()
 	if s.Billing == nil {
 		p.LiveErr = s.catalog.T(lang, "Router connection is not configured")
-		return
+		return false
 	}
 	cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -286,9 +297,10 @@ func (s *Server) liveCheck(ctx context.Context, x db.Router, p *netPage) {
 		if len(p.LiveRaw) > 300 {
 			p.LiveRaw = p.LiveRaw[:300]
 		}
-		return
+		return false
 	}
 	p.Live = s.liveView(h)
+	return true
 }
 
 func (s *Server) networkDetail(w http.ResponseWriter, r *http.Request) { s.networkPage(w, r, false) }
