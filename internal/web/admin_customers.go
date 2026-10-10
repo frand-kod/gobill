@@ -335,6 +335,9 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 	} else if pass == "" {
 		e["password"] = "This field is required"
 	}
+	if pass != "" && len(pass) < minPasswordLen {
+		e["password"] = "Password should be at least 8 characters"
+	}
 	v["username"] = strings.TrimSpace(v["username"])
 	if id != 0 && !r.PostForm.Has("username") { // a post without the field keeps the username
 		v["username"] = cur.Username

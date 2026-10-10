@@ -58,8 +58,8 @@ func (s *Server) pPassword(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case bcrypt.CompareHashAndPassword([]byte(c.PasswordHash), []byte(r.PostFormValue("password"))) != nil:
 		msg = "Incorrect current password"
-	case len(npass) < 3 || len(npass) > 35:
-		msg = "Password should be between 3 to 35 characters"
+	case len(npass) < minPasswordLen || len(npass) > 35:
+		msg = "Password should be between 8 to 35 characters"
 	case npass != r.PostFormValue("cnpass"):
 		msg = "Passwords does not match"
 	}
