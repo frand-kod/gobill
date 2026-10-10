@@ -73,7 +73,7 @@
   </table></div>
 </section>
 <section class="card mt-4 overflow-hidden">
-  <h2 class="card-title">{{T "Transactions"}}</h2>
+  <div class="card-body flex items-center justify-between gap-2"><h2 class="card-title">{{T "Transactions"}}</h2><a class="btn btn-ghost" href="/admin/transactions?customer={{.C.ID}}">{{T "View all transactions"}}</a></div>
   <div class="overflow-x-auto"><table class="table">
     <thead><tr><th>{{T "Invoice"}}</th><th>{{T "Date"}}</th><th>{{T "Plan Name"}}</th><th>{{T "Method"}}</th><th>{{T "Plan Price"}}</th></tr></thead>
     <tbody>{{range .Trx}}<tr><td><a class="text-accent-fg hover:underline" href="/admin/transactions/{{.ID}}/invoice">{{.Invoice}}</a></td><td>{{ts .CreatedAt}}</td><td>{{.PlanName}}</td><td>{{.Method}}</td><td>{{money .Price}}</td></tr>

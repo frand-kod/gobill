@@ -9,6 +9,162 @@ import (
 	"context"
 )
 
+const reportTotals = `-- name: ReportTotals :one
+SELECT COUNT(*) AS cnt, CAST(COALESCE(SUM(price), 0) AS INTEGER) AS total
+FROM transactions
+WHERE created_at >= ?1 AND created_at < ?2
+  AND (CAST(?3 AS TEXT) = '' OR type = ?3)
+  AND (CAST(?4 AS TEXT) = '' OR method = ?4)
+  AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
+  AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
+  AND NOT (method = 'Customer - Balance' AND type = 'Balance')
+`
+
+type ReportTotalsParams struct {
+	FromTs     int64
+	ToTs       int64
+	Type       string
+	Method     string
+	RouterName string
+	PlanID     int64
+}
+
+type ReportTotalsRow struct {
+	Cnt   int64
+	Total int64
+}
+
+// Count and sum for the report filter. Same filter as ReportTransactions.
+func (q *Queries) ReportTotals(ctx context.Context, arg ReportTotalsParams) (ReportTotalsRow, error) {
+	row := q.db.QueryRowContext(ctx, reportTotals,
+		arg.FromTs,
+		arg.ToTs,
+		arg.Type,
+		arg.Method,
+		arg.RouterName,
+		arg.PlanID,
+	)
+	var i ReportTotalsRow
+	err := row.Scan(&i.Cnt, &i.Total)
+	return i, err
+}
+
+const reportTotalsByMethod = `-- name: ReportTotalsByMethod :many
+SELECT method AS name, COUNT(*) AS cnt, CAST(COALESCE(SUM(price), 0) AS INTEGER) AS total
+FROM transactions
+WHERE created_at >= ?1 AND created_at < ?2
+  AND (CAST(?3 AS TEXT) = '' OR type = ?3)
+  AND (CAST(?4 AS TEXT) = '' OR method = ?4)
+  AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
+  AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
+  AND NOT (method = 'Customer - Balance' AND type = 'Balance')
+GROUP BY method
+ORDER BY method
+`
+
+type ReportTotalsByMethodParams struct {
+	FromTs     int64
+	ToTs       int64
+	Type       string
+	Method     string
+	RouterName string
+	PlanID     int64
+}
+
+type ReportTotalsByMethodRow struct {
+	Name  string
+	Cnt   int64
+	Total int64
+}
+
+func (q *Queries) ReportTotalsByMethod(ctx context.Context, arg ReportTotalsByMethodParams) ([]ReportTotalsByMethodRow, error) {
+	rows, err := q.db.QueryContext(ctx, reportTotalsByMethod,
+		arg.FromTs,
+		arg.ToTs,
+		arg.Type,
+		arg.Method,
+		arg.RouterName,
+		arg.PlanID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReportTotalsByMethodRow
+	for rows.Next() {
+		var i ReportTotalsByMethodRow
+		if err := rows.Scan(&i.Name, &i.Cnt, &i.Total); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const reportTotalsByType = `-- name: ReportTotalsByType :many
+SELECT type AS name, COUNT(*) AS cnt, CAST(COALESCE(SUM(price), 0) AS INTEGER) AS total
+FROM transactions
+WHERE created_at >= ?1 AND created_at < ?2
+  AND (CAST(?3 AS TEXT) = '' OR type = ?3)
+  AND (CAST(?4 AS TEXT) = '' OR method = ?4)
+  AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
+  AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
+  AND NOT (method = 'Customer - Balance' AND type = 'Balance')
+GROUP BY type
+ORDER BY type
+`
+
+type ReportTotalsByTypeParams struct {
+	FromTs     int64
+	ToTs       int64
+	Type       string
+	Method     string
+	RouterName string
+	PlanID     int64
+}
+
+type ReportTotalsByTypeRow struct {
+	Name  string
+	Cnt   int64
+	Total int64
+}
+
+func (q *Queries) ReportTotalsByType(ctx context.Context, arg ReportTotalsByTypeParams) ([]ReportTotalsByTypeRow, error) {
+	rows, err := q.db.QueryContext(ctx, reportTotalsByType,
+		arg.FromTs,
+		arg.ToTs,
+		arg.Type,
+		arg.Method,
+		arg.RouterName,
+		arg.PlanID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReportTotalsByTypeRow
+	for rows.Next() {
+		var i ReportTotalsByTypeRow
+		if err := rows.Scan(&i.Name, &i.Cnt, &i.Total); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const reportTransactions = `-- name: ReportTransactions :many
 SELECT id, invoice, customer_id, plan_id, username, plan_name, router_name, type, price, method, note, admin_id, created_at, period_start, period_end FROM transactions
 WHERE created_at >= ?1 AND created_at < ?2
@@ -30,7 +186,7 @@ type ReportTransactionsParams struct {
 	PlanID     int64
 }
 
-// Empty / zero filter args match everything.
+// Empty / zero filter args match everything. Used by the CSV export (all rows).
 func (q *Queries) ReportTransactions(ctx context.Context, arg ReportTransactionsParams) ([]Transaction, error) {
 	rows, err := q.db.QueryContext(ctx, reportTransactions,
 		arg.FromTs,
@@ -39,6 +195,78 @@ func (q *Queries) ReportTransactions(ctx context.Context, arg ReportTransactions
 		arg.Method,
 		arg.RouterName,
 		arg.PlanID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Transaction
+	for rows.Next() {
+		var i Transaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.Invoice,
+			&i.CustomerID,
+			&i.PlanID,
+			&i.Username,
+			&i.PlanName,
+			&i.RouterName,
+			&i.Type,
+			&i.Price,
+			&i.Method,
+			&i.Note,
+			&i.AdminID,
+			&i.CreatedAt,
+			&i.PeriodStart,
+			&i.PeriodEnd,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const reportTransactionsPage = `-- name: ReportTransactionsPage :many
+SELECT id, invoice, customer_id, plan_id, username, plan_name, router_name, type, price, method, note, admin_id, created_at, period_start, period_end FROM transactions
+WHERE created_at >= ?1 AND created_at < ?2
+  AND (CAST(?3 AS TEXT) = '' OR type = ?3)
+  AND (CAST(?4 AS TEXT) = '' OR method = ?4)
+  AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
+  AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
+  AND NOT (method = 'Customer - Balance' AND type = 'Balance')
+ORDER BY created_at, id
+LIMIT ?8 OFFSET ?7
+`
+
+type ReportTransactionsPageParams struct {
+	FromTs     int64
+	ToTs       int64
+	Type       string
+	Method     string
+	RouterName string
+	PlanID     int64
+	PageOffset int64
+	PageLimit  int64
+}
+
+// Same filter and exclusions as ReportTransactions, one page of rows for the report table and print.
+func (q *Queries) ReportTransactionsPage(ctx context.Context, arg ReportTransactionsPageParams) ([]Transaction, error) {
+	rows, err := q.db.QueryContext(ctx, reportTransactionsPage,
+		arg.FromTs,
+		arg.ToTs,
+		arg.Type,
+		arg.Method,
+		arg.RouterName,
+		arg.PlanID,
+		arg.PageOffset,
+		arg.PageLimit,
 	)
 	if err != nil {
 		return nil, err

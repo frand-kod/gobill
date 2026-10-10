@@ -19,9 +19,10 @@ SELECT * FROM transactions WHERE customer_id = ? ORDER BY id DESC LIMIT ? OFFSET
 -- name: SearchTransactions :many
 SELECT *, CAST(sqlc.arg(sort) AS TEXT) AS sort_key -- e.g. date_asc; anything else = newest first
 FROM transactions
-WHERE invoice LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
+WHERE (invoice LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
    OR username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
-   OR plan_name LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
+   OR plan_name LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%')
+  AND (CAST(sqlc.arg(customer_id) AS INTEGER) = 0 OR customer_id = sqlc.arg(customer_id)) -- 0 = all customers
 ORDER BY
   CASE WHEN sort_key = 'date_asc' THEN created_at END ASC,
   CASE WHEN sort_key = 'date_desc' THEN created_at END DESC,

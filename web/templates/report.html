@@ -39,6 +39,12 @@
       </tbody>
     </table>
   </div>
+  {{if or .Prev .Next}}
+  <p class="flex justify-end gap-2 p-3">
+    {{if .Prev}}<a class="btn btn-ghost" href="{{.PageURL .Prev}}">{{T "Previous"}}</a>{{end}}
+    {{if .Next}}<a class="btn btn-ghost" href="{{.PageURL .Next}}">{{T "Next"}}</a>{{end}}
+  </p>
+  {{end}}
 </div>
 {{end}}
 {{end}}

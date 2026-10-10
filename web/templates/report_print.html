@@ -23,6 +23,7 @@ th, td { border: 1px solid #999; padding: 3px 6px; text-align: start; }
 {{range .Rows}}<tr><td>{{.Invoice}}</td><td>{{.Username}}</td><td>{{.PlanName}}</td><td>{{.Type}}</td><td>{{money .Price}}</td><td>{{.Method}}</td><td>{{.RouterName}}</td><td>{{ts .CreatedAt}}</td><td>{{ts .PeriodEnd}}</td></tr>
 {{else}}<tr><td colspan="9">{{T "No data"}}</td></tr>{{end}}
 </tbody></table>
+{{if .Truncated}}<p>{{T "Print shows the first 5000 rows only. Export CSV for all rows."}}</p>{{end}}
 <table style="width:auto">
 {{range .ByType}}<tr><th>{{.Name}}</th><td>{{.Count}}</td><td>{{money .Sum}}</td></tr>{{end}}
 {{range .ByMethod}}<tr><th>{{.Name}}</th><td>{{.Count}}</td><td>{{money .Sum}}</td></tr>{{end}}

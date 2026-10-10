@@ -17,4 +17,9 @@
 <thead><tr><th>{{T "Package Name"}}</th><th>{{T "Type"}}</th><th>{{T "Expires On"}}</th><th>{{T "Status"}}</th></tr></thead>
 <tbody>{{range .Data.Subs}}<tr><td>{{.Plan}}</td><td>{{.Type}}</td><td>{{ts .Expires}}</td><td><span class="badge {{badge .Status}}">{{T .Status}}</span>{{if .CanExtend}} <form class="inline" method="post" action="/portal/extend/{{.ID}}" data-confirm="{{T "Extend"}} {{.Plan}}?"><button class="btn btn-ghost btn-icon tip-end" type="submit" aria-label="{{T "Extend"}}" data-tip="{{T "Extend"}}">{{icon "calendar-plus"}}</button></form>{{end}}</td></tr>
 {{else}}<tr><td class="py-8 text-center text-ink-2" colspan="4"><p>{{T "You have no active plan yet."}}</p><a class="btn btn-primary mt-3" href="/portal/plans">{{T "Buy / Extend"}}</a></td></tr>{{end}}</tbody></table></div></div>
+<div class="card mt-4"><div class="card-body flex items-center justify-between gap-2"><h2 class="card-title">{{T "Recent Transactions"}}</h2><a class="btn btn-ghost" href="/portal/orders">{{T "See all"}}</a></div>
+<div class="overflow-x-auto"><table class="table">
+<thead><tr><th>{{T "Invoice"}}</th><th>{{T "Package Name"}}</th><th>{{T "Package Price"}}</th><th>{{T "Created On"}}</th></tr></thead>
+<tbody>{{range .Data.Trx}}<tr><td><a class="underline" href="/portal/orders/{{.ID}}/invoice">{{.Invoice}}</a></td><td>{{.PlanName}}</td><td>{{money .Price}}</td><td>{{ts .CreatedAt}}</td></tr>
+{{else}}<tr><td class="py-8 text-center text-ink-2" colspan="4">{{T "No data"}}</td></tr>{{end}}</tbody></table></div></div>
 {{end}}

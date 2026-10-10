@@ -224,9 +224,10 @@ func (q *Queries) ListTransactionsByCustomer(ctx context.Context, arg ListTransa
 const searchTransactions = `-- name: SearchTransactions :many
 SELECT id, invoice, customer_id, plan_id, username, plan_name, router_name, type, price, method, note, admin_id, created_at, period_start, period_end, CAST(?1 AS TEXT) AS sort_key -- e.g. date_asc; anything else = newest first
 FROM transactions
-WHERE invoice LIKE '%' || CAST(?2 AS TEXT) || '%'
+WHERE (invoice LIKE '%' || CAST(?2 AS TEXT) || '%'
    OR username LIKE '%' || CAST(?2 AS TEXT) || '%'
-   OR plan_name LIKE '%' || CAST(?2 AS TEXT) || '%'
+   OR plan_name LIKE '%' || CAST(?2 AS TEXT) || '%')
+  AND (CAST(?3 AS INTEGER) = 0 OR customer_id = ?3) -- 0 = all customers
 ORDER BY
   CASE WHEN sort_key = 'date_asc' THEN created_at END ASC,
   CASE WHEN sort_key = 'date_desc' THEN created_at END DESC,
@@ -234,12 +235,13 @@ ORDER BY
   CASE WHEN sort_key = 'amount_desc' THEN price END DESC,
   CASE WHEN sort_key = 'username_asc' THEN username END ASC,
   CASE WHEN sort_key = 'username_desc' THEN username END DESC,
-  id DESC LIMIT ?4 OFFSET ?3
+  id DESC LIMIT ?5 OFFSET ?4
 `
 
 type SearchTransactionsParams struct {
 	Sort       string
 	Q          string
+	CustomerID int64
 	PageOffset int64
 	PageLimit  int64
 }
@@ -267,6 +269,7 @@ func (q *Queries) SearchTransactions(ctx context.Context, arg SearchTransactions
 	rows, err := q.db.QueryContext(ctx, searchTransactions,
 		arg.Sort,
 		arg.Q,
+		arg.CustomerID,
 		arg.PageOffset,
 		arg.PageLimit,
 	)

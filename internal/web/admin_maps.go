@@ -58,6 +58,8 @@ func (s *Server) mapPage(title, dataURL string) http.HandlerFunc {
 	}
 }
 
+// ponytail: loads every customer marker in one response and the map draws them all. Upgrade path when
+// the operator has thousands of customers: a bbox query on the map viewport, or client-side clustering.
 func (s *Server) mapCustomerData(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.queries.ListCustomerMarkers(r.Context())
 	if err != nil {
