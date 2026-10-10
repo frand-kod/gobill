@@ -124,6 +124,56 @@ func (q *Queries) GetTransactionByInvoice(ctx context.Context, invoice string) (
 	return i, err
 }
 
+const listActivationsByCustomer = `-- name: ListActivationsByCustomer :many
+SELECT id, invoice, customer_id, plan_id, username, plan_name, router_name, type, price, method, note, admin_id, created_at, period_start, period_end FROM transactions WHERE customer_id = ? AND type <> 'Balance' ORDER BY id DESC LIMIT ? OFFSET ?
+`
+
+type ListActivationsByCustomerParams struct {
+	CustomerID sql.NullInt64
+	Limit      int64
+	Offset     int64
+}
+
+// Plan purchases and activations of the customer; balance moves are not activations.
+func (q *Queries) ListActivationsByCustomer(ctx context.Context, arg ListActivationsByCustomerParams) ([]Transaction, error) {
+	rows, err := q.db.QueryContext(ctx, listActivationsByCustomer, arg.CustomerID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Transaction
+	for rows.Next() {
+		var i Transaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.Invoice,
+			&i.CustomerID,
+			&i.PlanID,
+			&i.Username,
+			&i.PlanName,
+			&i.RouterName,
+			&i.Type,
+			&i.Price,
+			&i.Method,
+			&i.Note,
+			&i.AdminID,
+			&i.CreatedAt,
+			&i.PeriodStart,
+			&i.PeriodEnd,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTransactions = `-- name: ListTransactions :many
 SELECT id, invoice, customer_id, plan_id, username, plan_name, router_name, type, price, method, note, admin_id, created_at, period_start, period_end FROM transactions ORDER BY id DESC LIMIT ? OFFSET ?
 `

@@ -1760,5 +1760,22 @@
     "Chat on WhatsApp": "Chat lewat WhatsApp",
     "Recent Transactions": "Transaksi terbaru",
     "View all transactions": "Lihat semua transaksi",
-    "Print shows the first 5000 rows only. Export CSV for all rows.": "Cetak hanya menampilkan 5000 baris pertama. Ekspor CSV untuk semua baris."
+    "Print shows the first 5000 rows only. Export CSV for all rows.": "Cetak hanya menampilkan 5000 baris pertama. Ekspor CSV untuk semua baris.",
+    "Active Plan": "Paket Aktif",
+    "Usage": "Pemakaian",
+    "Online time": "Waktu online",
+    "No limit": "Tanpa batas",
+    "Usage is not recorded for this plan": "Pemakaian paket ini tidak dicatat di portal",
+    "Almost used up": "Hampir habis",
+    "Connection status": "Status koneksi",
+    "Connected since": "Terhubung sejak",
+    "Connected for": "Lama terhubung",
+    "No connection record yet": "Belum ada catatan koneksi",
+    "Last seen": "Terakhir terlihat",
+    "Connection History": "Riwayat koneksi",
+    "Account Security": "Keamanan akun",
+    "hours": "jam",
+    "minutes": "menit",
+    "left": "lagi",
+    "Ended": "Sudah habis"
 }

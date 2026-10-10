@@ -319,6 +319,62 @@ func (q *Queries) ListOpenRadiusSessionsByUser(ctx context.Context, username str
 	return items, nil
 }
 
+const listRadiusSessionsByUsers = `-- name: ListRadiusSessionsByUsers :many
+SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions
+WHERE username = ?1 OR username = ?2
+ORDER BY started_at DESC, id DESC LIMIT ?4 OFFSET ?3
+`
+
+type ListRadiusSessionsByUsersParams struct {
+	Name1      string
+	Name2      string
+	PageOffset int64
+	PageLimit  int64
+}
+
+// One page of sessions under the customer's two login names (username, pppoe_username; the same name twice when there is no PPPoE name).
+func (q *Queries) ListRadiusSessionsByUsers(ctx context.Context, arg ListRadiusSessionsByUsersParams) ([]RadiusSession, error) {
+	rows, err := q.db.QueryContext(ctx, listRadiusSessionsByUsers,
+		arg.Name1,
+		arg.Name2,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RadiusSession
+	for rows.Next() {
+		var i RadiusSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Username,
+			&i.NasIp,
+			&i.NasIpAttr,
+			&i.NasIdentifier,
+			&i.FramedIp,
+			&i.Mac,
+			&i.StartedAt,
+			&i.UpdatedAt,
+			&i.StoppedAt,
+			&i.InputOctets,
+			&i.OutputOctets,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRecentRadiusSessionsByUser = `-- name: ListRecentRadiusSessionsByUser :many
 SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions WHERE username = ? ORDER BY started_at DESC LIMIT 10
 `

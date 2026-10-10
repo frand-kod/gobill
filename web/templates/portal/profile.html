@@ -28,7 +28,7 @@
   <div><label class="label" for="eotp">{{T "OTP"}} ({{.Data.Value}})</label><input class="input" id="eotp" name="otp" inputmode="numeric" required></div>
   <div class="self-end"><button class="btn btn-primary" type="submit">{{T "Update"}}</button></div>
 </div></form>{{end}}{{end}}
-<form class="card" method="post" action="/portal/password"><h2 class="card-title">{{T "Change Password"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">
+<form class="card" id="password" method="post" action="/portal/password"><h2 class="card-title">{{T "Change Password"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">
   <div><label class="label" for="cur">{{T "Current Password"}}</label><input class="input" id="cur" name="password" type="password" autocomplete="current-password" required></div>
   <div><label class="label" for="npass">{{T "New Password"}}</label><input class="input" id="npass" name="npass" type="password" autocomplete="new-password" required></div>
   <div><label class="label" for="cnpass">{{T "Confirm New Password"}}</label><input class="input" id="cnpass" name="cnpass" type="password" autocomplete="new-password" required></div>
