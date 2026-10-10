@@ -219,13 +219,18 @@ func gateway(tpl, phone, text string) string {
 	return strings.NewReplacer("[number]", url.QueryEscape(phone), "[text]", url.QueryEscape(text)).Replace(tpl)
 }
 
-// SMS calls sms_url (GET) with [number]/[text] substituted. ponytail: the old MikroTik-SMS
-// mode (sms_url not starting with http) is not ported.
+// SMS calls the message gateway (GET) with [number]/[text] substituted: sms_url when an old install
+// still has it set, otherwise wa_url. ponytail: the old MikroTik-SMS mode (sms_url not starting
+// with http) is not ported.
 func (n *Notifier) SMS(ctx context.Context, phone, text string) error {
-	if n.get("sms_url") == "" || text == "" {
+	tpl := n.get("sms_url")
+	if tpl == "" {
+		tpl = n.get("wa_url")
+	}
+	if tpl == "" || text == "" {
 		return nil
 	}
-	return n.logged("sms", phone, "", text, n.getURL(ctx, gateway(n.get("sms_url"), phone, text)))
+	return n.logged("sms", phone, "", text, n.getURL(ctx, gateway(tpl, phone, text)))
 }
 
 // WAError is a failed send through the alt WhatsApp gateway. Status is 0 when the server
@@ -248,6 +253,11 @@ func isPHPPlugin(u string) bool { return strings.Contains(u, "wga_sendMessage") 
 // WAConfigured reports whether WhatsApp can be sent: alt_wga_server_url, or a usable wa_url.
 func WAConfigured(st map[string]string) bool {
 	return st["alt_wga_server_url"] != "" || st["wa_url"] != ""
+}
+
+// SMSConfigured reports whether SMS can be sent: wa_url, or the legacy sms_url.
+func SMSConfigured(st map[string]string) bool {
+	return st["sms_url"] != "" || st["wa_url"] != ""
 }
 
 var phpPluginWarned sync.Once

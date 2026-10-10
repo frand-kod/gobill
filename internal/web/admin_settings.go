@@ -185,19 +185,20 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 				Hint: "Save first. The test uses the saved values and sends a short message to the saved ID"},
 		}, "Telegram", "")
 		out = append(out, section([]field{
-			text("sms_url", "SMS Server URL", v, e).hint("Must contain [number] and [text]"),
-			text("wa_url", "WhatsApp Server URL", v, e).hint("Must contain [number] and [text]"),
-			{Name: "sms_test_phone", Label: "Test SMS", Type: "test", Inp: "tel", Value: "/admin/settings/integrations/test/sms", Btn: "Send SMS test",
-				Hint: "Save first. The test uses the saved SMS Server URL. Type the number to send to"},
+			text("wa_url", "Message gateway URL (WhatsApp/SMS)", v, e).hint("Must contain [number] and [text]. Used for every WhatsApp and SMS message when GOWA below is empty"),
+			{Name: "gateway_test_phone", Label: "Test gateway", Type: "test", Inp: "tel", Value: "/admin/settings/integrations/test/gateway", Btn: "Send gateway test",
+				Hint: "Save first. The test uses the saved message gateway URL. Type the number to send to"},
 		}, "SMS & WhatsApp", "")...)
 		out = append(out, section([]field{
-			text("alt_wga_server_url", "WA server URL", v, e).hint("Address of the WhatsApp server, e.g. http://127.0.0.1:3030. When filled, WhatsApp is sent straight to this server and the WhatsApp Server URL above is ignored"),
+			{Name: "gowa_info", Label: "WhatsApp via GOWA (go-whatsapp-web-multidevice):", Type: "note", Value: "https://github.com/aldinokemal/go-whatsapp-web-multidevice", Btn: "github.com/aldinokemal/go-whatsapp-web-multidevice"},
+			{Name: "other_wa_info", Label: "Gateway WhatsApp lain (Fonnte, Wablas, WAHA, …): segera hadir. Untuk sementara pakai URL gateway pesan di atas jika gateway-nya mendukung GET dengan [number] dan [text].", Type: "note"},
+			text("alt_wga_server_url", "GOWA URL", v, e).hint("Address of the GOWA server, e.g. http://127.0.0.1:3030. When filled, WhatsApp is sent straight to this server and the message gateway URL above is ignored"),
 			text("alt_wga_device_id", "WA device ID", v, e).hint("Optional. Sent as the X-Device-Id header. Leave empty if the server has only one device"),
 			text("alt_wga_username", "WA server username", v, e).hint("Basic auth username of the WA server, if it has one"),
 			sec("alt_wga_password", "WA server password"),
 			{Name: "wa_test_phone", Label: "Send test message", Type: "watest", Error: e["wa_test_phone"], Value: v["wa_test_phone"],
 				Hint: "Type a phone number and press the button. Uses the values typed above, even if not saved yet. Devices and QR login are managed in the WA server's own page, not here"},
-		}, "WhatsApp (WA server)", "")...)
+		}, "WhatsApp — GOWA", "")...)
 		out = append(out, section([]field{
 			text("smtp_host", "SMTP Host", v, e),
 			text("smtp_port", "SMTP Port", v, e).as("number").hint("1-65535"),
@@ -312,8 +313,8 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 func fieldNames(fs []field) []string {
 	var out []string
 	for _, f := range fs {
-		if f.Type == "watest" || f.Type == "dsnow" || f.Type == "formbtn" || f.Type == "test" {
-			continue // action button, not a setting
+		if f.Type == "watest" || f.Type == "dsnow" || f.Type == "formbtn" || f.Type == "test" || f.Type == "note" {
+			continue // action button or text, not a setting
 		}
 		out = append(out, f.Name)
 	}
@@ -396,10 +397,8 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 			e["alt_wga_server_url"] = "Use an http or https URL"
 		}
 	}
-	for _, k := range []string{"sms_url", "wa_url"} {
-		if x := v[k]; x != "" && !(k == "wa_url" && v["alt_wga_server_url"] != "") && !(strings.Contains(x, "[number]") && strings.Contains(x, "[text]")) {
-			e[k] = "URL must contain [number] and [text]"
-		}
+	if x := v["wa_url"]; x != "" && v["alt_wga_server_url"] == "" && !(strings.Contains(x, "[number]") && strings.Contains(x, "[text]")) {
+		e["wa_url"] = "URL must contain [number] and [text]"
 	}
 	if x := v["payment_gateway"]; x != "" && x != "tripay" {
 		e["payment_gateway"] = "Choose one of the listed gateways"
@@ -463,6 +462,9 @@ func (s *Server) settingsForm(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.fail(w, "load settings", err)
 		return
+	}
+	if values["wa_url"] == "" { // legacy sms_url: shown in the gateway field until the page is saved
+		values["wa_url"] = values["sms_url"]
 	}
 	s.renderSettings(w, r, http.StatusOK, tab, values, nil)
 }
@@ -603,6 +605,12 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 	q := s.queries.WithTx(tx)
+	if tab == "integrations" { // legacy sms_url: its value was moved to wa_url above (the field showed it)
+		if err := q.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "sms_url", Value: ""}); err != nil {
+			s.fail(w, "save setting sms_url", err)
+			return
+		}
+	}
 	for _, k := range keys {
 		if settingsSecret[k] && v[k] == "" {
 			continue // empty secret keeps the stored value
