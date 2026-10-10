@@ -23,6 +23,7 @@ type field struct {
 	Btn                                   string       // link field: button text, default "Download backup"
 	Snippet                               string       // tokenshow field: text shown in a code block
 	Img                                   template.URL // qris field: preview of the stored code (data: URI)
+	Inp                                   string       // test field: input type of the box above its button, "" = none
 }
 
 type option struct{ Value, Label string }
