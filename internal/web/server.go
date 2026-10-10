@@ -74,6 +74,9 @@ type Server struct {
 	otpSent  map[string][]time.Time // "ip:x" / "ph:y" -> OTP send times, see otpAllow
 	failed   map[string][]time.Time // client IP -> times of recent failed logins
 	totpLast map[int64]int64        // admin id -> last accepted TOTP time step, see totpVerify
+	testSent map[int64][]time.Time  // admin id -> Integrations test times, see testAllow
+	// telegramAPI overrides the Telegram API root in tests (empty = the notify default)
+	telegramAPI string
 
 	idle    atomic.Int64 // admin idle timeout in ns, see ReloadSessionSettings
 	single  atomic.Bool  // single_session
