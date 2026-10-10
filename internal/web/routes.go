@@ -165,7 +165,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/status.json", managers(http.HandlerFunc(s.statusJSON)))
 
 	// customers: search, list, detail, edit, delete, actions, custom fields, maps
-	mux.Handle("GET /admin/search", staff(http.HandlerFunc(s.custSearch)))
+	mux.Handle("GET /admin/search", all(http.HandlerFunc(s.searchPage)))
+	mux.Handle("GET /admin/search.json", all(http.HandlerFunc(s.searchJSON)))
+	mux.Handle("GET /admin/customers/pick", staff(http.HandlerFunc(s.custPick)))
 	mux.Handle("GET /admin/customers", all(http.HandlerFunc(s.custList)))
 	mux.Handle("GET /admin/customers/export", all(http.HandlerFunc(s.custExport)))
 	mux.Handle("GET /admin/customers/new", staff(http.HandlerFunc(s.custNew)))

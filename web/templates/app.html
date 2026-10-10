@@ -117,61 +117,24 @@ function gbShell() {
     <div class="fiber-stripe lg:hidden" aria-hidden="true"></div>
     <header class="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-surface px-4 py-2">
       <button type="button" class="btn lg:hidden" @click="drawer=true" aria-label="Menu">{{icon "menu"}}</button>
-      {{if $staff}}<script>
-// Header search: type-ahead over /admin/search, "/" focuses it. Without JS the form still submits to the customer list.
-function gbSearch() {
-  var seq = 0;
-  return {
-    q: '', items: [], open: false, active: -1, done: false,
-    slash: function (e) {
-      var t = e.target, tag = t.tagName;
-      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || t.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      e.preventDefault(); this.$refs.q.focus();
-    },
-    find: function () {
-      var me = this, q = this.q.trim(), n = ++seq;
-      this.active = -1;
-      if (!q) { this.items = []; this.open = false; this.done = false; return Promise.resolve([]); }
-      return fetch('/admin/search?q=' + encodeURIComponent(q), { headers: { Accept: 'application/json' } })
-        .then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (rows) { if (n === seq) { me.items = rows; me.done = true; me.open = true; } return rows; })
-        .catch(function () { return []; });
-    },
-    move: function (d) {
-      if (!this.items.length) return;
-      this.open = true;
-      this.active = (this.active + 1 + d + this.items.length + 1) % (this.items.length + 1) - 1;
-    },
-    go: function (r) { location.href = r.url; },
-    exact: function (r) {
-      var q = this.q.trim().toLowerCase();
-      return [r.username, r.pppoe_username, r.phone].some(function (v) { return v && v.toLowerCase() === q; });
-    },
-    // Enter: the highlighted row, else the one exact match, else the normal form submit (customer list)
-    enter: function (e) {
-      if (this.active >= 0) { e.preventDefault(); this.go(this.items[this.active]); return; }
-      var me = this;
-      e.preventDefault();
-      this.find().then(function (rows) {
-        var ex = rows.filter(function (r) { return me.exact(r); });
-        if (ex.length === 1 || rows.length === 1 && me.exact(rows[0])) me.go(ex[0] || rows[0]);
-        else me.$root.submit();
-      });
-    }
-  };
-}
-</script>{{end}}
-      <form method="get" action="/admin/customers" role="search" class="relative min-w-0 max-w-sm flex-1"{{if $staff}} x-data="gbSearch()" @click.outside="open=false" @keydown.window="slash($event)"{{end}}>
+      <script src="/static/search.js"></script>
+      <form method="get" action="/admin/search" role="search" class="relative min-w-0 max-w-sm flex-1" x-data="gbPalette()" @click.outside="close()" @keydown.window="hotkey($event)">
         <span class="pointer-events-none absolute inset-y-0 start-3 flex items-center text-ink-2">{{icon "search"}}</span>
-        <input class="input ps-10" type="search" name="q" placeholder="{{T "Search"}}: {{T "Customer"}}" aria-label="{{T "Search"}}" autocomplete="off"{{if $staff}} x-ref="q" x-model="q" role="combobox" aria-autocomplete="list" aria-controls="gb-search-list" aria-expanded="false" :aria-expanded="open" :aria-activedescendant="active >= 0 ? 'gb-sr-' + active : false" @input.debounce.250ms="find()" @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.escape="open=false;active=-1" @keydown.enter="enter($event)"{{end}}>
-        {{if $staff}}<ul id="gb-search-list" role="listbox" aria-label="{{T "Customer"}}" x-show="open" x-cloak class="absolute inset-x-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border border-line bg-surface py-1 shadow-lg">
-          <template x-for="(r, i) in items" :key="r.id">
-            <li role="option" :id="'gb-sr-' + i" :aria-selected="i === active"><a :href="r.url" class="block px-4 py-2 text-sm" :class="i === active ? 'bg-sidebar' : ''">
-              <span class="font-medium" x-text="r.username"></span> <span class="text-ink-2" x-text="[r.fullname, r.phone, r.pppoe_username].filter(Boolean).join(' / ')"></span>
-            </a></li>
+        <input class="input ps-10" type="search" name="q" x-ref="q" x-model="q" placeholder="{{T "Search customers, menus, settings…"}}" aria-label="{{T "Search"}}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="gb-search-list" :aria-expanded="open" :aria-activedescendant="active >= 0 ? 'gb-sr-' + active : false" @input.debounce.150ms="find()" @focus="open = true; if (!done) find()" @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.escape="close()" @keydown.enter="enter($event)">
+        <div id="gb-search-list" role="listbox" aria-label="{{T "Search"}}" x-show="open" x-cloak class="absolute inset-x-0 top-full z-50 mt-1 max-h-96 overflow-y-auto rounded-lg border border-line bg-surface py-1 shadow-lg max-sm:fixed max-sm:inset-x-3 max-sm:top-16 max-sm:max-h-[75vh]">
+          <template x-for="g in groups" :key="g.title">
+            <div role="group" :aria-label="g.title" class="border-t border-line first:border-t-0">
+              <p class="px-4 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-ink-2" x-text="g.title"></p>
+              <template x-for="it in g.items" :key="it.i">
+                <a role="option" :id="'gb-sr-' + it.i" :href="it.url" :aria-selected="it.i === active" class="block border-b border-line/60 border-s-2 px-4 py-2.5 text-sm last:border-b-0 hover:bg-surface-2" :class="it.i === active ? 'bg-surface-2 border-s-brand-500' : 'border-s-transparent'">
+                  <span class="font-medium" x-text="it.title"></span>
+                  <span class="block text-xs text-ink-2 sm:inline sm:ms-1" x-show="it.sub" x-text="it.sub"></span>
+                </a>
+              </template>
+            </div>
           </template>
-          <li x-show="done && !items.length" class="px-4 py-2 text-sm text-ink-2">{{T "No data"}}</li>
-        </ul>{{end}}
+          <p x-show="done && !flat.length" class="px-4 py-2 text-sm text-ink-2">{{T "No data"}}</p>
+        </div>
       </form>
       <div class="ms-auto flex items-center gap-2">
         <div class="relative" x-data="gbThemeCtl()" @click.outside="o=false" @keydown.escape="o=false;$refs.btn.focus()">
