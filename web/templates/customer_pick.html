@@ -1,0 +1,35 @@
+{{define "customer_pick"}}
+{{/* Customer picker: a combobox over /admin/search. Without JS the plain username box (same name) is shown. */}}
+<noscript><input class="input" id="{{.Name}}" name="{{.Name}}" value="{{.Value}}" autocomplete="off" required{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}></noscript>
+<div class="relative" x-data="gbCustomerPick({{.PickConfig}})" @click.outside="open=false">
+  <input type="hidden" name="{{.Name}}" :value="username">
+  <div x-show="username && !editing" x-cloak class="input flex items-center gap-3">
+    <span class="size-2.5 shrink-0 rounded-full" :class="statusDot()" aria-hidden="true"></span>
+    <span class="min-w-0 flex-1 truncate"><span class="font-semibold" x-text="username"></span> <span class="text-ink-2" x-text="fullname"></span></span>
+    {{if .Balance}}<span class="text-sm text-ink-2" x-text="balance"></span>{{end}}
+    <button type="button" class="btn btn-ghost min-h-10" @click="change()">{{T "Change customer"}}</button>
+  </div>
+  <div x-show="!username || editing" x-cloak>
+    <input class="input" id="{{.Name}}" type="text" autocomplete="off" x-ref="q" x-model="q" placeholder="{{T "Search customers"}}"
+      @focus="openList()" @click="openList()" @input.debounce.250ms="find()"
+      @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.enter="enter($event)" @keydown.escape="close()"
+      role="combobox" aria-autocomplete="list" aria-controls="{{.Name}}-list" :aria-expanded="open" :aria-activedescendant="active >= 0 ? '{{.Name}}-opt-' + active : false"
+      {{- if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
+    <ul id="{{.Name}}-list" role="listbox" x-show="open" x-cloak class="absolute inset-x-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border border-line bg-surface py-1 shadow-lg">
+      <template x-for="(r, i) in items" :key="r.id">
+        <li :id="'{{.Name}}-opt-' + i" role="option" :aria-selected="i === active" class="min-h-11 cursor-pointer px-4 py-2 text-sm" :class="i === active ? 'bg-sidebar' : 'hover:bg-sidebar'" @mouseenter="active = i" @click="choose(r)">
+          <div class="flex items-center gap-2">
+            <span class="size-2 shrink-0 rounded-full" :class="r.status === 'Active' ? 'bg-ok-fg' : 'bg-ink-2'" aria-hidden="true"></span>
+            <span class="font-semibold" x-text="r.username"></span>
+            <span class="min-w-0 flex-1 truncate text-ink-2" x-text="r.fullname"></span>
+            {{if .Balance}}<span class="shrink-0 text-ink-2" x-text="r.balance"></span>{{end}}
+          </div>
+          <div class="ps-4 text-xs text-ink-2" x-text="[r.phone, r.pppoe_username].filter(Boolean).join(' / ')"></div>
+        </li>
+      </template>
+      <li x-show="!items.length" role="option" aria-disabled="true" class="px-4 py-2 text-sm text-ink-2">{{T "No customers found"}}</li>
+    </ul>
+  </div>
+</div>
+<script src="/static/customer-pick.js"></script>
+{{end}}

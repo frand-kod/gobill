@@ -69,10 +69,10 @@ func TestHeaderSearch(t *testing.T) {
 			t.Errorf("%q matched %d rows", term, len(r))
 		}
 	}
-	if r := get(""); len(r) != 0 {
-		t.Error("empty term returned rows")
+	if r := get(""); len(r) != 11 { // empty term lists the customers (zed + 10 bulk), not a search
+		t.Errorf("empty term: got %d rows, want 11", len(r))
 	}
-	if n, _ := q.QuickSearchCustomers(t.Context(), "zed"); len(n) != 1 {
+	if n, _ := q.QuickSearchCustomers(t.Context(), db.QuickSearchCustomersParams{Term: "zed", Limit: 8}); len(n) != 1 {
 		t.Error("table damaged")
 	}
 	// the plain list search (no JS) also finds PPPoE usernames

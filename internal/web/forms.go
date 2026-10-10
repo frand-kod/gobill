@@ -18,6 +18,7 @@ type field struct {
 	Bind                                  bool   // field feeds the form's Alpine state (x-model)
 	Gen                                   bool   // "Generate" button fills the field with a random value
 	Fold                                  bool   // its card sits inside a collapsed "Advanced options"
+	Balance                               bool   // customer picker lists each customer's balance
 }
 
 type option struct{ Value, Label string }
@@ -81,6 +82,18 @@ func section(fs []field, title, show string) []field {
 
 func text(name, label string, v, e map[string]string) field {
 	return field{Name: name, Label: label, Type: "text", Value: v[name], Error: e[name]}
+}
+
+// customerPick is a username field shown as the searchable customer picker (type "customer").
+func customerPick(name, label string, v, e map[string]string) field {
+	return field{Name: name, Label: label, Type: "customer", Value: v[name], Error: e[name]}
+}
+
+func (f field) withBalance() field { f.Balance = true; return f }
+
+// PickConfig is the Alpine state of the customer picker: the username already chosen (may be empty).
+func (f field) PickConfig() string {
+	return jsonStr(map[string]any{"value": f.Value, "balance": f.Balance})
 }
 
 func (f field) as(typ string) field { f.Type = typ; return f }

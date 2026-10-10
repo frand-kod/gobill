@@ -15,7 +15,7 @@ func depositPage(v, e map[string]string, plans []option) formPage {
 	pl := text("plan", "Balance Package", v, e).as("select")
 	pl.Options = append([]option{{"", "-"}}, plans...)
 	return formPage{"Refill Balance", "/admin/deposit", "/admin/customers", section([]field{
-		text("customer", "Username", v, e).req(),
+		customerPick("customer", "Username", v, e).req().withBalance(),
 		pl.hint("Pick a package, or leave empty and enter an amount"),
 		text("amount", "Balance Amount", v, e).as("number"),
 		text("note", "Note", v, e).as("textarea"),

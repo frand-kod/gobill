@@ -122,19 +122,29 @@ func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 	s.renderList(w, r, lp)
 }
 
-// custSearch is the header type-ahead: up to 8 customers matching username, full name, phone or
-// PPPoE username, as JSON. Staff only (route).
+// custSearch is the header type-ahead and the customer picker, as JSON. Non-empty q matches username,
+// full name, phone or PPPoE username; empty q lists the first customers (Active first). limit is capped at
+// 20 (default 8 for a search, 20 for the empty list). Staff only (route).
 func (s *Server) custSearch(w http.ResponseWriter, r *http.Request) {
 	out := []map[string]any{}
-	if q := strings.TrimSpace(r.URL.Query().Get("q")); q != "" && len(q) <= 100 {
-		rows, err := s.queries.QuickSearchCustomers(r.Context(), q)
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	limit := int64(8)
+	if q == "" {
+		limit = 20
+	}
+	if n, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && n > 0 {
+		limit = int64(min(n, 20))
+	}
+	if len(q) <= 100 {
+		rows, err := s.queries.QuickSearchCustomers(r.Context(), db.QuickSearchCustomersParams{Term: q, Limit: limit})
 		if err != nil {
 			s.fail(w, "search customers", err)
 			return
 		}
 		for _, c := range rows {
 			out = append(out, map[string]any{"id": c.ID, "username": c.Username, "fullname": c.Fullname, "phone": c.Phone,
-				"pppoe_username": c.PppoeUsername, "status": c.Status, "url": fmt.Sprint("/admin/customers/", c.ID)})
+				"pppoe_username": c.PppoeUsername, "status": c.Status, "balance": money(c.Balance),
+				"url": fmt.Sprint("/admin/customers/", c.ID)})
 		}
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

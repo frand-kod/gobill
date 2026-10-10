@@ -312,7 +312,7 @@ func (s *Server) vchRedeemForm(w http.ResponseWriter, r *http.Request) {
 
 func redeemPage(v, e map[string]string) formPage {
 	return formPage{"Redeem Voucher", "/admin/vouchers/redeem", "/admin/vouchers",
-		[]field{text("customer", "Username", v, e).req(), text("code", "Code Voucher", v, e).req()}}
+		[]field{customerPick("customer", "Username", v, e).req(), text("code", "Code Voucher", v, e).req()}}
 }
 
 func (s *Server) vchRedeem(w http.ResponseWriter, r *http.Request) {

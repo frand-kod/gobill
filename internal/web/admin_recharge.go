@@ -168,6 +168,11 @@ type rechargePage struct {
 	ErrCustomer, ErrPlan, ErrMethod string
 }
 
+// CustomerField is the customer picker for the recharge form (name "customer", as before).
+func (p rechargePage) CustomerField() field {
+	return field{Name: "customer", Label: "Username", Type: "customer", Value: p.Customer, Error: p.ErrCustomer}
+}
+
 // rechargeOptions lists the plans this role may recharge (same rule as the customer page).
 func (s *Server) rechargeOptions(r *http.Request) ([]option, error) {
 	manage := oneOf(adminFrom(r).Role, "SuperAdmin", "Admin")

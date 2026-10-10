@@ -72,11 +72,14 @@ UPDATE transactions SET customer_id = NULL WHERE customer_id = ?;
 SELECT * FROM customers WHERE id IN (sqlc.slice('ids')) ORDER BY id;
 
 -- name: QuickSearchCustomers :many
--- Header type-ahead: case-insensitive substring match with instr (no LIKE wildcards to escape); exact matches sort first.
-SELECT id, username, fullname, phone, pppoe_username, status FROM customers
-WHERE instr(lower(username), lower(CAST(sqlc.arg(term) AS TEXT))) > 0
+-- Header type-ahead and customer picker. Empty term: the first customers, Active first, then username.
+-- Otherwise case-insensitive substring match with instr (no LIKE wildcards to escape); exact matches sort first.
+SELECT id, username, fullname, phone, pppoe_username, status, balance FROM customers
+WHERE CAST(sqlc.arg(term) AS TEXT) = ''
+   OR instr(lower(username), lower(CAST(sqlc.arg(term) AS TEXT))) > 0
    OR instr(lower(fullname), lower(CAST(sqlc.arg(term) AS TEXT))) > 0
    OR instr(lower(phone), lower(CAST(sqlc.arg(term) AS TEXT))) > 0
    OR instr(lower(pppoe_username), lower(CAST(sqlc.arg(term) AS TEXT))) > 0
-ORDER BY (lower(username) = lower(CAST(?1 AS TEXT)) OR (pppoe_username <> '' AND lower(pppoe_username) = lower(CAST(?1 AS TEXT))) OR phone = CAST(?1 AS TEXT)) DESC, username
-LIMIT 8;
+ORDER BY (CAST(sqlc.arg(term) AS TEXT) <> '' AND (lower(username) = lower(CAST(sqlc.arg(term) AS TEXT)) OR (pppoe_username <> '' AND lower(pppoe_username) = lower(CAST(sqlc.arg(term) AS TEXT))) OR phone = CAST(sqlc.arg(term) AS TEXT))) DESC,
+   (CAST(sqlc.arg(term) AS TEXT) = '' AND status <> 'Active'), username
+LIMIT sqlc.arg(limit);

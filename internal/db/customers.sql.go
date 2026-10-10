@@ -403,14 +403,21 @@ func (q *Queries) ListCustomersByIDs(ctx context.Context, ids []int64) ([]Custom
 }
 
 const quickSearchCustomers = `-- name: QuickSearchCustomers :many
-SELECT id, username, fullname, phone, pppoe_username, status FROM customers
-WHERE instr(lower(username), lower(CAST(?1 AS TEXT))) > 0
+SELECT id, username, fullname, phone, pppoe_username, status, balance FROM customers
+WHERE CAST(?1 AS TEXT) = ''
+   OR instr(lower(username), lower(CAST(?1 AS TEXT))) > 0
    OR instr(lower(fullname), lower(CAST(?1 AS TEXT))) > 0
    OR instr(lower(phone), lower(CAST(?1 AS TEXT))) > 0
    OR instr(lower(pppoe_username), lower(CAST(?1 AS TEXT))) > 0
-ORDER BY (lower(username) = lower(CAST(?1 AS TEXT)) OR (pppoe_username <> '' AND lower(pppoe_username) = lower(CAST(?1 AS TEXT))) OR phone = CAST(?1 AS TEXT)) DESC, username
-LIMIT 8
+ORDER BY (CAST(?1 AS TEXT) <> '' AND (lower(username) = lower(CAST(?1 AS TEXT)) OR (pppoe_username <> '' AND lower(pppoe_username) = lower(CAST(?1 AS TEXT))) OR phone = CAST(?1 AS TEXT))) DESC,
+   (CAST(?1 AS TEXT) = '' AND status <> 'Active'), username
+LIMIT ?2
 `
+
+type QuickSearchCustomersParams struct {
+	Term  string
+	Limit int64
+}
 
 type QuickSearchCustomersRow struct {
 	ID            int64
@@ -419,11 +426,13 @@ type QuickSearchCustomersRow struct {
 	Phone         string
 	PppoeUsername string
 	Status        string
+	Balance       int64
 }
 
-// Header type-ahead: case-insensitive substring match with instr (no LIKE wildcards to escape); exact matches sort first.
-func (q *Queries) QuickSearchCustomers(ctx context.Context, term string) ([]QuickSearchCustomersRow, error) {
-	rows, err := q.db.QueryContext(ctx, quickSearchCustomers, term)
+// Header type-ahead and customer picker. Empty term: the first customers, Active first, then username.
+// Otherwise case-insensitive substring match with instr (no LIKE wildcards to escape); exact matches sort first.
+func (q *Queries) QuickSearchCustomers(ctx context.Context, arg QuickSearchCustomersParams) ([]QuickSearchCustomersRow, error) {
+	rows, err := q.db.QueryContext(ctx, quickSearchCustomers, arg.Term, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -438,6 +447,7 @@ func (q *Queries) QuickSearchCustomers(ctx context.Context, term string) ([]Quic
 			&i.Phone,
 			&i.PppoeUsername,
 			&i.Status,
+			&i.Balance,
 		); err != nil {
 			return nil, err
 		}

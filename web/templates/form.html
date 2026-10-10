@@ -23,6 +23,8 @@
           {{$cur := .Value}}
           {{range .Options}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{T .Label}}</option>{{end}}
         </select>
+        {{else if eq .Type "customer"}}
+        {{template "customer_pick" .}}
         {{else if eq .Type "coords"}}
         <input class="input" id="{{.Name}}" name="{{.Name}}" value="{{.Value}}" placeholder="-6.2,106.8" inputmode="decimal"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
         <div class="mt-2 h-64 w-full overflow-hidden rounded-lg border border-line" data-pick="{{.Name}}" role="application" aria-label="{{T "Pick on map"}}"></div>
