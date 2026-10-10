@@ -22,6 +22,7 @@ type dashData struct {
 	Customers                int64
 	Year                     int
 	Labels, Regs, Sales      string // JSON arrays for the charts
+	Network                  netCard
 	dashWidgets
 }
 
@@ -101,7 +102,10 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 		}
 	}
 	d.Labels, d.Regs, d.Sales = jsonStr(labels), jsonStr(regs), jsonStr(sales)
-	d.dashWidgets, err = s.widgetData(ctx, now, d.ActiveSubs, d.ExpiredSubs)
+	if d.dashWidgets, err = s.widgetData(ctx, now, d.ActiveSubs, d.ExpiredSubs); err != nil {
+		return
+	}
+	d.Network, err = s.networkCard(ctx, now)
 	return
 }
 

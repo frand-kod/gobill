@@ -79,6 +79,15 @@ func (s *Service) Ping(ctx context.Context, r db.Router) (string, error) {
 	return rt.Ping(ctx)
 }
 
+// Health reads the live state of a stored router (resources and active sessions).
+func (s *Service) Health(ctx context.Context, r db.Router) (device.Health, error) {
+	rt, err := s.routerConn(r)
+	if err != nil {
+		return device.Health{}, err
+	}
+	return rt.Health(ctx)
+}
+
 // SyncPool pushes an admin pool change to the pool's router (op: add, update, remove).
 func (s *Service) SyncPool(ctx context.Context, op string, p db.Pool, oldName string) error {
 	r, err := s.Q.GetRouter(ctx, p.RouterID)
