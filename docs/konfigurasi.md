@@ -57,6 +57,19 @@ Jika `yes`, recharge paket RADIUS (device `Radius`) baru atau setelah paket habi
 - Hanya paket RADIUS. Paket MikroTik (Hotspot/PPPoE dengan router) selalu mulai saat recharge, pengaturan ini tidak berlaku untuk mereka.
 - Recharge ulang paket yang belum dipakai menunggu lagi dari awal. Perpanjang paket yang sedang berjalan tetap mengikuti `extend_expiry`.
 
+## Sakelar notifikasi dan OTP
+
+Di Settings > Notifications, bagian "Sakelar global" paling atas:
+
+| Pengaturan | Fungsi |
+|---|---|
+| `notify_customers` | `Tidak` menghentikan semua pesan ke pelanggan: pengingat, kedaluwarsa, faktur dan tautan QRIS, pesan selamat datang dan saldo, serta pesan manual. Ringkasan dan notifikasi operator tetap jalan |
+| `notify_otp` | `Tidak` mematikan kode OTP untuk pendaftaran, lupa kata sandi, dan ganti kontak. Fitur itu menampilkan bahwa kode tidak tersedia, dan tidak ada yang bisa diselesaikan tanpa kode |
+
+Keduanya bawaan `Ya` jika belum diisi.
+
+Tip: setelah impor dari PHPNuxBill untuk uji paralel, set "Kirim notifikasi ke pelanggan" = Tidak agar pelanggan tidak menerima pesan ganda.
+
 ## QRIS statis
 
 Di Settings > Payment Gateway, bagian QRIS, unggah foto QRIS statis merchant Anda (PNG atau JPG, maks 2 MB). Sistem membaca kode QR-nya, memastikan formatnya QRIS valid, lalu hanya menyimpan teksnya di `qris_payload`; gambarnya tidak disimpan. Nama merchant dan NMID yang aktif ditampilkan di bawah isian, dan "Hapus QRIS" mengosongkannya. Teks QRIS juga bisa ditempel lewat "Opsi lanjutan". Sistem membuat QR yang terkunci nominal untuk setiap invoice dan mengirim tautannya lewat WhatsApp (`[[qris_link]]`, atau ditambahkan di akhir pesan jika template tidak memakainya). Tautan memerlukan `app_url`, yang terisi otomatis dari alamat yang dipakai admin pertama kali login dan bisa diubah di Settings. Pelanggan tidak perlu login. Sistem tidak memverifikasi pembayaran QRIS: konfirmasi pembayaran tetap dilakukan manual. Recharge yang sudah dibayar lewat saldo, gateway, atau voucher tidak mendapat tautan ini.

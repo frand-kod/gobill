@@ -52,6 +52,9 @@ func (s *Server) otpAllow(ip, phone string) bool {
 	return true
 }
 
+// otpOff is the notify_otp switch: "no" means no verification code is sent, so OTP flows cannot complete.
+func otpOff(st map[string]string) bool { return st["notify_otp"] == "no" }
+
 // otpEnabled: old sms_otp_registration, but only when a WA/SMS gateway exists to deliver it.
 func otpEnabled(st map[string]string) bool {
 	return st["sms_otp_registration"] == "yes" && (st["sms_url"] != "" || notify.WAConfigured(st))

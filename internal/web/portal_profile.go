@@ -142,6 +142,10 @@ func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if otpOff(st) {
+		s.profilePage(w, r, 200, "Verification code is not available right now")
+		return
+	}
 	val := strings.TrimSpace(r.PostFormValue("value"))
 	if kind == "phone" {
 		val = normPhone(val)
@@ -204,6 +208,13 @@ func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) pContactVerify(w http.ResponseWriter, r *http.Request) {
 	ctx, kind, c := r.Context(), r.PathValue("kind"), customerFrom(r)
+	if st, err := s.loadSettings(ctx); err != nil {
+		s.fail(w, "contact verify settings", err)
+		return
+	} else if otpOff(st) {
+		s.profilePage(w, r, 200, "Verification code is not available right now")
+		return
+	}
 	if s.sessions.GetString(ctx, "ct_kind") != kind || time.Now().Unix() > s.sessions.GetInt64(ctx, "ct_exp") {
 		s.contactClear(r)
 		s.profilePage(w, r, 200, "Verification code expired")

@@ -56,7 +56,7 @@ func (s *Server) pForgotUser(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if len(names) > 0 {
+	if len(names) > 0 && !notify.CustomersOff(st) {
 		list, lang := strings.Join(names, ", "), s.language()
 		go func() {
 			bg, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -134,6 +134,10 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 		s.forgotRender(w, r, http.StatusOK, "", "Password reset is not available, please contact admin")
 		return
 	}
+	if otpOff(st) { // same answer for every username
+		s.forgotRender(w, r, http.StatusOK, "", "Verification code is not available right now")
+		return
+	}
 	if s.sessions.GetString(ctx, "forgot_user") == username && time.Now().Unix() < s.sessions.GetInt64(ctx, "forgot_exp") {
 		wait := s.sessions.GetInt64(ctx, "forgot_exp") - time.Now().Unix()
 		s.forgotRender(w, r, http.StatusOK, "", "Verification Code already sent, please wait "+strconv.FormatInt(wait, 10)+" seconds.")
@@ -183,6 +187,13 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 func (s *Server) pForgotVerify(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	ip := "f:" + clientIP(r)
+	if st, err := s.loadSettings(ctx); err != nil {
+		s.fail(w, "forgot verify settings", err)
+		return
+	} else if otpOff(st) {
+		s.forgotRender(w, r, http.StatusOK, "", "Verification code is not available right now")
+		return
+	}
 	if s.tooManyFailures(ip) {
 		s.forgotRender(w, r, http.StatusTooManyRequests, "", "Too many failed attempts. Try again in 15 minutes.")
 		return
