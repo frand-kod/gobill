@@ -1,0 +1,19 @@
+{{define "body"}}
+<main class="al">
+  <section class="al-form">
+    <form class="al-card space-y-5" method="post" action="/login/2fa">
+      <div class="space-y-2">
+        <span class="al-pill">{{icon "server"}}{{T "Administrator"}}</span>
+        <h1 class="al-title">{{T "Two-factor login"}}</h1>
+        <p class="hint">{{T "Enter the 6-digit code from your authenticator app, or one of your recovery codes."}}</p>
+      </div>
+      <div>
+        <label class="label" for="code">{{T "Code"}}</label>
+        <input class="input" id="code" name="code" type="text" inputmode="text" autocomplete="one-time-code" required autofocus>
+      </div>
+      <button class="btn btn-primary w-full" type="submit">{{T "Verify"}}</button>
+      <p class="hint"><a href="/login">{{T "Back to sign in"}}</a></p>
+    </form>
+  </section>
+</main>
+{{end}}
