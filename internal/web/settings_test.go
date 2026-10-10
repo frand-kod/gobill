@@ -118,7 +118,9 @@ func TestSettingsValidation422(t *testing.T) {
 			t.Fatal("entered timezone not kept")
 		}
 	}
-	if got := settingValues(t, q); len(got) != 0 {
+	got := settingValues(t, q)
+	delete(got, "app_url") // stored by the admin login itself, not the form
+	if len(got) != 0 {
 		t.Fatalf("saved despite errors: %v", got)
 	}
 }

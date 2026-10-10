@@ -75,7 +75,30 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	if err := s.queries.TouchAdminLogin(r.Context(), admin.ID); err != nil {
 		slog.Error("touch login", "err", err)
 	}
+	s.fillAppURL(r)
 	http.Redirect(w, r, "/admin", http.StatusSeeOther)
+}
+
+// fillAppURL stores the address of the first successful admin login as app_url, once.
+// Only called after authentication: the Host header is attacker-controlled otherwise.
+func (s *Server) fillAppURL(r *http.Request) {
+	if r.Host == "" {
+		return
+	}
+	st, err := s.loadSettings(r.Context())
+	if err != nil || st["app_url"] != "" {
+		if err != nil {
+			slog.Error("load settings", "err", err)
+		}
+		return
+	}
+	scheme := "http"
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" || strings.Contains(r.Header.Get("CF-Visitor"), `"scheme":"https"`) {
+		scheme = "https"
+	}
+	if err := s.queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "app_url", Value: scheme + "://" + r.Host}); err != nil {
+		slog.Error("save app_url", "err", err)
+	}
 }
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
