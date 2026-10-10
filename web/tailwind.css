@@ -49,11 +49,13 @@
     --accent-50: color-mix(in srgb, var(--accent) 9%, var(--surface));
     --accent-100: color-mix(in srgb, var(--accent) 17%, var(--surface));
 
-    --bg: #f6f7f9;
-    --surface: #ffffff;
-    --surface-2: #f6f7f9;
-    --border: #e3e6ea;
-    --border-strong: #c9ced5;
+    /* light neutrals: slightly off-white, a hair cool, no yellow cast; fields (--field) a touch lighter than cards */
+    --bg: #eceef2;
+    --surface: #f9fafb;
+    --surface-2: #eef0f3;
+    --field: #ffffff;
+    --border: #dde1e7;
+    --border-strong: #c3cad3;
     --text: #1f2328;
     --text-2: #575f69;
 
@@ -85,6 +87,10 @@
     --icon: 1.125rem;    /* icons sit on the text size */
   }
   :root[data-accent="orange"] { --accent: #f38020; --on-accent: #111418; }
+  /* custom colour: base.html sets --accent-l/--on-accent-l (the chosen colour, light) and --accent-d/--on-accent-d
+     (toned for dark, see toneDark there); dark mode takes the toned pair */
+  :root[data-accent="custom"] { --accent: var(--accent-l, #0b7f79); --on-accent: var(--on-accent-l, #ffffff); }
+  :root.dark[data-accent="custom"] { --accent: var(--accent-d, #0b7f79); --on-accent: var(--on-accent-d, #ffffff); }
   :root[data-density="compact"] { --d: 0.75; --ctl-h: 32px; --ctl-h-sm: 28px; --row-h: 36px; }
   :root[data-density="roomy"] { --d: 1.25; --ctl-h: 44px; --ctl-h-sm: 40px; --row-h: 52px; }
   /* text size: root 14/16/18px (Tema popover, data-font on html; medium is the default). Every --fs-* and text-* is rem. */
@@ -98,7 +104,7 @@
   }
   :root.dark {
     --accent-fg: var(--fg-d, color-mix(in srgb, var(--accent) 50%, white));
-    --bg: #0f1216; --surface: #171b21; --surface-2: #1e232a;
+    --bg: #0f1216; --surface: #171b21; --surface-2: #1e232a; --field: #1b2029;
     --border: #2b323b; --border-strong: #3a434e;
     --text: #e8eaed; --text-2: #a3abb5;
     --accent-50: color-mix(in srgb, var(--accent) 14%, var(--surface));
@@ -163,7 +169,7 @@
   .btn[aria-current="page"] { @apply border-brand-500 bg-brand-50 text-accent-fg; }
 
   .label { @apply mb-1 block text-sm font-medium text-ink; }
-  .input { min-height: var(--ctl-h); @apply block w-full rounded-sm border border-line-strong bg-surface px-3 text-sm text-ink placeholder:text-ink-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 aria-invalid:border-err-fg; }
+  .input { min-height: var(--ctl-h); @apply block w-full rounded-sm border border-line-strong bg-[var(--field)] px-3 text-sm text-ink placeholder:text-ink-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 aria-invalid:border-err-fg; }
   textarea.input { min-height: 0; padding-block: 0.5rem; }
   .input-sm { min-height: var(--ctl-h-sm); @apply w-16 px-2 text-xs; }
   .hint { font-size: var(--fs-small); @apply mt-1 text-ink-2; }
@@ -244,6 +250,8 @@
   /* sidebar: light surface, thin border, accent only on the active item */
   .sidebar { @apply border-e border-line bg-surface text-ink; }
   .nav-item { min-height: 2.25rem; @apply flex items-center gap-3 rounded-md border-s-2 border-transparent px-3 py-1.5 text-sm text-ink hover:bg-surface-2 aria-[current=page]:border-[var(--accent)] aria-[current=page]:bg-brand-50 aria-[current=page]:font-medium aria-[current=page]:text-accent-fg; }
+  /* dark: the active item edge is the accent mixed with the surface, not full strength */
+  :root.dark .nav-item[aria-current="page"] { border-inline-start-color: color-mix(in srgb, var(--accent) 80%, var(--surface)); }
   .nav-group { @apply flex w-full cursor-pointer items-center justify-between px-3 pb-1 pt-4 text-xs font-medium text-ink-2; }
   /* group chevron: right when closed, down when open */
   .nav-group > svg { rotate: -90deg; transition: rotate 150ms ease; }
