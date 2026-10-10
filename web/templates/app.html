@@ -123,10 +123,10 @@ function gbShell() {
         <input class="input ps-10" type="search" name="q" x-ref="q" x-model="q" placeholder="{{T "Search customers, menus, settings…"}}" aria-label="{{T "Search"}}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="gb-search-list" :aria-expanded="open" :aria-activedescendant="active >= 0 ? 'gb-sr-' + active : false" @input.debounce.150ms="find()" @focus="open = true; if (!done) find()" @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.escape="close()" @keydown.enter="enter($event)">
         <div id="gb-search-list" role="listbox" aria-label="{{T "Search"}}" x-show="open" x-cloak class="absolute inset-x-0 top-full z-50 mt-1 max-h-96 overflow-y-auto rounded-lg border border-line bg-surface py-1 shadow-lg max-sm:fixed max-sm:inset-x-3 max-sm:top-16 max-sm:max-h-[75vh]">
           <template x-for="g in groups" :key="g.title">
-            <div role="group" :aria-label="g.title">
-              <p class="px-4 pb-1 pt-2 text-xs font-medium text-ink-2" x-text="g.title"></p>
+            <div role="group" :aria-label="g.title" class="border-t border-line first:border-t-0">
+              <p class="px-4 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-ink-2" x-text="g.title"></p>
               <template x-for="it in g.items" :key="it.i">
-                <a role="option" :id="'gb-sr-' + it.i" :href="it.url" :aria-selected="it.i === active" class="block px-4 py-2.5 text-sm" :class="it.i === active ? 'bg-sidebar' : ''">
+                <a role="option" :id="'gb-sr-' + it.i" :href="it.url" :aria-selected="it.i === active" class="block border-b border-line/60 border-s-2 px-4 py-2.5 text-sm last:border-b-0 hover:bg-surface-2" :class="it.i === active ? 'bg-surface-2 border-s-brand-500' : 'border-s-transparent'">
                   <span class="font-medium" x-text="it.title"></span>
                   <span class="block text-xs text-ink-2 sm:inline sm:ms-1" x-show="it.sub" x-text="it.sub"></span>
                 </a>
