@@ -247,8 +247,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			sel("reg_nofify_admin", "Notify Admin", settingsYesNo...),
 		}, "Registration", "")...)
 		out = append(out, section([]field{
-			chk("enable_session_timeout", "Enable Session Timeout"),
-			text("session_timeout_duration", "Timeout Duration", v, e).as("number").hint("Minutes"),
+			text("session_timeout_duration", "Timeout Duration", v, e).as("number").hint("Minutes of inactivity before an admin is logged out. Empty = 120."),
 			sel("single_session", "Single Admin Session", settingsYesNo...),
 		}, "Session", "")...)
 		out = append(out, section([]field{

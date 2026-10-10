@@ -1986,5 +1986,6 @@
     "%s. Off-site mirror: off (NUXBILL_BACKUP_MIRROR)": "%s. Mirror di luar lokasi: nonaktif (NUXBILL_BACKUP_MIRROR)",
     "%s. Mirror %s ERROR: %s": "%s. Mirror %s GAGAL: %s",
     "%s. Mirror %s, last copy %s": "%s. Mirror %s, salinan terakhir %s",
-    "%s. Mirror %s, no copy yet": "%s. Mirror %s, belum ada salinan"
+    "%s. Mirror %s, no copy yet": "%s. Mirror %s, belum ada salinan",
+    "Minutes of inactivity before an admin is logged out. Empty = 120.": "Menit tanpa aktivitas sebelum admin otomatis logout. Kosong = 120."
 }
