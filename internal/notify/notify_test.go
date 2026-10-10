@@ -8,10 +8,30 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/frand-kod/gobill/internal/db"
 )
+
+// notify_customers=no stops customer sends; a missing key still sends.
+func TestCustomersSwitch(t *testing.T) {
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { hits.Add(1) }))
+	defer srv.Close()
+	st := map[string]string{"sms_url": srv.URL + "/sms?n=[number]&t=[text]", "user_notification_expired": "sms", "user_notification_payment": "sms"}
+	n, c, ctx := nt(st), db.Customer{Phone: "0812345678"}, context.Background()
+	if err := n.Expired(ctx, c, "Gold", nil); err != nil || hits.Load() != 1 {
+		t.Fatalf("default: hits %d err %v", hits.Load(), err)
+	}
+	st["notify_customers"] = "no"
+	if err := n.Expired(ctx, c, "Gold", nil); err != nil || hits.Load() != 1 {
+		t.Fatalf("off expired: hits %d err %v", hits.Load(), err)
+	}
+	if err := n.RechargeSuccess(ctx, c, map[string]string{"invoice": "INV-1"}); err != nil || hits.Load() != 1 {
+		t.Fatalf("off recharge: hits %d err %v", hits.Load(), err)
+	}
+}
 
 func nt(s map[string]string) *Notifier {
 	return &Notifier{Settings: s, HTTP: http.DefaultClient, TelegramAPI: "https://api.telegram.org"}
