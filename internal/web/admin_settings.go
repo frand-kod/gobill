@@ -3,6 +3,8 @@ package web
 // Settings tabs, validation, save, branding and database backup.
 
 import (
+	"encoding/base64"
+	"html/template"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -14,6 +16,7 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
 	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/skip2/go-qrcode"
 	"io"
 	"os"
 	"strconv"
@@ -225,6 +228,10 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			qris.Hint = s.catalog.T(s.language(), "Active") + ": " + m
 			if n != "" {
 				qris.Hint += " (NMID " + n + ")"
+			}
+			// the stored code redrawn (no image is kept), so the admin can check it scans
+			if png, err := qrcode.Encode(v["qris_payload"], qrcode.Medium, 256); err == nil {
+				qris.Img = template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))
 			}
 		}
 		return append(out, section([]field{qris}, "QRIS", "")...)

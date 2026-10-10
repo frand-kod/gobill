@@ -46,6 +46,7 @@
         {{else if eq .Type "link"}}
         <p><a class="btn" href="{{.Value}}">{{T (or .Btn "Download backup")}}</a></p>
         {{else if eq .Type "qris"}}
+        {{if .Img}}<img class="mb-3 rounded border border-line bg-white p-2" src="{{.Img}}" alt="{{T "Static QRIS"}}" width="160" height="160">{{end}}
         <input class="input" id="qris_image" name="qris_image" type="file" accept="image/png,image/jpeg"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
         {{if .Value}}<label class="mt-2 flex items-center gap-2 text-sm"><input type="checkbox" class="size-4 rounded accent-brand-500" name="{{.Name}}_remove" value="1"> {{T "Hapus QRIS"}}</label>{{end}}
         <details class="mt-3"><summary class="cursor-pointer text-sm">{{T "Opsi lanjutan"}}</summary>

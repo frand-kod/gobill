@@ -3,6 +3,7 @@ package web
 // Form field definitions, field builders and form page rendering.
 
 import (
+	"html/template"
 	"net/http"
 
 	"strings"
@@ -13,14 +14,15 @@ type field struct {
 	Name, Label, Type, Value, Error, Hint string
 	Options                               []option
 	Required, Checked                     bool
-	Section, SectionShow                  string // form card title, and the Alpine condition showing the whole card
-	Show                                  string // Alpine condition showing this field
-	Bind                                  bool   // field feeds the form's Alpine state (x-model)
-	Gen                                   bool   // "Generate" button fills the field with a random value
-	Fold                                  bool   // its card sits inside a collapsed "Advanced options"
-	Balance                               bool   // customer picker lists each customer's balance
-	Btn                                   string // link field: button text, default "Download backup"
-	Snippet                               string // tokenshow field: text shown in a code block
+	Section, SectionShow                  string       // form card title, and the Alpine condition showing the whole card
+	Show                                  string       // Alpine condition showing this field
+	Bind                                  bool         // field feeds the form's Alpine state (x-model)
+	Gen                                   bool         // "Generate" button fills the field with a random value
+	Fold                                  bool         // its card sits inside a collapsed "Advanced options"
+	Balance                               bool         // customer picker lists each customer's balance
+	Btn                                   string       // link field: button text, default "Download backup"
+	Snippet                               string       // tokenshow field: text shown in a code block
+	Img                                   template.URL // qris field: preview of the stored code (data: URI)
 }
 
 type option struct{ Value, Label string }
