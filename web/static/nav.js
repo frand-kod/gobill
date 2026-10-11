@@ -89,6 +89,11 @@
         revive(node);
         box.replaceWith(node);
         box = node;
+        // the page's toast region comes with the response (the flash of that page); the intro and toast wiring then runs on it
+        var oldToasts = document.getElementById('toasts'), newToasts = doc.getElementById('toasts');
+        if (oldToasts) oldToasts.remove();
+        if (newToasts) document.body.prepend(document.importNode(newToasts, true));
+        if (window.gbBind) gbBind(document);
         if (window.Alpine) Alpine.initTree(node);
         document.title = doc.title;
         if (push) history.pushState({gbTabs: true}, '', url);
@@ -103,7 +108,8 @@
 
   document.addEventListener('click', function (e) {
     var a = e.target.closest ? e.target.closest('#tab-content > nav a[href]') : null;
-    if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    // data-no-swap: a link to a page without the block (the Promotions list), so it is not fetched first
+    if (!a || a.hasAttribute('data-no-swap') || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     if (a.origin !== location.origin || a.target && a.target !== '_self') return;
     if (!/^\/admin\/settings\/[\w-]+$/.test(a.pathname) || a.pathname === location.pathname) return;
     if (dirty()) return;

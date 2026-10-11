@@ -12,6 +12,41 @@ import (
 	"strings"
 )
 
+// prefetchSafe is the session middleware with one change: a prefetch (Sec-Purpose, or Purpose on older
+// builds) reads the session but never saves it, so a flash or a one-time value (metrics_token_once) survives
+// for the real navigation. Responses vary on Sec-Purpose so a cached prefetch is never served as a navigation.
+// ponytail: a prefetched page can be a few minutes old when shown; acceptable for intent-based prefetch.
+func (s *Server) prefetchSafe(next http.Handler) http.Handler {
+	saved := s.sessions.LoadAndSave(next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Vary", "Sec-Purpose")
+		if !isPrefetch(r) {
+			saved.ServeHTTP(w, r)
+			return
+		}
+		token := ""
+		if c, err := r.Cookie(s.sessions.Cookie.Name); err == nil {
+			token = c.Value
+		}
+		ctx, err := s.sessions.Load(r.Context(), token)
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func isPrefetch(r *http.Request) bool {
+	for _, h := range []string{r.Header.Get("Sec-Purpose"), r.Header.Get("Purpose")} {
+		h = strings.ToLower(h)
+		if strings.Contains(h, "prefetch") || strings.Contains(h, "prerender") {
+			return true
+		}
+	}
+	return false
+}
+
 // Customer actions, login-as, welcome message, portal activation list / buy for friend /
 // forgot username, and log cleanup.
 
@@ -324,7 +359,7 @@ func (s *Server) Handler() http.Handler {
 	cop.AddInsecureBypassPattern("POST /radius.php")
 	cop.AddInsecureBypassPattern("POST /radius/rest")
 	// isolirGate sits inside realIP (it needs the real client IP) and outside the session chain
-	app := s.realIP(s.isolirGate(cop.Handler(s.sessions.LoadAndSave(s.idleGuard(s.maintenance(mux))))))
+	app := s.realIP(s.isolirGate(cop.Handler(s.prefetchSafe(s.idleGuard(s.maintenance(mux))))))
 	// /health sits outside the session and maintenance chain so monitors always get an answer
 	top := http.NewServeMux()
 	top.HandleFunc("GET /health", s.health)

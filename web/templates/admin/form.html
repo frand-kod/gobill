@@ -1,5 +1,5 @@
 {{define "content"}}
-{{if .Tabs}}<div id="tab-content"><nav class="mb-4 flex flex-wrap gap-2">{{range .Tabs}}<a class="btn"{{if eq .Value $.Path}} aria-current="page"{{end}} href="{{.Value}}">{{T .Label}}</a>{{end}}</nav>{{end}}
+{{if .Tabs}}<div id="tab-content"><nav class="mb-4 flex flex-wrap gap-2">{{range .Tabs}}<a class="btn"{{if eq .Value $.Path}} aria-current="page"{{end}}{{if eq .Value "/admin/settings/promo"}} data-no-swap{{end}} href="{{.Value}}">{{T .Label}}</a>{{end}}</nav>{{end}}
 {{with .Data}}
 <div class="page-head">
   <h1 class="page-title" tabindex="-1">{{TT .Heading}}{{template "callout" $.Intro}}</h1>
