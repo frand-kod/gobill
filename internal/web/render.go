@@ -84,7 +84,7 @@ func (s *Server) parseTemplates() error {
 		"dashboard":        {"base.html", "app.html", "dashboard.html"},
 		"status":           {"base.html", "app.html", "status.html"},
 		"list":             {"base.html", "app.html", "list.html"},
-		"form":             {"base.html", "app.html", "form.html", "customer_pick.html"},
+		"form":             {"base.html", "app.html", "form.html", "formfields.html", "customer_pick.html"},
 		"customer":         {"base.html", "app.html", "customer.html", "radius_usage.html", "recharge_dialog.html"},
 		"radius_sessions":  {"base.html", "app.html", "radius_sessions.html"},
 		"print":            {"print.html"},
@@ -119,6 +119,7 @@ func (s *Server) parseTemplates() error {
 		"p_forgot_user":  {"base.html", "portal/forgot_user.html"},
 		"bulk_recharge":  {"base.html", "app.html", "bulk_recharge.html"},
 		"admin_password": {"base.html", "app.html", "admin_password.html"},
+		"setup":          {"base.html", "app.html", "setup.html", "formfields.html", "customer_pick.html"},
 	}
 	s.templates = map[string]*template.Template{}
 	for name, files := range pages {
@@ -177,6 +178,13 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, name
 	p.Lang = s.language()
 	p.Version = s.Version
 	p.Brand = s.brand(r.Context())
+	if p.Admin != nil && p.Admin.Role == "SuperAdmin" {
+		if n, err := s.setupNavFor(ctx, r.URL.Path); err != nil {
+			slog.Warn("setup nav", "err", err)
+		} else {
+			p.Setup = n
+		}
+	}
 	p.Dir = "ltr"
 	if p.Lang == "arabic" {
 		p.Dir = "rtl"

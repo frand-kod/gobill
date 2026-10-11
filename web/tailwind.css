@@ -252,6 +252,14 @@
   .nav-item { min-height: 2.25rem; @apply flex items-center gap-3 rounded-md border-s-2 border-transparent px-3 py-1.5 text-sm text-ink hover:bg-surface-2 aria-[current=page]:border-[var(--accent)] aria-[current=page]:bg-brand-50 aria-[current=page]:font-medium aria-[current=page]:text-accent-fg; }
   /* dark: the active item edge is the accent mixed with the surface, not full strength */
   :root.dark .nav-item[aria-current="page"] { border-inline-start-color: color-mix(in srgb, var(--accent) 80%, var(--surface)); }
+  /* Setup cepat: the sidebar entry is the accent colour so it is found first */
+  .nav-item.setup-accent { @apply mb-2 bg-brand-500 font-medium text-on-accent hover:bg-brand-600; border-inline-start-color: transparent; }
+  .nav-item.setup-accent[aria-current="page"] { @apply bg-brand-600 text-on-accent; }
+  .setup-accent .badge { background: color-mix(in srgb, var(--on-accent) 22%, transparent); color: var(--on-accent); border-color: transparent; }
+  /* wizard steps fade and slide in; no motion when the system asks for less */
+  .wiz-body { animation: wiz-in 180ms ease-out both; }
+  @keyframes wiz-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .wiz-body { animation: none; } }
   .nav-group { @apply flex w-full cursor-pointer items-center justify-between px-3 pb-1 pt-4 text-xs font-medium text-ink-2; }
   /* group chevron: right when closed, down when open */
   .nav-group > svg { rotate: -90deg; transition: rotate 150ms ease; }

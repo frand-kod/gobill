@@ -1,6 +1,6 @@
 package web
 
-// Dashboard widgets: setup checklist and expiring-customer rows.
+// Dashboard widgets: expiring-customer rows and the activity cards.
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/notify"
 )
 
 // dashWidgets holds the cards below the dashboard tiles and charts (old PHP widgets W4, W5, W6, W7, W8/W9).
@@ -22,53 +21,6 @@ type dashWidgets struct {
 	ReminderRun string
 	Insight     string // JSON labels for the active/expired pie
 	InsightVals string // JSON values for the active/expired pie
-	Setup       []setupStep
-	SetupDone   bool // every step is ticked: the checklist is hidden
-}
-
-// setupStep is one line of the dashboard "quick start" checklist.
-type setupStep struct {
-	Label, Href string
-	Done        bool
-	Optional    bool // shown, but not needed to hide the checklist
-}
-
-// setupSteps ticks the first-run order: router or NAS, bandwidth, plan, then a customer or voucher.
-// SuperAdmin also gets WhatsApp and QRIS (required), then Tripay and Isolir (optional): those tabs are SuperAdmin only.
-func setupSteps(c db.CountSetupRow, st map[string]string, superAdmin bool) (steps []setupStep, all bool) {
-	steps = []setupStep{
-		{"Add a router (or a NAS for RADIUS)", "/admin/routers/new", c.Routers+c.Nas > 0, false},
-		{"Set a speed (Bandwidth)", "/admin/bandwidth/new", c.Bandwidths > 0, false},
-		{"Create a plan", "/admin/plans/new", c.Plans > 0, false},
-		{"Add a customer or make vouchers", "/admin/customers/new", c.Customers+c.Vouchers > 0, false},
-	}
-	if superAdmin {
-		steps = append(steps,
-			setupStep{"Connect WhatsApp (GOWA or message gateway URL)", "/admin/settings/integrations#f-alt_wga_server_url", notify.WAConfigured(st), false},
-			setupStep{"Upload the static QRIS", "/admin/settings/payment#f-qris_payload", st["qris_payload"] != "", false},
-			setupStep{"Optional: Tripay payment gateway", "/admin/settings/payment#f-payment_gateway", st["payment_gateway"] == "tripay", true},
-			setupStep{"Optional: turn on Isolir and set up the router", "/admin/settings/isolir#f-isolir_enabled", st["isolir_enabled"] == "yes", true},
-		)
-	}
-	all = true
-	for _, s := range steps {
-		all = all && (s.Done || s.Optional)
-	}
-	return
-}
-
-// setupChecklist reads the counts and settings the quick-start checklist ticks against.
-func (s *Server) setupChecklist(ctx context.Context, superAdmin bool) ([]setupStep, bool, error) {
-	cnt, err := s.queries.CountSetup(ctx)
-	if err != nil {
-		return nil, false, err
-	}
-	st, err := s.loadSettings(ctx)
-	if err != nil {
-		return nil, false, err
-	}
-	steps, all := setupSteps(cnt, st, superAdmin)
-	return steps, all, nil
 }
 
 // waLink is the wa.me chat link for a phone number; numbers starting with 0 get the country code.
