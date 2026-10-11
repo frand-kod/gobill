@@ -23,7 +23,7 @@ var listIntros = map[string]intro{
 	"/admin/logs/radius":           {"RADIUS login log", "Login attempts from RADIUS customers, accepted or refused. Check it when a customer says they cannot connect.", ""},
 	"/admin/logs/messages":         {"Message log", "Every SMS, WhatsApp or email this system sent, and whether it went through.", ""},
 	"/admin/message/bulk/status":   {"Bulk message progress", "Who received your bulk message and who did not.", ""},
-	"/admin/payment-gateway":       {"Online payment", "The online payment services customers can pay with. Keys are set under Settings, Payment Gateway.", ""},
+	"/admin/payment-gateway":       {"Online payment", "The online payment services customers can pay with. Keys are set under Settings, Payments.", ""},
 	"/admin/payment-gateway/audit": {"Payment audit", "Raw payment notifications received from the gateway. For technicians checking a payment that never arrived.", ""},
 }
 

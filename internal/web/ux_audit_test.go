@@ -58,10 +58,10 @@ func TestSettingsRegistrationUsernameRemoved(t *testing.T) {
 	if err := e.q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "registration_username", Value: "phone"}); err != nil {
 		t.Fatal(err)
 	}
-	if body := do(e.h, "GET", "/admin/settings/miscellaneous", nil, e.c).Body.String(); strings.Contains(body, "registration_username") {
+	if body := do(e.h, "GET", "/admin/settings/billing", nil, e.c).Body.String(); strings.Contains(body, "registration_username") {
 		t.Fatal("registration_username still on the settings page")
 	}
-	if w := do(e.h, "POST", "/admin/settings/miscellaneous", url.Values{"voucher_format": {"numbers"}}, e.c); w.Code != 303 {
+	if w := do(e.h, "POST", "/admin/settings/billing", url.Values{"voucher_format": {"numbers"}}, e.c); w.Code != 303 {
 		t.Fatalf("save: %d %s", w.Code, w.Body.String())
 	}
 	if got := settingValues(t, e.q)["registration_username"]; got != "phone" {

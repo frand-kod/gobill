@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -35,12 +36,14 @@ var settingsTabs = []struct {
 }{
 	{"app", "General", false},
 	{"localisation", "Localisation", false},
-	{"notifications", "Notifications", false},
+	{"billing", "Customers & Billing", false},
+	{"payment", "Payments", true},
 	{"integrations", "Integrations", true},
-	{"payment", "Payment Gateway", true},
+	{"notifications", "Notifications", false},
 	{"isolir", "Isolir", true},
 	{"promo", "Promosi", true},
-	{"miscellaneous", "Miscellaneous", false},
+	{"appearance", "Appearance", false},
+	{"system", "System & Security", false},
 }
 
 // settingsSecret are write-only: never rendered, and an empty post keeps the stored value.
@@ -105,22 +108,24 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			upl("logo", "Company Logo").hint("Logo in the menu bar. Transparent PNG works best, 2 MB max."),
 			upl("logo_dark", "Company Logo (dark mode)").hint("Shown in dark mode. Empty = use the light logo."),
 			upl("login_page_favicon", "Favicon").hint("Browser tab icon. Empty = default icon."),
-		}, "Identitas usaha", "")
+		}, "Business identity", "")
 		out = append(out, section([]field{
 			text("phone", "Phone Number", v, e).hint("Operator phone or WhatsApp. Shown to customers on the portal."),
 			area("address", "Address").hint("Printed at the top of invoices."),
 			area("note", "Invoice Footer").hint("Printed at the bottom of invoices, e.g. your bank account."),
-		}, "Kontak & faktur", "")...)
-		out = append(out, section([]field{
+		}, "Contact & invoice", "")...)
+		return out
+	case "appearance":
+		out := section([]field{
 			area("login_page_description", "Page Description").hint("Short line under the title on the login page."),
 			upl("login_page_wallpaper", "Login Page Wallpaper").hint("Background image of the left panel on the login page."),
-		}, "Tampilan halaman login", "")...)
+		}, "Login page appearance", "")
 		// the overrides fall back to the main name and logo when empty
 		override := section([]field{
 			text("login_page_head", "Judul halaman login (kosong = nama usaha)", v, e).hint("Leave empty to use the company name."),
 			upl("login_page_logo", "Logo halaman login (kosong = logo utama)").hint("Leave empty to use the company logo."),
 			upl("login_page_logo_dark", "Logo halaman login (mode gelap)").hint("Only used together with the login page logo above."),
-		}, "Judul & logo halaman login", "")
+		}, "Login page title & logo", "")
 		for i := range override {
 			override[i].Fold = true // inside the collapsed "Advanced options"
 		}
@@ -266,7 +271,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			text("isolir_days", "Lama Isolir (hari)", v, e).as("number").hint("Hari setelah paket habis, lalu benar-benar nonaktif. 0 = isolir sampai bayar"),
 			{Name: "isolir_reset_paket", Label: "Kembalikan ke default", Type: "formbtn", Value: "/admin/settings/isolir/reset/paket", Btn: "Kembalikan ke default",
 				Hint: "Isolir nonaktif, 30 hari, paket otomatis"},
-		}, "Paket", "")
+		}, "Package", "")
 		out = append(out, section([]field{
 			text("isolir_title", "Judul", v, e),
 			area("isolir_message", "Pesan").hint("Kosong tidak apa-apa; pesan default dipakai bila belum pernah diisi"),
@@ -276,7 +281,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			text("isolir_address_list", "Nama address-list MikroTik", v, e).hint("Huruf, angka, titik, strip atau garis bawah. Dikirim RADIUS sebagai Mikrotik-Address-List"),
 			{Name: "isolir_reset_halaman", Label: "Kembalikan ke default", Type: "formbtn", Value: "/admin/settings/isolir/reset/halaman", Btn: "Kembalikan ke default",
 				Hint: "Judul, pesan, QRIS, voucher dan address-list kembali ke bawaan"},
-		}, "Halaman isolir", "")...)
+		}, "Isolir page", "")...)
 		out = append(out, section([]field{
 			sel("isolir_mode", "Mode tampilan", option{"default", "Bawaan"}, option{"custom", "HTML sendiri"}).hint("HTML sendiri dipakai jika isi HTML tidak kosong"),
 			func() field {
@@ -290,9 +295,9 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 				Hint: "Mengosongkan HTML sendiri"},
 			{Name: "isolir_reset_mode", Label: "Kembalikan ke default", Type: "formbtn", Value: "/admin/settings/isolir/reset/mode", Btn: "Kembalikan ke default",
 				Hint: "Mode bawaan (HTML sendiri tidak dihapus)"},
-		}, "Mode tampilan", "")...)
+		}, "Display mode", "")...)
 		return out
-	case "miscellaneous":
+	case "billing":
 		out := section([]field{
 			sel("extend_expiry", "Extend Package Expiry", settingsYesNo...),
 			sel("admin_extend", "Extend button on subscriptions", option{"staff", "All staff (Admin, Agent, Sales)"}, option{"managers", "SuperAdmin and Admin"}, option{"super", "SuperAdmin only"}, option{"off", "Off"}).hint("Who may add free days to a subscription from the list. Off hides the button"),
@@ -312,20 +317,6 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			text("customer_password_min", "Minimum Password Length", v, e).as("number").hint("Minimum 4. Password same as username and common passwords are always rejected."),
 		}, "Registration", "")...)
 		out = append(out, section([]field{
-			text("session_timeout_duration", "Timeout Duration", v, e).as("number").hint("Minutes of inactivity before an admin is logged out. Empty = 120."),
-			sel("single_session", "Single Admin Session", settingsYesNo...),
-		}, "Session", "")...)
-		out = append(out, section([]field{
-			chk("maintenance_mode", "Maintenance Mode"),
-			chk("maintenance_mode_logout", "Log Out Customers During Maintenance"),
-			text("maintenance_date", "Maintenance Date", v, e).as("date"),
-			sel("clock_guard", "Clock Guard", settingsOnOff...).hint("Off disables the clock check"),
-			sel("trust_proxy", "Trust Proxy", settingsYesNo...).hint("Honour X-Forwarded-For only from loopback or Trusted Proxies"),
-			text("trusted_proxies", "Trusted Proxies", v, e).hint("Comma-separated IPs or CIDRs of your reverse proxies, e.g. 172.16.0.0/16"),
-			sel("router_check", "Router Check", settingsYesNo...).hint("Pings enabled routers every 5 minutes and alerts when one goes down"),
-			sel("check_customer_online", "Check Customer Online", option{"no", "No"}, option{"yes", "Yes"}).hint("Shows on the customer page whether the customer is connected"),
-		}, "System", "")...)
-		out = append(out, section([]field{
 			sel("disable_voucher", "Disable Voucher", settingsYesNo...),
 			text("voucher_redirect", "Redirect URL after Activation", v, e).hint("Optional. http or https, e.g. https://192.168.88.1/status"),
 			sel("show_bandwidth_plan", "Show Bandwidth Plan", settingsYesNo...).hint("Displays the bandwidth plan to the customer"),
@@ -344,14 +335,30 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			sel("allow_phone_otp", "Phone OTP Required", settingsYesNo...),
 			sel("allow_email_otp", "Email OTP Required", settingsYesNo...),
 		}, "OTP", "")...)
-		out = append(out, section([]field{
-			sel("hs_auth_method", "Hotspot Auth Method", option{"pap", "PAP"}, option{"chap", "CHAP"}),
-			sel("shared_users_policy", "When the device limit is full", option{"kick_oldest", "Kick oldest device"}, option{"reject", "Reject new login"}).hint("Phones now use random MACs. Kick oldest device stops a customer from being locked out when their phone reconnects with a new MAC."),
-		}, "Hotspot", "")...)
 		return append(out, section([]field{
 			sel("default_plan_device", "Default Device for New Plans", option{"", "By plan type"}, option{"MikrotikHotspot", "MikrotikHotspot"},
 				option{"MikrotikPppoe", "MikrotikPppoe"}, option{"Dummy", "Dummy"}, option{"Radius", "Radius"}).hint("Preselected on the new plan form"),
 		}, "Plans", "")...)
+	case "system":
+		out := section([]field{
+			text("session_timeout_duration", "Timeout Duration", v, e).as("number").hint("Minutes of inactivity before an admin is logged out. Empty = 120."),
+			sel("single_session", "Single Admin Session", settingsYesNo...),
+		}, "Session", "")
+		out = append(out, section([]field{
+			chk("maintenance_mode", "Maintenance Mode"),
+			chk("maintenance_mode_logout", "Log Out Customers During Maintenance"),
+			text("maintenance_date", "Maintenance Date", v, e).as("date"),
+			sel("clock_guard", "Clock Guard", settingsOnOff...).hint("Off disables the clock check"),
+			sel("trust_proxy", "Trust Proxy", settingsYesNo...).hint("Honour X-Forwarded-For only from loopback or Trusted Proxies"),
+			text("trusted_proxies", "Trusted Proxies", v, e).hint("Comma-separated IPs or CIDRs of your reverse proxies, e.g. 172.16.0.0/16"),
+			sel("router_check", "Router Check", settingsYesNo...).hint("Pings enabled routers every 5 minutes and alerts when one goes down"),
+			sel("check_customer_online", "Check Customer Online", option{"no", "No"}, option{"yes", "Yes"}).hint("Shows on the customer page whether the customer is connected"),
+		}, "System", "")...)
+		out = append(out, section([]field{
+			sel("hs_auth_method", "Hotspot Auth Method", option{"pap", "PAP"}, option{"chap", "CHAP"}),
+			sel("shared_users_policy", "When the device limit is full", option{"kick_oldest", "Kick oldest device"}, option{"reject", "Reject new login"}).hint("Phones now use random MACs. Kick oldest device stops a customer from being locked out when their phone reconnects with a new MAC."),
+		}, "Hotspot", "")...)
+		return out
 	}
 	return nil
 }
@@ -574,15 +581,23 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 		snippet := "scrape_configs:\n  - job_name: gobill\n    metrics_path: /metrics\n    authorization:\n      type: Bearer\n      credentials: " + tok +
 			"\n    static_configs:\n      - targets: ['" + r.Host + "']"
 		once := field{Name: "metrics_token_once", Label: "Token /metrics baru", Type: "tokenshow", Value: tok, Snippet: snippet,
-			Section: "Token baru", Hint: "Copy it now. It is not shown again"}
+			Section: "New token", Hint: "Copy it now. It is not shown again"}
 		fp.Fields = append([]field{once}, fp.Fields...)
 	}
-	if tab == "miscellaneous" && adminFrom(r).Role == "SuperAdmin" { // backup is SuperAdmin only, as in the old dbstatus page
-		fp.Fields = append(fp.Fields, field{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/miscellaneous/backup", Section: "System", Hint: s.backupStatus(st)},
-			field{Name: "import", Label: "Import PHPNuxBill", Type: "link", Value: importPage, Btn: "Open import page",
+	if tab == "system" && adminFrom(r).Role == "SuperAdmin" { // backup is SuperAdmin only, as in the old dbstatus page
+		links := []field{{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/miscellaneous/backup", Section: "System", Hint: s.backupStatus(st)},
+			{Name: "import", Label: "Import PHPNuxBill", Type: "link", Value: importPage, Btn: "Open import page",
 				Hint: "Replaces the data in this app. A backup is made first.", Section: "System"},
-			field{Name: "restore", Label: "Restore database", Type: "link", Value: restorePage, Btn: "Open restore page",
-				Hint: "Replaces the data with a gobill backup and restarts the app. A backup is made first.", Section: "System"})
+			{Name: "restore", Label: "Restore database", Type: "link", Value: restorePage, Btn: "Open restore page",
+				Hint: "Replaces the data with a gobill backup and restarts the app. A backup is made first.", Section: "System"}}
+		// the links join the System card, which comes before the Hotspot card
+		at := len(fp.Fields)
+		for i, f := range fp.Fields {
+			if f.Section == "System" {
+				at = i + 1
+			}
+		}
+		fp.Fields = slices.Insert(fp.Fields, at, links...)
 	}
 	s.render(w, r, status, "form", Page{Title: "Settings", Flash: s.sessions.PopString(r.Context(), "flash"), Error: s.sessions.PopString(r.Context(), "error"), Tabs: nav, Data: fp})
 }

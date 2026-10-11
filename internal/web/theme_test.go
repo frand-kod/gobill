@@ -89,12 +89,16 @@ func postLogos(t *testing.T, h http.Handler, c *http.Cookie, files ...string) {
 	mw := multipart.NewWriter(&buf)
 	mw.WriteField("company_name", "Acme")
 	mw.WriteField("currency_code", "Rp")
+	tab := "app"
 	for _, f := range files {
 		fw, _ := mw.CreateFormFile(f, f+".png")
 		fw.Write(uploadPNG)
+		if strings.HasPrefix(f, "login_page_logo") {
+			tab = "appearance" // the login page logo is on its own tab
+		}
 	}
 	mw.Close()
-	r := httptest.NewRequest("POST", "/admin/settings/app", &buf)
+	r := httptest.NewRequest("POST", "/admin/settings/"+tab, &buf)
 	r.Header.Set("Content-Type", mw.FormDataContentType())
 	r.AddCookie(c)
 	w := httptest.NewRecorder()

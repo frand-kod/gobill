@@ -256,11 +256,11 @@ func TestSettingsKeepsTypedValuesOn422(t *testing.T) {
 	_, h, _ := settingsSetup(t)
 	c := login(t, h, "alice")
 	form := url.Values{"voucher_redirect": {"https://typed.test/x"}, "extend_confirmation": {"Typed & kept"},
-		"voucher_format": {"numbers"}, "man_fields_email": {"1"}, "minimum_transfer": {"5000"}, "session_timeout_duration": {"abc"}}
-	w := do(h, "POST", "/admin/settings/miscellaneous", form, c)
+		"voucher_format": {"numbers"}, "man_fields_email": {"1"}, "minimum_transfer": {"5000"}, "customer_password_min": {"1"}}
+	w := do(h, "POST", "/admin/settings/billing", form, c)
 	body := w.Body.String()
 	for _, want := range []string{`value="https://typed.test/x"`, `Typed &amp; kept`, `<option value="numbers" selected>`,
-		`name="man_fields_email" value="1" checked>`, `name="minimum_transfer" type="number" value="5000"`} {
+		`name="man_fields_email" value="1" checked>`, `name="minimum_transfer" type="number" value="5000"`, `name="customer_password_min" type="number" value="1"`} {
 		if w.Code != http.StatusUnprocessableEntity || !strings.Contains(body, want) {
 			t.Fatalf("422 lost %s (%d)", want, w.Code)
 		}

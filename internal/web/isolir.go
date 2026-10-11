@@ -342,7 +342,7 @@ func isolirSetupFields(r *http.Request, st map[string]string) []field {
 	if net.ParseIP(host) != nil {
 		walled = fmt.Sprintf("/ip hotspot walled-garden ip add dst-address=%s action=accept", host)
 	}
-	sec := "Setup router (MikroTik, RouterOS 6 dan 7)"
+	sec := "MikroTik router setup"
 	return []field{
 		{Name: "isolir_cmd_nat", Label: "1. Alihkan HTTP klien isolir ke gobill", Type: "pre", Section: sec,
 			Value: fmt.Sprintf("/ip firewall nat add chain=dstnat src-address-list=%s protocol=tcp dst-port=80 action=dst-nat to-addresses=%s to-ports=%s", list, host, port),

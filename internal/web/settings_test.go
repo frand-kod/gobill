@@ -44,7 +44,7 @@ func settingValues(t *testing.T, q *db.Queries) map[string]string {
 func TestSettingsPagesRender(t *testing.T) {
 	_, h, _ := settingsSetup(t)
 	c := login(t, h, "alice")
-	for _, tab := range []string{"app", "localisation", "notifications", "integrations", "miscellaneous"} {
+	for _, tab := range []string{"app", "localisation", "billing", "payment", "integrations", "notifications", "isolir", "promo", "appearance", "system"} {
 		if w := do(h, "GET", "/admin/settings/"+tab, nil, c); w.Code != 200 {
 			t.Fatalf("%s: %d", tab, w.Code)
 		}
@@ -128,7 +128,7 @@ func TestSettingsValidation422(t *testing.T) {
 func TestSettingsAdminRole(t *testing.T) {
 	_, h, _ := settingsSetup(t)
 	c := login(t, h, "bob")
-	for _, tab := range []string{"app", "localisation", "notifications", "miscellaneous"} {
+	for _, tab := range []string{"app", "localisation", "notifications", "billing", "appearance", "system"} {
 		if w := do(h, "GET", "/admin/settings/"+tab, nil, c); w.Code != 200 {
 			t.Fatalf("admin %s: %d", tab, w.Code)
 		}
@@ -162,14 +162,14 @@ func TestSettingsChangedCalledOnSave(t *testing.T) {
 func TestSettingsCheckboxStoresYesNo(t *testing.T) {
 	_, h, q := settingsSetup(t)
 	c := login(t, h, "alice")
-	if w := do(h, "POST", "/admin/settings/miscellaneous", url.Values{"man_fields_email": {"1"}, "enable_balance": {"yes"}}, c); w.Code != http.StatusSeeOther {
+	if w := do(h, "POST", "/admin/settings/billing", url.Values{"man_fields_email": {"1"}, "enable_balance": {"yes"}}, c); w.Code != http.StatusSeeOther {
 		t.Fatalf("save: %d", w.Code)
 	}
 	got := settingValues(t, q)
-	if got["man_fields_email"] != "yes" || got["man_fields_fname"] != "no" || got["maintenance_mode"] != "no" {
+	if got["man_fields_email"] != "yes" || got["man_fields_fname"] != "no" {
 		t.Fatalf("checkboxes not yes/no: %v", got)
 	}
-	if w := do(h, "GET", "/admin/settings/miscellaneous", nil, c); !strings.Contains(w.Body.String(), `checked`) {
+	if w := do(h, "GET", "/admin/settings/billing", nil, c); !strings.Contains(w.Body.String(), `checked`) {
 		t.Fatal("saved checkbox not rendered as checked")
 	}
 }
@@ -181,17 +181,16 @@ func TestSettingsNewFieldsPersist(t *testing.T) {
 		tab  string
 		form url.Values
 	}{
-		{"app", url.Values{"company_name": {"Acme"}, "currency_code": {"Rp"}, "login_page_head": {"Welcome"},
-			"login_page_description": {"Log in here"}}},
+		{"app", url.Values{"company_name": {"Acme"}, "currency_code": {"Rp"}}},
+		{"appearance", url.Values{"login_page_head": {"Welcome"}, "login_page_description": {"Log in here"}}},
 		{"localisation", url.Values{"language": {"english"}, "timezone": {"Asia/Jakarta"}, "dec_point": {","},
 			"thousands_sep": {"'"}, "reset_day": {"15"}}},
 		{"notifications", url.Values{"reminder_hour": {"7"}, "notif_invoice_balance": {"bal"}, "notif_welcome_message": {"hi"},
 			"notif_balance_send": {"sent"}, "notif_balance_received": {"got"}}},
 		{"integrations", url.Values{"mail_reply_to": {"help@acme.test"}}},
-		{"miscellaneous", url.Values{"voucher_format": {"numbers"}, "disable_registration": {"yes"},
-			"sms_otp_registration": {"yes"}, "phone_otp_type": {"wa"},
-			"reg_nofify_admin": {"yes"}, "session_timeout_duration": {"30"}, "single_session": {"yes"},
-			"maintenance_date": {"2026-10-31"}}},
+		{"billing", url.Values{"voucher_format": {"numbers"}, "disable_registration": {"yes"},
+			"sms_otp_registration": {"yes"}, "phone_otp_type": {"wa"}, "reg_nofify_admin": {"yes"}}},
+		{"system", url.Values{"session_timeout_duration": {"30"}, "single_session": {"yes"}, "maintenance_date": {"2026-10-31"}}},
 	}
 	for _, sv := range saves {
 		if w := do(h, "POST", "/admin/settings/"+sv.tab, sv.form, c); w.Code != http.StatusSeeOther {
@@ -215,9 +214,9 @@ func TestSettingsNewFieldsPersist(t *testing.T) {
 		form url.Values
 	}{
 		{"localisation", url.Values{"language": {"english"}, "timezone": {"Asia/Jakarta"}, "reset_day": {"29"}}},
-		{"miscellaneous", url.Values{"session_timeout_duration": {"0"}}},
-		{"miscellaneous", url.Values{"phone_otp_type": {"email"}}},
-		{"miscellaneous", url.Values{"maintenance_date": {"31/10/2026"}}},
+		{"system", url.Values{"session_timeout_duration": {"0"}}},
+		{"billing", url.Values{"phone_otp_type": {"email"}}},
+		{"system", url.Values{"maintenance_date": {"31/10/2026"}}},
 	}
 	for _, tc := range bad {
 		if w := do(h, "POST", "/admin/settings/"+tc.tab, tc.form, c); w.Code != http.StatusUnprocessableEntity {
@@ -353,8 +352,7 @@ func TestBrandingAndBackupRoutesReachable(t *testing.T) {
 	if w := do(h, "GET", "/uploads/../gobill.db", nil, nil); w.Code == http.StatusOK {
 		t.Fatal("traversal served")
 	}
-	do(h, "POST", "/admin/settings/app", url.Values{"company_name": {"Acme"}, "currency_code": {"Rp"},
-		"login_page_head": {"Acme Head"}, "login_page_description": {"Log in here"}}, c)
+	do(h, "POST", "/admin/settings/appearance", url.Values{"login_page_head": {"Acme Head"}, "login_page_description": {"Log in here"}}, c)
 	if w := do(h, "GET", "/login", nil, nil); !strings.Contains(w.Body.String(), "Acme Head") || !strings.Contains(w.Body.String(), "Log in here") || !strings.Contains(w.Body.String(), "/uploads/"+name) {
 		t.Fatal("branding missing on login page")
 	}
@@ -364,7 +362,7 @@ func TestBrandingAndBackupRoutesReachable(t *testing.T) {
 	if w := do(h, "GET", "/admin/settings/miscellaneous/backup", nil, login(t, h, "bob")); w.Code != http.StatusForbidden {
 		t.Fatalf("backup as Admin: %d", w.Code)
 	}
-	if w := do(h, "GET", "/admin/settings/miscellaneous", nil, c); !strings.Contains(w.Body.String(), "/admin/settings/miscellaneous/backup") {
+	if w := do(h, "GET", "/admin/settings/system", nil, c); !strings.Contains(w.Body.String(), "/admin/settings/miscellaneous/backup") {
 		t.Fatal("backup button missing")
 	}
 	if w := do(h, "GET", "/admin/settings/app", nil, c); !strings.Contains(w.Body.String(), `enctype="multipart/form-data"`) {
@@ -378,9 +376,12 @@ func TestSettingsPortalOptions(t *testing.T) {
 	form := url.Values{"disable_voucher": {"yes"}, "voucher_redirect": {"https://192.168.88.1/status"},
 		"show_bandwidth_plan": {"yes"}, "extend_expired": {"1"}, "extend_days": {"3"}, "extend_confirmation": {"I agree"},
 		"allow_balance_transfer": {"yes"}, "minimum_transfer": {"5000"}, "allow_balance_custom": {"yes"},
-		"allow_phone_otp": {"yes"}, "allow_email_otp": {"no"}, "hs_auth_method": {"chap"}, "maintenance_mode_logout": {"1"}}
-	if w := do(h, "POST", "/admin/settings/miscellaneous", form, c); w.Code != http.StatusSeeOther {
+		"allow_phone_otp": {"yes"}, "allow_email_otp": {"no"}}
+	if w := do(h, "POST", "/admin/settings/billing", form, c); w.Code != http.StatusSeeOther {
 		t.Fatalf("save: %d %s", w.Code, w.Body.String())
+	}
+	if w := do(h, "POST", "/admin/settings/system", url.Values{"hs_auth_method": {"chap"}, "maintenance_mode_logout": {"1"}}, c); w.Code != http.StatusSeeOther {
+		t.Fatalf("save system: %d %s", w.Code, w.Body.String())
 	}
 	got := settingValues(t, q)
 	for k, want := range map[string]string{"disable_voucher": "yes", "voucher_redirect": "https://192.168.88.1/status",
@@ -391,7 +392,7 @@ func TestSettingsPortalOptions(t *testing.T) {
 			t.Errorf("%s = %q, want %q", k, got[k], want)
 		}
 	}
-	if w := do(h, "GET", "/admin/settings/miscellaneous", nil, c); !strings.Contains(w.Body.String(), "https://192.168.88.1/status") {
+	if w := do(h, "GET", "/admin/settings/billing", nil, c); !strings.Contains(w.Body.String(), "https://192.168.88.1/status") {
 		t.Fatal("saved voucher_redirect not rendered")
 	}
 	bad := []url.Values{
@@ -401,10 +402,12 @@ func TestSettingsPortalOptions(t *testing.T) {
 		{"extend_days": {"-1"}},
 		{"extend_days": {"three"}},
 		{"minimum_transfer": {"-5000"}},
-		{"hs_auth_method": {"api"}},
+	}
+	if w := do(h, "POST", "/admin/settings/system", url.Values{"hs_auth_method": {"api"}}, c); w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("hs_auth_method: %d", w.Code)
 	}
 	for _, f := range bad {
-		if w := do(h, "POST", "/admin/settings/miscellaneous", f, c); w.Code != http.StatusUnprocessableEntity {
+		if w := do(h, "POST", "/admin/settings/billing", f, c); w.Code != http.StatusUnprocessableEntity {
 			t.Fatalf("%v: %d", f, w.Code)
 		}
 	}
@@ -413,13 +416,13 @@ func TestSettingsPortalOptions(t *testing.T) {
 func TestSettingsDefaultPlanDevice(t *testing.T) {
 	_, h, q := settingsSetup(t)
 	c := login(t, h, "alice")
-	if w := do(h, "POST", "/admin/settings/miscellaneous", url.Values{"default_plan_device": {"Radius"}}, c); w.Code != http.StatusSeeOther {
+	if w := do(h, "POST", "/admin/settings/billing", url.Values{"default_plan_device": {"Radius"}}, c); w.Code != http.StatusSeeOther {
 		t.Fatalf("save: %d %s", w.Code, w.Body.String())
 	}
 	if got := settingValues(t, q)["default_plan_device"]; got != "Radius" {
 		t.Fatalf("stored %q", got)
 	}
-	if w := do(h, "POST", "/admin/settings/miscellaneous", url.Values{"default_plan_device": {"Bogus"}}, c); w.Code != http.StatusUnprocessableEntity {
+	if w := do(h, "POST", "/admin/settings/billing", url.Values{"default_plan_device": {"Bogus"}}, c); w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("bad value: %d", w.Code)
 	}
 	if got := settingValues(t, q)["default_plan_device"]; got != "Radius" {
@@ -457,12 +460,12 @@ func TestSettingsTwoLargeUploads(t *testing.T) {
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	mw.WriteField("company_name", "Acme")
-	for _, f := range []string{"logo", "login_page_wallpaper"} {
+	for _, f := range []string{"login_page_logo", "login_page_wallpaper"} {
 		fw, _ := mw.CreateFormFile(f, f+".png")
 		fw.Write(big)
 	}
 	mw.Close()
-	r := httptest.NewRequest("POST", "/admin/settings/app", &buf)
+	r := httptest.NewRequest("POST", "/admin/settings/appearance", &buf)
 	r.Header.Set("Content-Type", mw.FormDataContentType())
 	r.AddCookie(c)
 	w := httptest.NewRecorder()
@@ -470,8 +473,8 @@ func TestSettingsTwoLargeUploads(t *testing.T) {
 	if w.Code != http.StatusSeeOther {
 		t.Fatalf("two large images refused: %d", w.Code)
 	}
-	if v := settingValues(t, q); v["logo"] == "" || v["login_page_wallpaper"] == "" {
-		t.Fatalf("not stored: %q %q", v["logo"], v["login_page_wallpaper"])
+	if v := settingValues(t, q); v["login_page_logo"] == "" || v["login_page_wallpaper"] == "" {
+		t.Fatalf("not stored: %q %q", v["login_page_logo"], v["login_page_wallpaper"])
 	}
 }
 

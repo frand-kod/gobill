@@ -99,11 +99,11 @@ Tiap bagian punya tombol uji di **Pengaturan > Integrasi**. Hanya SuperAdmin yan
 | Kirim gateway uji | Mengirim SMS ke nomor yang Anda ketik lewat URL gateway `wa_url`. |
 | Kirim email uji | Mengirim email ke alamat yang Anda ketik lewat SMTP tersimpan. |
 | Kirim webhook uji | Mengirim event `test` yang ditandatangani ke `webhook_url`, lalu menampilkan status HTTP. |
-| Cek koneksi | Di **Pengaturan > Gerbang Pembayaran**, untuk Tripay. Memanggil daftar channel pembayaran Tripay untuk memastikan kunci dan merchant code benar. |
+| Cek koneksi | Di **Pengaturan > Pembayaran**, untuk Tripay. Memanggil daftar channel pembayaran Tripay untuk memastikan kunci dan merchant code benar. |
 
 ## Pembayaran online
 
-Pengaturan `payment_gateway` menentukan gateway: `""` untuk mati, atau `tripay`. Pengaturan ada di **Pengaturan > Gerbang Pembayaran**.
+Pengaturan `payment_gateway` menentukan gateway: `""` untuk mati, atau `tripay`. Pengaturan ada di **Pengaturan > Pembayaran**.
 
 | Pengaturan | Fungsi |
 |---|---|
@@ -115,7 +115,7 @@ Callback Tripay masuk ke `POST /callback/tripay`. Callback diverifikasi dengan t
 
 ## QRIS statis
 
-Di **Pengaturan > Gerbang Pembayaran**, bagian QRIS:
+Di **Pengaturan > Pembayaran**, bagian QRIS:
 
 1. Unggah foto QRIS statis merchant. Format PNG atau JPG, maksimal 2 MB.
 2. Sistem membaca kode QR dan memastikan formatnya QRIS yang valid.

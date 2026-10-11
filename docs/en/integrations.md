@@ -99,11 +99,11 @@ Each section has a test button in **Settings > Integrations**. Only SuperAdmin c
 | Send gateway test | Sends an SMS to a number you type, through the `wa_url` gateway. |
 | Send email test | Sends an email to an address you type, through the saved SMTP settings. |
 | Send webhook test | Sends a signed `test` event to `webhook_url`, and shows the HTTP status. |
-| Check connection | In **Settings > Payment Gateway**, for Tripay. Calls the Tripay payment channel list to confirm that the key and merchant code are correct. |
+| Check connection | In **Settings > Payments**, for Tripay. Calls the Tripay payment channel list to confirm that the key and merchant code are correct. |
 
 ## Online payments
 
-The setting `payment_gateway` selects the gateway: `""` for off, or `tripay`. The settings are in **Settings > Payment Gateway**.
+The setting `payment_gateway` selects the gateway: `""` for off, or `tripay`. The settings are in **Settings > Payments**.
 
 | Setting | Purpose |
 |---|---|
@@ -115,7 +115,7 @@ Tripay callbacks go to `POST /callback/tripay`. The callback is verified with it
 
 ## Static QRIS
 
-In **Settings > Payment Gateway**, in the QRIS section:
+In **Settings > Payments**, in the QRIS section:
 
 1. Upload a photo of the merchant's static QRIS. PNG or JPG, maximum 2 MB.
 2. The system reads the QR code and checks that it is a valid QRIS.
