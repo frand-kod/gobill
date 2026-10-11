@@ -170,6 +170,19 @@
   a.stat:hover { box-shadow: inset 3px 0 0 var(--accent); }
   .stat-num { font-size: var(--fs-title); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; line-height: 1.25; }
   .stat-label { font-size: var(--fs-small); @apply text-ink-2; }
+  /* one tile, two parts (Active / Expired, Customer). Side by side when the tile is 15rem or wider, else stacked */
+  .stat-split { display: block; padding: 0; overflow: hidden; container-type: inline-size; }
+  .stat-split-in { display: flex; flex-direction: column; }
+  .stat-part { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-width: 0; padding: var(--sp-4); }
+  a.stat-part { @apply hover:bg-surface-2; }
+  a.stat-part:hover { box-shadow: inset 3px 0 0 var(--accent); }
+  .stat-sep { height: 1px; @apply bg-line; }
+  @container (min-width: 15rem) {
+    .stat-split-in { flex-direction: row; }
+    .stat-part { flex: 2 1 0; }
+    .stat-part.narrow { flex: 1 1 0; }
+    .stat-sep { width: 1px; height: auto; }
+  }
 
   /* live sessions: a new session flashes once, an ended one fades out; reduced motion skips the animation */
   .row-new { animation: row-new 1.6s ease-out; }

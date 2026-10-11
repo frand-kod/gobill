@@ -21,18 +21,23 @@
     <div><p class="stat-label">{{T "Income This Month"}}</p><p class="stat-num" id="tile-month">{{money .IncomeMonth}}</p></div>
     <span class="text-ok-fg">{{icon "circle-dollar-sign"}}</span>
   </a>
-  <div class="stat">
-    <div><p class="stat-label">{{T "Active"}} / {{T "Expired"}}</p><p class="stat-num" id="tile-subs">{{.ActiveSubs}} / {{.ExpiredSubs}}</p></div>
-    <span class="text-warn-fg">{{icon "clock"}}</span>
+  <div class="stat stat-split">
+    <div class="stat-split-in">
+      <div class="stat-part">
+        <div class="min-w-0"><p class="stat-label">{{T "Active"}} / {{T "Expired"}}</p><p class="stat-num" id="tile-subs">{{.ActiveSubs}} / {{.ExpiredSubs}}</p></div>
+        <span class="shrink-0 text-warn-fg">{{icon "clock"}}</span>
+      </div>
+      <span class="stat-sep" aria-hidden="true"></span>
+      <a href="/admin/customers" class="stat-part narrow">
+        <div class="min-w-0"><p class="stat-label">{{T "Customer"}}</p><p class="stat-num" id="tile-customers">{{.Customers}}</p></div>
+        <span class="shrink-0 text-ink-2">{{icon "users"}}</span>
+      </a>
+    </div>
   </div>
   {{if $mgr}}<a href="/admin/radius/sessions" class="stat">
     <div><p class="stat-label">{{T "Online"}}</p><p class="stat-num" id="tile-online">{{.OnlineNow}}</p></div>
     <span class="text-ok-fg">{{icon "wifi"}}</span>
   </a>{{end}}
-  <a href="/admin/customers" class="stat">
-    <div><p class="stat-label">{{T "Customer"}}</p><p class="stat-num" id="tile-customers">{{.Customers}}</p></div>
-    <span class="text-ink-2">{{icon "users"}}</span>
-  </a>
 </div>
 {{if $mgr}}
 <section class="card mb-4" aria-labelledby="network-title" data-collapse="network">
