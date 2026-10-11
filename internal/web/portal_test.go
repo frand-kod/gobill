@@ -98,7 +98,7 @@ func TestPortalBalanceOrder(t *testing.T) {
 
 func TestPortalRegister(t *testing.T) {
 	e := billApp(t)
-	f := url.Values{"username": {"newbie"}, "fullname": {"New Bie"}, "password": {"abc12345"}, "cpassword": {"abc12345"}}
+	f := url.Values{"username": {"newbie"}, "phone_number": {"0812000001"}, "password": {"abc12345"}}
 	if w := do(e.h, "POST", "/portal/register", f, nil); w.Code != http.StatusSeeOther {
 		t.Fatalf("register: %d %s", w.Code, w.Body.String())
 	}

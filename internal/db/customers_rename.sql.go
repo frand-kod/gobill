@@ -9,6 +9,20 @@ import (
 	"context"
 )
 
+const findLoginNameFold = `-- name: FindLoginNameFold :one
+SELECT id FROM customers
+WHERE lower(username) = lower(?1) OR (pppoe_username <> '' AND lower(pppoe_username) = lower(?1))
+LIMIT 1
+`
+
+// Case-insensitive: a customer already uses name as username or pppoe_username (self-registration).
+func (q *Queries) FindLoginNameFold(ctx context.Context, name string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, findLoginNameFold, name)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const findLoginNameOwner = `-- name: FindLoginNameOwner :one
 SELECT id FROM customers
 WHERE id <> ?1 AND (username = ?2 OR (pppoe_username <> '' AND pppoe_username = ?2))

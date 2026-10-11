@@ -25,8 +25,8 @@ func TestOTPSwitchOff(t *testing.T) {
 	gw, sent := countingGateway(t)
 	setting(t, e, "sms_url", gw, "sms_otp_registration", "yes", "notify_otp", "no")
 	msg := tr("Verification code is not available right now")
-	reg := url.Values{"username": {"nbsw1"}, "fullname": {"N"}, "phone_number": {"0812000001"},
-		"password": {"abc12345"}, "cpassword": {"abc12345"}, "send_otp": {"1"}}
+	reg := url.Values{"username": {"nbsw1"}, "phone_number": {"0812000001"},
+		"password": {"abc12345"}, "send_otp": {"1"}}
 	if w := do(e.h, "POST", "/portal/register", reg, nil); !strings.Contains(w.Body.String(), msg) {
 		t.Fatalf("register: %d", w.Code)
 	}

@@ -91,7 +91,7 @@ If Cloudflare is in front of Nginx, set `set_real_ip_from` in Nginx to the Cloud
 | `admin_extend` | Who may use the Extend button in the subscription list. `staff` is the default and means Admin, Agent, and Sales. `managers` means SuperAdmin and Admin. `super` means SuperAdmin only. `off` hides the button. |
 | `enable_balance` | Balance system: top up balance, transfer balance, and auto-renew from balance. Enabled by default if never set. |
 | `start_on_first_login` | `yes` starts the validity of a RADIUS plan at the first login, not at recharge. Default `no`. See the "Start on first login" section below. |
-| `disable_registration`, `disable_voucher`, `allow_phone_otp`, `registration_username`, `phone_otp_type` | Restrictions and methods in the customer portal. `phone_otp_type` selects `sms` or `wa`. |
+| `disable_registration`, `disable_voucher`, `allow_phone_otp`, `phone_otp_type`, `customer_password_min` | Restrictions and methods in the customer portal. `phone_otp_type` selects `sms` or `wa`. `customer_password_min` is the minimum customer password length, 4 to 64. |
 | `voucher_format` | Default voucher code format: `up`, `low`, `rand`, or `numbers`. |
 | `hs_auth_method` | Hotspot auth method shown under **Miscellaneous**: `pap` or `chap`. This setting does not change the built-in RADIUS server. The built-in server accepts PAP, CHAP, and MS-CHAPv2. |
 | `check_customer_online` | `yes` shows on the customer page whether the customer is connected through a plan device. |

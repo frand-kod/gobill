@@ -132,7 +132,7 @@ Jika `connect_uri` memakai `https`, pastikan `check_cert = yes` di blok `tls` pa
   - Kirim OTP: per IP 5 kali dalam 15 menit. Per nomor, jeda 60 detik dan maksimal 5 kali per jam. Jika `notify_otp` = `no`, OTP tidak dikirim sama sekali.
   - Brute force yang terdeteksi juga memicu alert operator. Lihat [monitoring](monitoring.md).
 - **Lupa kata sandi.** Balasannya sama untuk username yang ada maupun tidak. Jadi tidak bisa dipakai untuk menebak akun.
-- **Kata sandi pelanggan.** Minimal 8 karakter, maksimal 35. Berlaku untuk registrasi, ganti, reset, dan edit oleh admin.
+- **Kata sandi pelanggan.** Minimal `customer_password_min` karakter (default 4, boleh 4 sampai 64). Berlaku untuk registrasi, ganti, reset, dan edit oleh admin. Kata sandi yang sama dengan username, dan kata sandi umum seperti `1234` atau `password`, selalu ditolak.
 - **Kata sandi admin pertama.** Dibuat acak dan ditulis ke `initial-admin-password.txt` di folder database, dengan mode 0600. Tidak ditulis ke log. Hapus file itu setelah login.
 - **Proxy.** `X-Forwarded-For` dibaca hanya jika koneksi langsung datang dari loopback, atau dari `trusted_proxies` dan `trust_proxy` = `yes`. Pembatas login memakai alamat klien itu. Allow-list `/radius.php` selalu memakai alamat koneksi asli, jadi header dari luar tidak bisa memalsukan IP.
 - **Cetak voucher.** Hanya untuk peran staf: SuperAdmin, Admin, Agent, dan Sales.

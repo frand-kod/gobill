@@ -84,6 +84,18 @@ func (q *Queries) DeleteVouchersByIDs(ctx context.Context, ids []int64) (int64, 
 	return result.RowsAffected()
 }
 
+const findVoucherCodeFold = `-- name: FindVoucherCodeFold :one
+SELECT id FROM vouchers WHERE lower(code) = lower(?1) LIMIT 1
+`
+
+// Case-insensitive: a voucher with this code exists (self-registration must not take a code as username).
+func (q *Queries) FindVoucherCodeFold(ctx context.Context, code string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, findVoucherCodeFold, code)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getVoucher = `-- name: GetVoucher :one
 SELECT id, code, plan_id, status, used_by, used_at, generated_by, created_at FROM vouchers WHERE id = ?
 `

@@ -237,12 +237,14 @@ func (s *Server) pForgotReset(w http.ResponseWriter, r *http.Request) {
 		s.forgotRender(w, r, http.StatusOK, "", "Invalid Username or Verification Code")
 		return
 	}
+	st, err := s.loadSettings(ctx)
+	if err != nil {
+		s.fail(w, "forgot reset", err)
+		return
+	}
 	npass := r.PostFormValue("npass")
-	msg := ""
-	switch {
-	case len(npass) < minPasswordLen || len(npass) > 35:
-		msg = "Password should be between 8 to 35 characters"
-	case npass != r.PostFormValue("cnpass"):
+	msg := customerPasswordErr(st, user, npass)
+	if msg == "" && npass != r.PostFormValue("cnpass") {
 		msg = "Passwords does not match"
 	}
 	if msg != "" {

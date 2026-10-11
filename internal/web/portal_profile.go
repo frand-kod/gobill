@@ -53,21 +53,23 @@ func (s *Server) pProfile(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) pPassword(w http.ResponseWriter, r *http.Request) {
 	c := customerFrom(r)
+	st, err := s.loadSettings(r.Context())
+	if err != nil {
+		s.fail(w, "portal password", err)
+		return
+	}
 	npass := r.PostFormValue("npass")
 	msg := ""
-	switch {
-	case bcrypt.CompareHashAndPassword([]byte(c.PasswordHash), []byte(r.PostFormValue("password"))) != nil:
+	if bcrypt.CompareHashAndPassword([]byte(c.PasswordHash), []byte(r.PostFormValue("password"))) != nil {
 		msg = "Incorrect current password"
-	case len(npass) < minPasswordLen || len(npass) > 35:
-		msg = "Password should be between 8 to 35 characters"
-	case npass != r.PostFormValue("cnpass"):
+	} else if msg = customerPasswordErr(st, c.Username, npass); msg == "" && npass != r.PostFormValue("cnpass") {
 		msg = "Passwords does not match"
 	}
 	if msg != "" {
 		s.profilePage(w, r, 200, msg)
 		return
 	}
-	err := s.setPassword(r.Context(), c.ID, npass)
+	err = s.setPassword(r.Context(), c.ID, npass)
 	if err == nil {
 		err = s.keepSession(r, c.ID)
 	}

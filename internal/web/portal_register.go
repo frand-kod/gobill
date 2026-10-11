@@ -1,9 +1,11 @@
 package web
 
-// Customer self-registration with optional OTP verification.
+// Customer self-registration: username, password and WhatsApp number, with optional WA OTP.
 
 import (
 	"crypto/rand"
+	"database/sql"
+	"errors"
 	"log/slog"
 	"math/big"
 	"net/http"
@@ -20,14 +22,50 @@ import (
 )
 
 type regData struct {
-	Username, Fullname, Email, Address, Phone string
-	OTP                                       bool // OTP field shown
-	Fname, MEmail, MAddress                   bool // mandatory fields (man_fields_*)
+	Username, Phone string
+	OTP             bool // OTP field shown
 }
 
-// minPasswordLen applies to new customer passwords (registration, change, reset, admin edit).
-// Existing passwords are not checked at login, so older accounts keep working.
-const minPasswordLen = 8
+// commonPasswords are refused for every customer password (compared lower case).
+var commonPasswords = map[string]bool{"1234": true, "12345": true, "123456": true, "0000": true, "1111": true, "2222": true,
+	"1212": true, "4321": true, "abcd": true, "qwer": true, "asdf": true, "password": true, "admin": true, "1q2w": true,
+	"aaaa": true, "qwerty": true, "123123": true, "112233": true}
+
+// customerPasswordMin is the setting customer_password_min (4 by default, 4 to 64).
+func customerPasswordMin(st map[string]string) int {
+	if n, err := strconv.Atoi(st["customer_password_min"]); err == nil && n >= 4 && n <= 64 {
+		return n
+	}
+	return 4
+}
+
+// customerPasswordErr returns why pass cannot be a customer password, or "". It applies to every
+// customer password path. Equal to the username is refused because RADIUS treats it as a voucher login.
+func customerPasswordErr(st map[string]string, username, pass string) string {
+	if n := customerPasswordMin(st); len(pass) < n || len(pass) > 64 {
+		return fmt.Sprintf("Password should be between %d to 64 characters", n)
+	}
+	if strings.EqualFold(pass, username) {
+		return "Password must not be the same as the username"
+	}
+	if commonPasswords[strings.ToLower(pass)] {
+		return "Password terlalu mudah ditebak"
+	}
+	return ""
+}
+
+// validRegUsername: 4 to 32 lower case letters or digits.
+func validRegUsername(u string) bool {
+	if len(u) < 4 || len(u) > 32 {
+		return false
+	}
+	for _, r := range u {
+		if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9') {
+			return false
+		}
+	}
+	return true
+}
 
 func (s *Server) pRegisterForm(w http.ResponseWriter, r *http.Request) {
 	st, err := s.loadSettings(r.Context())
@@ -44,7 +82,6 @@ func (s *Server) pRegisterForm(w http.ResponseWriter, r *http.Request) {
 
 func regFlags(d regData, st map[string]string) regData {
 	d.OTP = otpEnabled(st)
-	d.Fname, d.MEmail, d.MAddress = st["man_fields_fname"] == "yes", st["man_fields_email"] == "yes", st["man_fields_address"] == "yes"
 	return d
 }
 
@@ -60,53 +97,47 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f := r.PostFormValue
-	d := regFlags(regData{Username: strings.TrimSpace(f("username")), Fullname: strings.TrimSpace(f("fullname")),
-		Email: strings.TrimSpace(f("email")), Address: strings.TrimSpace(f("address")), Phone: strings.TrimSpace(f("phone_number"))}, st)
-	if !d.OTP {
-		d.Phone = d.Username // old PHP: the username doubles as the phone number
-	}
+	d := regFlags(regData{Username: strings.ToLower(strings.TrimSpace(f("username"))), Phone: normPhone(f("phone_number"))}, st)
 	show := func(msg string) {
 		s.prender(w, r, 200, "p_register", Page{Title: "Register", Data: d, Error: msg})
 	}
-	if l := len(d.Username); l < 3 || l > 55 {
-		show("Username should be between 3 to 55 characters")
+	if !validRegUsername(d.Username) {
+		show("Username should be 4 to 32 characters, lowercase letters and digits only")
 		return
 	}
-	if st["registration_username"] == "phone" && (len(normPhone(d.Username)) < 6 || normPhone(d.Username) != d.Username) {
-		show("Phone Number is required")
+	if len(d.Phone) < 10 {
+		show("Invalid phone number format")
 		return
 	}
-	if st["registration_username"] == "email" && !strings.Contains(d.Username, "@") {
-		show("Email is not Valid")
+	if msg := customerPasswordErr(st, d.Username, f("password")); msg != "" {
+		show(msg)
 		return
 	}
-	if d.Fname && (len(d.Fullname) < 3 || len(d.Fullname) > 25) {
-		show("Full Name should be between 3 to 25 characters")
+	// RADIUS logs in by username or pppoe_username, and voucher codes are logins too.
+	if _, err := s.queries.FindLoginNameFold(ctx, d.Username); err == nil {
+		show("Username already used")
+		return
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		s.fail(w, "register", err)
 		return
 	}
-	if d.MEmail && !strings.Contains(d.Email, "@") {
-		show("Email is not Valid")
+	if _, err := s.queries.FindVoucherCodeFold(ctx, d.Username); err == nil {
+		show("Username already used")
+		return
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		s.fail(w, "register", err)
 		return
 	}
-	if d.MAddress && d.Address == "" {
-		show("Home Address is required")
+	if taken, err := s.contactTaken(r, "phone", d.Phone, 0); err != nil {
+		s.fail(w, "register", err)
 		return
-	}
-	if l := len(f("password")); l < minPasswordLen || l > 35 {
-		show("Password should be between 8 to 35 characters")
-		return
-	}
-	if f("password") != f("cpassword") {
-		show("Passwords does not match")
+	} else if taken {
+		show("Already registered by another customer")
 		return
 	}
 	if d.OTP {
 		if otpOff(st) {
 			show("Verification code is not available right now")
-			return
-		}
-		if d.Phone == "" {
-			show("Phone Number is required")
 			return
 		}
 		if f("send_otp") != "" {
@@ -137,10 +168,6 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		}
 		s.sessions.Remove(ctx, "reg_otp")
 	}
-	if _, err := s.queries.GetCustomerByUsername(ctx, d.Username); err == nil {
-		show("Account already exists")
-		return
-	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(f("password")), bcryptCost)
 	var enc []byte
 	if err == nil {
@@ -148,16 +175,21 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	var nc db.Customer
 	if err == nil {
+		// Active with no plan: the customer buys a plan or redeems a voucher afterwards.
 		nc, err = s.queries.CreateCustomer(ctx, db.CreateCustomerParams{Username: d.Username, PasswordHash: string(hash), SecretEnc: enc,
-			Fullname: d.Fullname, Address: d.Address, Phone: d.Phone, Email: d.Email, ServiceType: "Others", AutoRenewal: 1, Status: "Active"})
+			Fullname: d.Username, Phone: d.Phone, ServiceType: "Others", AutoRenewal: 1, Status: "Active"})
 	}
 	if err != nil {
 		s.fail(w, "register", err)
 		return
 	}
 	s.registered(ctx, st, nc)
+	if err := s.portalSignIn(r, nc); err != nil {
+		s.fail(w, "register", err)
+		return
+	}
 	s.sessions.Put(ctx, "flash", s.catalog.T(s.language(), "Register Success! You can login now"))
-	http.Redirect(w, r, "/portal/login", http.StatusSeeOther)
+	http.Redirect(w, r, "/portal", http.StatusSeeOther)
 }
 
 // registered sends the welcome message and, when reg_nofify_admin is on, tells the admin (Telegram).
