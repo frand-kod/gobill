@@ -1,205 +1,281 @@
-# Audit Alur Tugas dan Arsitektur Informasi (UX Flow Audit)
+# Audit alur UX (edisi v0.1.5)
 
-Cakupan: alur kerja operator (RT-RW-net, sering lewat HP) dan pelanggan (Android low-end). Bukan audit per layar (itu sudah di `docs/internal/audit-ux.md`). Read-only, tanpa perubahan kode. Hitungan klik = ketukan dari layar setelah login sampai selesai; menu HP dihitung 1 ketukan (hamburger) + 1 (item).
+**Ringkasan:** Audit ulang per alur, dicek langsung ke kode `internal/web` dan `web/templates`. Sebagian besar temuan lama sudah beres. Yang tersisa: isi ulang massal, akses Admin ke pengaturan pembayaran, 2FA yang tersembunyi, dan label yang bentrok. Yang belum bisa dipastikan dari kode ditandai "perlu dicek di browser".
 
-**Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
+**Untuk:** pengembangan dan operator yang menguji alur sebelum rilis.
 
-Ringkasan: mesinnya lengkap, tetapi tidak ada "jalan pintas" antar tugas. Dashboard hanya laporan (tanpa tombol aksi), pembuatan pelanggan berakhir di daftar (bukan di tombol Isi Ulang), dan tidak ada panduan urutan setup. Kebanyakan perbaikan cukup berupa link, urutan, default, dan hint.
+## Alur operator dan admin
 
----
+### A1. Login pertama dan setup awal
+Siapa: SuperAdmin. Pemicu: instalasi baru.
 
-## 1. Tugas harian operator
+1. Buka `/login`. Password awal tidak tampil di layar. Ia ada di file `initial-admin-password.txt` di folder data.
+2. Masuk, lalu ganti password lewat dropdown profil (2 ketukan). Tidak ada paksaan ganti.
+3. Dashboard menampilkan **Mulai cepat**: router atau NAS, bandwidth, paket, lalu pelanggan atau voucher.
+4. WA dan QRIS tidak ada di checklist. Keduanya ada di tab **Integrations** dan **Payment Gateway**, yang khusus SuperAdmin.
 
-### 1.1 Isi ulang / perpanjang pelanggan
-Alur: cari nama (kolom search atas, `app.html:88`) -> daftar `/admin/customers` -> klik nama -> kartu "Isi Ulang Akun" (`customer.html:42-55`) -> pilih paket + metode -> Recharge -> halaman konfirmasi (`recharge_confirm.html`) -> Recharge.
+Titik gagal: Admin tidak bisa mengisi WA atau QRIS. Admin juga tidak tahu dari mana password awal berasal.
 
-| Langkah sekarang | Langkah usulan |
-|---|---|
-| 1 buka menu (HP) + 1 ketik di search + 1 Enter + 1 klik nama + 1 pilih paket + 1 pilih metode + 1 Recharge + 1 Recharge lagi = sekitar 8 ketukan, 3 isian | Hasil search 1 baris -> langsung buka detail pelanggan. Paket default = paket aktif terakhir (sekarang opsi pertama, `customer.html:46`). Metode default Cash. Tombol "Perpanjang paket yang sama" 1 ketukan di baris langganan -> konfirmasi -> selesai (4 ketukan) |
-| Harus tahu: beda "Cash" vs "Balance" (tanpa penjelasan) | Label "Tunai (bayar di tempat)" dan "Potong saldo pelanggan (saldo Rp X)" |
-| Flash "Recharge Successful" muncul walau perintah ke router gagal (`billing/service.go:317-327`: hanya `slog.Error`) | Bila gagal ke router, tampilkan peringatan kuning "Paket tercatat, tapi belum aktif di router. Tekan Sinkronisasi." |
+### A2. Tambah pelanggan
+Siapa: Agent, Sales, Admin, SuperAdmin. Pemicu: pelanggan baru datang.
 
-### 1.2 Tambah pelanggan baru + aktifkan paket
-Form `custFields` (`customers.go:27-67`): 16 field dalam 4 kartu (Account, Contact, Service & billing, Welcome Message). Wajib: username, password, nama. Setelah simpan redirect ke daftar pelanggan (`customers.go:494`), bukan ke detail.
+1. Tombol **Add Customer** di dashboard, atau menu **Customer** lalu **Add** (1-2 ketukan).
+2. Form berisi 16 kolom dalam 4 bagian. Tiga kolom wajib: Username, Password, Nama Lengkap.
+3. Simpan. Halaman pindah ke detail pelanggan dengan pesan untuk memilih paket. Ini sudah beres.
+4. Pilih paket, **Recharge**, lalu **Recharge** lagi di dialog. Total sekitar 6 ketukan.
 
-| Langkah sekarang | Langkah usulan |
-|---|---|
-| Add -> isi (min. 3 field, tapi layar menampilkan 16) -> Save -> kembali ke daftar -> cari pelanggan baru -> klik -> pilih paket -> Recharge -> konfirmasi = sekitar 9 ketukan | Setelah Save redirect ke `/admin/customers/{id}` dengan flash "Pelanggan dibuat. Pilih paket untuk mengaktifkan" (1 baris perubahan di `customers.go:494`). Jadi 5 ketukan |
-| Harus tahu: "Service Type" (default "Others"), "PPPoE Username/IP", "Router Secret", "Billing Day", "Auto Renewal" | Lipat bagian "Service & billing" dan "Welcome Message" di bawah `<details>` "Pengaturan lanjutan". Default Service Type = jenis paket yang paling banyak dipakai; jika "Others" tidak bisa jaringan, jangan jadikan default |
-| Tidak ada pilihan paket di form | Opsional: dropdown "Aktifkan paket sekarang" di form (default kosong) |
+Titik gagal: kolom PPPoE dan Router Secret tampil tanpa penjelasan untuk operator baru.
 
-### 1.3 Generate + cetak voucher
-Menu Services -> Voucher -> Add -> form 7 field (`vouchers.go:112-124`) -> Save -> halaman teks kode (`voucher_view.html`) -> Print. `print_now` default mati (`vouchers.go:129`).
+### A3. Isi ulang satu pelanggan
+Siapa: Agent, Sales, Admin, SuperAdmin. Pemicu: pelanggan bayar tunai atau minta perpanjang.
 
-| Langkah sekarang | Langkah usulan |
-|---|---|
-| Sekitar 7 ketukan: menu, Voucher, Add, pilih paket, isi jumlah, (Format, Prefix, Length dibiarkan), Save, Print | Dari dashboard tombol "Buat voucher". Sembunyikan Format/Prefix/Length di `<details>` "Atur bentuk kode". Centang "Cetak sekarang" default aktif (`vouchers.go:129` set `print_now: "1"`). Jadi 4 ketukan |
-| Jargon: "Voucher Format", "Length Code", "Prefix" | Hint: "Kode acak 8 huruf besar tanpa 0/O/1/I sudah cukup" |
-| Jika belum ada paket, dropdown kosong tanpa penjelasan (`planOptions` enabledOnly) | Empty state: "Belum ada paket aktif. Buat paket dulu" + link |
+1. Dari detail pelanggan: cari nama (1-2), pilih paket dan metode di kartu **Recharge Account**, lalu **Recharge** (1). Dialog ringkasan muncul, tap **Recharge** lagi. Sekitar 5 ketukan.
+2. Jalur dashboard: picker pelanggan, paket, **Continue**, **Recharge**. Sekitar 6 ketukan.
 
-### 1.4 Siapa yang habis hari ini / minggu ini + ingatkan
-Dashboard "Segera Berakhir" (`dashboard.html:45-58`, query `widgets.sql:1-8`): 20 baris terdekat sejak kemarin, tanpa batas "hari ini/minggu ini", tanpa nomor HP, tanpa tombol kirim pesan. Daftar Subscriptions punya filter status dan urut kolom expires, tidak ada filter tanggal (`subscriptions.go:60-64`). Pengingat otomatis ada (Reminder job), tetapi tidak terlihat dari menu.
+Titik gagal: saldo kurang membuat tombol nonaktif, dengan tautan ke **Add Balance**. Jika router gagal, pesan kuning meminta **Sync**. Arti "Cash" dan "Balance" tidak dijelaskan.
 
-| Langkah sekarang | Langkah usulan |
-|---|---|
-| Dashboard -> baca tabel -> klik nama -> "Send Message" -> pilih kanal -> isi pesan -> kirim = 6+ ketukan per orang | Pada tabel dashboard tambah dua tombol per baris: "WA" (link `wa.me/<hp>?text=...`, tanpa gateway) dan "Isi ulang" (ke detail). Judul "Segera Berakhir (7 hari ke depan)" dengan tautan "Lihat semua" ke `/admin/subscriptions?status=active&sort=expires` |
-| Pilih pelanggan di `message/send` lewat dropdown 500 nama (`messages.go:73`, tidak bisa dicari) | Tautan dari baris dashboard sudah pakai `?customer=`; cukup pakai itu |
-| Tombol massal "Send message to selected" ada di daftar pelanggan, tetapi tidak ada cara menyaring "akan habis" | Tambah filter "Habis dalam 3 / 7 hari" di daftar Subscriptions + bulk "Kirim pesan" |
+### A4. Perpanjang banyak pelanggan sekaligus
+Siapa: Admin, SuperAdmin. Pemicu: akhir bulan, banyak paket habis bersamaan.
 
-### 1.5 Siapa online + putuskan
-"Online Sessions" ada di grup menu **RADIUS** (`app.html:49-55`), hanya manager, dan hanya menampilkan sesi RADIUS (`radius_sessions.html`). Pelanggan hotspot/PPPoE via API tidak muncul. Tombol Disconnect ada dengan konfirmasi (`radius_sessions.html:24`).
+1. Tidak ada isi ulang massal. Daftar pelanggan hanya punya **Send message to selected**. Daftar langganan hanya punya **Extend** per baris, dan itu menambah hari gratis tanpa pembayaran.
+2. Untuk 20 pelanggan, operator mengulang A3. Sekitar 100 ketukan.
 
-| Langkah sekarang | Langkah usulan |
-|---|---|
-| Menu -> RADIUS -> Online Sessions -> cari -> Disconnect -> konfirmasi = 5 ketukan, tapi hanya jika perangkat RADIUS | Pindahkan "Online Sessions" ke bawah Pelanggan dengan nama "Sedang Online". Beri teks kosong "Daftar ini hanya untuk pelanggan RADIUS; yang lain lihat di detail pelanggan" |
-| Kolom NAS, MAC, Stale, Upload/Download | Sembunyikan MAC/NAS di HP; "Stale" -> "Tidak aktif lagi" dengan hint |
+Titik gagal: tidak ada ringkasan total uang sebelum simpan.
 
-### 1.6 Top-up / deposit saldo
-Menu Services -> "Refill Balance" -> ketik username persis (`subscriptions.go:218-226`) -> pilih paket Balance atau isi nominal -> Save.
+### A5. Pelanggan bilang "internet mati"
+Siapa: Admin, Agent. Pemicu: telepon atau WA.
 
-| Langkah sekarang | Langkah usulan |
-|---|---|
-| 5 ketukan + mengetik username dari ingatan; salah ketik = error "Customer not found" | Tombol "Isi Saldo" di halaman detail pelanggan (sudah ada dukungan `?customer=` di `depositForm`, tetapi tidak ada tombol yang menuju ke sana; `grep deposit web/templates` hanya ketemu menu). Jadi 3 ketukan tanpa mengetik |
-| Dua cara input sekaligus (paket Balance ATAU nominal) membingungkan | Utamakan "Nominal"; paket Balance di `<details>` |
-| Menu bernama "Refill Balance", "Recharge Account / Redeem Voucher" (`app.html:20-21`) | Ubah: "Isi Ulang Paket" vs "Tambah Saldo" vs "Tukar Voucher" sebagai tiga item terpisah, dengan ikon berbeda (sekarang dua-duanya ikon wallet) |
+1. Ketik nama di palette, lalu tap hasil (2 ketukan).
+2. Strip diagnosa di atas: Akun, Paket, Koneksi, Kuota, Router, dan satu saran.
+3. Untuk PPPoE atau hotspot API, chip Koneksi tampil "No data" kecuali **Check Customer Online** aktif.
+4. Tombol **Sync** (1).
 
-### 1.7 Cari pelanggan cepat
-Kolom search selalu ada di header dan mencari pelanggan (`app.html:88`): bagus. Kekurangan: mencari hanya di Customer (bukan kode voucher / invoice), hasil selalu daftar penuh (tidak langsung ke detail), dan kolom "Package" di daftar tidak menampilkan masa berlaku, sehingga operator harus membuka detail hanya untuk melihat "habis kapan".
+Titik gagal: hanya satu saran yang tampil, walau ada dua masalah. Chip "No data" tidak menjelaskan cara mengaktifkan pengecekan.
 
-| Langkah sekarang | Langkah usulan |
-|---|---|
-| Ketik + Enter + klik nama = 3 | Jika hasil tepat 1, redirect langsung ke detail. Tambah kolom "Berlaku s/d" di daftar pelanggan (data sudah ada di `subscriptions`) |
+### A6. Cetak voucher
+Siapa: Agent, Sales, Admin. Pemicu: pelanggan baru tanpa akun.
 
-### 1.8 "Internet pelanggan tidak jalan" - ke mana operator melihat
-Tidak ada halaman diagnosis. Jejaknya tersebar: detail pelanggan (status, "Connection" hanya jika setting `check_customer_online` = yes, `customers.go:249`, default tidak aktif), Subscriptions (status/expired), Routers (Online/Offline, `routers.go:56`), Logs, tombol Sync/Deactivate.
+1. **Make vouchers** di dashboard (1), atau menu **Voucher** lalu **Add** (2).
+2. Pilih paket (1), isi jumlah (1). **Print Now** sudah tercentang. Simpan (1).
+3. Format dan panjang kode ada di **Advanced options**, yang terlipat.
 
-| Langkah sekarang | Langkah usulan |
-|---|---|
-| Operator harus menebak: cek langganan, cek router, cek Sync | Di detail pelanggan tambah kartu "Cek cepat" 4 baris dengan tanda centang/silang: Status akun, Paket aktif & masa berlaku, Router paket (Online/Offline + link), Sedang terhubung. Di bawahnya tombol "Sinkronkan ke router" yang diberi hint "Pakai ini jika pelanggan sudah bayar tapi tetap tidak bisa internet" |
-| Tombol "Sync" tanpa penjelasan, di antara "Deactivate" dan "Login as Customer" (`customer.html:9-12`) | Label "Sinkronkan ke router"; satukan aksi berbahaya (Deactivate) ke menu "Lainnya" |
+Sekitar 4 ketukan. Titik gagal: dropdown paket kosong tanpa tautan ke **Service Plan**. Halaman cetak di HP perlu dicek di browser.
 
----
+### A7. Siapa habis hari ini dan minggu ini, lalu ingatkan
+Siapa: Admin, Agent, Sales. Pemicu: rutinitas pagi.
 
-## 2. Navigasi dan arsitektur informasi
+1. Kartu **Expiring Soon (next 7 days)** ada di dashboard, di bawah kartu jaringan.
+2. Daftar berisi 20 baris terdekat, tanpa pemisah "hari ini".
+3. Ikon WA (1) membuka chat dengan teks siap kirim. Ikon ini hanya muncul jika nomor valid.
+4. Ikon dompet (1) membuka detail pelanggan untuk isi ulang.
 
-Urutan menu sekarang (`app.html:10-79`): Dashboard, Customer, Send Message | Services (Service Plan, Voucher, Recharge/Redeem, Refill Balance, Coupons, Subscriptions) | Maps (4 item) | Network (Routers, Pool, Bandwidth) | RADIUS (NAS, Online Sessions) | Reports (Daily, Period, Transactions, Payment Gateway, Logs) | Admin Users | Pages, Settings.
+Titik gagal: pelanggan dengan nomor salah tidak punya ikon WA, dan layar tidak menjelaskan kenapa.
 
-Temuan:
-- Frekuensi pemakaian tidak tercermin. Tugas harian (isi ulang, voucher, saldo, siapa habis) terkubur di "Services" bersama Plan dan Coupons (jarang). "Maps" (4 item, jarang) berada di atas "Network/Reports".
-- Dua item berbeda memakai label ganda "Recharge Account / Redeem Voucher" (`app.html:20`) dan ikon sama dengan Refill Balance.
-- Item konfigurasi sekali-pasang (Routers, Pool, Bandwidth, NAS) berada di tengah menu yang sama dengan item harian. "Logs" dan "Payment Gateway" ditaruh di grup "Reports". "Pages" ditaruh sejajar Settings tanpa kejelasan (`app.html:76`).
-- Semua grup terbuka secara default (`x-data="{o:true}"`), sehingga drawer HP panjang (sekitar 25 item untuk admin).
-- Jargon tanpa hint: NAS, Pool, Bandwidth, RADIUS, Device (kolom plan, `plans.go:68` hanya hint "Empty = by plan type"), Router Secret, Burst, "On Login/On Logout" (skrip MikroTik), Shared Users, ODP, "Coverage". Di `indonesia.json` NAS/Pool/Bandwidth/RADIUS/Burst tidak diterjemahkan (sama dengan Inggris), Router Secret = "Secret Router". Hint ada hanya di sebagian field (`nas.go:29`, `pools.go:26`), tetapi tidak di judul menu / daftar.
-- Item berbahaya dicampur: tombol "Deactivate" merah sejajar "Sync" di header detail pelanggan; "Login as Customer"; aksi massal "Delete selected" sejajar aksi aman (`list.html:20`).
+### A8. Siapa online dan putuskan
+Siapa: SuperAdmin, Admin. Pemicu: pelanggan minta diputus.
 
-Dashboard (`dashboard.html`, `handlers.go:129-157`): 4 tile (pendapatan hari ini/bulan, aktif/habis, jumlah pelanggan), dua grafik, tabel Expiring, pie, Voucher Stock, Job Monitor, Activity Log. **Tidak ada satu pun tombol aksi** (Tambah Pelanggan, Isi Ulang, Buat Voucher, Isi Saldo). Tile "Active / Expired" bukan link (`dashboard.html:14`). Dua tile pendapatan menuju halaman yang sama. Grafik dan Job Monitor memenuhi layar HP sebelum "Segera Berakhir" terlihat. Pesan Warn (clock) muncul bagus di atas.
+1. Menu **Online Sessions** (1), langsung di sidebar.
+2. Cari (1 isian), lalu **Disconnect** (1) dan konfirmasi (1).
 
-Usulan susunan menu (urut frekuensi), tanpa fitur baru:
-1. Dashboard
-2. Pelanggan (Customer) / Sedang Online
-3. Isi Ulang / Tukar Voucher (satu halaman, 2 tab) / Isi Saldo
-4. Voucher
-5. Langganan (Subscriptions)
-6. Laporan (Daily, Period, Transactions)
-7. Kirim Pesan
-8. grup tertutup default "Pengaturan Jaringan": Routers, Bandwidth, Pool, NAS, Maps, ODP, Service Plan
-9. grup tertutup "Admin": Admin Users, Payment Gateway, Logs, Pages, Settings
+Titik gagal: hanya sesi RADIUS yang tampil. Pelanggan PPPoE dan hotspot tidak muncul, dan layar tidak bilang begitu. Agent dan Sales tidak melihat menu ini.
 
----
+### A9. Isi saldo pelanggan
+Siapa: Agent, Sales, Admin, SuperAdmin. Pemicu: pelanggan bayar tunai untuk saldo.
 
-## 3. First-run / setup
+1. Tombol **Add balance** di detail pelanggan (1). Nama pelanggan sudah terisi.
+2. Atau menu **Add balance** (1), lalu cari pelanggan (1-2).
+3. Pilih paket saldo atau isi jumlah (1), lalu simpan (1).
 
-- Setelah install satu-satunya petunjuk ada di README (password admin di log, README.md:55-56). Di UI tidak ada checklist, wizard, atau kartu "Mulai di sini". Dashboard baru kosong menampilkan "No data" semua.
-- Urutan sebenarnya: Router (atau NAS) -> Bandwidth -> Pool (PPPoE) -> Plan -> Pelanggan -> Isi ulang. Tidak ada yang memberi tahu. Menu "Network" memang sebelum "Services" secara logika, tetapi di menu justru Services duluan (`app.html:15` vs `:40`).
-- Plan sebelum router: `planFields` (`plans.go:34-58`) memakai `.none()` untuk router, pool, expired plan, sehingga plan bisa disimpan tanpa router; dropdown Bandwidth wajib tetapi kosong jika belum ada bandwidth, tanpa tautan "Buat bandwidth dulu". Akibatnya paket "berhasil" dibuat, lalu isi ulang berjalan (DB tercatat) namun gagal diam-diam di router (hanya log, `service.go:326`).
-- Empty state hanya "No data" (`list.html:36`, `customer.html`, `dashboard.html`): tidak ada kalimat "Belum ada X. Buat sekarang" dan tidak ada tombol.
-- Router baru: tombol "Test connection" ada di baris (`routers.go:50`), tetapi tidak disorot setelah Save; tidak ada hint "Aktifkan API (port 8728) di MikroTik; buat user khusus". Form Router meminta Host/Port/Username/Password tanpa bantuan (`routers.go:21-27`). Port tidak punya default terlihat.
+Titik gagal: satu aksi punya tiga nama. Menu memakai "Tambah saldo", judul halaman "Isi Saldo", dan tombol dialog "Add Balance".
 
-Usulan minimal: (a) kartu "Mulai cepat" di dashboard yang tampil selama ada hitungan 0, berisi 5 baris bercentang otomatis: "1. Tambah router" -> "2. Atur kecepatan (Bandwidth)" -> "3. Buat paket" -> "4. Tambah pelanggan / buat voucher" -> "5. Tes isi ulang" (hanya query COUNT, tanpa tabel baru); (b) empty state per daftar dengan teks + tombol Add; (c) di form Paket, jika bandwidth kosong tampilkan hint dengan link `/admin/bandwidth/new`; (d) setelah Save router redirect ke daftar dengan flash "Tekan Uji koneksi".
+### A10. Ubah paket dan harga
+Siapa: SuperAdmin, Admin. Pemicu: harga naik. **Plan setup**, **Service Plan**, pilih baris, ubah harga, simpan. Sekitar 4 ketukan. Titik gagal: form tidak bilang apakah harga baru berlaku untuk langganan aktif. Perlu dicek di browser.
 
----
+### A11. Pembayaran Tripay sudah lunas
+Siapa: pelanggan bayar, Admin cek. Pemicu: pelanggan bilang sudah bayar tapi paket belum aktif.
 
-## 4. Portal pelanggan
+1. Pelanggan bayar lewat portal. Callback `/callback/tripay` mengisi paket otomatis.
+2. Admin: grup **Admin**, **Payment Gateway**, **Payment Audit**, lalu filter status.
 
-Menu atas (`portal/layout.html:11-17`): Dashboard, Order Package, Order History, Activation History, Inbox, Profile, Logout (7 tautan, `flex-wrap`). Dashboard (`portal/dashboard.html`): saldo, tombol "Voucher Activation" (hanya jika diaktifkan, 1 ketukan), form kirim saldo, pengumuman, tabel langganan dengan "Expires On" dan tombol Extend.
+Titik gagal: halaman Payment Gateway hanya berisi satu baris "Tripay: Enabled". Tidak ada tombol cek ulang untuk admin.
 
-| Tugas | Ketukan dari beranda | Catatan |
-|---|---|---|
-| Lihat masa berlaku | 0 | Ada di tabel, tapi tabel lebar (4 kolom) dan tanpa kalimat "Paket habis 3 hari lagi"; judul "Active Subscriptions" |
-| Beli / perpanjang | 1 (menu Order Package), lalu 2-3 (kupon opsional, pilih kanal, Pay) | Tidak ada tombol "Perpanjang" besar di beranda; kupon dan dropdown kanal tampil di tiap kartu paket (`plans.html:13-17`) |
-| Tukar voucher | 1 jika `Voucher` aktif | Tombol kecil ghost di beranda; lebih baik kartu dengan kolom kode langsung di beranda |
-| Hubungi operator | Tidak ada | Tidak ada nomor / WhatsApp operator di layout atau beranda, padahal setting `phone` ada (`settings.go:117`) |
+### A12. Pembayaran QRIS manual di luar sistem
+Siapa: Admin. Pemicu: pelanggan bayar langsung ke QRIS.
 
-Bahasa: banyak istilah teknis atau Inggris campur: "Order Package", "Activation History", "Extend", "Bandwidth: X", "Pay with Balance", "Buy for friend", "Custom Balance", "Input Desired Amount" (beberapa kunci memang memakai pola garis bawah di katalog; terjemahan Indonesia pun kaku, mis. "Memperpanjang" untuk tombol "Extend"). Pelanggan dengan membaca minim lebih terbantu ikon + kata satu-dua: "Beli Paket", "Riwayat", "Pesan", "Bantuan". Tombol "Extend" tanpa penjelasan efeknya (`portal/dashboard.html:14`, hanya bila admin mengaktifkan).
+1. Admin mencatat isi ulang dengan metode Cash (A3).
+2. Tidak ada status "menunggu bayar" dan tidak ada tombol "tandai lunas". Kode tidak punya fitur itu.
+3. Link QRIS bernominal ikut terkirim di pesan invoice (`internal/billing/recharge.go`, `internal/notify/notify.go`). Perlu dicek di browser: pesan ini datang sebelum atau sesudah paket aktif.
 
----
+Titik gagal: pelanggan bisa menerima link bayar setelah paket sudah aktif. Admin tidak bisa menandai pembayaran yang belum tercatat.
 
-## 5. Pesan error dalam alur
+### A13. Cari apa saja
+Siapa: semua peran. Pemicu: cari pelanggan atau menu.
 
-Yang baik: halaman 500 memakai bahasa Indonesia dengan referensi (`crud.go:299-307`); stok saldo tidak cukup di portal memberi hint dan menonaktifkan tombol (`plans.html:12-13`); konfirmasi saldo akhir ada di `recharge_confirm.html`.
+1. Tekan `/` atau Ctrl+K, atau klik kolom cari di header (1). Ketik. Hasil dikelompokkan dan sudah difilter menurut peran.
+2. Tap hasil (1).
 
-Yang kurang:
-- Router tidak terjangkau saat isi ulang: tidak ada pesan sama sekali ke operator (log saja, `service.go:325-327`). Pelanggan dan operator mengira berhasil.
-- Router test gagal: pesan = "Connection failed: nama: <error Go mentah>" (`routers.go:177`), mis. "dial tcp ... i/o timeout"; tidak ada langkah berikutnya (cek IP, port API, firewall).
-- "Invalid plan" (`customers.go:~284, 323`) dipakai untuk paket dinonaktifkan, tidak ada, atau router mati; tidak menyebut penyebab ("Paket ini sedang dimatikan. Aktifkan di Service Plan").
-- "Insufficient balance" (`recharge_confirm.html:15`): tidak memberi tahu langkah berikut. Tambahkan tombol "Tambah saldo" yang membawa ke `/admin/deposit?customer=` atau ganti metode ke Cash.
-- "Action failed" (`subscriptions.go:~241`) dan "Recharge failed" tanpa sebab / saran.
-- "Disconnect failed: <err.Error()>" (`radius.go:94`) membocorkan error mentah.
-- Portal: "Voucher Not Valid" (`portal_extra.go:~75`) tidak membedakan salah ketik, sudah dipakai, atau kadaluarsa; "Invalid Username or Password" tanpa tautan lupa sandi di pesan (ada tautan di bawah, ok).
-- Banyak pesan portal memakai teks error billing apa adanya yang berbahasa Inggris dan kaku ("Target has active plan, different with current plant.", `extras.go:13`).
+Titik gagal: tidak ada hasil yang disorot otomatis. Enter tanpa panah pindah ke halaman cari biasa.
 
----
+### A14. Pengaturan
+Siapa: SuperAdmin penuh, Admin sebagian. Pemicu: ganti nama usaha, tarif, atau kanal kirim.
 
-## Temuan menurut dampak
+1. Menu **Settings** (1). Enam tab: General, Localisation, Notifications, Integrations, Payment Gateway, Miscellaneous.
 
-### Tinggi (9)
-1. **Setelah Add pelanggan redirect ke daftar** (`customers.go:494`) -> ke detail pelanggan. 1 baris, menghemat 3-4 ketukan di tugas paling sering.
-2. **Dashboard tanpa aksi cepat** (`dashboard.html:3-4`). Tambah baris 4 tombol besar: Tambah Pelanggan, Isi Ulang (cari), Buat Voucher, Tambah Saldo.
-3. **Kegagalan router saat isi ulang diam-diam** (`billing/service.go:325-327`, `customers.go:326`). Kembalikan flag "device gagal" dari `apply` dan tampilkan flash kuning + saran Sync.
-4. **Tidak ada panduan setup / empty state** (`list.html:36`, `dashboard.html`). Kartu "Mulai cepat" + teks kosong dengan tombol Add.
-5. **Plan bisa dibuat tanpa bandwidth/router; dropdown kosong tanpa tautan** (`plans.go:34-58`). Hint dengan link ke form bandwidth/router.
-6. **"Expiring" tidak bisa ditindaklanjuti** (`dashboard.html:45-58`, `widgets.sql`). Tambah nomor HP + tombol WA/Isi ulang, ubah judul "7 hari ke depan", link ke Subscriptions terurut expires.
-7. **Tombol Isi Saldo tidak ada di detail pelanggan** (`customer.html:6-18`; menu `app.html:21`). Tambah link `/admin/deposit?customer=<username>`; utamakan nominal.
-8. **Portal tanpa kontak operator** (`portal/layout.html`, `portal/dashboard.html`). Tampilkan `phone`/WhatsApp dari setting di footer dan di pesan error.
-9. **Pesan gagal teknis tanpa langkah berikutnya** (`routers.go:177`, `radius.go:94`, `customers.go` "Invalid plan"/"Recharge failed"). Ganti dengan kalimat penyebab + tindakan.
+Titik gagal: Admin tidak melihat Integrations dan Payment Gateway. Batas sesi dan backup ada di Miscellaneous.
 
-### Sedang (9)
-10. Isi ulang butuh 2 konfirmasi + paket default bukan paket sekarang (`customer.html:46`, `recharge_confirm.html`). Default ke paket aktif; tombol "Perpanjang paket yang sama".
-11. Urutan / pengelompokan menu (`app.html:15-79`). Pindahkan Plan, Maps, Network, NAS ke grup tertutup default; tugas harian di atas.
-12. "Online Sessions" tersembunyi di grup RADIUS dan hanya RADIUS (`app.html:49-55`, `radius_sessions.html`). Pindah ke samping Pelanggan; teks kosong menjelaskan cakupan.
-13. Form voucher menampilkan Format/Prefix/Length (`vouchers.go:112-124`); `print_now` mati (`:129`). `<details>` + print_now default 1.
-14. Form pelanggan 16 field (`customers.go:27-67`), default Service Type "Others" (`:147`). Lipat bagian lanjutan.
-15. Daftar pelanggan tanpa kolom masa berlaku (`customers.go:110`) dan search tidak langsung ke detail (`app.html:88`). Tambah kolom, redirect jika 1 hasil.
-16. Tidak ada kartu diagnosis di detail pelanggan (`customer.html`); `check_customer_online` default mati (`customers.go:249`). Kartu "Cek cepat" 4 baris.
-17. Label menu ganda dan ikon sama (`app.html:20-21`). Pisahkan tiga item, ikon berbeda.
-18. Portal: beranda tanpa tombol Beli/Perpanjang besar dan tanpa kalimat "habis N hari lagi" (`portal/dashboard.html`, `plans.html:13-17`). Tombol "Perpanjang" + kupon di `<details>`.
+### A15. Backup, restore, dan import
+Siapa: backup untuk Admin, restore dan import untuk SuperAdmin. Pemicu: sebelum upgrade atau pindah dari PHPNuxBill.
 
-### Rendah (6)
-19. Jargon tanpa hint di daftar/menu (NAS, Pool, Bandwidth, RADIUS, Device, Burst, Shared Users, On Login; `indonesia.json`). Tambah `title`/hint satu kalimat atau ganti label: "Bandwidth" -> "Kecepatan (Bandwidth)", "Pool" -> "Rentang IP (Pool)", "NAS" -> "Router RADIUS (NAS)".
-20. Aksi berbahaya sejajar aksi aman (`customer.html:9-12`, `list.html:20`). Pindah ke menu "Lainnya" atau pisah warna/jarak.
-21. Tile "Active/Expired" bukan link (`dashboard.html:14`). Link ke Subscriptions?status=expired.
-22. Dropdown 500 pelanggan di Send Message tidak bisa dicari (`messages.go:73`). Cukup `<input list>` atau abaikan karena entry lewat `?customer=`.
-23. Job Monitor/Activity Log di dashboard HP menambah panjang halaman (`dashboard.html:68-77`). Pindah ke bawah / ringkas.
-24. Beberapa teks portal Inggris kaku ("Extend", "Buy for friend", error billing `extras.go:13`). Terjemah dan sederhanakan.
+1. **Settings > Miscellaneous**: link **Database backup**, lalu restore dan import di bagian System, dengan pratinjau dan konfirmasi.
 
----
+Titik gagal: backup lama hanya terlihat di halaman Status.
 
-## Top-10 perubahan: dampak untuk awam / usaha
+### A16. Pemantauan dan alert
+Siapa: Admin. Pemicu: alert dari Telegram atau WA.
 
-1. Redirect setelah Add pelanggan ke halaman detail (+ flash "Pilih paket untuk mengaktifkan") - 1 baris.
-2. Empat tombol aksi cepat di dashboard (Tambah Pelanggan, Isi Ulang, Buat Voucher, Tambah Saldo) - template saja.
-3. Tombol "Isi Saldo" (dan "Isi Ulang") di detail pelanggan, deposit pakai `?customer=` yang sudah ada - template saja.
-4. Peringatan di UI bila perintah router gagal saat isi ulang + hint "Tekan Sinkronisasi" - kecil di `apply`/handler.
-5. Tombol WA + nomor HP + "Isi ulang" di tabel "Segera Berakhir"; judul "7 hari ke depan" - template + sedikit query.
-6. Empty state "Belum ada X, buat sekarang" + kartu "Mulai cepat" setup berurutan - template, COUNT.
-7. Default `print_now` aktif dan sembunyikan Format/Prefix/Length voucher di `<details>` - kecil.
-8. Kontak operator (telepon/WA dari setting) di layout portal + tombol besar "Beli / Perpanjang" di beranda portal - template.
-9. Atur ulang menu: harian di atas, jaringan/konfigurasi/maps di grup tertutup; pisah "Isi ulang / Tukar voucher / Tambah saldo"; pindahkan "Online Sessions" - template saja.
-10. Tulis ulang pesan error teknis (router test, Disconnect, "Invalid plan", "Insufficient balance" + tombol Tambah saldo) - string + 2 link.
+1. **Admin > System Status** (2 ketukan).
+2. Halaman memuat ulang seluruh layar setiap 30 detik.
+3. Alert dikirim ke kanal di **Operator alert channel**. Aplikasi tidak punya daftar alert, selain Activity Log di dashboard.
 
-Jumlah temuan: Tinggi 9, Sedang 9, Rendah 6 (total 24).
+Titik gagal: reload penuh bisa menutup dropdown atau form yang sedang diisi.
+
+### A17. Ringkasan harian dan logout
+Siapa: semua peran. Pemicu: laporan harian, atau meninggalkan layar.
+
+1. Ringkasan: **Settings > Notifications**, tombol **Send summary now**. Tidak ada waktu kirim terakhir di layar. Perlu dicek di browser.
+2. Logout di dropdown profil (2). Sesi admin habis setelah tidak aktif, default 120 menit, dicek saat permintaan berikutnya.
+
+Titik gagal: tidak ada peringatan sebelum sesi habis. Operator mengisi form panjang, klik simpan, lalu diminta login. Isian hilang.
+
+### A18. Mengaktifkan 2FA
+Siapa: semua admin. Pemicu: ingin keamanan tambahan.
+
+1. Halaman `/admin/2fa` tidak punya tautan di menu, dropdown profil, atau halaman ganti password. Operator harus mengetik URL.
+2. **Enable 2FA**, pindai kode, masukkan kode konfirmasi, lalu simpan kode pemulihan.
+
+Titik gagal: fitur keamanan tidak ditemukan.
+
+## Alur pelanggan
+
+### P1. Daftar akun
+Pemicu: pelanggan baru membuka portal.
+
+1. `/portal/login`, lalu **Register** (1).
+2. Isi Username, Nama, Email, Alamat, Password, dan Konfirmasi. Nomor HP dan OTP muncul jika aktif.
+3. Kirim, lalu login.
+
+Titik gagal: kolom Nama, Email, dan Alamat tampil walau tidak wajib. Tidak ada tanda bintang. Username bentrok baru ketahuan setelah kirim.
+
+### P2. Login portal dan hotspot
+1. `/portal/login`: isi Username dan Password (2), lalu **Sign in** (1). Ada tombol Show dan peringatan Caps Lock.
+2. Login hotspot ditampilkan oleh MikroTik, bukan oleh gobill. Perlu dicek di browser.
+3. Jika registrasi mati, halaman login memuat form aktivasi voucher.
+
+Titik gagal: pelanggan bingung antara username portal dan username PPPoE.
+
+### P3. Lupa password atau username
+1. **Lupa Kata Sandi** (1), isi username (1), kirim OTP (1), isi kode (1), password baru dua kali (2).
+2. **Lupa Username** memakai email atau HP. Pesan balasan tidak membuka akun terdaftar. Ini sudah benar.
+
+Titik gagal: pelanggan tidak tahu nomor mana yang dipakai untuk OTP.
+
+### P4. Beli paket
+1. **Buy / Extend** di dashboard (1), atau **Order Package** di menu (1).
+2. Setiap kartu paket punya kupon opsional. Lalu **Pay with Balance** (1) dan konfirmasi (1), atau pilih kanal (1) lalu **Pay Now** (1).
+3. Tripay membuka halaman bayar. QRIS dari WA membuka halaman bayar tanpa tombol "saya sudah bayar".
+
+Titik gagal: saldo kurang membuat tombol nonaktif dengan hint, tetapi tidak ada tautan ke isi saldo.
+
+### P5. Tukar voucher
+1. Tombol **Voucher Activation** di dashboard (1), hanya jika diaktifkan. Tombolnya kecil dan berwarna ghost.
+2. Isi kode (1), lalu kirim (1).
+
+Titik gagal: pesan "Voucher Not Valid" tidak membedakan salah ketik, sudah terpakai, atau kedaluwarsa. Perlu dicek di browser.
+
+### P6. Cek sisa waktu dan kuota
+Dashboard langsung menampilkan **Active Plan** dengan hitung mundur, dan **Usage** dengan meter. Tidak ada klik. Titik gagal: tidak ada kalimat seperti "Paket habis 3 hari lagi".
+
+### P7. Pengingat dan pemberitahuan habis
+1. Pelanggan menerima WA, SMS, atau email. Inbox di portal menampilkan badge belum dibaca.
+
+Titik gagal: jika `app_url` kosong, tautan bayar di pengingat ikut kosong. Admin tidak diberi peringatan.
+
+### P8. Ganti password dan profil
+1. **Profile** (1), atau **Change Password** di dashboard (1), yang langsung ke `#password`.
+2. Isi password lama, baru, dan konfirmasi (3 isian), lalu simpan (1).
+
+Titik gagal: aturan minimal 8 karakter baru muncul setelah kirim.
+
+### P9. Kirim saldo ke pelanggan lain
+1. Kartu **Send Balance** ada di bawah kartu-kartu lain di dashboard. Perlu gulir.
+2. Ketik username (1 isian), isi jumlah (1), lalu **Send Balance** (1) dan konfirmasi (1).
+
+Titik gagal: nama penerima tidak dicek sebelum kirim. Salah ketik berarti saldo masuk ke orang lain.
+
+## Lintas alur
+
+- **Navigasi dan mobile:** sidebar, drawer, dan palette sudah baik. Grup **Plan setup** tampil untuk Sales dengan satu item.
+- **Empty state dan pesan error:** checklist dan pesan router sudah baik. Halaman lain hanya "No data". Beberapa pesan masih Inggris.
+- **Istilah:** "Expires" jadi "Kedaluwarsa". Saldo punya tiga nama. "Payment Gateway" dipakai di menu dan di Pengaturan.
+- **Aksesibilitas:** dialog dan fokus sudah ditangani. Tidak ada tautan lewati ke konten.
+- **Kesan kecepatan:** daftar live lancar. Status memuat ulang seluruh halaman.
+
+## Sudah beres dari audit lama
+
+Isi ulang dengan pesan router, tambah pelanggan ke detail, voucher, dashboard aksi cepat, diagnosa, picker pelanggan, konfirmasi uang, dan kontak operator di portal.
+
+Masih terbuka: menu portal membungkus, Online Sessions untuk manajer saja, dan kolom masa berlaku di daftar pelanggan.
+
+## Temuan
+
+| ID | Alur | Masalah | Dampak | Usaha | Usulan |
+|---|---|---|---|---|---|
+| T01 | A4 | Tidak ada isi ulang massal | Tinggi | M | Aksi "Isi ulang terpilih" dengan ringkasan total |
+| T02 | A1 | Checklist tidak memuat WA, QRIS, Tripay | Tinggi | S | Tambah langkah dengan tautan |
+| T03 | A1 | Admin tidak bisa lihat atau atur WA dan QRIS | Tinggi | S | Status read-only untuk Admin |
+| T04 | A1, login | Tidak ada jalur reset password admin | Tinggi | M | Perintah CLI reset, dan teks di layar login |
+| T05 | A18 | 2FA tanpa tautan di UI | Tinggi | S | Item "Keamanan akun" di dropdown profil |
+| T06 | A7 | Expiring tanpa pemisah "hari ini" | Sedang | S | Pisahkan "Hari ini" dan "2-7 hari" |
+| T07 | A5 | Koneksi "No data" untuk non-RADIUS, hanya satu saran | Sedang | S | Tampilkan semua saran, dan cara aktifkan pengecekan |
+| T08 | A2, A9 | "Expires" jadi "Kedaluwarsa", saldo punya tiga nama | Sedang | S | "Berakhir" untuk tanggal, satu nama "Tambah saldo" |
+| T09 | A10 | Label "Deactivate" jadi "Menonaktifkan paket" | Sedang | S | Cek efeknya di browser, lalu perjelas label |
+| T10 | A2, A3 | Daftar pelanggan tanpa kolom masa berlaku | Sedang | S | Kolom "Berakhir" |
+| T11 | A12 | QRIS manual tanpa status menunggu atau tandai lunas | Sedang | M | Dokumentasikan alur, lalu tambah status |
+| T12 | A11 | Payment Gateway ganda, tanpa cek ulang | Sedang | S | Satu nama, dan tombol cek status |
+| T13 | A16 | Status memuat ulang seluruh layar tiap 30 detik | Sedang | S | Ambil `status.json`, perbarui angka saja |
+| T14 | A8 | Online Sessions hanya RADIUS dan hanya manajer | Sedang | S | Teks kosong yang menjelaskan cakupan |
+| T15 | A17 | Sesi habis tanpa peringatan, isian hilang | Sedang | M | Peringatan beberapa menit sebelum habis |
+| T16 | A9, pesan | Dropdown pelanggan hanya 500 terbaru, tidak bisa dicari | Sedang | S | Pakai picker pelanggan yang sudah ada |
+| T17 | P4 | Saldo kurang tanpa tautan ke isi saldo | Sedang | S | Tautan dari kartu paket |
+| T18 | Lintas | Menu portal membungkus jadi beberapa baris | Sedang | S | Tab bawah atau menu ringkas |
+| T19 | P9 | Penerima saldo tidak dicek sebelum kirim | Sedang | M | Tampilkan nama penerima sebelum kirim |
+| T20 | P2 | Login hotspot di luar gobill, belum diuji | Sedang | M | Uji di MikroTik, lalu tulis panduannya |
+| T21 | P7 | Tautan pengingat kosong jika `app_url` kosong | Sedang | S | Peringatan di Pengaturan dan saat simpan |
+| T22 | A15 | Backup lama hanya terlihat di Status | Sedang | S | Banner di dashboard jika lebih dari 36 jam |
+| T23 | P1 | Kolom wajib dan opsional tampil sama, tanpa tanda | Rendah | S | Sembunyikan sesuai pengaturan wajib |
+| T24 | P8, A16 | Teks hardcoded: "min ago", "Backup", "account is not active" | Rendah | S | Pindahkan ke terjemahan |
+| T25 | A1 | Tombol "Sembunyikan" checklist tidak berfungsi | Rendah | S | Hapus tombol, atau tambah handler |
+| T26 | A13 | Enter tanpa pilihan pindah ke halaman biasa | Rendah | S | Sorot hasil pertama otomatis |
+| T27 | A6 | Dropdown paket kosong tanpa tautan | Rendah | S | Tautan ke Service Plan |
+| T28 | Lintas | Tidak ada tautan lewati ke konten | Rendah | S | Tambah skip link di `base.html` |
+
+Jumlah: Tinggi 5, Sedang 17, Rendah 6. Total 28.
+
+## Top 10 berikutnya
+
+1. T05: tautan 2FA di dropdown profil (Tinggi, S).
+2. T02: WA, QRIS, dan Tripay masuk checklist (Tinggi, S).
+3. T03: Admin bisa melihat status WA dan QRIS (Tinggi, S).
+4. T01: isi ulang massal dengan ringkasan total (Tinggi, M).
+5. T04: reset password admin lewat CLI, dengan teks di login (Tinggi, M).
+6. T06: pisahkan "Hari ini" di kartu Expiring (Sedang, S).
+7. T07: diagnosa non-RADIUS dan semua saran (Sedang, S).
+8. T08: rapikan istilah "Expires" dan saldo (Sedang, S).
+9. T10: kolom masa berlaku di daftar pelanggan (Sedang, S).
+10. T17: tautan isi saldo dari kartu paket portal (Sedang, S).
 
 ## Lihat juga
 
-- [audit-ux](audit-ux.md)
-- [paritas-ui](paritas-ui.md)
+- [Audit UX](audit-ux.md): audit per layar.
+- [Paritas UI](paritas-ui.md): kesesuaian dengan PHPNuxBill.
+- [Panduan menulis docs](panduan-menulis-docs.md): aturan gaya dokumen ini.
