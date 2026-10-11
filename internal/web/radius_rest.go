@@ -76,7 +76,12 @@ func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, http.StatusForbidden, kv{"Reply-Message": "forbidden"})
 		return
 	}
-	r.ParseForm() // body + query; credentials are never logged
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<10) // rlm_rest forms are small
+	// body + query; credentials are never logged
+	if err := r.ParseForm(); err != nil {
+		jsonOut(w, http.StatusBadRequest, nil)
+		return
+	}
 	action := r.Header.Get("X-FreeRADIUS-Section")
 	if action == "" {
 		action = r.FormValue("action")

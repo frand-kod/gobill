@@ -52,7 +52,9 @@ type Server struct {
 
 	userFails   failLimiter // failed password checks per username
 	dups        dupCache    // answered requests, for retransmits
-	unknownSeen sync.Map    // ip string -> time.Time of last unknown-NAS warning
+	unknownMu   sync.Mutex
+	unknownSeen map[string]time.Time // ip -> last unknown-NAS warning
+	unknownLast time.Time            // last warning for any IP while unknownSeen is full
 }
 
 func (s *Server) now() time.Time {
@@ -79,14 +81,40 @@ func (s *Server) RADIUSSecret(ctx context.Context, addr net.Addr) ([]byte, error
 	return nil, fmt.Errorf("unknown NAS %v", ip)
 }
 
-// warnUnknown logs a packet from an unregistered NAS, once per IP per 5 minutes.
+// unknownSeenMax bounds unknownSeen: spoofed source IPs must not grow it forever.
+const unknownSeenMax = 1024
+
+// warnUnknown logs a packet from an unregistered NAS, once per IP per 5 minutes. When unknownSeen
+// is full of recent IPs, new IPs are not remembered and all of them share one warning per 5 minutes.
 func (s *Server) warnUnknown(ip net.IP) {
 	now := s.now()
-	if t, ok := s.unknownSeen.Load(ip.String()); ok && now.Sub(t.(time.Time)) < 5*time.Minute {
+	key := ip.String()
+	s.unknownMu.Lock()
+	if t, ok := s.unknownSeen[key]; ok && now.Sub(t) < 5*time.Minute {
+		s.unknownMu.Unlock()
 		return
 	}
-	s.unknownSeen.Store(ip.String(), now)
-	slog.Warn("radius: packet from unknown NAS, add it under Network > NAS", "ip", ip.String())
+	if s.unknownSeen == nil {
+		s.unknownSeen = map[string]time.Time{}
+	}
+	if len(s.unknownSeen) >= unknownSeenMax {
+		for k, t := range s.unknownSeen {
+			if now.Sub(t) >= 5*time.Minute {
+				delete(s.unknownSeen, k)
+			}
+		}
+	}
+	if len(s.unknownSeen) < unknownSeenMax {
+		s.unknownSeen[key] = now
+	} else {
+		if now.Sub(s.unknownLast) < 5*time.Minute {
+			s.unknownMu.Unlock()
+			return
+		}
+		s.unknownLast = now
+	}
+	s.unknownMu.Unlock()
+	slog.Warn("radius: packet from unknown NAS, add it under Network > NAS", "ip", key)
 }
 
 func addrIP(a net.Addr) net.IP {
@@ -370,7 +398,11 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 		}
 		if (lt == "Data_Limit" || lt == "Both_Limit") && pl.DataLimit.Valid {
 			total := LimitBytes(pl.DataLimit.Int64, pl.DataUnit.String)
-			used, _ := s.Q.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: user, StartedAt: pl.StartedAt})
+			used, err := s.Q.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: user, StartedAt: pl.StartedAt})
+			if err != nil { // fail closed: an unknown usage must not count as zero
+				slog.Error("radius: sum data usage", "user", user, "err", err)
+				return Decision{Reject: "Login invalid......"}
+			}
 			if total-used <= 0 {
 				return Decision{Reject: "You have exceeded your data limit."}
 			}
@@ -616,6 +648,11 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 		// NAS rebooted: its open sessions are gone.
 		return s.Q.CloseRadiusSessionsByNAS(ctx, db.CloseRadiusSessionsByNASParams{StoppedAt: sql.NullInt64{Int64: now, Valid: true}, NasIp: a.NAS})
 	case rfc2866.AcctStatusType_Value_Start, rfc2866.AcctStatusType_Value_InterimUpdate, rfc2866.AcctStatusType_Value_Stop:
+		// gigawords << 32 goes negative from 2^31 GB up, and a REST value can be negative: refuse,
+		// a negative counter would corrupt the usage sums
+		if a.InOctets < 0 || a.OutOctets < 0 {
+			return errors.New("radius: negative octet counter")
+		}
 		arg := db.UpsertRadiusSessionParams{SessionID: a.SessionID, Username: a.User, NasIp: a.NAS, NasIpAttr: a.NASIPAttr, NasIdentifier: a.NASID, FramedIp: a.FramedIP,
 			Mac: a.MAC, StartedAt: now - a.SessionTime, UpdatedAt: now, InputOctets: a.InOctets, OutputOctets: a.OutOctets}
 		if a.Type == rfc2866.AcctStatusType_Value_Stop {
