@@ -211,6 +211,31 @@ func TestAccounting(t *testing.T) {
 	}
 }
 
+// A stale or retransmitted Interim/Stop with smaller counters must not lower recorded usage.
+func TestAccountingCountersNeverDecrease(t *testing.T) {
+	e := setup(t)
+	acct := func(typ rfc2866.AcctStatusType, in uint32) {
+		p := radius.New(radius.CodeAccountingRequest, nasSecret)
+		rfc2866.AcctStatusType_Set(p, typ)
+		rfc2866.AcctSessionID_SetString(p, "sess1")
+		rfc2865.UserName_SetString(p, "alice")
+		rfc2866.AcctInputOctets_Set(p, rfc2866.AcctInputOctets(in))
+		e.s.HandleAcct(&rec{}, &radius.Request{Packet: p, RemoteAddr: &net.UDPAddr{IP: net.ParseIP("10.0.0.1")}})
+		e.now = e.now.Add(time.Minute)
+	}
+	acct(rfc2866.AcctStatusType_Value_Start, 0)
+	acct(rfc2866.AcctStatusType_Value_InterimUpdate, 1_000_000)
+	acct(rfc2866.AcctStatusType_Value_InterimUpdate, 0)
+	acct(rfc2866.AcctStatusType_Value_Stop, 0)
+	used, _ := e.q.SumRadiusUsage(context.Background(), db.SumRadiusUsageParams{Username: "alice"})
+	if used != 1_000_000 {
+		t.Fatalf("usage %d, want 1000000 after stale update", used)
+	}
+	if n, _ := e.openSessions(); n != 0 {
+		t.Fatalf("still open: %d", n)
+	}
+}
+
 func (e *env) openSessions() (int64, error) {
 	var n int64
 	err := e.conn.QueryRow("SELECT COUNT(*) FROM radius_sessions WHERE stopped_at IS NULL").Scan(&n)
