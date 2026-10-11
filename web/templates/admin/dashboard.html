@@ -1,8 +1,7 @@
 {{define "content"}}
 {{with .Data}}
 {{if .Warn}}<p class="alert alert-warn" role="alert">{{icon "triangle-alert"}}<span>{{.Warn}}</span></p>{{end}}
-<div class="page-head"><h1 class="page-title">{{T "Dashboard"}}</h1></div>
-{{template "callout" $.Intro}}
+<div class="page-head"><h1 class="page-title">{{T "Dashboard"}}{{template "callout" $.Intro}}</h1></div>
 {{$mgr := or (eq $.Admin.Role "SuperAdmin") (eq $.Admin.Role "Admin")}}
 {{if or $mgr (eq $.Admin.Role "Agent") (eq $.Admin.Role "Sales")}}
 <nav class="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap" aria-label="{{T "Quick actions"}}">

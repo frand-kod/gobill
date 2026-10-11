@@ -76,6 +76,32 @@ func TestIntroClosedPopover(t *testing.T) {
 	}
 }
 
+// The intro "?" lives inside the page heading (after the title), not on its own line below it.
+func TestIntroInsideHeading(t *testing.T) {
+	h, _ := newTestServer(t)
+	c := login(t, h, "alice")
+	body := do(h, "GET", "/admin/customers", nil, c).Body.String()
+	found := false
+	for rest := body; ; {
+		i := strings.Index(rest, "<h1")
+		if i < 0 {
+			break
+		}
+		rest = rest[i:]
+		end := strings.Index(rest, "</h1>")
+		if end < 0 {
+			break
+		}
+		if strings.Contains(rest[:end], `<details class="intro-help relative" data-intro>`) {
+			found = true
+		}
+		rest = rest[end:]
+	}
+	if !found {
+		t.Fatal("the intro help is not inside an h1")
+	}
+}
+
 // The footer shows the company name (settings, fallback gobill) and the build version.
 func TestFooterVersionAndCompany(t *testing.T) {
 	s, _ := newTestApp(t)

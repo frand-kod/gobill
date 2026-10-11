@@ -132,11 +132,11 @@ func TestDocsLanguageToggleSwitchesFolder(t *testing.T) {
 	h, _ := newTestServer(t)
 	c := login(t, h, "alice")
 	// the test server uses the Indonesian app language, so the default is id
-	if w := do(h, "GET", "/admin/docs/configuration", nil, c); !strings.Contains(w.Body.String(), `page-title">Konfigurasi</h1>`) {
+	if w := do(h, "GET", "/admin/docs/configuration", nil, c); !strings.Contains(w.Body.String(), `page-title">Konfigurasi`) {
 		t.Fatal("default for the Indonesian app should be id")
 	}
 	w := do(h, "GET", "/admin/docs/configuration?lang=en", nil, c)
-	if !strings.Contains(w.Body.String(), `page-title">Configuration</h1>`) {
+	if !strings.Contains(w.Body.String(), `page-title">Configuration`) {
 		t.Fatal("?lang=en should show the English guide")
 	}
 	var remembered *http.Cookie
@@ -150,11 +150,11 @@ func TestDocsLanguageToggleSwitchesFolder(t *testing.T) {
 	}
 	// the cookie alone keeps the choice on the next page
 	w = do(h, "GET", "/admin/docs/security", nil, nil, "Cookie", c.Name+"="+c.Value+"; "+docsLangCookie+"=en")
-	if !strings.Contains(w.Body.String(), `page-title">Security</h1>`) {
+	if !strings.Contains(w.Body.String(), `page-title">Security`) {
 		t.Fatal("remembered language should apply without ?lang=")
 	}
 	// an unknown value is ignored
-	if w := do(h, "GET", "/admin/docs/security?lang=xx", nil, c); !strings.Contains(w.Body.String(), `page-title">Keamanan</h1>`) {
+	if w := do(h, "GET", "/admin/docs/security?lang=xx", nil, c); !strings.Contains(w.Body.String(), `page-title">Keamanan`) {
 		t.Fatal("?lang=xx should fall back to the app language")
 	}
 }

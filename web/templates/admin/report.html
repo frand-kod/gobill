@@ -2,13 +2,12 @@
 {{with .Data}}
 {{$d := .}}
 <div class="page-head">
-  <h1 class="page-title">{{if .Period}}{{T "Period Report"}}{{else}}{{T "Daily Report"}}{{end}}</h1>
+  <h1 class="page-title">{{if .Period}}{{T "Period Report"}}{{else}}{{T "Daily Report"}}{{end}}{{template "callout" $.Intro}}</h1>
   <div class="flex flex-wrap gap-2">
     <a class="btn btn-ghost" href="/admin/reports/export?{{.Query}}">{{T "Export CSV"}}</a>
     <a class="btn btn-ghost" href="/admin/reports/print?{{.Query}}" target="_blank">{{T "Print"}}</a>
   </div>
 </div>
-{{template "callout" $.Intro}}
 <div class="card overflow-hidden">
   <form class="flex flex-wrap items-center gap-2 border-b border-line p-3" method="get" action="{{if .Period}}/admin/reports/period{{else}}/admin/reports{{end}}">
     {{if .Period}}

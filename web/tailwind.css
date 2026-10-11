@@ -200,8 +200,14 @@
   .callout-title { @apply mb-0.5 font-semibold text-ink; }
   .callout-tip { @apply mt-2 text-xs text-ink-2; }
   /* intro popover: anchored to its "?" on desktop, bottom sheet on phones (like the Tema popover) */
-  .intro-help > summary { list-style: none; }
+  /* the "?" sits after the page title, raised and small like a superscript; the ::before is a 40px tap area */
+  .intro-help { display: inline-block; vertical-align: top; font-size: 0.6em; line-height: 1; margin-inline-start: 0.15em; }
+  .intro-help > summary { @apply relative inline-flex cursor-pointer items-center justify-center rounded-full text-ink-2 hover:text-accent-fg; list-style: none; }
   .intro-help > summary::-webkit-details-marker { display: none; }
+  .intro-help > summary::before { content: ""; position: absolute; top: 50%; left: 50%; width: 2.5rem; height: 2.5rem; translate: -50% -50%; }
+  .intro-help > summary svg.lucide { width: 1em; height: 1em; }
+  .intro-help > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .intro-help[open] > summary { @apply text-accent-fg; }
   .intro-pop { @apply mt-2 rounded-lg border border-line bg-surface p-4 text-sm text-ink-2 shadow-lg z-50; }
   @media (min-width: 640px) { .intro-pop { position: absolute; inset-inline-end: 0; top: 100%; width: 22rem; } }
   @media (max-width: 639px) { .intro-pop { position: fixed; inset-inline: 0; bottom: 0; top: auto; margin: 0; max-height: 75vh; overflow-y: auto; border-radius: 0.5rem 0.5rem 0 0; padding-bottom: 2rem; } }

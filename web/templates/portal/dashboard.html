@@ -1,6 +1,5 @@
 {{define "content"}}
-<h1 class="page-title mb-4">{{T "Dashboard"}}</h1>
-{{template "callout" .Intro}}
+<h1 class="page-title mb-4">{{T "Dashboard"}}{{template "callout" .Intro}}</h1>
 {{template "dash_cards" .}}
 <div class="card mb-4"><div class="card-body flex flex-wrap items-center justify-between gap-4"><div><p class="text-sm text-ink-2">{{T "Balance"}}</p><p class="page-title">{{money .Customer.Balance}}</p></div>
   <a class="btn btn-primary min-h-12 px-6 text-base" href="/portal/plans">{{icon "wallet"}}<span>{{T "Buy / Extend"}}</span></a></div></div>

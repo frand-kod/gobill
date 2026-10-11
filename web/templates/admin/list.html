@@ -3,13 +3,12 @@
 {{with .Data}}
 {{$d := .}}
 <div class="page-head">
-  <h1 class="page-title">{{T .Heading}}</h1>
+  <h1 class="page-title">{{T .Heading}}{{template "callout" $.Intro}}</h1>
   <div class="flex flex-wrap gap-2">
     {{range .Links}}<a class="btn btn-ghost" href="{{.Value}}">{{T .Label}}</a>{{end}}
     {{if .CanCreate}}<a class="btn btn-primary" href="{{.Base}}/new">{{icon "plus"}}<span>{{T "Add"}}</span></a>{{end}}
   </div>
 </div>
-{{template "callout" $.Intro}}
 {{with .Note}}<p class="hint mb-4"><a class="link" href="{{$d.NoteLink}}">{{T .}}</a></p>{{end}}
 {{if .Clean}}<form class="mb-4 flex flex-wrap items-center gap-2" method="post" action="{{.Clean}}" data-confirm="{{T "Clean Logs"}}?" data-confirm-danger>
   <input class="input w-32" type="number" name="keep" min="1" required placeholder="{{T "Keep logs (days)"}}" aria-label="{{T "Keep logs (days)"}}">
