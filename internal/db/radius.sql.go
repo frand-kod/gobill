@@ -717,3 +717,77 @@ func (q *Queries) UpsertRadiusSession(ctx context.Context, arg UpsertRadiusSessi
 	)
 	return err
 }
+
+const countRadiusDisconnectsSince = `-- name: CountRadiusDisconnectsSince :one
+SELECT COUNT(*) FROM radius_sessions WHERE stopped_at >= ?1
+`
+
+func (q *Queries) CountRadiusDisconnectsSince(ctx context.Context, stoppedAt int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRadiusDisconnectsSince, stoppedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countRadiusLoginsSince = `-- name: CountRadiusLoginsSince :one
+SELECT COUNT(*) FROM radius_sessions WHERE started_at >= ?1
+`
+
+func (q *Queries) CountRadiusLoginsSince(ctx context.Context, startedAt int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRadiusLoginsSince, startedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const listActivePlanRates = `-- name: ListActivePlanRates :many
+SELECT c.username, c.pppoe_username, p.name AS plan_name,
+       COALESCE(b.rate_down, 0) AS rate_down, COALESCE(b.rate_down_unit, '') AS rate_down_unit,
+       COALESCE(b.rate_up, 0) AS rate_up, COALESCE(b.rate_up_unit, '') AS rate_up_unit
+FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id
+LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
+WHERE s.status = 'active'
+ORDER BY s.expires_at DESC
+`
+
+type ListActivePlanRatesRow struct {
+	Username      string
+	PppoeUsername string
+	PlanName      string
+	RateDown      int64
+	RateDownUnit  string
+	RateUp        int64
+	RateUpUnit    string
+}
+
+// Active plan and its bandwidth per customer, for the live sessions view. Newest expiry first: the first row for a login is the plan that counts.
+func (q *Queries) ListActivePlanRates(ctx context.Context) ([]ListActivePlanRatesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listActivePlanRates)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActivePlanRatesRow
+	for rows.Next() {
+		var i ListActivePlanRatesRow
+		if err := rows.Scan(
+			&i.Username,
+			&i.PppoeUsername,
+			&i.PlanName,
+			&i.RateDown,
+			&i.RateDownUnit,
+			&i.RateUp,
+			&i.RateUpUnit,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

@@ -25,6 +25,24 @@ The same data is available as JSON at `/admin/status.json`, with the same admin 
 
 Counts "since start" exist only in memory. A restart clears them. The 24-hour counts fill up again over time.
 
+## Online sessions
+
+Open **Admin > Online Sessions** (`/admin/radius/sessions`) to see who is connected now. The page refreshes itself every 10 seconds while the browser tab is visible. The tiles count all open sessions. The table shows the search and the page you are on.
+
+Each row has a speed meter with five segments and the speed as text. The speed comes from RADIUS Interim-Update. The NAS sends one update for each session at the interval set on the router. The meter needs two updates, so a session shows `—` until the second update arrives.
+
+For a meter that reacts within a minute, set **interim-update** to `1m` on the hotspot profile, or in PPP AAA for PPPoE. The default interval on MikroTik is much longer.
+
+| Share of the plan speed in use | Colour |
+|---|---|
+| Below 50% | Green |
+| 50% to 75% | Yellow |
+| Above 75% | Red |
+
+Each segment stands for 20% of the plan speed. The meter uses the larger of the download and upload shares. A plan without a speed limit shows no meter, only the text.
+
+The 24-hour chart keeps one count every 5 minutes in memory. A restart clears it.
+
 ## /health and /metrics
 
 | | `/health` | `/metrics` |

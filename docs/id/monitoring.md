@@ -25,6 +25,24 @@ Data yang sama tersedia sebagai JSON di `/admin/status.json`, dengan sesi admin 
 
 Angka "sejak start" hanya ada di memori. Restart aplikasi mengosongkannya. Angka 24 jam terisi lagi seiring waktu.
 
+## Sesi online
+
+Buka **Admin > Sesi Online** (`/admin/radius/sessions`) untuk melihat siapa yang sedang terhubung. Halaman ini diperbarui sendiri tiap 10 detik selama tab browser terlihat. Kotak ringkasan menghitung semua sesi yang terbuka. Tabel mengikuti pencarian dan halaman yang sedang Anda buka.
+
+Setiap baris punya meter kecepatan dengan lima segmen dan kecepatan dalam bentuk teks. Kecepatan dihitung dari RADIUS Interim-Update. NAS mengirim satu update untuk tiap sesi sesuai interval yang diatur di router. Meter butuh dua update, jadi sesi menampilkan `—` sampai update kedua masuk.
+
+Agar meter bereaksi dalam hitungan menit, atur **interim-update** ke `1m` di profil hotspot, atau di PPP AAA untuk PPPoE. Interval bawaan MikroTik jauh lebih lama.
+
+| Porsi kecepatan paket yang dipakai | Warna |
+|---|---|
+| Di bawah 50% | Hijau |
+| 50% sampai 75% | Kuning |
+| Di atas 75% | Merah |
+
+Setiap segmen mewakili 20% kecepatan paket. Meter memakai porsi unduh atau unggah yang lebih besar. Paket tanpa batas kecepatan tidak menampilkan meter, hanya teksnya.
+
+Grafik 24 jam menyimpan satu jumlah tiap 5 menit di memori. Restart menghapusnya.
+
 ## /health dan /metrics
 
 | | `/health` | `/metrics` |

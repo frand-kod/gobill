@@ -140,6 +140,7 @@ func run() error {
 	go job.Run(ctx, "reminder", time.Minute, svc.ReminderJob(guard.Trusted))
 	go job.Run(ctx, "log_clean", 10*time.Minute, svc.LogCleanJob(guard.Trusted)) // once a day, setting log_keep_days
 	go job.Run(ctx, "router_check", 5*time.Minute, svc.RouterCheck)
+	go job.Run(ctx, "online_sample", 5*time.Minute, app.SampleOnline)
 	alerts := &billing.AlertJob{S: svc, DBPath: dbPath, Free: func() (int64, error) { return job.DiskFreeMB(filepath.Dir(dbPath)) }}
 	go job.Run(ctx, "alert", time.Minute, alerts.Run)
 	go job.Run(ctx, "daily_summary", time.Minute, svc.DailySummaryJob(guard.Trusted))

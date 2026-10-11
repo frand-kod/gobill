@@ -40,6 +40,7 @@ type Server struct {
 	guides    map[string]*guideSet // rendered "Panduan" pages per language ("id", "en"), see docs.go
 	lang      atomic.Value         // string: current language, a global app setting
 	dummyHash []byte               // compared against when the username does not exist
+	live      liveMonitor          // online sessions: rate samples and sparkline, see admin_radius_live.go
 
 	// Radius is shared with the UDP listener so auth throttles apply to /radius.php too.
 	Radius     *radius.Server
