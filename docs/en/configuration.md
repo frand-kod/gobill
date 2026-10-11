@@ -43,7 +43,7 @@ Log in at `/admin/login`, change the password, then delete that file. If the fil
 
 ## Settings in the UI
 
-Change settings in the **Settings** menu. The keys below are stored in the `settings` table. If a default is not listed, the value is empty or `no`. Three keys have no field in the **Settings** menu in this release: `radius_rest_allow`, `log_keep_days`, and `backup_keep`. Change their values directly in the `settings` table.
+Change settings in the **Settings** menu. The keys below are stored in the `settings` table. If a default is not listed, the value is empty or `no`. `log_keep_days` and `backup_keep` are set in **Settings > System & Security**. `radius_rest_allow` is there too, but only a SuperAdmin sees and changes it.
 
 ### General and localisation
 

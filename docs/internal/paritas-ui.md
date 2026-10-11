@@ -477,7 +477,7 @@ Kolom: Username, Type, Plan Name, Plan Price, Created On, Expires On, Method, Ro
 | Field lama | Label | Tipe | Field baru | St | Catatan |
 |---|---|---|---|---|---|
 | `q` | Search | text | `q` | ✅ | |
-| `keep` | Keep logs (hari) | text | — | `keep` (`POST /admin/logs/clean/activity`) | ✅ | Hanya SuperAdmin/Admin. Auto-bersih harian lewat setting `log_keep_days` (0 = simpan selamanya; tanpa input di Settings) |
+| `keep` | Keep logs (hari) | text | — | `keep` (`POST /admin/logs/clean/activity`) | ✅ | Hanya SuperAdmin/Admin. Auto-bersih harian lewat setting `log_keep_days` (0 = simpan selamanya; input di Settings > System & Security) |
 
 Kolom lama (tanpa `<th>`): ID, Date, Type, IP, Description. Baru: Date, Actor, Action, Description, IP (Actor/Action menggantikan Type/User ID). Aksi: CSV (`logs/list-csv`) belum; Clean up ada.
 

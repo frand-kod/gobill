@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"html/template"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/isolir"
+	"github.com/frand-kod/gobill/internal/job"
 	"github.com/frand-kod/gobill/internal/notify"
 	"github.com/frand-kod/gobill/internal/payment"
 	"github.com/skip2/go-qrcode"
@@ -52,6 +54,23 @@ var settingsSecret = map[string]bool{"telegram_bot": true, "smtp_pass": true, "w
 
 // settingsFile are image uploads. The setting holds the stored filename; an empty post keeps it.
 var settingsFile = map[string]bool{"logo": true, "logo_dark": true, "login_page_logo": true, "login_page_logo_dark": true, "login_page_favicon": true, "login_page_wallpaper": true}
+
+// settingsSuperField are keys on an Admin-visible tab that only a SuperAdmin sees and saves.
+var settingsSuperField = map[string]bool{"radius_rest_allow": true}
+
+// forRole drops the SuperAdmin-only fields for any other role, so they are neither rendered nor saved.
+func forRole(fs []field, r *http.Request) []field {
+	if adminFrom(r).Role == "SuperAdmin" {
+		return fs
+	}
+	var out []field
+	for _, f := range fs {
+		if !settingsSuperField[f.Name] {
+			out = append(out, f)
+		}
+	}
+	return out
+}
 
 // settingsSpeed are the Isolir rates. They are not stored as settings: save writes them to the isolir bandwidth row.
 var settingsSpeed = map[string]bool{"isolir_rate_down": true, "isolir_rate_up": true}
@@ -372,6 +391,13 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			sel("update_check", "Check for updates", settingsYesNo...).hint("Once a day, asks GitHub for a newer gobill release. SuperAdmin sees a badge when one exists"),
 		}, "System", "")...)
 		out = append(out, section([]field{
+			text("log_keep_days", "Keep logs (days)", v, e).as("number").hint("Activity logs, closed RADIUS sessions, read messages and unpaid payments older than this are deleted once a day. Default 90. 0 = keep forever. Paid payments are never deleted"),
+			text("backup_keep", "Backups kept", v, e).as("number").hint("Number of automatic daily backups kept, in the main folder and in the mirror. Default 7, at least 1"),
+		}, "Data retention", "")...)
+		out = append(out, section([]field{
+			text("radius_rest_allow", "Allowed addresses for /radius.php", v, e).hint("Comma-separated IPs or CIDR ranges that may call /radius.php, e.g. 192.168.1.10, 10.0.0.0/24. Empty = loopback only. Saved changes apply to the next request, no restart needed"),
+		}, "FreeRADIUS", "")...)
+		out = append(out, section([]field{
 			sel("hs_auth_method", "Hotspot Auth Method", option{"pap", "PAP"}, option{"chap", "CHAP"}),
 			sel("shared_users_policy", "When the device limit is full", option{"kick_oldest", "Kick oldest device"}, option{"reject", "Reject new login"}).hint("Phones now use random MACs. Kick oldest device stops a customer from being locked out when their phone reconnects with a new MAC."),
 		}, "Hotspot", "")...)
@@ -389,6 +415,20 @@ func fieldNames(fs []field) []string {
 		out = append(out, f.Name)
 	}
 	return out
+}
+
+// validAllowList reports whether every comma-separated entry is an IP or a CIDR range. Empty entries are skipped.
+func validAllowList(x string) bool {
+	for _, p := range strings.Split(x, ",") {
+		p = strings.TrimSpace(p)
+		if p == "" || net.ParseIP(p) != nil {
+			continue
+		}
+		if _, _, err := net.ParseCIDR(p); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func inRange(x string, lo, hi int) bool {
@@ -451,6 +491,15 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 		if _, ok := parseTrustedProxies(x); !ok {
 			e["trusted_proxies"] = "Enter IP addresses or CIDR ranges, separated by commas"
 		}
+	}
+	if x := v["log_keep_days"]; x != "" && !inRange(x, 0, 3650) {
+		e["log_keep_days"] = "Enter whole days, 0 to 3650. 0 keeps logs forever"
+	}
+	if x := v["backup_keep"]; x != "" && !inRange(x, 1, 1<<30) {
+		e["backup_keep"] = "Enter a whole number, 1 or more"
+	}
+	if x, ok := v["radius_rest_allow"]; ok && !validAllowList(x) {
+		e["radius_rest_allow"] = "Enter IP addresses or CIDR ranges, separated by commas"
 	}
 	if x := v["alert_nas_silent_minutes"]; x != "" && !inRange(x, 1, 1440) {
 		e["alert_nas_silent_minutes"] = "Enter whole minutes, 1 to 1440"
@@ -585,6 +634,12 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 			v[k] = x
 		}
 	}
+	if v["log_keep_days"] == "" { // never set: show the value the cleanup job uses
+		v["log_keep_days"] = strconv.Itoa(billing.LogKeepDefault)
+	}
+	if v["backup_keep"] == "" {
+		v["backup_keep"] = strconv.Itoa(job.BackupKeepDefault)
+	}
 	if v["expired_notify_minutes_before"] == "" { // never set: show the value the sender uses
 		v["expired_notify_minutes_before"] = strconv.Itoa(billing.ExpiredNoticeDefault)
 	}
@@ -603,7 +658,7 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 			v["isolir_rate_down"], v["isolir_rate_up"] = down, up
 		}
 	}
-	fp := formPage{Heading: "Settings", Action: "/admin/settings/" + tab, Cancel: "/admin", Fields: s.settingsFields(tab, v, e, st)}
+	fp := formPage{Heading: "Settings", Action: "/admin/settings/" + tab, Cancel: "/admin", Fields: forRole(s.settingsFields(tab, v, e, st), r)}
 	if tab == "isolir" {
 		fp.Fields = append(fp.Fields, s.isolirSetupFields(st)...)
 	}
@@ -658,7 +713,7 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	fields := s.settingsFields(tab, nil, nil, nil)
+	fields := forRole(s.settingsFields(tab, nil, nil, nil), r)
 	keys := fieldNames(fields)
 	// the body limit allows every image field of the tab at its 2 MB cap (each file is checked on its
 	// own when saved); only a bigger body fails the parse, shown on the file fields

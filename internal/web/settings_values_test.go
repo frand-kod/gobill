@@ -23,7 +23,7 @@ var settingSample = map[string]string{
 	"isolir_rate_down": "2M", "isolir_rate_up": "512k",
 	"wa_url":             "http://gw.test/wa?to=[number]&text=[text]",
 	"alt_wga_server_url": "http://127.0.0.1:3030", "smtp_port": "587", "webhook_url": "https://hook.test/x",
-	"voucher_redirect": "https://192.168.88.1/status", "trusted_proxies": "172.16.0.0/16, 10.0.0.2", "extend_days": "3", "minimum_transfer": "5000",
+	"voucher_redirect": "https://192.168.88.1/status", "trusted_proxies": "172.16.0.0/16, 10.0.0.2", "radius_rest_allow": "192.168.1.10, 10.0.0.0/24", "extend_days": "3", "minimum_transfer": "5000",
 	"language":     "english",
 	"qris_payload": "00020101021126520016ID.CO.CONTOH.WWW01129360000000010212ID10000000015204549953033605802ID5911CONTOH QRIS6006CONTOH9989XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX63048FAE",
 }

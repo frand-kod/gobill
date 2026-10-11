@@ -148,12 +148,15 @@ func (b *Backup) set(ctx context.Context, key, value string) {
 	}
 }
 
-// keepN is the backup_keep setting, default 7.
+// BackupKeepDefault is how many backups are kept when backup_keep is missing or below 1.
+const BackupKeepDefault = 7
+
+// keepN is the backup_keep setting, default BackupKeepDefault.
 func keepN(st map[string]string) int {
 	if n, err := strconv.Atoi(st["backup_keep"]); err == nil && n >= 1 {
 		return n
 	}
-	return 7
+	return BackupKeepDefault
 }
 
 // prune deletes the oldest backup files in dir beyond keep.
