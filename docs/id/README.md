@@ -32,6 +32,8 @@ Dokumen ini adalah indeks panduan operator dalam Bahasa Indonesia. Panduan ini j
 
 Kotak cari di bilah atas mencari pelanggan, langganan, invoice, voucher, paket, router, NAS, menu, aksi cepat, dan pengaturan. Tekan `/` atau `Ctrl+K` (`Cmd+K` di Mac) untuk langsung mengetik di kotak itu. Panah atas dan bawah memilih hasil, Enter membuka, dan Esc menutup. Di HP, hasil tampil selebar layar. Pengaturan langsung menuju kolomnya, dan kolom itu disorot sebentar. Hasil yang bisa dibuka sesuai peran Anda.
 
+Form tambah pelanggan punya kartu opsional **Langsung aktifkan paket**. Pilih paket di sana untuk mengaktifkannya tepat setelah pelanggan dibuat, dibayar tunai. Hanya paket yang sesuai jenis layanan yang muncul, dan paket saldo tidak ditampilkan. Jika aktivasi gagal, pelanggan tetap dibuat dan halaman pelanggan menampilkan alasannya. Kosongkan paket untuk memilihnya nanti dari halaman pelanggan.
+
 ## Lihat juga
 
 - [Panduan developer dan arsitektur](../internal/pengembangan.md): hanya untuk tim, tidak ada di aplikasi.

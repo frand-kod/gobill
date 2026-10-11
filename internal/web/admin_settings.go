@@ -157,6 +157,12 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			notif("notif_balance_send", "Send Balance"),
 			notif("notif_balance_received", "Received Balance"),
 		}, "Message templates", "")...)
+		creds := sel("send_credentials_on_create", "Kirim username & password ke WA saat admin membuat akun", settingsYesNo...).
+			hint("Memudahkan pelanggan yang tidak membuka portal. Password dikirim dalam teks biasa ke nomor pelanggan itu sendiri.")
+		if v["send_credentials_on_create"] == "" { // unset means no, not the first option
+			creds.Value = "no"
+		}
+		out = append(out, section([]field{creds}, "Welcome message", "")...)
 		out = append(out, section([]field{
 			sel("user_notification_expired", "Expired Notification", settingsChannels...),
 			text("expired_notify_minutes_before", "Send expired message earlier (minutes)", v, e).as("number").hint("The expired message is sent this many minutes before the plan ends, so a customer still online receives it. The plan itself still ends at its time. 0 = at the end of the plan"),

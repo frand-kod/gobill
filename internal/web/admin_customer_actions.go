@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
+	"strings"
 )
 
 // ---- customer detail actions ----
@@ -67,9 +68,10 @@ func welcomeChannels(v map[string]string) (out []string) {
 	return
 }
 
-// welcome sends welcome_message on the chosen channels, in the background. The password is never
-// part of the message: the template's [[Password]] placeholder is filled with asterisks.
-func (s *Server) welcome(ctx context.Context, c db.Customer, vias []string) {
+// welcome sends welcome_message on the chosen channels, in the background. The password is the
+// masked "********" unless send_credentials_on_create is yes, then the real one (pass). The
+// message log keeps the mask, never the password.
+func (s *Server) welcome(ctx context.Context, c db.Customer, vias []string, pass string) {
 	if len(vias) == 0 {
 		return
 	}
@@ -77,10 +79,17 @@ func (s *Server) welcome(ctx context.Context, c db.Customer, vias []string) {
 	if err == nil {
 		var n *notify.Notifier
 		if n, err = notify.Load(ctx, s.queries); err == nil {
-			n.Log = notify.LogTo(s.queries)
+			pw, logTo := "********", notify.LogTo(s.queries)
+			n.Log = logTo
+			if st["send_credentials_on_create"] == "yes" && pass != "" {
+				pw = pass
+				n.Log = func(ch, to, subject, body string, err error) {
+					logTo(ch, to, subject, strings.ReplaceAll(body, pass, "********"), err)
+				}
+			}
 			n.Go("welcome", func(ctx context.Context) error {
 				return n.CustomOn(ctx, c, vias, "welcome_message", "Welcome", map[string]string{"company": st["company_name"],
-					"Username": c.Username, "url": st["app_url"], "Password": "********"})
+					"Username": c.Username, "url": st["app_url"], "Password": pw})
 			})
 			return
 		}
