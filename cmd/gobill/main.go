@@ -49,6 +49,12 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "reset-admin-password" {
 		run = func() error { return runResetAdminPassword(os.Args[2:]) }
 	}
+	if len(os.Args) > 1 && os.Args[1] == "update" {
+		run = func() error { return runUpdate(os.Args[2:]) }
+	}
+	if len(os.Args) > 1 && os.Args[1] == "rollback" {
+		run = func() error { return runRollback(os.Args[2:]) }
+	}
 	if err := run(); errors.Is(err, errRestart) {
 		slog.Warn("exiting for restart after restore", "code", exitRestart)
 		os.Exit(exitRestart)
@@ -148,6 +154,9 @@ func run() error {
 		Mirror: env("GOBILL_BACKUP_MIRROR", "")}
 	go job.Run(ctx, "backup", time.Minute, backup.Run)
 	app.BackupDir, app.BackupMirror = backup.Dir, backup.Mirror
+	updates := &job.UpdateCheck{Q: db.New(conn)}
+	go job.Run(ctx, "update_check", time.Minute, updates.Run)
+	app.UpdateInfo = updates.Latest
 	restartCh := make(chan struct{}, 1)
 	app.Restart = func() {
 		select {

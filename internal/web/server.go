@@ -54,6 +54,8 @@ type Server struct {
 
 	// ClockWarning, if set, returns a non-empty reason while the clock is untrusted.
 	ClockWarning func() string
+	// UpdateInfo returns the newest known release tag and its page, see job.UpdateCheck.
+	UpdateInfo func() (tag, link string)
 	// SecretKey encrypts router passwords and customer secrets (see package secret).
 	SecretKey       []byte
 	SettingsChanged func(ctx context.Context) // called after settings are saved
@@ -106,6 +108,8 @@ type Page struct {
 	Dir           string            // "rtl" or "ltr"
 	Lang          string
 	Version       string
+	UpdateTag     string // set by render for SuperAdmin when a newer release is known
+	UpdateURL     string
 	Data          any
 }
 

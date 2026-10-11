@@ -137,6 +137,8 @@ function gbShell() {
         </div>
       </form>
       <div class="ms-auto flex items-center gap-2">
+        {{if .UpdateTag}}<a class="badge badge-ok" href="{{.UpdateURL}}" target="_blank" rel="noopener">{{.UpdateTag}} {{T "available"}}</a>
+        <a class="link text-sm" href="/admin/docs/upgrade">{{T "Upgrade guide"}}</a>{{end}}
         <div class="relative" x-data="gbThemeCtl()" @click.outside="o=false" @keydown.escape="o=false;$refs.btn.focus()">
           <button type="button" class="btn" x-ref="btn" @click="o=!o;if(o)$nextTick(function(){$refs.first.focus()})" :aria-expanded="o" aria-haspopup="dialog" aria-controls="theme-pop" aria-label="{{T "Theme"}}">{{icon "palette"}}<span class="hidden sm:inline">{{T "Theme"}}</span></button>
           <div x-show="o" x-cloak class="fixed inset-0 z-40 bg-black/40 sm:hidden" @click="o=false" aria-hidden="true"></div>

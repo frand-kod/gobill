@@ -324,6 +324,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			text("trusted_proxies", "Trusted Proxies", v, e).hint("Comma-separated IPs or CIDRs of your reverse proxies, e.g. 172.16.0.0/16"),
 			sel("router_check", "Router Check", settingsYesNo...).hint("Pings enabled routers every 5 minutes and alerts when one goes down"),
 			sel("check_customer_online", "Check Customer Online", option{"no", "No"}, option{"yes", "Yes"}).hint("Shows on the customer page whether the customer is connected"),
+			sel("update_check", "Check for updates", settingsYesNo...).hint("Once a day, asks GitHub for a newer gobill release. SuperAdmin sees a badge when one exists"),
 		}, "System", "")...)
 		out = append(out, section([]field{
 			sel("disable_voucher", "Disable Voucher", settingsYesNo...),

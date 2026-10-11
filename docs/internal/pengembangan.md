@@ -62,7 +62,7 @@ Versi mengikuti SemVer; selama 0.x, perubahan yang memutus kompatibilitas bisa m
     git tag -a v0.1.1 -m "v0.1.1"
     git push --tags
 
-CI (`.github/workflows/ci.yml`) menjalankan cek `app.css`, `go vet`, dan `go test`, lalu untuk tag `v*` membangun binary `linux` amd64, arm64, dan armv7 dengan `sha256sums.txt` dan menerbitkannya di [Releases](https://github.com/frand-kod/gobill/releases). Build lokal memasang `git describe` ke `--version`.
+CI (`.github/workflows/ci.yml`) menjalankan cek `app.css`, `go vet`, dan `go test`, lalu untuk tag `v*` membangun binary `linux` amd64, arm64, dan armv7 dengan `SHA256SUMS` (dan salinan `sha256sums.txt`) dan menerbitkannya di [Releases](https://github.com/frand-kod/gobill/releases). Build lokal memasang `git describe` ke `--version`.
 
 ## Konvensi kode
 

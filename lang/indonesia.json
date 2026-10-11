@@ -2173,5 +2173,7 @@
     "MA: seen": "MA: sudah terlihat",
     "MA: not seen yet": "MA: belum terlihat",
     "Bad secret": "Secret salah",
-    "Secret in gobill NAS does not match /radius on the router": "Secret di gobill NAS tidak sama dengan /radius di router"
+    "Secret in gobill NAS does not match /radius on the router": "Secret di gobill NAS tidak sama dengan /radius di router",
+    "available": "tersedia",
+    "Upgrade guide": "Panduan upgrade"
 }

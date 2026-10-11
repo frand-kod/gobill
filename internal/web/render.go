@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"fmt"
 	gobill "github.com/frand-kod/gobill"
+	"github.com/frand-kod/gobill/internal/update"
 	"path"
 	"strings"
 )
@@ -177,6 +178,11 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, name
 	p.Lang = s.language()
 	p.Version = s.Version
 	p.Brand = s.brand(r.Context())
+	if p.Admin != nil && p.Admin.Role == "SuperAdmin" && s.UpdateInfo != nil {
+		if tag, link := s.UpdateInfo(); update.Newer(tag, s.Version) {
+			p.UpdateTag, p.UpdateURL = tag, link
+		}
+	}
 	p.Dir = "ltr"
 	if p.Lang == "arabic" {
 		p.Dir = "rtl"

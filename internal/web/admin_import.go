@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/importer"
 )
 
@@ -162,22 +163,7 @@ func (s *Server) runImport(ctx context.Context, files map[string]string, dry boo
 // importBackup writes a VACUUM INTO copy of the database to BackupDir, named with label (pre-import or pre-restore), and returns its file name.
 // The name does not match the daily backup pattern, so the daily rotation never deletes it.
 func (s *Server) importBackup(ctx context.Context, label string) (string, error) {
-	if err := os.MkdirAll(s.BackupDir, 0o700); err != nil {
-		return "", err
-	}
-	name := "gobill-" + time.Now().Format("20060102-150405") + "-" + label + ".db"
-	final := filepath.Join(s.BackupDir, name)
-	tmp := final + ".tmp"
-	os.Remove(tmp)
-	if _, err := s.conn.ExecContext(ctx, "VACUUM INTO ?", tmp); err != nil {
-		os.Remove(tmp)
-		return "", err
-	}
-	if err := os.Rename(tmp, final); err != nil {
-		os.Remove(tmp)
-		return "", err
-	}
-	return name, nil
+	return db.Snapshot(ctx, s.conn, s.BackupDir, label)
 }
 
 // extendDeadlines lifts the server's 15 s read and 30 s write timeouts for these routes: a large
