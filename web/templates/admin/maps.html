@@ -1,8 +1,7 @@
 {{define "content"}}
 <div class="page-head">
-  <h1 class="page-title">{{TT .Title}}</h1>
+  <h1 class="page-title">{{TT .Title}}{{template "callout" .Intro}}</h1>
 </div>
-{{template "callout" .Intro}}
 <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
 <div class="card overflow-hidden">
   <div id="map" class="h-[70vh] w-full" data-src="{{.Data}}" role="application" aria-label="{{TT .Title}}"></div>

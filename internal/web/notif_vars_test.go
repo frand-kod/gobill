@@ -11,15 +11,19 @@ import (
 	"github.com/frand-kod/gobill/internal/notify"
 )
 
-// Each message template lists its variables as chips, and has a reset button when it has a built-in text.
+// Each message template lists its variables once (a button per name in the list), and has a reset button when it has a built-in text.
 func TestNotifTemplatesShowVariablesAndReset(t *testing.T) {
 	_, h, _ := settingsSetup(t)
 	c := login(t, h, "alice")
 	body := getBody(t, h, c, "/admin/settings/notifications")
 	for _, v := range notify.Vars["expired"] {
-		if !strings.Contains(body, `data-var-insert="[[`+v.Name+`]]"`) {
-			t.Errorf("expired: chip for [[%s]] missing", v.Name)
+		want := `<dt><button type="button" class=`
+		if !strings.Contains(body, want) || !strings.Contains(body, `data-var-insert="[[`+v.Name+`]]" aria-label="Insert [[`+v.Name+`]]">[[`+v.Name+`]]</button></dt>`) {
+			t.Errorf("expired: list button for [[%s]] missing", v.Name)
 		}
+	}
+	if strings.Contains(body, "rounded-full border border-line bg-surface-2") {
+		t.Error("the variable chip row is still rendered next to the list")
 	}
 	if !strings.Contains(body, `formaction="/admin/settings/notifications/reset/expired"`) {
 		t.Error("no reset button for the expired message")

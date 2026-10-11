@@ -2,7 +2,7 @@
 {{define "content"}}
 {{with .Data}}
 <div class="page-head">
-  <h1 class="page-title">{{if .Guide}}{{.Guide.Title}}{{else}}{{T "Guide"}}{{end}}</h1>
+  <h1 class="page-title">{{if .Guide}}{{.Guide.Title}}{{else}}{{T "Guide"}}{{end}}{{template "callout" $.Intro}}</h1>
   {{if .Guide}}<a class="btn btn-ghost" href="/admin/docs?lang={{.Lang}}">{{T "All guides"}}</a>{{end}}
   {{with $.Setup}}{{if .Finished}}<a class="btn btn-ghost" href="/admin/setup">{{T "Quick setup"}}</a>{{end}}{{end}}
 </div>
@@ -20,7 +20,6 @@
   });
   </script>
 </div>
-{{template "callout" $.Intro}}
 {{if .Guide}}
 <div class="lg:grid lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-8">
   {{with .Guide.TOC}}

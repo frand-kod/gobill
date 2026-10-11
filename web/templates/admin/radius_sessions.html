@@ -2,10 +2,9 @@
 {{with .Data}}
 <div id="live" x-data="liveSessions()" data-state="{{.State}}" data-url="/admin/radius/sessions.json" data-idle="{{T "Refreshes every 10 seconds"}}" data-updated="{{T "Updated %s"}}" data-failed="{{T "Connection lost, retrying"}}" data-empty="{{T "No data"}}" data-disconnect="{{T "Disconnect"}}">
 <div class="page-head">
-  <h1 class="page-title">{{T "Online Sessions"}}</h1>
+  <h1 class="page-title">{{T "Online Sessions"}}{{template "callout" $.Intro}}</h1>
   <p class="text-xs text-ink-2" x-text="status">{{T "Refreshes every 10 seconds"}}</p>
 </div>
-{{template "callout" $.Intro}}
 <div class="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
   <div class="stat">
     <div><p class="stat-label">{{T "Online"}} / {{T "Active"}}</p><p class="stat-num"><span x-text="tiles.online">{{.Tiles.Online}}</span> / <span x-text="tiles.active_subs">{{.Tiles.ActiveSubs}}</span></p></div>

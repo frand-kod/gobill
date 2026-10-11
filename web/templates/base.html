@@ -1,5 +1,5 @@
 {{define "callout"}}{{if .Title}}<details class="intro-help relative" data-intro>
-  <summary class="btn btn-sm px-2" aria-controls="intro-pop" aria-label="{{T "Show this note"}}" title="{{T "Show this note"}}">{{icon "circle-help"}}</summary>
+  <summary aria-controls="intro-pop" aria-label="{{T "Show this note"}}" title="{{T "Show this note"}}">{{icon "circle-help"}}</summary>
   <aside id="intro-pop" class="intro-pop" role="dialog" aria-labelledby="intro-title">
     <div class="flex items-start gap-2"><p id="intro-title" class="callout-title flex-1">{{.Title}}</p><button type="button" class="btn btn-sm shrink-0 border-transparent bg-transparent px-2 hidden" data-intro-close aria-label="{{T "Close"}}">{{icon "x"}}</button></div>
     <p>{{.Text}}</p>
@@ -166,12 +166,7 @@ document.querySelectorAll('[data-pw]').forEach(function (b) {
     arm();
   });
   document.querySelectorAll('[data-intro]').forEach(function (d) {
-    var s = d.querySelector('summary'), x = d.querySelector('[data-intro-close]'), head = document.querySelector('.page-head');
-    // the callout is rendered under the page head; move its "?" into the head's action row
-    if (head && d.previousElementSibling === head) {
-      var acts = head.querySelector(':scope > .flex');
-      if (acts) acts.appendChild(d);
-    }
+    var s = d.querySelector('summary'), x = d.querySelector('[data-intro-close]');
     x.classList.remove('hidden');
     s.setAttribute('aria-expanded', 'false');
     function close(back) { d.open = false; if (back) s.focus(); }
