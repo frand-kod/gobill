@@ -86,3 +86,31 @@ func TestFooterNoGuideNoDoubleV(t *testing.T) {
 		}
 	}
 }
+
+// The sidebar keeps its place across full page loads: every group has an id, the current page's group is marked,
+// the restore script is inline, and app.css carries the cross-document view transition.
+func TestAdminSidebarKeepsPlace(t *testing.T) {
+	s, _ := newTestApp(t)
+	h := s.Handler()
+	c := login(t, h, "alice")
+	body := do(h, "GET", "/admin/reports", nil, c).Body.String()
+	for _, id := range []string{"reports", "plans", "network", "maps", "admin"} {
+		if !strings.Contains(body, `data-gb-group="`+id+`"`) {
+			t.Errorf("sidebar group %q has no id", id)
+		}
+	}
+	if !strings.Contains(body, `data-gb-group="reports" data-gb-active`) {
+		t.Error("Reports group not marked active on /admin/reports")
+	}
+	for _, want := range []string{`id="gb-sidebar"`, `id="gb-topbar"`, `gb-nav-scroll`, `gb-nav-open`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("admin page missing %s", want)
+		}
+	}
+	css := do(h, "GET", "/static/app.css", nil, nil).Body.String()
+	for _, want := range []string{"@view-transition{navigation:auto}", "#gb-sidebar{view-transition-name:sidebar}", "prefers-reduced-motion:reduce"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("app.css missing %q", want)
+		}
+	}
+}

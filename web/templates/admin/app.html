@@ -20,6 +20,22 @@ function gbShell() {
     }
   };
 }
+// Sidebar groups: the group holding the current page is always open; the others keep what the user last chose (gb-nav-open: group id -> bool).
+function gbNavOpen() {
+  try { return JSON.parse(localStorage.getItem('gb-nav-open')) || {}; } catch (e) { return {}; }
+}
+function gbNav(id) {
+  return {
+    o: false,
+    init: function () { this.o = this.$el.hasAttribute('data-gb-active') || gbNavOpen()[id] === true; },
+    toggle: function () {
+      this.o = !this.o;
+      var m = gbNavOpen();
+      m[id] = this.o;
+      try { localStorage.setItem('gb-nav-open', JSON.stringify(m)); } catch (e) {}
+    }
+  };
+}
 </script>
 <div x-data="gbShell()" class="min-h-screen lg:flex">
   {{with .Setup}}{{if .Modal}}
@@ -39,7 +55,7 @@ function gbShell() {
   {{end}}{{end}}
   {{$act := navActive .Path "/admin" "/admin/docs" "/admin/customers" "/admin/recharge" "/admin/vouchers/redeem" "/admin/deposit" "/admin/vouchers" "/admin/subscriptions" "/admin/radius" "/admin/message" "/admin/reports" "/admin/reports/period" "/admin/transactions" "/admin/plans" "/admin/bandwidth" "/admin/pool" "/admin/coupons" "/admin/routers" "/admin/nas" "/admin/maps/customers" "/admin/maps/routers" "/admin/maps/odp" "/admin/odp" "/admin/payment-gateway" "/admin/logs" "/admin/users" "/admin/pages" "/admin/fields" "/admin/settings"}}
   <div x-show="drawer" x-cloak @click="drawer=false" class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
-  <aside :class="[drawer ? '' : 'max-lg:hidden', rail ? 'lg:w-16 sidebar-rail' : 'lg:w-64']" @pointerover="tip($event)" @focusin="tip($event)" class="sb-scroll flex w-64 shrink-0 flex-col overflow-y-auto bg-surface text-ink max-lg:fixed max-lg:inset-y-0 max-lg:start-0 max-lg:z-40 lg:sticky lg:top-0 lg:z-30 lg:h-screen">
+  <aside id="gb-sidebar" :class="[drawer ? '' : 'max-lg:hidden', rail ? 'lg:w-16 sidebar-rail' : 'lg:w-64']" @pointerover="tip($event)" @focusin="tip($event)" class="sb-scroll flex w-64 shrink-0 flex-col overflow-y-auto bg-surface text-ink max-lg:fixed max-lg:inset-y-0 max-lg:start-0 max-lg:z-40 lg:sticky lg:top-0 lg:z-30 lg:h-screen">
     <div class="fiber-stripe" aria-hidden="true"></div>
     <div class="sb-head flex items-center gap-2">
       <a href="/admin" class="brand-link min-w-0 items-center gap-2 px-5 py-4 text-lg font-semibold text-ink">{{template "logoA" .Brand}}</a>
@@ -57,9 +73,9 @@ function gbShell() {
       {{if $mgr}}<a class="nav-item" href="/admin/radius/sessions" data-tip="{{T "Online Sessions"}}"{{if eq $act "/admin/radius"}} aria-current="page"{{end}}>{{icon "activity"}}<span>{{T "Online Sessions"}}</span></a>{{end}}
       {{if $staff}}<a class="nav-item" href="/admin/message/send" data-tip="{{T "Send Message"}}"{{if eq $act "/admin/message"}} aria-current="page"{{end}}>{{icon "pencil"}}<span>{{T "Send Message"}}</span></a>{{end}}
 
-      <div x-data="{o:true}">
-        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Reports"}}</span>{{icon "chevron-down"}}</button>
-        <div x-show="o" class="space-y-1">
+      <div data-gb-group="reports"{{if or (hasPrefix .Path "/admin/reports") (hasPrefix .Path "/admin/transactions") (hasPrefix .Path "/admin/payment-gateway")}} data-gb-active{{end}} x-data="gbNav('reports')">
+        <button type="button" class="nav-group" @click="toggle()" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Reports"}}</span>{{icon "chevron-down"}}</button>
+        <div data-gb-body x-show="o" class="space-y-1">
           <a class="nav-item" href="/admin/reports" data-tip="{{T "Daily Report"}}"{{if eq $act "/admin/reports"}} aria-current="page"{{end}}>{{icon "chart-column"}}<span>{{T "Daily Report"}}</span></a>
           <a class="nav-item" href="/admin/reports/period" data-tip="{{T "Period Report"}}"{{if eq $act "/admin/reports/period"}} aria-current="page"{{end}}>{{icon "calendar-days"}}<span>{{T "Period Report"}}</span></a>
           <a class="nav-item" href="/admin/transactions" data-tip="{{T "Transactions"}}"{{if eq $act "/admin/transactions"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Transactions"}}</span></a>
@@ -69,9 +85,9 @@ function gbShell() {
 
       {{/* technical groups start closed, and open by themselves when the current page is inside */}}
       {{if or $mgr (eq .Admin.Role "Sales")}}
-      <div x-data="{o:{{if or (hasPrefix .Path "/admin/plans") (hasPrefix .Path "/admin/bandwidth") (hasPrefix .Path "/admin/pool") (hasPrefix .Path "/admin/coupons")}}true{{else}}false{{end}}}">
-        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Plan setup"}}</span>{{icon "chevron-down"}}</button>
-        <div x-show="o" x-cloak class="space-y-1">
+      <div data-gb-group="plans"{{if or (hasPrefix .Path "/admin/plans") (hasPrefix .Path "/admin/bandwidth") (hasPrefix .Path "/admin/pool") (hasPrefix .Path "/admin/coupons")}} data-gb-active{{end}} x-data="gbNav('plans')">
+        <button type="button" class="nav-group" @click="toggle()" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Plan setup"}}</span>{{icon "chevron-down"}}</button>
+        <div data-gb-body x-show="o" class="space-y-1">
           {{if $mgr}}<a class="nav-item" href="/admin/plans" data-tip="{{T "Service Plan"}}"{{if eq $act "/admin/plans"}} aria-current="page"{{end}}>{{icon "package"}}<span>{{T "Service Plan"}}</span></a>
           <a class="nav-item" href="/admin/bandwidth" data-tip="{{T "Bandwidth"}}"{{if eq $act "/admin/bandwidth"}} aria-current="page"{{end}}>{{icon "gauge"}}<span>{{T "Bandwidth"}}</span></a>
           <a class="nav-item" href="/admin/pool" data-tip="{{T "Pool"}}"{{if eq $act "/admin/pool"}} aria-current="page"{{end}}>{{icon "network"}}<span>{{T "Pool"}}</span></a>{{end}}
@@ -81,18 +97,18 @@ function gbShell() {
       {{end}}
 
       {{if $mgr}}
-      <div x-data="{o:{{if or (hasPrefix .Path "/admin/routers") (hasPrefix .Path "/admin/nas")}}true{{else}}false{{end}}}">
-        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Network"}}</span>{{icon "chevron-down"}}</button>
-        <div x-show="o" x-cloak class="space-y-1">
+      <div data-gb-group="network"{{if or (hasPrefix .Path "/admin/routers") (hasPrefix .Path "/admin/nas")}} data-gb-active{{end}} x-data="gbNav('network')">
+        <button type="button" class="nav-group" @click="toggle()" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Network"}}</span>{{icon "chevron-down"}}</button>
+        <div data-gb-body x-show="o" class="space-y-1">
           <a class="nav-item" href="/admin/routers" data-tip="{{T "Routers"}}"{{if eq $act "/admin/routers"}} aria-current="page"{{end}}>{{icon "router"}}<span>{{T "Routers"}}</span></a>
           <a class="nav-item" href="/admin/nas" data-tip="{{T "NAS"}}"{{if eq $act "/admin/nas"}} aria-current="page"{{end}}>{{icon "radio-tower"}}<span>{{T "NAS"}}</span></a>
         </div>
       </div>
       {{end}}
 
-      <div x-data="{o:{{if or (hasPrefix .Path "/admin/maps") (hasPrefix .Path "/admin/odp")}}true{{else}}false{{end}}}">
-        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Maps"}}</span>{{icon "chevron-down"}}</button>
-        <div x-show="o" x-cloak class="space-y-1">
+      <div data-gb-group="maps"{{if or (hasPrefix .Path "/admin/maps") (hasPrefix .Path "/admin/odp")}} data-gb-active{{end}} x-data="gbNav('maps')">
+        <button type="button" class="nav-group" @click="toggle()" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Maps"}}</span>{{icon "chevron-down"}}</button>
+        <div data-gb-body x-show="o" class="space-y-1">
           <a class="nav-item" href="/admin/maps/customers" data-tip="{{T "Customer Map"}}"{{if eq $act "/admin/maps/customers"}} aria-current="page"{{end}}>{{icon "map"}}<span>{{T "Customer Map"}}</span></a>
           {{if $mgr}}
           <a class="nav-item" href="/admin/maps/routers" data-tip="{{T "Router Map"}}"{{if eq $act "/admin/maps/routers"}} aria-current="page"{{end}}>{{icon "router"}}<span>{{T "Router Map"}}</span></a>
@@ -103,9 +119,9 @@ function gbShell() {
       </div>
 
       {{if $mgr}}
-      <div x-data="{o:{{if or (hasPrefix .Path "/admin/logs") (hasPrefix .Path "/admin/status")}}true{{else}}false{{end}}}">
-        <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Admin"}}</span>{{icon "chevron-down"}}</button>
-        <div x-show="o" x-cloak class="space-y-1">
+      <div data-gb-group="admin"{{if or (hasPrefix .Path "/admin/logs") (hasPrefix .Path "/admin/status")}} data-gb-active{{end}} x-data="gbNav('admin')">
+        <button type="button" class="nav-group" @click="toggle()" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Admin"}}</span>{{icon "chevron-down"}}</button>
+        <div data-gb-body x-show="o" class="space-y-1">
           <a class="nav-item" href="/admin/logs" data-tip="{{T "Logs"}}"{{if eq $act "/admin/logs"}} aria-current="page"{{end}}>{{icon "scroll-text"}}<span>{{T "Logs"}}</span></a>
           <a class="nav-item" href="/admin/status" data-tip="{{T "System Status"}}"{{if eq $act "/admin/status"}} aria-current="page"{{end}}>{{icon "activity"}}<span>{{T "System Status"}}</span></a>
         </div>
@@ -127,11 +143,34 @@ function gbShell() {
         <a class="nav-item" href="/admin/docs" data-tip="{{T "Guide"}}"{{if eq $act "/admin/docs"}} aria-current="page"{{end}}>{{icon "circle-help"}}<span>{{T "Guide"}}</span></a>
       </div>
     </nav>
+    <script>
+    // Before first paint: apply the group state (same rules as gbNav) and put the sidebar back where it was on the previous page; if the current item is still out of view, bring it into view. Storage errors are ignored.
+    (function () {
+      var nav = document.getElementById('gb-nav'), bar = document.getElementById('gb-sidebar');
+      if (!nav || !bar) return;
+      var open = gbNavOpen(), y = 0;
+      try { y = +sessionStorage.getItem('gb-nav-scroll') || 0; } catch (e) {}
+      var groups = nav.querySelectorAll('[data-gb-group]');
+      for (var i = 0; i < groups.length; i++) {
+        var body = groups[i].querySelector('[data-gb-body]');
+        if (body) body.style.display = (groups[i].hasAttribute('data-gb-active') || open[groups[i].getAttribute('data-gb-group')] === true) ? '' : 'none';
+      }
+      bar.scrollTop = y;
+      var cur = nav.querySelector('.nav-item[aria-current="page"]');
+      if (cur) {
+        var r = cur.getBoundingClientRect(), b = bar.getBoundingClientRect();
+        if (r.top < b.top || r.bottom > b.bottom) cur.scrollIntoView({block: 'nearest'});
+      }
+      window.addEventListener('pagehide', function () {
+        try { sessionStorage.setItem('gb-nav-scroll', String(bar.scrollTop)); } catch (e) {}
+      });
+    })();
+    </script>
   </aside>
 
   <div class="flex min-w-0 flex-1 flex-col">
     <div class="fiber-stripe lg:hidden" aria-hidden="true"></div>
-    <header class="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-surface px-4 py-2">
+    <header id="gb-topbar" class="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-surface px-4 py-2">
       <button type="button" class="btn lg:hidden" @click="drawer=true" aria-label="Menu">{{icon "menu"}}</button>
       <script src="/static/search.js"></script>
       <form method="get" action="/admin/search" role="search" class="relative min-w-0 max-w-sm flex-1" x-data="gbPalette()" @click.outside="close()" @keydown.window="hotkey($event)">
