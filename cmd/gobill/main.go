@@ -85,6 +85,11 @@ func run() error {
 	if err := db.Migrate(conn); err != nil {
 		return err
 	}
+	changed, err := db.NormalisePhones(context.Background(), conn)
+	if err != nil {
+		return fmt.Errorf("normalise phones: %w", err)
+	}
+	slog.Info("customer phones normalised", "changed", changed)
 	if err := bootstrapAdmin(context.Background(), db.New(conn), filepath.Dir(dbPath)); err != nil {
 		return err
 	}

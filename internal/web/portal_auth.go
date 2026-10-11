@@ -171,8 +171,8 @@ func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		phone := ""
-		if len(username) < 21 {
-			phone = username
+		if len(username) < 21 && strings.Trim(username, "+0123456789 -()") == "" { // a phone number, not a voucher code
+			phone = db.CanonicalPhone(username)
 		}
 		if taken, err := s.phoneTaken(ctx, phone, 0); err != nil { // a number another account uses is not taken twice
 			s.fail(w, "voucher login", err)

@@ -43,7 +43,7 @@
       <ul class="divide-y divide-line">
         {{range .NAS}}<li class="flex flex-wrap items-center gap-2 py-2 text-sm">
           <span class="font-medium">{{.Name}}</span><span class="text-ink-2">{{.IP}}</span>
-          <span class="ms-auto">{{if not .Seen}}<span class="text-ink-2">{{T "No packet since start"}}</span>{{else if .Warn}}<span class="badge badge-bad">{{icon "triangle-alert"}}<span class="ms-1">{{T "Last packet"}}: {{printf "diam %d menit" .Minutes}}</span></span>{{else}}<span class="badge badge-ok">{{T "Last packet"}}: {{printf "%d min ago" .Minutes}}</span>{{end}}</span>
+          <span class="ms-auto">{{if not .Seen}}<span class="text-ink-2">{{T "No packet since start"}}</span>{{else if .Warn}}<span class="badge badge-bad">{{icon "triangle-alert"}}<span class="ms-1">{{T "Last packet"}}: {{printf "idle %d min" .Minutes}}</span></span>{{else}}<span class="badge badge-ok">{{T "Last packet"}}: {{printf "%d min ago" .Minutes}}</span>{{end}}</span>
           {{if .BadSecret}}<span class="badge badge-bad" title="{{T "Secret in gobill NAS does not match /radius on the router"}}">{{icon "triangle-alert"}}<span class="ms-1">{{T "Bad secret"}}: {{.BadCount}}</span></span>{{end}}
         </li>{{end}}
       </ul>

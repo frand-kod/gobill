@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/secret"
 )
 
@@ -384,6 +385,7 @@ func (m *imp) customer() error {
 		if phone == "0" {
 			phone = ""
 		}
+		phone = db.CanonicalPhone(phone)
 		created, last := time.Now().Unix(), any(nil)
 		if v, err := ParseWhen(r[15], "", m.o.Loc); err == nil {
 			created = v

@@ -113,7 +113,7 @@ func TestPortalContactOTP(t *testing.T) {
 	if w := do(e.h, "POST", "/portal/contact/phone/verify", url.Values{"otp": {code}}, c); w.Code != http.StatusSeeOther {
 		t.Fatalf("verify: %d", w.Code)
 	}
-	if cu, _ := e.q.GetCustomer(t.Context(), e.cust.ID); cu.Phone != "081111111111" {
+	if cu, _ := e.q.GetCustomer(t.Context(), e.cust.ID); cu.Phone != "6281111111111" {
 		t.Fatalf("phone %s", cu.Phone)
 	}
 	// 5 wrong tries drop the flow
@@ -123,7 +123,7 @@ func TestPortalContactOTP(t *testing.T) {
 		do(e.h, "POST", "/portal/contact/phone/verify", url.Values{"otp": {"000000"}}, c)
 	}
 	do(e.h, "POST", "/portal/contact/phone/verify", url.Values{"otp": {good}}, c)
-	if cu, _ := e.q.GetCustomer(t.Context(), e.cust.ID); cu.Phone != "081111111111" {
+	if cu, _ := e.q.GetCustomer(t.Context(), e.cust.ID); cu.Phone != "6281111111111" {
 		t.Fatalf("phone changed after lockout: %s", cu.Phone)
 	}
 }

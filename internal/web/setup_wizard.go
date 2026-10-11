@@ -1,6 +1,6 @@
 package web
 
-// Quick Setup ("Setup cepat"): a SuperAdmin wizard with one page per install step.
+// Quick Setup ("Quick setup"): a SuperAdmin wizard with one page per install step.
 // The wizard owns no data. Each save replays the existing handler of that feature (NAS, router,
 // bandwidth, plan) or writes the settings keys the Settings pages write, so validation and side
 // effects stay in one place. Progress is read back from the rows: a step is done when its data exists.
@@ -61,12 +61,12 @@ var wizSteps = []wizStep{
 		"Only the code text is stored, not the image.", "integrations", false},
 	{"tripay", "Tripay (optional)", "Tripay is a payment gateway that creates a payment for each invoice and confirms it automatically. Skip it if QRIS is enough.",
 		"The keys come from your Tripay dashboard. Sandbox is for testing.", "integrations", true},
-	{"isolir", "Isolir (optional)", "Isolir sends customers whose plan has expired to a page that asks them to pay, instead of cutting them off. It needs three commands on the MikroTik.",
+	{"isolir", "Isolation (optional)", "Isolation sends customers whose plan has expired to a page that asks them to pay, instead of cutting them off. It needs three commands on the MikroTik.",
 		"Turn it on, then paste the commands into the router. Details are in the guide.", "isolation", true},
 	{"customer", "First customer or voucher", "Make one test voucher for a plan. You use it in the last step to check that a customer can log in. Real customers can be added later.",
 		"A voucher is a prepaid code the customer types on the hotspot login page.", "configuration", false},
 	{"finish", "Finish", "Last check: log in on the hotspot with the test voucher. When the router reports the session, the indicator below turns green.",
-		"Finishing hides Setup cepat from the menu. Every setting stays editable on its normal page.", "README", false},
+		"Finishing hides Quick setup from the menu. Every setting stays editable on its normal page.", "README", false},
 }
 
 // wizSpeeds are the speed presets in Mbps; wizPlans the plan templates of the Plans step.
@@ -276,7 +276,7 @@ func (s *Server) setupShow(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "setup "+st.Slug, err)
 		return
 	}
-	s.render(w, r, http.StatusOK, "setup", Page{Title: "Setup cepat", Data: view})
+	s.render(w, r, http.StatusOK, "setup", Page{Title: "Quick setup", Data: view})
 }
 
 // setupStart answers the first-run dialog. to is "new" (Mulai baru), "import" or "" (Mulai setup cepat).
@@ -309,7 +309,7 @@ func (s *Server) setupDismiss(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "setup dismiss", err)
 		return
 	}
-	s.flashTo(w, r, "/admin", "Setup cepat hidden. Open it again from the Guide if you need it.")
+	s.flashTo(w, r, "/admin", "Quick setup hidden. Open it again from the Guide if you need it.")
 }
 
 // setupFinish is "Ke Dashboard" on the last page.
@@ -318,7 +318,7 @@ func (s *Server) setupFinish(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "setup finish", err)
 		return
 	}
-	s.flashTo(w, r, "/admin", "Setup cepat finished. Every setting stays editable on its page.")
+	s.flashTo(w, r, "/admin", "Quick setup finished. Every setting stays editable on its page.")
 }
 
 // setupSkip is Lewati langkah: go on without saving anything.
@@ -392,7 +392,7 @@ func (s *Server) setupAct(kind int) http.HandlerFunc {
 			s.fail(w, "setup "+st.Slug, err)
 			return
 		}
-		status, page := http.StatusOK, Page{Title: "Setup cepat", Data: view}
+		status, page := http.StatusOK, Page{Title: "Quick setup", Data: view}
 		if len(res.e) > 0 {
 			status = http.StatusUnprocessableEntity
 			page.Error = s.catalog.T(s.language(), "Please check the highlighted fields")

@@ -18,7 +18,7 @@ var (
 	ErrNotExpired       = errors.New("Plan is not expired")
 	ErrPlanNotFound     = errors.New("Plan Not Found or Not Active")
 	ErrInactive         = errors.New("account is not active")
-	ErrAdminOnlyPlan    = errors.New("Paket ini hanya bisa diberikan admin")
+	ErrAdminOnlyPlan    = errors.New("This plan can only be given by the admin")
 	ErrIsolirPlan       = errors.New("The Isolir plan is managed in Settings > Isolir")
 )
 

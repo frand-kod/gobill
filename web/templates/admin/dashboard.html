@@ -12,7 +12,7 @@
   <a class="btn min-w-0 px-2" href="/admin/deposit">{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>
 </nav>
 {{end}}
-{{with $.Setup}}{{if .Show}}<p class="mb-4 text-sm"><a class="link" href="/admin/setup">{{T "Setup cepat"}}</a></p>{{end}}{{end}}
+{{with $.Setup}}{{if .Show}}<p class="mb-4 text-sm"><a class="link" href="/admin/setup">{{T "Quick setup"}}</a></p>{{end}}{{end}}
 <div class="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
   <a href="/admin/transactions" class="stat">
     <div><p class="stat-label">{{T "Income Today"}}</p><p class="stat-num" id="tile-today">{{money .IncomeToday}}</p></div>

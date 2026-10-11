@@ -40,8 +40,8 @@ var settingsTabs = []struct {
 	{"payment", "Payments", true},
 	{"integrations", "Integrations", true},
 	{"notifications", "Notifications", false},
-	{"isolir", "Isolir", true},
-	{"promo", "Promosi", true},
+	{"isolir", "Isolation", true},
+	{"promo", "Promotions", true},
 	{"appearance", "Appearance", false},
 	{"system", "System & Security", false},
 }
@@ -130,9 +130,9 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		}, "Login page appearance", "")
 		// the overrides fall back to the main name and logo when empty
 		override := section([]field{
-			text("login_page_head", "Judul halaman login (kosong = nama usaha)", v, e).hint("Leave empty to use the company name."),
-			upl("login_page_logo", "Logo halaman login (kosong = logo utama)").hint("Leave empty to use the company logo."),
-			upl("login_page_logo_dark", "Logo halaman login (mode gelap)").hint("Only used together with the login page logo above."),
+			text("login_page_head", "Login page title (empty = business name)", v, e).hint("Leave empty to use the company name."),
+			upl("login_page_logo", "Login page logo (empty = main logo)").hint("Leave empty to use the company logo."),
+			upl("login_page_logo_dark", "Login page logo (dark mode)").hint("Only used together with the login page logo above."),
 		}, "Login page title & logo", "")
 		for i := range override {
 			override[i].Fold = true // inside the collapsed "Advanced options"
@@ -175,8 +175,8 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			notif("notif_balance_send", "Send Balance"),
 			notif("notif_balance_received", "Received Balance"),
 		}, "Message templates", "")...)
-		creds := sel("send_credentials_on_create", "Kirim username & password ke WA saat admin membuat akun", settingsYesNo...).
-			hint("Memudahkan pelanggan yang tidak membuka portal. Password dikirim dalam teks biasa ke nomor pelanggan itu sendiri.")
+		creds := sel("send_credentials_on_create", "Send username & password by WhatsApp when the admin creates an account", settingsYesNo...).
+			hint("Helps customers who do not open the portal. The password is sent as plain text to the customer's own number.")
 		if v["send_credentials_on_create"] == "" { // unset means no, not the first option
 			creds.Value = "no"
 		}
@@ -215,7 +215,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		}, "SMS & WhatsApp", "")...)
 		out = append(out, section([]field{
 			{Name: "gowa_info", Label: "WhatsApp via GOWA (go-whatsapp-web-multidevice):", Type: "note", Value: "https://github.com/aldinokemal/go-whatsapp-web-multidevice", Btn: "github.com/aldinokemal/go-whatsapp-web-multidevice"},
-			{Name: "other_wa_info", Label: "Gateway WhatsApp lain (Fonnte, Wablas, WAHA, …): segera hadir. Untuk sementara pakai URL gateway pesan di atas jika gateway-nya mendukung GET dengan [number] dan [text].", Type: "note"},
+			{Name: "other_wa_info", Label: "Other WhatsApp gateways (Fonnte, Wablas, WAHA, …): coming soon. For now, use the message gateway URL above if the gateway supports GET with [number] and [text].", Type: "note"},
 			text("alt_wga_server_url", "GOWA URL", v, e).hint("Address of the GOWA server, e.g. http://127.0.0.1:3030. When filled, WhatsApp is sent straight to this server and the message gateway URL above is ignored"),
 			text("alt_wga_device_id", "WA device ID", v, e).hint("Optional. Sent as the X-Device-Id header. Leave empty if the server has only one device"),
 			text("alt_wga_username", "GOWA username", v, e).hint("Basic auth username of GOWA, if it has one"),
@@ -273,38 +273,38 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		return append(out, section([]field{qris}, "QRIS", "")...)
 	case "isolir":
 		out := section([]field{
-			sel("isolir_enabled", "Isolir Aktif", settingsYesNo...).hint("Pelanggan yang paketnya habis masuk paket Isolir. Perlu setup router, lihat bagian Setup router MikroTik di bawah"),
-			{Name: "isolir_plan_name", Label: "Nama paket", Type: "pre", Value: v["isolir_plan_name"],
-				Hint: "Paket sistem: tidak dijual di portal dan tidak bisa diberikan secara manual. Dibuat saat Isolir diaktifkan pertama kali"},
-			text("isolir_rate_down", "Kecepatan download", v, e).hint("Contoh 64k atau 2M. Disimpan ke profil bandwidth paket Isolir"),
-			text("isolir_rate_up", "Kecepatan upload", v, e).hint("Contoh 64k atau 2M"),
-			text("isolir_days", "Lama Isolir (hari)", v, e).as("number").hint("Hari setelah paket habis, lalu benar-benar nonaktif. 0 = isolir sampai bayar"),
-			{Name: "isolir_reset_paket", Label: "Kembalikan ke default", Type: "formbtn", Value: "/admin/settings/isolir/reset/paket", Btn: "Kembalikan ke default",
-				Hint: "Isolir nonaktif dan 30 hari. Kecepatan tidak diubah"},
+			sel("isolir_enabled", "Isolation enabled", settingsYesNo...).hint("Customers whose plan has expired are moved to the Isolation plan. The router needs setup, see the MikroTik router setup section below"),
+			{Name: "isolir_plan_name", Label: "Plan name", Type: "pre", Value: v["isolir_plan_name"],
+				Hint: "System plan: not sold on the portal and cannot be given manually. Created the first time Isolation is enabled"},
+			text("isolir_rate_down", "Download speed", v, e).hint("Example 64k or 2M. Saved to the bandwidth profile of the Isolation plan"),
+			text("isolir_rate_up", "Upload speed", v, e).hint("Example 64k or 2M"),
+			text("isolir_days", "Isolation duration (days)", v, e).as("number").hint("Days after the plan expires, then fully disabled. 0 = isolated until paid"),
+			{Name: "isolir_reset_paket", Label: "Restore default", Type: "formbtn", Value: "/admin/settings/isolir/reset/paket", Btn: "Restore default",
+				Hint: "Isolation off and 30 days. Speed is not changed"},
 		}, "Package", "")
 		out = append(out, section([]field{
-			text("isolir_title", "Judul", v, e),
-			area("isolir_message", "Pesan").hint("Kosong tidak apa-apa; pesan default dipakai bila belum pernah diisi"),
-			text("isolir_wa", "Nomor WhatsApp admin", v, e).hint("Kosong = nomor telepon usaha (Pengaturan Umum)"),
-			sel("isolir_show_qris", "Tampilkan QRIS", settingsYesNo...).hint("Butuh QRIS statis di Pembayaran; jumlah dikunci ke harga paket terakhir"),
-			sel("isolir_show_voucher", "Tampilkan form voucher", settingsYesNo...),
-			text("isolir_address_list", "Nama address-list MikroTik", v, e).hint("Huruf, angka, titik, strip atau garis bawah. Dikirim RADIUS sebagai Mikrotik-Address-List"),
-			{Name: "isolir_reset_halaman", Label: "Kembalikan ke default", Type: "formbtn", Value: "/admin/settings/isolir/reset/halaman", Btn: "Kembalikan ke default",
-				Hint: "Judul, pesan, QRIS, voucher dan address-list kembali ke bawaan"},
+			text("isolir_title", "Title", v, e),
+			area("isolir_message", "Message").hint("Empty is fine; the default message is used when it was never filled in"),
+			text("isolir_wa", "Admin WhatsApp number", v, e).hint("Empty = business phone number (General settings)"),
+			sel("isolir_show_qris", "Show QRIS", settingsYesNo...).hint("Needs a static QRIS in Payments; the amount is locked to the last plan price"),
+			sel("isolir_show_voucher", "Show voucher form", settingsYesNo...),
+			text("isolir_address_list", "MikroTik address-list name", v, e).hint("Letters, digits, dots, dashes or underscores. Sent by RADIUS as Mikrotik-Address-List"),
+			{Name: "isolir_reset_halaman", Label: "Restore default", Type: "formbtn", Value: "/admin/settings/isolir/reset/halaman", Btn: "Restore default",
+				Hint: "Title, message, QRIS, voucher and address-list go back to default"},
 		}, "Isolir page", "")...)
 		out = append(out, section([]field{
-			sel("isolir_mode", "Mode tampilan", option{"default", "Bawaan"}, option{"custom", "HTML sendiri"}).hint("HTML sendiri dipakai jika isi HTML tidak kosong"),
+			sel("isolir_mode", "Display mode", option{"default", "Default"}, option{"custom", "Custom HTML"}).hint("Custom HTML is used when the HTML is not empty"),
 			func() field {
-				f := area("isolir_html", "HTML sendiri")
-				f.Hint = "HTML lengkap. Nilai di-escape HTML, kecuali voucher_form dan promos. Variabel tidak dikenal atau kosong menjadi kosong. Ditampilkan dalam sandbox tanpa akses cookie gobill"
+				f := area("isolir_html", "Custom HTML")
+				f.Hint = "Full HTML. Values are HTML-escaped, except voucher_form and promos. Unknown or empty variables become empty. Shown in a sandbox without gobill cookie access"
 				f.Vars = isolirVarList
 				return f
 			}(),
-			{Name: "isolir_preview", Label: "Pratinjau halaman isolir (data contoh):", Type: "note", Value: "/admin/settings/isolir/preview", Btn: "Buka pratinjau"},
-			{Name: "isolir_reset_html", Label: "Kembali ke bawaan", Type: "formbtn", Value: "/admin/settings/isolir/reset/html", Btn: "Kembali ke bawaan",
-				Hint: "Mengosongkan HTML sendiri"},
-			{Name: "isolir_reset_mode", Label: "Kembalikan ke default", Type: "formbtn", Value: "/admin/settings/isolir/reset/mode", Btn: "Kembalikan ke default",
-				Hint: "Mode bawaan (HTML sendiri tidak dihapus)"},
+			{Name: "isolir_preview", Label: "Isolation page preview (sample data):", Type: "note", Value: "/admin/settings/isolir/preview", Btn: "Open preview"},
+			{Name: "isolir_reset_html", Label: "Back to default", Type: "formbtn", Value: "/admin/settings/isolir/reset/html", Btn: "Back to default",
+				Hint: "Clears the custom HTML"},
+			{Name: "isolir_reset_mode", Label: "Restore default", Type: "formbtn", Value: "/admin/settings/isolir/reset/mode", Btn: "Restore default",
+				Hint: "Default mode (custom HTML is not deleted)"},
 		}, "Display mode", "")...)
 		return out
 	case "billing":
@@ -410,17 +410,17 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 		}
 	}
 	if x, ok := v["isolir_mode"]; ok && x != "default" && x != "custom" {
-		e["isolir_mode"] = "Pilih salah satu"
+		e["isolir_mode"] = "Choose one"
 	}
 	if x, ok := v["isolir_address_list"]; ok && !regexp.MustCompile(`^[A-Za-z0-9_.-]{1,64}$`).MatchString(x) {
-		e["isolir_address_list"] = "Wajib diisi: huruf, angka, titik, strip atau garis bawah, maks 64 karakter"
+		e["isolir_address_list"] = "Required: letters, digits, dots, dashes or underscores, max 64 characters"
 	}
 	if x, ok := v["isolir_html"]; ok && len(x) > 100000 {
-		e["isolir_html"] = "Terlalu panjang (maks 100 KB)"
+		e["isolir_html"] = "Too long (max 100 KB)"
 	}
 	for _, k := range []string{"isolir_rate_down", "isolir_rate_up"} { // empty keeps the stored rate
 		if _, _, valid := parseRate(v[k]); !valid && v[k] != "" {
-			e[k] = "Tulis kecepatan seperti 64k atau 2M"
+			e[k] = "Write a speed such as 64k or 2M"
 		}
 	}
 	if x, ok := v["language"]; ok {
@@ -596,7 +596,7 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 		}
 		name, down, up := s.isolirSpeed(r.Context())
 		if name == "" {
-			name = "Belum dibuat. Dibuat saat Isolir diaktifkan"
+			name = "Not created yet. Created when Isolation is enabled"
 		}
 		v["isolir_plan_name"] = name
 		if _, ok := v["isolir_rate_down"]; !ok { // a posted rate is kept on a failed save
@@ -613,7 +613,7 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 	if tok := s.sessions.PopString(r.Context(), "metrics_token_once"); tok != "" && tab == "integrations" {
 		snippet := "scrape_configs:\n  - job_name: gobill\n    metrics_path: /metrics\n    authorization:\n      type: Bearer\n      credentials: " + tok +
 			"\n    static_configs:\n      - targets: ['" + r.Host + "']"
-		once := field{Name: "metrics_token_once", Label: "Token /metrics baru", Type: "tokenshow", Value: tok, Snippet: snippet,
+		once := field{Name: "metrics_token_once", Label: "New /metrics token", Type: "tokenshow", Value: tok, Snippet: snippet,
 			Section: "New token", Hint: "Copy it now. It is not shown again"}
 		fp.Fields = append([]field{once}, fp.Fields...)
 	}

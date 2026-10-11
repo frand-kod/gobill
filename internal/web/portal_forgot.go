@@ -21,6 +21,35 @@ func (s *Server) pForgotUserForm(w http.ResponseWriter, r *http.Request) {
 	s.prender(w, r, 200, "p_forgot_user", Page{Title: "Forgot Usernames"})
 }
 
+// usernamesFor returns the usernames registered with the email, or with the phone number in canonical
+// form, so "0812-345", "+62 812 345" and "62812345" find the same account.
+func (s *Server) usernamesFor(ctx context.Context, contact string, isMail bool) ([]string, error) {
+	var names []string
+	if isMail {
+		rows, err := s.queries.SearchCustomers(ctx, db.SearchCustomersParams{Q: contact, PageLimit: 50})
+		if err != nil {
+			return nil, err
+		}
+		for _, c := range rows {
+			if strings.EqualFold(c.Email, contact) && !contains(names, c.Username) {
+				names = append(names, c.Username)
+			}
+		}
+		return names, nil
+	}
+	want := db.CanonicalPhone(contact)
+	rows, err := s.queries.ListCustomerPhones(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range rows {
+		if want != "" && db.CanonicalPhone(c.Phone) == want && !contains(names, c.Username) {
+			names = append(names, c.Username)
+		}
+	}
+	return names, nil
+}
+
 // pForgotUser is old forgot step 6: the usernames registered with an email or phone are sent to
 // that contact. The answer is the same whether or not anything matched (no account enumeration);
 // sending runs in the background so timing does not tell either.
@@ -28,7 +57,7 @@ func (s *Server) pForgotUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	contact := strings.TrimSpace(r.PostFormValue("contact"))
 	isMail := strings.Contains(contact, "@")
-	if contact == "" || !isMail && len(normPhone(contact)) < 6 {
+	if contact == "" || !isMail && len(db.CanonicalPhone(contact)) < 6 {
 		s.prender(w, r, 200, "p_forgot_user", Page{Title: "Forgot Usernames", Error: "Invalid phone number format"})
 		return
 	}
@@ -41,20 +70,10 @@ func (s *Server) pForgotUser(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "forgot usernames", err)
 		return
 	}
-	// ponytail: lookup uses the 50 best LIKE matches, so a phone stored with other separators than
-	// the typed one may be missed; normalise phones in the DB if that shows up.
-	var names []string
-	for _, q := range []string{contact, normPhone(contact)} {
-		rows, err := s.queries.SearchCustomers(ctx, db.SearchCustomersParams{Q: q, PageLimit: 50})
-		if err != nil {
-			s.fail(w, "forgot usernames", err)
-			return
-		}
-		for _, c := range rows {
-			if (isMail && strings.EqualFold(c.Email, contact) || !isMail && c.Phone != "" && normPhone(c.Phone) == normPhone(contact)) && !contains(names, c.Username) {
-				names = append(names, c.Username)
-			}
-		}
+	names, err := s.usernamesFor(ctx, contact, isMail)
+	if err != nil {
+		s.fail(w, "forgot usernames", err)
+		return
 	}
 	if len(names) > 0 && !notify.CustomersOff(st) {
 		list, lang := strings.Join(names, ", "), s.language()
@@ -69,7 +88,7 @@ func (s *Server) pForgotUser(w http.ResponseWriter, r *http.Request) {
 					err = n.Email(bg, contact, "["+st["company_name"]+"] "+s.catalog.T(lang, "Your usernames"), list)
 				}
 			} else {
-				err = s.sendOTP(bg, st, normPhone(contact), "Your usernames", list)
+				err = s.sendOTP(bg, st, db.CanonicalPhone(contact), "Your usernames", list)
 			}
 			if err != nil {
 				slog.Error("send forgot usernames", "err", err)

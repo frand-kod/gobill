@@ -49,7 +49,7 @@ func customerPasswordErr(st map[string]string, username, pass string) string {
 		return "Password must not be the same as the username"
 	}
 	if commonPasswords[strings.ToLower(pass)] {
-		return "Password terlalu mudah ditebak"
+		return "Password is too easy to guess"
 	}
 	return ""
 }
@@ -97,7 +97,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f := r.PostFormValue
-	d := regFlags(regData{Username: strings.ToLower(strings.TrimSpace(f("username"))), Phone: normPhone(f("phone_number"))}, st)
+	d := regFlags(regData{Username: strings.ToLower(strings.TrimSpace(f("username"))), Phone: db.CanonicalPhone(f("phone_number"))}, st)
 	show := func(msg string) {
 		s.prender(w, r, 200, "p_register", Page{Title: "Register", Data: d, Error: msg})
 	}

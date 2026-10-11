@@ -4,7 +4,7 @@
 <div class="page-head">
   <h1 class="page-title">{{if .Guide}}{{.Guide.Title}}{{else}}{{T "Guide"}}{{end}}</h1>
   {{if .Guide}}<a class="btn btn-ghost" href="/admin/docs?lang={{.Lang}}">{{T "All guides"}}</a>{{end}}
-  {{with $.Setup}}{{if .Finished}}<a class="btn btn-ghost" href="/admin/setup">{{T "Setup cepat"}}</a>{{end}}{{end}}
+  {{with $.Setup}}{{if .Finished}}<a class="btn btn-ghost" href="/admin/setup">{{T "Quick setup"}}</a>{{end}}{{end}}
 </div>
 <div class="mb-4 flex flex-wrap items-center gap-3">
   <nav class="flex gap-1" aria-label="{{if eq .Lang "en"}}Language{{else}}Bahasa{{end}}">{{range .Toggle}}<a class="btn {{if .Active}}font-semibold{{else}}btn-ghost{{end}}" href="{{.Href}}"{{if .Active}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</nav>

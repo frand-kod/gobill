@@ -56,8 +56,8 @@ func TestImportFromJSON(t *testing.T) {
 	t.Log(b.String())
 
 	count := func(q string) (n int) { lite.QueryRow(q).Scan(&n); return }
-	if n := count("SELECT count(*) FROM customers WHERE phone = '0812345678'"); n != 1 {
-		t.Errorf("customer with phone 0812345678: %d", n)
+	if n := count("SELECT count(*) FROM customers WHERE phone = '62812345678'"); n != 1 {
+		t.Errorf("customer with phone 62812345678: %d", n)
 	}
 	if n := count("SELECT count(*) FROM subscriptions"); n != 1 {
 		t.Errorf("subscriptions = %d", n)

@@ -30,9 +30,9 @@ var docsLangs = []string{"id", "en"}
 var guideGroups = map[string][]guideGroup{
 	"id": {
 		{"Indeks", []string{"README"}},
-		{"Mulai", []string{"installation", "quick-setup", "upgrade", "migration-phpnuxbill"}},
+		{"Getting started", []string{"installation", "quick-setup", "upgrade", "migration-phpnuxbill"}},
 		{"Konfigurasi", []string{"configuration", "integrations", "security", "promotions"}},
-		{"Jaringan", []string{"mikrotik", "freeradius-rest"}},
+		{"Network", []string{"mikrotik", "freeradius-rest"}},
 		{"Operasional", []string{"monitoring", "backup-restore", "isolation"}},
 	},
 	"en": {

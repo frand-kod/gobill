@@ -105,5 +105,5 @@ func (s *Server) qrisPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d := qrisData{t.Invoice, t.PlanName, money(t.Price), template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))}
-	s.render(w, r, 200, "p_qris", Page{Title: "Bayar via QRIS", Data: d})
+	s.render(w, r, 200, "p_qris", Page{Title: "Pay via QRIS", Data: d})
 }

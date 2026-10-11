@@ -95,5 +95,5 @@ ORDER BY (CAST(?1 AS TEXT) <> '' AND (lower(username) = lower(CAST(?1 AS TEXT)) 
    (CAST(?1 AS TEXT) = '' AND status <> 'Active'), username
 LIMIT sqlc.arg(limit);
 
--- name: CountCustomersByPhone :one
-SELECT COUNT(*) FROM customers WHERE phone = sqlc.arg(phone) AND id <> sqlc.arg(self);
+-- name: ListCustomerPhones :many
+SELECT id, username, phone FROM customers WHERE phone <> '';
