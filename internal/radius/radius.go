@@ -50,11 +50,13 @@ type Server struct {
 	// Kick drops one session on its NAS when shared_users_policy is kick_oldest. nil = Disconnect-Request (CoA).
 	Kick func(ctx context.Context, sess db.RadiusSession) error
 
-	userFails   failLimiter // failed password checks per username
-	dups        dupCache    // answered requests, for retransmits
-	unknownMu   sync.Mutex
-	unknownSeen map[string]time.Time // ip -> last unknown-NAS warning
-	unknownLast time.Time            // last warning for any IP while unknownSeen is full
+	userFails       failLimiter // failed password checks per username
+	dups            dupCache    // answered requests, for retransmits
+	unknownMu       sync.Mutex
+	unknownSeen     map[string]time.Time // ip -> last unknown-NAS warning
+	unknownLast     time.Time            // last warning for any IP while unknownSeen is full
+	maWarned        sync.Map             // ip string -> time.Time of last Message-Authenticator warning
+	badSecretWarned sync.Map             // ip string -> time.Time of last bad-secret warning
 }
 
 func (s *Server) now() time.Time {
@@ -68,17 +70,40 @@ func (s *Server) now() time.Time {
 // An error makes the library drop the packet.
 func (s *Server) RADIUSSecret(ctx context.Context, addr net.Addr) ([]byte, error) {
 	ip := addrIP(addr)
-	rows, err := s.Q.ListNAS(ctx)
+	n, ok, err := s.nasByIP(ctx, ip)
 	if err != nil {
 		return nil, err
 	}
-	for _, n := range rows {
-		if matchIP(n.Ip, ip) {
-			return secret.Open(s.Key, n.SecretEnc)
-		}
+	if ok {
+		return secret.Open(s.Key, n.SecretEnc)
 	}
 	s.warnUnknown(ip)
 	return nil, fmt.Errorf("unknown NAS %v", ip)
+}
+
+// nasByIP returns the nas row whose ip (single address or CIDR) matches ip.
+func (s *Server) nasByIP(ctx context.Context, ip net.IP) (db.Na, bool, error) {
+	rows, err := s.Q.ListNAS(ctx)
+	if err != nil {
+		return db.Na{}, false, err
+	}
+	for _, n := range rows {
+		if matchIP(n.Ip, ip) {
+			return n, true, nil
+		}
+	}
+	return db.Na{}, false, nil
+}
+
+// allowLog reports whether a warning for key may be logged now: at most one per d. Keys are only
+// known NAS addresses, so m stays bounded by the nas table.
+func (s *Server) allowLog(m *sync.Map, key string, d time.Duration) bool {
+	now := s.now()
+	if t, ok := m.Load(key); ok && now.Sub(t.(time.Time)) < d {
+		return false
+	}
+	m.Store(key, now)
+	return true
 }
 
 // unknownSeenMax bounds unknownSeen: spoofed source IPs must not grow it forever.
@@ -142,7 +167,7 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := ps.ListenAndServe(); err != nil && !errors.Is(err, radius.ErrServerShutdown) {
+			if err := s.serve(ps); err != nil && !errors.Is(err, radius.ErrServerShutdown) {
 				errs <- err
 			}
 		}()
@@ -521,19 +546,26 @@ func (s *Server) HandleAuth(w radius.ResponseWriter, r *radius.Request) {
 }
 
 func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
-	required, known := false, false
 	ip := addrIP(r.RemoteAddr)
-	if rows, err := s.Q.ListNAS(r.Context()); err == nil {
-		for _, n := range rows {
-			if matchIP(n.Ip, ip) {
-				required, known = n.RequireMessageAuth == 1, true
-				break
+	n, known, _ := s.nasByIP(r.Context(), ip) // a lookup error counts as unknown, as before
+	ma := checkMA(r.Packet)
+	switch {
+	case ma == maInvalid && known:
+		s.badSecret(ip, n.Name) // with the wrong secret the Message-Authenticator never verifies
+		return
+	case ma == maInvalid || (ma == maMissing && maRequired(n.RequireMessageAuth, n.MaSeen)):
+		if s.allowLog(&s.maWarned, ip.String(), time.Minute) {
+			slog.Warn("radius: dropping Access-Request, Message-Authenticator missing or invalid", "nas", ip.String())
+		}
+		return
+	}
+	if ma == maValid && known {
+		s.secretOK(ip)
+		if n.MaSeen == 0 { // NAS speaks Message-Authenticator: auto mode requires it from now on
+			if err := s.Q.MarkNASMASeen(r.Context(), n.ID); err != nil {
+				slog.Error("radius: mark Message-Authenticator seen", "nas", ip.String(), "err", err)
 			}
 		}
-	}
-	if !checkMA(r.Packet, required) {
-		slog.Warn("radius: dropping Access-Request, bad or missing Message-Authenticator", "nas", ip)
-		return
 	}
 	if known { // unknown sources must not create metric series
 		s.NoteNAS(ip.String())

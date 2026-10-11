@@ -156,6 +156,35 @@ func TestBruteForceAlertOnceAndRecovery(t *testing.T) {
 	}
 }
 
+// Ten bad-secret packets in a row from one NAS alert once; a valid packet (streak 0) recovers once.
+func TestBadSecretAlertOncePerEpisode(t *testing.T) {
+	metrics.Reset()
+	t.Cleanup(metrics.Reset)
+	e := setup(t)
+	got := withNotify(t, e)
+	ctx := context.Background()
+	if _, err := e.q.CreateNAS(ctx, db.CreateNASParams{Name: "pop-b", Ip: "10.9.1.5", SecretEnc: []byte("x")}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC() // metrics expire series older than 24 h against the real clock
+	job := &AlertJob{S: e.s, Free: func() (int64, error) { return 9999, nil }, Now: func() time.Time { return now }}
+	run := func(what string, streak float64, want int) {
+		t.Helper()
+		metrics.Set("radius_bad_secret_streak", streak, "nas", "10.9.1.5")
+		if err := job.Run(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if n := alertsFor(drain(got), "pop-b"); n != want {
+			t.Fatalf("%s: %d bad-secret alerts, want %d", what, n, want)
+		}
+	}
+	run("nine in a row", 9, 0)
+	run("ten in a row", 10, 1)
+	run("still bad", 12, 0)
+	run("valid packet again", 0, 1)
+	run("still fine", 0, 0)
+}
+
 // A NAS whose metric series expired is forgotten without an alert, so it starts fresh if it returns.
 func TestNASEvictionClearsStateSilently(t *testing.T) {
 	metrics.Reset()
@@ -163,7 +192,7 @@ func TestNASEvictionClearsStateSilently(t *testing.T) {
 	e := setup(t)
 	got := withNotify(t, e)
 	ctx := context.Background()
-	now := time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC)
+	now := time.Now().UTC() // metrics expire series older than 24 h against the real clock
 	metrics.Now = func() time.Time { return now }
 	alert := &AlertJob{S: e.s, Free: func() (int64, error) { return 9999, nil }, Now: func() time.Time { return now }}
 	metrics.Set("radius_nas_last_packet_timestamp", float64(now.Add(-time.Hour).Unix()), "nas", "10.9.0.8")

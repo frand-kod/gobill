@@ -2162,5 +2162,16 @@
     "gobill serves the isolir page to isolated clients at the root and at every other path. Do not test with /tool fetch: RouterOS sends a duplicate Host header and gets 400.": "Halaman isolir untuk klien isolir dilayani gobill di root dan di semua path. Jangan tes dengan /tool fetch: RouterOS mengirim header Host ganda dan mendapat 400.",
     "Optional: block all other traffic (full isolation)": "Opsional: blokir semua trafik lain (isolasi penuh)",
     "Also blocks WhatsApp and bank apps, so use it only for full isolation, and edit the default isolir message too. Add it after step 2, above any general accept rule in the forward chain.": "Juga memblokir WhatsApp dan aplikasi bank, jadi pakai hanya untuk isolasi penuh, dan ubah juga pesan isolir bawaan. Tambahkan setelah langkah 2, di atas aturan accept umum pada chain forward.",
-    "Only HTTP on port 80 is redirected to the isolir page. HTTPS and apps still work at the isolir speed unless the optional drop rule (step 3) is added. The address-list is sent by RADIUS as Mikrotik-Address-List.": "Hanya HTTP port 80 yang dialihkan ke halaman isolir. HTTPS dan aplikasi tetap bisa dipakai dengan kecepatan isolir kecuali aturan drop opsional (langkah 3) ditambahkan. Address-list dikirim RADIUS sebagai Mikrotik-Address-List."
+    "Only HTTP on port 80 is redirected to the isolir page. HTTPS and apps still work at the isolir speed unless the optional drop rule (step 3) is added. The address-list is sent by RADIUS as Mikrotik-Address-List.": "Hanya HTTP port 80 yang dialihkan ke halaman isolir. HTTPS dan aplikasi tetap bisa dipakai dengan kecepatan isolir kecuali aturan drop opsional (langkah 3) ditambahkan. Address-list dikirim RADIUS sebagai Mikrotik-Address-List.",
+    "Message-Authenticator": "Message-Authenticator",
+    "Auto (recommended)": "Otomatis (disarankan)",
+    "Always required": "Selalu wajib",
+    "Not required (legacy NAS)": "Tidak wajib (NAS lama)",
+    "Auto: once this NAS has sent a valid Message-Authenticator, requests without one are dropped. RouterOS 6.49.18+ and 7.15+ send it; add /radius set require-message-auth=yes-for-request-resp on the router too": "Otomatis: setelah NAS ini pernah mengirim Message-Authenticator yang valid, permintaan tanpa atribut itu ditolak. RouterOS 6.49.18+ dan 7.15+ mengirimnya; di router tambahkan juga /radius set require-message-auth=yes-for-request-resp",
+    "required": "wajib",
+    "off (legacy)": "mati (NAS lama)",
+    "MA: seen": "MA: sudah terlihat",
+    "MA: not seen yet": "MA: belum terlihat",
+    "Bad secret": "Secret salah",
+    "Secret in gobill NAS does not match /radius on the router": "Secret di gobill NAS tidak sama dengan /radius di router"
 }

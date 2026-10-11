@@ -17,7 +17,19 @@ On MikroTik, enable it:
     /radius set [find] require-message-auth=yes-for-request-resp
     /radius print detail
 
-In the NAS form in gobill, turn on "require Message-Authenticator". Devices that do not send this attribute are rejected. So update the NAS firmware first.
+The NAS form in gobill has a "Message-Authenticator" setting, one of three modes:
+
+- **Auto (recommended, default).** Access-Requests without Message-Authenticator are accepted until the NAS has sent one valid Message-Authenticator. From then on, requests without it are dropped and logged. The NAS list shows "MA: not seen yet" or "MA: seen".
+- **Always required.** Requests without a valid Message-Authenticator are dropped from the start. Use it only when the NAS always sends one.
+- **Not required (legacy NAS).** Requests without Message-Authenticator are accepted. Use it for old firmware that never sends one. Invalid or duplicate attributes are still rejected.
+
+A Message-Authenticator that is present but wrong, malformed, or repeated is always rejected, in every mode.
+
+RouterOS 6.49.18 and later, and 7.15 and later, send Message-Authenticator in Access-Request. Older versions may not, so use "Not required" for them. To make the router check the replies gobill sends, run on the router:
+
+    /radius set [find] require-message-auth=yes-for-request-resp
+
+The RADIUS REST endpoint `/radius.php` is not affected by these modes. FreeRADIUS in front of it does its own check.
 
 ### Shared secret
 

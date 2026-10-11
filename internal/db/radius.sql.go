@@ -51,7 +51,7 @@ func (q *Queries) CloseStaleRadiusSessions(ctx context.Context, updatedAt int64)
 }
 
 const createNAS = `-- name: CreateNAS :one
-INSERT INTO nas (name, ip, secret_enc, description, require_message_auth) VALUES (?, ?, ?, ?, ?) RETURNING id, name, ip, secret_enc, description, require_message_auth
+INSERT INTO nas (name, ip, secret_enc, description, require_message_auth) VALUES (?, ?, ?, ?, ?) RETURNING id, name, ip, secret_enc, description, require_message_auth, ma_seen
 `
 
 type CreateNASParams struct {
@@ -78,6 +78,7 @@ func (q *Queries) CreateNAS(ctx context.Context, arg CreateNASParams) (Na, error
 		&i.SecretEnc,
 		&i.Description,
 		&i.RequireMessageAuth,
+		&i.MaSeen,
 	)
 	return i, err
 }
@@ -126,7 +127,7 @@ func (q *Queries) GetCustomerForRadius(ctx context.Context, name string) (Custom
 }
 
 const getNAS = `-- name: GetNAS :one
-SELECT id, name, ip, secret_enc, description, require_message_auth FROM nas WHERE id = ?
+SELECT id, name, ip, secret_enc, description, require_message_auth, ma_seen FROM nas WHERE id = ?
 `
 
 func (q *Queries) GetNAS(ctx context.Context, id int64) (Na, error) {
@@ -139,6 +140,7 @@ func (q *Queries) GetNAS(ctx context.Context, id int64) (Na, error) {
 		&i.SecretEnc,
 		&i.Description,
 		&i.RequireMessageAuth,
+		&i.MaSeen,
 	)
 	return i, err
 }
@@ -257,7 +259,7 @@ func (q *Queries) GetRadiusSession(ctx context.Context, id int64) (RadiusSession
 }
 
 const listNAS = `-- name: ListNAS :many
-SELECT id, name, ip, secret_enc, description, require_message_auth FROM nas ORDER BY name
+SELECT id, name, ip, secret_enc, description, require_message_auth, ma_seen FROM nas ORDER BY name
 `
 
 func (q *Queries) ListNAS(ctx context.Context) ([]Na, error) {
@@ -276,6 +278,7 @@ func (q *Queries) ListNAS(ctx context.Context) ([]Na, error) {
 			&i.SecretEnc,
 			&i.Description,
 			&i.RequireMessageAuth,
+			&i.MaSeen,
 		); err != nil {
 			return nil, err
 		}
@@ -488,6 +491,15 @@ func (q *Queries) ListRecentRadiusSessionsByUser(ctx context.Context, username s
 		return nil, err
 	}
 	return items, nil
+}
+
+const markNASMASeen = `-- name: MarkNASMASeen :exec
+UPDATE nas SET ma_seen = 1 WHERE id = ?
+`
+
+func (q *Queries) MarkNASMASeen(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, markNASMASeen, id)
+	return err
 }
 
 const searchOpenRadiusSessions = `-- name: SearchOpenRadiusSessions :many
