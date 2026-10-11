@@ -174,6 +174,12 @@ func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 		if len(username) < 21 {
 			phone = username
 		}
+		if taken, err := s.phoneTaken(ctx, phone, 0); err != nil { // a number another account uses is not taken twice
+			s.fail(w, "voucher login", err)
+			return
+		} else if taken {
+			phone = ""
+		}
 		if c, err = s.queries.CreateCustomer(ctx, db.CreateCustomerParams{Username: username, PasswordHash: string(hash),
 			Phone: phone, ServiceType: "Others", SecretEnc: enc, AutoRenewal: 1, Status: "Active"}); err != nil {
 			s.fail(w, "voucher login", err)

@@ -3,6 +3,7 @@ package web
 // Customer profile, password and contact change with OTP.
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 
@@ -120,21 +121,34 @@ func normPhone(p string) string {
 	}, p)
 }
 
-// taken reports whether another customer already uses this phone or email.
+// msgPhoneTaken is the error for a WhatsApp number another account already uses (wa_unique_per_account = yes).
+const msgPhoneTaken = "This WhatsApp number is already used by another account."
+
+// contactTaken reports whether another customer already uses this phone or email.
 func (s *Server) contactTaken(r *http.Request, kind, val string, self int64) (bool, error) {
+	if kind == "phone" {
+		return s.phoneTaken(r.Context(), val, self)
+	}
 	rows, err := s.queries.SearchCustomers(r.Context(), db.SearchCustomersParams{Q: val, PageLimit: 50, PageOffset: 0})
 	if err != nil {
 		return false, err
 	}
 	for _, c := range rows {
-		if c.ID == self {
-			continue
-		}
-		if kind == "phone" && c.Phone == val || kind == "email" && strings.EqualFold(c.Email, val) {
+		if c.ID != self && strings.EqualFold(c.Email, val) {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+// phoneTaken reports whether another customer uses this WhatsApp number. Only checked when
+// wa_unique_per_account is yes: by default several accounts may share one number (family, RT/RW).
+func (s *Server) phoneTaken(ctx context.Context, phone string, self int64) (bool, error) {
+	if v, _ := s.queries.GetSetting(ctx, "wa_unique_per_account"); v != "yes" {
+		return false, nil
+	}
+	n, err := s.queries.CountCustomersByPhone(ctx, db.CountCustomersByPhoneParams{Phone: phone, Self: self})
+	return n > 0, err
 }
 
 func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
@@ -167,7 +181,11 @@ func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal contact", err)
 		return
 	} else if taken {
-		s.profilePage(w, r, 200, "Already registered by another customer")
+		msg := "Already registered by another customer"
+		if kind == "phone" {
+			msg = msgPhoneTaken
+		}
+		s.profilePage(w, r, 200, msg)
 		return
 	}
 	if exp := s.sessions.GetInt64(ctx, "ct_exp"); s.sessions.GetString(ctx, "ct_kind") == kind && time.Now().Unix() < exp {

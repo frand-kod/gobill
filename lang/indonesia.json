@@ -2234,5 +2234,9 @@
     "Reset to default": "Kembalikan ke default",
     "Reset this message to the built-in text?": "Kembalikan pesan ini ke teks bawaan?",
     "Balance before the top-up": "Saldo sebelum isi ulang",
-    "Balance after the top-up": "Saldo setelah isi ulang"
+    "Balance after the top-up": "Saldo setelah isi ulang",
+    "This WhatsApp number is already used by another account.": "Nomor WhatsApp ini sudah dipakai akun lain.",
+    "One WhatsApp number per account": "Satu nomor WhatsApp per akun",
+    "No (default): several accounts may share one WhatsApp number, for example a family or an RT/RW group. Forgot username then lists every account on that number. Yes: a number belongs to one account only": "Tidak (bawaan): beberapa akun boleh memakai satu nomor WhatsApp, misalnya satu keluarga atau kelompok RT/RW. Lupa username lalu mengirim semua username di nomor itu. Ya: satu nomor hanya milik satu akun",
+    "Choose Yes or No": "Pilih Ya atau Tidak"
 }

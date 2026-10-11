@@ -132,7 +132,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "register", err)
 		return
 	} else if taken {
-		show("Already registered by another customer")
+		show(msgPhoneTaken)
 		return
 	}
 	if d.OTP {

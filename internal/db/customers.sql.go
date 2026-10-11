@@ -623,3 +623,20 @@ func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) 
 	)
 	return err
 }
+
+const countCustomersByPhone = `-- name: CountCustomersByPhone :one
+SELECT COUNT(*) FROM customers WHERE phone = ?1 AND id <> ?2
+`
+
+type CountCustomersByPhoneParams struct {
+	Phone string
+	Self  int64
+}
+
+// CountCustomersByPhone counts the other customers that use this exact phone number.
+func (q *Queries) CountCustomersByPhone(ctx context.Context, arg CountCustomersByPhoneParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countCustomersByPhone, arg.Phone, arg.Self)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
