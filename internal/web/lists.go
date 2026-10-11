@@ -210,6 +210,10 @@ func actionIcon(path string) string {
 		return "refresh-cw"
 	case "test":
 		return "wifi"
+	case "up":
+		return "arrow-up"
+	case "down":
+		return "arrow-down"
 	}
 	return "circle-check"
 }

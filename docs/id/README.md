@@ -17,6 +17,7 @@ Dokumen ini adalah indeks panduan operator dalam Bahasa Indonesia. Panduan ini j
 - [Konfigurasi](configuration.md): variabel `GOBILL_*` dan pengaturan di UI.
 - [Integrasi](integrations.md): WhatsApp, SMS, Telegram, email, webhook, Tripay, dan QRIS.
 - [Keamanan](security.md): pengerasan RADIUS, firewall, keamanan aplikasi, dan 2FA admin.
+- [Promosi](promotions.md): kartu promo singkat di halaman isolir dan dashboard portal.
 
 ## Jaringan
 

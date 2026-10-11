@@ -208,6 +208,21 @@ type Pool struct {
 	RouterID int64
 }
 
+type Promo struct {
+	ID         int64
+	Title      string
+	Body       string
+	Image      string
+	Link       string
+	ShowIsolir int64
+	ShowPortal int64
+	Active     int64
+	StartsAt   sql.NullInt64
+	EndsAt     sql.NullInt64
+	Position   int64
+	UpdatedAt  int64
+}
+
 type RadiusSession struct {
 	ID            int64
 	SessionID     string
