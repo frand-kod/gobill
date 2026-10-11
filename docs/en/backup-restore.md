@@ -47,7 +47,7 @@ How it works:
 - The folder must already exist. gobill does not create it, so a disk that is not mounted cannot write to the SD card.
 - If a copy fails, an alert is sent once when the mirror starts failing, and once when it recovers. The alert uses the channel in `alert_channel`. The local backup is still created.
 - A failed mirror copy is retried every hour.
-- The last status is shown in **Settings > Miscellaneous**, below "Download backup".
+- The last status is shown in **Settings > System & Security**, below "Download backup".
 
 ### Mirror destination options
 
@@ -115,7 +115,7 @@ Manual copy:
 
 ## Restore the database
 
-A SuperAdmin can restore a gobill backup file (`.db`) from **Settings > Miscellaneous > Restore database**. The page is at `/admin/settings/miscellaneous/restore`.
+A SuperAdmin can restore a gobill backup file (`.db`) from **Settings > System & Security > Restore database**. The page is at `/admin/settings/system/restore`.
 
 The restore flow:
 

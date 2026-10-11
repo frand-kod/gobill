@@ -1,0 +1,79 @@
+{{define "content"}}
+{{with .Data}}
+<div id="live" x-data="liveSessions()" data-state="{{.State}}" data-url="/admin/radius/sessions.json" data-idle="{{T "Refreshes every 10 seconds"}}" data-updated="{{T "Updated %s"}}" data-failed="{{T "Connection lost, retrying"}}" data-empty="{{T "No data"}}" data-disconnect="{{T "Disconnect"}}">
+<div class="page-head">
+  <h1 class="page-title">{{T "Online Sessions"}}</h1>
+  <p class="text-xs text-ink-2" x-text="status">{{T "Refreshes every 10 seconds"}}</p>
+</div>
+{{template "callout" $.Intro}}
+<div class="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+  <div class="stat">
+    <div><p class="stat-label">{{T "Online"}} / {{T "Active"}}</p><p class="stat-num"><span x-text="tiles.online">{{.Tiles.Online}}</span> / <span x-text="tiles.active_subs">{{.Tiles.ActiveSubs}}</span></p></div>
+    <span class="text-ok-fg">{{icon "wifi"}}</span>
+  </div>
+  <div class="stat">
+    <div><p class="stat-label">{{T "Throughput"}}</p>
+      <p class="text-sm"><span aria-hidden="true">↓</span> <span class="font-medium" x-text="tiles.down_text">{{.Tiles.DownText}}</span></p>
+      <p class="text-sm"><span aria-hidden="true">↑</span> <span class="font-medium" x-text="tiles.up_text">{{.Tiles.UpText}}</span></p></div>
+    <span class="text-info-fg">{{icon "activity"}}</span>
+  </div>
+  <div class="stat">
+    <div><p class="stat-label">{{T "Logins, last hour"}}</p><p class="stat-num" x-text="tiles.logins_hour">{{.Tiles.Logins}}</p>
+      <p class="text-sm text-ink-2">{{T "Disconnects, last hour"}} <span class="font-medium" x-text="tiles.disconnects_hour">{{.Tiles.Disconnects}}</span></p></div>
+    <span class="text-ink-2">{{icon "log-out"}}</span>
+  </div>
+  <div class="stat">
+    <div class="min-w-0 flex-1"><p class="stat-label">{{T "Online, last 24 hours"}}</p>
+      <svg class="mt-1 h-10 w-full text-info-fg" viewBox="0 0 288 40" preserveAspectRatio="none" role="img" aria-label="{{T "Online, last 24 hours"}}"><polyline fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" :points="sparkPoints()"></polyline></svg></div>
+  </div>
+</div>
+<section class="card mb-4 grid gap-4 p-4 sm:grid-cols-2">
+  <div>
+    <h2 class="text-sm font-medium">{{T "Per NAS"}}</h2>
+    <ul class="mt-2 space-y-1 text-sm"><template x-for="n in tiles.by_nas" :key="n.name"><li class="flex justify-between gap-3"><span class="min-w-0 truncate" x-text="n.name"></span><span class="tabular-nums" x-text="n.n"></span></li></template></ul>
+  </div>
+  <div>
+    <h2 class="text-sm font-medium">{{T "Per plan"}}</h2>
+    <ul class="mt-2 space-y-1 text-sm"><template x-for="n in tiles.by_plan" :key="n.name"><li class="flex justify-between gap-3"><span class="min-w-0 truncate" x-text="n.name"></span><span class="tabular-nums" x-text="n.n"></span></li></template></ul>
+  </div>
+</section>
+<form id="bulk" method="post" class="mb-3 flex flex-wrap gap-2">
+  <button class="btn btn-danger" type="submit" formaction="/admin/radius/sessions/disconnect-many" data-confirm="{{T "Disconnect selected"}} ({n})?" data-confirm-danger>{{icon "x"}}<span>{{T "Disconnect selected"}}</span></button>
+</form>
+<div class="card overflow-hidden">
+  <form class="flex flex-wrap items-center gap-2 border-b border-line p-3" method="get" action="/admin/radius/sessions" role="search">
+    <div class="relative min-w-48 flex-1 sm:max-w-xs">
+      <span class="pointer-events-none absolute inset-y-0 start-3 flex items-center text-ink-2">{{icon "search"}}</span>
+      <input class="input ps-10" type="search" name="q" value="{{.Q}}" placeholder="{{T "Search"}}" aria-label="{{T "Search"}}">
+    </div>
+    <input type="hidden" name="per" value="{{.Nav.Per}}">
+    <button class="btn btn-ghost" type="submit">{{T "Search"}}</button>
+  </form>
+  <div class="overflow-x-auto">
+    <table class="table" id="sess-table">
+      <thead><tr><th class="w-10"><label class="flex size-10 items-center justify-center"><input type="checkbox" class="size-4 accent-brand-500" aria-label="{{T "Select all"}}" onchange="document.querySelectorAll('input[name=ids]').forEach(function(c){c.checked=event.target.checked})"></label></th><th>{{T "Username"}}</th><th>{{T "Plan Name"}}</th><th>{{T "NAS"}}</th><th>{{T "IP Address"}}</th><th>{{T "MAC Address"}}</th><th>{{T "Start"}}</th><th>{{T "Duration"}}</th><th>{{T "Upload"}}</th><th>{{T "Download"}}</th><th>{{T "Speed"}}</th><th></th></tr></thead>
+      <tbody id="sess-body">
+      {{range .Rows}}{{template "sessRow" .}}{{else}}
+        <tr class="sess-empty"><td class="py-8 text-center text-ink-2" colspan="12">{{T "No data"}}</td></tr>
+      {{end}}
+      </tbody>
+    </table>
+    <template id="sess-row-tpl">{{template "sessRow" .Blank}}</template>
+  </div>
+</div>
+{{template "pager" .Nav}}
+</div>
+<script defer src="/static/sessions.js"></script>
+{{end}}
+{{end}}
+
+{{/* one session row; the script clones the empty one for sessions that appear while the page is open */}}
+{{define "sessRow"}}<tr data-id="{{.ID}}">
+  <td class="w-10"><label class="flex size-10 items-center justify-center"><input type="checkbox" class="size-4 accent-brand-500" name="ids" value="{{.ID}}" form="bulk" aria-label="{{.User}}"></label></td>
+  <td><span data-f="user">{{.User}}</span> <span class="badge badge-warn{{if not .Stale}} hidden{{end}}" data-f="stale">{{T "Stale"}}</span></td>
+  <td data-f="plan">{{.Plan}}</td>
+  <td data-f="nas">{{.NAS}}</td><td data-f="ip">{{.IP}}</td><td data-f="mac">{{.MAC}}</td><td data-f="start">{{.Start}}</td><td data-f="for">{{.For}}</td><td data-f="up">{{.Up}}</td><td data-f="down">{{.Down}}</td>
+  <td><div class="flex items-center gap-2 whitespace-nowrap" role="img" aria-label="{{.Speed}}" data-f="meter"><span class="flex items-end gap-0.5" aria-hidden="true">{{range .Bars}}<i class="h-3 w-1.5 rounded-sm {{.}}"></i>{{end}}</span><span class="text-xs tabular-nums text-ink-2" data-f="speed">{{.Speed}}</span></div></td>
+  <td class="text-end"><form method="post" action="/admin/radius/sessions/{{.ID}}/disconnect" data-confirm="{{T "Disconnect"}} {{.User}}?" data-confirm-danger>
+    <button class="btn btn-danger btn-icon tip-end" type="submit" aria-label="{{T "Disconnect"}}" data-tip="{{T "Disconnect"}}">{{icon "unplug"}}</button></form></td>
+</tr>{{end}}

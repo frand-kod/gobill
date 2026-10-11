@@ -152,8 +152,8 @@ func anyOpts(label string, o ...string) []option {
 
 func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 	p, sort, dir := custQuery(r)
-	_, page, limit, off := paging(r)
-	p.PageLimit, p.PageOffset = limit, off
+	_, pg := paging(r)
+	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
 	rows, err := s.queries.FilterCustomers(r.Context(), p)
 	if err != nil {
 		s.fail(w, "list customers", err)
@@ -174,7 +174,12 @@ func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{c.ID, []string{c.Username, c.Fullname, money(c.Balance), c.Packages, c.ServiceType, c.PppoeUsername, s.endsCell(c.NextExpires), c.Status}})
 	}
 	lp.Links = []option{{"/admin/customers/export?" + lp.query().Encode(), "Export CSV"}}
-	lp.finish(page)
+	total, err := s.queries.CountFilteredCustomers(r.Context(), db.CountFilteredCustomersParams{Q: p.Q, ServiceType: p.ServiceType, Status: p.Status})
+	if err != nil {
+		s.fail(w, "count customers", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
@@ -418,6 +423,14 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 		} else if !errors.Is(err, sql.ErrNoRows) {
 			s.fail(w, "check username", err)
 			return
+		}
+	}
+	if v["phone"] != "" { // several accounts may share a number unless wa_unique_per_account is yes
+		if taken, err := s.phoneTaken(r.Context(), v["phone"], id); err != nil {
+			s.fail(w, "check phone", err)
+			return
+		} else if taken {
+			e["phone"] = msgPhoneTaken
 		}
 	}
 	if v["fullname"] == "" {

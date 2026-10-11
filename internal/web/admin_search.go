@@ -44,7 +44,7 @@ type searchGroup struct {
 	Items []searchItem `json:"items"`
 }
 
-// searchPages is the sidebar menu, in menu order. Keep it in step with web/templates/app.html.
+// searchPages is the sidebar menu, in menu order. Keep it in step with web/templates/admin/app.html.
 var searchPages = []searchEntry{
 	{Title: "Dashboard", URL: "/admin", Syn: "beranda home dasbor ringkasan", Roles: nil},
 	{Title: "Customer", URL: "/admin/customers", Syn: "pelanggan member pengguna customers", Roles: nil},
@@ -68,7 +68,7 @@ var searchPages = []searchEntry{
 	{Title: "Router Map", URL: "/admin/maps/routers", Syn: "peta map lokasi router", Roles: roleMgr},
 	{Title: "ODP Map", URL: "/admin/maps/odp", Syn: "peta map lokasi odp", Roles: roleMgr},
 	{Title: "ODP", URL: "/admin/odp", Syn: "odp kotak distribusi tiang", Roles: roleMgr},
-	{Title: "Payment Gateway", URL: "/admin/payment-gateway", Syn: "pembayaran tripay qris gateway audit", Roles: roleMgr},
+	{Title: "Online payments", URL: "/admin/payment-gateway", Syn: "pembayaran tripay qris gateway audit", Roles: roleMgr},
 	{Title: "Logs", URL: "/admin/logs", Syn: "log catatan aktivitas riwayat", Roles: roleMgr},
 	{Title: "System Status", URL: "/admin/status", Syn: "status sistem kesehatan health monitor", Roles: roleMgr},
 	{Title: "Admin Users", URL: "/admin/users", Syn: "pengguna admin operator akun user", Roles: roleUsers},
@@ -254,7 +254,8 @@ func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searc
 		out = s.addGroup(out, "Voucher", items)
 	}
 	if allowed(roleMgr, a.Role) {
-		ps, err := s.queries.SearchPlansContains(ctx, db.SearchPlansContainsParams{Q: q, Limit: n})
+		isoPlan, _ := s.isolirIDs(ctx) // the isolir plan is a system plan, not listed
+		ps, err := s.queries.SearchPlansContains(ctx, db.SearchPlansContainsParams{Q: q, Limit: n, HiddenID: isoPlan})
 		if err != nil {
 			return nil, err
 		}

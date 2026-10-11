@@ -100,16 +100,13 @@ func (s *Service) rechargeWithBalance(ctx context.Context, customerID, planID, a
 	return nil
 }
 
-// debit takes amount off the balance. CHECK (balance >= 0) is the backstop against a concurrent overdraw.
+// debit takes amount off the balance in one conditional UPDATE, so a concurrent debit can never overdraw.
 func debit(ctx context.Context, q *db.Queries, customerID, amount int64) error {
-	c, err := q.GetCustomer(ctx, customerID)
-	if err != nil {
-		return err
-	}
-	if c.Balance < amount {
+	_, err := q.DebitBalance(ctx, db.DebitBalanceParams{Amount: amount, ID: customerID})
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrInsufficientBalance
 	}
-	if _, err := q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: -amount, ID: customerID}); err != nil {
+	if err != nil {
 		return fmt.Errorf("debit balance: %w", err)
 	}
 	return nil
@@ -120,6 +117,9 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 	plan, err := q.GetPlan(ctx, planID)
 	if err != nil {
 		return nil, fmt.Errorf("plan %d: %w", planID, err)
+	}
+	if isolirPlan(ctx, q, planID) {
+		return nil, ErrIsolirPlan
 	}
 	c, err := q.GetCustomer(ctx, customerID)
 	if err != nil {
@@ -315,7 +315,13 @@ func (s *Service) notifyRecharge(p *pending) {
 			p.cust.Username, p.cust.Fullname, tag, p.plan.Type, p.plan.Name, p.trx.RouterName, gw, ch,
 			p.expiry.In(loc).Format(layout), notify.Money(p.trx.Price), p.trx.Note))
 	}
-	n.Go("recharge", func(ctx context.Context) error { return n.RechargeSuccess(ctx, p.cust, vars) })
+	if p.plan.Type == "Balance" { // Package.php #rechargeBalance: a top-up sends the balance invoice, not the paid one
+		vars["balance_before"] = notify.Money(p.cust.Balance)
+		vars["balance"] = notify.Money(p.cust.Balance + p.trx.Price)
+		n.Go("recharge", func(ctx context.Context) error { return n.RechargeBalance(ctx, p.cust, vars) })
+	} else {
+		n.Go("recharge", func(ctx context.Context) error { return n.RechargeSuccess(ctx, p.cust, vars) })
+	}
 	n.Go("webhook", func(ctx context.Context) error { return n.Webhook(ctx, "payment.paid", data) })
 	if p.first {
 		n.Go("webhook", func(ctx context.Context) error {

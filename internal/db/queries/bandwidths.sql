@@ -10,7 +10,7 @@ SELECT * FROM bandwidths WHERE id = ?;
 SELECT * FROM bandwidths ORDER BY name LIMIT ? OFFSET ?;
 
 -- name: SearchBandwidths :many
-SELECT * FROM bandwidths WHERE name LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' ORDER BY name LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+SELECT * FROM bandwidths WHERE name LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' AND id <> sqlc.arg(hidden_id) ORDER BY name LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 -- name: UpdateBandwidth :exec
 UPDATE bandwidths SET name = ?, rate_down = ?, rate_down_unit = ?, rate_up = ?, rate_up_unit = ?, burst = ?

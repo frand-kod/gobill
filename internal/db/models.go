@@ -136,6 +136,7 @@ type Na struct {
 	SecretEnc          []byte
 	Description        string
 	RequireMessageAuth int64
+	MaSeen             int64
 }
 
 type Odp struct {

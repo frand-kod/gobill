@@ -119,9 +119,9 @@ func (s *Server) adminFields(r *http.Request, target *db.Admin, v, e map[string]
 
 func (s *Server) adminList(w http.ResponseWriter, r *http.Request) {
 	actor := adminFrom(r)
-	q, page, limit, off := paging(r)
+	q, pg := paging(r)
 	rows, err := s.queries.SearchAdmins(r.Context(), db.SearchAdminsParams{
-		Q: sql.NullString{String: q, Valid: true}, Scope: adminScope(actor), Actor: actor.ID, PageLimit: limit, PageOffset: off})
+		Q: sql.NullString{String: q, Valid: true}, Scope: adminScope(actor), Actor: actor.ID, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
 		s.fail(w, "list admins", err)
 		return
@@ -135,7 +135,12 @@ func (s *Server) adminList(w http.ResponseWriter, r *http.Request) {
 		}
 		lp.Rows = append(lp.Rows, listRow{a.ID, []string{a.Username, a.Fullname, a.Role, a.Status, last}})
 	}
-	lp.finish(page)
+	total, err := s.queries.CountFilteredAdmins(r.Context(), db.CountFilteredAdminsParams{Q: sql.NullString{String: q, Valid: true}, Scope: adminScope(actor), Actor: actor.ID})
+	if err != nil {
+		s.fail(w, "count admins", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }
 

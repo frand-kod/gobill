@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"strings"
+
+	"github.com/frand-kod/gobill/internal/notify"
 )
 
 // field describes one form input; the shared "form" template renders a []field.
@@ -25,6 +27,8 @@ type field struct {
 	Snippet                               string       // tokenshow field: text shown in a code block
 	Img                                   template.URL // qris field: preview of the stored code (data: URI)
 	Inp                                   string       // test field: input type of the box above its button, "" = none
+	Vars                                  []notify.Var // textarea: variables as chips that insert [[name]] at the cursor
+	Reset                                 string       // textarea: POST URL of a "Reset to default" button under it, "" = none
 }
 
 type option struct{ Value, Label string }
@@ -131,6 +135,16 @@ func formVals(r *http.Request, names ...string) map[string]string {
 
 func (s *Server) renderForm(w http.ResponseWriter, r *http.Request, status int, fp formPage) {
 	s.render(w, r, status, "form", Page{Title: fp.Heading, Data: fp})
+}
+
+// HasVars reports whether a field has variable chips, so the form loads their script.
+func (fp formPage) HasVars() bool {
+	for _, f := range fp.Fields {
+		if len(f.Vars) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // HasFile reports whether a field posts a file, so the form needs multipart encoding.

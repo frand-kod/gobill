@@ -211,6 +211,31 @@ func TestAccounting(t *testing.T) {
 	}
 }
 
+// A stale or retransmitted Interim/Stop with smaller counters must not lower recorded usage.
+func TestAccountingCountersNeverDecrease(t *testing.T) {
+	e := setup(t)
+	acct := func(typ rfc2866.AcctStatusType, in uint32) {
+		p := radius.New(radius.CodeAccountingRequest, nasSecret)
+		rfc2866.AcctStatusType_Set(p, typ)
+		rfc2866.AcctSessionID_SetString(p, "sess1")
+		rfc2865.UserName_SetString(p, "alice")
+		rfc2866.AcctInputOctets_Set(p, rfc2866.AcctInputOctets(in))
+		e.s.HandleAcct(&rec{}, &radius.Request{Packet: p, RemoteAddr: &net.UDPAddr{IP: net.ParseIP("10.0.0.1")}})
+		e.now = e.now.Add(time.Minute)
+	}
+	acct(rfc2866.AcctStatusType_Value_Start, 0)
+	acct(rfc2866.AcctStatusType_Value_InterimUpdate, 1_000_000)
+	acct(rfc2866.AcctStatusType_Value_InterimUpdate, 0)
+	acct(rfc2866.AcctStatusType_Value_Stop, 0)
+	used, _ := e.q.SumRadiusUsage(context.Background(), db.SumRadiusUsageParams{Username: "alice"})
+	if used != 1_000_000 {
+		t.Fatalf("usage %d, want 1000000 after stale update", used)
+	}
+	if n, _ := e.openSessions(); n != 0 {
+		t.Fatalf("still open: %d", n)
+	}
+}
+
 func (e *env) openSessions() (int64, error) {
 	var n int64
 	err := e.conn.QueryRow("SELECT COUNT(*) FROM radius_sessions WHERE stopped_at IS NULL").Scan(&n)
@@ -398,5 +423,71 @@ func TestEmptySecretRejected(t *testing.T) {
 		if r := e.auth(t, pap("e-"+name, "")); r.Code != radius.CodeAccessReject {
 			t.Fatalf("%s: empty password accepted", name)
 		}
+	}
+}
+
+func TestDataLimitQueryErrorRejects(t *testing.T) {
+	e := setup(t)
+	if _, err := e.conn.Exec("UPDATE plans SET limited=1, limit_type='Data_Limit', data_limit=1, data_unit='MB'"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.conn.Exec("DROP TABLE radius_sessions"); err != nil {
+		t.Fatal(err)
+	}
+	if r := e.auth(t, pap("alice", "pw")); r.Code != radius.CodeAccessReject {
+		t.Fatalf("usage query failed but code %v: quota must fail closed", r.Code)
+	}
+}
+
+func TestDataLimitGigawords(t *testing.T) {
+	e := setup(t)
+	if _, err := e.conn.Exec("UPDATE plans SET limited=1, limit_type='Data_Limit', data_limit=5, data_unit='GB'"); err != nil {
+		t.Fatal(err)
+	}
+	acct := func(in, out uint32) {
+		p := radius.New(radius.CodeAccountingRequest, nasSecret)
+		rfc2866.AcctStatusType_Set(p, rfc2866.AcctStatusType_Value_InterimUpdate)
+		rfc2866.AcctSessionID_SetString(p, "s1")
+		rfc2865.UserName_SetString(p, "alice")
+		rfc2869.AcctInputGigawords_Set(p, rfc2869.AcctInputGigawords(in))
+		rfc2869.AcctOutputGigawords_Set(p, rfc2869.AcctOutputGigawords(out))
+		e.s.HandleAcct(&rec{}, &radius.Request{Packet: p, RemoteAddr: &net.UDPAddr{IP: net.ParseIP("10.0.0.1")}})
+	}
+	acct(1, 0) // 4 GiB in, limit 5 GiB: 1 GiB left
+	r := e.auth(t, pap("alice", "pw"))
+	if r.Code != radius.CodeAccessAccept {
+		t.Fatal("4 GiB of 5 GiB must accept")
+	}
+	if got, _ := mikrotik.MikrotikTotalLimit_Lookup(r); got != 1<<30 {
+		t.Fatalf("total limit %d, want 1 GiB", got)
+	}
+	acct(1, 1) // counters are cumulative: 4 GiB in + 4 GiB out = 8 GiB, over the limit
+	if r := e.auth(t, pap("alice", "pw")); r.Code != radius.CodeAccessReject {
+		t.Fatal("8 GiB of 5 GiB must reject")
+	}
+	big := uint32(1 << 31) // gigawords << 32 overflows int64 (a runtime shift, so no compile error)
+	// a Stop whose gigawords shift past int64 is clamped: it still closes the session and keeps the usage
+	if err := e.s.Account(context.Background(), AcctRequest{Type: rfc2866.AcctStatusType_Value_Stop, SessionID: "s1", User: "alice",
+		NAS: "10.0.0.1", InOctets: int64(big) << 32}); err != nil {
+		t.Fatal(err)
+	}
+	var in int64
+	var stopped sql.NullInt64
+	e.conn.QueryRow("SELECT input_octets, stopped_at FROM radius_sessions WHERE session_id='s1'").Scan(&in, &stopped)
+	if in != 1<<32 || !stopped.Valid {
+		t.Fatalf("after clamped Stop: input %d stopped %v", in, stopped.Valid)
+	}
+}
+
+func TestTimeLimitQueryErrorRejects(t *testing.T) {
+	e := setup(t)
+	if _, err := e.conn.Exec("UPDATE plans SET limited=1, limit_type='Time_Limit', time_limit=1, time_unit='Hrs'"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.conn.Exec("DROP TABLE radius_sessions"); err != nil {
+		t.Fatal(err)
+	}
+	if r := e.auth(t, pap("alice", "pw")); r.Code != radius.CodeAccessReject {
+		t.Fatalf("time usage query failed but code %v: time limit must fail closed", r.Code)
 	}
 }

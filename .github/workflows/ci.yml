@@ -15,6 +15,7 @@ jobs:
           git diff --exit-code web/static/app.css
       - run: go vet ./...
       - run: go test ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
   build:
     needs: test
@@ -61,7 +62,7 @@ jobs:
           GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/gobill-linux-amd64 ./cmd/gobill
           GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/gobill-linux-arm64 ./cmd/gobill
           GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o dist/gobill-linux-armv7 ./cmd/gobill
-          cd dist && sha256sum gobill-linux-* > sha256sums.txt
+          cd dist && sha256sum gobill-linux-* > SHA256SUMS && cp SHA256SUMS sha256sums.txt
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}

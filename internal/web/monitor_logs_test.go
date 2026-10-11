@@ -211,7 +211,7 @@ func TestIdleTimeoutApplied(t *testing.T) {
 	s.idle.Store(int64(time.Second)) // shrink the limit instead of waiting minutes
 	time.Sleep(2200 * time.Millisecond)
 	w := do(h, "GET", "/admin", nil, c)
-	if w.Code != 303 || w.Header().Get("Location") != "/login" {
+	if w.Code != 303 || w.Header().Get("Location") != "/admin/login" {
 		t.Fatalf("idle session still valid: %d", w.Code)
 	}
 }

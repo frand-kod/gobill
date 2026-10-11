@@ -1,0 +1,9 @@
+{{define "tplvars"}}
+{{/* Variables of a message text box: each chip inserts [[name]] at the cursor (static/tplvars.js). The list explains them. */}}
+<div class="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="{{T "Variables"}}">
+  {{range .Vars}}<button type="button" class="rounded-full border border-line bg-surface-2 px-2.5 py-1 font-mono text-xs text-ink hover:border-accent-fg" data-var-target="{{$.Name}}" data-var-insert="[[{{.Name}}]]">[[{{.Name}}]]</button>{{end}}
+</div>
+<dl class="hint mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+  {{range .Vars}}<dt class="font-mono">[[{{.Name}}]]</dt><dd>{{T .Desc}}</dd>{{end}}
+</dl>
+{{end}}

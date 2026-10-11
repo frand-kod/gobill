@@ -15,7 +15,7 @@ import (
 
 func custLogin(t *testing.T, e *billEnv, user, pass string) (*http.Cookie, int) {
 	t.Helper()
-	w := do(e.h, "POST", "/portal/login", url.Values{"username": {user}, "password": {pass}}, nil)
+	w := do(e.h, "POST", "/login", url.Values{"username": {user}, "password": {pass}}, nil)
 	for _, c := range w.Result().Cookies() {
 		if c.Name == "gobill_session" {
 			return c, w.Code
@@ -40,7 +40,7 @@ func portalCust(t *testing.T, e *billEnv, balance int64) {
 func TestPortalLoginAndIsolation(t *testing.T) {
 	e := billApp(t)
 	portalCust(t, e, 0)
-	if w := do(e.h, "POST", "/portal/login", url.Values{"username": {"u1"}, "password": {"bad"}}, nil); w.Code != 200 || !strings.Contains(w.Body.String(), "alert-error") {
+	if w := do(e.h, "POST", "/login", url.Values{"username": {"u1"}, "password": {"bad"}}, nil); w.Code != 200 || !strings.Contains(w.Body.String(), "alert-error") {
 		t.Fatalf("bad login: %d", w.Code)
 	}
 	c, code := custLogin(t, e, "u1", "pw12345")
@@ -51,11 +51,11 @@ func TestPortalLoginAndIsolation(t *testing.T) {
 		t.Fatalf("dashboard: %d", w.Code)
 	}
 	// customer session is not an admin session
-	if w := do(e.h, "GET", "/admin", nil, c); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login" {
+	if w := do(e.h, "GET", "/admin", nil, c); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/admin/login" {
 		t.Fatalf("customer on admin: %d", w.Code)
 	}
 	// admin session is not a customer session
-	if w := do(e.h, "GET", "/portal", nil, e.c); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/portal/login" {
+	if w := do(e.h, "GET", "/portal", nil, e.c); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login" {
 		t.Fatalf("admin on portal: %d %s", w.Code, w.Header().Get("Location"))
 	}
 }

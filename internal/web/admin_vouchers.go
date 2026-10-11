@@ -66,9 +66,10 @@ func (s *Server) planOptions(r *http.Request, enabledOnly bool) ([]option, map[i
 	}
 	var opts []option
 	byID := map[int64]db.Plan{}
+	isoPlan, _ := s.isolirIDs(r.Context())
 	for _, p := range plans {
-		byID[p.ID] = p
-		if !enabledOnly || p.Enabled == 1 {
+		byID[p.ID] = p // rows and names still resolve; only the options leave the isolir plan out
+		if p.ID != isoPlan && (!enabledOnly || p.Enabled == 1) {
 			opts = append(opts, option{fmt.Sprint(p.ID), fmt.Sprintf("%s (%s)", p.Name, money(p.Price))})
 		}
 	}
@@ -76,12 +77,12 @@ func (s *Server) planOptions(r *http.Request, enabledOnly bool) ([]option, map[i
 }
 
 func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
+	q, pg := paging(r)
 	status := r.URL.Query().Get("status")
 	if status != "unused" && status != "used" {
 		status = ""
 	}
-	rows, err := s.queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Q: q, Status: status, PageLimit: limit, PageOffset: off})
+	rows, err := s.queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Q: q, Status: status, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
 		s.fail(w, "list vouchers", err)
 		return
@@ -109,7 +110,12 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 		}
 		lp.Rows = append(lp.Rows, listRow{v.ID, []string{v.Code, plans[v.PlanID].Name, v.Status, s.ts(v.CreatedAt), used}})
 	}
-	lp.finish(page)
+	total, err := s.queries.CountVouchers(r.Context(), db.CountVouchersParams{Q: q, Status: status})
+	if err != nil {
+		s.fail(w, "count vouchers", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
@@ -152,6 +158,9 @@ func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {
 	planID, ok := posInt(v["plan"])
 	if _, err := s.queries.GetPlan(r.Context(), planID); !ok || err != nil {
 		e["plan"] = "This field is required"
+	}
+	if isoPlan, _ := s.isolirIDs(r.Context()); ok && planID == isoPlan {
+		e["plan"] = billing.ErrIsolirPlan.Error()
 	}
 	count, ok := posInt(v["numbervoucher"])
 	if !ok || count > maxVouchers {

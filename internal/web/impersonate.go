@@ -30,7 +30,7 @@ func (s *Server) custLoginAs(w http.ResponseWriter, r *http.Request) {
 // pImpersonateEnd ends only the customer session and returns to that customer's admin page.
 func (s *Server) pImpersonateEnd(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	to, cid := "/portal/login", s.sessions.GetInt64(ctx, "customer_id")
+	to, cid := "/login", s.sessions.GetInt64(ctx, "customer_id")
 	if s.sessions.GetInt64(ctx, "impersonator") != 0 {
 		to = "/admin"
 		if cid != 0 {

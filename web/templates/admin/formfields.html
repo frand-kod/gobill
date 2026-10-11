@@ -1,11 +1,4 @@
-{{define "content"}}
-{{if .Tabs}}<nav class="mb-4 flex flex-wrap gap-2">{{range .Tabs}}<a class="btn"{{if eq .Value $.Path}} aria-current="page"{{end}} href="{{.Value}}">{{T .Label}}</a>{{end}}</nav>{{end}}
-{{with .Data}}
-<div class="page-head">
-  <h1 class="page-title">{{TT .Heading}}</h1>
-</div>
-{{template "callout" $.Intro}}
-<form method="post" action="{{.Action}}"{{if .HasFile}} enctype="multipart/form-data"{{end}} novalidate x-data="{{.XData}}">
+{{define "formgroups"}}
   {{range .Groups}}
   {{if .Fold}}<details class="mb-4"{{if .Open}} open{{end}}><summary class="cursor-pointer py-2 text-sm font-medium text-accent-fg">{{T "Advanced options"}}</summary>{{end}}
   <section class="card{{if not .Fold}} mb-4{{end}}"{{with .Show}} x-show="{{.}}" x-cloak{{end}}>
@@ -35,6 +28,8 @@
         <script src="/static/maps.js"></script>
         {{else if eq .Type "textarea"}}
         <textarea class="input" id="{{.Name}}" name="{{.Name}}" rows="4"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>{{.Value}}</textarea>
+        {{if .Vars}}{{template "tplvars" .}}{{end}}
+        {{with .Reset}}<p class="mt-2"><button type="submit" class="btn btn-ghost" formaction="{{.}}" data-confirm="{{T "Reset this message to the built-in text?"}}" data-confirm-danger>{{T "Reset to default"}}</button></p>{{end}}
         {{else if eq .Type "watest"}}
         <div class="flex flex-wrap gap-2"><input class="input flex-1" id="{{.Name}}" name="{{.Name}}" value="{{.Value}}" inputmode="tel" placeholder="08123456789"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
         <button type="submit" class="btn btn-ghost" formaction="/admin/settings/integrations/wa-test">{{T "Send test message"}}</button></div>
@@ -81,10 +76,4 @@
   </section>
   {{if .Fold}}</details>{{end}}
   {{end}}
-  <div class="flex gap-2">
-    <button class="btn btn-primary" type="submit">{{T "Save"}}</button>
-    <a class="btn btn-ghost" href="{{.Cancel}}">{{T "Cancel"}}</a>
-  </div>
-</form>
-{{end}}
 {{end}}

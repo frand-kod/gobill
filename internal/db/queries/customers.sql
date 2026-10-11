@@ -39,6 +39,11 @@ UPDATE customers SET last_login_at = unixepoch() WHERE id = ?;
 UPDATE customers SET balance = balance + sqlc.arg(delta) WHERE id = sqlc.arg(id)
 RETURNING balance;
 
+-- name: DebitBalance :one
+-- Check and debit in one statement: no row (sql.ErrNoRows) when the balance is short.
+UPDATE customers SET balance = balance - sqlc.arg(amount) WHERE id = sqlc.arg(id) AND balance >= sqlc.arg(amount)
+RETURNING balance;
+
 -- name: DeleteCustomer :exec
 DELETE FROM customers WHERE id = ?;
 
@@ -89,3 +94,6 @@ WHERE CAST(sqlc.arg(term) AS TEXT) = ''
 ORDER BY (CAST(?1 AS TEXT) <> '' AND (lower(username) = lower(CAST(?1 AS TEXT)) OR (pppoe_username <> '' AND lower(pppoe_username) = lower(CAST(?1 AS TEXT))) OR phone = CAST(?1 AS TEXT))) DESC,
    (CAST(?1 AS TEXT) = '' AND status <> 'Active'), username
 LIMIT sqlc.arg(limit);
+
+-- name: CountCustomersByPhone :one
+SELECT COUNT(*) FROM customers WHERE phone = sqlc.arg(phone) AND id <> sqlc.arg(self);

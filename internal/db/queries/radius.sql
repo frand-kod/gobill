@@ -13,6 +13,9 @@ UPDATE nas SET name = ?, ip = ?, secret_enc = ?, description = ?, require_messag
 -- name: DeleteNAS :exec
 DELETE FROM nas WHERE id = ?;
 
+-- name: MarkNASMASeen :exec
+UPDATE nas SET ma_seen = 1 WHERE id = ?;
+
 -- name: GetCustomerForRadius :one
 SELECT * FROM customers
 WHERE (username = sqlc.arg(name) OR (pppoe_username <> '' AND pppoe_username = sqlc.arg(name))) AND status = 'Active'
@@ -53,7 +56,7 @@ ON CONFLICT (nas_ip, session_id) DO UPDATE SET
     nas_identifier = COALESCE(NULLIF(excluded.nas_identifier, ''), radius_sessions.nas_identifier),
     framed_ip = excluded.framed_ip, updated_at = excluded.updated_at,
     stopped_at = COALESCE(radius_sessions.stopped_at, excluded.stopped_at),
-    input_octets = excluded.input_octets, output_octets = excluded.output_octets;
+    input_octets = MAX(radius_sessions.input_octets, excluded.input_octets), output_octets = MAX(radius_sessions.output_octets, excluded.output_octets);
 
 -- name: CloseRadiusSessionsByNAS :exec
 UPDATE radius_sessions SET stopped_at = ? WHERE nas_ip = ? AND stopped_at IS NULL;
@@ -105,3 +108,19 @@ ORDER BY s.expires_at DESC LIMIT 1;
 SELECT * FROM radius_sessions
 WHERE username = sqlc.arg(name1) OR username = sqlc.arg(name2)
 ORDER BY started_at DESC, id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+
+-- name: ListActivePlanRates :many
+-- Active plan and its bandwidth per customer, for the live sessions view. Newest expiry first: the first row for a login is the plan that counts.
+SELECT c.username, c.pppoe_username, p.name AS plan_name,
+       COALESCE(b.rate_down, 0) AS rate_down, COALESCE(b.rate_down_unit, '') AS rate_down_unit,
+       COALESCE(b.rate_up, 0) AS rate_up, COALESCE(b.rate_up_unit, '') AS rate_up_unit
+FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id
+LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
+WHERE s.status = 'active'
+ORDER BY s.expires_at DESC;
+
+-- name: CountRadiusLoginsSince :one
+SELECT COUNT(*) FROM radius_sessions WHERE started_at >= ?;
+
+-- name: CountRadiusDisconnectsSince :one
+SELECT COUNT(*) FROM radius_sessions WHERE stopped_at >= ?;

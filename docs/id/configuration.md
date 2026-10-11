@@ -48,7 +48,7 @@ Ubah pengaturan di menu **Pengaturan**. Kunci di bawah tersimpan di tabel `setti
 | Pengaturan | Fungsi |
 |---|---|
 | `company_name` | Nama usaha. Tampil di invoice, pesan, dan halaman login. |
-| `app_url` | Alamat publik aplikasi, misalnya `https://billing.example.com`. Terisi otomatis dari alamat yang dipakai admin pertama kali login, kecuali alamat LAN atau localhost. Dipakai untuk tautan di WhatsApp, misalnya QRIS dan invoice. |
+| `app_url` | Alamat publik aplikasi, misalnya `https://billing.example.com`. Terisi otomatis dari alamat yang dipakai admin pertama kali login, kecuali alamat LAN atau localhost. Dipakai untuk tautan di WhatsApp, misalnya QRIS dan invoice. Login pelanggan ada di `/login` (pesan selamat datang memakai tautan ini), dan login admin ada di `/admin/login`. |
 | `timezone` | Zona waktu tampilan, misalnya `Asia/Jakarta`. Waktu disimpan dalam UTC. Jika kosong, dianggap UTC, jadi isi saat pertama kali setup. |
 | `country_code_phone` | Kode negara untuk nomor yang diawali `0`, misalnya `62`. |
 | `default_plan_device` | Device bawaan untuk paket baru: `MikrotikHotspot`, `MikrotikPppoe`, `Dummy`, `Radius`, atau kosong. Kosong berarti mengikuti tipe paket. |
@@ -58,7 +58,7 @@ Ubah pengaturan di menu **Pengaturan**. Kunci di bawah tersimpan di tabel `setti
 | `log_keep_days` | Lama penyimpanan log, sesi RADIUS tertutup, pesan inbox yang sudah dibaca, dan pembayaran belum lunas, dalam hari. Bawaan 90 jika belum pernah diisi. `0` berarti simpan selamanya. Pembayaran lunas tidak pernah dihapus. |
 | `backup_keep` | Jumlah file backup harian yang disimpan, di folder utama dan di mirror. Bawaan 7. |
 
-### Admin dan sesi
+### Sistem dan keamanan
 
 | Pengaturan | Fungsi |
 |---|---|
@@ -83,7 +83,7 @@ Contoh Nginx di depan aplikasi pada host yang sama:
 
 Jika Cloudflare ada di depan Nginx, atur `set_real_ip_from` dengan rentang IP Cloudflare, dan `real_ip_header CF-Connecting-IP`.
 
-### Bisnis
+### Pelanggan dan tagihan
 
 | Pengaturan | Fungsi |
 |---|---|
@@ -92,8 +92,9 @@ Jika Cloudflare ada di depan Nginx, atur `set_real_ip_from` dengan rentang IP Cl
 | `enable_balance` | Sistem saldo: isi saldo, transfer saldo, dan perpanjang otomatis dari saldo. Bawaan aktif jika belum diisi. |
 | `start_on_first_login` | `yes` agar masa aktif paket RADIUS mulai saat login pertama, bukan saat recharge. Bawaan `no`. Lihat bagian "Start on first login" di bawah. |
 | `disable_registration`, `disable_voucher`, `allow_phone_otp`, `phone_otp_type`, `customer_password_min` | Pembatasan dan metode di portal pelanggan. `phone_otp_type` memilih `sms` atau `wa`. `customer_password_min` adalah panjang minimal kata sandi pelanggan, 4 sampai 64. |
+| `wa_unique_per_account` | `yes` membuat satu nomor WhatsApp hanya milik satu akun: pendaftaran, ubah kontak pelanggan, dan form pelanggan admin menolak nomor yang dipakai akun lain. `no` (bawaan) membolehkan beberapa akun memakai satu nomor, misalnya satu keluarga atau kelompok RT/RW. Lupa username lalu mengirim semua username di nomor itu. Lupa password meminta username, sehingga kode dikirim ke nomor akun itu. |
 | `voucher_format` | Format kode voucher bawaan: `up`, `low`, `rand`, atau `numbers`. |
-| `hs_auth_method` | Metode auth hotspot yang ditampilkan di **Aneka ragam**: `pap` atau `chap`. Pengaturan ini tidak mengubah server RADIUS bawaan. Server bawaan menerima PAP, CHAP, dan MS-CHAPv2. |
+| `hs_auth_method` | Metode auth hotspot yang ditampilkan di **Sistem & keamanan**: `pap` atau `chap`. Pengaturan ini tidak mengubah server RADIUS bawaan. Server bawaan menerima PAP, CHAP, dan MS-CHAPv2. |
 | `shared_users_policy` | Apa yang dilakukan paket hotspot saat batas perangkat (`shared_users`) penuh dan perangkat baru login. `kick_oldest` (bawaan, juga saat belum pernah diatur) mengeluarkan sesi online tertua pelanggan dari NAS-nya lalu menerima login baru. `reject` menolak login baru dengan pesan "Akun sedang dipakai perangkat lain. Coba lagi beberapa menit lagi atau hubungi admin.". Ponsel dengan MAC acak tersambung ulang sebagai perangkat baru, jadi `kick_oldest` mencegah pelanggan dengan satu perangkat terkunci. |
 | `check_customer_online` | `yes` menampilkan di halaman pelanggan apakah pelanggan sedang terhubung lewat device paket. |
 
@@ -119,7 +120,7 @@ Sakelar `notify_customers`, `notify_otp`, dan `expired_notify_minutes_before` di
 
 ### Tampilan
 
-`logo`, `logo_dark`, `login_page_*`, `date_format`, `dec_point`, `thousands_sep`, dan `language` diatur di **Pengaturan**. Tema terang atau gelap dan warna aksen diatur dari header, bukan dari pengaturan ini.
+`logo`, `logo_dark`, `login_page_*`, `date_format`, `dec_point`, `thousands_sep`, dan `language` diatur di **Pengaturan**. Pengaturan halaman login (`login_page_*`) ada di tab **Tampilan**. Yang lain ada di **Umum** dan **Lokalisasi**. Tema terang atau gelap dan warna aksen diatur dari header, bukan dari pengaturan ini.
 
 ## Paket layanan dan siapa yang boleh memakainya
 

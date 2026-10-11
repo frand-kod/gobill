@@ -263,5 +263,5 @@ func (s *Server) pForgotReset(w http.ResponseWriter, r *http.Request) {
 	s.Billing.SyncCustomer(ctx, c.ID, 0)
 	s.forgotClear(r)
 	s.sessions.Put(ctx, "flash", s.catalog.T(s.language(), "Password changed successfully"))
-	http.Redirect(w, r, "/portal/login", http.StatusSeeOther)
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }

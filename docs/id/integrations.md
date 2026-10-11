@@ -22,7 +22,7 @@ Tips: setelah impor dari PHPNuxBill untuk uji paralel, set `notify_customers` = 
 
 ## Template dan kanal pesan
 
-Template pesan ada di **Pengaturan > Notifikasi**. Pengaturan `notif_*` berisi template untuk pesan kedaluwarsa, pengingat, invoice, selamat datang, dan saldo. Pengaturan `user_notification_*` mengatur kanal untuk tiap jenis pesan.
+Template pesan ada di **Pengaturan > Notifikasi**. Pengaturan `notif_*` berisi template untuk pesan kedaluwarsa, pengingat, invoice, selamat datang, dan saldo. Di bawah tiap template, ketuk variabel untuk menyisipkannya di kursor. **Kembalikan ke default** mengembalikan teks bawaan. Template yang kosong tetap mengirim teks bawaan. Pengaturan `user_notification_*` mengatur kanal untuk tiap jenis pesan.
 
 Template bisa memakai placeholder seperti `[[price]]`. Placeholder yang tidak dikenal dihapus dari pesan.
 
@@ -99,11 +99,11 @@ Tiap bagian punya tombol uji di **Pengaturan > Integrasi**. Hanya SuperAdmin yan
 | Kirim gateway uji | Mengirim SMS ke nomor yang Anda ketik lewat URL gateway `wa_url`. |
 | Kirim email uji | Mengirim email ke alamat yang Anda ketik lewat SMTP tersimpan. |
 | Kirim webhook uji | Mengirim event `test` yang ditandatangani ke `webhook_url`, lalu menampilkan status HTTP. |
-| Cek koneksi | Di **Pengaturan > Gerbang Pembayaran**, untuk Tripay. Memanggil daftar channel pembayaran Tripay untuk memastikan kunci dan merchant code benar. |
+| Cek koneksi | Di **Pengaturan > Pembayaran**, untuk Tripay. Memanggil daftar channel pembayaran Tripay untuk memastikan kunci dan merchant code benar. |
 
 ## Pembayaran online
 
-Pengaturan `payment_gateway` menentukan gateway: `""` untuk mati, atau `tripay`. Pengaturan ada di **Pengaturan > Gerbang Pembayaran**.
+Pengaturan `payment_gateway` menentukan gateway: `""` untuk mati, atau `tripay`. Pengaturan ada di **Pengaturan > Pembayaran**.
 
 | Pengaturan | Fungsi |
 |---|---|
@@ -115,7 +115,7 @@ Callback Tripay masuk ke `POST /callback/tripay`. Callback diverifikasi dengan t
 
 ## QRIS statis
 
-Di **Pengaturan > Gerbang Pembayaran**, bagian QRIS:
+Di **Pengaturan > Pembayaran**, bagian QRIS:
 
 1. Unggah foto QRIS statis merchant. Format PNG atau JPG, maksimal 2 MB.
 2. Sistem membaca kode QR dan memastikan formatnya QRIS yang valid.

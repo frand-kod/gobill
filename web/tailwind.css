@@ -35,6 +35,9 @@
   --color-err-bg: var(--err-bg);
   --color-info-fg: var(--info-fg);
   --color-info-bg: var(--info-bg);
+  --color-meter-ok: var(--meter-ok);
+  --color-meter-warn: var(--meter-warn);
+  --color-meter-err: var(--meter-err);
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
@@ -63,6 +66,8 @@
     --warn-fg: #7a4a00; --warn-bg: #fdf0d5;
     --err-fg: #a4262c;  --err-bg: #fdeaea;
     --info-fg: #1a5a9e; --info-bg: #e6f0fb;
+    /* speed meter segments: non-text colours, at least 3:1 on the surface */
+    --meter-ok: #1f8a4c; --meter-warn: #b87408; --meter-err: #d1383d;
 
     /* type: 3 weights, few steps; table text is tighter than body */
     --fs-title: 1.5rem;    /* page title */
@@ -113,6 +118,7 @@
     --warn-fg: #f0c36a; --warn-bg: #33270c;
     --err-fg: #ff9a9a;  --err-bg: #3a1517;
     --info-fg: #8fc1f5; --info-bg: #13263d;
+    --meter-ok: #4fc282; --meter-warn: #f0b429; --meter-err: #ff7a7a;
     color-scheme: dark;
   }
 
@@ -158,6 +164,15 @@
   a.stat:hover { box-shadow: inset 3px 0 0 var(--accent); }
   .stat-num { font-size: var(--fs-title); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; line-height: 1.25; }
   .stat-label { font-size: var(--fs-small); @apply text-ink-2; }
+
+  /* live sessions: a new session flashes once, an ended one fades out; reduced motion skips the animation */
+  .row-new { animation: row-new 1.6s ease-out; }
+  @keyframes row-new { from { background-color: var(--ok-bg); } to { background-color: transparent; } }
+  .row-ended { opacity: 0; transition: opacity 0.6s ease; }
+  @media (prefers-reduced-motion: reduce) {
+    .row-new { animation: none; background-color: var(--ok-bg); }
+    .row-ended { transition: none; }
+  }
 
   .btn { min-height: var(--ctl-h); @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-3 text-sm font-medium text-ink transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50; }
   .btn-primary { @apply rounded-full border-brand-500 bg-brand-500 px-4 text-on-accent hover:border-brand-600 hover:bg-brand-600; }
@@ -252,6 +267,14 @@
   .nav-item { min-height: 2.25rem; @apply flex items-center gap-3 rounded-md border-s-2 border-transparent px-3 py-1.5 text-sm text-ink hover:bg-surface-2 aria-[current=page]:border-[var(--accent)] aria-[current=page]:bg-brand-50 aria-[current=page]:font-medium aria-[current=page]:text-accent-fg; }
   /* dark: the active item edge is the accent mixed with the surface, not full strength */
   :root.dark .nav-item[aria-current="page"] { border-inline-start-color: color-mix(in srgb, var(--accent) 80%, var(--surface)); }
+  /* Setup cepat: the sidebar entry is the accent colour so it is found first */
+  .nav-item.setup-accent { @apply mb-2 bg-brand-500 font-medium text-on-accent hover:bg-brand-600; border-inline-start-color: transparent; }
+  .nav-item.setup-accent[aria-current="page"] { @apply bg-brand-600 text-on-accent; }
+  .setup-accent .badge { background: color-mix(in srgb, var(--on-accent) 22%, transparent); color: var(--on-accent); border-color: transparent; }
+  /* wizard steps fade and slide in; no motion when the system asks for less */
+  .wiz-body { animation: wiz-in 180ms ease-out both; }
+  @keyframes wiz-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .wiz-body { animation: none; } }
   .nav-group { @apply flex w-full cursor-pointer items-center justify-between px-3 pb-1 pt-4 text-xs font-medium text-ink-2; }
   /* group chevron: right when closed, down when open */
   .nav-group > svg { rotate: -90deg; transition: rotate 150ms ease; }

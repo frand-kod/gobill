@@ -35,8 +35,8 @@ func routerFields(v, e map[string]string, editing bool) []field {
 }
 
 func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
-	rows, err := s.queries.SearchRouters(r.Context(), db.SearchRoutersParams{Q: q, PageLimit: limit, PageOffset: off})
+	q, pg := paging(r)
+	rows, err := s.queries.SearchRouters(r.Context(), db.SearchRoutersParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
 		s.fail(w, "list routers", err)
 		return
@@ -58,7 +58,12 @@ func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
 		}
 		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Name, fmt.Sprint(x.Host, ":", x.Port), x.Username, on, status, seen}})
 	}
-	lp.finish(page)
+	total, err := s.queries.CountRouters(r.Context(), q)
+	if err != nil {
+		s.fail(w, "count routers", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }
 

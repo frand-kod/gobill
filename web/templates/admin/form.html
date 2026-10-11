@@ -1,0 +1,18 @@
+{{define "content"}}
+{{if .Tabs}}<nav class="mb-4 flex flex-wrap gap-2">{{range .Tabs}}<a class="btn"{{if eq .Value $.Path}} aria-current="page"{{end}} href="{{.Value}}">{{T .Label}}</a>{{end}}</nav>{{end}}
+{{with .Data}}
+<div class="page-head">
+  <h1 class="page-title">{{TT .Heading}}</h1>
+</div>
+{{template "callout" $.Intro}}
+<form method="post" action="{{.Action}}"{{if .HasFile}} enctype="multipart/form-data"{{end}} novalidate x-data="{{.XData}}">
+  {{template "formgroups" .}}
+  <div class="flex gap-2">
+    <button class="btn btn-primary" type="submit">{{T "Save"}}</button>
+    <a class="btn btn-ghost" href="{{.Cancel}}">{{T "Cancel"}}</a>
+  </div>
+</form>
+{{if .HasVars}}<script src="/static/tplvars.js"></script>{{end}}
+{{end}}
+{{end}}
+

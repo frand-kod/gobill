@@ -182,7 +182,7 @@ func TestDocsPickerListsEverySlug(t *testing.T) {
 func TestDocsStaffReadAnonymousRedirected(t *testing.T) {
 	h, _ := newTestServer(t)
 	w := do(h, "GET", "/admin/docs/security", nil, nil)
-	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login" {
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/admin/login" {
 		t.Fatalf("anonymous: got %d %q", w.Code, w.Header().Get("Location"))
 	}
 	// the Report role is the most limited one and may read the guides too

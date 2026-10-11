@@ -10,7 +10,7 @@
       <p class="pl-sub mx-auto max-w-xs">{{with .Brand.login_page_description}}{{.}}{{else}}{{T "Sign in to check your package, top up and pay."}}{{end}}</p>
     </div>
   </header>
-  <form class="card pl-card" method="post" action="/portal/login">
+  <form class="card pl-card" method="post" action="/login">
     <div class="card-body space-y-4">
       <h1 class="text-xl font-bold">{{T "Welcome back"}}</h1>
       {{if .Flash}}<p class="alert alert-ok !mb-0" role="status">{{icon "circle-check"}}<span>{{.Flash}}</span></p>{{end}}
@@ -28,6 +28,7 @@
         <a class="btn pl-ghost" href="/portal/forgot">{{T "Forgot Password"}}</a>
         {{if or (eq .Brand.disable_registration "") (eq .Brand.disable_registration "no")}}<a class="btn pl-ghost" href="/portal/register">{{T "Register"}}</a>{{end}}
       </div>
+      <p class="hint text-center"><a href="/admin/login">{{T "Sign in as admin"}}</a></p>
     </div>
   </form>
   {{if eq .Brand.disable_registration "yes"}}

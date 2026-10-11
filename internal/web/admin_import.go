@@ -1,6 +1,6 @@
 package web
 
-// Import a PHPNuxBill JSON backup from Settings > Miscellaneous (SuperAdmin only). The upload is
+// Import a PHPNuxBill JSON backup from Settings > System & Security (SuperAdmin only). The upload is
 // streamed to temp files and kept under a random session token until the operator confirms,
 // cancels or 30 minutes pass. Confirm makes a database backup first, then replaces the data.
 
@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/importer"
 )
 
@@ -25,7 +26,7 @@ const (
 	importMaxBody = 200 << 20 // a PHPNuxBill backup can be large; only the import routes accept this
 	importTTL     = 30 * time.Minute
 	importPrefix  = "gobill-import-"
-	importPage    = "/admin/settings/miscellaneous/import"
+	importPage    = "/admin/settings/system/import"
 )
 
 // importCounts are the rows gobill holds now, which an import replaces.
@@ -162,22 +163,7 @@ func (s *Server) runImport(ctx context.Context, files map[string]string, dry boo
 // importBackup writes a VACUUM INTO copy of the database to BackupDir, named with label (pre-import or pre-restore), and returns its file name.
 // The name does not match the daily backup pattern, so the daily rotation never deletes it.
 func (s *Server) importBackup(ctx context.Context, label string) (string, error) {
-	if err := os.MkdirAll(s.BackupDir, 0o700); err != nil {
-		return "", err
-	}
-	name := "gobill-" + time.Now().Format("20060102-150405") + "-" + label + ".db"
-	final := filepath.Join(s.BackupDir, name)
-	tmp := final + ".tmp"
-	os.Remove(tmp)
-	if _, err := s.conn.ExecContext(ctx, "VACUUM INTO ?", tmp); err != nil {
-		os.Remove(tmp)
-		return "", err
-	}
-	if err := os.Rename(tmp, final); err != nil {
-		os.Remove(tmp)
-		return "", err
-	}
-	return name, nil
+	return db.Snapshot(ctx, s.conn, s.BackupDir, label)
 }
 
 // extendDeadlines lifts the server's 15 s read and 30 s write timeouts for these routes: a large
@@ -319,9 +305,18 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 	msg := s.catalog.T(lang, "Import finished. Log in with a PHPNuxBill admin account.") + " " +
 		fmt.Sprintf(s.catalog.T(lang, "%d rows imported, %d skipped"), loaded, skipped) + ". " +
 		fmt.Sprintf(s.catalog.T(lang, "Backup saved as %s"), bak)
+	// Quick Setup switches to verifying the imported data, and the first-run dialog does not come back
+	if err := s.queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupModeKey, Value: "import"}); err != nil {
+		slog.Error("import setup mode", "err", err)
+	}
+	if cur, _ := s.queries.GetSetting(ctx, setupKey); cur == "" {
+		if err := s.queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupKey, Value: "started"}); err != nil {
+			slog.Error("import setup state", "err", err)
+		}
+	}
 	s.sessions.Destroy(ctx)
 	s.sessions.Put(ctx, "flash", msg)
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 }
 
 func (s *Server) importCancel(w http.ResponseWriter, r *http.Request) {

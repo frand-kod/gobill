@@ -23,6 +23,7 @@ import (
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/isolir"
+	"github.com/frand-kod/gobill/internal/notify"
 	"github.com/frand-kod/gobill/internal/payment"
 )
 
@@ -106,12 +107,8 @@ func (s *Server) isolirVoucher(w http.ResponseWriter, r *http.Request) {
 // framed IP, its customer, and the last plan that is not the isolir plan.
 func (s *Server) isolirFor(ctx context.Context, ip string, st map[string]string, notice string) isolirView {
 	v := isolirView{Notice: notice}
-	sess, err := s.queries.GetOpenRadiusSessionByFramedIP(ctx, ip)
-	if err != nil {
-		return v
-	}
-	c, err := s.queries.GetCustomerByUsername(ctx, sess.Username)
-	if err != nil {
+	c, ok := s.isolirCustomer(ctx, ip)
+	if !ok {
 		return v
 	}
 	v.Known, v.CustomerID, v.Username = true, c.ID, c.Username
@@ -138,6 +135,70 @@ func (s *Server) isolirFor(ctx context.Context, ip string, st map[string]string,
 		break
 	}
 	return v
+}
+
+// isolirCustomer finds the customer of a client IP: the owner of the most recent open RADIUS session
+// on that framed IP. ok is false when there is none.
+func (s *Server) isolirCustomer(ctx context.Context, ip string) (c db.Customer, ok bool) {
+	sess, err := s.queries.GetOpenRadiusSessionByFramedIP(ctx, ip)
+	if err != nil {
+		return c, false
+	}
+	c, err = s.queries.GetCustomerByUsername(ctx, sess.Username)
+	return c, err == nil
+}
+
+// isolirIsolated reports whether the customer has an active subscription on the isolir plan that has
+// not ended yet.
+func (s *Server) isolirIsolated(ctx context.Context, customerID int64) bool {
+	id, err := s.queries.GetSetting(ctx, "isolir_plan_id")
+	isoID := isolir.PlanID(id)
+	if err != nil || isoID == 0 {
+		return false
+	}
+	subs, err := s.queries.ListActiveSubscriptionsWithPlan(ctx, customerID)
+	if err != nil {
+		return false
+	}
+	now := time.Now().Unix()
+	for _, sub := range subs {
+		if sub.PlanID == isoID && sub.ExpiresAt > now {
+			return true
+		}
+	}
+	return false
+}
+
+// isolirGate serves the isolir page to an isolated client for GET and HEAD requests, whatever Host
+// and path it asked for. It wraps the whole router, so it runs before the root redirect. Paths the
+// client needs to pay or log in stay reachable (isolirExempt). With isolir off it does no query.
+func (s *Server) isolirGate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !s.isolir.Load() || (r.Method != http.MethodGet && r.Method != http.MethodHead) || isolirExempt(r.URL.Path) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		c, ok := s.isolirCustomer(r.Context(), clientIP(r))
+		if !ok || !s.isolirIsolated(r.Context(), c.ID) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		s.isolirPage(w, r)
+	})
+}
+
+// isolirExempt is true for the paths an isolated client still needs: the isolir page, static and
+// uploaded files, QRIS images, the customer login and portal (payment) and the health check.
+func isolirExempt(p string) bool {
+	if p == "/isolir" || p == "/login" || p == "/portal" || p == "/health" {
+		return true
+	}
+	for _, dir := range []string{"/isolir/", "/static/", "/uploads/", "/qris/", "/portal/"} {
+		if strings.HasPrefix(p, dir) {
+			return true
+		}
+	}
+	return false
 }
 
 // qrisDataURI draws the static QRIS locked to amount as a PNG data URI; "" when it cannot be made.
@@ -310,68 +371,80 @@ func (s *Server) isolirReset(w http.ResponseWriter, r *http.Request) {
 	s.done(w, r, "/admin/settings/isolir", "Settings saved", "settings.reset", "isolir "+sec)
 }
 
-// isolirPlanOptions lists the plans for the isolir plan select; "" = the automatic isolir plan. A
-// stored id that is not in the list (a deleted plan) is kept as an option so it still shows.
-func (s *Server) isolirPlanOptions(current string) []option {
-	out := []option{{"", "Otomatis: Isolir (dibuat saat diaktifkan)"}}
-	seen := map[string]bool{"": true}
-	plans, err := s.queries.ListPlans(context.Background(), db.ListPlansParams{Limit: 1000})
-	if err == nil {
-		for _, p := range plans {
-			out = append(out, option{fmt.Sprint(p.ID), p.Name})
-			seen[fmt.Sprint(p.ID)] = true
-		}
-	}
-	if !seen[current] {
-		out = append(out, option{current, "#" + current})
-	}
-	return out
+// isolirVarList are the variables of the custom HTML, the ones renderIsolirCustom fills.
+var isolirVarList = []notify.Var{
+	{Name: "company_name", Desc: "Company name"},
+	{Name: "logo_url", Desc: "Logo address"},
+	{Name: "title", Desc: "Title of the page (Title setting)"},
+	{Name: "message", Desc: "Message of the page (Message setting)"},
+	{Name: "username", Desc: "Customer's username"},
+	{Name: "name", Desc: "Customer's full name"},
+	{Name: "plan_name", Desc: "Package name"},
+	{Name: "expired_at", Desc: "Expiry date and time"},
+	{Name: "amount", Desc: "Price of the package"},
+	{Name: "qris_image", Desc: "QRIS image as a data URI, for an image src"},
+	{Name: "wa_admin_link", Desc: "WhatsApp link to the admin"},
+	{Name: "voucher_form", Desc: "Voucher form, rendered by gobill"},
+	{Name: "promos", Desc: "Promotions, rendered by gobill"},
+	{Name: "known", Desc: "yes or no: the client is a known customer"},
+	{Name: "notice", Desc: "Result of the last action, such as a voucher"},
 }
 
-// isolirVars is the variable reference shown under the custom HTML field.
-const isolirVars = `[[company_name]] [[logo_url]] [[title]] [[message]] [[username]] [[name]] [[plan_name]] [[expired_at]] [[amount]]
-[[qris_image]] (data URI, untuk src gambar) [[wa_admin_link]] [[voucher_form]] (form voucher) [[promos]] [[known]] (yes/no) [[notice]]
-Nilai di-escape HTML, kecuali voucher_form dan promos. Variabel tidak dikenal atau kosong menjadi kosong.`
-
-// isolirSetupFields is the MikroTik setup helper: copyable RouterOS commands for the gobill address
-// (app_url host and port, else the request host).
-func isolirSetupFields(r *http.Request, st map[string]string) []field {
-	host, port := gobillAddr(r, st["app_url"])
+// isolirSetupFields is the MikroTik setup helper: copyable RouterOS commands for the address gobill
+// listens on (see gobillAddr).
+func (s *Server) isolirSetupFields(st map[string]string) []field {
+	t := func(text string) string { return s.catalog.T(s.language(), text) }
+	host, port := s.gobillAddr()
 	list := isolir.Value(st, "isolir_address_list")
-	walled := fmt.Sprintf("/ip hotspot walled-garden add dst-host=%s action=allow", host)
-	if net.ParseIP(host) != nil {
-		walled = fmt.Sprintf("/ip hotspot walled-garden ip add dst-address=%s action=accept", host)
-	}
-	sec := "Setup router (MikroTik, RouterOS 6 dan 7)"
+	sec := t("Setup router (MikroTik, RouterOS 6 and 7)")
 	return []field{
-		{Name: "isolir_cmd_nat", Label: "1. Alihkan HTTP klien isolir ke gobill", Type: "pre", Section: sec,
+		{Name: "isolir_cmd_nat", Label: t("1. Redirect HTTP of isolated clients to gobill"), Type: "pre", Section: sec,
 			Value: fmt.Sprintf("/ip firewall nat add chain=dstnat src-address-list=%s protocol=tcp dst-port=80 action=dst-nat to-addresses=%s to-ports=%s", list, host, port),
-			Hint:  "to-addresses harus IP LAN gobill. Jika app_url memakai nama, ganti dengan IP-nya."},
-		{Name: "isolir_cmd_filter", Label: "2. Izinkan klien isolir mencapai gobill", Type: "pre", Section: sec,
+			Hint:  t("to-addresses is the LAN address of gobill and to-ports is its GOBILL_HTTP port. If GOBILL_HTTP is empty or 0.0.0.0, gobill uses its first LAN IPv4 address. Set GOBILL_HTTP to a LAN IP, for example 192.168.99.2:8090, to choose another one.")},
+		{Name: "isolir_cmd_filter", Label: t("2. Allow isolated clients to reach gobill"), Type: "pre", Section: sec,
 			Value: fmt.Sprintf("/ip firewall filter add chain=forward src-address-list=%s dst-address=%s action=accept", list, host),
-			Hint:  "Letakkan aturan ini di atas aturan drop untuk klien isolir (gunakan place-before jika perlu)."},
-		{Name: "isolir_cmd_walled", Label: "3. Walled garden hotspot untuk gobill", Type: "pre", Section: sec, Value: walled,
-			Hint: "Agar halaman isolir bisa dibuka sebelum login hotspot."},
-		{Name: "isolir_cmd_note", Label: "Catatan", Type: "note", Section: sec,
-			Hint: "HTTPS tetap bisa dipakai, tetapi lambat karena dibatasi 64 kbps. Hanya HTTP port 80 yang dialihkan ke halaman isolir. Address-list dikirim RADIUS (Mikrotik-Address-List)."},
+			Hint:  t("Place this rule above the drop rule for isolated clients (use place-before if needed).")},
+		{Name: "isolir_cmd_drop", Label: t("Optional: block all other traffic (full isolation)"), Type: "pre", Section: sec,
+			Value: fmt.Sprintf("/ip firewall filter add chain=forward src-address-list=%s action=drop", list),
+			Hint:  t("Also blocks WhatsApp and bank apps, so use it only for full isolation, and edit the default isolir message too. Add it after step 2, above any general accept rule in the forward chain.")},
+		{Name: "isolir_cmd_walled", Label: t("4. Walled garden hotspot for gobill"), Type: "pre", Section: sec,
+			Value: fmt.Sprintf("/ip hotspot walled-garden ip add dst-address=%s dst-port=%s action=accept", host, port),
+			Hint:  t("So the isolir page opens before hotspot login.")},
+		{Name: "isolir_cmd_bypass", Label: t("5. Bypass the hotspot for the gobill host"), Type: "pre", Section: sec,
+			Value: "/ip hotspot ip-binding add mac-address=<MAC-HOST-GOBILL> type=bypassed",
+			Hint:  t("Replace <MAC-HOST-GOBILL> with the MAC address of gobill's LAN card. Without this rule, the hotspot can capture gobill's own traffic.")},
+		{Name: "isolir_cmd_test", Label: t("Test from the LAN with curl"), Type: "pre", Section: sec,
+			Value: fmt.Sprintf(`curl -i -H "Host: example.com" http://%s:%s/`, host, port),
+			Hint:  t("gobill serves the isolir page to isolated clients at the root and at every other path. Do not test with /tool fetch: RouterOS sends a duplicate Host header and gets 400.")},
+		{Name: "isolir_cmd_note", Label: t("Note"), Type: "note", Section: sec,
+			Hint: t("Only HTTP on port 80 is redirected to the isolir page. HTTPS and apps still work at the isolir speed unless the optional drop rule (step 3) is added. The address-list is sent by RADIUS as Mikrotik-Address-List.")},
 	}
 }
 
-// gobillAddr is the host and port gobill answers on: from app_url when set, else from the request.
-func gobillAddr(r *http.Request, appURL string) (host, port string) {
-	if u, err := url.Parse(strings.TrimSpace(appURL)); err == nil && u.Hostname() != "" {
-		port = u.Port()
-		if port == "" {
-			port = "80"
-			if u.Scheme == "https" {
-				port = "443"
-			}
-		}
-		return u.Hostname(), port
+// gobillAddr is the LAN address and port gobill listens on (GOBILL_HTTP). A host that is not an IP,
+// such as empty or 0.0.0.0, gives the first LAN IPv4 address of this host.
+func (s *Server) gobillAddr() (host, port string) {
+	addr := s.ListenAddr
+	if addr == "" {
+		addr = ":8080"
 	}
-	host, port, err := net.SplitHostPort(r.Host)
+	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
-		return r.Host, "80"
+		host, port = "", "8080"
+	}
+	if ip := net.ParseIP(host); ip == nil || ip.IsUnspecified() {
+		host = lanIPv4()
 	}
 	return host, port
+}
+
+// lanIPv4 is the first non-loopback IPv4 address of this host, or a placeholder when there is none.
+func lanIPv4() string {
+	addrs, _ := net.InterfaceAddrs()
+	for _, a := range addrs {
+		if ipn, ok := a.(*net.IPNet); ok && ipn.IP.To4() != nil && !ipn.IP.IsLoopback() && !ipn.IP.IsLinkLocalUnicast() {
+			return ipn.IP.String()
+		}
+	}
+	return "<IP-LAN-GOBILL>"
 }

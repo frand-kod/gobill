@@ -74,7 +74,7 @@ func (s *Server) pRegisterForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if st["disable_registration"] != "" && st["disable_registration"] != "no" {
-		s.flashTo(w, r, "/portal/login", "Registration Disabled")
+		s.flashTo(w, r, "/login", "Registration Disabled")
 		return
 	}
 	s.prender(w, r, 200, "p_register", Page{Title: "Register", Data: regFlags(regData{}, st)})
@@ -93,7 +93,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if st["disable_registration"] != "" && st["disable_registration"] != "no" {
-		s.flashTo(w, r, "/portal/login", "Registration Disabled")
+		s.flashTo(w, r, "/login", "Registration Disabled")
 		return
 	}
 	f := r.PostFormValue
@@ -132,7 +132,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "register", err)
 		return
 	} else if taken {
-		show("Already registered by another customer")
+		show(msgPhoneTaken)
 		return
 	}
 	if d.OTP {
@@ -200,7 +200,7 @@ func (s *Server) registered(ctx context.Context, st map[string]string, c db.Cust
 		return
 	}
 	n.Go("welcome", func(ctx context.Context) error {
-		return n.Custom(ctx, c, "welcome_message", "Welcome", map[string]string{"company": st["company_name"], "Username": c.Username, "url": st["app_url"], "Password": "********"})
+		return n.Custom(ctx, c, "welcome_message", "Welcome", map[string]string{"company": st["company_name"], "Username": c.Username, "url": customerLoginURL(st), "Password": "********"})
 	})
 	if st["reg_nofify_admin"] == "yes" {
 		n.Go("telegram", func(ctx context.Context) error {

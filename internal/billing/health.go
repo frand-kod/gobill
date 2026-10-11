@@ -32,6 +32,7 @@ const (
 	DBHistoryKey     = "metrics_db_size_history" // settings key: JSON array of DBSample, oldest first
 	alertTimeout     = 20 * time.Second
 	defaultNASSilent = 15 // minutes, alert_nas_silent_minutes
+	badSecretMax     = 10 // bad-secret RADIUS packets in a row from one NAS
 )
 
 // DBSample is one daily reading of the database file size.
@@ -73,6 +74,7 @@ func (a *AlertJob) Run(ctx context.Context) error {
 	}
 
 	a.checkNAS(ctx, st, now)
+	a.checkBadSecret(ctx)
 
 	for _, j := range job.Stats() {
 		a.edge(ctx, "job:"+j.Name, j.Failures >= jobFailMax,
@@ -150,6 +152,40 @@ func (a *AlertJob) checkNAS(ctx context.Context, st map[string]string, now time.
 		if strings.HasPrefix(k, "nas:") && !live[k] {
 			delete(a.active, k)
 		}
+	}
+}
+
+// checkBadSecret alerts when a NAS sends badSecretMax bad-secret RADIUS packets in a row, meaning its
+// secret in gobill does not match /radius on the router. The streak is in the metrics registry, set by
+// the radius server; a valid packet from the NAS ends it, which sends the recovery alert.
+func (a *AlertJob) checkBadSecret(ctx context.Context) {
+	type streak struct {
+		ip string
+		n  float64
+	}
+	var all []streak
+	metrics.Each("radius_bad_secret_streak", func(kv []string, v float64) {
+		if len(kv) == 2 {
+			all = append(all, streak{kv[1], v})
+		}
+	})
+	if len(all) == 0 {
+		return
+	}
+	names := map[string]string{}
+	if nas, err := a.S.Q.ListNAS(ctx); err == nil {
+		for _, n := range nas {
+			names[n.Ip] = n.Name
+		}
+	}
+	for _, s := range all {
+		name := s.ip
+		if n := names[s.ip]; n != "" {
+			name = n
+		}
+		a.edge(ctx, "badsecret:"+s.ip, s.n >= badSecretMax,
+			fmt.Sprintf("NAS %s (%s): %d paket RADIUS berturut-turut dengan secret salah. Samakan secret di gobill dengan /radius di router", name, s.ip, int(s.n)),
+			fmt.Sprintf("NAS %s (%s) kembali mengirim paket RADIUS dengan secret yang benar", name, s.ip))
 	}
 }
 

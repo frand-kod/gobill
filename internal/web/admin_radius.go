@@ -8,15 +8,23 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/radius"
-	"time"
 )
 
+// sessRow is one session in a table. The tags are the live view's JSON; Speed and Bars are set on the live page only.
 type sessRow struct {
-	ID                             int64
-	User, NAS, IP, MAC, Start, For string
-	Up, Down                       string
-	Stale                          bool
-	Plan                           string
+	ID    int64    `json:"id"`
+	User  string   `json:"user"`
+	NAS   string   `json:"nas"`
+	IP    string   `json:"ip"`
+	MAC   string   `json:"mac"`
+	Start string   `json:"start"`
+	For   string   `json:"for"`
+	Up    string   `json:"up"`
+	Down  string   `json:"down"`
+	Stale bool     `json:"stale"`
+	Plan  string   `json:"plan"`
+	Speed string   `json:"speed"`
+	Bars  []string `json:"bars"` // the five meter segments, see meter.bars
 }
 
 // sessRows turns sessions into rows; the duration of a closed session ends at stopped_at.
@@ -30,36 +38,11 @@ func (s *Server) sessRows(ss []db.RadiusSession, now int64) []sessRow {
 			stale = now-x.UpdatedAt > radius.StaleAfter
 		}
 		// Input is what the NAS received from the user = upload.
-		out = append(out, sessRow{x.ID, x.Username, x.NasIp, x.FramedIp, x.Mac, s.ts(x.StartedAt), humanDur(end - x.StartedAt),
-			humanBytes(x.InputOctets), humanBytes(x.OutputOctets), stale, ""})
+		out = append(out, sessRow{ID: x.ID, User: x.Username, NAS: x.NasIp, IP: x.FramedIp, MAC: x.Mac,
+			Start: s.ts(x.StartedAt), For: humanDur(end - x.StartedAt),
+			Up: humanBytes(x.InputOctets), Down: humanBytes(x.OutputOctets), Stale: stale})
 	}
 	return out
-}
-
-func (s *Server) radiusSessions(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
-	ss, err := s.queries.SearchOpenRadiusSessions(r.Context(), db.SearchOpenRadiusSessionsParams{Q: q, PageLimit: limit, PageOffset: off})
-	if err != nil {
-		s.fail(w, "list radius sessions", err)
-		return
-	}
-	d := struct {
-		Q          string
-		Rows       []sessRow
-		Prev, Next int
-	}{Q: q}
-	if len(ss) > perPage {
-		ss, d.Next = ss[:perPage], page+1
-	}
-	if page > 1 {
-		d.Prev = page - 1
-	}
-	d.Rows = s.sessRows(ss, time.Now().Unix())
-	for i := range d.Rows { // ponytail: one tiny query per row (max 20); join in SQL if pages get bigger
-		d.Rows[i].Plan, _ = s.queries.ActivePlanNameByLogin(r.Context(), d.Rows[i].User)
-	}
-	s.render(w, r, http.StatusOK, "radius_sessions", Page{Title: "Online Sessions",
-		Flash: s.sessions.PopString(r.Context(), "flash"), Error: s.sessions.PopString(r.Context(), "error"), Data: d})
 }
 
 func (s *Server) radiusDisconnect(w http.ResponseWriter, r *http.Request) {

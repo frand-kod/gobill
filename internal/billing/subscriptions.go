@@ -36,6 +36,9 @@ func (s *Service) EditSubscription(ctx context.Context, id, planID int64, expire
 		if cur.Type == "Balance" {
 			return errors.New("plan has no subscription")
 		}
+		if planID != sub.PlanID && isolirPlan(ctx, q, planID) {
+			return ErrIsolirPlan
+		}
 		if expires.Unix() < sub.StartedAt {
 			return errors.New("expiry is before the start")
 		}

@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"fmt"
 	gobill "github.com/frand-kod/gobill"
+	"github.com/frand-kod/gobill/internal/update"
 	"path"
 	"strings"
 )
@@ -80,27 +81,27 @@ func (s *Server) parseTemplates() error {
 	pages := map[string][]string{
 		"login":            {"base.html", "login.html"},
 		"login_2fa":        {"base.html", "login_2fa.html"},
-		"admin_2fa":        {"base.html", "app.html", "admin_2fa.html"},
-		"dashboard":        {"base.html", "app.html", "dashboard.html"},
-		"status":           {"base.html", "app.html", "status.html"},
-		"list":             {"base.html", "app.html", "list.html"},
-		"form":             {"base.html", "app.html", "form.html", "customer_pick.html"},
-		"customer":         {"base.html", "app.html", "customer.html", "radius_usage.html", "recharge_dialog.html"},
-		"radius_sessions":  {"base.html", "app.html", "radius_sessions.html"},
-		"print":            {"print.html"},
-		"voucher_view":     {"base.html", "app.html", "voucher_view.html"},
-		"recharge_confirm": {"base.html", "app.html", "recharge_confirm.html", "recharge_dialog.html"},
-		"recharge":         {"base.html", "app.html", "recharge.html", "customer_pick.html", "customer_summary.html", "recharge_dialog.html"},
-		"report":           {"base.html", "app.html", "report.html"},
-		"report_print":     {"report_print.html"},
-		"invoice":          {"invoice.html"},
-		"maps":             {"base.html", "app.html", "maps.html"},
-		"pay_audit":        {"base.html", "app.html", "pay_audit.html"},
-		"docs":             {"base.html", "app.html", "docs.html"},
-		"network":          {"base.html", "app.html", "network.html"},
-		"import":           {"base.html", "app.html", "import.html"},
-		"restore":          {"base.html", "app.html", "restore.html"},
-		"search":           {"base.html", "app.html", "search.html"},
+		"admin_2fa":        {"base.html", "admin/app.html", "admin/admin_2fa.html"},
+		"dashboard":        {"base.html", "admin/app.html", "admin/dashboard.html"},
+		"status":           {"base.html", "admin/app.html", "admin/status.html"},
+		"list":             {"base.html", "admin/app.html", "admin/list.html"},
+		"form":             {"base.html", "admin/app.html", "admin/form.html", "admin/formfields.html", "admin/customer_pick.html", "admin/tplvars.html"},
+		"customer":         {"base.html", "admin/app.html", "admin/customer.html", "admin/radius_usage.html", "admin/recharge_dialog.html"},
+		"radius_sessions":  {"base.html", "admin/app.html", "admin/radius_sessions.html"},
+		"print":            {"admin/print.html"},
+		"voucher_view":     {"base.html", "admin/app.html", "admin/voucher_view.html"},
+		"recharge_confirm": {"base.html", "admin/app.html", "admin/recharge_confirm.html", "admin/recharge_dialog.html"},
+		"recharge":         {"base.html", "admin/app.html", "admin/recharge.html", "admin/customer_pick.html", "admin/customer_summary.html", "admin/recharge_dialog.html"},
+		"report":           {"base.html", "admin/app.html", "admin/report.html"},
+		"report_print":     {"admin/report_print.html"},
+		"invoice":          {"admin/invoice.html"},
+		"maps":             {"base.html", "admin/app.html", "admin/maps.html"},
+		"pay_audit":        {"base.html", "admin/app.html", "admin/pay_audit.html"},
+		"docs":             {"base.html", "admin/app.html", "admin/docs.html"},
+		"network":          {"base.html", "admin/app.html", "admin/network.html"},
+		"import":           {"base.html", "admin/app.html", "admin/import.html"},
+		"restore":          {"base.html", "admin/app.html", "admin/restore.html"},
+		"search":           {"base.html", "admin/app.html", "admin/search.html"},
 
 		"p_login":        {"base.html", "portal/login.html"},
 		"p_qris":         {"base.html", "portal/qris.html"},
@@ -117,8 +118,9 @@ func (s *Server) parseTemplates() error {
 		"p_activation":   {"base.html", "portal/layout.html", "portal/activation.html"},
 		"p_friend":       {"base.html", "portal/layout.html", "portal/friend.html"},
 		"p_forgot_user":  {"base.html", "portal/forgot_user.html"},
-		"bulk_recharge":  {"base.html", "app.html", "bulk_recharge.html"},
-		"admin_password": {"base.html", "app.html", "admin_password.html"},
+		"bulk_recharge":  {"base.html", "admin/app.html", "admin/bulk_recharge.html"},
+		"admin_password": {"base.html", "admin/app.html", "admin/admin_password.html"},
+		"setup":          {"base.html", "admin/app.html", "admin/setup.html", "admin/formfields.html", "admin/customer_pick.html", "admin/tplvars.html"},
 	}
 	s.templates = map[string]*template.Template{}
 	for name, files := range pages {
@@ -177,6 +179,18 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, name
 	p.Lang = s.language()
 	p.Version = s.Version
 	p.Brand = s.brand(r.Context())
+	if p.Admin != nil && p.Admin.Role == "SuperAdmin" && s.UpdateInfo != nil {
+		if tag, link := s.UpdateInfo(); update.Newer(tag, s.Version) {
+			p.UpdateTag, p.UpdateURL = tag, link
+		}
+	}
+	if p.Admin != nil && p.Admin.Role == "SuperAdmin" {
+		if n, err := s.setupNavFor(ctx, r.URL.Path); err != nil {
+			slog.Warn("setup nav", "err", err)
+		} else {
+			p.Setup = n
+		}
+	}
 	p.Dir = "ltr"
 	if p.Lang == "arabic" {
 		p.Dir = "rtl"

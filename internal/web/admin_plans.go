@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"log/slog"
 	"net/http"
+	"slices"
 
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
@@ -39,7 +40,13 @@ func (s *Server) planRefs(r *http.Request) (x planRefs, err error) {
 	if x.pools, err = s.queries.ListPools(ctx, db.ListPoolsParams{Limit: 1000}); err != nil {
 		return
 	}
-	x.plans, err = s.queries.ListPlans(ctx, db.ListPlansParams{Limit: 1000})
+	if x.plans, err = s.queries.ListPlans(ctx, db.ListPlansParams{Limit: 1000}); err != nil {
+		return
+	}
+	// the isolir plan and its bandwidth are system rows: no select offers them
+	isoPlan, isoBW := s.isolirIDs(ctx)
+	x.bw = slices.DeleteFunc(x.bw, func(b db.Bandwidth) bool { return b.ID == isoBW })
+	x.plans = slices.DeleteFunc(x.plans, func(p db.Plan) bool { return p.ID == isoPlan })
 	return
 }
 
@@ -115,8 +122,9 @@ func planFormValues(p db.Plan) map[string]string {
 }
 
 func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
-	rows, err := s.queries.SearchPlans(r.Context(), db.SearchPlansParams{Q: q, PageLimit: limit, PageOffset: off})
+	q, pg := paging(r)
+	isoPlan, _ := s.isolirIDs(r.Context())
+	rows, err := s.queries.SearchPlans(r.Context(), db.SearchPlansParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset(), HiddenID: isoPlan})
 	if err != nil {
 		s.fail(w, "list plans", err)
 		return
@@ -129,6 +137,9 @@ func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
 	}
 	lp := listPage{Heading: "Service Plan", Base: "/admin/plans", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
 		Cols: []string{"Plan Name", "Type", "Plan Price", "Plan Validity", "Router", "Audience", "Status"}}
+	if isoPlan != 0 {
+		lp.Note, lp.NoteLink = "The Isolir plan is managed in Settings > Isolir", "/admin/settings/isolir"
+	}
 	for _, p := range rows {
 		st, aud := "Disable", ""
 		if p.Enabled == 1 {
@@ -140,7 +151,12 @@ func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{p.ID, []string{p.Name, p.Type + " / " + p.Billing, money(p.Price),
 			fmt.Sprint(p.Validity, " ", p.ValidityUnit), routers[p.RouterID.Int64], aud, st}})
 	}
-	lp.finish(page)
+	total, err := s.queries.CountPlans(r.Context(), db.CountPlansParams{Term: q, HiddenID: isoPlan})
+	if err != nil {
+		s.fail(w, "count plans", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }
 

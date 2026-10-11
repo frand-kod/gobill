@@ -1,7 +1,7 @@
 {{define "body"}}
 <main class="al">
   <section class="al-form">
-    <form class="al-card space-y-5" method="post" action="/login/2fa">
+    <form class="al-card space-y-5" method="post" action="/admin/login/2fa">
       <div class="space-y-2">
         <span class="al-pill">{{icon "server"}}{{T "Administrator"}}</span>
         <h1 class="al-title">{{T "Two-factor login"}}</h1>
@@ -12,7 +12,7 @@
         <input class="input" id="code" name="code" type="text" inputmode="text" autocomplete="one-time-code" required autofocus>
       </div>
       <button class="btn btn-primary w-full" type="submit">{{T "Verify"}}</button>
-      <p class="hint"><a href="/login">{{T "Back to sign in"}}</a></p>
+      <p class="hint"><a href="/admin/login">{{T "Back to sign in"}}</a></p>
     </form>
   </section>
 </main>

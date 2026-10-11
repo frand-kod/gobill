@@ -48,7 +48,7 @@ Change settings in the **Settings** menu. The keys below are stored in the `sett
 | Setting | Purpose |
 |---|---|
 | `company_name` | Business name. Shown on invoices, messages, and the login page. |
-| `app_url` | Public address of the application, for example `https://billing.example.com`. It is filled in automatically from the address the first admin uses to log in, unless that address is a LAN address or localhost. It is used for links in WhatsApp messages, such as QRIS and invoices. |
+| `app_url` | Public address of the application, for example `https://billing.example.com`. It is filled in automatically from the address the first admin uses to log in, unless that address is a LAN address or localhost. It is used for links in WhatsApp messages, such as QRIS and invoices. The customer login is at `/login` (the welcome message links there), and the admin login is at `/admin/login`. |
 | `timezone` | Display time zone, for example `Asia/Jakarta`. Times are stored in UTC. An empty value means UTC, so fill it in during the first setup. |
 | `country_code_phone` | Country code for numbers that start with `0`, for example `62`. |
 | `default_plan_device` | Default device for new plans: `MikrotikHotspot`, `MikrotikPppoe`, `Dummy`, `Radius`, or empty. Empty means the device follows the plan type. |
@@ -58,7 +58,7 @@ Change settings in the **Settings** menu. The keys below are stored in the `sett
 | `log_keep_days` | How long to keep logs, closed RADIUS sessions, read inbox messages, and unpaid payments, in days. Default 90 if never set. `0` means keep forever. Paid payments are never deleted. |
 | `backup_keep` | Number of daily backup files to keep, in the main folder and in the mirror. Default 7. |
 
-### Admin and sessions
+### System and security
 
 | Setting | Purpose |
 |---|---|
@@ -83,7 +83,7 @@ Example Nginx in front of the application on the same host:
 
 If Cloudflare is in front of Nginx, set `set_real_ip_from` in Nginx to the Cloudflare IP ranges, and `real_ip_header CF-Connecting-IP`.
 
-### Business
+### Customers and billing
 
 | Setting | Purpose |
 |---|---|
@@ -92,8 +92,9 @@ If Cloudflare is in front of Nginx, set `set_real_ip_from` in Nginx to the Cloud
 | `enable_balance` | Balance system: top up balance, transfer balance, and auto-renew from balance. Enabled by default if never set. |
 | `start_on_first_login` | `yes` starts the validity of a RADIUS plan at the first login, not at recharge. Default `no`. See the "Start on first login" section below. |
 | `disable_registration`, `disable_voucher`, `allow_phone_otp`, `phone_otp_type`, `customer_password_min` | Restrictions and methods in the customer portal. `phone_otp_type` selects `sms` or `wa`. `customer_password_min` is the minimum customer password length, 4 to 64. |
+| `wa_unique_per_account` | `yes` allows a WhatsApp number to belong to one account only: registration, the customer's contact change and the admin's customer form refuse a number another account uses. `no` (default) lets several accounts share one number, for example a family or an RT/RW group. Forgot username then sends every username on that number. Forgot password asks for the username, so the code goes to that account's number. |
 | `voucher_format` | Default voucher code format: `up`, `low`, `rand`, or `numbers`. |
-| `hs_auth_method` | Hotspot auth method shown under **Miscellaneous**: `pap` or `chap`. This setting does not change the built-in RADIUS server. The built-in server accepts PAP, CHAP, and MS-CHAPv2. |
+| `hs_auth_method` | Hotspot auth method shown under **System & Security**: `pap` or `chap`. This setting does not change the built-in RADIUS server. The built-in server accepts PAP, CHAP, and MS-CHAPv2. |
 | `shared_users_policy` | What a Hotspot plan does when its device limit (`shared_users`) is full and a new device logs in. `kick_oldest` (default, also when never set) drops the customer's oldest online session on its NAS and accepts the new login. `reject` refuses the new login with "Akun sedang dipakai perangkat lain..." ("the account is in use by another device"). Phones with random MACs reconnect as a new device, so `kick_oldest` avoids locking out a single-device customer. |
 | `check_customer_online` | `yes` shows on the customer page whether the customer is connected through a plan device. |
 
@@ -119,7 +120,7 @@ The switches `notify_customers`, `notify_otp`, and `expired_notify_minutes_befor
 
 ### Appearance
 
-`logo`, `logo_dark`, `login_page_*`, `date_format`, `dec_point`, `thousands_sep`, and `language` are set in **Settings**. The light or dark theme and the accent colour are set from the header, not from these settings.
+`logo`, `logo_dark`, `login_page_*`, `date_format`, `dec_point`, `thousands_sep`, and `language` are set in **Settings**. The login page keys (`login_page_*`) are on the **Appearance** tab. The others are on **General** and **Localisation**. The light or dark theme and the accent colour are set from the header, not from these settings.
 
 ## Service plans and audience
 

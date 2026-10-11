@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/md5"
+	"io"
 	"log/slog"
 	"net"
 	"strconv"
@@ -119,5 +120,41 @@ func TestUnknownNASWarnRateLimited(t *testing.T) {
 	s.warnUnknown(ip)
 	if n := strings.Count(buf.String(), "unknown NAS"); n != 2 {
 		t.Fatalf("want 2 warnings after 5m, got %d", n)
+	}
+}
+
+func TestUnknownNASWarnCacheBounded(t *testing.T) {
+	old := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	defer slog.SetDefault(old)
+	now := time.Now()
+	s := &Server{Now: func() time.Time { return now }}
+	for i := 0; i < 5000; i++ {
+		s.warnUnknown(net.IPv4(10, byte(i>>16), byte(i>>8), byte(i)))
+	}
+	if n := len(s.unknownSeen); n > unknownSeenMax {
+		t.Fatalf("unknownSeen grew to %d, want <= %d", n, unknownSeenMax)
+	}
+	// the cache is full of recent IPs; once they are older than 5 min they are evicted and a new IP is remembered
+	now = now.Add(6 * time.Minute)
+	s.warnUnknown(net.ParseIP("203.0.113.1"))
+	if _, ok := s.unknownSeen["203.0.113.1"]; !ok || len(s.unknownSeen) > unknownSeenMax {
+		t.Fatalf("after eviction: stored=%v size=%d", ok, len(s.unknownSeen))
+	}
+}
+
+func TestUnknownNASWarnSameIPOnceWithin5Min(t *testing.T) {
+	var buf bytes.Buffer
+	old := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	defer slog.SetDefault(old)
+	now := time.Now()
+	s := &Server{Now: func() time.Time { return now }}
+	ip := net.ParseIP("203.0.113.9")
+	for i := 0; i < 3; i++ {
+		s.warnUnknown(ip)
+	}
+	if n := strings.Count(buf.String(), "unknown NAS"); n != 1 {
+		t.Fatalf("same IP within 5m: want 1 warning, got %d", n)
 	}
 }

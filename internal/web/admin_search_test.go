@@ -159,9 +159,9 @@ func TestSearchSettingsEntries(t *testing.T) {
 
 	want := map[string]string{
 		"qris":            "/admin/settings/payment#f-qris_payload",
-		"timeout":         "/admin/settings/miscellaneous#f-session_timeout_duration",
-		"batas waktu":     "/admin/settings/miscellaneous#f-session_timeout_duration",
-		"session_timeout": "/admin/settings/miscellaneous#f-session_timeout_duration",
+		"timeout":         "/admin/settings/system#f-session_timeout_duration",
+		"batas waktu":     "/admin/settings/system#f-session_timeout_duration",
+		"session_timeout": "/admin/settings/system#f-session_timeout_duration",
 		"gowa":            "/admin/settings/integrations#f-alt_wga_server_url",
 		"pengingat":       "/admin/settings/notifications#f-reminder_hour",
 		"reminder":        "/admin/settings/notifications#f-reminder_hour",
@@ -176,10 +176,10 @@ func TestSearchSettingsEntries(t *testing.T) {
 	if got := searchURLs(t, h, adminCookie, "qris"); hasURL(got, "/admin/settings/payment#f-qris_payload") {
 		t.Errorf("Admin sees the payment tab: %v", got)
 	}
-	if got := searchURLs(t, h, adminCookie, "timeout"); !hasURL(got, "/admin/settings/miscellaneous#f-session_timeout_duration") {
-		t.Errorf("Admin misses the miscellaneous tab: %v", got)
+	if got := searchURLs(t, h, adminCookie, "timeout"); !hasURL(got, "/admin/settings/system#f-session_timeout_duration") {
+		t.Errorf("Admin misses the system tab: %v", got)
 	}
-	if got := searchURLs(t, h, report, "timeout"); hasURL(got, "/admin/settings/miscellaneous#f-session_timeout_duration") {
+	if got := searchURLs(t, h, report, "timeout"); hasURL(got, "/admin/settings/system#f-session_timeout_duration") {
 		t.Errorf("Report sees settings: %v", got)
 	}
 }

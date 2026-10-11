@@ -19,6 +19,7 @@ type dashData struct {
 	IncomeToday, IncomeMonth int64
 	ActiveSubs, ExpiredSubs  int64
 	Customers                int64
+	OnlineNow                int64 // open RADIUS sessions, the tile links to the live page
 	Year                     int
 	Labels, Regs, Sales      string // JSON arrays for the charts
 	Network                  netCard
@@ -33,12 +34,6 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.ClockWarning != nil {
 		d.Warn = s.ClockWarning()
-	}
-	if a := adminFrom(r); a != nil {
-		if d.Setup, d.SetupDone, err = s.setupChecklist(r.Context(), a.Role == "SuperAdmin"); err != nil {
-			s.fail(w, "dashboard", err)
-			return
-		}
 	}
 	s.render(w, r, http.StatusOK, "dashboard", Page{
 		Title: "Dashboard",
@@ -79,6 +74,9 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 		return
 	}
 	if d.Customers, err = s.queries.CountCustomers(ctx); err != nil {
+		return
+	}
+	if d.OnlineNow, err = s.queries.CountOpenRadiusSessions(ctx, ""); err != nil {
 		return
 	}
 	d.Year = now.Year()

@@ -12,17 +12,7 @@
   <a class="btn min-w-0 px-2" href="/admin/deposit">{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>
 </nav>
 {{end}}
-{{if and $mgr (not .SetupDone)}}
-<section class="card mb-4" aria-labelledby="setup-title" data-dismissible="setup">
-  <h2 class="card-title flex items-center justify-between gap-2" id="setup-title"><span>{{T "Quick start"}}</span><button type="button" class="btn btn-sm hidden" data-dismiss>{{T "Hide"}}</button></h2>
-  <ol class="card-body space-y-2 text-sm">
-    {{range .Setup}}<li class="flex items-center gap-3">
-      {{if .Done}}<span class="badge badge-ok">{{icon "circle-check"}}<span class="ms-1">{{T "Done"}}</span></span><span class="text-ink-2 line-through">{{T .Label}}</span>
-      {{else}}<a class="btn btn-ghost btn-sm" href="{{.Href}}">{{T "Do this"}}</a><span class="font-medium">{{T .Label}}</span>{{end}}
-    </li>{{end}}
-  </ol>
-</section>
-{{end}}
+{{with $.Setup}}{{if .Show}}<p class="mb-4 text-sm"><a class="link" href="/admin/setup">{{T "Setup cepat"}}</a></p>{{end}}{{end}}
 <div class="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
   <a href="/admin/transactions" class="stat">
     <div><p class="stat-label">{{T "Income Today"}}</p><p class="stat-num" id="tile-today">{{money .IncomeToday}}</p></div>
@@ -36,6 +26,10 @@
     <div><p class="stat-label">{{T "Active"}} / {{T "Expired"}}</p><p class="stat-num" id="tile-subs">{{.ActiveSubs}} / {{.ExpiredSubs}}</p></div>
     <span class="text-warn-fg">{{icon "clock"}}</span>
   </div>
+  {{if $mgr}}<a href="/admin/radius/sessions" class="stat">
+    <div><p class="stat-label">{{T "Online"}}</p><p class="stat-num" id="tile-online">{{.OnlineNow}}</p></div>
+    <span class="text-ok-fg">{{icon "wifi"}}</span>
+  </a>{{end}}
   <a href="/admin/customers" class="stat">
     <div><p class="stat-label">{{T "Customer"}}</p><p class="stat-num" id="tile-customers">{{.Customers}}</p></div>
     <span class="text-ink-2">{{icon "users"}}</span>

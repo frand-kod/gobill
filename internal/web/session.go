@@ -14,7 +14,7 @@ import (
 const defaultIdle = 2 * time.Hour
 
 // ReloadSessionSettings applies session_timeout_duration (minutes, admin idle timeout) and
-// single_session. Called from New and from SettingsChanged (see main.go).
+// single_session, and isolir_enabled for isolirGate. Called from New and from SettingsChanged (see main.go).
 func (s *Server) ReloadSessionSettings(ctx context.Context) {
 	m, err := s.loadSettings(ctx)
 	if err != nil {
@@ -27,6 +27,7 @@ func (s *Server) ReloadSessionSettings(ctx context.Context) {
 	}
 	s.idle.Store(int64(idle))
 	s.single.Store(m["single_session"] == "yes")
+	s.isolir.Store(m["isolir_enabled"] == "yes")
 	s.trust.Store(m["trust_proxy"] == "yes")
 	ps, _ := parseTrustedProxies(m["trusted_proxies"])
 	s.proxies.Store(ps)

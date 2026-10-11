@@ -49,6 +49,12 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "reset-admin-password" {
 		run = func() error { return runResetAdminPassword(os.Args[2:]) }
 	}
+	if len(os.Args) > 1 && os.Args[1] == "update" {
+		run = func() error { return runUpdate(os.Args[2:]) }
+	}
+	if len(os.Args) > 1 && os.Args[1] == "rollback" {
+		run = func() error { return runRollback(os.Args[2:]) }
+	}
 	if err := run(); errors.Is(err, errRestart) {
 		slog.Warn("exiting for restart after restore", "code", exitRestart)
 		os.Exit(exitRestart)
@@ -98,6 +104,7 @@ func run() error {
 	app.SecretKey = key
 	app.Version = version
 	app.DBPath = dbPath
+	app.ListenAddr = addr
 	guard := job.NewClockGuard(db.New(conn))
 	app.ClockWarning = guard.Reason
 	srv := &http.Server{
@@ -140,6 +147,7 @@ func run() error {
 	go job.Run(ctx, "reminder", time.Minute, svc.ReminderJob(guard.Trusted))
 	go job.Run(ctx, "log_clean", 10*time.Minute, svc.LogCleanJob(guard.Trusted)) // once a day, setting log_keep_days
 	go job.Run(ctx, "router_check", 5*time.Minute, svc.RouterCheck)
+	go job.Run(ctx, "online_sample", 5*time.Minute, app.SampleOnline)
 	alerts := &billing.AlertJob{S: svc, DBPath: dbPath, Free: func() (int64, error) { return job.DiskFreeMB(filepath.Dir(dbPath)) }}
 	go job.Run(ctx, "alert", time.Minute, alerts.Run)
 	go job.Run(ctx, "daily_summary", time.Minute, svc.DailySummaryJob(guard.Trusted))
@@ -147,6 +155,9 @@ func run() error {
 		Mirror: env("GOBILL_BACKUP_MIRROR", "")}
 	go job.Run(ctx, "backup", time.Minute, backup.Run)
 	app.BackupDir, app.BackupMirror = backup.Dir, backup.Mirror
+	updates := &job.UpdateCheck{Q: db.New(conn)}
+	go job.Run(ctx, "update_check", time.Minute, updates.Run)
+	app.UpdateInfo = updates.Latest
 	restartCh := make(chan struct{}, 1)
 	app.Restart = func() {
 		select {

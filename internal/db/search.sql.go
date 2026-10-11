@@ -107,12 +107,13 @@ func (q *Queries) SearchNASContains(ctx context.Context, arg SearchNASContainsPa
 }
 
 const searchPlansContains = `-- name: SearchPlansContains :many
-SELECT id, name, type, price FROM plans WHERE instr(lower(name), lower(?1)) > 0 ORDER BY name LIMIT ?2
+SELECT id, name, type, price FROM plans WHERE instr(lower(name), lower(?1)) > 0 AND id <> ?3 ORDER BY name LIMIT ?2
 `
 
 type SearchPlansContainsParams struct {
-	Q     string
-	Limit int64
+	Q        string
+	Limit    int64
+	HiddenID int64
 }
 
 type SearchPlansContainsRow struct {
@@ -123,7 +124,7 @@ type SearchPlansContainsRow struct {
 }
 
 func (q *Queries) SearchPlansContains(ctx context.Context, arg SearchPlansContainsParams) ([]SearchPlansContainsRow, error) {
-	rows, err := q.db.QueryContext(ctx, searchPlansContains, arg.Q, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, searchPlansContains, arg.Q, arg.Limit, arg.HiddenID)
 	if err != nil {
 		return nil, err
 	}

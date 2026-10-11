@@ -51,7 +51,7 @@ func (q *Queries) CloseStaleRadiusSessions(ctx context.Context, updatedAt int64)
 }
 
 const createNAS = `-- name: CreateNAS :one
-INSERT INTO nas (name, ip, secret_enc, description, require_message_auth) VALUES (?, ?, ?, ?, ?) RETURNING id, name, ip, secret_enc, description, require_message_auth
+INSERT INTO nas (name, ip, secret_enc, description, require_message_auth) VALUES (?, ?, ?, ?, ?) RETURNING id, name, ip, secret_enc, description, require_message_auth, ma_seen
 `
 
 type CreateNASParams struct {
@@ -78,6 +78,7 @@ func (q *Queries) CreateNAS(ctx context.Context, arg CreateNASParams) (Na, error
 		&i.SecretEnc,
 		&i.Description,
 		&i.RequireMessageAuth,
+		&i.MaSeen,
 	)
 	return i, err
 }
@@ -126,7 +127,7 @@ func (q *Queries) GetCustomerForRadius(ctx context.Context, name string) (Custom
 }
 
 const getNAS = `-- name: GetNAS :one
-SELECT id, name, ip, secret_enc, description, require_message_auth FROM nas WHERE id = ?
+SELECT id, name, ip, secret_enc, description, require_message_auth, ma_seen FROM nas WHERE id = ?
 `
 
 func (q *Queries) GetNAS(ctx context.Context, id int64) (Na, error) {
@@ -139,6 +140,7 @@ func (q *Queries) GetNAS(ctx context.Context, id int64) (Na, error) {
 		&i.SecretEnc,
 		&i.Description,
 		&i.RequireMessageAuth,
+		&i.MaSeen,
 	)
 	return i, err
 }
@@ -257,7 +259,7 @@ func (q *Queries) GetRadiusSession(ctx context.Context, id int64) (RadiusSession
 }
 
 const listNAS = `-- name: ListNAS :many
-SELECT id, name, ip, secret_enc, description, require_message_auth FROM nas ORDER BY name
+SELECT id, name, ip, secret_enc, description, require_message_auth, ma_seen FROM nas ORDER BY name
 `
 
 func (q *Queries) ListNAS(ctx context.Context) ([]Na, error) {
@@ -276,6 +278,7 @@ func (q *Queries) ListNAS(ctx context.Context) ([]Na, error) {
 			&i.SecretEnc,
 			&i.Description,
 			&i.RequireMessageAuth,
+			&i.MaSeen,
 		); err != nil {
 			return nil, err
 		}
@@ -490,6 +493,15 @@ func (q *Queries) ListRecentRadiusSessionsByUser(ctx context.Context, username s
 	return items, nil
 }
 
+const markNASMASeen = `-- name: MarkNASMASeen :exec
+UPDATE nas SET ma_seen = 1 WHERE id = ?
+`
+
+func (q *Queries) MarkNASMASeen(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, markNASMASeen, id)
+	return err
+}
+
 const searchOpenRadiusSessions = `-- name: SearchOpenRadiusSessions :many
 SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions
 WHERE stopped_at IS NULL
@@ -682,7 +694,7 @@ ON CONFLICT (nas_ip, session_id) DO UPDATE SET
     nas_identifier = COALESCE(NULLIF(excluded.nas_identifier, ''), radius_sessions.nas_identifier),
     framed_ip = excluded.framed_ip, updated_at = excluded.updated_at,
     stopped_at = COALESCE(radius_sessions.stopped_at, excluded.stopped_at),
-    input_octets = excluded.input_octets, output_octets = excluded.output_octets
+    input_octets = MAX(radius_sessions.input_octets, excluded.input_octets), output_octets = MAX(radius_sessions.output_octets, excluded.output_octets)
 `
 
 type UpsertRadiusSessionParams struct {
@@ -716,4 +728,78 @@ func (q *Queries) UpsertRadiusSession(ctx context.Context, arg UpsertRadiusSessi
 		arg.OutputOctets,
 	)
 	return err
+}
+
+const countRadiusDisconnectsSince = `-- name: CountRadiusDisconnectsSince :one
+SELECT COUNT(*) FROM radius_sessions WHERE stopped_at >= ?1
+`
+
+func (q *Queries) CountRadiusDisconnectsSince(ctx context.Context, stoppedAt int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRadiusDisconnectsSince, stoppedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countRadiusLoginsSince = `-- name: CountRadiusLoginsSince :one
+SELECT COUNT(*) FROM radius_sessions WHERE started_at >= ?1
+`
+
+func (q *Queries) CountRadiusLoginsSince(ctx context.Context, startedAt int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRadiusLoginsSince, startedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const listActivePlanRates = `-- name: ListActivePlanRates :many
+SELECT c.username, c.pppoe_username, p.name AS plan_name,
+       COALESCE(b.rate_down, 0) AS rate_down, COALESCE(b.rate_down_unit, '') AS rate_down_unit,
+       COALESCE(b.rate_up, 0) AS rate_up, COALESCE(b.rate_up_unit, '') AS rate_up_unit
+FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id
+LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
+WHERE s.status = 'active'
+ORDER BY s.expires_at DESC
+`
+
+type ListActivePlanRatesRow struct {
+	Username      string
+	PppoeUsername string
+	PlanName      string
+	RateDown      int64
+	RateDownUnit  string
+	RateUp        int64
+	RateUpUnit    string
+}
+
+// Active plan and its bandwidth per customer, for the live sessions view. Newest expiry first: the first row for a login is the plan that counts.
+func (q *Queries) ListActivePlanRates(ctx context.Context) ([]ListActivePlanRatesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listActivePlanRates)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActivePlanRatesRow
+	for rows.Next() {
+		var i ListActivePlanRatesRow
+		if err := rows.Scan(
+			&i.Username,
+			&i.PppoeUsername,
+			&i.PlanName,
+			&i.RateDown,
+			&i.RateDownUnit,
+			&i.RateUp,
+			&i.RateUpUnit,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

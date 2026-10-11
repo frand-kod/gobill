@@ -62,6 +62,9 @@ type nasRow struct {
 	Seen    bool   `json:"seen"`
 	Minutes int64  `json:"minutes_since_packet"`
 	Warn    bool   `json:"warn"`
+	// BadSecret: a bad-secret packet came in the last hour; BadCount is the total since start.
+	BadSecret bool  `json:"bad_secret"`
+	BadCount  int64 `json:"bad_secret_total"`
 }
 
 type jobRow struct {
@@ -188,6 +191,10 @@ func (s *Server) statusData(r *http.Request) (statusData, error) {
 			row.Minutes = int64(now.Sub(time.Unix(int64(ts), 0)).Minutes())
 			row.Warn = row.Minutes >= int64(silent)
 		}
+		if ts := metrics.Value("radius_bad_secret_last_timestamp", "nas", n.Ip); ts > 0 && now.Sub(time.Unix(int64(ts), 0)) < time.Hour {
+			row.BadSecret = true
+		}
+		row.BadCount = int64(metrics.Value("radius_bad_secret_total", "nas", n.Ip))
 		d.NAS = append(d.NAS, row)
 	}
 

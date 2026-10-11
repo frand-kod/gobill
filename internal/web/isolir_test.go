@@ -287,3 +287,94 @@ func TestRadiusRestIsolirAcceptCarriesAddressList(t *testing.T) {
 		t.Fatalf("isolated accept misses address-list or rate limit: %s", body)
 	}
 }
+
+// isoEnable turns isolir on and reloads the cached flag, as the settings save does in production.
+func isoEnable(t *testing.T, s *Server, q *db.Queries) {
+	t.Helper()
+	isoSettings(t, q, map[string]string{"isolir_enabled": "yes"})
+	s.ReloadSessionSettings(t.Context())
+}
+
+func TestIsolirGateServesPageForAnyHostAndPath(t *testing.T) {
+	s, h, q := isoSetup(t)
+	isoSettings(t, q, map[string]string{"qris_payload": isoQRIS, "isolir_wa": "081234567890"})
+	isoCustomer(t, s, q, "203.0.113.7", true)
+	isoEnable(t, s, q)
+	want := isoReq(h, "GET", "/isolir", "203.0.113.7", nil).Body.String()
+	for _, path := range []string{"/", "/random/path", "http://example.com/some/path?x=1"} {
+		w := isoReq(h, "GET", path, "203.0.113.7", nil)
+		if w.Code != http.StatusOK || w.Body.String() != want {
+			t.Errorf("GET %s: code %d, want the isolir page", path, w.Code)
+		}
+	}
+	if w := isoReq(h, "HEAD", "http://example.com/x", "203.0.113.7", nil); w.Code != http.StatusOK {
+		t.Errorf("HEAD: code %d", w.Code)
+	}
+}
+
+func TestIsolirGateLetsIsolatedClientReachPortalAndAssets(t *testing.T) {
+	s, h, q := isoSetup(t)
+	isoCustomer(t, s, q, "203.0.113.7", true)
+	isoEnable(t, s, q)
+	want := isoReq(h, "GET", "/isolir", "203.0.113.7", nil).Body.String()
+	for _, path := range []string{"/static/app.css", "/login", "/portal", "/health", "/uploads/none.png"} {
+		if w := isoReq(h, "GET", path, "203.0.113.7", nil); w.Body.String() == want {
+			t.Errorf("GET %s was hijacked", path)
+		}
+	}
+	if w := isoReq(h, "GET", "/login", "203.0.113.7", nil); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "<form") {
+		t.Errorf("portal login: code %d", w.Code)
+	}
+}
+
+func TestIsolirGateLeavesOthersAlone(t *testing.T) {
+	s, h, q := isoSetup(t)
+	isoCustomer(t, s, q, "203.0.113.7", false) // expired, not isolated
+	isoEnable(t, s, q)
+	if w := isoReq(h, "GET", "/", "203.0.113.7", nil); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login" {
+		t.Errorf("non-isolated customer: code %d", w.Code)
+	}
+	if w := isoReq(h, "GET", "/", "198.51.100.9", nil); w.Code != http.StatusSeeOther {
+		t.Errorf("client without session: code %d", w.Code)
+	}
+}
+
+func TestIsolirGateOffWhenDisabled(t *testing.T) {
+	s, h, q := isoSetup(t)
+	isoCustomer(t, s, q, "203.0.113.7", true)
+	if w := isoReq(h, "GET", "/", "203.0.113.7", nil); w.Code != http.StatusSeeOther {
+		t.Fatalf("isolir disabled but root hijacked: %d", w.Code)
+	}
+	isoEnable(t, s, q)
+	isoSettings(t, q, map[string]string{"isolir_enabled": "no"})
+	s.ReloadSessionSettings(t.Context())
+	if w := isoReq(h, "GET", "/", "203.0.113.7", nil); w.Code != http.StatusSeeOther {
+		t.Fatalf("isolir turned off but root hijacked: %d", w.Code)
+	}
+}
+
+func TestIsolirSetupCommandsUseListenAddress(t *testing.T) {
+	s, _, q := isoSetup(t)
+	isoSettings(t, q, map[string]string{"app_url": "https://billing.example.com"})
+	s.ListenAddr = "192.168.99.2:8090"
+	cmds := map[string]string{}
+	for _, f := range s.isolirSetupFields(map[string]string{"app_url": "https://billing.example.com"}) {
+		cmds[f.Name] = f.Value
+	}
+	for name, want := range map[string]string{
+		"isolir_cmd_nat":    "to-addresses=192.168.99.2 to-ports=8090",
+		"isolir_cmd_filter": "dst-address=192.168.99.2 action=accept",
+		"isolir_cmd_drop":   "src-address-list=isolir action=drop",
+		"isolir_cmd_walled": "dst-address=192.168.99.2 dst-port=8090",
+		"isolir_cmd_bypass": "type=bypassed",
+		"isolir_cmd_test":   `curl -i -H "Host: example.com" http://192.168.99.2:8090/`,
+	} {
+		if !strings.Contains(cmds[name], want) {
+			t.Errorf("%s = %q, want it to contain %q", name, cmds[name], want)
+		}
+	}
+	s.ListenAddr = ":8090"
+	if host, port := s.gobillAddr(); host != lanIPv4() || port != "8090" {
+		t.Errorf("wildcard listen gave %s:%s", host, port)
+	}
+}

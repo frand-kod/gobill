@@ -98,6 +98,24 @@ func (q *Queries) CreateCustomer(ctx context.Context, arg CreateCustomerParams) 
 	return i, err
 }
 
+const debitBalance = `-- name: DebitBalance :one
+UPDATE customers SET balance = balance - ?1 WHERE id = ?2 AND balance >= ?1
+RETURNING balance
+`
+
+type DebitBalanceParams struct {
+	Amount int64
+	ID     int64
+}
+
+// Check and debit in one statement: no row (sql.ErrNoRows) when the balance is short.
+func (q *Queries) DebitBalance(ctx context.Context, arg DebitBalanceParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, debitBalance, arg.Amount, arg.ID)
+	var balance int64
+	err := row.Scan(&balance)
+	return balance, err
+}
+
 const deleteCustomer = `-- name: DeleteCustomer :exec
 DELETE FROM customers WHERE id = ?
 `
@@ -604,4 +622,21 @@ func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) 
 		arg.ID,
 	)
 	return err
+}
+
+const countCustomersByPhone = `-- name: CountCustomersByPhone :one
+SELECT COUNT(*) FROM customers WHERE phone = ?1 AND id <> ?2
+`
+
+type CountCustomersByPhoneParams struct {
+	Phone string
+	Self  int64
+}
+
+// CountCustomersByPhone counts the other customers that use this exact phone number.
+func (q *Queries) CountCustomersByPhone(ctx context.Context, arg CountCustomersByPhoneParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countCustomersByPhone, arg.Phone, arg.Self)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }

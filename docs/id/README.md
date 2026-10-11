@@ -9,6 +9,7 @@ Dokumen ini adalah indeks panduan operator dalam Bahasa Indonesia. Panduan ini j
 ## Mulai
 
 - [Instalasi](installation.md): pasang di STB Armbian, VPS, atau Docker, lalu pemecahan masalah.
+- [Setup cepat](quick-setup.md): panduan langkah demi langkah setelah instalasi, atau impor dari PHPNuxBill.
 - [Upgrade](upgrade.md): ganti binary ke versi baru, catatan per versi, dan rollback.
 - [Migrasi dari PHPNuxBill](migration-phpnuxbill.md): impor data, cutover, dan checklist jalan paralel.
 

@@ -63,8 +63,8 @@ func (s *Server) paymentAdminRoutes(mux *http.ServeMux, managers func(http.Handl
 }
 
 func (s *Server) portalRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /portal/login", s.pLoginForm)
-	mux.HandleFunc("POST /portal/login", s.pLogin)
+	mux.HandleFunc("GET /login", s.pLoginForm)
+	mux.HandleFunc("POST /login", s.pLogin)
 	mux.HandleFunc("POST /portal/logout", s.pLogout)
 	mux.HandleFunc("POST /portal/login/activation", s.pVoucherLogin)
 	mux.HandleFunc("GET /portal/register", s.pRegisterForm)
@@ -143,13 +143,11 @@ func (s *Server) Handler() http.Handler {
 	}
 
 	// auth: root redirect, static files, uploads, admin login/logout, own password
-	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/admin", http.StatusSeeOther)
-	})
+	mux.HandleFunc("GET /{$}", s.root)
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
-	mux.HandleFunc("GET /login", s.loginForm)
+	mux.HandleFunc("GET /admin/login", s.loginForm)
 	mux.HandleFunc("GET /uploads/{name}", s.serveUpload)
-	mux.HandleFunc("POST /login", s.loginSubmit)
+	mux.HandleFunc("POST /admin/login", s.loginSubmit)
 	mux.HandleFunc("POST /logout", s.logout)
 	mux.Handle("GET /admin/password", all(http.HandlerFunc(s.passwordForm)))
 	mux.Handle("POST /admin/password", all(http.HandlerFunc(s.passwordSave)))
@@ -238,6 +236,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/network/{kind}/{id}", managers(http.HandlerFunc(s.networkDetail)))
 	mux.Handle("POST /admin/network/{kind}/{id}/check", managers(http.HandlerFunc(s.networkCheck)))
 	mux.Handle("GET /admin/radius/sessions", managers(http.HandlerFunc(s.radiusSessions)))
+	mux.Handle("GET /admin/radius/sessions.json", managers(http.HandlerFunc(s.radiusSessionsJSON)))
 	mux.Handle("POST /admin/radius/sessions/disconnect-many", managers(http.HandlerFunc(s.radiusDisconnectMany)))
 	mux.Handle("POST /admin/radius/sessions/{id}/disconnect", managers(http.HandlerFunc(s.radiusDisconnect)))
 	crud("/admin/odp", s.odpList, s.odpNew, s.odpEdit, s.odpSave, s.odpDelete)
@@ -262,7 +261,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/theme/default", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.themeDefault)))
 	mux.Handle("POST /admin/settings/integrations/wa-test", managers(http.HandlerFunc(s.waTest)))
 	mux.Handle("POST /admin/settings/notifications/daily-summary", managers(http.HandlerFunc(s.dailySummaryNow)))
-	mux.Handle("GET /admin/settings/miscellaneous/backup", managers(http.HandlerFunc(s.dbBackup)))
+	mux.Handle("POST /admin/settings/notifications/reset/{name}", managers(http.HandlerFunc(s.notifReset)))
+	mux.Handle("GET /admin/settings/system/backup", managers(http.HandlerFunc(s.dbBackup)))
 	// Promosi: SuperAdmin only
 	promoOnly := s.requireAdmin("SuperAdmin")
 	mux.Handle("GET /admin/settings/promo", promoOnly(http.HandlerFunc(s.promoList)))
@@ -274,20 +274,21 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/settings/promo/{id}/up", promoOnly(s.promoMove(-1)))
 	mux.Handle("POST /admin/settings/promo/{id}/down", promoOnly(s.promoMove(1)))
 	superAdmin := s.requireAdmin("SuperAdmin")
+	s.setupRoutes(mux, superAdmin)
 	mux.Handle("POST /admin/settings/integrations/test/{kind}", superAdmin(http.HandlerFunc(s.integrationTest)))
 	mux.Handle("POST /admin/settings/payment/tripay-test", superAdmin(http.HandlerFunc(s.tripayTest)))
 	mux.Handle("POST /admin/settings/integrations/metrics-token", superAdmin(http.HandlerFunc(s.metricsTokenNew)))
 	mux.Handle("POST /admin/settings/integrations/metrics-token/disable", superAdmin(http.HandlerFunc(s.metricsTokenOff)))
 	mux.Handle("GET /admin/settings/isolir/preview", superAdmin(http.HandlerFunc(s.isolirPreview)))
 	mux.Handle("POST /admin/settings/isolir/reset/{section}", superAdmin(http.HandlerFunc(s.isolirReset)))
-	mux.Handle("GET /admin/settings/miscellaneous/import", superAdmin(http.HandlerFunc(s.importForm)))
-	mux.Handle("POST /admin/settings/miscellaneous/import", superAdmin(http.HandlerFunc(s.importPreview)))
-	mux.Handle("POST /admin/settings/miscellaneous/import/confirm", superAdmin(http.HandlerFunc(s.importConfirm)))
-	mux.Handle("POST /admin/settings/miscellaneous/import/cancel", superAdmin(http.HandlerFunc(s.importCancel)))
-	mux.Handle("GET /admin/settings/miscellaneous/restore", superAdmin(http.HandlerFunc(s.restoreForm)))
-	mux.Handle("POST /admin/settings/miscellaneous/restore", superAdmin(http.HandlerFunc(s.restorePreview)))
-	mux.Handle("POST /admin/settings/miscellaneous/restore/confirm", superAdmin(http.HandlerFunc(s.restoreConfirm)))
-	mux.Handle("POST /admin/settings/miscellaneous/restore/cancel", superAdmin(http.HandlerFunc(s.restoreCancel)))
+	mux.Handle("GET /admin/settings/system/import", superAdmin(http.HandlerFunc(s.importForm)))
+	mux.Handle("POST /admin/settings/system/import", superAdmin(http.HandlerFunc(s.importPreview)))
+	mux.Handle("POST /admin/settings/system/import/confirm", superAdmin(http.HandlerFunc(s.importConfirm)))
+	mux.Handle("POST /admin/settings/system/import/cancel", superAdmin(http.HandlerFunc(s.importCancel)))
+	mux.Handle("GET /admin/settings/system/restore", superAdmin(http.HandlerFunc(s.restoreForm)))
+	mux.Handle("POST /admin/settings/system/restore", superAdmin(http.HandlerFunc(s.restorePreview)))
+	mux.Handle("POST /admin/settings/system/restore/confirm", superAdmin(http.HandlerFunc(s.restoreConfirm)))
+	mux.Handle("POST /admin/settings/system/restore/cancel", superAdmin(http.HandlerFunc(s.restoreCancel)))
 	// Old settings.php users-*: list/add/edit for SuperAdmin, Admin and Agent (scoped in admins.go); delete only SuperAdmin and Admin.
 	userMgr := s.requireAdmin("SuperAdmin", "Admin", "Agent")
 	mux.Handle("GET /admin/users", userMgr(http.HandlerFunc(s.adminList)))
@@ -322,7 +323,8 @@ func (s *Server) Handler() http.Handler {
 	cop.AddInsecureBypassPattern("POST /isolir/voucher")
 	cop.AddInsecureBypassPattern("POST /radius.php")
 	cop.AddInsecureBypassPattern("POST /radius/rest")
-	app := s.realIP(cop.Handler(s.sessions.LoadAndSave(s.idleGuard(s.maintenance(mux)))))
+	// isolirGate sits inside realIP (it needs the real client IP) and outside the session chain
+	app := s.realIP(s.isolirGate(cop.Handler(s.sessions.LoadAndSave(s.idleGuard(s.maintenance(mux))))))
 	// /health sits outside the session and maintenance chain so monitors always get an answer
 	top := http.NewServeMux()
 	top.HandleFunc("GET /health", s.health)

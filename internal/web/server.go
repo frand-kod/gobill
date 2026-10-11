@@ -40,6 +40,7 @@ type Server struct {
 	guides    map[string]*guideSet // rendered "Panduan" pages per language ("id", "en"), see docs.go
 	lang      atomic.Value         // string: current language, a global app setting
 	dummyHash []byte               // compared against when the username does not exist
+	live      liveMonitor          // online sessions: rate samples and sparkline, see admin_radius_live.go
 
 	// Radius is shared with the UDP listener so auth throttles apply to /radius.php too.
 	Radius     *radius.Server
@@ -49,9 +50,13 @@ type Server struct {
 	Version string
 	// DBPath is the SQLite file: /health reports its disk space, restore stages uploads next to it.
 	DBPath string
+	// ListenAddr is GOBILL_HTTP, the address the MikroTik setup helper of the isolir tab names.
+	ListenAddr string
 
 	// ClockWarning, if set, returns a non-empty reason while the clock is untrusted.
 	ClockWarning func() string
+	// UpdateInfo returns the newest known release tag and its page, see job.UpdateCheck.
+	UpdateInfo func() (tag, link string)
 	// SecretKey encrypts router passwords and customer secrets (see package secret).
 	SecretKey       []byte
 	SettingsChanged func(ctx context.Context) // called after settings are saved
@@ -80,6 +85,7 @@ type Server struct {
 
 	idle    atomic.Int64 // admin idle timeout in ns, see ReloadSessionSettings
 	single  atomic.Bool  // single_session
+	isolir  atomic.Bool  // isolir_enabled, see isolirGate
 	trust   atomic.Bool  // trust_proxy, see realIP
 	proxies atomic.Value // []netip.Prefix from trusted_proxies, see realIP
 }
@@ -100,9 +106,12 @@ type Page struct {
 	Path          string
 	Tabs          []option          // settings sub-page menu
 	Brand         map[string]string // logo and login page text, filled by render
+	Setup         *setupNav         // Quick Setup state of a SuperAdmin page, filled by render
 	Dir           string            // "rtl" or "ltr"
 	Lang          string
 	Version       string
+	UpdateTag     string // set by render for SuperAdmin when a newer release is known
+	UpdateURL     string
 	Data          any
 }
 

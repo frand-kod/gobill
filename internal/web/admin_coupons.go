@@ -30,8 +30,8 @@ func cpnFields(v, e map[string]string) []field {
 }
 
 func (s *Server) cpnList(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
-	rows, err := s.queries.SearchCoupons(r.Context(), db.SearchCouponsParams{Q: q, PageLimit: limit, PageOffset: off})
+	q, pg := paging(r)
+	rows, err := s.queries.SearchCoupons(r.Context(), db.SearchCouponsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
 		s.fail(w, "list coupons", err)
 		return
@@ -44,7 +44,12 @@ func (s *Server) cpnList(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{c.ID, []string{c.Code, c.Type, fmt.Sprint(c.Value), fmt.Sprint(c.MaxUsage),
 			fmt.Sprint(c.Used), fmt.Sprint(c.MinOrder), c.StartDate, c.EndDate, c.Status}})
 	}
-	lp.finish(page)
+	total, err := s.queries.CountCoupons(r.Context(), q)
+	if err != nil {
+		s.fail(w, "count coupons", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }
 

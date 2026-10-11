@@ -84,6 +84,9 @@ func TestRequestMessageAuth(t *testing.T) {
 	if r := e.auth(t, signedPAP(false)); r != nil {
 		t.Fatal("tampered M-A must be dropped")
 	}
+	if _, err := e.conn.Exec(`UPDATE nas SET require_message_auth = 2`); err != nil { // never: the NAS already sent one, so auto would require it
+		t.Fatal(err)
+	}
 	if r := e.auth(t, pap("alice", "pw")); r == nil || r.Code != radius.CodeAccessAccept {
 		t.Fatal("no M-A must pass when not required")
 	}

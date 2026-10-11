@@ -26,7 +26,7 @@ func (s *Server) pending2FA(r *http.Request) int64 {
 
 func (s *Server) login2FAForm(w http.ResponseWriter, r *http.Request) {
 	if s.pending2FA(r) == 0 {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 		return
 	}
 	s.render(w, r, http.StatusOK, "login_2fa", Page{Title: "Two-factor login"})
@@ -36,13 +36,13 @@ func (s *Server) login2FASubmit(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	id := s.pending2FA(r)
 	if id == 0 {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 		return
 	}
 	admin, err := s.queries.GetAdmin(ctx, id)
 	if err != nil || admin.Status != "Active" || admin.TotpEnabled != 1 {
 		s.sessions.Remove(ctx, "pending_2fa")
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 		return
 	}
 	// Same throttle keys as the password step: 2FA guesses count against the IP and the account.

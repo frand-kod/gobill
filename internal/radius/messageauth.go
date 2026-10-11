@@ -43,14 +43,47 @@ func addMA(p *radius.Packet) {
 	copy(p.Attributes[0].Attribute, maSum(p))
 }
 
-// checkMA reports whether a request is acceptable: a present Message-Authenticator must verify;
-// a missing one is fine unless required.
-func checkMA(p *radius.Packet, required bool) bool {
-	got, err := rfc2869.MessageAuthenticator_Lookup(p)
-	if err != nil {
-		return !required
+// maResult is the state of the Message-Authenticator in a request.
+type maResult int
+
+const (
+	maMissing maResult = iota
+	maValid
+	maInvalid // wrong value, wrong length, or more than one (duplicate)
+)
+
+// checkMA classifies the Message-Authenticator of a request. Invalid is always refused; missing is
+// refused only when the NAS policy requires it.
+func checkMA(p *radius.Packet) maResult {
+	n := 0
+	for _, a := range p.Attributes {
+		if a.Type == rfc2869.MessageAuthenticator_Type {
+			n++
+		}
 	}
-	return len(got) == 16 && hmac.Equal(got, maSum(p))
+	switch {
+	case n == 0:
+		return maMissing
+	case n > 1:
+		return maInvalid
+	}
+	got, _ := rfc2869.MessageAuthenticator_Lookup(p)
+	if len(got) == 16 && hmac.Equal(got, maSum(p)) {
+		return maValid
+	}
+	return maInvalid
+}
+
+// maRequired is the NAS require_message_auth policy for a missing Message-Authenticator:
+// 0 auto (required once the NAS has sent a valid one, seen = 1), 1 always, 2 never.
+func maRequired(policy, seen int64) bool {
+	switch policy {
+	case 1:
+		return true
+	case 2:
+		return false
+	}
+	return seen == 1
 }
 
 // send signs and writes an Access-* response.

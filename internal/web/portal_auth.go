@@ -32,7 +32,7 @@ func (s *Server) requireCustomer(next http.HandlerFunc) http.Handler {
 		c, err := s.queries.GetCustomer(r.Context(), id)
 		if id == 0 || err != nil || c.Status == "Banned" || c.Status == "Disabled" || c.SessionVersion != s.sessions.GetInt64(r.Context(), "csv") {
 			s.sessions.Remove(r.Context(), "customer_id")
-			http.Redirect(w, r, "/portal/login", http.StatusSeeOther)
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
 		next(w, r.WithContext(context.WithValue(r.Context(), custCtxKey{}, &c)))
@@ -112,10 +112,18 @@ func (s *Server) keepSession(r *http.Request, id int64) error {
 	return nil
 }
 
+// customerLoginURL is the customer login address for messages: app_url plus /login, or "" without app_url.
+func customerLoginURL(st map[string]string) string {
+	if u := strings.TrimRight(st["app_url"], "/"); u != "" {
+		return u + "/login"
+	}
+	return ""
+}
+
 func (s *Server) pLogout(w http.ResponseWriter, r *http.Request) {
 	s.sessions.Remove(r.Context(), "customer_id")
 	s.sessions.Remove(r.Context(), "impersonator")
-	http.Redirect(w, r, "/portal/login", http.StatusSeeOther)
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 // ---- register ----
@@ -131,7 +139,7 @@ func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if st["disable_registration"] != "yes" {
-		s.flashTo(w, r, "/portal/login", "Registration Disabled")
+		s.flashTo(w, r, "/login", "Registration Disabled")
 		return
 	}
 	ip := "c:" + clientIP(r)
@@ -166,6 +174,12 @@ func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 		if len(username) < 21 {
 			phone = username
 		}
+		if taken, err := s.phoneTaken(ctx, phone, 0); err != nil { // a number another account uses is not taken twice
+			s.fail(w, "voucher login", err)
+			return
+		} else if taken {
+			phone = ""
+		}
 		if c, err = s.queries.CreateCustomer(ctx, db.CreateCustomerParams{Username: username, PasswordHash: string(hash),
 			Phone: phone, ServiceType: "Others", SecretEnc: enc, AutoRenewal: 1, Status: "Active"}); err != nil {
 			s.fail(w, "voucher login", err)
@@ -176,11 +190,11 @@ func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, billing.ErrVoucherInvalid):
 		bad()
 	case errors.Is(err, billing.ErrInactive):
-		s.flashTo(w, r, "/portal/login", "account is not active")
+		s.flashTo(w, r, "/login", "account is not active")
 	case err != nil:
 		s.fail(w, "voucher login", err)
 	default:
-		to := "/portal/login"
+		to := "/login"
 		if u := safeRedirect(st["voucher_redirect"]); u != "" {
 			to = u
 		}

@@ -20,10 +20,10 @@ func TestPortalRegistrationModes(t *testing.T) {
 	}
 	// no: normal registration works, voucher login refused
 	setting(t, e, "disable_registration", "no")
-	if w := do(e.h, "GET", "/portal/login", nil, nil); !strings.Contains(w.Body.String(), "/portal/register") || strings.Contains(w.Body.String(), "activation") {
+	if w := do(e.h, "GET", "/login", nil, nil); !strings.Contains(w.Body.String(), "/portal/register") || strings.Contains(w.Body.String(), "activation") {
 		t.Fatal("login page in open mode")
 	}
-	if w := act("vuser", "VCH1"); w.Header().Get("Location") != "/portal/login" {
+	if w := act("vuser", "VCH1"); w.Header().Get("Location") != "/login" {
 		t.Fatalf("activation while open: %d", w.Code)
 	}
 	if _, err := e.q.GetCustomerByUsername(t.Context(), "vuser"); err == nil {
@@ -37,7 +37,7 @@ func TestPortalRegistrationModes(t *testing.T) {
 	if w := do(e.h, "GET", "/portal/register", nil, nil); w.Code != http.StatusSeeOther {
 		t.Fatalf("noreg page: %d", w.Code)
 	}
-	if w := do(e.h, "GET", "/portal/login", nil, nil); strings.Contains(w.Body.String(), "/portal/register") {
+	if w := do(e.h, "GET", "/login", nil, nil); strings.Contains(w.Body.String(), "/portal/register") {
 		t.Fatal("register link shown in noreg")
 	}
 	// yes: voucher only
@@ -45,7 +45,7 @@ func TestPortalRegistrationModes(t *testing.T) {
 	if w := do(e.h, "GET", "/portal/register", nil, nil); w.Code != http.StatusSeeOther {
 		t.Fatalf("voucher-only register page: %d", w.Code)
 	}
-	if w := do(e.h, "GET", "/portal/login", nil, nil); strings.Contains(w.Body.String(), "/portal/register") || !strings.Contains(w.Body.String(), "activation") {
+	if w := do(e.h, "GET", "/login", nil, nil); strings.Contains(w.Body.String(), "/portal/register") || !strings.Contains(w.Body.String(), "activation") {
 		t.Fatal("login page in voucher mode")
 	}
 	if w := act("vuser", "NOPE"); w.Code != 200 {
