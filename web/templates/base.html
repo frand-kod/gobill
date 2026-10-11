@@ -6,8 +6,8 @@
     {{with .Tip}}<p class="callout-tip"><span class="font-semibold">{{T "Tip"}}:</span> {{.}}</p>{{end}}
   </aside>
 </details>{{end}}{{end}}
-{{define "logoA"}}{{with .logo_a}}<img src="/uploads/{{.}}" alt="" class="logo-light h-8 max-w-48 object-contain">{{with $.logo_a_dark}}<img src="/uploads/{{.}}" alt="" class="logo-dark h-8 max-w-48 object-contain">{{end}}{{else}}{{icon "wifi"}}{{end}}<span class="{{with .logo_a}}hidden min-w-0 truncate sm:inline{{else}}truncate{{end}}">{{or .company_name "gobill"}}</span>{{end}}
-{{define "logoL"}}{{with .logo_l}}<img src="/uploads/{{.}}" alt="" class="logo-light h-10 max-w-48 object-contain">{{with $.logo_l_dark}}<img src="/uploads/{{.}}" alt="" class="logo-dark h-10 max-w-48 object-contain">{{end}}{{else}}{{icon "wifi"}}{{end}}{{end}}
+{{define "logoA"}}{{with .logo_a}}<img src="/uploads/{{.}}" alt="" class="logo-light h-8 max-w-48 object-contain" width="128" height="32">{{with $.logo_a_dark}}<img src="/uploads/{{.}}" alt="" class="logo-dark h-8 max-w-48 object-contain" width="128" height="32">{{end}}{{else}}{{icon "wifi"}}{{end}}<span class="{{with .logo_a}}hidden min-w-0 truncate sm:inline{{else}}truncate{{end}}">{{or .company_name "gobill"}}</span>{{end}}
+{{define "logoL"}}{{with .logo_l}}<img src="/uploads/{{.}}" alt="" class="logo-light h-10 max-w-48 object-contain" width="160" height="40">{{with $.logo_l_dark}}<img src="/uploads/{{.}}" alt="" class="logo-dark h-10 max-w-48 object-contain" width="160" height="40">{{end}}{{else}}{{icon "wifi"}}{{end}}{{end}}
 {{define "pwscript"}}<script>
 // Show/hide password (aria-pressed) and a Caps Lock hint. Without JS the button stays hidden and the field works as is.
 document.querySelectorAll('[data-pw]').forEach(function (b) {

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -25,5 +26,27 @@ func TestPrefetchWiring(t *testing.T) {
 	}
 	if body := do(h, "GET", "/admin/settings/system", nil, c).Body.String(); !strings.Contains(body, `href="/admin/settings/system/backup" data-no-prefetch`) {
 		t.Error("backup download link must be data-no-prefetch")
+	}
+}
+
+// No flash: the theme is applied by an inline script in <head>, ahead of the stylesheet, and the built
+// stylesheet sets color-scheme and the page background on html.
+func TestThemeAppliedBeforeStylesheet(t *testing.T) {
+	h, _ := newTestServer(t)
+	c := login(t, h, "alice")
+	body := do(h, "GET", "/admin", nil, c).Body.String()
+	head, end := strings.Index(body, "<head>"), strings.Index(body, "</head>")
+	theme, css := strings.Index(body, "window.gbThemeCtl"), strings.Index(body, `<link rel="stylesheet" href="/static/app.css">`)
+	if head < 0 || end < head || theme < head || theme > css || css > end {
+		t.Fatalf("theme script must sit in <head> before app.css (head %d, theme %d, css %d, end %d)", head, theme, css, end)
+	}
+	built, err := os.ReadFile("../../web/static/app.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"html{background:var(--bg)}", "color-scheme:light", "gb-vt-in"} {
+		if !strings.Contains(string(built), want) {
+			t.Errorf("app.css lacks %q; run tools/tailwind.sh", want)
+		}
 	}
 }
