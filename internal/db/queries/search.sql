@@ -9,7 +9,7 @@ WHERE instr(lower(username), lower(sqlc.arg(q))) > 0 OR instr(lower(fullname), l
 ORDER BY username LIMIT sqlc.arg(limit);
 
 -- name: SearchPlansContains :many
-SELECT id, name, type, price FROM plans WHERE instr(lower(name), lower(sqlc.arg(q))) > 0 ORDER BY name LIMIT sqlc.arg(limit);
+SELECT id, name, type, price FROM plans WHERE instr(lower(name), lower(sqlc.arg(q))) > 0 AND id <> sqlc.arg(hidden_id) ORDER BY name LIMIT sqlc.arg(limit);
 
 -- name: SearchRoutersContains :many
 SELECT id, name, host FROM routers
