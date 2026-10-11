@@ -187,6 +187,9 @@ func (s *Server) Handler() http.Handler {
 	// recharge and billing: recharge, deposit, customer plans, transactions, payment gateway admin
 	mux.Handle("POST /admin/customers/{id}/recharge/confirm", staff(http.HandlerFunc(s.custRechargeConfirm)))
 	mux.Handle("POST /admin/customers/{id}/recharge", staff(http.HandlerFunc(s.custRecharge)))
+	mux.Handle("POST /admin/customers/recharge", staff(http.HandlerFunc(s.bulkRechargeConfirm)))
+	mux.Handle("POST /admin/customers/recharge/run", staff(http.HandlerFunc(s.bulkRechargeRun)))
+	mux.Handle("GET /admin/customers/recharge/result", staff(http.HandlerFunc(s.bulkRechargeResult)))
 	mux.Handle("GET /admin/customers/{id}/summary", staff(http.HandlerFunc(s.custSummary)))
 	mux.Handle("GET /admin/recharge", staff(http.HandlerFunc(s.rechargePick)))
 	mux.Handle("POST /admin/recharge", staff(http.HandlerFunc(s.rechargeStart)))
@@ -293,6 +296,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/users/{id}/edit", userMgr(http.HandlerFunc(s.adminEdit)))
 	mux.Handle("POST /admin/users/{id}", userMgr(http.HandlerFunc(s.adminSave)))
 	mux.Handle("POST /admin/users/{id}/delete", managers(http.HandlerFunc(s.adminDelete)))
+	mux.Handle("POST /admin/users/{id}/password/reset", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.adminPasswordReset)))
 	// Old pages.php: static page editor (managers only).
 	mux.Handle("GET /admin/pages/{slug}", managers(http.HandlerFunc(s.pageEdit)))
 	mux.Handle("POST /admin/pages/{slug}", managers(http.HandlerFunc(s.pageSave)))

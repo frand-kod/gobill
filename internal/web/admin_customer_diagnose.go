@@ -17,7 +17,7 @@ type diagItem struct{ Label, Cls, State, Short, Text string }
 
 type diagnosis struct {
 	Items  []diagItem
-	Advice string
+	Advice []string // one next step per failing check, in check order; "Everything looks normal" when none
 }
 
 // NeedsAction: some item is warn or bad, so the page shows the advice.
@@ -56,7 +56,7 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 		}
 		d.Items = append(d.Items, it)
 	}
-	var advice []string // first one wins
+	var advice []string // one next step per failing check, in check order
 	tip := func(k string, a ...any) { advice = append(advice, t(k, a...)) }
 
 	// account
@@ -89,13 +89,21 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 	} else if p, err := s.queries.GetPlan(ctx, sub.PlanID); err != nil {
 		sub = nil
 		add("Plan", "warn", t("Plan could not be read"), t("Plan could not be read"))
+		tip("Plan could not be read: check the plan under Service Plan")
 	} else {
 		plan = p
-		if sub.ExpiresAt <= now {
+		switch {
+		case sub.PendingStart == 1: // start_on_first_login: the period starts at the first RADIUS login
+			add("Plan", "warn", t("Not started"), t("Plan %s starts at the customer's first login", p.Name))
+			tip("Plan has not started: ask the customer to log in once (PPPoE or hotspot) to start the period")
+		case sub.Method == "Isolir" && sub.ExpiresAt > now:
+			add("Plan", "warn", t("Isolated until %s", s.ts(sub.ExpiresAt)), t("Customer is isolated until %s: internet is limited to the isolir page", s.ts(sub.ExpiresAt)))
+			tip("Customer is isolated: press Recharge to end the isolation")
+		case sub.ExpiresAt <= now:
 			expired = true
 			add("Plan", "bad", t("Ended %s", s.ts(sub.ExpiresAt)), t("Plan %s ended on %s", p.Name, s.ts(sub.ExpiresAt)))
 			tip("Plan ended: press Recharge")
-		} else {
+		default:
 			add("Plan", "ok", t("Until %s · %s left", s.ts(sub.ExpiresAt), humanDur(sub.ExpiresAt-now)), t("Plan %s is active until %s (%s left)", p.Name, s.ts(sub.ExpiresAt), humanDur(sub.ExpiresAt-now)))
 		}
 	}
@@ -115,7 +123,6 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 			last = &ss[0]
 		}
 	}
-	connected := false
 	switch {
 	case len(open) > 0:
 		x := open[0]
@@ -126,20 +133,35 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 		}
 		if age := now - x.UpdatedAt; age > radius.StaleAfter {
 			add("Connection", "warn", t("Silent"), t("A session is open but silent for %s (the device may be off)", humanDur(age)))
+			tip("Device is silent: check the customer's modem or ONT is on and the cable is connected")
 		} else {
-			connected = true
-			add("Connection", "ok", t("Online"), t("Online now: IP %s, MAC %s, router %s, last update %s ago", x.FramedIp, x.Mac, x.NasIp, humanDur(age)))
+			add("Connection", "ok", t("Online"), t("Online now: IP %s, NAS %s, MAC %s, up for %s (last update %s ago)", x.FramedIp, x.NasIp, x.Mac, humanDur(now-x.StartedAt), humanDur(now-x.UpdatedAt)))
 		}
 	case last != nil:
-		seen := max(last.UpdatedAt, last.StoppedAt.Int64)
-		add("Connection", "warn", t("Offline"), t("Offline. Last seen %s (%s ago)", s.ts(seen), humanDur(now-seen)))
+		end := last.UpdatedAt
+		if last.StoppedAt.Valid {
+			end = last.StoppedAt.Int64
+		}
+		add("Connection", "warn", t("Offline"), t("Offline. Last session ended %s (%s ago)", s.ts(end), humanDur(now-end)))
+		tip("Offline: check the customer's modem, ONT and cable, then ask them to reconnect")
 	case online != "":
 		lvl := map[string]string{"Online": "ok", "Offline": "warn"}[online]
 		if lvl == "" {
 			lvl = "bad"
 		}
 		add("Connection", lvl, t(online), t(online))
-		connected = online == "Online"
+		switch online {
+		case "Offline":
+			tip("Device reports offline: check the customer's modem and cable")
+		case "Error":
+			tip("The online check failed: check the router connection under Routers")
+		}
+	case sub != nil && plan.Device != "Radius":
+		add("Connection", "warn", t("Not seen yet"), t("No connection data for this plan yet"))
+		tip("Connection check is off: turn on Check Customer Online under Settings to see whether the customer is online")
+	case sub != nil:
+		add("Connection", "warn", t("Not seen yet"), t("No RADIUS session recorded for this customer"))
+		tip("Customer has never connected: check the PPPoE or hotspot username and password on the device")
 	default:
 		add("Connection", "muted", t("No data"), t("No RADIUS session recorded for this customer"))
 	}
@@ -161,7 +183,6 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 	}
 
 	// router
-	routerDown := false
 	switch {
 	case sub == nil:
 	case plan.Device == "Radius":
@@ -169,12 +190,14 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 	case plan.RouterID.Valid:
 		if r, err := s.queries.GetRouter(ctx, plan.RouterID.Int64); err != nil {
 			add("Router", "warn", t("Not found"), t("The router of this plan was not found"))
+			tip("The router of this plan was not found: check the plan under Service Plan")
 		} else if r.Enabled == 0 {
 			add("Router", "warn", t("Off"), t("Router %s is switched off under Routers", r.Name))
+			tip("Router %s is switched off: turn it on under Routers", r.Name)
 		} else if !r.Online.Valid {
 			add("Router", "warn", t("Not checked"), t("Router %s has not been checked yet", r.Name))
+			tip("Router %s has not been checked yet: open Routers and check its connection", r.Name)
 		} else if r.Online.Int64 == 0 {
-			routerDown = true
 			if r.LastSeenAt.Valid {
 				add("Router", "bad", t("Offline"), t("Router %s is offline (last seen %s)", r.Name, s.ts(r.LastSeenAt.Int64)))
 			} else {
@@ -186,14 +209,10 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 		}
 	}
 
-	switch {
-	case len(advice) > 0:
-		d.Advice = advice[0]
-	case !connected && sub != nil && !routerDown:
-		d.Advice = t("Account and plan are fine but the device is not connected: check the customer's modem and cable")
-	default:
-		d.Advice = t("Everything looks normal")
+	if len(advice) == 0 {
+		advice = []string{t("Everything looks normal")}
 	}
+	d.Advice = advice
 	return d
 }
 

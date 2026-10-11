@@ -183,6 +183,28 @@ Admin itu bisa masuk dengan password saja. 2FA harus diaktifkan lagi. Tindakan i
 - Kode yang sudah dipakai tidak bisa dipakai ulang. Riwayat kode yang sudah dipakai disimpan di memori. Setelah restart, kode yang sama bisa diterima lagi selama sisa langkah waktu, maksimal sekitar 90 detik.
 - Login pelanggan dan API tidak memakai 2FA admin. Sesi admin hanya dibuka lewat halaman login.
 
+## Lupa password admin
+
+Ada dua jalur. Keduanya membuat password acak baru yang hanya ditampilkan sekali. Semua sesi admin itu ikut berakhir, jadi admin harus masuk ulang.
+
+### Dari layar: SuperAdmin
+
+1. SuperAdmin membuka **Pengguna Admin**, memilih akun, lalu klik **Reset kata sandi**. Tombol ini tidak muncul untuk akun sendiri. Untuk akun sendiri, pakai **Ganti Kata Sandi**.
+2. Konfirmasi. Salin password yang muncul. Setelah halaman ditutup, password itu tidak bisa dilihat lagi. Jika hilang, ulangi reset.
+3. Berikan password itu ke admin. Admin harus masuk ulang.
+
+Tindakan ini tercatat di log aktivitas sebagai `users.password.reset` dengan nama akun. Password tidak pernah masuk log.
+
+### Dari server: perintah CLI
+
+Pakai jalur ini jika tidak ada SuperAdmin yang bisa masuk. Jalankan di server, dengan `GOBILL_DB` yang sama dengan service. Service tidak perlu dihentikan.
+
+    GOBILL_DB=/var/lib/gobill/gobill.db gobill reset-admin-password admin
+
+Password baru dicetak ke layar sekali. Jangan simpan output-nya di file log.
+
+Tambahkan `--disable-2fa` jika aplikasi authenticator juga hilang. 2FA akan dimatikan dan kode pemulihan dihapus, sehingga admin bisa masuk dengan password saja. Di Docker, jalankan dengan `docker exec -it <nama-container> gobill reset-admin-password admin` dan pastikan `GOBILL_DB` menunjuk ke `/data/gobill.db`.
+
 ## Lihat juga
 
 - [Setup MikroTik](mikrotik.md): konfigurasi RADIUS di router.

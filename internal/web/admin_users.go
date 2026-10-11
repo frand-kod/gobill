@@ -10,6 +10,7 @@ import (
 
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/secret"
 	"golang.org/x/crypto/bcrypt"
 	"strconv"
 )
@@ -102,6 +103,11 @@ func (s *Server) adminFields(r *http.Request, target *db.Admin, v, e map[string]
 		if target != nil {
 			acc = append(acc, field{Name: "status", Label: "Status", Type: "select", Value: v["status"],
 				Options: []option{{"Active", "Active"}, {"Inactive", "Inactive"}}})
+			if actor.Role == "SuperAdmin" && !self {
+				acc = append(acc, field{Name: "resetpw", Label: "Password", Type: "formbtn", Hint: "Sets a new random password, shown once. The admin is signed out everywhere.",
+					Value: "/admin/users/" + strconv.FormatInt(target.ID, 10) + "/password/reset", Btn: "Reset password",
+					Confirm: "Reset this admin's password? They will be signed out everywhere."})
+			}
 			if actor.Role == "SuperAdmin" && !self && target.TotpEnabled == 1 {
 				acc = append(acc, field{Name: "reset2fa", Label: "Two-factor login", Type: "formbtn", Hint: "Use when the admin lost the authenticator and recovery codes.",
 					Value: "/admin/users/" + strconv.FormatInt(target.ID, 10) + "/2fa/reset", Btn: "Reset 2FA"})
@@ -384,3 +390,35 @@ func (s *Server) passwordSave(w http.ResponseWriter, r *http.Request) {
 	s.sessions.Put(r.Context(), "sv", sv)
 	s.done(w, r, "/admin", "Password changed successfully", "users.password", actor.Username)
 }
+
+// ---- SuperAdmin resets another admin's password ----
+
+// adminPasswordReset sets a random password for another admin and shows it once. The admin's other
+// sessions end with the bumped session_version, so they must log in again. The activity log names the
+// admin, never the password.
+func (s *Server) adminPasswordReset(w http.ResponseWriter, r *http.Request) {
+	t, ok := s.loadManaged(w, r)
+	if !ok {
+		return
+	}
+	back := "/admin/users/" + strconv.FormatInt(t.ID, 10) + "/edit"
+	if t.ID == adminFrom(r).ID {
+		s.flashTo(w, r, back, "Change your own password under Password")
+		return
+	}
+	pw := secret.RandomPassword(16)
+	hash, err := bcrypt.GenerateFromPassword([]byte(pw), bcryptCost)
+	if err != nil {
+		s.fail(w, "hash password", err)
+		return
+	}
+	if _, err := s.queries.SetAdminPassword(r.Context(), db.SetAdminPasswordParams{PasswordHash: string(hash), ID: t.ID}); err != nil {
+		s.fail(w, "reset admin password", err)
+		return
+	}
+	s.logActivity(r, "users.password.reset", t.Username)
+	s.render(w, r, 200, "admin_password", Page{Title: "Reset password", Data: adminPasswordPage{Username: t.Username, Password: pw, Back: back}})
+}
+
+// adminPasswordPage shows the new password once.
+type adminPasswordPage struct{ Username, Password, Back string }

@@ -18,7 +18,7 @@
 <section class="mb-3 flex flex-wrap items-center gap-2" aria-label="{{T "Diagnosis"}}">
   {{range .Diag.Items}}<span class="badge {{.Cls}}">{{T .Label}}{{with .Short}}: {{.}}{{end}}<span class="sr-only">: {{T .State}}</span></span>{{end}}
 </section>
-{{if .Diag.NeedsAction}}<p class="callout !py-2"><span class="callout-title">{{T "Advice"}}:</span> {{.Diag.Advice}}</p>{{end}}
+{{if .Diag.NeedsAction}}<div class="callout !py-2"><span class="callout-title">{{T "Advice"}}:</span>{{range .Diag.Advice}} <span class="block">{{.}}</span>{{end}}</div>{{end}}
 <div class="grid gap-4 xl:grid-cols-3">
   {{if .CanSell}}
   <form id="recharge" class="card scroll-mt-20 xl:col-start-3 xl:row-start-1" method="post" action="/admin/customers/{{.C.ID}}/recharge/confirm" data-recharge>

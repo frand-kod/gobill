@@ -183,6 +183,28 @@ That admin can log in with the password only. 2FA must be enabled again. The act
 - A used code cannot be used again. The list of used codes is kept in memory. After a restart, the same code may be accepted again for the rest of its time step, at most about 90 seconds.
 - Customer login and the API do not use admin 2FA. Admin sessions are opened only through the login page.
 
+## Forgotten admin password
+
+There are two ways back in. Both set a new random password that is shown once, and all sessions of that admin end, so the admin must log in again.
+
+### From the screen: SuperAdmin
+
+1. A SuperAdmin opens **Admin Users**, selects the account, then clicks **Reset password**. The button does not appear for your own account; use **Change Password** for that.
+2. Confirm. Copy the password shown. Once the page is closed it cannot be seen again; if it is lost, reset again.
+3. Give the password to the admin. The admin must log in again.
+
+The action is recorded in the activity log as `users.password.reset` with the account name. The password is never logged.
+
+### From the server: CLI command
+
+Use this when no SuperAdmin can log in. Run it on the server with the same `GOBILL_DB` as the service. The service does not need to be stopped.
+
+    GOBILL_DB=/var/lib/gobill/gobill.db gobill reset-admin-password admin
+
+The new password is printed once to the screen. Do not save that output to a log file.
+
+Add `--disable-2fa` if the authenticator app is lost as well. That turns 2FA off and deletes the recovery codes, so the admin can log in with the password alone. In Docker, run `docker exec -it <container-name> gobill reset-admin-password admin` and make sure `GOBILL_DB` points to `/data/gobill.db`.
+
 ## See also
 
 - [MikroTik setup](mikrotik.md): RADIUS settings on the router.

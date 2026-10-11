@@ -21,6 +21,7 @@ type field struct {
 	Fold                                  bool         // its card sits inside a collapsed "Advanced options"
 	Balance                               bool         // customer picker lists each customer's balance
 	Btn                                   string       // link field: button text, default "Download backup"
+	Confirm                               string       // formbtn field: browser confirm text shown before the submit
 	Snippet                               string       // tokenshow field: text shown in a code block
 	Img                                   template.URL // qris field: preview of the stored code (data: URI)
 	Inp                                   string       // test field: input type of the box above its button, "" = none

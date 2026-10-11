@@ -101,6 +101,16 @@ func TestHeaderSearch(t *testing.T) {
 	}
 }
 
+// has reports whether one of the advice lines of d is want.
+func has(d diagnosis, want string) bool {
+	for _, a := range d.Advice {
+		if a == want {
+			return true
+		}
+	}
+	return false
+}
+
 func TestDiagnose(t *testing.T) {
 	s, h, q, c := crudApp(t)
 	ctx, now := t.Context(), time.Now().Unix()
@@ -150,7 +160,7 @@ func TestDiagnose(t *testing.T) {
 	if level(d, "Account") != "badge-ok" || level(d, "Plan") != "badge-ok" || level(d, "Connection") != "badge-ok" || level(d, "Router") != "badge-ok" {
 		t.Errorf("online customer: %+v", d.Items)
 	}
-	if d.Advice != tr("Everything looks normal") {
+	if len(d.Advice) != 1 || d.Advice[0] != tr("Everything looks normal") {
 		t.Errorf("advice %q", d.Advice)
 	}
 	if got := d.Items[2].Text; !strings.Contains(got, "10.9.9.9") || !strings.Contains(got, "AA:BB:CC") || !strings.Contains(got, "10.0.0.1") {
@@ -161,18 +171,18 @@ func TestDiagnose(t *testing.T) {
 	ex := newCust(t, q, "expired1", "Ex Pired", "", "", "Active")
 	sub(ex, radiusPlan, "active", now-90000, now-3600)
 	d = diag(ex)
-	if level(d, "Plan") != "badge-bad" || d.Advice != tr("Plan ended: press Recharge") {
+	if level(d, "Plan") != "badge-bad" || !has(d, tr("Plan ended: press Recharge")) {
 		t.Errorf("expired (still flagged active): %+v / %q", d.Items, d.Advice)
 	}
 	// plan already marked expired by the sweeper
 	ex2 := newCust(t, q, "expired2", "Ex Pired", "", "", "Active")
 	sub(ex2, radiusPlan, "expired", now-90000, now-3600)
-	if d = diag(ex2); level(d, "Plan") != "badge-bad" || d.Advice != tr("Plan ended: press Recharge") {
+	if d = diag(ex2); level(d, "Plan") != "badge-bad" || !has(d, tr("Plan ended: press Recharge")) {
 		t.Errorf("expired status: %+v / %q", d.Items, d.Advice)
 	}
 	// no plan at all
 	np := newCust(t, q, "noplan1", "No Plan", "", "", "Active")
-	if d = diag(np); level(d, "Plan") != "badge-bad" || d.Advice != tr("No plan: press Recharge") {
+	if d = diag(np); level(d, "Plan") != "badge-bad" || !has(d, tr("No plan: press Recharge")) {
 		t.Errorf("no plan: %+v / %q", d.Items, d.Advice)
 	}
 
@@ -180,7 +190,7 @@ func TestDiagnose(t *testing.T) {
 	dis := newCust(t, q, "disabled1", "Dis Abled", "", "", "Disabled")
 	sub(dis, radiusPlan, "active", now-1000, now+86400)
 	d = diag(dis)
-	if level(d, "Account") != "badge-bad" || !strings.Contains(d.Advice, "Edit") {
+	if level(d, "Account") != "badge-bad" || !strings.Contains(fmt.Sprint(d.Advice), "Edit") {
 		t.Errorf("disabled: %+v / %q", d.Items, d.Advice)
 	}
 
@@ -189,7 +199,7 @@ func TestDiagnose(t *testing.T) {
 	sub(off, radiusPlan, "active", now-1000, now+86400)
 	q.UpsertRadiusSession(ctx, db.UpsertRadiusSessionParams{SessionID: "b", Username: "offline1", NasIp: "10.0.0.1", StartedAt: now - 7200, UpdatedAt: now - 3600, StoppedAt: sql.NullInt64{Int64: now - 3600, Valid: true}})
 	d = diag(off)
-	if level(d, "Connection") != "badge-warn" || !strings.Contains(d.Advice, tr("Account and plan are fine but the device is not connected: check the customer's modem and cable")) {
+	if level(d, "Connection") != "badge-warn" || !has(d, tr("Offline: check the customer's modem, ONT and cable, then ask them to reconnect")) {
 		t.Errorf("offline: %+v / %q", d.Items, d.Advice)
 	}
 
@@ -199,7 +209,7 @@ func TestDiagnose(t *testing.T) {
 	sub(qc, qa, "active", now-5000, now+86400)
 	q.UpsertRadiusSession(ctx, db.UpsertRadiusSessionParams{SessionID: "c", Username: "quota1", NasIp: "10.0.0.1", StartedAt: now - 4000, UpdatedAt: now - 3280, StoppedAt: sql.NullInt64{Int64: now - 3280, Valid: true}, InputOctets: 1 << 20})
 	d = diag(qc)
-	if level(d, "Quota") != "badge-bad" || d.Advice != tr("Quota used up: press Recharge for a new plan") {
+	if level(d, "Quota") != "badge-bad" || !has(d, tr("Quota used up: press Recharge for a new plan")) {
 		t.Errorf("quota: %+v / %q", d.Items, d.Advice)
 	}
 	if n := strings.Count(fmt.Sprint(d.Items), "Quota"); n != 2 {
@@ -219,12 +229,37 @@ func TestDiagnose(t *testing.T) {
 		t.Errorf("unchecked router: %+v", d.Items)
 	}
 	q.SetRouterStatus(ctx, db.SetRouterStatusParams{ID: rt.ID, Online: sql.NullInt64{Int64: 0, Valid: true}})
-	if d = diag(rc); level(d, "Router") != "badge-bad" || d.Advice != tr("Router offline: check its power and cables") {
+	if d = diag(rc); level(d, "Router") != "badge-bad" || !has(d, tr("Router offline: check its power and cables")) {
 		t.Errorf("offline router: %+v / %q", d.Items, d.Advice)
 	}
 	q.SetRouterStatus(ctx, db.SetRouterStatusParams{ID: rt.ID, Online: sql.NullInt64{Int64: 1, Valid: true}, LastSeenAt: sql.NullInt64{Int64: now, Valid: true}})
 	if d = diag(rc); level(d, "Router") != "badge-ok" {
 		t.Errorf("online router: %+v", d.Items)
+	}
+
+	// pending first login: the period has not started yet, so it is not "expired"
+	pe := newCust(t, q, "pending1", "Pen Ding", "", "", "Active")
+	if _, err := q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: pe.ID, PlanID: radiusPlan.ID, Type: "PPPoE",
+		StartedAt: now, ExpiresAt: now + 86400, PendingStart: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if d = diag(pe); level(d, "Plan") != "badge-warn" || !has(d, tr("Plan has not started: ask the customer to log in once (PPPoE or hotspot) to start the period")) {
+		t.Errorf("pending start: %+v / %q", d.Items, d.Advice)
+	}
+	// isolated: the isolir subscription is still running
+	is := newCust(t, q, "isolir1", "Iso Lir", "", "", "Active")
+	if _, err := q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: is.ID, PlanID: radiusPlan.ID, Type: "PPPoE",
+		StartedAt: now, ExpiresAt: now + 86400, Method: "Isolir"}); err != nil {
+		t.Fatal(err)
+	}
+	if d = diag(is); level(d, "Plan") != "badge-warn" || !has(d, tr("Customer is isolated: press Recharge to end the isolation")) {
+		t.Errorf("isolated: %+v / %q", d.Items, d.Advice)
+	}
+	// PPPoE/hotspot plan with no session and the online check off: say how to see the connection
+	nd := newCust(t, q, "nodata1", "No Data", "", "", "Active")
+	sub(nd, routerPlan, "active", now-1000, now+86400)
+	if d = diag(nd); level(d, "Connection") != "badge-warn" || !has(d, tr("Connection check is off: turn on Check Customer Online under Settings to see whether the customer is online")) {
+		t.Errorf("no data: %+v / %q", d.Items, d.Advice)
 	}
 
 	// the strip is on the customer page; advice only when something is wrong

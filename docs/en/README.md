@@ -29,6 +29,14 @@ This document is the index of the operator guide in English. The guide is also a
 - [Monitoring](monitoring.md): System Status, `/health`, `/metrics`, and operator alerts.
 - [Backup and restore](backup-restore.md): daily backups, mirrors, and database recovery.
 
+## Customers
+
+On the customer list, tick several customers and choose **Recharge same plan**. Each customer is recharged on the plan they are on now, paid in cash, with the same rules as a single recharge. The confirmation shows the number of customers and the total. The result lists how many succeeded and the reason for each failure. The limit is 200 customers per action. Do not reload the result page, because the recharge runs again.
+
+The customer list has an **Ends On** column: the end date of the nearest active plan. The column can be sorted. The label **Today** means the plan ends today.
+
+The diagnosis strip on the customer page gives one next step for each failing check: account, plan (ended, isolated, or not started until the first login), connection (online with NAS, IP and how long it has been connected, or offline with the end of the last session), quota, and router.
+
 ## Quick search
 
 The search box in the top bar finds customers, subscriptions, invoices, vouchers, plans, routers, NAS, menus, quick actions, and settings. Press `/` or `Ctrl+K` (`Cmd+K` on Mac) to type in the box right away. Up and down arrows choose a result, Enter opens it, and Esc closes it. On a phone, results use the full screen width. Settings go straight to their field, and the field is briefly highlighted. You only see results you are allowed to open for your role.
