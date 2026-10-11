@@ -71,9 +71,9 @@ Difference: an online gateway payment uses the plan price plus the bills when th
 
 `account_type`, city, district, province, postal code, `price_old`, and `plan_type`.
 
-## Verification already done
+## Verification before cutover
 
-The import was tested with a real production dump. All expiry dates and transaction totals matched the old system. Repeat this comparison with your latest dump before the cutover.
+Compare expiry dates and transaction totals with the old system on your latest dump before the cutover.
 
 ## WhatsApp after cutover
 
@@ -83,7 +83,7 @@ In the old system, `wa_url` points to the PHP application itself, for example `h
 
 After the import:
 
-1. Open **Settings > Integrations**. Check that the four fields under "WhatsApp (WA server)" are filled in. The password shows empty, which is normal.
+1. Open **Settings > Integrations**. Check that the four fields under "WhatsApp — GOWA" are filled in. The password shows empty, which is normal.
 2. Clear the `wa_url` that still points to the PHP plugin, then save.
 3. Make sure the WA server can be reached from the new STB. The address `127.0.0.1` is correct only if the WA server runs on the same STB.
 4. Click "Send test message" to your own number.
@@ -94,12 +94,12 @@ See [integrations](integrations.md#whatsapp).
 
 Before a parallel run, set `notify_customers` = `no` in **Settings > Notifications**. This keeps customers from receiving messages from two systems at once. Operator alerts keep running. See [integrations](integrations.md#message-switches).
 
-1. Test CoA Disconnect on MikroTik, after the NAS-IP-Address fix.
+1. Test CoA Disconnect on MikroTik.
 2. Test the FreeRADIUS REST path. Point the test server's `connect_uri` to gobill in the test instance, then run `freeradius -X`.
 3. Test hotspot voucher login over RADIUS, and the MAC limiter.
 4. Import the latest production dump to the STB. Compare active customers, expiry dates, and balances with the old system.
 5. Run in parallel for 1 to 3 days in read-only mode, that is, accounting only. Compare sessions and expiry dates.
-6. Build for ARM and test on the STB: RAM, start without an RTC, power cuts, and backup to USB.
+6. Test on the STB: RAM, start without an RTC, power cuts, and backup to USB.
 7. Clean up test leftovers on the router. See [MikroTik setup](mikrotik.md#lessons-from-field-testing).
 
 ## One STB shared with PHPNuxBill, FreeRADIUS, and the WA server

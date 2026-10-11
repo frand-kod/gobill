@@ -27,7 +27,7 @@ Angka "sejak start" hanya ada di memori. Restart aplikasi mengosongkannya. Angka
 
 ## Sesi online
 
-Buka **Admin > Sesi Online** (`/admin/radius/sessions`) untuk melihat siapa yang sedang terhubung. Halaman ini diperbarui sendiri tiap 10 detik selama tab browser terlihat. Kotak ringkasan menghitung semua sesi yang terbuka. Tabel mengikuti pencarian dan halaman yang sedang Anda buka.
+Buka **Sesi Online** di sidebar (`/admin/radius/sessions`) untuk melihat siapa yang sedang terhubung. Halaman ini diperbarui sendiri tiap 10 detik selama tab browser terlihat. Kotak ringkasan menghitung semua sesi yang terbuka. Tabel mengikuti pencarian dan halaman yang sedang Anda buka.
 
 Setiap baris punya meter kecepatan dengan lima segmen dan kecepatan dalam bentuk teks. Kecepatan dihitung dari RADIUS Interim-Update. NAS mengirim satu update untuk tiap sesi sesuai interval yang diatur di router. Meter butuh dua update, jadi sesi menampilkan `—` sampai update kedua masuk.
 
@@ -36,7 +36,7 @@ Agar meter bereaksi dalam hitungan menit, atur interval interim ke `1m` di route
     /ip hotspot profile set [find] radius-interim-update=1m
     /ppp aaa set interim-update=1m
 
-Interval bawaan MikroTik jauh lebih lama.
+Tanpa pengaturan ini, meter bisa bereaksi lambat.
 
 | Porsi kecepatan paket yang dipakai | Warna |
 |---|---|

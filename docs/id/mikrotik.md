@@ -39,7 +39,7 @@ Lalu sinkronkan paket ke profil router.
 
 ### Hotspot
 
-    /ip hotspot profile set [find] use-radius=yes radius-accounting=yes interim-update=1m
+    /ip hotspot profile set [find] use-radius=yes radius-accounting=yes radius-interim-update=1m
 
 ### PPPoE
 
@@ -51,7 +51,7 @@ Di menu NAS, isi:
 
 - IP router;
 - secret yang sama;
-- mode Message-Authenticator. Biarkan "Otomatis" kecuali router lebih lama dari RouterOS 6.49.18 (atau 7.15). Untuk itu pilih "Tidak wajib".
+- mode Message-Authenticator. Biarkan **Otomatis (disarankan)**. Jika router lebih lama dari RouterOS 6.49.18 atau 7.15, pilih **Tidak wajib (NAS lama)**.
 
 `address` pada `/radius` harus sama dengan IP host gobill yang bisa dijangkau router. Tanpa baris NAS, paket dari router dibuang dan dicatat di log. Disconnect hanya menjadi peringatan.
 
@@ -69,9 +69,9 @@ Login voucher di halaman hotspot memakai kode sebagai username. Login ini langsu
 
         /radius set [find] require-message-auth=yes-for-request-resp
 
-   Versi sebelum 6.49.18 dan 7.15 mungkin tidak mengirim Message-Authenticator pada permintaan. Untuk versi itu, atur NAS ke "Tidak wajib" di gobill (lihat [security.md](security.md)).
+   Versi sebelum 6.49.18 dan 7.15 mungkin tidak mengirim Message-Authenticator pada permintaan. Untuk versi itu, atur NAS ke **Tidak wajib (NAS lama)** di gobill (lihat [keamanan](security.md#pengerasan-radius)).
 
-3. **NAS-IP-Address dan IP sumber untuk CoA.** Router mencocokkan CoA dengan NAS-IP-Address miliknya. CoA dengan identitas yang salah ditolak (NAK). gobill sekarang mengirim NAS-IP-Address yang dilaporkan NAS itu sendiri, dan mendecode Error-Cause di log. Pastikan IP NAS di gobill sama dengan IP yang dipakai router sebagai sumber paket RADIUS. Jika router punya beberapa IP, set `src-address` pada `/radius`.
+3. **NAS-IP-Address dan IP sumber untuk CoA.** Router mencocokkan CoA dengan NAS-IP-Address miliknya. CoA dengan identitas yang salah ditolak (NAK). gobill mengirim NAS-IP-Address yang dilaporkan NAS itu sendiri, dan mendecode Error-Cause di log. Pastikan IP NAS di gobill sama dengan IP yang dipakai router sebagai sumber paket RADIUS. Jika router punya beberapa IP, set `src-address` pada `/radius`.
 
 4. **Uji aman di router produksi.** Jangan ubah profil yang dipakai pelanggan. Buat entry `/radius` terpisah dan profil uji dengan `domain=` dan `split-user-domain=yes`:
 
@@ -87,7 +87,7 @@ Login voucher di halaman hotspot memakai kode sebagai username. Login ini langsu
 
 ## Isolir
 
-Isolir mengalihkan trafik HTTP pelanggan isolir ke gobill, sehingga mereka melihat halaman isolir dan bukan situs lain. **Pengaturan > Isolir > Setup router** menampilkan perintah dengan alamat gobill yang sudah terisi. Bagian ini menjelaskan aturan di balik perintah tersebut.
+Isolir mengalihkan trafik HTTP pelanggan isolir ke gobill, sehingga mereka melihat halaman isolir dan bukan situs lain. **Pengaturan > Isolir**, bagian **Setup router MikroTik**, menampilkan perintah dengan alamat gobill yang sudah terisi. Bagian ini menjelaskan aturan di balik perintah tersebut.
 
 Aturan berikut berlaku dalam urutan ini di router. Aturan `accept` harus berada sebelum aturan `drop` di chain forward:
 

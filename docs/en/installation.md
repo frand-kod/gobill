@@ -46,7 +46,7 @@ The first admin password is stored in the file `initial-admin-password.txt` in t
 
 Then:
 
-1. Open `http://STB-IP:8080`.
+1. Open `http://STB-IP:8080/admin/login`.
 2. Log in as `admin`.
 3. Change the password.
 4. Delete the initial password file:
@@ -141,7 +141,7 @@ Read the service logs:
 | The service keeps restarting | Read the log. Make sure `/etc/gobill/config.env` exists and contains `GOBILL_SECRET_KEY`. |
 | Customers cannot log in to hotspot | Run `journalctl -u gobill \| grep -i radius`. Make sure the secret matches and port 1812 is not blocked. |
 | Port 8080 or 1812 is already in use | Check with `ss -ulnp \| grep 1812` or `ss -tlnp \| grep 8080`. Change `GOBILL_HTTP` or `GOBILL_RADIUS`. If FreeRADIUS uses 1812 on the same host, set `GOBILL_RADIUS=off`. `/radius.php` keeps running. |
-| Forgot the admin password (lupa password admin) | Another SuperAdmin can reset it under **Admin Users**. If none can log in, run `GOBILL_DB=/var/lib/gobill/gobill.db gobill reset-admin-password <username>`. The new password is shown once. Add `--disable-2fa` if the authenticator is lost too. See [security](security.md#forgotten-admin-password). |
+| Forgot the admin password | Another SuperAdmin can reset it under **Admin Users**. If none can log in, run `GOBILL_DB=/var/lib/gobill/gobill.db gobill reset-admin-password <username>`. The new password is shown once. Add `--disable-2fa` if the authenticator is lost too. See [security](security.md#forgotten-admin-password). |
 
 ## See also
 

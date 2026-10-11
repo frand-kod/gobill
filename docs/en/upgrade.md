@@ -1,6 +1,6 @@
 # Upgrade
 
-This document explains how to replace the gobill binary with a new version without changing data or configuration. `sudo gobill update` is the recommended way. The manual method stays as a fallback. The last sections have notes for each version that needs special action.
+This document explains how to replace the gobill binary with a new version without changing data or configuration. `sudo gobill update` is the recommended way. The manual method stays as a fallback. The last section has version notes for changes that need action.
 
 **For:** operators
 
@@ -84,16 +84,18 @@ The `update_check` setting is in **Settings > System & Security**, in the **Syst
 
 When it is on, gobill checks the latest release on GitHub a few minutes after start, and then once a day. If a newer release exists, SuperAdmin sees a `vX.Y.Z available` badge in the header. The badge links to the release page and to this upgrade guide. Choose **No** to turn the check off. If the check fails, gobill only writes it to the log.
 
-## Upgrade from v0.1.3 to v0.1.4
+## Version notes
 
-Migrations 0011 to 0014 run automatically at start. They add the `start_on_first_login` column, indexes, customer snapshots on payments, and admin 2FA.
+Before you upgrade, read the behaviour changes section ("Perubahan perilaku") of the [CHANGELOG](../../CHANGELOG.md) for the target version. The CHANGELOG is written in Indonesian. Its behaviour changes list what the operator must act on.
 
-Before you upgrade, check the following.
+**Upgrade from v0.1.6 or older to v0.1.7:**
 
-- If FreeRADIUS runs on another host, set `radius_rest_allow` to its IP. An empty value now means loopback only.
-- If the UI is reached over plain HTTP on a LAN IP, set `GOBILL_HTTPS=0` in `config.env`. By default the cookie uses the `Secure` flag, so login fails without this setting.
-- Behind a reverse proxy, set `trust_proxy` and `trusted_proxies`. See [configuration](configuration.md#network-and-proxy).
-- Monitors that read the version or free disk space from `/health` must move to `/metrics` or `/admin/status.json`. See [monitoring](monitoring.md).
+1. `gobill update` only works when the release includes a `SHA256SUMS` file. Older releases do not have that file, so the first upgrade to v0.1.7 uses the manual method. After that, `sudo gobill update` works.
+2. Customer login moved to `/login`, and admin login moved to `/admin/login`. Update your bookmarks.
+3. Set `GOBILL_HTTP` to the LAN IP and port, for example `192.168.99.2:8090`, in `/etc/gobill/config.env`. The isolir commands in **Settings > Isolation** use this address.
+4. Backup, import, and restore are in **Settings > System & Security**.
+5. Migration 0018 runs automatically at start. To go back to an older version after the migration has run, restore the pre-update backup that was made during the upgrade. See [rollback](#roll-back-with-gobill-rollback).
+6. Customer phone numbers are normalised to the `62…` format at start.
 
 The full list of changes is in the [CHANGELOG](../../CHANGELOG.md).
 

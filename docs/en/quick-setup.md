@@ -14,21 +14,21 @@ When a SuperAdmin logs in for the first time, gobill shows a dialog with three c
 - **Import from PHPNuxBill**: open the import page. After a successful import, each step shows the imported data for you to check, instead of creating new data.
 - **Skip**: the dialog does not appear again.
 
-While it is not finished and not skipped, **Quick setup** is at the top of the sidebar with a progress badge, for example `3/8`. The badge counts the required steps that already have data.
+While it is not finished and not skipped, **Quick setup** is at the top of the sidebar with a progress badge, for example `3/9`. The badge counts the required steps that already have data.
 
 ## Steps
 
 The steps, in order:
 
 1. **Welcome**: start from scratch, or import from PHPNuxBill.
-2. **Business and app URL**: business name, app URL, and phone number. These are the same fields as **Settings > App**.
+2. **Business and app URL**: business name, app URL, and phone number. These are the same fields as **Settings > General**.
 3. **Router or NAS**: choose how gobill connects to MikroTik, then fill in the matching form (see below).
 4. **Speed**: three presets, 5, 10, and 20 Mbps. Change the values, or leave a field empty to skip it.
 5. **Plans**: daily, weekly, and monthly templates with suggested prices. You can change the prices. Plans use the speed and router you chose.
 6. **WhatsApp**: enter the GOWA gateway address, then send a test message.
 7. **QRIS**: upload the static QRIS image. The decoded preview must scan with a banking app.
 8. **Tripay (optional)**: Tripay API keys, if you use Tripay.
-9. **Isolir (optional)**: turn Isolir on, then copy the MikroTik commands it shows.
+9. **Isolation (optional)**: turn isolation on, then copy the MikroTik commands it shows.
 10. **First customer or voucher**: create one test voucher for the plan you choose.
 11. **Finish**: a final test. Log in on the hotspot with the test voucher. The indicator turns green when the router reports that session.
 
@@ -56,12 +56,12 @@ Quick setup has no data of its own. Each save uses the same page and rules as th
 
 | Step | Normal page |
 |---|---|
-| Business and app URL | **Settings > App** |
+| Business and app URL | **Settings > General** |
 | Router or NAS | **Routers** and **NAS** |
 | Speed | **Bandwidth** |
 | Plans | **Service Plan** |
-| WhatsApp and QRIS | **Settings > Integrations** and **Settings > Payment** |
-| Tripay and Isolir | **Settings > Payment** and **Settings > Isolir** |
+| WhatsApp and QRIS | **Settings > Integrations** and **Settings > Payments** |
+| Tripay and Isolir | **Settings > Payments** and **Settings > Isolation** |
 
 You can change any value on those pages at any time.
 

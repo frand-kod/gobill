@@ -14,14 +14,14 @@ Saat pertama kali login sebagai SuperAdmin, gobill menampilkan dialog dengan tig
 - **Impor dari PHPNuxBill**: buka halaman impor. Setelah impor berhasil, setiap langkah menampilkan data yang diimpor untuk diperiksa, bukan membuat data baru.
 - **Lewati**: dialog tidak muncul lagi.
 
-Selama belum selesai dan belum dilewati, menu **Setup cepat** ada di bagian atas sidebar dengan lencana progres, misalnya `3/8`. Lencana menghitung langkah wajib yang sudah terisi.
+Selama belum selesai dan belum dilewati, menu **Setup cepat** ada di bagian atas sidebar dengan lencana progres, misalnya `3/9`. Lencana menghitung langkah wajib yang sudah terisi.
 
 ## Langkah-langkah
 
 Urutan langkah:
 
 1. **Selamat datang**: pilih mulai dari awal atau impor dari PHPNuxBill.
-2. **Usaha dan URL aplikasi**: nama usaha, URL aplikasi, dan nomor telepon. Isian ini sama dengan **Pengaturan > Aplikasi**.
+2. **Usaha dan URL aplikasi**: nama usaha, URL aplikasi, dan nomor telepon. Isian ini sama dengan **Pengaturan > Umum**.
 3. **Router atau NAS**: pilih cara gobill terhubung ke MikroTik, lalu isi formulir yang sesuai (lihat di bawah).
 4. **Kecepatan**: tiga preset 5, 10, dan 20 Mbps. Ubah nilainya, atau kosongkan untuk melewati.
 5. **Paket**: template Harian, Mingguan, dan Bulanan dengan harga saran. Harga bisa diubah.
@@ -46,7 +46,7 @@ Pilih salah satu cara berikut.
 
 Untuk RADIUS, gobill menampilkan perintah RouterOS yang sudah berisi IP gobill dan secret. Salin perintah itu ke terminal MikroTik. Secret hanya ditampilkan tepat setelah disimpan. Jika Anda membuka langkah ini lagi, ganti `<secret>` dengan secret NAS.
 
-Indikator **Menunggu paket dari router** berubah hijau begitu router mengirim paket RADIUS pertama. Untuk API, tombol **Tes koneksi** menyimpan router lalu mengecek koneksinya.
+Indikator **Menunggu paket dari router** berubah hijau begitu router mengirim paket RADIUS pertama. Untuk API, tombol **Uji koneksi** menyimpan router lalu mengecek koneksinya.
 
 Jika NAS atau router dengan IP atau host yang sama sudah ada, langkah ini mengubah data itu. Data baru tidak dibuat.
 
@@ -56,7 +56,7 @@ Setup cepat tidak punya data sendiri. Setiap simpanan memakai halaman dan aturan
 
 | Langkah | Halaman biasa |
 |---|---|
-| Usaha dan URL aplikasi | **Pengaturan > Aplikasi** |
+| Usaha dan URL aplikasi | **Pengaturan > Umum** |
 | Router atau NAS | **Router** dan **NAS** |
 | Kecepatan | **Bandwidth** |
 | Paket | **Paket Layanan** |

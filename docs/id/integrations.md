@@ -8,7 +8,7 @@ Dokumen ini menjelaskan cara menghubungkan gobill ke WhatsApp, SMS, Telegram, em
 
 ## Sakelar pesan
 
-Sakelar ini ada di **Pengaturan > Notifikasi**, di bagian paling atas, "Global switches".
+Sakelar ini ada di **Pengaturan > Notifikasi**, bagian **Sakelar global**, di paling atas.
 
 | Pengaturan | Fungsi |
 |---|---|

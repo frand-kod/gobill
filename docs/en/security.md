@@ -19,7 +19,7 @@ On MikroTik, enable it:
 
 The NAS form in gobill has a "Message-Authenticator" setting, one of three modes:
 
-- **Auto (recommended, default).** Access-Requests without Message-Authenticator are accepted until the NAS has sent one valid Message-Authenticator. From then on, requests without it are dropped and logged. The NAS list shows "MA: not seen yet" or "MA: seen".
+- **Auto (recommended).** Access-Requests without Message-Authenticator are accepted until the NAS has sent one valid Message-Authenticator. From then on, requests without it are dropped and logged. The NAS list shows "MA: not seen yet" or "MA: seen".
 - **Always required.** Requests without a valid Message-Authenticator are dropped from the start. Use it only when the NAS always sends one.
 - **Not required (legacy NAS).** Requests without Message-Authenticator are accepted. Use it for old firmware that never sends one. Invalid or duplicate attributes are still rejected.
 
@@ -71,7 +71,7 @@ Do not use `--add-port=1812/udp` or `--add-port=8080/tcp`. Both open the port to
 
 Save it to `/etc/nftables.conf`. Check it with `sudo nft list ruleset`, then apply it with `sudo nft -f /etc/nftables.conf`. If FreeRADIUS is on another host, add `ip saddr IP-FREERADIUS tcp dport 8080 accept`.
 
-**Limit `/radius.php`.** An empty `radius_rest_allow` means loopback only. This is the default since v0.1.4. Fill it with the FreeRADIUS IP if FreeRADIUS runs on another host. `trust_proxy` does not affect this allow-list. See [FreeRADIUS over REST](freeradius-rest.md).
+**Limit `/radius.php`.** An empty `radius_rest_allow` means loopback only. Fill it with the FreeRADIUS IP if FreeRADIUS runs on another host. `trust_proxy` does not affect this allow-list. See [FreeRADIUS over REST](freeradius-rest.md).
 
 ### Remote link (VPS)
 
@@ -178,7 +178,7 @@ It is recommended for every SuperAdmin. A SuperAdmin account can change all sett
 
 ### Disabling
 
-On `/admin/2fa`, enter the current password and one 6-digit code from the app. Remaining recovery codes are deleted too.
+On `/admin/2fa`, enter the current password and one 6-digit code from the app, then click **Turn off 2FA**. Remaining recovery codes are deleted too.
 
 ### Reset by a SuperAdmin
 

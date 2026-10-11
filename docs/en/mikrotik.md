@@ -39,7 +39,7 @@ Then sync the plans to the router profiles.
 
 ### Hotspot
 
-    /ip hotspot profile set [find] use-radius=yes radius-accounting=yes interim-update=1m
+    /ip hotspot profile set [find] use-radius=yes radius-accounting=yes radius-interim-update=1m
 
 ### PPPoE
 
@@ -51,7 +51,7 @@ In the NAS menu, fill in:
 
 - the router IP;
 - the same secret;
-- the Message-Authenticator mode. Keep "Auto" unless the router is older than RouterOS 6.49.18 (or 7.15). Then choose "Not required".
+- the Message-Authenticator mode. Keep **Auto (recommended)**. If the router is older than RouterOS 6.49.18 or 7.15, choose **Not required (legacy NAS)**.
 
 The `address` on `/radius` must match the gobill host IP that the router can reach. Without a NAS row, packets from the router are dropped and logged. Disconnects then only produce a warning.
 
@@ -69,9 +69,9 @@ Voucher login on the hotspot page uses the code as the username. This login goes
 
         /radius set [find] require-message-auth=yes-for-request-resp
 
-   Versions before 6.49.18 and 7.15 may not send Message-Authenticator in requests. For them, set the NAS to "Not required" in gobill (see [security.md](security.md)).
+   Versions before 6.49.18 and 7.15 may not send Message-Authenticator in requests. For them, set the NAS to **Not required (legacy NAS)** in gobill (see [security](security.md#radius-hardening)).
 
-3. **NAS-IP-Address and source IP for CoA.** The router matches CoA against its own NAS-IP-Address. CoA with the wrong identity is rejected (NAK). gobill now sends the NAS-IP-Address that the NAS reports itself, and decodes Error-Cause in the log. Make sure the NAS IP in gobill matches the IP the router uses as the source of RADIUS packets. If the router has several IPs, set `src-address` on `/radius`.
+3. **NAS-IP-Address and source IP for CoA.** The router matches CoA against its own NAS-IP-Address. CoA with the wrong identity is rejected (NAK). gobill sends the NAS-IP-Address that the NAS reports itself, and decodes Error-Cause in the log. Make sure the NAS IP in gobill matches the IP the router uses as the source of RADIUS packets. If the router has several IPs, set `src-address` on `/radius`.
 
 4. **Safe testing on a production router.** Do not change the profiles that customers use. Create a separate `/radius` entry and a test profile that uses `domain=` with `split-user-domain=yes`:
 
@@ -87,7 +87,7 @@ Voucher login on the hotspot page uses the code as the username. This login goes
 
 ## Isolir
 
-Isolir sends the HTTP traffic of isolated customers to gobill, so they see the isolir page instead of other sites. **Settings > Isolir > Setup router** shows the commands with your gobill address filled in. This section gives the rules behind them.
+Isolir sends the HTTP traffic of isolated customers to gobill, so they see the isolir page instead of other sites. **Settings > Isolation**, section **MikroTik router setup**, shows the commands with your gobill address filled in. This section gives the rules behind them.
 
 The rules apply in this order on the router. The `accept` rule must come before the `drop` rule in the forward chain:
 

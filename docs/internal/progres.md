@@ -4,13 +4,13 @@ Jurnal ini dijaga di bawah 1000 kata. Rencana awal: [rencana/](rencana/README.md
 
 **Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
 
-**Pembaruan terakhir:** 2026-10-10, persiapan rilis v0.1.4 (lihat [CHANGELOG.md](../../CHANGELOG.md)).
+**Pembaruan terakhir:** 2026-10-12, setelah rilis v0.1.6 (lihat [CHANGELOG.md](../../CHANGELOG.md)).
 
 ## Status
 
-- Semua fitur yang direncanakan untuk v0.1.4 ada di kode dan test. Dokumen operator sudah diselaraskan dengan kode.
-- Belum ada uji lapangan untuk perubahan v0.1.4. Uji lapangan terakhir (2026-10-09) ada di bagian "Uji lapangan" di bawah.
-- Tag `v0.1.4` dibuat setelah review pengguna.
+- Rilis terbaru: v0.1.6 (2026-10-11). Perubahan berikutnya ada di bagian Unreleased CHANGELOG (v0.1.7).
+- Dokumen operator di `docs/id` dan `docs/en` sudah diselaraskan dengan kode v0.1.7.
+- Belum ada uji lapangan untuk v0.1.7.
 
 ## Sudah selesai di v0.1.4
 
@@ -26,7 +26,7 @@ Jurnal ini dijaga di bawah 1000 kata. Rencana awal: [rencana/](rencana/README.md
 2. **Drill restore.** Uji pemulihan dari file mirror dan dari UI restore di instance uji. Catat hasilnya di sini.
 3. **Screenshot UI.** Pengguna mengambil screenshot halaman baru (Status Sistem, 2FA, impor, restore, QRIS, pengaturan alert) untuk direview.
 4. **Bersihkan router uji.** Hapus user `claude-test` di MikroTik, profil dan entry `/radius` uji, dan pastikan `split-user-domain=no` di profil yang dipakai pelanggan.
-5. **Keputusan rilis.** Review CHANGELOG v0.1.4, lalu tag dan publish.
+5. **Keputusan rilis.** Review bagian Unreleased di CHANGELOG (v0.1.7), lalu tag dan publish.
 
 ## Belum pernah diuji di dunia nyata
 

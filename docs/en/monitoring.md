@@ -27,7 +27,7 @@ Counts "since start" exist only in memory. A restart clears them. The 24-hour co
 
 ## Online sessions
 
-Open **Admin > Online Sessions** (`/admin/radius/sessions`) to see who is connected now. The page refreshes itself every 10 seconds while the browser tab is visible. The tiles count all open sessions. The table shows the search and the page you are on.
+Open **Online Sessions** in the sidebar (`/admin/radius/sessions`) to see who is connected now. The page refreshes itself every 10 seconds while the browser tab is visible. The tiles count all open sessions. The table shows the search and the page you are on.
 
 Each row has a speed meter with five segments and the speed as text. The speed comes from RADIUS Interim-Update. The NAS sends one update for each session at the interval set on the router. The meter needs two updates, so a session shows `—` until the second update arrives.
 
@@ -36,7 +36,7 @@ For a meter that reacts within a minute, set the interim interval to `1m` on the
     /ip hotspot profile set [find] radius-interim-update=1m
     /ppp aaa set interim-update=1m
 
-The default interval on MikroTik is much longer.
+Without this setting, the meter can react slowly.
 
 | Share of the plan speed in use | Colour |
 |---|---|
