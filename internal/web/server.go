@@ -49,6 +49,8 @@ type Server struct {
 	Version string
 	// DBPath is the SQLite file: /health reports its disk space, restore stages uploads next to it.
 	DBPath string
+	// ListenAddr is GOBILL_HTTP, the address the MikroTik setup helper of the isolir tab names.
+	ListenAddr string
 
 	// ClockWarning, if set, returns a non-empty reason while the clock is untrusted.
 	ClockWarning func() string
@@ -80,6 +82,7 @@ type Server struct {
 
 	idle    atomic.Int64 // admin idle timeout in ns, see ReloadSessionSettings
 	single  atomic.Bool  // single_session
+	isolir  atomic.Bool  // isolir_enabled, see isolirGate
 	trust   atomic.Bool  // trust_proxy, see realIP
 	proxies atomic.Value // []netip.Prefix from trusted_proxies, see realIP
 }

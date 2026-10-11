@@ -33,29 +33,7 @@ Isolir tidak memperpanjang otomatis paket Isolir. Pelanggan yang saldonya cukup 
 
 ## Setup router MikroTik
 
-Tab Isolir menampilkan perintah yang bisa disalin. Alamat gobill diambil dari **App URL**, atau dari alamat yang dipakai untuk membuka halaman admin bila App URL kosong. Ganti IP bila alamat LAN gobill berbeda.
-
-Contoh (gobill di `192.168.88.2` port `8080`):
-
-```
-/ip firewall nat add chain=dstnat src-address-list=isolir protocol=tcp dst-port=80 action=dst-nat to-addresses=192.168.88.2 to-ports=8080
-```
-
-Aturan NAT ini mengalihkan HTTP klien isolir ke halaman gobill.
-
-```
-/ip firewall filter add chain=forward src-address-list=isolir dst-address=192.168.88.2 action=accept
-```
-
-Aturan filter ini membolehkan klien isolir mencapai gobill. Letakkan di atas aturan drop untuk klien isolir. Pada RouterOS 7 atau 6, gunakan `place-before` bila urutannya perlu diatur.
-
-```
-/ip hotspot walled-garden add dst-host=billing.example.com action=allow
-```
-
-Walled garden membuat halaman isolir bisa dibuka sebelum login hotspot. Jika gobill memakai IP, gunakan `/ip hotspot walled-garden ip add dst-address=<ip> action=accept`.
-
-Catatan: HTTPS tetap bisa dipakai, tetapi lambat karena dibatasi 64 kbps. Hanya HTTP port 80 yang dialihkan ke halaman isolir. Address-list dikirim RADIUS sebagai `Mikrotik-Address-List`, jadi hotspot harus memakai RADIUS gobill untuk login.
+Tab Isolir menampilkan perintah RouterOS, yang sudah terisi alamat dan port LAN gobill. Aturan, bypass hotspot, dan tes curl ada di [Setup MikroTik](mikrotik.md#isolir).
 
 ## HTML sendiri
 

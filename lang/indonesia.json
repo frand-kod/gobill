@@ -2146,5 +2146,19 @@
     "Admin only — only an admin can give it": "Khusus admin — hanya bisa diberikan admin",
     "Admin only: hidden from the customer portal. Customers cannot buy, extend or auto-renew it; admins can still give it.": "Khusus admin: tidak tampil di portal pelanggan. Pelanggan tidak bisa membeli, memperpanjang, atau memperpanjang otomatis paket ini; admin tetap bisa memberikannya.",
     "Audience": "Akses",
-    "Admin only": "Khusus admin"
+    "Admin only": "Khusus admin",
+    "Setup router (MikroTik, RouterOS 6 and 7)": "Setup router (MikroTik, RouterOS 6 dan 7)",
+    "1. Redirect HTTP of isolated clients to gobill": "1. Alihkan HTTP klien isolir ke gobill",
+    "to-addresses is the LAN address of gobill and to-ports is its GOBILL_HTTP port. If GOBILL_HTTP is empty or 0.0.0.0, gobill uses its first LAN IPv4 address. Set GOBILL_HTTP to a LAN IP, for example 192.168.99.2:8090, to choose another one.": "to-addresses adalah alamat LAN gobill dan to-ports adalah port GOBILL_HTTP. Jika GOBILL_HTTP kosong atau 0.0.0.0, gobill memakai IPv4 LAN pertamanya. Isi GOBILL_HTTP dengan IP LAN, mis. 192.168.99.2:8090, untuk memilih yang lain.",
+    "2. Allow isolated clients to reach gobill": "2. Izinkan klien isolir mencapai gobill",
+    "Place this rule above the drop rule for isolated clients (use place-before if needed).": "Letakkan aturan ini di atas aturan drop untuk klien isolir (gunakan place-before jika perlu).",
+    "4. Walled garden hotspot for gobill": "4. Walled garden hotspot untuk gobill",
+    "So the isolir page opens before hotspot login.": "Agar halaman isolir bisa dibuka sebelum login hotspot.",
+    "5. Bypass the hotspot for the gobill host": "5. Bypass hotspot untuk host gobill",
+    "Replace <MAC-HOST-GOBILL> with the MAC address of gobill's LAN card. Without this rule, the hotspot can capture gobill's own traffic.": "Isi <MAC-HOST-GOBILL> dengan MAC kartu LAN gobill. Tanpa ini, hotspot bisa menangkap trafik gobill sendiri.",
+    "Test from the LAN with curl": "Tes dari LAN dengan curl",
+    "gobill serves the isolir page to isolated clients at the root and at every other path. Do not test with /tool fetch: RouterOS sends a duplicate Host header and gets 400.": "Halaman isolir untuk klien isolir dilayani gobill di root dan di semua path. Jangan tes dengan /tool fetch: RouterOS mengirim header Host ganda dan mendapat 400.",
+    "Optional: block all other traffic (full isolation)": "Opsional: blokir semua trafik lain (isolasi penuh)",
+    "Also blocks WhatsApp and bank apps, so use it only for full isolation, and edit the default isolir message too. Add it after step 2, above any general accept rule in the forward chain.": "Juga memblokir WhatsApp dan aplikasi bank, jadi pakai hanya untuk isolasi penuh, dan ubah juga pesan isolir bawaan. Tambahkan setelah langkah 2, di atas aturan accept umum pada chain forward.",
+    "Only HTTP on port 80 is redirected to the isolir page. HTTPS and apps still work at the isolir speed unless the optional drop rule (step 3) is added. The address-list is sent by RADIUS as Mikrotik-Address-List.": "Hanya HTTP port 80 yang dialihkan ke halaman isolir. HTTPS dan aplikasi tetap bisa dipakai dengan kecepatan isolir kecuali aturan drop opsional (langkah 3) ditambahkan. Address-list dikirim RADIUS sebagai Mikrotik-Address-List."
 }

@@ -33,29 +33,7 @@ Isolation does not renew the Isolir plan automatically. A customer with enough b
 
 ## MikroTik router setup
 
-The Isolir tab shows commands you can copy. The gobill address comes from **App URL**, or from the address you use to open the admin pages when App URL is empty. Replace the IP if gobill's LAN address differs.
-
-Example (gobill at `192.168.88.2`, port `8080`):
-
-```
-/ip firewall nat add chain=dstnat src-address-list=isolir protocol=tcp dst-port=80 action=dst-nat to-addresses=192.168.88.2 to-ports=8080
-```
-
-This NAT rule redirects HTTP from isolated clients to the gobill page.
-
-```
-/ip firewall filter add chain=forward src-address-list=isolir dst-address=192.168.88.2 action=accept
-```
-
-This filter rule lets isolated clients reach gobill. Place it above the drop rule for isolated clients. On RouterOS 6 or 7, use `place-before` if the order needs adjusting.
-
-```
-/ip hotspot walled-garden add dst-host=billing.example.com action=allow
-```
-
-The walled garden lets the isolation page open before hotspot login. If gobill uses an IP, use `/ip hotspot walled-garden ip add dst-address=<ip> action=accept`.
-
-Note: HTTPS keeps working, but slowly, because of the 64 kbps limit. Only HTTP on port 80 is redirected to the isolation page. The address-list is sent by RADIUS as `Mikrotik-Address-List`, so the hotspot must authenticate through gobill's RADIUS.
+The Isolir tab shows the RouterOS commands, filled in with gobill's LAN address and port. The rules, the hotspot bypass and the curl test are in [MikroTik setup](mikrotik.md#isolir).
 
 ## Custom HTML
 

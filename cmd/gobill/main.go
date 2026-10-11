@@ -98,6 +98,7 @@ func run() error {
 	app.SecretKey = key
 	app.Version = version
 	app.DBPath = dbPath
+	app.ListenAddr = addr
 	guard := job.NewClockGuard(db.New(conn))
 	app.ClockWarning = guard.Reason
 	srv := &http.Server{
