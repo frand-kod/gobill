@@ -47,7 +47,7 @@ type portalPromo struct {
 	Key                   string
 	First                 promoView
 	More                  []promoView
-	MoreLabel, CloseLabel string // translated here: the card template has no translator
+	MoreLabel, CloseLabel, Label string // translated here: the card template has no translator
 }
 
 func promoOf(p db.Promo) promoView {
@@ -110,7 +110,7 @@ func (s *Server) promoPortal(ctx context.Context) (*portalPromo, error) {
 		return nil, err
 	}
 	h := sha256.New()
-	pp := &portalPromo{First: promoOf(rows[0]), MoreLabel: s.catalog.T(s.language(), "More"), CloseLabel: s.catalog.T(s.language(), "Close")}
+	pp := &portalPromo{First: promoOf(rows[0]), MoreLabel: s.catalog.T(s.language(), "More"), CloseLabel: s.catalog.T(s.language(), "Close"), Label: s.catalog.T(s.language(), "Promotions")}
 	for i, p := range rows {
 		fmt.Fprintf(h, "%d:%d;", p.ID, p.UpdatedAt)
 		if i > 0 {
@@ -171,7 +171,7 @@ func (s *Server) promoList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t := func(k string) string { return s.catalog.T(s.language(), k) }
-	lp := listPage{Heading: "Promosi", Base: promoBase, CanCreate: true, CanEdit: true,
+	lp := listPage{Heading: "Promotions", Base: promoBase, CanCreate: true, CanEdit: true,
 		Actions: []rowAction{{"up", "Move up", "", false}, {"down", "Move down", "", false}},
 		Cols:    []string{"Title", "Places", "Schedule", "Status"}}
 	for _, p := range rows {
@@ -188,7 +188,7 @@ func (s *Server) promoList(w http.ResponseWriter, r *http.Request) {
 		}
 		lp.Rows = append(lp.Rows, listRow{p.ID, []string{p.Title, strings.Join(places, ", "), s.promoSchedule(p), status}})
 	}
-	s.render(w, r, http.StatusOK, "list", Page{Title: "Promosi", Tabs: settingsNav(r), Flash: s.sessions.PopString(r.Context(), "flash"),
+	s.render(w, r, http.StatusOK, "list", Page{Title: "Promotions", Tabs: settingsNav(r), Flash: s.sessions.PopString(r.Context(), "flash"),
 		Error: s.sessions.PopString(r.Context(), "error"), Data: lp})
 }
 

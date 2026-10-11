@@ -89,7 +89,7 @@ func (s *Server) addPlans(r *http.Request, serviceType string) ([]option, map[in
 	return out, fit, nil
 }
 
-// addCustomerForm is the add form: the customer fields plus the optional "Langsung aktifkan paket" card.
+// addCustomerForm is the add form: the customer fields plus the optional "Activate the plan now" card.
 func (s *Server) addCustomerForm(r *http.Request, v, e map[string]string) ([]field, error) {
 	fs, err := s.customerForm(r.Context(), 0, v, e, false)
 	if err != nil {
@@ -102,7 +102,7 @@ func (s *Server) addCustomerForm(r *http.Request, v, e map[string]string) ([]fie
 	plan := text("plan", "Plan", v, e).as("select").hint("Leave empty to choose a plan later from the customer page.")
 	plan.Options = append([]option{{"", "-"}}, opts...)
 	pay := field{Name: "payment_text", Label: "Payment method: Cash", Type: "note"}
-	return append(fs, section([]field{plan, pay}, "Langsung aktifkan paket", "")...), nil
+	return append(fs, section([]field{plan, pay}, "Activate the plan now", "")...), nil
 }
 
 var custSorts = []string{"username", "fullname", "balance", "status", "expires"}

@@ -31,7 +31,10 @@ import (
 const isolirCSP = "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
 
 // isolirVoucherForm is the voucher box; it posts without a session (see routes: CSRF bypass).
-const isolirVoucherForm = `<form method="post" action="/isolir/voucher" autocomplete="off"><input name="code" placeholder="Kode voucher" autocapitalize="characters" required><p><button class="btn" type="submit">Aktifkan voucher</button></p></form>`
+func (s *Server) isolirVoucherForm() template.HTML {
+	t := func(text string) string { return s.catalog.T(s.language(), text) }
+	return template.HTML(`<form method="post" action="/isolir/voucher" autocomplete="off"><input name="code" placeholder="` + t("Voucher code") + `" autocapitalize="characters" required><p><button class="btn" type="submit">` + t("Activate voucher") + `</button></p></form>`)
+}
 
 // isolirView is what the page shows. Known is false for a client IP with no open session.
 type isolirView struct {
@@ -75,12 +78,12 @@ func (s *Server) isolirVoucher(w http.ResponseWriter, r *http.Request) {
 	ip := clientIP(r)
 	key := "iso:" + ip
 	if s.tooManyFailures(key) {
-		s.writeIsolir(w, r, st, s.isolirFor(r.Context(), ip, st, "Terlalu banyak percobaan. Coba lagi dalam 15 menit."), http.StatusTooManyRequests)
+		s.writeIsolir(w, r, st, s.isolirFor(r.Context(), ip, st, "Too many attempts. Try again in 15 minutes."), http.StatusTooManyRequests)
 		return
 	}
 	v := s.isolirFor(r.Context(), ip, st, "")
 	if !v.Known {
-		s.writeIsolir(w, r, st, v, http.StatusOK, "Masukkan voucher di halaman login hotspot.")
+		s.writeIsolir(w, r, st, v, http.StatusOK, "Enter the voucher on the hotspot login page.")
 		return
 	}
 	if s.Billing == nil {
@@ -88,13 +91,13 @@ func (s *Server) isolirVoucher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	code := strings.TrimSpace(r.PostFormValue("code"))
-	notice := "Voucher berhasil diaktifkan. Silakan coba buka internet lagi."
+	notice := "Voucher activated. Try opening the internet again."
 	switch err := s.Billing.RedeemVoucher(r.Context(), code, v.CustomerID); {
 	case code == "" || errors.Is(err, billing.ErrVoucherInvalid):
 		s.recordFailure(key)
-		notice = "Voucher tidak valid."
+		notice = "Voucher is not valid."
 	case errors.Is(err, billing.ErrInactive):
-		notice = "Akun tidak aktif."
+		notice = "Account is not active."
 	case err != nil:
 		s.fail(w, "isolir voucher", err)
 		return
@@ -228,7 +231,7 @@ func (s *Server) writeIsolir(w http.ResponseWriter, r *http.Request, st map[stri
 	}
 	v.ShowVoucher = isolir.Value(st, "isolir_show_voucher") != "no"
 	if v.ShowVoucher {
-		v.VoucherForm = isolirVoucherForm
+		v.VoucherForm = s.isolirVoucherForm()
 	}
 	v.Promos = s.promoBlocks(r.Context(), "isolir")
 	v.WAAdmin = isolirWALink(v, isolir.Value(st, "isolir_wa"))
@@ -246,7 +249,7 @@ func (s *Server) emitIsolir(w http.ResponseWriter, st map[string]string, v isoli
 		return
 	}
 	w.WriteHeader(status)
-	if err := isolirDefault.Execute(w, v); err != nil {
+	if err := s.isolirDefault().Execute(w, v); err != nil {
 		s.fail(w, "isolir page", err)
 	}
 }
@@ -291,7 +294,7 @@ func renderIsolirCustom(src string, v isolirView) string {
 }
 
 // isolirDefault is the default layout: phone first, no scripts, no external assets.
-var isolirDefault = template.Must(template.New("isolir").Parse(`<!doctype html>
+const isolirDefaultSrc = `<!doctype html>
 <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{.Title}}</title>
 <style>
@@ -307,15 +310,20 @@ img.logo{display:block;max-height:48px;max-width:180px;margin-bottom:8px}
 img.qris{display:block;width:220px;max-width:100%;height:auto;margin:8px auto}
 </style></head><body><main>
 {{if .Logo}}<img class="logo" src="{{.Logo}}" alt="{{.Company}}">{{end}}
-{{if .Notice}}<div class="card"><p>{{.Notice}}</p></div>{{end}}
+{{if .Notice}}<div class="card"><p>{{T .Notice}}</p></div>{{end}}
 <div class="card"><h1>{{.Title}}</h1>
-{{if .Known}}<p>Halo <b>{{.Name}}</b></p><p class="muted">Paket terakhir: {{.PlanName}}<br>Berakhir: {{.ExpiredAt}}</p>{{end}}
+{{if .Known}}<p>{{T "Hello"}} <b>{{.Name}}</b></p><p class="muted">{{T "Last plan"}}: {{.PlanName}}<br>{{T "Ends"}}: {{.ExpiredAt}}</p>{{end}}
 <p>{{.Message}}</p></div>
-{{if .QRIS}}<div class="card"><p>Bayar <b>{{.Amount}}</b> dengan QRIS:</p><img class="qris" src="{{.QRIS}}" width="220" height="220" alt="QRIS {{.Amount}}"><a class="btn btn-ghost" href="{{.QRIS}}" download="qris-isolir.png">Simpan gambar</a></div>{{end}}
-{{if .WAAdmin}}<a class="btn" href="{{.WAAdmin}}" rel="noopener">Sudah bayar? Chat admin</a>{{end}}
-{{if .ShowVoucher}}<div class="card"><h2>Punya voucher?</h2>{{.VoucherForm}}</div>{{end}}
+{{if .QRIS}}<div class="card"><p>{{T "Pay"}} <b>{{.Amount}}</b> {{T "with QRIS"}}:</p><img class="qris" src="{{.QRIS}}" width="220" height="220" alt="QRIS {{.Amount}}"><a class="btn btn-ghost" href="{{.QRIS}}" download="qris-isolir.png">{{T "Save image"}}</a></div>{{end}}
+{{if .WAAdmin}}<a class="btn" href="{{.WAAdmin}}" rel="noopener">{{T "Already paid? Chat with admin"}}</a>{{end}}
+{{if .ShowVoucher}}<div class="card"><h2>{{T "Have a voucher?"}}</h2>{{.VoucherForm}}</div>{{end}}
 {{.Promos}}
-</main></body></html>`))
+</main></body></html>`
+
+// isolirDefault parses the default layout with T bound to the request language.
+func (s *Server) isolirDefault() *template.Template {
+	return template.Must(template.New("isolir").Funcs(template.FuncMap{"T": func(text string) string { return s.catalog.T(s.language(), text) }}).Parse(isolirDefaultSrc))
+}
 
 // isolirPreview is GET /admin/settings/isolir/preview: the page with sample data, in a new tab. The
 // custom HTML is used when it is not blank, so a draft can be checked after saving.
@@ -325,7 +333,7 @@ func (s *Server) isolirPreview(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "isolir settings", err)
 		return
 	}
-	v := isolirView{Known: true, CustomerID: 0, Name: "Budi (contoh)", Username: "budi", PlanName: "Paket 10 Mbps (contoh)",
+	v := isolirView{Known: true, CustomerID: 0, Name: "Budi", Username: "budi", PlanName: "Plan 10 Mbps",
 		ExpiredAt: "2026-01-31 23:59", Amount: money(150000), ShowVoucher: true}
 	v.Title = isolir.Value(st, "isolir_title")
 	v.Message = isolir.Value(st, "isolir_message")
@@ -336,10 +344,10 @@ func (s *Server) isolirPreview(w http.ResponseWriter, r *http.Request) {
 	if isolir.Value(st, "isolir_show_qris") == "yes" && st["qris_payload"] != "" {
 		v.QRIS = qrisDataURI(st["qris_payload"], 150000)
 	}
-	v.VoucherForm = isolirVoucherForm
+	v.VoucherForm = s.isolirVoucherForm()
 	v.Promos = s.promoBlocks(r.Context(), "isolir")
 	v.WAAdmin = isolirWALink(v, isolir.Value(st, "isolir_wa"))
-	v.Notice = "Contoh tampilan. Data pelanggan tidak nyata."
+	v.Notice = "Sample view. Customer data is not real."
 	s.emitIsolir(w, st, v, http.StatusOK, strings.TrimSpace(st["isolir_html"]) != "", st["isolir_html"])
 }
 

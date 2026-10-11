@@ -49,7 +49,7 @@ func customerPasswordErr(st map[string]string, username, pass string) string {
 		return "Password must not be the same as the username"
 	}
 	if commonPasswords[strings.ToLower(pass)] {
-		return "Password terlalu mudah ditebak"
+		return "Password is too easy to guess"
 	}
 	return ""
 }

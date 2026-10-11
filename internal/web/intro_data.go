@@ -16,7 +16,7 @@ var listIntros = map[string]intro{
 	"/admin/nas":                   {"RADIUS routers (NAS)", "A NAS is a router that asks this server to approve customer logins (RADIUS). Add one only if you use RADIUS instead of linking the router directly.", "The shared secret here must be exactly the same as the one set on the router."},
 	"/admin/odp":                   {"ODP points", "An ODP is the fibre box on a pole where customer cables branch off. Record where each one is to find faults faster.", ""},
 	"/admin/coupons":               {"Coupons", "Discount codes customers type when they buy. Set the value, the dates it works and how many times it may be used.", ""},
-	"/admin/settings/promo":        {"Promosi", "Short promos for customers in isolir and on the portal dashboard. The isolir page shows the promos marked for it. The dashboard shows one small card at the bottom that a customer can close.", ""},
+	"/admin/settings/promo":        {"Promotions", "Short promos for customers in isolir and on the portal dashboard. The isolir page shows the promos marked for it. The dashboard shows one small card at the bottom that a customer can close.", ""},
 	"/admin/users":                 {"Admin users", "People who may sign in to this admin panel. Give each person the smallest role they need.", ""},
 	"/admin/fields":                {"Extra customer fields", "Extra questions on the customer form, such as ID card number or tower name.", ""},
 	"/admin/logs":                  {"Activity log", "What admins did, newest first. Look here to find out who changed or deleted something.", ""},
