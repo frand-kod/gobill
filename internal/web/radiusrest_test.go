@@ -214,7 +214,7 @@ func TestRadiusRestCSRFAndMaintenance(t *testing.T) {
 			t.Errorf("%s: cross-origin %d (CSRF bypass/maintenance)", p, c)
 		}
 	}
-	if c := cross("/portal/login"); c != 403 {
+	if c := cross("/login"); c != 403 {
 		t.Errorf("other path must keep CSRF protection, got %d", c)
 	}
 }

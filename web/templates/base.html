@@ -120,7 +120,7 @@ document.querySelectorAll('[data-pw]').forEach(function (b) {
 })();
 </script>
 {{with .Brand.login_page_favicon}}<link rel="icon" href="/uploads/{{.}}">{{end}}
-<link rel="manifest" href="{{if hasPrefix .Path "/portal"}}/portal{{else}}/admin{{end}}/manifest.webmanifest">
+<link rel="manifest" href="{{if or (hasPrefix .Path "/portal") (eq .Path "/login")}}/portal{{else}}/admin{{end}}/manifest.webmanifest">
 <link rel="apple-touch-icon" href="{{.Brand.app_icon}}">
 <meta name="theme-color" content="{{.Brand.theme_color}}">
 <link rel="stylesheet" href="/static/app.css">

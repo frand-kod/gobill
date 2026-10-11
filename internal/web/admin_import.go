@@ -321,7 +321,7 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 		fmt.Sprintf(s.catalog.T(lang, "Backup saved as %s"), bak)
 	s.sessions.Destroy(ctx)
 	s.sessions.Put(ctx, "flash", msg)
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 }
 
 func (s *Server) importCancel(w http.ResponseWriter, r *http.Request) {

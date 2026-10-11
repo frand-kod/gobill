@@ -355,7 +355,7 @@ func TestBrandingAndBackupRoutesReachable(t *testing.T) {
 	}
 	do(h, "POST", "/admin/settings/app", url.Values{"company_name": {"Acme"}, "currency_code": {"Rp"},
 		"login_page_head": {"Acme Head"}, "login_page_description": {"Log in here"}}, c)
-	if w := do(h, "GET", "/login", nil, nil); !strings.Contains(w.Body.String(), "Acme Head") || !strings.Contains(w.Body.String(), "Log in here") || !strings.Contains(w.Body.String(), "/uploads/"+name) {
+	if w := do(h, "GET", "/admin/login", nil, nil); !strings.Contains(w.Body.String(), "Acme Head") || !strings.Contains(w.Body.String(), "Log in here") || !strings.Contains(w.Body.String(), "/uploads/"+name) {
 		t.Fatal("branding missing on login page")
 	}
 	if w := do(h, "GET", "/admin/settings/miscellaneous/backup", nil, c); w.Code != http.StatusOK || !strings.HasPrefix(w.Body.String(), "SQLite format 3\x00") {

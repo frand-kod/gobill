@@ -114,7 +114,7 @@ func TestLoginAsCustomer(t *testing.T) {
 	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/admin/customers/"+id {
 		t.Fatalf("end: %d %s", w.Code, w.Header().Get("Location"))
 	}
-	if w := do(e.h, "GET", "/portal", nil, e.c); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/portal/login" {
+	if w := do(e.h, "GET", "/portal", nil, e.c); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login" {
 		t.Fatalf("customer session survived: %d", w.Code)
 	}
 	if w := do(e.h, "GET", "/admin", nil, e.c); w.Code != 200 {

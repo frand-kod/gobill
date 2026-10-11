@@ -69,7 +69,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		}
 		s.sessions.Put(r.Context(), "pending_2fa", admin.ID)
 		s.sessions.Put(r.Context(), "pending_2fa_until", time.Now().Add(pending2FAWindow).Unix())
-		http.Redirect(w, r, "/login/2fa", http.StatusSeeOther)
+		http.Redirect(w, r, "/admin/login/2fa", http.StatusSeeOther)
 		return
 	}
 	s.clearFailures(ip)
@@ -128,11 +128,20 @@ func (s *Server) fillAppURL(r *http.Request) {
 	}
 }
 
+// root sends a customer to the portal and everyone else to the customer login.
+func (s *Server) root(w http.ResponseWriter, r *http.Request) {
+	to := "/login"
+	if s.sessions.GetInt64(r.Context(), "customer_id") != 0 {
+		to = "/portal"
+	}
+	http.Redirect(w, r, to, http.StatusSeeOther)
+}
+
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	if err := s.sessions.Destroy(r.Context()); err != nil {
 		slog.Error("destroy session", "err", err)
 	}
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 }
 
 func (s *Server) tooManyFailures(ip string) bool {
@@ -212,7 +221,7 @@ func (s *Server) requireAdmin(roles ...string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			id := s.sessions.GetInt64(r.Context(), "admin_id")
 			if id == 0 {
-				http.Redirect(w, r, "/login", http.StatusSeeOther)
+				http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 				return
 			}
 			admin, err := s.queries.GetAdmin(r.Context(), id)
@@ -221,13 +230,13 @@ func (s *Server) requireAdmin(roles ...string) func(http.Handler) http.Handler {
 					slog.Error("load admin", "err", err)
 				}
 				s.sessions.Destroy(r.Context())
-				http.Redirect(w, r, "/login", http.StatusSeeOther)
+				http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 				return
 			}
 			if admin.SessionVersion != s.sessions.GetInt64(r.Context(), "sv") {
 				// password, role or status changed since this session was created
 				s.sessions.Destroy(r.Context())
-				http.Redirect(w, r, "/login", http.StatusSeeOther)
+				http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 				return
 			}
 			if len(roles) > 0 && !contains(roles, admin.Role) {

@@ -48,7 +48,7 @@ Ubah pengaturan di menu **Pengaturan**. Kunci di bawah tersimpan di tabel `setti
 | Pengaturan | Fungsi |
 |---|---|
 | `company_name` | Nama usaha. Tampil di invoice, pesan, dan halaman login. |
-| `app_url` | Alamat publik aplikasi, misalnya `https://billing.example.com`. Terisi otomatis dari alamat yang dipakai admin pertama kali login, kecuali alamat LAN atau localhost. Dipakai untuk tautan di WhatsApp, misalnya QRIS dan invoice. |
+| `app_url` | Alamat publik aplikasi, misalnya `https://billing.example.com`. Terisi otomatis dari alamat yang dipakai admin pertama kali login, kecuali alamat LAN atau localhost. Dipakai untuk tautan di WhatsApp, misalnya QRIS dan invoice. Login pelanggan ada di `/login` (pesan selamat datang memakai tautan ini), dan login admin ada di `/admin/login`. |
 | `timezone` | Zona waktu tampilan, misalnya `Asia/Jakarta`. Waktu disimpan dalam UTC. Jika kosong, dianggap UTC, jadi isi saat pertama kali setup. |
 | `country_code_phone` | Kode negara untuk nomor yang diawali `0`, misalnya `62`. |
 | `default_plan_device` | Device bawaan untuk paket baru: `MikrotikHotspot`, `MikrotikPppoe`, `Dummy`, `Radius`, atau kosong. Kosong berarti mengikuti tipe paket. |

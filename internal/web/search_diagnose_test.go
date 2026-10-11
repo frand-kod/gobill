@@ -330,7 +330,7 @@ func TestManifests(t *testing.T) {
 		t.Errorf("logo icon: %+v", m.Icons)
 	}
 	// layouts link them
-	for path, want := range map[string]string{"/login": `href="/admin/manifest.webmanifest"`, "/portal/login": `href="/portal/manifest.webmanifest"`} {
+	for path, want := range map[string]string{"/admin/login": `href="/admin/manifest.webmanifest"`, "/login": `href="/portal/manifest.webmanifest"`} {
 		b := do(h, "GET", path, nil, nil).Body.String()
 		for _, w := range []string{want, `rel="apple-touch-icon"`, `<meta name="theme-color" content="#f38020">`} {
 			if !strings.Contains(b, w) {

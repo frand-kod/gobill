@@ -8,6 +8,10 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Perubahan perilaku
+
+- **Alamat login berubah**: login pelanggan sekarang di `/login`, dan login admin di `/admin/login`. Login 2FA admin pindah ke `/admin/login/2fa`. `GET /` membuka `/portal` untuk pelanggan yang sudah login, dan `/login` untuk yang lain. Tautan login di pesan selamat datang WhatsApp memakai `app_url` + `/login`.
+
 ## [0.1.6] - 2026-10-11
 
 ### Fitur

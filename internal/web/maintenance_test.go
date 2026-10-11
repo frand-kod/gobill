@@ -23,7 +23,7 @@ func TestMaintenanceMode(t *testing.T) {
 	}
 
 	set("maintenance_mode", "yes")
-	for _, path := range []string{"/portal/login", "/portal/register"} {
+	for _, path := range []string{"/login", "/portal/register"} {
 		if w := do(e.h, "GET", path, nil, nil); w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), "<h1>") {
 			t.Errorf("GET %s during maintenance: %d", path, w.Code)
 		}
@@ -31,13 +31,13 @@ func TestMaintenanceMode(t *testing.T) {
 	if w := do(e.h, "GET", "/portal", nil, cust); w.Code != http.StatusServiceUnavailable {
 		t.Errorf("portal with customer session: %d, want 503", w.Code)
 	}
-	if w := do(e.h, "GET", "/login", nil, nil); w.Code != 200 {
-		t.Errorf("/login during maintenance: %d", w.Code)
+	if w := do(e.h, "GET", "/admin/login", nil, nil); w.Code != 200 {
+		t.Errorf("/admin/login during maintenance: %d", w.Code)
 	}
 	if w := do(e.h, "GET", "/admin/customers", nil, e.c); w.Code != 200 {
 		t.Errorf("admin during maintenance: %d", w.Code)
 	}
-	if w := do(e.h, "POST", "/portal/login", url.Values{"username": {"u1"}, "password": {"pw12345"}}, nil); w.Code != http.StatusServiceUnavailable {
+	if w := do(e.h, "POST", "/login", url.Values{"username": {"u1"}, "password": {"pw12345"}}, nil); w.Code != http.StatusServiceUnavailable {
 		t.Errorf("portal login POST during maintenance: %d", w.Code)
 	}
 
@@ -54,7 +54,7 @@ func TestMaintenanceMode(t *testing.T) {
 		t.Fatalf("portal with logout mode: %d", w.Code)
 	}
 	set("maintenance_mode", "no")
-	if w := do(e.h, "GET", "/portal", nil, cust); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/portal/login" {
+	if w := do(e.h, "GET", "/portal", nil, cust); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login" {
 		t.Errorf("customer should be logged out, got %d %s", w.Code, w.Header().Get("Location"))
 	}
 }
