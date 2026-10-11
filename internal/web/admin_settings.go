@@ -39,6 +39,7 @@ var settingsTabs = []struct {
 	{"integrations", "Integrations", true},
 	{"payment", "Payment Gateway", true},
 	{"isolir", "Isolir", true},
+	{"promo", "Promosi", true},
 	{"miscellaneous", "Miscellaneous", false},
 }
 
@@ -532,13 +533,19 @@ func (s *Server) settingsForm(w http.ResponseWriter, r *http.Request) {
 	s.renderSettings(w, r, http.StatusOK, tab, values, nil)
 }
 
-func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status int, tab string, v, e map[string]string) {
+// settingsNav is the sub-page menu for the caller's role (SuperOnly tabs only for SuperAdmin).
+func settingsNav(r *http.Request) []option {
 	var nav []option
 	for _, t := range settingsTabs {
 		if !t.SuperOnly || adminFrom(r).Role == "SuperAdmin" {
 			nav = append(nav, option{"/admin/settings/" + t.Slug, t.Label})
 		}
 	}
+	return nav
+}
+
+func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status int, tab string, v, e map[string]string) {
+	nav := settingsNav(r)
 	st, err := s.loadSettings(r.Context())
 	if err != nil {
 		s.fail(w, "load settings", err)
