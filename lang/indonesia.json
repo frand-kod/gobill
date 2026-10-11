@@ -2146,5 +2146,7 @@
     "Admin only — only an admin can give it": "Khusus admin — hanya bisa diberikan admin",
     "Admin only: hidden from the customer portal. Customers cannot buy, extend or auto-renew it; admins can still give it.": "Khusus admin: tidak tampil di portal pelanggan. Pelanggan tidak bisa membeli, memperpanjang, atau memperpanjang otomatis paket ini; admin tetap bisa memberikannya.",
     "Audience": "Akses",
-    "Admin only": "Khusus admin"
+    "Admin only": "Khusus admin",
+    "available": "tersedia",
+    "Upgrade guide": "Panduan upgrade"
 }

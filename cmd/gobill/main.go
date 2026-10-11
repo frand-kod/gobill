@@ -153,6 +153,9 @@ func run() error {
 		Mirror: env("GOBILL_BACKUP_MIRROR", "")}
 	go job.Run(ctx, "backup", time.Minute, backup.Run)
 	app.BackupDir, app.BackupMirror = backup.Dir, backup.Mirror
+	updates := &job.UpdateCheck{Q: db.New(conn)}
+	go job.Run(ctx, "update_check", time.Minute, updates.Run)
+	app.UpdateInfo = updates.Latest
 	restartCh := make(chan struct{}, 1)
 	app.Restart = func() {
 		select {
