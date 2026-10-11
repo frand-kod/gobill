@@ -3,14 +3,19 @@
 {{with .Data}}
 <div class="page-head">
   <h1 class="page-title">{{TT .Heading}}</h1>
+  {{with $.Help.Docs}}<a class="link text-sm" href="{{.}}">{{T "Open the guide"}}</a>{{end}}
 </div>
 {{template "callout" $.Intro}}
-<form method="post" action="{{.Action}}"{{if .HasFile}} enctype="multipart/form-data"{{end}} novalidate x-data="{{.XData}}">
+<form method="post" action="{{.Action}}"{{if .HasFile}} enctype="multipart/form-data"{{end}} novalidate x-data="{{.XData}}"{{if $.Help.Narrow}} class="max-w-4xl"{{end}}>
+  {{with $.Help.Summary}}<p class="mb-4 text-sm font-medium text-ink-2" aria-live="polite" x-text="{{.}}"></p>{{end}}
   {{template "formgroups" .}}
-  <div class="flex gap-2">
+  {{if $.Help.Sticky}}<div class="sticky bottom-0 z-10 flex gap-2 border-t border-line bg-surface py-3">
     <button class="btn btn-primary" type="submit">{{T "Save"}}</button>
     <a class="btn btn-ghost" href="{{.Cancel}}">{{T "Cancel"}}</a>
-  </div>
+  </div>{{else}}<div class="flex gap-2">
+    <button class="btn btn-primary" type="submit">{{T "Save"}}</button>
+    <a class="btn btn-ghost" href="{{.Cancel}}">{{T "Cancel"}}</a>
+  </div>{{end}}
 </form>
 {{if .HasVars}}<script src="/static/tplvars.js"></script>{{end}}
 {{end}}

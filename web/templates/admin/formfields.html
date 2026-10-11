@@ -6,11 +6,27 @@
     <div class="card-body grid gap-x-6 gap-y-4 md:grid-cols-2">
       {{range .Fields}}
       {{if eq .Type "hidden"}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{else}}
-      <div id="f-{{.Name}}" class="field-wrap"{{with .Show}} x-show="{{.}}" x-cloak{{end}}>
+      <div id="f-{{.Name}}" class="field-wrap{{if .Wide}} md:col-span-2{{end}}"{{with .Show}} x-show="{{.}}" x-cloak{{end}}>
         {{if eq .Type "note"}}
         <p class="text-sm text-ink-2">{{T .Label}}{{if .Value}} <a class="link" href="{{.Value}}" target="_blank" rel="noopener">{{T .Btn}}</a>{{end}}</p>
         {{else if eq .Type "checkbox"}}
         <label class="flex items-center gap-2 py-2 text-sm font-medium"><input type="checkbox" class="size-4 rounded accent-brand-500" name="{{.Name}}" value="1"{{if .Checked}} checked{{end}}{{if .Bind}} x-model="{{.Name}}"{{end}}> {{T .Label}}</label>
+        {{else if eq .Type "row"}}
+        <p class="label">{{T .Label}}</p>
+        <div class="flex flex-wrap items-center gap-2">
+          {{range .Parts}}
+          {{if eq .Type "checkbox"}}
+          <label class="flex h-10 shrink-0 items-center gap-2 text-sm font-medium"><input type="checkbox" class="size-4 rounded accent-brand-500" name="{{.Name}}" value="1"{{if .Checked}} checked{{end}}{{if .Bind}} x-model="{{.Name}}"{{end}}> {{T .Label}}</label>
+          {{else if eq .Type "select"}}
+          <select class="input min-w-0 {{with .Class}}{{.}}{{else}}flex-1{{end}}" name="{{.Name}}" aria-label="{{T .Label}}"{{if .Bind}} x-model="{{.Name}}"{{end}}>
+            {{$cur := .Value}}
+            {{range .Options}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{T .Label}}</option>{{end}}
+          </select>
+          {{else}}
+          <input class="input min-w-0 {{with .Class}}{{.}}{{else}}flex-1{{end}}" name="{{.Name}}" type="{{.Type}}" value="{{.Value}}" aria-label="{{T .Label}}"{{if eq .Type "number"}} min="0"{{end}}{{if .Bind}} x-model="{{.Name}}"{{end}}>
+          {{end}}
+          {{end}}
+        </div>
         {{else}}
         <label class="label" for="{{.Name}}">{{T .Label}}{{if .Required}} <span class="text-err-fg" aria-hidden="true">*</span>{{end}}</label>
         {{if eq .Type "select"}}

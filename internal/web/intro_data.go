@@ -30,7 +30,6 @@ var listIntros = map[string]intro{
 var formIntros = map[string]intro{
 	"/admin/customers":         {"Customer details", "Only username, password and name are required. The rest can be filled in later.", "Router secret is the password the MikroTik checks for PPPoE logins. Leave it empty for hotspot customers."},
 	"/admin/bandwidth":         {"Speed setting", "Give the speed a name you will recognise, like 10M, then set download and upload.", ""},
-	"/admin/plans":             {"Plan details", "Choose the type (Hotspot or PPPoE), the price and how long it lasts, then pick the Bandwidth and the Router.", "Period billing means the customer pays on the same day every month instead of after a fixed number of days. Router and Pool can stay empty for RADIUS plans."},
 	"/admin/routers":           {"Router details", "Enter how to reach the MikroTik: its IP address, the API port (usually 8728) and a user that is allowed to change settings.", "Make a separate API user on the MikroTik instead of using the main admin login."},
 	"/admin/pool":              {"Pool details", "Name the range and write it as start-end, for example 10.10.10.2-10.10.10.254, then pick its router.", ""},
 	"/admin/nas":               {"NAS details", "Enter the router's IP address and the shared secret used for RADIUS.", "Use the same secret on the router and here, or every login will be refused."},
