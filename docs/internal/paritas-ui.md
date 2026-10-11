@@ -152,7 +152,7 @@ Berisi tata letak widget yang disusun dari `$config['dashboard_Admin']` (lihat b
 |---|---|---|---|---|---|---|
 | `username` | Username | text | required | `username` (`login.html`) | ✅ | |
 | `password` | Password | password | required | `password` | ✅ | Hash lama `sha1` tanpa salt diganti bcrypt; pembatas brute-force |
-| (baru, v0.1.4) | Kode 2FA | 6 digit TOTP | opsional per admin | `/login/2fa` (`login_2fa.html`) | ✅ | Setelah kata sandi benar; kode pemulihan 8 kali pakai. Diatur di `/admin/2fa`. Lihat [keamanan.md](../id/security.md) |
+| (baru, v0.1.4) | Kode 2FA | 6 digit TOTP | opsional per admin | `/login/2fa` (`login_2fa.html`) | ✅ | Setelah kata sandi benar; kode pemulihan 8 kali pakai. Diatur di `/admin/2fa`, ditautkan dari dropdown profil (v0.1.5). Lihat [keamanan.md](../id/security.md) |
 | (cookie "remember") | — | — | cookie `sha1(id.time.db_pass)` | session `scs` (sqlite3store) | ⚠️ | Disengaja: cookie bertanda tangan password DB dianggap lemah (01-audit keamanan 5) |
 | `csrf_token` | — | hidden | `csrf_enabled` setting | `http.NewCrossOriginProtection` | ⚠️ | CSRF selalu aktif, tidak bisa dimatikan |
 
@@ -409,7 +409,7 @@ QR code di voucher cetak baru (`print.html`, `.QR`) = fitur tambahan.
 | `plan` | Service Plan | select (AJAX) | required | `plan` | ✅ | hanya paket `enabled` |
 | `using` | Using | select (`payment_usings`, mis. cash/transfer; `balance`; `zero`) | required | `method` Cash/Balance | ⚠️ | Hanya dua metode. `zero` dan metode kustom belum |
 | `stoken` | — | hidden | token anti-ganda | — | ⚠️ | Diganti CSRF stdlib |
-| (halaman konfirmasi: ringkasan paket, harga, kupon) | — | — | — | `recharge/confirm` | ✅ | A44: pelanggan, paket, harga, kedaluwarsa baru (`billing.NewExpiry`), saldo sesudah; tidak menulis data. Pajak belum |
+| (halaman konfirmasi: ringkasan paket, harga, kupon) | — | — | — | `recharge/confirm` | ✅ | A44: pelanggan, paket, harga, kedaluwarsa baru (`billing.NewExpiry`), saldo sesudah; tidak menulis data. Pajak ikut dihitung (`billing.WithTax`, v0.1.5) |
 
 **A45 `rencana/refill.tpl`** (baru: `GET/POST /admin/vouchers/redeem`)
 
@@ -551,7 +551,7 @@ Kolom hasil: Customer, Phone, Status, Message, Router, Service Type. Baru: halam
 
 ## 3. Bagian Settings
 
-Baru: sub-halaman `GET/POST /admin/settings/{tab}` (`internal/web/settings.go`): app, localisation, notifications, integrations, miscellaneous. Key di tabel `settings (key, value)`. Integrations hanya SuperAdmin; sisanya SuperAdmin/Admin. Payment ditunda (Tripay di akhir). Tabel di bawah dikelompokkan per sub-halaman lama. Semua key lama disimpan di `tbl_appconfig` (`setting`, `value`); di baru `settings.key`.
+Baru: sub-halaman `GET/POST /admin/settings/{tab}` (`internal/web/settings.go`): app, localisation, notifications, integrations, payment, isolir, promo, miscellaneous. Key di tabel `settings (key, value)`. Integrations hanya SuperAdmin; sisanya SuperAdmin/Admin. Tab `payment` (Payment Gateway, SuperAdmin), `isolir`, dan `promo` (Promosi, SuperAdmin) juga ada; `payment` dan `isolir` hanya untuk SuperAdmin. Tabel di bawah dikelompokkan per sub-halaman lama. Semua key lama disimpan di `tbl_appconfig` (`setting`, `value`); di baru `settings.key`.
 
 Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 
@@ -591,7 +591,7 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | Key lama | Label | Tipe | Key baru | St | Catatan / Fase |
 |---|---|---|---|---|---|
 | `disable_registration` | Allow Registration | select | `disable_registration` | ⚠️ | F4. Settings saja (Miscellaneous > Registration); portal belum membaca |
-| `registration_username` | Registration Username | select | `registration_username` | ⚠️ | F4. Settings saja; portal belum membaca |
+| `registration_username` | Registration Username | select | — | ❌ | Dihapus dari UI (v0.1.5). Nilai lama di tabel `settings` tidak diubah dan tidak dibaca portal |
 | `photo_register` | Photo Required | select | — | ❌ | Ditunda (foto/face detection) |
 | `sms_otp_registration` | SMS OTP Registration | select | `sms_otp_registration` | ⚠️ | F4. Settings saja; portal belum membaca |
 | `phone_otp_type` | OTP Method | select | `phone_otp_type` | ⚠️ | F4. Settings saja, sms/wa; portal belum membaca |
@@ -654,9 +654,9 @@ Konvensi kolom: `Key lama` = atribut `name`; `Fase` = kapan dibutuhkan.
 | `tawkto`, `tawkto_api_key` | Tawk.to | text | — | ❌ | Ditunda |
 | `api_key` | Access Token | password | — | ❌ | Ditunda (API `system/api.php`, token tidak bisa di-revoke) |
 | `http_proxy`, `http_proxyauth` | Proxy Server / Login | text, password | — | ❌ | Ditunda |
-| `enable_tax` | Enable Tax System | select | — | ❌ | Ditunda (belum ada kolom pajak di `transactions`) |
-| `tax_rate` | Tax Rate | select | — | ❌ | Ditunda |
-| `custom_tax_rate` | Custom Tax Rate | text | — | ❌ | Ditunda |
+| `enable_tax` | Enable Tax System | select | — | ⚠️ | v0.1.5: dihitung di `billing.WithTax` (`internal/billing/price.go`) untuk harga, potongan saldo, dan auto-renew. Belum ada field di Pengaturan; nilai dari impor atau tabel `settings` |
+| `tax_rate` | Tax Rate | select | — | ⚠️ | v0.1.5: dipakai `WithTax`. Belum ada field di Pengaturan |
+| `custom_tax_rate` | Custom Tax Rate | text | — | ⚠️ | v0.1.5: dipakai `WithTax` bila `tax_rate` = `custom`. Belum ada field di Pengaturan |
 | `github_username`, `github_token` | Github | text, password | — | ❌ | Non-goal (updater/plugin) |
 
 ### S2. `settings/localisation`
@@ -767,7 +767,7 @@ Baru: `dashboard.html` + `dashboardData` (`handlers.go`), 4 kotak + 2 grafik Cha
 
 ## 5. Bagian Portal pelanggan
 
-Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, dashboard, profil, ganti password, riwayat order, order dari saldo. Sudah juga: lupa password, inbox, aktivasi voucher (`/portal/voucher`), kirim saldo antar pelanggan (`POST /portal/transfer`; `allow_balance_transfer`, `minimum_transfer`, notifikasi `balance_send`/`balance_received`, atomik satu tx), perpanjang paket kedaluwarsa (`POST /portal/extend/{id}`; `extend_expired`, `extend_days`, sekali per bulan kalender), registrasi menghormati `disable_registration=noreg`, `registration_username` (phone/email), `sms_otp_registration`, `reg_nofify_admin` (Telegram) dan mengirim `welcome_message`, daftar paket menampilkan bandwidth bila `show_bandwidth_plan=yes`. Sudah juga: gateway Tripay, kirim paket ke teman (`/portal/plans/{id}/friend`), riwayat aktivasi (`/portal/activation`), lupa username, top-up saldo kustom.
+Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, dashboard, profil, ganti password, riwayat order, order dari saldo. Sudah juga: lupa password, inbox, aktivasi voucher (`/portal/voucher`), kirim saldo antar pelanggan (`POST /portal/transfer`; `allow_balance_transfer`, `minimum_transfer`, notifikasi `balance_send`/`balance_received`, atomik satu tx), perpanjang paket kedaluwarsa (`POST /portal/extend/{id}`; `extend_expired`, `extend_days`, sekali per bulan kalender), registrasi menghormati `disable_registration=noreg`, `sms_otp_registration`, `reg_nofify_admin` (Telegram) dan mengirim `welcome_message`, daftar paket menampilkan bandwidth bila `show_bandwidth_plan=yes`. Sudah juga: gateway Tripay, kirim paket ke teman (`/portal/plans/{id}/friend`), riwayat aktivasi (`/portal/activation`), lupa username, top-up saldo kustom.
 
 ### C1. Login `customer/login.tpl`, `login-noreg.tpl`, `login-custom-moon.tpl`
 
@@ -871,6 +871,18 @@ Portal dasar ada di `internal/web/portal.go` (`/portal/*`): login, register, das
 
 ---
 
+### Fitur tanpa padanan PHP (v0.1.5)
+
+Layar ini tidak ada di PHPNuxBill. Dicatat supaya audit paritas tidak menganggapnya hilang.
+
+| Fitur | Layar | Akses | St | Catatan |
+|---|---|---|---|---|
+| Isolir (paket habis masuk paket 64 kbps, halaman `/isolir`) | Pengaturan > Isolir (`isolir_*`) | SuperAdmin | ✅ | Perlu setup router (perintah ada di tab). Pratinjau di `/admin/settings/isolir/preview` |
+| Promosi (kartu di halaman isolir dan dashboard portal) | Pengaturan > Promosi (`/admin/settings/promo`) | SuperAdmin | ✅ | Jadwal mulai dan selesai, urutan naik-turun. Tutup kartu tersimpan per perangkat |
+| Monitoring status | `/admin/status`, `/admin/status.json` | Admin, SuperAdmin | ✅ | Muat ulang otomatis tiap 30 detik (halaman penuh, lihat audit T13) |
+| Metrik Prometheus | `/metrics` (token di Pengaturan > Integrasi) | SuperAdmin | ✅ | Mati sampai token dibuat |
+| Cek kesehatan | `/health` | publik | ✅ | Untuk monitor eksternal |
+
 ## 6. Daftar selisih (gap list) per fase
 
 Satu baris per item. Urutan prioritas dalam fase: atas = lebih dulu. Rujukan layar: A# / S# / W# / C#.
@@ -945,7 +957,7 @@ Satu baris per item. Urutan prioritas dalam fase: atas = lebih dulu. Rujukan lay
 
 ### Ditunda / Non-goal (tidak masuk gap aktif)
 
-- Ditunda: VPN (A21-A23), Port (A30-A32), foto + face detection, tambah bahasa lewat UI (S7), pajak (`enable_tax`), proxy, API token, tawk.to, printer thermal (`printer_cols`, NuxPrint).
+- Ditunda: VPN (A21-A23), Port (A30-A32), foto + face detection, tambah bahasa lewat UI (S7), proxy, API token, tawk.to, printer thermal (`printer_cols`, NuxPrint).
 - Non-goal: plugin manager (S12), widget dinamis (S11, W12-W13), devices (S10), community/rollback (A76), updater `new_version_notify`, `github_*`, `frrest_interim_update`, `login_Page_template` (tema moon), `url_canonical`, `dashboard_cr`.
 
 ## Lihat juga

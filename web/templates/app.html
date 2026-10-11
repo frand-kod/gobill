@@ -183,6 +183,7 @@ function gbShell() {
             <p class="px-4 py-2 text-xs text-ink-2">{{.Admin.Role}}</p>
             {{if $mgr}}<a class="flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100" href="/admin/settings">{{icon "settings"}}<span>{{T "Settings"}}</span></a>{{end}}
             <a class="flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100" href="/admin/password">{{icon "pencil"}}<span>{{T "Change Password"}}</span></a>
+            <a class="flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100" href="/admin/2fa">{{icon "user-round"}}<span>{{T "Two-factor login (2FA)"}}</span></a>
             <form method="post" action="/logout"><button type="submit" class="flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-sm hover:bg-slate-100">{{icon "log-out"}}<span>{{T "Logout"}}</span></button></form>
           </div>
         </div>

@@ -152,7 +152,7 @@ It is recommended for every SuperAdmin. A SuperAdmin account can change all sett
 
 ### Enabling
 
-1. Log in, open **Change Password**, then **Manage 2FA**. You can also open `/admin/2fa` directly.
+1. Log in, click your name at the top right, then **Two-factor login (2FA)**. You can also open `/admin/2fa` directly.
 2. Click **Enable 2FA**.
 3. Scan the QR code with an authenticator app, or type the key shown below it.
 4. Enter the 6-digit code from the app. 2FA becomes active only after this code is correct.

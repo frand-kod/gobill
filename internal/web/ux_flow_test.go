@@ -67,16 +67,29 @@ func TestRechargeDeviceFailureWarns(t *testing.T) {
 
 // (6) The quick-start checklist ticks from row counts and disappears when everything is done.
 func TestSetupSteps(t *testing.T) {
-	steps, all := setupSteps(db.CountSetupRow{})
+	steps, all := setupSteps(db.CountSetupRow{}, nil, false)
 	if all || len(steps) != 4 || steps[0].Done {
 		t.Fatalf("empty install: %+v %v", steps, all)
 	}
-	steps, all = setupSteps(db.CountSetupRow{Nas: 1, Bandwidths: 1})
+	steps, all = setupSteps(db.CountSetupRow{Nas: 1, Bandwidths: 1}, nil, false)
 	if all || !steps[0].Done || !steps[1].Done || steps[2].Done || steps[3].Done {
 		t.Fatalf("nas+bandwidth: %+v", steps)
 	}
-	if _, all = setupSteps(db.CountSetupRow{Routers: 1, Bandwidths: 1, Plans: 1, Vouchers: 1}); !all {
+	if _, all = setupSteps(db.CountSetupRow{Routers: 1, Bandwidths: 1, Plans: 1, Vouchers: 1}, nil, false); !all {
 		t.Fatal("voucher should count as the last step")
+	}
+	// SuperAdmin: WhatsApp and QRIS are required, Tripay and Isolir are optional
+	full := db.CountSetupRow{Routers: 1, Bandwidths: 1, Plans: 1, Vouchers: 1}
+	steps, all = setupSteps(full, map[string]string{"qris_payload": "x"}, true)
+	if all || len(steps) != 8 || steps[4].Done || !steps[5].Done {
+		t.Fatalf("WhatsApp missing should keep the checklist: %+v", steps)
+	}
+	steps, all = setupSteps(full, map[string]string{"alt_wga_server_url": "http://127.0.0.1:3030", "qris_payload": "x"}, true)
+	if !all || steps[6].Done || steps[7].Done {
+		t.Fatalf("optional items must not block hiding: all=%v %+v", all, steps)
+	}
+	if steps, _ = setupSteps(full, map[string]string{"alt_wga_server_url": "x", "qris_payload": "x"}, false); len(steps) != 4 {
+		t.Fatal("Admin must not see SuperAdmin-only items")
 	}
 }
 
@@ -90,8 +103,16 @@ func TestDashboardChecklistAndQuickActions(t *testing.T) {
 	}
 	e := billApp(t)
 	e.plan(t, "p", "PPPoE", 1)
+	if body = do(e.h, "GET", "/admin", nil, e.c).Body.String(); !strings.Contains(body, "/admin/settings/payment#f-qris_payload") {
+		t.Error("checklist should still ask for QRIS while WhatsApp and QRIS are not set")
+	}
+	for k, v := range map[string]string{"alt_wga_server_url": "http://127.0.0.1:3030", "qris_payload": "x"} {
+		if err := e.q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: k, Value: v}); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if body = do(e.h, "GET", "/admin", nil, e.c).Body.String(); strings.Contains(body, "Mulai cepat") {
-		t.Error("checklist still shown with router, bandwidth, plan and customer present")
+		t.Error("checklist still shown with every required step done")
 	}
 }
 

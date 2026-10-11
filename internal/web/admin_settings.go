@@ -306,7 +306,6 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			chk("man_fields_fname", "Mandatory field: Full Name"),
 			chk("man_fields_address", "Mandatory field: Address"),
 			sel("disable_registration", "Disable Registration", option{"no", "No"}, option{"yes", "Voucher Only"}, option{"noreg", "No Registration"}),
-			sel("registration_username", "Registration Username", option{"username", "Username"}, option{"phone", "Phone"}),
 			sel("sms_otp_registration", "SMS OTP Registration", settingsYesNo...),
 			sel("phone_otp_type", "OTP Method", option{"sms", "SMS"}, option{"wa", "WhatsApp"}),
 			sel("reg_nofify_admin", "Notify Admin", settingsYesNo...),
@@ -443,9 +442,6 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	}
 	if x := v["phone_otp_type"]; x != "" && !oneOf(x, "sms", "wa") {
 		e["phone_otp_type"] = "Choose SMS or WhatsApp"
-	}
-	if x := v["registration_username"]; x != "" && !oneOf(x, "username", "phone") {
-		e["registration_username"] = "Choose username or phone"
 	}
 	if x := v["customer_password_min"]; x != "" && !inRange(x, 4, 64) {
 		e["customer_password_min"] = "Enter a whole number from 4 to 64"

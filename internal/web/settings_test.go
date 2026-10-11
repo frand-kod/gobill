@@ -189,7 +189,7 @@ func TestSettingsNewFieldsPersist(t *testing.T) {
 			"notif_balance_send": {"sent"}, "notif_balance_received": {"got"}}},
 		{"integrations", url.Values{"mail_reply_to": {"help@acme.test"}}},
 		{"miscellaneous", url.Values{"voucher_format": {"numbers"}, "disable_registration": {"yes"},
-			"registration_username": {"phone"}, "sms_otp_registration": {"yes"}, "phone_otp_type": {"wa"},
+			"sms_otp_registration": {"yes"}, "phone_otp_type": {"wa"},
 			"reg_nofify_admin": {"yes"}, "session_timeout_duration": {"30"}, "single_session": {"yes"},
 			"maintenance_date": {"2026-10-31"}}},
 	}
@@ -203,7 +203,7 @@ func TestSettingsNewFieldsPersist(t *testing.T) {
 		"dec_point": ",", "thousands_sep": "'", "reset_day": "15", "notif_invoice_balance": "bal",
 		"notif_welcome_message": "hi", "notif_balance_send": "sent", "notif_balance_received": "got",
 		"mail_reply_to": "help@acme.test", "voucher_format": "numbers", "disable_registration": "yes",
-		"registration_username": "phone", "sms_otp_registration": "yes", "phone_otp_type": "wa",
+		"sms_otp_registration": "yes", "phone_otp_type": "wa",
 		"reg_nofify_admin": "yes", "session_timeout_duration": "30", "single_session": "yes",
 		"maintenance_date": "2026-10-31"} {
 		if got[k] != want {

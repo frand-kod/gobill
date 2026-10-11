@@ -152,7 +152,7 @@ Disarankan untuk setiap SuperAdmin. Akun SuperAdmin bisa mengubah semua pengatur
 
 ### Mengaktifkan
 
-1. Login, buka **Ganti Kata Sandi**, lalu **Kelola 2FA**. Anda juga bisa langsung membuka `/admin/2fa`.
+1. Login, klik nama Anda di pojok kanan atas, lalu **Verifikasi dua langkah (2FA)**. Anda juga bisa langsung membuka `/admin/2fa`.
 2. Klik **Aktifkan 2FA**.
 3. Pindai kode QR dengan aplikasi authenticator, atau ketik kunci yang tertulis di bawahnya.
 4. Masukkan kode 6 digit dari aplikasi. 2FA baru aktif setelah kode ini benar.

@@ -10,8 +10,8 @@
 {{/* One small card for the portal dashboard. Closing hides it on this device (localStorage, guarded).
      Without JS the card stays and only the first promo shows. */}}
 {{define "promo_portal"}}<aside class="card relative mb-4 text-sm" aria-label="Promosi" x-data="{ key: '{{.Key}}', closed: false, more: false, init() { try { this.closed = localStorage.getItem(this.key) === '1' } catch (e) {} }, close() { this.closed = true; try { localStorage.setItem(this.key, '1') } catch (e) {} } }" x-show="!closed">
-  <button type="button" class="btn btn-ghost btn-icon absolute end-2 top-2 z-10" aria-label="Tutup" title="Tutup" @click="close()" x-cloak>&times;</button>
+  <button type="button" class="btn btn-ghost btn-icon absolute end-2 top-2 z-10" aria-label="{{.CloseLabel}}" title="{{.CloseLabel}}" @click="close()" x-cloak>&times;</button>
   {{template "promo_body" .First}}
   {{if .More}}<div class="border-t border-line" x-cloak x-show="more">{{range .More}}<div class="border-b border-line last:border-b-0">{{template "promo_body" .}}</div>{{end}}</div>
-  <div class="px-4 pb-4" x-cloak x-show="!more"><button type="button" class="btn btn-ghost" @click="more = true" :aria-expanded="more">Lainnya</button></div>{{end}}
+  <div class="px-4 pb-4" x-cloak x-show="!more"><button type="button" class="btn btn-ghost" @click="more = true" :aria-expanded="more">{{.MoreLabel}}</button></div>{{end}}
 </aside>{{end}}

@@ -231,13 +231,13 @@ Masih terbuka: menu portal membungkus, Online Sessions untuk manajer saja, dan k
 | ID | Alur | Masalah | Dampak | Usaha | Usulan |
 |---|---|---|---|---|---|
 | T01 | A4 | Tidak ada isi ulang massal | Tinggi | M | Aksi "Isi ulang terpilih" dengan ringkasan total |
-| T02 | A1 | Checklist tidak memuat WA, QRIS, Tripay | Tinggi | S | Tambah langkah dengan tautan |
-| T03 | A1 | Admin tidak bisa lihat atau atur WA dan QRIS | Tinggi | S | Status read-only untuk Admin |
+| T02 | A1 | Checklist tidak memuat WA, QRIS, Tripay | Tinggi | S | Tambah langkah dengan tautan. **Selesai (v0.1.5):** WA dan QRIS (SuperAdmin), Tripay dan Isolir (opsional), masing-masing menaut ke `#f-<field>` |
+| T03 | A1 | Admin tidak bisa lihat atau atur WA dan QRIS | Tinggi | S | Sesuai keputusan pemilik: integrasi khusus SuperAdmin |
 | T04 | A1, login | Tidak ada jalur reset password admin | Tinggi | M | Perintah CLI reset, dan teks di layar login |
-| T05 | A18 | 2FA tanpa tautan di UI | Tinggi | S | Item "Keamanan akun" di dropdown profil |
-| T06 | A7 | Expiring tanpa pemisah "hari ini" | Sedang | S | Pisahkan "Hari ini" dan "2-7 hari" |
+| T05 | A18 | 2FA tanpa tautan di UI | Tinggi | S | Item "Keamanan akun" di dropdown profil. **Selesai (v0.1.5):** "Verifikasi dua langkah (2FA)" di dropdown profil, semua peran |
+| T06 | A7 | Expiring tanpa pemisah "hari ini" | Sedang | S | Pisahkan "Hari ini" dan "2-7 hari". **Selesai (v0.1.5):** badge "Hari ini" pada baris yang habis hari ini |
 | T07 | A5 | Koneksi "No data" untuk non-RADIUS, hanya satu saran | Sedang | S | Tampilkan semua saran, dan cara aktifkan pengecekan |
-| T08 | A2, A9 | "Expires" jadi "Kedaluwarsa", saldo punya tiga nama | Sedang | S | "Berakhir" untuk tanggal, satu nama "Tambah saldo" |
+| T08 | A2, A9 | "Expires" jadi "Kedaluwarsa", saldo punya tiga nama | Sedang | S | "Berakhir" untuk tanggal, satu nama "Tambah saldo". **Selesai (v0.1.5):** "Habis" dan "Tanggal habis"; aksi isi saldo jadi "Tambah saldo" |
 | T09 | A10 | Label "Deactivate" jadi "Menonaktifkan paket" | Sedang | S | Cek efeknya di browser, lalu perjelas label |
 | T10 | A2, A3 | Daftar pelanggan tanpa kolom masa berlaku | Sedang | S | Kolom "Berakhir" |
 | T11 | A12 | QRIS manual tanpa status menunggu atau tandai lunas | Sedang | M | Dokumentasikan alur, lalu tambah status |
@@ -246,7 +246,7 @@ Masih terbuka: menu portal membungkus, Online Sessions untuk manajer saja, dan k
 | T14 | A8 | Online Sessions hanya RADIUS dan hanya manajer | Sedang | S | Teks kosong yang menjelaskan cakupan |
 | T15 | A17 | Sesi habis tanpa peringatan, isian hilang | Sedang | M | Peringatan beberapa menit sebelum habis |
 | T16 | A9, pesan | Dropdown pelanggan hanya 500 terbaru, tidak bisa dicari | Sedang | S | Pakai picker pelanggan yang sudah ada |
-| T17 | P4 | Saldo kurang tanpa tautan ke isi saldo | Sedang | S | Tautan dari kartu paket |
+| T17 | P4 | Saldo kurang tanpa tautan ke isi saldo | Sedang | S | Tautan dari kartu paket. **Selesai (v0.1.5):** "Isi saldo" (formulir isi saldo di halaman sama, bila ada) atau tautan WA/telepon admin |
 | T18 | Lintas | Menu portal membungkus jadi beberapa baris | Sedang | S | Tab bawah atau menu ringkas |
 | T19 | P9 | Penerima saldo tidak dicek sebelum kirim | Sedang | M | Tampilkan nama penerima sebelum kirim |
 | T20 | P2 | Login hotspot di luar gobill, belum diuji | Sedang | M | Uji di MikroTik, lalu tulis panduannya |
@@ -263,16 +263,16 @@ Jumlah: Tinggi 5, Sedang 17, Rendah 6. Total 28.
 
 ## Top 10 berikutnya
 
-1. T05: tautan 2FA di dropdown profil (Tinggi, S).
-2. T02: WA, QRIS, dan Tripay masuk checklist (Tinggi, S).
-3. T03: Admin bisa melihat status WA dan QRIS (Tinggi, S).
+1. T05: tautan 2FA di dropdown profil (Tinggi, S). **Selesai v0.1.5.**
+2. T02: WA, QRIS, dan Tripay masuk checklist (Tinggi, S). **Selesai v0.1.5.**
+3. T03: Admin bisa melihat status WA dan QRIS (Tinggi, S). **Sesuai keputusan pemilik: integrasi khusus SuperAdmin.**
 4. T01: isi ulang massal dengan ringkasan total (Tinggi, M).
 5. T04: reset password admin lewat CLI, dengan teks di login (Tinggi, M).
-6. T06: pisahkan "Hari ini" di kartu Expiring (Sedang, S).
+6. T06: pisahkan "Hari ini" di kartu Expiring (Sedang, S). **Selesai v0.1.5.**
 7. T07: diagnosa non-RADIUS dan semua saran (Sedang, S).
-8. T08: rapikan istilah "Expires" dan saldo (Sedang, S).
+8. T08: rapikan istilah "Expires" dan saldo (Sedang, S). **Selesai v0.1.5.**
 9. T10: kolom masa berlaku di daftar pelanggan (Sedang, S).
-10. T17: tautan isi saldo dari kartu paket portal (Sedang, S).
+10. T17: tautan isi saldo dari kartu paket portal (Sedang, S). **Selesai v0.1.5.**
 
 ## Lihat juga
 
