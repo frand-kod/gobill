@@ -1,8 +1,8 @@
 {{define "content"}}
-{{if .Tabs}}<nav class="mb-4 flex flex-wrap gap-2">{{range .Tabs}}<a class="btn"{{if eq .Value $.Path}} aria-current="page"{{end}} href="{{.Value}}">{{T .Label}}</a>{{end}}</nav>{{end}}
+{{if .Tabs}}<div id="tab-content"><nav class="mb-4 flex flex-wrap gap-2">{{range .Tabs}}<a class="btn"{{if eq .Value $.Path}} aria-current="page"{{end}} href="{{.Value}}">{{T .Label}}</a>{{end}}</nav>{{end}}
 {{with .Data}}
 <div class="page-head">
-  <h1 class="page-title">{{TT .Heading}}{{template "callout" $.Intro}}</h1>
+  <h1 class="page-title" tabindex="-1">{{TT .Heading}}{{template "callout" $.Intro}}</h1>
   {{with $.Help.Docs}}<a class="link text-sm" href="{{.}}">{{T "Open the guide"}}</a>{{end}}
 </div>
 <form method="post" action="{{.Action}}"{{if .HasFile}} enctype="multipart/form-data"{{end}} novalidate x-data="{{.XData}}"{{if $.Help.Narrow}} class="max-w-4xl"{{end}}>
@@ -18,5 +18,6 @@
 </form>
 {{if .HasVars}}<script src="/static/tplvars.js"></script>{{end}}
 {{end}}
+{{if .Tabs}}</div>{{end}}
 {{end}}
 

@@ -43,6 +43,7 @@
 
 @layer base {
   :root {
+    color-scheme: light;
     /* accent: teal. --accent must give --on-accent >= 4.5:1; tints are mixed with the surface */
     --accent: #0b7f79;
     --on-accent: #ffffff;
@@ -123,9 +124,14 @@
   }
 
   [x-cloak] { display: none !important; }
+  html { background: var(--bg); }
   body { background: var(--bg); color: var(--text); font-size: var(--fs-body); line-height: var(--lh-body); @apply antialiased; }
   svg.lucide { width: var(--icon); height: var(--icon); @apply shrink-0; }
+  /* logos carry width/height attributes to reserve their box; auto keeps the logo's own proportions */
+  img.logo-light, img.logo-dark { width: auto; }
   :focus-visible { outline: 2px solid var(--accent-fg); outline-offset: 2px; }
+  /* the heading takes focus after an in-place settings tab switch; no ring on the heading itself */
+  h1[tabindex="-1"]:focus { outline: none; }
 }
 
 @layer components {
@@ -438,7 +444,10 @@
 #gb-topbar { view-transition-name: topbar; }
 ::view-transition-old(sidebar), ::view-transition-new(sidebar),
 ::view-transition-old(topbar), ::view-transition-new(topbar) { animation: none; }
-::view-transition-old(root), ::view-transition-new(root) { animation-duration: 150ms; }
+::view-transition-old(root) { animation: 180ms ease-out both gb-vt-out; }
+::view-transition-new(root) { animation: 180ms ease-out both gb-vt-in; }
+@keyframes gb-vt-out { to { opacity: 0; } }
+@keyframes gb-vt-in { from { opacity: 0; transform: translateY(4px); } }
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 }
