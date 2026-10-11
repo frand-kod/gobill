@@ -43,7 +43,7 @@ Login di `/admin/login`, ganti password, lalu hapus file itu. Jika file sudah ad
 
 ## Pengaturan di UI
 
-Ubah pengaturan di menu **Pengaturan**. Kunci di bawah tersimpan di tabel `settings`. Tiga kunci tidak punya kolom di menu **Pengaturan** pada rilis ini: `radius_rest_allow`, `log_keep_days`, dan `backup_keep`. Ubah nilainya langsung di tabel `settings`. Jika tidak disebut, nilai bawaannya kosong atau `no`.
+Ubah pengaturan di menu **Pengaturan**. Kunci di bawah tersimpan di tabel `settings`. Kunci `log_keep_days` dan `backup_keep` diatur di **Pengaturan > System & Security**. `radius_rest_allow` juga ada di sana, tetapi hanya SuperAdmin yang bisa melihat dan mengubahnya. Jika tidak disebut, nilai bawaannya kosong atau `no`.
 
 ### Umum dan lokalisasi
 

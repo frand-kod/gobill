@@ -14,8 +14,8 @@ import (
 // LogKinds are the log tables CleanLog knows.
 var LogKinds = []string{"activity", "radius", "messages"}
 
-// logKeepDefault is the retention when log_keep_days is not set; "0" still means keep forever.
-const logKeepDefault = 90
+// LogKeepDefault is the retention when log_keep_days is not set; "0" still means keep forever.
+const LogKeepDefault = 90
 
 // radiusStaleAfter closes an open RADIUS session that has had no update for this long, at its last update.
 // ponytail: fixed 1 h instead of 3 x the NAS interim interval (no such setting); add one if NAS intervals differ.
@@ -55,7 +55,7 @@ func (s *Service) LogCleanJob(trusted func() bool) func(context.Context) error {
 		if day == last {
 			return nil
 		}
-		days := logKeepDefault
+		days := LogKeepDefault
 		if v := setting(ctx, s.Q, "log_keep_days"); v != "" {
 			days, _ = strconv.Atoi(v)
 		}
