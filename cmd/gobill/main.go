@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -46,6 +45,9 @@ func main() {
 	run := run
 	if len(os.Args) > 1 && os.Args[1] == "import" {
 		run = func() error { return runImport(os.Args[2:]) }
+	}
+	if len(os.Args) > 1 && os.Args[1] == "reset-admin-password" {
+		run = func() error { return runResetAdminPassword(os.Args[2:]) }
 	}
 	if err := run(); errors.Is(err, errRestart) {
 		slog.Warn("exiting for restart after restore", "code", exitRestart)
@@ -229,7 +231,7 @@ func bootstrapAdmin(ctx context.Context, q *db.Queries, dir string) error {
 	if n > 0 {
 		return nil
 	}
-	password := randomPassword(16)
+	password := secret.RandomPassword(16)
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
@@ -258,16 +260,6 @@ func bootstrapAdmin(ctx context.Context, q *db.Queries, dir string) error {
 	slog.Warn("first admin created: read the password from the file, sign in, change it, then delete the file",
 		"username", "admin", "file", path)
 	return nil
-}
-
-func randomPassword(n int) string {
-	const chars = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-	b := make([]byte, n)
-	rand.Read(b) // never returns an error in Go 1.24+
-	for i := range b {
-		b[i] = chars[int(b[i])%len(chars)] // slight modulo bias is fine for 54 chars
-	}
-	return string(b)
 }
 
 // loadZone returns the named zone, or def when name is blank or unknown.

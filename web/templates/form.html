@@ -49,7 +49,7 @@
         {{else if eq .Type "pre"}}
         <pre class="overflow-x-auto whitespace-pre-wrap break-all rounded border border-line bg-surface-2 p-3 font-mono text-xs select-all">{{.Value}}</pre>
         {{else if eq .Type "formbtn"}}
-        <p><button type="submit" class="btn btn-ghost" formaction="{{.Value}}">{{T .Btn}}</button></p>
+        <p><button type="submit" class="btn btn-ghost" formaction="{{.Value}}"{{with .Confirm}} data-confirm="{{T .}}" data-confirm-danger{{end}}>{{T .Btn}}</button></p>
         {{else if eq .Type "link"}}
         <p><a class="btn" href="{{.Value}}">{{T (or .Btn "Download backup")}}</a></p>
         {{else if eq .Type "qris"}}

@@ -37,7 +37,7 @@ func (s *Server) cpnList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp := listPage{Heading: "Coupons", Base: "/admin/coupons", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
-		Bulk:    []bulkAction{{"delete-many", "Delete selected", true, false}},
+		Bulk:    []bulkAction{{"delete-many", "Delete selected", true, false, false}},
 		Actions: []rowAction{{"toggle", "Block/Unblock", "", true}},
 		Cols:    []string{"Code", "Type", "Value", "Max Usage", "Used", "Min Order", "Start Date", "End Date", "Status"}}
 	for _, c := range rows {

@@ -46,6 +46,7 @@ type bulkAction struct {
 	Path, Label string
 	Danger      bool
 	All         bool // acts on all matching rows, ignores the selection
+	Page        bool // the handler shows its own confirm page, so no browser confirm first
 }
 
 // listSort reads ?sort and ?dir against a whitelist. param is "key_dir" for the SQL CASE ("" = default order).

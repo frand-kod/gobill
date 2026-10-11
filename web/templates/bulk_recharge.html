@@ -1,0 +1,41 @@
+{{define "content"}}
+{{with .Data}}
+<div class="page-head">
+  <h1 class="page-title">{{T .Heading}}</h1>
+</div>
+<div class="card mb-4">
+  <div class="card-body space-y-4">
+    <p class="font-medium">{{.Summary}}</p>
+    {{if not .Done}}
+      <p class="text-sm text-ink-2">{{T "Payment Method"}}: {{T "Cash"}}. {{T "Each customer renews the plan they are on now."}}</p>
+      {{if .Ids}}<form method="post" action="/admin/customers/recharge/run" class="flex flex-wrap gap-2">
+        {{range .Ids}}<input type="hidden" name="ids" value="{{.}}">{{end}}
+        <button class="btn btn-primary" type="submit">{{icon "wallet"}}<span>{{T "Recharge"}}</span></button>
+        <a class="btn btn-ghost" href="/admin/customers">{{T "Cancel"}}</a>
+      </form>{{else}}<a class="btn btn-ghost" href="/admin/customers">{{T "Cancel"}}</a>{{end}}
+    {{else}}
+      <a class="btn btn-ghost" href="/admin/customers">{{T "Back"}}</a>
+    {{end}}
+  </div>
+</div>
+<div class="card overflow-hidden">
+  <div class="table-scroll">
+    <table class="table">
+      <thead><tr><th>{{T "Username"}}</th><th>{{T "Plan"}}</th><th class="num">{{T "Price"}}</th><th>{{T "Result"}}</th></tr></thead>
+      <tbody>
+      {{range .Rows}}
+        <tr>
+          <td>{{.Username}}</td>
+          <td>{{.Plan}}</td>
+          <td class="num">{{.Price}}</td>
+          <td>{{if .Err}}<span class="badge badge-bad">{{T "Failed"}}</span> {{T .Err}}{{else}}<span class="badge badge-ok">{{T "OK"}}</span>{{with .Note}} {{T .}}{{end}}{{end}}</td>
+        </tr>
+      {{else}}
+        <tr><td class="py-8 text-center text-ink-2" colspan="4">{{T "Nothing here yet."}}</td></tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}
+{{end}}

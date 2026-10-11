@@ -105,7 +105,20 @@ func (s *Server) addCustomerForm(r *http.Request, v, e map[string]string) ([]fie
 	return append(fs, section([]field{plan, pay}, "Langsung aktifkan paket", "")...), nil
 }
 
-var custSorts = []string{"username", "fullname", "balance", "status"}
+var custSorts = []string{"username", "fullname", "balance", "status", "expires"}
+
+// endsCell is the "Ends On" cell: the nearest active expiry, "—" when there is none, and "Today"
+// (a badge in list.html) when it ends on the current day.
+func (s *Server) endsCell(unix int64) string {
+	if unix == 0 {
+		return "—"
+	}
+	loc := s.location()
+	if time.Unix(unix, 0).In(loc).Format("2006-01-02") == time.Now().In(loc).Format("2006-01-02") {
+		return "Today"
+	}
+	return s.ts(unix)
+}
 
 // custQuery reads the list filters and sort; unknown values fall back to "any" / newest first.
 func custQuery(r *http.Request) (db.FilterCustomersParams, string, string) {
@@ -149,15 +162,16 @@ func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 	role := adminFrom(r).Role
 	lp := listPage{Heading: "Customer", Base: "/admin/customers", Q: p.Q, Searchable: true, ViewLink: true,
 		CanCreate: oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), CanEdit: oneOf(role, "SuperAdmin", "Admin"),
-		Cols:     []string{"Username", "Full Name", "Balance", "Package", "Service Type", "PPPoE Username", "Status"},
-		SortKeys: []string{"username", "fullname", "balance", "", "", "", "status"}, Sort: sort, Dir: dir,
+		Cols:     []string{"Username", "Full Name", "Balance", "Package", "Service Type", "PPPoE Username", "Ends On", "Status"},
+		SortKeys: []string{"username", "fullname", "balance", "", "", "", "expires", "status"}, Sort: sort, Dir: dir,
 		Filters: []filter{{"service_type", p.ServiceType, anyOpts("Service Type", "Hotspot", "PPPoE", "Others")},
 			{"status", p.Status, anyOpts("Status", custStatuses...)}}}
 	if oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales") {
-		lp.Bulk = []bulkAction{{"message", "Send message to selected", false, false}}
+		lp.Bulk = []bulkAction{{"message", "Send message to selected", false, false, false},
+			{"recharge", "Recharge same plan", false, false, true}}
 	}
 	for _, c := range rows {
-		lp.Rows = append(lp.Rows, listRow{c.ID, []string{c.Username, c.Fullname, money(c.Balance), c.Packages, c.ServiceType, c.PppoeUsername, c.Status}})
+		lp.Rows = append(lp.Rows, listRow{c.ID, []string{c.Username, c.Fullname, money(c.Balance), c.Packages, c.ServiceType, c.PppoeUsername, s.endsCell(c.NextExpires), c.Status}})
 	}
 	lp.Links = []option{{"/admin/customers/export?" + lp.query().Encode(), "Export CSV"}}
 	lp.finish(page)

@@ -29,6 +29,14 @@ Dokumen ini adalah indeks panduan operator dalam Bahasa Indonesia. Panduan ini j
 - [Monitoring](monitoring.md): Status Sistem, `/health`, `/metrics`, dan alert operator.
 - [Backup dan restore](backup-restore.md): backup harian, mirror, dan pemulihan database.
 
+## Pelanggan
+
+Di daftar pelanggan, centang beberapa pelanggan lalu pilih **Isi ulang paket yang sama**. Setiap pelanggan diisi ulang dengan paket yang sedang dipakainya, dibayar tunai, dengan aturan yang sama seperti isi ulang satu per satu. Konfirmasi menampilkan jumlah pelanggan dan total. Hasilnya menampilkan berapa yang berhasil dan alasan tiap yang gagal. Batasnya 200 pelanggan per aksi. Jangan muat ulang halaman hasil, karena isi ulang akan dijalankan lagi.
+
+Daftar pelanggan punya kolom **Tanggal habis**, yaitu tanggal berakhir paket aktif yang paling dekat. Kolom ini bisa diurutkan. Tulisan **Hari ini** berarti paket berakhir hari ini.
+
+Strip diagnosa di halaman pelanggan memberi satu langkah untuk setiap pemeriksaan yang bermasalah: akun, paket (habis, diisolir, atau belum mulai sampai pelanggan login pertama), koneksi (online dengan NAS, IP, dan lama tersambung, atau offline dengan waktu sesi terakhir), kuota, dan router.
+
 ## Pencarian cepat
 
 Kotak cari di bilah atas mencari pelanggan, langganan, invoice, voucher, paket, router, NAS, menu, aksi cepat, dan pengaturan. Tekan `/` atau `Ctrl+K` (`Cmd+K` di Mac) untuk langsung mengetik di kotak itu. Panah atas dan bawah memilih hasil, Enter membuka, dan Esc menutup. Di HP, hasil tampil selebar layar. Pengaturan langsung menuju kolomnya, dan kolom itu disorot sebentar. Hasil yang bisa dibuka sesuai peran Anda.
