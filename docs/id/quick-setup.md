@@ -14,7 +14,7 @@ Saat pertama kali login sebagai SuperAdmin, gobill menampilkan dialog dengan tig
 - **Impor dari PHPNuxBill**: buka halaman impor. Setelah impor berhasil, setiap langkah menampilkan data yang diimpor untuk diperiksa, bukan membuat data baru.
 - **Lewati**: dialog tidak muncul lagi.
 
-Selama belum selesai dan belum dilewati, menu **Setup cepat** ada di bagian atas sidebar dengan lencana progres, misalnya `3/9`. Lencana menghitung langkah wajib yang sudah terisi.
+Selama belum selesai dan belum dilewati, menu **Setup cepat** ada di bagian atas sidebar dengan lencana progres, misalnya `3/8`. Lencana menghitung langkah wajib yang sudah terisi.
 
 ## Langkah-langkah
 

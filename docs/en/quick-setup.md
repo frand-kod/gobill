@@ -14,7 +14,7 @@ When a SuperAdmin logs in for the first time, gobill shows a dialog with three c
 - **Import from PHPNuxBill**: open the import page. After a successful import, each step shows the imported data for you to check, instead of creating new data.
 - **Skip**: the dialog does not appear again.
 
-While it is not finished and not skipped, **Quick setup** is at the top of the sidebar with a progress badge, for example `3/9`. The badge counts the required steps that already have data.
+While it is not finished and not skipped, **Quick setup** is at the top of the sidebar with a progress badge, for example `3/8`. The badge counts the required steps that already have data.
 
 ## Steps
 
