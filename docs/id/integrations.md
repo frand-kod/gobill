@@ -22,7 +22,7 @@ Tips: setelah impor dari PHPNuxBill untuk uji paralel, set `notify_customers` = 
 
 ## Template dan kanal pesan
 
-Template pesan ada di **Pengaturan > Notifikasi**. Pengaturan `notif_*` berisi template untuk pesan kedaluwarsa, pengingat, invoice, selamat datang, dan saldo. Pengaturan `user_notification_*` mengatur kanal untuk tiap jenis pesan.
+Template pesan ada di **Pengaturan > Notifikasi**. Pengaturan `notif_*` berisi template untuk pesan kedaluwarsa, pengingat, invoice, selamat datang, dan saldo. Di bawah tiap template, ketuk variabel untuk menyisipkannya di kursor. **Kembalikan ke default** mengembalikan teks bawaan. Template yang kosong tetap mengirim teks bawaan. Pengaturan `user_notification_*` mengatur kanal untuk tiap jenis pesan.
 
 Template bisa memakai placeholder seperti `[[price]]`. Placeholder yang tidak dikenal dihapus dari pesan.
 

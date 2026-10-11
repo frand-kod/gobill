@@ -11,7 +11,8 @@ Open **Settings → Isolir**. This tab is for SuperAdmin only. Each field shows 
 | Setting | Default | Notes |
 |---|---|---|
 | Isolation Enabled | No | Turn on after the router has been set up (see below). |
-| Isolir Plan | Automatic | When isolation is first enabled, gobill creates the **Isolir** plan (bandwidth **Isolir 64k**, 64 kbps up/down). It is not sold in the portal. The admin may pick another plan. |
+| Isolir Plan | Automatic | When isolation is first enabled, gobill creates the **Isolir** plan (bandwidth **Isolir 64k**, 64 kbps up/down). It is a system plan. It is not sold in the portal, it is not in the plan and bandwidth lists, and no one can assign it by hand. |
+| Download rate, Upload rate | `64k` | Speed of the Isolir plan, for example `64k` or `2M`. Saved to the **Isolir 64k** bandwidth profile. |
 | Isolation Days | 30 | How many days isolation lasts after the package ends. Then the customer is inactive, as before. `0` means isolated until the customer pays. |
 | Title | Your internet package has run out | Title of the isolation page. |
 | Message | Please pay to reactivate. Internet still works slowly so you can open WhatsApp and banking apps. | Text under the title. |

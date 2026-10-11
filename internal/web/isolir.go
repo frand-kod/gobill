@@ -23,6 +23,7 @@ import (
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/isolir"
+	"github.com/frand-kod/gobill/internal/notify"
 	"github.com/frand-kod/gobill/internal/payment"
 )
 
@@ -310,10 +311,24 @@ func (s *Server) isolirReset(w http.ResponseWriter, r *http.Request) {
 	s.done(w, r, "/admin/settings/isolir", "Settings saved", "settings.reset", "isolir "+sec)
 }
 
-// isolirVars is the variable reference shown under the custom HTML field.
-const isolirVars = `[[company_name]] [[logo_url]] [[title]] [[message]] [[username]] [[name]] [[plan_name]] [[expired_at]] [[amount]]
-[[qris_image]] (data URI, untuk src gambar) [[wa_admin_link]] [[voucher_form]] (form voucher) [[promos]] [[known]] (yes/no) [[notice]]
-Nilai di-escape HTML, kecuali voucher_form dan promos. Variabel tidak dikenal atau kosong menjadi kosong.`
+// isolirVarList are the variables of the custom HTML, the ones renderIsolirCustom fills.
+var isolirVarList = []notify.Var{
+	{Name: "company_name", Desc: "Company name"},
+	{Name: "logo_url", Desc: "Logo address"},
+	{Name: "title", Desc: "Title of the page (Title setting)"},
+	{Name: "message", Desc: "Message of the page (Message setting)"},
+	{Name: "username", Desc: "Customer's username"},
+	{Name: "name", Desc: "Customer's full name"},
+	{Name: "plan_name", Desc: "Package name"},
+	{Name: "expired_at", Desc: "Expiry date and time"},
+	{Name: "amount", Desc: "Price of the package"},
+	{Name: "qris_image", Desc: "QRIS image as a data URI, for an image src"},
+	{Name: "wa_admin_link", Desc: "WhatsApp link to the admin"},
+	{Name: "voucher_form", Desc: "Voucher form, rendered by gobill"},
+	{Name: "promos", Desc: "Promotions, rendered by gobill"},
+	{Name: "known", Desc: "yes or no: the client is a known customer"},
+	{Name: "notice", Desc: "Result of the last action, such as a voucher"},
+}
 
 // isolirSetupFields is the MikroTik setup helper: copyable RouterOS commands for the gobill address
 // (app_url host and port, else the request host).

@@ -92,8 +92,13 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 	// notif shows the built-in message only when the setting was never saved; a cleared one stays empty
 	notif := func(name, label string) field {
 		f := area(name, label)
+		key := strings.TrimPrefix(name, "notif_")
 		if _, ok := v[name]; !ok {
-			f.Value = notify.DefaultTemplate(strings.TrimPrefix(name, "notif_"))
+			f.Value = notify.DefaultTemplate(key)
+		}
+		f.Vars = notify.VarsOf(key)
+		if notify.DefaultTemplate(key) != "" { // nothing to reset to without a built-in text
+			f.Reset = "/admin/settings/notifications/reset/" + key
 		}
 		return f
 	}
@@ -291,10 +296,10 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			sel("isolir_mode", "Mode tampilan", option{"default", "Bawaan"}, option{"custom", "HTML sendiri"}).hint("HTML sendiri dipakai jika isi HTML tidak kosong"),
 			func() field {
 				f := area("isolir_html", "HTML sendiri")
-				f.Hint = "HTML lengkap. Variabel yang tersedia di bawah. Ditampilkan dalam sandbox tanpa akses cookie gobill"
+				f.Hint = "HTML lengkap. Nilai di-escape HTML, kecuali voucher_form dan promos. Variabel tidak dikenal atau kosong menjadi kosong. Ditampilkan dalam sandbox tanpa akses cookie gobill"
+				f.Vars = isolirVarList
 				return f
 			}(),
-			{Name: "isolir_vars", Label: "Variabel", Type: "pre", Value: isolirVars},
 			{Name: "isolir_preview", Label: "Pratinjau halaman isolir (data contoh):", Type: "note", Value: "/admin/settings/isolir/preview", Btn: "Buka pratinjau"},
 			{Name: "isolir_reset_html", Label: "Kembali ke bawaan", Type: "formbtn", Value: "/admin/settings/isolir/reset/html", Btn: "Kembali ke bawaan",
 				Hint: "Mengosongkan HTML sendiri"},
@@ -771,6 +776,24 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 		s.SettingsChanged(r.Context())
 	}
 	s.done(w, r, "/admin/settings/"+tab, "Settings saved", "settings.save", tab)
+}
+
+// notifReset is POST /admin/settings/notifications/reset/{name}: the message goes back to its built-in text.
+func (s *Server) notifReset(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	def := notify.DefaultTemplate(name)
+	if def == "" {
+		http.NotFound(w, r)
+		return
+	}
+	if err := s.queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "notif_" + name, Value: def}); err != nil {
+		s.fail(w, "reset notif "+name, err)
+		return
+	}
+	if s.SettingsChanged != nil {
+		s.SettingsChanged(r.Context())
+	}
+	s.done(w, r, "/admin/settings/notifications", "Settings saved", "settings.reset", "notif "+name)
 }
 
 // dbBackup streams a consistent copy of the database made with VACUUM INTO. SuperAdmin only.

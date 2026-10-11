@@ -22,7 +22,7 @@ Tip: after importing from PHPNuxBill for a parallel test, set `notify_customers`
 
 ## Message templates and channels
 
-Message templates are in **Settings > Notifications**. Settings `notif_*` contain the templates for expiry, reminder, invoice, welcome, and balance messages. Settings `user_notification_*` set the channel for each message type.
+Message templates are in **Settings > Notifications**. Settings `notif_*` contain the templates for expiry, reminder, invoice, welcome, and balance messages. Under each template, tap a variable to insert it at the cursor. **Reset to default** puts back the built-in text. A blank template sends the built-in text. Settings `user_notification_*` set the channel for each message type.
 
 Templates can use placeholders such as `[[price]]`. Unknown placeholders are removed from the message.
 
