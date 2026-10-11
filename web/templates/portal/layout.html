@@ -19,5 +19,5 @@
 <main class="mx-auto max-w-4xl p-4">
   {{template "content" .}}
 </main>
-<footer class="mx-auto max-w-4xl px-4 pb-6 text-xs text-ink-2">{{or .Brand.company_name "gobill"}} · {{with .Version}}v{{.}}{{else}}dev{{end}} · GPL-3.0</footer>
+<footer class="mx-auto max-w-4xl px-4 pb-6 text-xs text-ink-2">{{or .Brand.company_name "gobill"}} · {{with .Version}}{{if or (eq . "dev") (hasPrefix . "v")}}{{.}}{{else}}v{{.}}{{end}}{{else}}dev{{end}} · GPL-3.0</footer>
 {{end}}
