@@ -818,6 +818,8 @@ func (w *wizRecorder) Write(b []byte) (int, error) {
 	return w.body.Write(b)
 }
 
+// ponytail: field errors are scraped from the handler's rendered HTML (formfields.html "-err" ids); split
+// the NAS/router/bandwidth/plan save handlers into validate+save funcs if this markup changes.
 var wizFieldErr = regexp.MustCompile(`id="([a-z_]+)-err">([^<]*)<`)
 
 // wizReplay runs an existing save handler on the posted values, the way its own form would post them.
