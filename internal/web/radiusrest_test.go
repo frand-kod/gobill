@@ -159,6 +159,30 @@ func TestRadiusRestAccountingOneRow(t *testing.T) {
 	}
 }
 
+func TestRadiusRestBodyLimit(t *testing.T) {
+	s, _ := restSetup(t, false)
+	h := s.Handler()
+	// an oversized accounting body must be refused before the handler runs: no session row
+	big := url.Values{"username": {"bob"}, "nasIpAddress": {"10.0.0.1"}, "acctSessionId": {"s1"}, "acctStatusType": {"Start"},
+		"junk": {strings.Repeat("a", 128<<10)}}
+	if w := post(h, "/radius.php?action=accounting", big, ""); w.Code != http.StatusBadRequest {
+		t.Fatalf("oversized body: %d", w.Code)
+	}
+	var n int
+	s.conn.QueryRow(`SELECT COUNT(*) FROM radius_sessions`).Scan(&n)
+	if n != 0 {
+		t.Fatalf("oversized accounting ran: %d rows", n)
+	}
+	r := httptest.NewRequest("POST", "/radius.php?action=accounting", strings.NewReader("username=bob&acct%zz"))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.RemoteAddr = "127.0.0.1:1"
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("malformed form: %d", w.Code)
+	}
+}
+
 func TestRadiusRestAllowList(t *testing.T) {
 	s, q := restSetup(t, false)
 	h := s.Handler()
