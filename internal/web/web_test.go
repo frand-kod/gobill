@@ -71,7 +71,7 @@ func do(h http.Handler, method, target string, form url.Values, cookie *http.Coo
 
 func login(t *testing.T, h http.Handler, user string) *http.Cookie {
 	t.Helper()
-	w := do(h, "POST", "/login", url.Values{"username": {user}, "password": {"secret123"}}, nil)
+	w := do(h, "POST", "/admin/login", url.Values{"username": {user}, "password": {"secret123"}}, nil)
 	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/admin" {
 		t.Fatalf("login %s: got %d %q", user, w.Code, w.Header().Get("Location"))
 	}
@@ -87,7 +87,7 @@ func login(t *testing.T, h http.Handler, user string) *http.Cookie {
 func TestAdminNeedsLogin(t *testing.T) {
 	h, _ := newTestServer(t)
 	w := do(h, "GET", "/admin", nil, nil)
-	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login" {
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/admin/login" {
 		t.Fatalf("got %d %q", w.Code, w.Header().Get("Location"))
 	}
 }
@@ -95,7 +95,7 @@ func TestAdminNeedsLogin(t *testing.T) {
 func TestLogin(t *testing.T) {
 	h, _ := newTestServer(t)
 	for _, user := range []string{"alice", "nobody"} {
-		w := do(h, "POST", "/login", url.Values{"username": {user}, "password": {"wrong"}}, nil)
+		w := do(h, "POST", "/admin/login", url.Values{"username": {user}, "password": {"wrong"}}, nil)
 		if w.Code != 200 || !strings.Contains(w.Body.String(), "Nama pengguna atau kata sandi salah") {
 			t.Fatalf("%s wrong password: %d %s", user, w.Code, w.Body.String())
 		}
@@ -109,7 +109,7 @@ func TestLogin(t *testing.T) {
 
 func TestCrossOriginPostRejected(t *testing.T) {
 	h, _ := newTestServer(t)
-	w := do(h, "POST", "/login", url.Values{"username": {"alice"}, "password": {"secret123"}}, nil,
+	w := do(h, "POST", "/admin/login", url.Values{"username": {"alice"}, "password": {"secret123"}}, nil,
 		"Sec-Fetch-Site", "cross-site")
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("got %d", w.Code)
@@ -131,19 +131,19 @@ func TestLoginRateLimit(t *testing.T) {
 	h, _ := newTestServer(t)
 	bad := url.Values{"username": {"alice"}, "password": {"wrong"}}
 	for i := 0; i < 10; i++ {
-		if w := do(h, "POST", "/login", bad, nil); w.Code != 200 {
+		if w := do(h, "POST", "/admin/login", bad, nil); w.Code != 200 {
 			t.Fatalf("attempt %d: %d", i+1, w.Code)
 		}
 	}
-	if w := do(h, "POST", "/login", bad, nil); w.Code != http.StatusTooManyRequests {
+	if w := do(h, "POST", "/admin/login", bad, nil); w.Code != http.StatusTooManyRequests {
 		t.Fatalf("11th: %d", w.Code)
 	}
 }
 
 func TestEveryPageRenders(t *testing.T) {
 	h, _ := newTestServer(t)
-	if w := do(h, "GET", "/login", nil, nil); w.Code != 200 {
-		t.Fatalf("/login: %d", w.Code)
+	if w := do(h, "GET", "/admin/login", nil, nil); w.Code != 200 {
+		t.Fatalf("/admin/login: %d", w.Code)
 	}
 	c := login(t, h, "alice")
 	for _, p := range []string{"/admin", "/admin/settings/app"} {

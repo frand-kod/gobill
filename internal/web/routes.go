@@ -63,8 +63,8 @@ func (s *Server) paymentAdminRoutes(mux *http.ServeMux, managers func(http.Handl
 }
 
 func (s *Server) portalRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /portal/login", s.pLoginForm)
-	mux.HandleFunc("POST /portal/login", s.pLogin)
+	mux.HandleFunc("GET /login", s.pLoginForm)
+	mux.HandleFunc("POST /login", s.pLogin)
 	mux.HandleFunc("POST /portal/logout", s.pLogout)
 	mux.HandleFunc("POST /portal/login/activation", s.pVoucherLogin)
 	mux.HandleFunc("GET /portal/register", s.pRegisterForm)
@@ -143,13 +143,11 @@ func (s *Server) Handler() http.Handler {
 	}
 
 	// auth: root redirect, static files, uploads, admin login/logout, own password
-	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/admin", http.StatusSeeOther)
-	})
+	mux.HandleFunc("GET /{$}", s.root)
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
-	mux.HandleFunc("GET /login", s.loginForm)
+	mux.HandleFunc("GET /admin/login", s.loginForm)
 	mux.HandleFunc("GET /uploads/{name}", s.serveUpload)
-	mux.HandleFunc("POST /login", s.loginSubmit)
+	mux.HandleFunc("POST /admin/login", s.loginSubmit)
 	mux.HandleFunc("POST /logout", s.logout)
 	mux.Handle("GET /admin/password", all(http.HandlerFunc(s.passwordForm)))
 	mux.Handle("POST /admin/password", all(http.HandlerFunc(s.passwordSave)))

@@ -99,12 +99,12 @@ func TestFooterVersionAndCompany(t *testing.T) {
 
 func TestNoHardcodedBrandName(t *testing.T) {
 	h, _ := newTestServer(t)
-	pages := []string{"/login", "/portal/login"}
+	pages := []string{"/admin/login", "/login"}
 	c := login(t, h, "alice")
 	pages = append(pages, "/admin", "/admin/customers", "/admin/settings/app")
 	for _, p := range pages {
 		cookie := c
-		if p == "/login" || p == "/portal/login" {
+		if p == "/admin/login" || p == "/login" {
 			cookie = nil
 		}
 		w := do(h, "GET", p, nil, cookie)

@@ -10,7 +10,7 @@ import (
 )
 
 // maintenance answers 503 for the customer portal and other public pages while the setting
-// maintenance_mode is "yes". Admin pages, /login, /logout, static files and /callback/ (payment gateway) keep working.
+// maintenance_mode is "yes". Admin pages, /admin/login, /logout, static files and /callback/ (payment gateway) keep working.
 // With maintenance_mode_logout "yes", customer sessions are dropped as well. Must sit inside
 // the session middleware.
 func (s *Server) maintenance(next http.Handler) http.Handler {
@@ -28,7 +28,7 @@ func (s *Server) maintenance(next http.Handler) http.Handler {
 		if settings["maintenance_mode_logout"] == "yes" {
 			s.sessions.Remove(r.Context(), "customer_id")
 		}
-		if p == "/" || p == "/admin" || strings.HasPrefix(p, "/admin/") || p == "/login" || p == "/logout" {
+		if p == "/" || p == "/admin" || strings.HasPrefix(p, "/admin/") || p == "/logout" {
 			next.ServeHTTP(w, r)
 			return
 		}

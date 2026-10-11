@@ -185,10 +185,10 @@ func TestAdminSessionEndsOnChange(t *testing.T) {
 	wantCode(t, do(h, "GET", "/admin/users", nil, cb), 200, "bob after self edit")
 	// alice sets bob's password: bob's session is dead
 	wantCode(t, do(h, "POST", "/admin/users/"+itoa(b.ID), uform("bob", "Admin"), c), 303, "password change")
-	if w := do(h, "GET", "/admin/users", nil, cb); w.Code != 303 || w.Header().Get("Location") != "/login" {
+	if w := do(h, "GET", "/admin/users", nil, cb); w.Code != 303 || w.Header().Get("Location") != "/admin/login" {
 		t.Fatalf("old session still valid: %d", w.Code)
 	}
-	if w := do(h, "POST", "/login", url.Values{"username": {"bob"}, "password": {"secret123"}}, nil); w.Header().Get("Location") == "/admin" {
+	if w := do(h, "POST", "/admin/login", url.Values{"username": {"bob"}, "password": {"secret123"}}, nil); w.Header().Get("Location") == "/admin" {
 		t.Fatal("old password accepted")
 	}
 	// role change ends sessions

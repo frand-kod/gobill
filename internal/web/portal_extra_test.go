@@ -79,7 +79,7 @@ func TestPortalRegistrationOptions(t *testing.T) {
 	e := billApp(t)
 	f := url.Values{"username": {"newbie"}, "phone_number": {"0812000001"}, "password": {"abc12345"}}
 	setting(t, e, "disable_registration", "noreg")
-	if w := do(e.h, "POST", "/portal/register", f, nil); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/portal/login" {
+	if w := do(e.h, "POST", "/portal/register", f, nil); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login" {
 		t.Fatalf("disabled: %d", w.Code)
 	}
 	if _, err := e.q.GetCustomerByUsername(t.Context(), "newbie"); err == nil {
@@ -144,11 +144,11 @@ func TestPortalShowBandwidth(t *testing.T) {
 
 func TestPortalLoginBrandingAndRegisterLink(t *testing.T) {
 	e := billApp(t)
-	if body := do(e.h, "GET", "/portal/login", nil, nil).Body.String(); !strings.Contains(body, "/portal/register") {
+	if body := do(e.h, "GET", "/login", nil, nil).Body.String(); !strings.Contains(body, "/portal/register") {
 		t.Fatal("register link missing")
 	}
 	setting(t, e, "disable_registration", "noreg", "login_page_favicon", "fav.png")
-	body := do(e.h, "GET", "/portal/login", nil, nil).Body.String()
+	body := do(e.h, "GET", "/login", nil, nil).Body.String()
 	if strings.Contains(body, "/portal/register") {
 		t.Fatal("register link shown while registration is disabled")
 	}

@@ -10,7 +10,7 @@ import (
 
 // postLogin posts a login with a chosen Host header, the way a browser on that address would.
 func postLogin(h http.Handler, user, pass, host string) *httptest.ResponseRecorder {
-	r := httptest.NewRequest("POST", "/login", strings.NewReader(url.Values{"username": {user}, "password": {pass}}.Encode()))
+	r := httptest.NewRequest("POST", "/admin/login", strings.NewReader(url.Values{"username": {user}, "password": {pass}}.Encode()))
 	r.Host = host
 	r.Header.Set("X-Forwarded-Proto", "https")
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")

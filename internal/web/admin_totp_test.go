@@ -64,12 +64,12 @@ func enrollTOTP(t *testing.T, s *Server, h http.Handler, cookie *http.Cookie, us
 
 // passwordStep logs in with the password only and returns the response.
 func passwordStep(h http.Handler, user string) *httptest.ResponseRecorder {
-	return do(h, "POST", "/login", url.Values{"username": {user}, "password": {"secret123"}}, nil)
+	return do(h, "POST", "/admin/login", url.Values{"username": {user}, "password": {"secret123"}}, nil)
 }
 
 // secondStep posts a code to the 2FA step of a pending login.
 func secondStep(h http.Handler, cookie *http.Cookie, code string) *httptest.ResponseRecorder {
-	return do(h, "POST", "/login/2fa", url.Values{"code": {code}}, cookie)
+	return do(h, "POST", "/admin/login/2fa", url.Values{"code": {code}}, cookie)
 }
 
 func TestTOTPEnrollThenLogin(t *testing.T) {
@@ -108,11 +108,11 @@ func TestTOTPEnrollThenLogin(t *testing.T) {
 
 	// Password alone no longer opens a session: the pending marker sends the admin to the code form.
 	w := passwordStep(h, "alice")
-	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login/2fa" {
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/admin/login/2fa" {
 		t.Fatalf("password step: %d %q", w.Code, w.Header().Get("Location"))
 	}
 	pending := sessionCookie(w)
-	if w := do(h, "GET", "/admin", nil, pending); w.Header().Get("Location") != "/login" {
+	if w := do(h, "GET", "/admin", nil, pending); w.Header().Get("Location") != "/admin/login" {
 		t.Fatalf("pending session reached admin: %q", w.Header().Get("Location"))
 	}
 	if w := secondStep(h, pending, "000000"); w.Code != 200 {
@@ -238,7 +238,7 @@ func TestLoginWithoutTOTPUnchanged(t *testing.T) {
 	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/admin" {
 		t.Fatalf("rita: %d %q", w.Code, w.Header().Get("Location"))
 	}
-	if w := do(h, "GET", "/login/2fa", nil, nil); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login" {
+	if w := do(h, "GET", "/admin/login/2fa", nil, nil); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/admin/login" {
 		t.Fatalf("2fa form without pending login: %d %q", w.Code, w.Header().Get("Location"))
 	}
 }

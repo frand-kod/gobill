@@ -19,8 +19,8 @@ func TestLoginPagesBrandAndFields(t *testing.T) {
 		path, action string
 		extra        []string
 	}{
-		{"/login", `action="/login"`, nil},
-		{"/portal/login", `action="/portal/login"`, []string{"https://wa.me/628123456789", "/portal/forgot", "/portal/register"}},
+		{"/admin/login", `action="/admin/login"`, nil},
+		{"/login", `action="/login"`, []string{"https://wa.me/628123456789", "/portal/forgot", "/portal/register"}},
 	} {
 		w := do(e.h, "GET", c.path, nil, nil)
 		b := w.Body.String()

@@ -25,8 +25,8 @@ type totpPage struct {
 }
 
 func (s *Server) totpRoutes(mux *http.ServeMux, all func(http.Handler) http.Handler) {
-	mux.HandleFunc("GET /login/2fa", s.login2FAForm)
-	mux.HandleFunc("POST /login/2fa", s.login2FASubmit)
+	mux.HandleFunc("GET /admin/login/2fa", s.login2FAForm)
+	mux.HandleFunc("POST /admin/login/2fa", s.login2FASubmit)
 	mux.Handle("GET /admin/2fa", all(http.HandlerFunc(s.admin2FAForm)))
 	mux.Handle("POST /admin/2fa/setup", all(http.HandlerFunc(s.admin2FASetup)))
 	mux.Handle("POST /admin/2fa/confirm", all(http.HandlerFunc(s.admin2FAConfirm)))

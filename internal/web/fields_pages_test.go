@@ -167,7 +167,7 @@ func TestForgotPasswordEndToEnd(t *testing.T) {
 	if w := do(e.h, "POST", "/portal/forgot/reset", url.Values{"npass": {"newpass1"}, "cnpass": {"other"}}, ck); !strings.Contains(w.Body.String(), tr("Passwords does not match")) {
 		t.Fatal("mismatch accepted")
 	}
-	if w := do(e.h, "POST", "/portal/forgot/reset", url.Values{"npass": {"newpass1"}, "cnpass": {"newpass1"}}, ck); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/portal/login" {
+	if w := do(e.h, "POST", "/portal/forgot/reset", url.Values{"npass": {"newpass1"}, "cnpass": {"newpass1"}}, ck); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login" {
 		t.Fatalf("reset: %d", w.Code)
 	}
 	if _, code := custLogin(t, e, "u1", "pw12345"); code == http.StatusSeeOther {

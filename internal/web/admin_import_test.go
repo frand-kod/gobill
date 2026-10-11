@@ -154,7 +154,7 @@ func TestImportConfirmBacksUpReplacesAndEndsSession(t *testing.T) {
 
 	w := do(h, "POST", importPage+"/confirm", url.Values{"token": {token}, "understand": {"1"}}, c)
 	wantCode(t, w, 303, "confirm")
-	if loc := w.Header().Get("Location"); loc != "/login" {
+	if loc := w.Header().Get("Location"); loc != "/admin/login" {
 		t.Fatalf("redirect to %q", loc)
 	}
 	backups, _ := filepath.Glob(filepath.Join(s.BackupDir, "gobill-*-pre-import.db"))
@@ -171,7 +171,7 @@ func TestImportConfirmBacksUpReplacesAndEndsSession(t *testing.T) {
 		t.Fatalf("confirm left files: %v", left)
 	}
 	// the old session is gone; the redirect sets a fresh session that carries the flash to the login page
-	if w := do(h, "GET", "/admin", nil, c); w.Header().Get("Location") != "/login" {
+	if w := do(h, "GET", "/admin", nil, c); w.Header().Get("Location") != "/admin/login" {
 		t.Fatalf("old session still works: %d %q", w.Code, w.Header().Get("Location"))
 	}
 	var fresh *http.Cookie
@@ -183,7 +183,7 @@ func TestImportConfirmBacksUpReplacesAndEndsSession(t *testing.T) {
 	if fresh == nil {
 		t.Fatal("confirm sets no session cookie")
 	}
-	if body := do(h, "GET", "/login", nil, fresh).Body.String(); !strings.Contains(body, "Impor selesai") {
+	if body := do(h, "GET", "/admin/login", nil, fresh).Body.String(); !strings.Contains(body, "Impor selesai") {
 		t.Fatal("login page has no import flash")
 	}
 }

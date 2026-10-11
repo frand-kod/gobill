@@ -18,7 +18,7 @@ func TestLegacySha1LoginRehashes(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := s.Handler()
-	if w := do(h, "POST", "/login", url.Values{"username": {"alice"}, "password": {"wrong"}}, nil); w.Code != 200 {
+	if w := do(h, "POST", "/admin/login", url.Values{"username": {"alice"}, "password": {"wrong"}}, nil); w.Code != 200 {
 		t.Fatalf("wrong password: %d", w.Code)
 	}
 	login(t, h, "alice") // sha1 match
@@ -40,7 +40,7 @@ func TestAdminResetClearsLegacySha1(t *testing.T) {
 	if _, err := s.queries.SetAdminPassword(t.Context(), db.SetAdminPasswordParams{PasswordHash: string(hash), ID: id}); err != nil {
 		t.Fatal(err)
 	}
-	if w := do(s.Handler(), "POST", "/login", url.Values{"username": {"alice"}, "password": {"secret123"}}, nil); w.Code != 200 {
+	if w := do(s.Handler(), "POST", "/admin/login", url.Values{"username": {"alice"}, "password": {"secret123"}}, nil); w.Code != 200 {
 		t.Fatalf("old sha1 password still logs in: %d", w.Code)
 	}
 }

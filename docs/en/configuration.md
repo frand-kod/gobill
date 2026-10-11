@@ -48,7 +48,7 @@ Change settings in the **Settings** menu. The keys below are stored in the `sett
 | Setting | Purpose |
 |---|---|
 | `company_name` | Business name. Shown on invoices, messages, and the login page. |
-| `app_url` | Public address of the application, for example `https://billing.example.com`. It is filled in automatically from the address the first admin uses to log in, unless that address is a LAN address or localhost. It is used for links in WhatsApp messages, such as QRIS and invoices. |
+| `app_url` | Public address of the application, for example `https://billing.example.com`. It is filled in automatically from the address the first admin uses to log in, unless that address is a LAN address or localhost. It is used for links in WhatsApp messages, such as QRIS and invoices. The customer login is at `/login` (the welcome message links there), and the admin login is at `/admin/login`. |
 | `timezone` | Display time zone, for example `Asia/Jakarta`. Times are stored in UTC. An empty value means UTC, so fill it in during the first setup. |
 | `country_code_phone` | Country code for numbers that start with `0`, for example `62`. |
 | `default_plan_device` | Default device for new plans: `MikrotikHotspot`, `MikrotikPppoe`, `Dummy`, `Radius`, or empty. Empty means the device follows the plan type. |
