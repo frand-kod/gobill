@@ -2432,5 +2432,21 @@
     "Once a day, asks GitHub for a newer gobill release. SuperAdmin sees a badge when one exists": "Sekali sehari, memeriksa rilis gobill terbaru di GitHub. SuperAdmin melihat lencana jika ada rilis baru",
     "Quick setup walks you through the business details, the MikroTik connection, speeds, plans, WhatsApp and QRIS. Every step can be skipped.": "Setup cepat memandu Anda mengisi data usaha, koneksi MikroTik, kecepatan, paket, WhatsApp dan QRIS. Setiap langkah bisa dilewati.",
     "Full HTML. Values are HTML-escaped, except voucher_form and promos. Unknown or empty variables become empty. Shown in a sandbox without gobill cookie access": "HTML lengkap. Nilai di-escape HTML, kecuali voucher_form dan promos. Variabel tidak dikenal atau kosong menjadi kosong. Ditampilkan dalam sandbox tanpa akses cookie gobill",
-    "Promotions": "Promosi"
+    "Promotions": "Promosi",
+    "Service": "Layanan",
+    "Billing (Prepaid/Postpaid)": "Cara bayar (Prabayar/Pascabayar)",
+    "Availability": "Ketersediaan",
+    "Enable turns the plan on or off. Public: sold on the customer portal. Admin only: hidden from the portal, so customers cannot buy, extend or auto-renew it, but an admin can still give it.": "Aktifkan mengatur paket aktif atau tidak. Publik: dijual di portal pelanggan. Khusus admin: disembunyikan dari portal, pelanggan tidak bisa membeli, memperpanjang, atau memperpanjang otomatis, tetapi admin tetap bisa memberikannya.",
+    "When the plan ends": "Saat paket berakhir",
+    "Default: the customer goes to the Isolation plan when isolation is enabled, otherwise they are disconnected. Pick a plan to move them there instead.": "Bawaan: pelanggan dipindahkan ke paket Isolir jika isolir aktif, jika tidak mereka diputus. Pilih paket lain untuk memindahkan mereka ke sana.",
+    "Default: Isolation, or disconnect": "Bawaan: Isolir, atau diputus",
+    "No pool": "Tanpa pool",
+    "RADIUS (gobill) needs no router. MikroTik API and Dummy need one.": "RADIUS (gobill) tidak perlu router. MikroTik API dan Dummy perlu router.",
+    "MikroTik API (by plan type)": "MikroTik API (sesuai jenis paket)",
+    "MikroTik API (Hotspot driver)": "MikroTik API (driver Hotspot)",
+    "MikroTik API (PPPoE driver)": "MikroTik API (driver PPPoE)",
+    "Device limit": "Batas perangkat",
+    "How many devices can be online with this plan at once. When the limit is full, Settings > Customers & Billing decides: kick the oldest device or reject the new login.": "Berapa perangkat yang boleh online bersamaan dengan paket ini. Jika batas sudah penuh, Pengaturan > Pelanggan & tagihan yang menentukan: keluarkan perangkat terlama atau tolak login baru.",
+    "Router scripts": "Skrip router",
+    "device": "perangkat"
 }

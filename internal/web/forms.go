@@ -29,6 +29,9 @@ type field struct {
 	Inp                                   string       // test field: input type of the box above its button, "" = none
 	Vars                                  []notify.Var // textarea: variables as chips that insert [[name]] at the cursor
 	Reset                                 string       // textarea: POST URL of a "Reset to default" button under it, "" = none
+	Wide                                  bool         // spans both columns of the card grid
+	Parts                                 []field      // row: the controls on one line under the row's label
+	Class                                 string       // row part: extra classes on its control (width)
 }
 
 type option struct{ Value, Label string }
@@ -36,6 +39,13 @@ type option struct{ Value, Label string }
 type formPage struct {
 	Heading, Action, Cancel string
 	Fields                  []field
+}
+
+// formHelp is what a form page adds around its fields (set on Page.Help): a docs link in the header,
+// an Alpine expression for a live summary line, a narrower card and a save bar that sticks to the bottom.
+type formHelp struct {
+	Docs, Summary  string
+	Narrow, Sticky bool
 }
 
 // group is a titled card of fields on the form page.
@@ -115,6 +125,15 @@ func (f field) show(c string) field { f.Show = c; return f }
 func (f field) bind() field { f.Bind = true; return f }
 
 func (f field) hint(h string) field { f.Hint = h; return f }
+
+func (f field) wide() field { f.Wide = true; return f }
+
+func (f field) class(c string) field { f.Class = c; return f }
+
+// row puts controls on one line under one label; the row's hint and error are shown once for all of them.
+func row(name, label string, parts ...field) field {
+	return field{Name: name, Label: label, Type: "row", Parts: parts}
+}
 
 func (f field) opts(o ...string) field {
 	f.Type = "select"

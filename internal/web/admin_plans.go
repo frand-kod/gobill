@@ -50,11 +50,10 @@ func (s *Server) planRefs(r *http.Request) (x planRefs, err error) {
 	return
 }
 
-func (f field) none() field { f.Options = append([]option{{"", "-"}}, f.Options...); return f }
-
 func planFields(v, e map[string]string, x planRefs, self int64) []field {
 	sel := func(name, label string) field { return text(name, label, v, e).as("select") }
-	bw, rt, pool, exp := sel("bandwidth_id", "Bandwidth Name"), sel("router_id", "Router").none(), sel("pool_id", "Pool Name").none(), sel("expired_plan_id", "Expired Plan").none()
+	bw, rt, pool, exp := sel("bandwidth_id", "Bandwidth Name").bind(), sel("router_id", "Router"), sel("pool_id", "Pool Name"), sel("expired_plan_id", "Expired Plan")
+	rt.Options, pool.Options, exp.Options = []option{{"", "Choose a router"}}, []option{{"", "No pool"}}, []option{{"", "Default: Isolation, or disconnect"}}
 	for _, b := range x.bw {
 		bw.Options = append(bw.Options, option{fmt.Sprint(b.ID), b.Name})
 	}
@@ -74,24 +73,33 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 		f.Checked = v[name] == "1"
 		return f
 	}
-	dev := text("device", "Device", v, e).opts("", "MikrotikHotspot", "MikrotikPppoe", "Dummy", "Radius").hint("Empty = by plan type")
-	const notBalance, hotspot = "type !== 'Balance'", "type === 'Hotspot'"
-	aud := text("audience", "Who can use this plan", v, e).as("select").hint("Admin only: hidden from the customer portal. Customers cannot buy, extend or auto-renew it; admins can still give it.")
+	dev := text("device", "Device", v, e).as("select").bind()
+	dev.Options = []option{{"Radius", "RADIUS (gobill)"}, {"", "MikroTik API (by plan type)"}, {"MikrotikHotspot", "MikroTik API (Hotspot driver)"},
+		{"MikrotikPppoe", "MikroTik API (PPPoE driver)"}, {"Dummy", "Dummy"}}
+	dev.Hint = "RADIUS (gobill) needs no router. MikroTik API and Dummy need one."
+	aud := text("audience", "Who can use this plan", v, e).as("select")
 	aud.Options = []option{{"public", "Public — sold on the customer portal"}, {"admin", "Admin only — only an admin can give it"}}
+	const notBalance, hotspot, pppoe, radius = "type !== 'Balance'", "type === 'Hotspot'", "type === 'PPPoE'", "device !== 'Radius'"
+	validity := row("validity", "Validity",
+		text("validity", "Plan Validity", v, e).as("number").bind(),
+		text("validity_unit", "Validity Unit", v, e).opts("Mins", "Hrs", "Days", "Months", "Period").bind().class("w-40 flex-none")).show(notBalance)
+	validity.Error = e["validity"]
 	out := section([]field{
-		text("name", "Plan Name", v, e).req(),
-		text("type", "Type", v, e).opts("Hotspot", "PPPoE", "Balance").bind(),
-		text("billing", "Plan Type", v, e).opts("prepaid", "postpaid").bind(),
-		check("enabled", "Enable"),
-		aud,
+		text("name", "Plan Name", v, e).req().wide(),
+		text("type", "Service", v, e).opts("Hotspot", "PPPoE", "Balance").bind(),
+		text("billing", "Billing (Prepaid/Postpaid)", v, e).opts("prepaid", "postpaid").bind(),
+		bw.show(notBalance),
+		row("availability", "Availability", check("enabled", "Enable"), aud).wide().
+			hint("Enable turns the plan on or off. Public: sold on the customer portal. Admin only: hidden from the portal, so customers cannot buy, extend or auto-renew it, but an admin can still give it."),
 	}, "Basic", "")
 	out = append(out, section([]field{
-		text("price", "Plan Price", v, e).as("number").req(),
-		text("validity", "Plan Validity", v, e).as("number").show(notBalance),
-		text("validity_unit", "Validity Unit", v, e).opts("Mins", "Hrs", "Days", "Months", "Period").show(notBalance),
+		text("price", "Plan Price", v, e).as("number").req().bind(),
+		validity,
 		text("billing_day", "Billing Day", v, e).as("number").hint("Postpaid: day of month, 1-31").show("billing === 'postpaid'"),
-		exp.show(notBalance),
 	}, "Price & validity", "")...)
+	out = append(out, section([]field{
+		exp.show(notBalance).hint("Default: the customer goes to the Isolation plan when isolation is enabled, otherwise they are disconnected. Pick a plan to move them there instead."),
+	}, "When the plan ends", notBalance)...)
 	out = append(out, section([]field{
 		check("limited", "Limited").bind(),
 		text("limit_type", "Limit Type", v, e).opts("", "Time_Limit", "Data_Limit", "Both_Limit").bind().show("limited"),
@@ -99,11 +107,38 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 		text("time_unit", "Time Unit", v, e).opts("Mins", "Hrs").show("limited && limit_type !== 'Data_Limit'"),
 		text("data_limit", "Data Limit", v, e).as("number").show("limited && limit_type !== 'Time_Limit'"),
 		text("data_unit", "Data Unit", v, e).opts("MB", "GB").show("limited && limit_type !== 'Time_Limit'"),
-		text("shared_users", "Shared Users", v, e).as("number"),
+		text("shared_users", "Device limit", v, e).as("number").bind().
+			hint("How many devices can be online with this plan at once. When the limit is full, Settings > Customers & Billing decides: kick the oldest device or reject the new login."),
 	}, "Limits", hotspot)...)
-	return append(out, section([]field{bw, rt, pool, dev,
+	out = append(out, section([]field{
+		dev.show(notBalance),
+		rt.show(radius),
+		pool.show(pppoe),
+	}, "Network & device", notBalance)...)
+	scripts := section([]field{
 		text("on_login", "On Login", v, e).as("textarea").hint("Script run on the router when the customer logs in"),
-		text("on_logout", "On Logout", v, e).as("textarea").hint("Script run on the router when the customer logs out")}, "Network & device", notBalance)...)
+		text("on_logout", "On Logout", v, e).as("textarea").hint("Script run on the router when the customer logs out")}, "Router scripts", notBalance)
+	for i := range scripts {
+		scripts[i].Fold = true
+	}
+	return append(out, scripts...)
+}
+
+// planHelp is the plan form's extras: the docs link, a live summary and a sticky save bar. The
+// summary is an Alpine expression over the bound fields; its word comes from the catalog.
+func (s *Server) planHelp() formHelp {
+	word := jsonStr(s.catalog.T(s.language(), "device"))
+	sum := `(type === 'Balance' ? [type] : [type,
+		bandwidth_id && $root.bandwidth_id.selectedOptions[0]?.text,
+		validity && validity_unit && validity + ' ' + $root.validity_unit.selectedOptions[0]?.text,
+		type === 'Hotspot' && shared_users && shared_users + ' ' + ` + word + `])
+		.concat('Rp' + (Number(price) || 0).toLocaleString('id-ID')).filter(Boolean).join(' · ')`
+	return formHelp{Docs: "/admin/docs/configuration", Summary: sum, Narrow: true, Sticky: true}
+}
+
+// renderPlanForm renders the plan form page with its extras.
+func (s *Server) renderPlanForm(w http.ResponseWriter, r *http.Request, status int, head, action string, fs []field) {
+	s.render(w, r, status, "form", Page{Title: head, Data: formPage{head, action, "/admin/plans", fs}, Help: s.planHelp()})
 }
 
 func planFormValues(p db.Plan) map[string]string {
@@ -174,7 +209,7 @@ func (s *Server) planNew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v["device"] = newPlanDevice(st["default_plan_device"], v["type"])
-	s.renderForm(w, r, 200, formPage{"Add Service Plan", "/admin/plans", "/admin/plans", planFields(v, nil, x, 0)})
+	s.renderPlanForm(w, r, 200, "Add Service Plan", "/admin/plans", planFields(v, nil, x, 0))
 }
 
 // newPlanDevice is the device the new plan form preselects. A Mikrotik driver that does not match
@@ -204,7 +239,7 @@ func (s *Server) planEdit(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "plan refs", err)
 		return
 	}
-	s.renderForm(w, r, 200, formPage{"Edit Service Plan", fmt.Sprint("/admin/plans/", id), "/admin/plans", planFields(planFormValues(p), nil, x, id)})
+	s.renderPlanForm(w, r, 200, "Edit Service Plan", fmt.Sprint("/admin/plans/", id), planFields(planFormValues(p), nil, x, id))
 }
 
 // optInt parses an optional positive integer; empty gives NULL.
@@ -370,7 +405,7 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 	if id != 0 {
 		action, head = fmt.Sprint("/admin/plans/", id), "Edit Service Plan"
 	}
-	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{head, action, "/admin/plans", planFields(v, e, x, id)})
+	s.renderPlanForm(w, r, http.StatusUnprocessableEntity, head, action, planFields(v, e, x, id))
 }
 
 // syncPlan tells the plan's router about a change. The DB change stays if the router fails;

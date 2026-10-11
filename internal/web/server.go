@@ -99,10 +99,11 @@ type Page struct {
 	Unread        int64        // portal inbox badge
 	Flash         string
 	Error         string
-	Warn          string // yellow alert: the action worked but needs a follow-up
-	Detail        string // raw technical text of Error, shown in a small <details>
-	ErrLink       string // href of an "Add balance" button next to Error
-	Intro         intro  // callout under the page title; filled by render when empty
+	Warn          string   // yellow alert: the action worked but needs a follow-up
+	Detail        string   // raw technical text of Error, shown in a small <details>
+	ErrLink       string   // href of an "Add balance" button next to Error
+	Intro         intro    // callout under the page title; filled by render when empty
+	Help          formHelp // form pages: docs link, summary line, narrow card, sticky save bar
 	Path          string
 	Tabs          []option          // settings sub-page menu
 	Brand         map[string]string // logo and login page text, filled by render
