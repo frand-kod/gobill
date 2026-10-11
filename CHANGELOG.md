@@ -8,6 +8,13 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Fitur
+
+- **Update satu perintah**: `sudo gobill update` mengambil rilis terbaru dari GitHub, memeriksa checksum `SHA256SUMS`, membuat backup database, memasang binary, lalu memeriksa `/health`. Jika pemeriksaan gagal, binary dan database dipulihkan otomatis. `--version vX.Y.Z` memasang rilis tertentu.
+- **Rollback**: `sudo gobill rollback` kembali ke binary sebelumnya, dan menawarkan pemulihan backup pra-update jika update sempat menjalankan migrasi.
+- **Pemeriksaan versi baru**: sekali sehari gobill memeriksa rilis terbaru di GitHub. SuperAdmin melihat lencana di header jika ada versi baru. Matikan dengan pengaturan `update_check`.
+- Rilis menyertakan file `SHA256SUMS`. Salinan `sha256sums.txt` tetap ada.
+
 ## [0.1.6] - 2026-10-11
 
 ### Fitur
