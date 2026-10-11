@@ -126,7 +126,7 @@ The switches `notify_customers`, `notify_otp`, and `expired_notify_minutes_befor
 Each plan (**Admin > Service Plan**) has an audience, set in the plan form under **Who can use this plan**:
 
 - **Public** (default): sold on the customer portal. A customer can buy it from balance or pay it through the gateway, send it to a friend, extend it after it expires, and it is renewed from balance when auto-renewal is on.
-- **Admin only**: for internal plans such as staff or technicians. It is hidden from the customer portal. A customer cannot buy, pay, send, extend or auto-renew it. An admin can still give it: recharge, bulk recharge, add a customer with a plan, and vouchers.
+- **Admin only**: for internal plans such as staff or technicians. It is hidden from the customer portal. A customer cannot buy, pay, send or extend it. An admin can still give it: recharge, bulk recharge, add a customer with a plan, and vouchers. Once given, it renews itself when the customer has auto-renew on: free for a Rp 0 plan, otherwise paid from the balance.
 
 A plan with price Rp 0 is never sold on the portal, whatever its audience. A coupon that brings a public plan to Rp 0 still works. An admin-only plan or a Rp 0 plan is not renewed from balance when it expires: it expires and is isolated like any other plan. Existing plans are public after the upgrade (migration 0017).
 

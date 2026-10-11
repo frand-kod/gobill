@@ -3,6 +3,7 @@ package billing
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -57,28 +58,39 @@ func TestAdminAndZeroPlansOnlyGivenByAdmin(t *testing.T) {
 	}
 }
 
-// An admin-audience plan expires and is not renewed from the balance, even with money on it.
-func TestAutoRenewSkipsAdminPlan(t *testing.T) {
+// An admin-audience plan keeps renewing itself when auto-renew is on: priced from the balance,
+// Rp 0 for free. A public Rp 0 plan does not (covered by the sellable guard).
+func TestAutoRenewKeepsAdminPlan(t *testing.T) {
 	ctx, e := context.Background(), setup(t)
-	staff, err := e.q.CreatePlan(ctx, db.CreatePlanParams{Name: "staff", Type: "PPPoE", Billing: "prepaid", Price: 10000, Validity: 1,
-		ValidityUnit: "Days", Enabled: 1, Audience: "admin", BandwidthID: e.day.BandwidthID, RouterID: e.day.RouterID})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := e.s.Recharge(ctx, e.cust.ID, staff.ID, "Admin - Cash", 0); err != nil {
-		t.Fatal(err)
-	}
-	e.q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: 50000, ID: e.cust.ID})
-	e.now = e.now.AddDate(0, 0, 2)
-	if err := e.s.ExpireDue(ctx); err != nil {
-		t.Fatal(err)
-	}
-	for _, x := range e.subs(t) {
-		if x.Status == "active" {
-			t.Fatal("admin plan renewed from balance")
+	for _, price := range []int64{10000, 0} {
+		staff, err := e.q.CreatePlan(ctx, db.CreatePlanParams{Name: fmt.Sprintf("staff%d", price), Type: "PPPoE", Billing: "prepaid", Price: price, Validity: 1,
+			ValidityUnit: "Days", Enabled: 1, Audience: "admin", BandwidthID: e.day.BandwidthID, RouterID: e.day.RouterID})
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-	if e.balance() != 50000 {
-		t.Fatalf("balance debited to %d", e.balance())
+		if err := e.s.Recharge(ctx, e.cust.ID, staff.ID, "Admin - Cash", 0); err != nil {
+			t.Fatal(err)
+		}
+		before := e.balance()
+		if price > 0 {
+			e.q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: 50000, ID: e.cust.ID})
+			before += 50000
+		}
+		e.now = e.now.AddDate(0, 0, 2)
+		if err := e.s.ExpireDue(ctx); err != nil {
+			t.Fatal(err)
+		}
+		active := false
+		for _, x := range e.subs(t) {
+			if x.Status == "active" && x.PlanID == staff.ID {
+				active = true
+			}
+		}
+		if !active {
+			t.Fatalf("admin plan (Rp %d) not renewed", price)
+		}
+		if got := e.balance(); got != before-price {
+			t.Fatalf("Rp %d plan: balance %d, want %d", price, got, before-price)
+		}
 	}
 }

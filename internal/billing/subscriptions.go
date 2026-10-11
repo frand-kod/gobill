@@ -390,9 +390,9 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 	var renewErr error
 	// an ended isolation is never renewed: the isolir plan is free and the isolation is over
 	isIsolir := plan.ID == isolir.PlanID(setting(ctx, s.Q, "isolir_plan_id"))
-	// an admin-audience or Rp 0 plan is never renewed from the balance: it expires like any other
-	if autoRenew && !isIsolir && SellablePlan(plan) && c.AutoRenewal == 1 && c.Status == "Active" && c.Balance >= WithTax(settingsMap(ctx, s.Q), plan.Price)+s.BillsTotal(ctx, c.ID) {
-		err := s.RechargeWithBalance(ctx, c.ID, plan.ID, 0)
+	// a public Rp 0 plan never renews; an admin-audience plan does (the admin gave it on purpose)
+	if autoRenew && !isIsolir && (SellablePlan(plan) || plan.Audience == "admin") && c.AutoRenewal == 1 && c.Status == "Active" && c.Balance >= WithTax(settingsMap(ctx, s.Q), plan.Price)+s.BillsTotal(ctx, c.ID) {
+		err := s.rechargeWithBalance(ctx, c.ID, plan.ID, 0, true)
 		if err == nil {
 			return nil
 		}

@@ -69,6 +69,12 @@ func (s *Service) RechargeZero(ctx context.Context, customerID, planID int64, me
 
 // RechargeWithBalance pays the plan price from the customer's balance, atomically.
 func (s *Service) RechargeWithBalance(ctx context.Context, customerID, planID, adminID int64) error {
+	return s.rechargeWithBalance(ctx, customerID, planID, adminID, false)
+}
+
+// rechargeWithBalance: autoRenew lets an admin-audience plan renew itself (the admin gave it, so
+// it keeps going); customers can never buy one, and a public Rp 0 plan never renews.
+func (s *Service) rechargeWithBalance(ctx context.Context, customerID, planID, adminID int64, autoRenew bool) error {
 	var p *pending
 	err := s.tx(ctx, func(q *db.Queries) error {
 		plan, err := q.GetPlan(ctx, planID)
@@ -78,7 +84,7 @@ func (s *Service) RechargeWithBalance(ctx context.Context, customerID, planID, a
 		if plan.Type == "Balance" {
 			return errors.New("cannot pay a balance top-up from balance")
 		}
-		if !SellablePlan(plan) {
+		if !SellablePlan(plan) && !(autoRenew && plan.Audience == "admin") {
 			return ErrAdminOnlyPlan
 		}
 		// The debit is what the transaction records (recharge decides the price), so it follows it.

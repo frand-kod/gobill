@@ -126,7 +126,7 @@ Sakelar `notify_customers`, `notify_otp`, dan `expired_notify_minutes_before` di
 Setiap paket (**Admin > Paket Layanan**) punya akses, diatur di form paket pada **Siapa yang bisa memakai paket ini**:
 
 - **Publik** (bawaan): dijual di portal pelanggan. Pelanggan bisa membelinya dari saldo atau membayarnya lewat gateway, mengirimkannya ke teman, memperpanjangnya setelah habis, dan paket ini diperpanjang dari saldo jika perpanjangan otomatis aktif.
-- **Khusus admin**: untuk paket internal seperti staf atau teknisi. Paket ini disembunyikan dari portal pelanggan. Pelanggan tidak bisa membeli, membayar, mengirim, memperpanjang, atau memperpanjang otomatis paket ini. Admin tetap bisa memberikannya: isi ulang, isi ulang massal, tambah pelanggan dengan paket, dan voucher.
+- **Khusus admin**: untuk paket internal seperti staf atau teknisi. Paket ini disembunyikan dari portal pelanggan. Pelanggan tidak bisa membeli, membayar, mengirim, atau memperpanjang paket ini. Admin tetap bisa memberikannya: isi ulang, isi ulang massal, tambah pelanggan dengan paket, dan voucher. Setelah diberikan, paket ini diperpanjang otomatis bila auto-renew pelanggan aktif: gratis untuk paket Rp 0, selain itu dibayar dari saldo.
 
 Paket dengan harga Rp 0 tidak pernah dijual di portal, apa pun aksesnya. Kupon yang membuat paket publik menjadi Rp 0 tetap berlaku. Paket khusus admin atau paket Rp 0 tidak diperpanjang dari saldo saat habis: paket itu habis dan diisolir seperti paket lain. Paket yang sudah ada menjadi publik setelah pembaruan (migrasi 0017).
 
