@@ -2155,5 +2155,7 @@
     "required": "wajib",
     "off (legacy)": "mati (NAS lama)",
     "MA: seen": "MA: sudah terlihat",
-    "MA: not seen yet": "MA: belum terlihat"
+    "MA: not seen yet": "MA: belum terlihat",
+    "Bad secret": "Secret salah",
+    "Secret in gobill NAS does not match /radius on the router": "Secret di gobill NAS tidak sama dengan /radius di router"
 }

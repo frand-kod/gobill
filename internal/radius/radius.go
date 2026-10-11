@@ -50,10 +50,11 @@ type Server struct {
 	// Kick drops one session on its NAS when shared_users_policy is kick_oldest. nil = Disconnect-Request (CoA).
 	Kick func(ctx context.Context, sess db.RadiusSession) error
 
-	userFails   failLimiter // failed password checks per username
-	dups        dupCache    // answered requests, for retransmits
-	unknownSeen sync.Map    // ip string -> time.Time of last unknown-NAS warning
-	maWarned    sync.Map    // ip string -> time.Time of last Message-Authenticator warning
+	userFails       failLimiter // failed password checks per username
+	dups            dupCache    // answered requests, for retransmits
+	unknownSeen     sync.Map    // ip string -> time.Time of last unknown-NAS warning
+	maWarned        sync.Map    // ip string -> time.Time of last Message-Authenticator warning
+	badSecretWarned sync.Map    // ip string -> time.Time of last bad-secret warning
 }
 
 func (s *Server) now() time.Time {
@@ -138,7 +139,7 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := ps.ListenAndServe(); err != nil && !errors.Is(err, radius.ErrServerShutdown) {
+			if err := s.serve(ps); err != nil && !errors.Is(err, radius.ErrServerShutdown) {
 				errs <- err
 			}
 		}()
@@ -512,15 +513,22 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 	ip := addrIP(r.RemoteAddr)
 	n, known, _ := s.nasByIP(r.Context(), ip) // a lookup error counts as unknown, as before
 	ma := checkMA(r.Packet)
-	if ma == maInvalid || (ma == maMissing && maRequired(n.RequireMessageAuth, n.MaSeen)) {
+	switch {
+	case ma == maInvalid && known:
+		s.badSecret(ip, n.Name) // with the wrong secret the Message-Authenticator never verifies
+		return
+	case ma == maInvalid || (ma == maMissing && maRequired(n.RequireMessageAuth, n.MaSeen)):
 		if s.allowLog(&s.maWarned, ip.String(), time.Minute) {
 			slog.Warn("radius: dropping Access-Request, Message-Authenticator missing or invalid", "nas", ip.String())
 		}
 		return
 	}
-	if ma == maValid && known && n.MaSeen == 0 { // NAS speaks Message-Authenticator: auto mode requires it from now on
-		if err := s.Q.MarkNASMASeen(r.Context(), n.ID); err != nil {
-			slog.Error("radius: mark Message-Authenticator seen", "nas", ip.String(), "err", err)
+	if ma == maValid && known {
+		s.secretOK(ip)
+		if n.MaSeen == 0 { // NAS speaks Message-Authenticator: auto mode requires it from now on
+			if err := s.Q.MarkNASMASeen(r.Context(), n.ID); err != nil {
+				slog.Error("radius: mark Message-Authenticator seen", "nas", ip.String(), "err", err)
+			}
 		}
 	}
 	if known { // unknown sources must not create metric series
