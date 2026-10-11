@@ -1,6 +1,6 @@
 # Paritas perilaku bisnis: PHPNuxBill vs gobill
 
-Audit baca-saja (tanpa mengubah kode), dibuat 2026-10-10 dari `main`. **Status v0.1.4:** temuan P1, C2, dan IM1 sudah dikerjakan (ditandai di bawah). Baris lain belum diverifikasi ulang, kecuali disebut. Pertanyaannya: apa yang terjadi saat admin, pelanggan, cron, atau RADIUS memicu aksi X, dan di mana hasilnya beda dari PHP. Beda UI/label tidak dibahas (lihat `paritas-ui.md`). Beda yang sudah tercatat di progres "disengaja" tidak diulang.
+Audit baca-saja (tanpa mengubah kode), dibuat 2026-10-10 dari `main`. **Status v0.1.5:** temuan P1, C2, IM1, dan R7 sudah dikerjakan (ditandai di bawah). Baris lain belum diverifikasi ulang, kecuali disebut. Pertanyaannya: apa yang terjadi saat admin, pelanggan, cron, atau RADIUS memicu aksi X, dan di mana hasilnya beda dari PHP. Beda UI/label tidak dibahas (lihat `paritas-ui.md`). Beda yang sudah tercatat di progres "disengaja" tidak diulang.
 
 **Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
 
@@ -31,7 +31,7 @@ Sudah diperiksa dan **sama** (tidak ada temuan): hitung expiry Days/Hrs/Mins/Mon
 | R4 | Sedang | `devices/RadiusRest.php:31-41`: `remove_customer` (saat expired) nol-kan `acctInput/OutputOctets` untuk plan Data/Both limit; extend tidak menyentuh usage | `radius/radius.go:277` `SumRadiusUsage(started_at >= sub.StartedAt)`; `ExtendSubscription`, `EditSubscription`, `ExtendExpired` (portal) tidak mengubah `started_at` | Pelanggan plan berkuota data yang kuotanya habis lalu diperpanjang admin atau mandiri tetap kena "You have exceeded your data limit" (usage periode lama ikut dihitung). Recharge normal aman (`started_at = now`) | Saat reaktivasi expired -> aktif set `started_at = now` |
 | R5 | Sedang | `Package.php:240,356` Telegram "System Error. When activate Package. You need to sync manually"; `:335,458` Telegram `#recharge`/`#buy`; `customers.php:268` Telegram deactivate | `billing/service.go:317` `apply()` hanya `slog.Error` bila router gagal; Telegram admin hanya untuk transfer, extend, registrasi, router, renewal gagal | Operator tidak tahu bila paket sudah dibayar tetapi gagal diaktifkan di router (plan Mikrotik langsung). Tidak ada notif admin per pembelian/deactivate | Kirim Telegram saat `activate` gagal (paling penting); opsional `#buy`, `#deactivate` |
 | R6 | Rendah | `plan.php:37`, `services.php:19`, `pool.php:71`, `customers.php:274`: sync massal (semua pelanggan aktif, semua profil, semua pool) | tidak ada (hanya sync per pelanggan/langganan dan saat rencana/pool diubah) | Setelah router diganti/reset tidak ada tombol "sync semua". Tidak berlaku untuk plan `Radius` | Tombol sync massal (loop `SyncSubscription`/`AddPlan`) |
-| R7 | Sedang | `plan.php:126,155,216`, `order.php:238`: pajak (`enable_tax`, `tax_rate`) menambah harga dan potongan saldo | tidak ada (`UI-PARITY`: Ditunda); setting ikut terimpor tetapi diabaikan | Bila operator mengaktifkan PPN, pelanggan ditagih/dipotong lebih kecil dari PHP tanpa peringatan | Importer memperingatkan bila `enable_tax=yes`, atau implementasikan di `recharge()` |
+| R7 | Sedang | `plan.php:126,155,216`, `order.php:238`: pajak (`enable_tax`, `tax_rate`) menambah harga dan potongan saldo | `billing/price.go` `WithTax` dipakai di `quote` dan `OrderPrice` (harga, potongan saldo) dan cek auto-renew (`billing/subscriptions.go`). Belum ada field di Pengaturan; nilai lewat impor atau tabel `settings` | **[Selesai v0.1.5]** Pajak ikut dihitung. Selisih yang tersisa: tidak ada layar untuk mengatur tarif |
 | R8 | Rendah | `Package.php:198`, `cron.php:102`: `extend_expiry` dan `enable_balance` harus `== 'yes'` | `billing/service.go:243,371`: `!= "no"` (kosong dianggap aktif) | Hanya beda bila key tidak ada di DB (instalasi baru): auto-renew bisa menyala padahal PHP mati | Samakan dengan `== "yes"` |
 
 ## Voucher & kupon
@@ -101,7 +101,7 @@ Pendapatan dashboard dan baris transfer di laporan: lihat S1.
 5. **C1** `[[price]]`/`[[payment_link]]` tidak terisi di beberapa template.
 6. **R5** Tidak ada Telegram saat aktivasi router gagal setelah bayar.
 7. **D1** Time_Limit tidak kumulatif di RADIUS bawaan.
-8. **P2/P3/R3/R7** Edit username, recharge plan nonaktif oleh Admin, harga Period setelah expired, pajak.
+8. **P2/P3/R3** Edit username, recharge plan nonaktif oleh Admin, harga Period setelah expired.
 
 Hitungan temuan saat audit: **Tinggi 4** (R1, P1, S1, IM1), **Sedang 10** (P2, P3, R2, R3, R4, R5, R7, C1, C2, D1), **Rendah 17** (P4, P5, P6, R6, R8, V1, V2, S2, S3, T1, T2, T3, C3, C4, D2, L1, IM2).
 

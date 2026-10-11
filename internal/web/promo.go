@@ -44,9 +44,10 @@ type promoView struct {
 // portalPromo is the dashboard card: the first live portal promo, the rest behind "Lainnya".
 // Key is the localStorage key; it changes with the promo ids and updated_at, so a change shows the card again.
 type portalPromo struct {
-	Key   string
-	First promoView
-	More  []promoView
+	Key                   string
+	First                 promoView
+	More                  []promoView
+	MoreLabel, CloseLabel string // translated here: the card template has no translator
 }
 
 func promoOf(p db.Promo) promoView {
@@ -109,7 +110,7 @@ func (s *Server) promoPortal(ctx context.Context) (*portalPromo, error) {
 		return nil, err
 	}
 	h := sha256.New()
-	pp := &portalPromo{First: promoOf(rows[0])}
+	pp := &portalPromo{First: promoOf(rows[0]), MoreLabel: s.catalog.T(s.language(), "More"), CloseLabel: s.catalog.T(s.language(), "Close")}
 	for i, p := range rows {
 		fmt.Fprintf(h, "%d:%d;", p.ID, p.UpdatedAt)
 		if i > 0 {

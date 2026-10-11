@@ -3,12 +3,13 @@ package web
 // Dashboard widgets: setup checklist and expiring-customer rows.
 
 import (
-	"net/url"
-
 	"context"
-	"github.com/frand-kod/gobill/internal/db"
+	"net/url"
 	"strings"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/notify"
 )
 
 // dashWidgets holds the cards below the dashboard tiles and charts (old PHP widgets W4, W5, W6, W7, W8/W9).
@@ -29,21 +30,45 @@ type dashWidgets struct {
 type setupStep struct {
 	Label, Href string
 	Done        bool
+	Optional    bool // shown, but not needed to hide the checklist
 }
 
 // setupSteps ticks the first-run order: router or NAS, bandwidth, plan, then a customer or voucher.
-func setupSteps(c db.CountSetupRow) (steps []setupStep, all bool) {
+// SuperAdmin also gets WhatsApp and QRIS (required), then Tripay and Isolir (optional): those tabs are SuperAdmin only.
+func setupSteps(c db.CountSetupRow, st map[string]string, superAdmin bool) (steps []setupStep, all bool) {
 	steps = []setupStep{
-		{"Add a router (or a NAS for RADIUS)", "/admin/routers/new", c.Routers+c.Nas > 0},
-		{"Set a speed (Bandwidth)", "/admin/bandwidth/new", c.Bandwidths > 0},
-		{"Create a plan", "/admin/plans/new", c.Plans > 0},
-		{"Add a customer or make vouchers", "/admin/customers/new", c.Customers+c.Vouchers > 0},
+		{"Add a router (or a NAS for RADIUS)", "/admin/routers/new", c.Routers+c.Nas > 0, false},
+		{"Set a speed (Bandwidth)", "/admin/bandwidth/new", c.Bandwidths > 0, false},
+		{"Create a plan", "/admin/plans/new", c.Plans > 0, false},
+		{"Add a customer or make vouchers", "/admin/customers/new", c.Customers+c.Vouchers > 0, false},
+	}
+	if superAdmin {
+		steps = append(steps,
+			setupStep{"Connect WhatsApp (GOWA or message gateway URL)", "/admin/settings/integrations#f-alt_wga_server_url", notify.WAConfigured(st), false},
+			setupStep{"Upload the static QRIS", "/admin/settings/payment#f-qris_payload", st["qris_payload"] != "", false},
+			setupStep{"Optional: Tripay payment gateway", "/admin/settings/payment#f-payment_gateway", st["payment_gateway"] == "tripay", true},
+			setupStep{"Optional: turn on Isolir and set up the router", "/admin/settings/isolir#f-isolir_enabled", st["isolir_enabled"] == "yes", true},
+		)
 	}
 	all = true
 	for _, s := range steps {
-		all = all && s.Done
+		all = all && (s.Done || s.Optional)
 	}
 	return
+}
+
+// setupChecklist reads the counts and settings the quick-start checklist ticks against.
+func (s *Server) setupChecklist(ctx context.Context, superAdmin bool) ([]setupStep, bool, error) {
+	cnt, err := s.queries.CountSetup(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	st, err := s.loadSettings(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	steps, all := setupSteps(cnt, st, superAdmin)
+	return steps, all, nil
 }
 
 // waLink is the wa.me chat link for a phone number; numbers starting with 0 get the country code.
@@ -71,6 +96,7 @@ type expiringRow struct {
 	Expires    string
 	Phone      string
 	WA         string // wa.me link, "" when the phone is missing or too short
+	Today      bool   // ends before midnight tonight (app time zone)
 }
 
 // widgetData gathers the dashboard cards; active and expired are the subscription counts already on the page.
@@ -84,8 +110,13 @@ func (s *Server) widgetData(ctx context.Context, now time.Time, active, expired 
 	if err != nil {
 		return
 	}
+	loc := s.location()
+	today := now.In(loc)
+	tomorrow := time.Date(today.Year(), today.Month(), today.Day()+1, 0, 0, 0, 0, loc).Unix()
 	for _, r := range soon {
-		w.Expiring = append(w.Expiring, s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.ExpiresAt))
+		x := s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.ExpiresAt)
+		x.Today = r.ExpiresAt < tomorrow
+		w.Expiring = append(w.Expiring, x)
 	}
 	ended, err := s.queries.ListRecentlyExpiredSubscriptions(ctx, db.ListRecentlyExpiredSubscriptionsParams{
 		Since: now.AddDate(0, 0, -3).Unix(), Until: now.Unix(), PageLimit: 20})
@@ -95,11 +126,6 @@ func (s *Server) widgetData(ctx context.Context, now time.Time, active, expired 
 	for _, r := range ended {
 		w.Recent = append(w.Recent, s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.ExpiresAt))
 	}
-	cnt, err := s.queries.CountSetup(ctx)
-	if err != nil {
-		return
-	}
-	w.Setup, w.SetupDone = setupSteps(cnt)
 	if w.Vouchers, err = s.queries.VoucherStockByPlan(ctx); err != nil {
 		return
 	}
