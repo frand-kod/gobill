@@ -388,7 +388,11 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 		if (lt == "Time_Limit" || lt == "Both_Limit") && pl.TimeLimit.Valid {
 			t := LimitSeconds(pl.TimeLimit.Int64, pl.TimeUnit.String)
 			// Max-All-Session: the limit is the total online time since activation, not per login.
-			used, _ := s.Q.SumRadiusSessionTime(ctx, db.SumRadiusSessionTimeParams{Username: user, StartedAt: pl.StartedAt})
+			used, err := s.Q.SumRadiusSessionTime(ctx, db.SumRadiusSessionTimeParams{Username: user, StartedAt: pl.StartedAt})
+			if err != nil { // fail closed, as for the data limit
+				slog.Error("radius: sum time usage", "user", user, "err", err)
+				return Decision{Reject: "Login invalid......"}
+			}
 			if t -= used; t <= 0 {
 				return Decision{Reject: "You have exceeded your time limit."}
 			}
@@ -648,10 +652,11 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 		// NAS rebooted: its open sessions are gone.
 		return s.Q.CloseRadiusSessionsByNAS(ctx, db.CloseRadiusSessionsByNASParams{StoppedAt: sql.NullInt64{Int64: now, Valid: true}, NasIp: a.NAS})
 	case rfc2866.AcctStatusType_Value_Start, rfc2866.AcctStatusType_Value_InterimUpdate, rfc2866.AcctStatusType_Value_Stop:
-		// gigawords << 32 goes negative from 2^31 GB up, and a REST value can be negative: refuse,
-		// a negative counter would corrupt the usage sums
+		// gigawords << 32 goes negative from 2^31 GB up, and a REST value can be negative. Clamp, do not
+		// refuse: a dropped Stop would leave the session open. MAX() in the upsert keeps the old value.
 		if a.InOctets < 0 || a.OutOctets < 0 {
-			return errors.New("radius: negative octet counter")
+			slog.Warn("radius: negative octet counter clamped to 0", "user", a.User, "nas", a.NAS)
+			a.InOctets, a.OutOctets = max(a.InOctets, 0), max(a.OutOctets, 0)
 		}
 		arg := db.UpsertRadiusSessionParams{SessionID: a.SessionID, Username: a.User, NasIp: a.NAS, NasIpAttr: a.NASIPAttr, NasIdentifier: a.NASID, FramedIp: a.FramedIP,
 			Mac: a.MAC, StartedAt: now - a.SessionTime, UpdatedAt: now, InputOctets: a.InOctets, OutputOctets: a.OutOctets}

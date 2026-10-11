@@ -466,9 +466,28 @@ func TestDataLimitGigawords(t *testing.T) {
 		t.Fatal("8 GiB of 5 GiB must reject")
 	}
 	big := uint32(1 << 31) // gigawords << 32 overflows int64 (a runtime shift, so no compile error)
-	// a counter whose gigawords shift past int64 is refused, not stored
-	if err := e.s.Account(context.Background(), AcctRequest{Type: rfc2866.AcctStatusType_Value_InterimUpdate, SessionID: "s1", User: "alice",
-		NAS: "10.0.0.1", InOctets: int64(big) << 32}); err == nil {
-		t.Fatal("negative octet counter must be refused")
+	// a Stop whose gigawords shift past int64 is clamped: it still closes the session and keeps the usage
+	if err := e.s.Account(context.Background(), AcctRequest{Type: rfc2866.AcctStatusType_Value_Stop, SessionID: "s1", User: "alice",
+		NAS: "10.0.0.1", InOctets: int64(big) << 32}); err != nil {
+		t.Fatal(err)
+	}
+	var in int64
+	var stopped sql.NullInt64
+	e.conn.QueryRow("SELECT input_octets, stopped_at FROM radius_sessions WHERE session_id='s1'").Scan(&in, &stopped)
+	if in != 1<<32 || !stopped.Valid {
+		t.Fatalf("after clamped Stop: input %d stopped %v", in, stopped.Valid)
+	}
+}
+
+func TestTimeLimitQueryErrorRejects(t *testing.T) {
+	e := setup(t)
+	if _, err := e.conn.Exec("UPDATE plans SET limited=1, limit_type='Time_Limit', time_limit=1, time_unit='Hrs'"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.conn.Exec("DROP TABLE radius_sessions"); err != nil {
+		t.Fatal(err)
+	}
+	if r := e.auth(t, pap("alice", "pw")); r.Code != radius.CodeAccessReject {
+		t.Fatalf("time usage query failed but code %v: time limit must fail closed", r.Code)
 	}
 }
