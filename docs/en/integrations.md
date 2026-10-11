@@ -14,7 +14,7 @@ These switches are in **Settings > Notifications**, at the top, under "Global sw
 |---|---|
 | `notify_customers` | `no` stops all messages to customers. This includes reminders, expiry notices, invoices and QRIS links, welcome messages, balance messages, and manual messages. Summaries and operator notifications keep running. |
 | `notify_otp` | `no` turns off OTP codes for registration, forgotten password, and contact change. The feature shows that the code is not available. |
-| `expired_notify_minutes_before` | Sends the expiry message N minutes before the plan ends, in the range 0 to 1440. Default 0, which means when the plan ends. There is still one message per period. The plan still ends on time. A new extension or recharge sends a message again in its new period. |
+| `expired_notify_minutes_before` | Sends the expiry message N minutes before the plan ends, in the range 0 to 1440. Default 10. Set 0 to send it when the plan ends. There is still one message per period. The plan still ends on time. A new extension or recharge sends a message again in its new period. |
 
 `notify_customers` and `notify_otp` default to `yes` if never set.
 

@@ -86,12 +86,13 @@ func TestExpiredNoticeRenewNotifiesAgain(t *testing.T) {
 	}
 }
 
-// 0 (the default): the notice goes out at expiry only, and the period is marked notified.
+// 0: the notice goes out at expiry only, and the period is marked notified.
 func TestExpiredNoticeAtExpiryWhenZero(t *testing.T) {
 	ctx, e := context.Background(), setup(t)
 	e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0)
 	e.conn.Exec(`UPDATE customers SET phone = "08123456789"`)
 	got := withNotify(t, e)
+	setExpiredMinutes(t, e, "0")
 	exp := time.Unix(e.sub(t).ExpiresAt, 0)
 
 	e.now = exp.Add(-4 * time.Minute)
@@ -135,5 +136,25 @@ func TestExpiredNoticePendingStartNotEarly(t *testing.T) {
 	}
 	if subs[0].ExpiredNotifiedAt != (sql.NullInt64{}) {
 		t.Fatalf("pending row claimed: %+v", subs[0])
+	}
+}
+
+// Never set: the notice goes out ExpiredNoticeDefault (10) minutes before the end.
+func TestExpiredNoticeDefaultWhenUnset(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0)
+	e.conn.Exec(`UPDATE customers SET phone = "08123456789"`)
+	got := withNotify(t, e)
+	exp := time.Unix(e.sub(t).ExpiresAt, 0)
+
+	e.now = exp.Add(-11 * time.Minute)
+	e.s.ExpireDue(ctx)
+	if reqs := drain(got); count(reqs, "/wa") != 0 {
+		t.Fatalf("unset: too early at 11 min: %v", reqs)
+	}
+	e.now = exp.Add(-9 * time.Minute)
+	e.s.ExpireDue(ctx)
+	if reqs := drain(got); count(reqs, "/wa") != 1 {
+		t.Fatalf("unset: no notice at 9 min before end: %v", reqs)
 	}
 }

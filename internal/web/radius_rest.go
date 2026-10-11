@@ -59,7 +59,7 @@ func rejectBody(msg string) kv {
 	switch {
 	case msg == "Username or Password is wrong":
 		return kv{"Reply-Message": msg}
-	case msg == "You have exceeded your data limit." || strings.HasPrefix(msg, "You are already logged in"):
+	case msg == "You have exceeded your data limit." || msg == radius.SharedUsersFullMsg:
 		return kv{"control:Auth-Type": "Accept", "Reply-Message": msg}
 	}
 	return kv{"control:Auth-Type": "Reject", "reply:Reply-Message": msg}

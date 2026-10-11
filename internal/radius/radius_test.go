@@ -33,6 +33,7 @@ type env struct {
 	q       *db.Queries
 	now     time.Time
 	trusted bool
+	kicks   chan string // session ids passed to Server.Kick
 }
 
 // setup: NAS 10.0.0.1, customer "alice" (password "pw") with an active Hotspot sub expiring in 1h.
@@ -49,8 +50,9 @@ func setup(t *testing.T) *env {
 	}
 	q := db.New(conn)
 	key := make([]byte, 32)
-	e := &env{q: q, conn: conn, now: time.Unix(1_000_000, 0), trusted: true}
-	e.s = &Server{Q: q, Key: key, Now: func() time.Time { return e.now }, Trusted: func() bool { return e.trusted }}
+	e := &env{q: q, conn: conn, now: time.Unix(1_000_000, 0), trusted: true, kicks: make(chan string, 8)}
+	e.s = &Server{Q: q, Key: key, Now: func() time.Time { return e.now }, Trusted: func() bool { return e.trusted },
+		Kick: func(_ context.Context, sess db.RadiusSession) error { e.kicks <- sess.SessionID; return nil }}
 
 	sealed, _ := secret.Seal(key, nasSecret)
 	if _, err := q.CreateNAS(ctx, db.CreateNASParams{Name: "n1", Ip: "10.0.0.0/24", SecretEnc: sealed}); err != nil {
@@ -243,9 +245,16 @@ func (e *env) setShared(t *testing.T, n int) {
 	}
 }
 
+func (e *env) setPolicy(t *testing.T, v string) {
+	if err := e.q.UpsertSetting(context.Background(), db.UpsertSettingParams{Key: "shared_users_policy", Value: v}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestSharedUsers(t *testing.T) {
 	e := setup(t)
 	e.setShared(t, 1)
+	e.setPolicy(t, "reject")
 	e.sendAcct(t, rfc2866.AcctStatusType_Value_Start, "s1", "172.16.0.5", "AA:AA")
 	if r := e.authFrom(t, "172.16.0.5", "AA:AA"); r.Code != radius.CodeAccessAccept {
 		t.Fatal("reconnect from same IP must be accepted")
@@ -262,6 +271,66 @@ func TestSharedUsers(t *testing.T) {
 	}
 	if n, _ := e.openSessions(); n != 1 {
 		t.Fatalf("stale row must not be deleted/closed, open=%d", n)
+	}
+}
+
+// Default policy: the limit is full, so the oldest session of the user is dropped and the new login accepted.
+func TestSharedUsersKickOldest(t *testing.T) {
+	e := setup(t)
+	e.setShared(t, 1)
+	e.sendAcct(t, rfc2866.AcctStatusType_Value_Start, "s1", "172.16.0.5", "AA:AA")
+	if r := e.authFrom(t, "172.16.0.9", "BB:BB"); r.Code != radius.CodeAccessAccept {
+		t.Fatal("new device must be accepted by kick_oldest")
+	}
+	if got := <-e.kicks; got != "s1" {
+		t.Fatalf("kicked %q, want s1", got)
+	}
+	select {
+	case got := <-e.kicks:
+		t.Fatalf("kicked twice: %q", got)
+	case <-time.After(50 * time.Millisecond):
+	}
+	if n, _ := e.openSessions(); n != 0 {
+		t.Fatalf("replaced session must be stopped, open=%d", n)
+	}
+}
+
+// limit 2 with 3 open sessions: the 2 oldest go, count becomes limit-1 = 1, the newest stays.
+func TestSharedUsersKickOldestTwo(t *testing.T) {
+	e := setup(t)
+	e.setShared(t, 2)
+	for _, sid := range []string{"s1", "s2", "s3"} {
+		e.now = e.now.Add(time.Minute)
+		e.sendAcct(t, rfc2866.AcctStatusType_Value_Start, sid, "172.16.0."+sid[1:], "AA:"+sid[1:])
+	}
+	if r := e.authFrom(t, "172.16.0.20", "CC:CC"); r.Code != radius.CodeAccessAccept {
+		t.Fatal("third device must be accepted by kick_oldest")
+	}
+	got := map[string]bool{<-e.kicks: true, <-e.kicks: true}
+	if !got["s1"] || !got["s2"] {
+		t.Fatalf("kicked %v, want s1 and s2", got)
+	}
+	if n, _ := e.openSessions(); n != 1 { // only s3 stays open: the new login has no accounting yet
+		t.Fatalf("open %d, want 1", n)
+	}
+}
+
+func TestSharedUsersRejectMessage(t *testing.T) {
+	e := setup(t)
+	e.setShared(t, 1)
+	e.setPolicy(t, "reject")
+	e.sendAcct(t, rfc2866.AcctStatusType_Value_Start, "s1", "172.16.0.5", "AA:AA")
+	r := e.authFrom(t, "172.16.0.9", "BB:BB")
+	if r.Code != radius.CodeAccessReject || rfc2865.ReplyMessage_GetString(r) != SharedUsersFullMsg {
+		t.Fatalf("reject policy: code %v, msg %q", r.Code, rfc2865.ReplyMessage_GetString(r))
+	}
+	select {
+	case got := <-e.kicks:
+		t.Fatalf("reject policy must not kick, kicked %q", got)
+	default:
+	}
+	if n, _ := e.openSessions(); n != 1 {
+		t.Fatalf("reject policy must keep the open session, open=%d", n)
 	}
 }
 

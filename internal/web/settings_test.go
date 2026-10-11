@@ -490,3 +490,26 @@ func TestSettingsQRISPreview(t *testing.T) {
 		t.Fatal("no QRIS preview")
 	}
 }
+
+// The early expired notice field shows 10 when never set, and an explicit 0 stays 0.
+func TestSettingsExpiredNoticeDefaultShown(t *testing.T) {
+	_, h, q := settingsSetup(t)
+	c := login(t, h, "alice")
+	shown := func() string {
+		body := do(h, "GET", "/admin/settings/notifications", nil, c).Body.String()
+		i := strings.Index(body, `name="expired_notify_minutes_before"`)
+		if i < 0 {
+			t.Fatal("field not rendered")
+		}
+		return body[i : i+strings.Index(body[i:], ">")]
+	}
+	if tag := shown(); !strings.Contains(tag, `value="10"`) {
+		t.Fatalf("unset must show 10: %s", tag)
+	}
+	if err := q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "expired_notify_minutes_before", Value: "0"}); err != nil {
+		t.Fatal(err)
+	}
+	if tag := shown(); !strings.Contains(tag, `value="0"`) {
+		t.Fatalf("explicit 0 must show 0: %s", tag)
+	}
+}

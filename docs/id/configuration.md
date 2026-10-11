@@ -94,6 +94,7 @@ Jika Cloudflare ada di depan Nginx, atur `set_real_ip_from` dengan rentang IP Cl
 | `disable_registration`, `disable_voucher`, `allow_phone_otp`, `phone_otp_type`, `customer_password_min` | Pembatasan dan metode di portal pelanggan. `phone_otp_type` memilih `sms` atau `wa`. `customer_password_min` adalah panjang minimal kata sandi pelanggan, 4 sampai 64. |
 | `voucher_format` | Format kode voucher bawaan: `up`, `low`, `rand`, atau `numbers`. |
 | `hs_auth_method` | Metode auth hotspot yang ditampilkan di **Aneka ragam**: `pap` atau `chap`. Pengaturan ini tidak mengubah server RADIUS bawaan. Server bawaan menerima PAP, CHAP, dan MS-CHAPv2. |
+| `shared_users_policy` | Apa yang dilakukan paket hotspot saat batas perangkat (`shared_users`) penuh dan perangkat baru login. `kick_oldest` (bawaan, juga saat belum pernah diatur) mengeluarkan sesi online tertua pelanggan dari NAS-nya lalu menerima login baru. `reject` menolak login baru dengan pesan "Akun sedang dipakai perangkat lain. Coba lagi beberapa menit lagi atau hubungi admin.". Ponsel dengan MAC acak tersambung ulang sebagai perangkat baru, jadi `kick_oldest` mencegah pelanggan dengan satu perangkat terkunci. |
 | `check_customer_online` | `yes` menampilkan di halaman pelanggan apakah pelanggan sedang terhubung lewat device paket. |
 
 ### Start on first login (`start_on_first_login`)

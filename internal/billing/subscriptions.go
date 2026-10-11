@@ -268,11 +268,23 @@ func billingDay(c db.Customer, p db.Plan) int {
 	return 0
 }
 
+// ExpiredNoticeDefault is expired_notify_minutes_before when it was never set. An explicit 0 turns the early notice off.
+const ExpiredNoticeDefault = 10
+
+// expiredNoticeMinutes parses expired_notify_minutes_before: unset or empty = ExpiredNoticeDefault.
+func expiredNoticeMinutes(v string) int {
+	if v == "" {
+		return ExpiredNoticeDefault
+	}
+	n, _ := strconv.Atoi(v)
+	return n
+}
+
 // ExpireDue expires due subscriptions, takes them off the router and auto-renews from balance.
 // Like cron.php, the router is touched first: if it fails the row stays active and is retried
 // next run. ExpireSubscription is the idempotent claim (0 rows = already expired).
 func (s *Service) ExpireDue(ctx context.Context) error {
-	if mins, _ := strconv.Atoi(setting(ctx, s.Q, "expired_notify_minutes_before")); mins > 0 {
+	if mins := expiredNoticeMinutes(setting(ctx, s.Q, "expired_notify_minutes_before")); mins > 0 {
 		if err := s.noticeBeforeExpiry(ctx, mins); err != nil {
 			slog.Error("early expired notice", "err", err)
 		}
