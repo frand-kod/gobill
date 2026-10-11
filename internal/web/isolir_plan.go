@@ -39,7 +39,7 @@ func (s *Server) isolirSpeed(ctx context.Context) (name, down, up string) {
 		return "", down, up
 	}
 	if b, err := s.queries.GetBandwidth(ctx, bwID); err == nil {
-		down, up = rateText(b.RateDown, b.RateDownUnit), rateText(b.RateUp, b.RateUpUnit)
+		down, up = rateSetting(b.RateDown, b.RateDownUnit), rateSetting(b.RateUp, b.RateUpUnit)
 	}
 	return p.Name, down, up
 }
@@ -62,8 +62,8 @@ func parseRate(x string) (n int64, unit string, ok bool) {
 	return n, "Kbps", true
 }
 
-// rateText writes a bandwidth rate back the way the settings take it: "64k" or "2M".
-func rateText(n int64, unit string) string {
+// rateSetting writes a bandwidth rate back the way the settings take it: "64k" or "2M".
+func rateSetting(n int64, unit string) string {
 	if unit == "Mbps" {
 		return fmt.Sprint(n, "M")
 	}

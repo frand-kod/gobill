@@ -34,9 +34,9 @@ func subQuery(r *http.Request) db.FilterSubscriptionsParams {
 }
 
 func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
-	_, page, limit, off := paging(r)
+	_, pg := paging(r)
 	p := subQuery(r)
-	p.PageLimit, p.PageOffset = limit, off
+	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
 	g := r.URL.Query().Get
 	rts, err := s.routerNames(r)
 	if err != nil {
@@ -78,7 +78,12 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Username, x.PlanName, x.Type, s.ts(x.StartedAt), s.subExpiry(x.PendingStart, x.ExpiresAt), x.Method, x.RouterName, x.Status}})
 	}
 	lp.Links = []option{{"/admin/subscriptions/export?" + lp.query().Encode(), "Export CSV"}}
-	lp.finish(page)
+	total, err := s.queries.CountFilteredSubscriptions(r.Context(), db.CountFilteredSubscriptionsParams{Q: p.Q, Status: p.Status, Type: p.Type, RouterID: p.RouterID, PlanID: p.PlanID})
+	if err != nil {
+		s.fail(w, "count subscriptions", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }
 

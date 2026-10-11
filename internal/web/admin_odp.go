@@ -36,8 +36,8 @@ func odpFields(v, e map[string]string, routers []db.Router) []field {
 }
 
 func (s *Server) odpList(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
-	rows, err := s.queries.SearchODPs(r.Context(), db.SearchODPsParams{Q: q, PageLimit: limit, PageOffset: off})
+	q, pg := paging(r)
+	rows, err := s.queries.SearchODPs(r.Context(), db.SearchODPsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
 		s.fail(w, "list odps", err)
 		return
@@ -48,7 +48,12 @@ func (s *Server) odpList(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{o.ID, []string{o.Name, fmt.Sprint(o.PortAmount), o.Attenuation, o.Address,
 			fmt.Sprint(o.Coverage), o.Coordinates}})
 	}
-	lp.finish(page)
+	total, err := s.queries.CountODPs(r.Context(), q)
+	if err != nil {
+		s.fail(w, "count odps", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }
 

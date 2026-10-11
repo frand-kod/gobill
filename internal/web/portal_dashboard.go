@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -21,32 +22,36 @@ import (
 
 // pTrxPage is one page of the customer's orders or activations.
 type pTrxPage struct {
-	Rows       []db.Transaction
-	Prev, Next int // page numbers, 0 = none
+	Rows []db.Transaction
+	Nav  pageNav
 }
 
-// pageOf drops the extra row paging() asks for and sets the neighbour pages.
-func pageOf(trx []db.Transaction, page int) pTrxPage {
-	d := pTrxPage{Rows: trx}
-	if len(trx) > perPage {
-		d.Rows = trx[:perPage]
-		d.Next = page + 1
+// pageOf drops the extra row paging() asks for and sets the pager; base is the page's URL.
+func pageOf(trx []db.Transaction, pg pager, total int64, base string) pTrxPage {
+	more := len(trx) > pg.Per
+	if more {
+		trx = trx[:pg.Per]
 	}
-	if page > 1 {
-		d.Prev = page - 1
-	}
-	return d
+	return pTrxPage{Rows: trx, Nav: newPageNav(pg, total, len(trx), more, func(page, per int) string {
+		return pageHref(base, url.Values{}, page, per)
+	})}
 }
 
-// pActivations lists the customer's own plan purchases and activations, perPage at a time.
+// pActivations lists the customer's own plan purchases and activations, one page at a time.
 func (s *Server) pActivations(w http.ResponseWriter, r *http.Request) {
-	_, page, limit, off := paging(r)
-	trx, err := s.queries.ListActivationsByCustomer(r.Context(), db.ListActivationsByCustomerParams{CustomerID: sql.NullInt64{Int64: customerFrom(r).ID, Valid: true}, Limit: limit, Offset: off})
+	_, pg := paging(r)
+	cust := sql.NullInt64{Int64: customerFrom(r).ID, Valid: true}
+	trx, err := s.queries.ListActivationsByCustomer(r.Context(), db.ListActivationsByCustomerParams{CustomerID: cust, Limit: pg.limit(), Offset: pg.offset()})
 	if err != nil {
 		s.fail(w, "portal activations", err)
 		return
 	}
-	s.prender(w, r, 200, "p_activation", Page{Title: "Activation History", Data: pageOf(trx, page)})
+	total, err := s.queries.CountActivationsByCustomer(r.Context(), cust)
+	if err != nil {
+		s.fail(w, "count portal activations", err)
+		return
+	}
+	s.prender(w, r, 200, "p_activation", Page{Title: "Activation History", Data: pageOf(trx, pg, total, "/portal/activation")})
 }
 
 // ---- dashboard, orders ----
@@ -367,13 +372,19 @@ func (s *Server) pSessions(ctx context.Context, names []string, page int, now in
 
 // pOrders lists the customer's own transactions, perPage at a time.
 func (s *Server) pOrders(w http.ResponseWriter, r *http.Request) {
-	_, page, limit, off := paging(r)
-	trx, err := s.queries.ListTransactionsByCustomer(r.Context(), db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: customerFrom(r).ID, Valid: true}, Limit: limit, Offset: off})
+	_, pg := paging(r)
+	cust := sql.NullInt64{Int64: customerFrom(r).ID, Valid: true}
+	trx, err := s.queries.ListTransactionsByCustomer(r.Context(), db.ListTransactionsByCustomerParams{CustomerID: cust, Limit: pg.limit(), Offset: pg.offset()})
 	if err != nil {
 		s.fail(w, "portal orders", err)
 		return
 	}
-	s.prender(w, r, 200, "p_orders", Page{Title: "Order History", Data: pageOf(trx, page)})
+	total, err := s.queries.CountTransactionsByCustomer(r.Context(), cust)
+	if err != nil {
+		s.fail(w, "count portal orders", err)
+		return
+	}
+	s.prender(w, r, 200, "p_orders", Page{Title: "Order History", Data: pageOf(trx, pg, total, "/portal/orders")})
 }
 
 // pInvoice shows the invoice only for the customer's own transaction.
