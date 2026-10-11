@@ -94,3 +94,6 @@ WHERE CAST(sqlc.arg(term) AS TEXT) = ''
 ORDER BY (CAST(?1 AS TEXT) <> '' AND (lower(username) = lower(CAST(?1 AS TEXT)) OR (pppoe_username <> '' AND lower(pppoe_username) = lower(CAST(?1 AS TEXT))) OR phone = CAST(?1 AS TEXT))) DESC,
    (CAST(?1 AS TEXT) = '' AND status <> 'Active'), username
 LIMIT sqlc.arg(limit);
+
+-- name: CountCustomersByPhone :one
+SELECT COUNT(*) FROM customers WHERE phone = sqlc.arg(phone) AND id <> sqlc.arg(self);

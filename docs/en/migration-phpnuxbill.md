@@ -8,7 +8,7 @@ This document is for operators who move from PHPNuxBill with MySQL to gobill. Th
 
 ## In the UI
 
-This method does not need a terminal. A SuperAdmin opens **Settings > System & Security > Import PHPNuxBill**, at `/admin/settings/miscellaneous/import`.
+This method does not need a terminal. A SuperAdmin opens **Settings > System & Security > Import PHPNuxBill**, at `/admin/settings/system/import`.
 
 1. Upload the JSON backup file, which is required, and `system/uploads/notifications.json`, which is optional. Click **Check**. No data changes. The report shows, per table: the number of rows read, the rows to import, and the rows skipped with the reason. It also shows the current number of gobill records.
 2. Click **Import now**. Tick "I understand the data will be overwritten".

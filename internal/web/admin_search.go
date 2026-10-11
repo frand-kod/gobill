@@ -254,7 +254,8 @@ func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searc
 		out = s.addGroup(out, "Voucher", items)
 	}
 	if allowed(roleMgr, a.Role) {
-		ps, err := s.queries.SearchPlansContains(ctx, db.SearchPlansContainsParams{Q: q, Limit: n})
+		isoPlan, _ := s.isolirIDs(ctx) // the isolir plan is a system plan, not listed
+		ps, err := s.queries.SearchPlansContains(ctx, db.SearchPlansContainsParams{Q: q, Limit: n, HiddenID: isoPlan})
 		if err != nil {
 			return nil, err
 		}

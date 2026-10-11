@@ -420,6 +420,14 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if v["phone"] != "" { // several accounts may share a number unless wa_unique_per_account is yes
+		if taken, err := s.phoneTaken(r.Context(), v["phone"], id); err != nil {
+			s.fail(w, "check phone", err)
+			return
+		} else if taken {
+			e["phone"] = msgPhoneTaken
+		}
+	}
 	if v["fullname"] == "" {
 		e["fullname"] = "This field is required"
 	}

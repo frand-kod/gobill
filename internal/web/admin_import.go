@@ -1,6 +1,6 @@
 package web
 
-// Import a PHPNuxBill JSON backup from Settings > Miscellaneous (SuperAdmin only). The upload is
+// Import a PHPNuxBill JSON backup from Settings > System & Security (SuperAdmin only). The upload is
 // streamed to temp files and kept under a random session token until the operator confirms,
 // cancels or 30 minutes pass. Confirm makes a database backup first, then replaces the data.
 
@@ -26,7 +26,7 @@ const (
 	importMaxBody = 200 << 20 // a PHPNuxBill backup can be large; only the import routes accept this
 	importTTL     = 30 * time.Minute
 	importPrefix  = "gobill-import-"
-	importPage    = "/admin/settings/miscellaneous/import"
+	importPage    = "/admin/settings/system/import"
 )
 
 // importCounts are the rows gobill holds now, which an import replaces.

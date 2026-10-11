@@ -115,7 +115,7 @@ Salinan manual:
 
 ## Pulihkan database
 
-SuperAdmin bisa memulihkan file backup `.db` dari **Pengaturan > Sistem & keamanan > Restore database**. Halamannya ada di `/admin/settings/miscellaneous/restore`.
+SuperAdmin bisa memulihkan file backup `.db` dari **Pengaturan > Sistem & keamanan > Restore database**. Halamannya ada di `/admin/settings/system/restore`.
 
 Alur restore:
 

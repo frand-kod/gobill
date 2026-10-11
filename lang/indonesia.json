@@ -1891,7 +1891,7 @@
     "Restore scheduled. The app is restarting…": "Pemulihan dijadwalkan, aplikasi restart…",
     "If the app does not come back within a minute, restart it yourself: stop the service, then start it again. The backup is applied at startup.": "Jika aplikasi tidak kembali dalam satu menit, restart manual: hentikan layanan lalu jalankan lagi. Backup diterapkan saat aplikasi start.",
     "gobill backup file (.db)": "File backup gobill (.db)",
-    "From Settings > Miscellaneous > Database backup. The file must be encrypted with the same GOBILL_SECRET_KEY as this app.": "Dari Pengaturan > Lainnya > Backup database. File harus dienkripsi dengan GOBILL_SECRET_KEY yang sama dengan aplikasi ini.",
+    "From Settings > System & Security > Database backup. The file must be encrypted with the same GOBILL_SECRET_KEY as this app.": "Dari Pengaturan > Lainnya > Backup database. File harus dienkripsi dengan GOBILL_SECRET_KEY yang sama dengan aplikasi ini.",
     "Check result": "Hasil pemeriksaan",
     "File size": "Ukuran file",
     "bytes": "byte",
@@ -2232,5 +2232,11 @@
     "Result of the last action, such as a voucher": "Hasil aksi terakhir, misalnya voucher",
     "Variables": "Variabel",
     "Reset to default": "Kembalikan ke default",
-    "Reset this message to the built-in text?": "Kembalikan pesan ini ke teks bawaan?"
+    "Reset this message to the built-in text?": "Kembalikan pesan ini ke teks bawaan?",
+    "Balance before the top-up": "Saldo sebelum isi ulang",
+    "Balance after the top-up": "Saldo setelah isi ulang",
+    "This WhatsApp number is already used by another account.": "Nomor WhatsApp ini sudah dipakai akun lain.",
+    "One WhatsApp number per account": "Satu nomor WhatsApp per akun",
+    "No (default): several accounts may share one WhatsApp number, for example a family or an RT/RW group. Forgot username then lists every account on that number. Yes: a number belongs to one account only": "Tidak (bawaan): beberapa akun boleh memakai satu nomor WhatsApp, misalnya satu keluarga atau kelompok RT/RW. Lupa username lalu mengirim semua username di nomor itu. Ya: satu nomor hanya milik satu akun",
+    "Choose Yes or No": "Pilih Ya atau Tidak"
 }

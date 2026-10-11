@@ -316,6 +316,11 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			sel("voucher_format", "Voucher Format (default)", option{"up", "UPPERCASE"}, option{"low", "lowercase"},
 				option{"rand", "Random case"}, option{"numbers", "Numbers"}),
 		}, "Billing", "")
+		waUnique := sel("wa_unique_per_account", "One WhatsApp number per account", settingsYesNo...).
+			hint("No (default): several accounts may share one WhatsApp number, for example a family or an RT/RW group. Forgot username then lists every account on that number. Yes: a number belongs to one account only")
+		if v["wa_unique_per_account"] == "" { // unset means no, not the first option
+			waUnique.Value = "no"
+		}
 		out = append(out, section([]field{
 			chk("man_fields_email", "Mandatory field: Email"),
 			chk("man_fields_fname", "Mandatory field: Full Name"),
@@ -324,6 +329,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			sel("sms_otp_registration", "SMS OTP Registration", settingsYesNo...),
 			sel("phone_otp_type", "OTP Method", option{"sms", "SMS"}, option{"wa", "WhatsApp"}),
 			sel("reg_nofify_admin", "Notify Admin", settingsYesNo...),
+			waUnique,
 			text("customer_password_min", "Minimum Password Length", v, e).as("number").hint("Minimum 4. Password same as username and common passwords are always rejected."),
 		}, "Registration", "")...)
 		out = append(out, section([]field{
@@ -462,6 +468,9 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 		if _, err := time.Parse("2006-01-02", x); err != nil {
 			e["maintenance_date"] = "Use a date like 2026-10-31"
 		}
+	}
+	if x := v["wa_unique_per_account"]; x != "" && !oneOf(x, "yes", "no") {
+		e["wa_unique_per_account"] = "Choose Yes or No"
 	}
 	if x := v["phone_otp_type"]; x != "" && !oneOf(x, "sms", "wa") {
 		e["phone_otp_type"] = "Choose SMS or WhatsApp"
@@ -609,7 +618,7 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 		fp.Fields = append([]field{once}, fp.Fields...)
 	}
 	if tab == "system" && adminFrom(r).Role == "SuperAdmin" { // backup is SuperAdmin only, as in the old dbstatus page
-		links := []field{{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/miscellaneous/backup", Section: "System", Hint: s.backupStatus(st)},
+		links := []field{{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/system/backup", Section: "System", Hint: s.backupStatus(st)},
 			{Name: "import", Label: "Import PHPNuxBill", Type: "link", Value: importPage, Btn: "Open import page",
 				Hint: "Replaces the data in this app. A backup is made first.", Section: "System"},
 			{Name: "restore", Label: "Restore database", Type: "link", Value: restorePage, Btn: "Open restore page",

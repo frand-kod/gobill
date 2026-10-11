@@ -8,7 +8,7 @@ Dokumen ini untuk operator yang pindah dari PHPNuxBill dengan MySQL ke gobill. I
 
 ## Lewat UI
 
-Cara ini tidak memakai terminal. SuperAdmin membuka **Pengaturan > Sistem & keamanan > Import PHPNuxBill**, di `/admin/settings/miscellaneous/import`.
+Cara ini tidak memakai terminal. SuperAdmin membuka **Pengaturan > Sistem & keamanan > Import PHPNuxBill**, di `/admin/settings/system/import`.
 
 1. Unggah file backup JSON, yang wajib, dan `system/uploads/notifications.json`, yang opsional. Klik **Periksa**. Tidak ada data yang berubah. Laporan menampilkan per tabel: jumlah yang dibaca, yang akan diimpor, dan yang dilewati beserta alasannya. Laporan juga menampilkan jumlah data gobill saat ini.
 2. Klik **Impor sekarang**. Centang "Saya mengerti data akan ditimpa".

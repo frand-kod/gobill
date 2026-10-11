@@ -123,7 +123,9 @@ func TestRegisterWANumberRequiredAndUnique(t *testing.T) {
 		ServiceType: c.ServiceType, AutoRenewal: 1, Status: "Active", ID: c.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if w := regForm(e, "newbie", "abc12345", "0812-3456-7890"); w.Code != http.StatusOK {
+	setting(t, e, "wa_unique_per_account", "yes") // unique per account is opt-in; the default lets numbers be shared
+	w := regForm(e, "newbie", "abc12345", "0812-3456-7890")
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "sudah dipakai akun lain") { // billApp is Indonesian
 		t.Fatalf("number of another customer accepted: %d", w.Code)
 	}
 	noCustomer(t, e, "newbie")
