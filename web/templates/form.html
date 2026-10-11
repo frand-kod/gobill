@@ -6,83 +6,7 @@
 </div>
 {{template "callout" $.Intro}}
 <form method="post" action="{{.Action}}"{{if .HasFile}} enctype="multipart/form-data"{{end}} novalidate x-data="{{.XData}}">
-  {{range .Groups}}
-  {{if .Fold}}<details class="mb-4"{{if .Open}} open{{end}}><summary class="cursor-pointer py-2 text-sm font-medium text-accent-fg">{{T "Advanced options"}}</summary>{{end}}
-  <section class="card{{if not .Fold}} mb-4{{end}}"{{with .Show}} x-show="{{.}}" x-cloak{{end}}>
-    {{if .Title}}<h2 class="card-title">{{T .Title}}</h2>{{end}}
-    <div class="card-body grid gap-x-6 gap-y-4 md:grid-cols-2">
-      {{range .Fields}}
-      {{if eq .Type "hidden"}}<input type="hidden" name="{{.Name}}" value="{{.Value}}">{{else}}
-      <div id="f-{{.Name}}" class="field-wrap"{{with .Show}} x-show="{{.}}" x-cloak{{end}}>
-        {{if eq .Type "note"}}
-        <p class="text-sm text-ink-2">{{T .Label}}{{if .Value}} <a class="link" href="{{.Value}}" target="_blank" rel="noopener">{{T .Btn}}</a>{{end}}</p>
-        {{else if eq .Type "checkbox"}}
-        <label class="flex items-center gap-2 py-2 text-sm font-medium"><input type="checkbox" class="size-4 rounded accent-brand-500" name="{{.Name}}" value="1"{{if .Checked}} checked{{end}}{{if .Bind}} x-model="{{.Name}}"{{end}}> {{T .Label}}</label>
-        {{else}}
-        <label class="label" for="{{.Name}}">{{T .Label}}{{if .Required}} <span class="text-err-fg" aria-hidden="true">*</span>{{end}}</label>
-        {{if eq .Type "select"}}
-        <select class="input" id="{{.Name}}" name="{{.Name}}"{{if .Bind}} x-model="{{.Name}}"{{end}}{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
-          {{$cur := .Value}}
-          {{range .Options}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{T .Label}}</option>{{end}}
-        </select>
-        {{else if eq .Type "customer"}}
-        {{template "customer_pick" .}}
-        {{else if eq .Type "coords"}}
-        <input class="input" id="{{.Name}}" name="{{.Name}}" value="{{.Value}}" placeholder="-6.2,106.8" inputmode="decimal"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
-        <div class="mt-2 h-64 w-full overflow-hidden rounded-lg border border-line" data-pick="{{.Name}}" role="application" aria-label="{{T "Pick on map"}}"></div>
-        <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
-        <script src="/static/vendor/leaflet/leaflet.js"></script>
-        <script src="/static/maps.js"></script>
-        {{else if eq .Type "textarea"}}
-        <textarea class="input" id="{{.Name}}" name="{{.Name}}" rows="4"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>{{.Value}}</textarea>
-        {{if .Vars}}{{template "tplvars" .}}{{end}}
-        {{with .Reset}}<p class="mt-2"><button type="submit" class="btn btn-ghost" formaction="{{.}}" data-confirm="{{T "Reset this message to the built-in text?"}}" data-confirm-danger>{{T "Reset to default"}}</button></p>{{end}}
-        {{else if eq .Type "watest"}}
-        <div class="flex flex-wrap gap-2"><input class="input flex-1" id="{{.Name}}" name="{{.Name}}" value="{{.Value}}" inputmode="tel" placeholder="08123456789"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
-        <button type="submit" class="btn btn-ghost" formaction="/admin/settings/integrations/wa-test">{{T "Send test message"}}</button></div>
-        {{else if eq .Type "test"}}
-        <div class="flex flex-wrap gap-2">{{if .Inp}}<input class="input flex-1" id="{{.Name}}" name="{{.Name}}" type="{{.Inp}}" autocomplete="off">{{end}}
-        <button type="submit" class="btn btn-ghost" formaction="{{.Value}}">{{T .Btn}}</button></div>
-        {{else if eq .Type "tokenshow"}}
-        <code class="block break-all rounded border border-line bg-surface-2 p-3 font-mono text-sm" id="{{.Name}}">{{.Value}}</code>
-        <pre class="mt-2 overflow-x-auto rounded border border-line bg-surface-2 p-3 text-xs"><code>{{.Snippet}}</code></pre>
-        {{else if eq .Type "dsnow"}}
-        <p><button type="submit" class="btn btn-ghost" id="{{.Name}}" formaction="/admin/settings/notifications/daily-summary">{{T "Send summary now"}}</button></p>
-        {{else if eq .Type "pre"}}
-        <pre class="overflow-x-auto whitespace-pre-wrap break-all rounded border border-line bg-surface-2 p-3 font-mono text-xs select-all">{{.Value}}</pre>
-        {{else if eq .Type "formbtn"}}
-        <p><button type="submit" class="btn btn-ghost" formaction="{{.Value}}"{{with .Confirm}} data-confirm="{{T .}}" data-confirm-danger{{end}}>{{T .Btn}}</button></p>
-        {{else if eq .Type "link"}}
-        <p><a class="btn" href="{{.Value}}">{{T (or .Btn "Download backup")}}</a></p>
-        {{else if eq .Type "qris"}}
-        {{if .Img}}<img class="mb-3 rounded border border-line bg-white p-2" src="{{.Img}}" alt="{{T "Static QRIS"}}" width="160" height="160">{{end}}
-        <input class="input" id="qris_image" name="qris_image" type="file" accept="image/png,image/jpeg"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
-        {{if .Value}}<label class="mt-2 flex items-center gap-2 text-sm"><input type="checkbox" class="size-4 rounded accent-brand-500" name="{{.Name}}_remove" value="1"> {{T "Hapus QRIS"}}</label>{{end}}
-        <details class="mt-3"><summary class="cursor-pointer text-sm">{{T "Opsi lanjutan"}}</summary>
-          <input class="input mt-2" id="{{.Name}}" name="{{.Name}}" value="{{.Value}}" aria-label="{{T "Teks QRIS"}}"></details>
-        {{else if eq .Type "file"}}
-        {{if .Value}}
-        <div class="mb-2 flex items-center gap-3">
-          <span class="grid h-16 w-24 shrink-0 place-items-center rounded border border-line" style="background:repeating-conic-gradient(#d4d4d8 0 25%,#fff 0 50%) 0 0/16px 16px"><img src="/uploads/{{.Value}}" alt="" style="max-height:64px;max-width:88px"></span>
-          <span class="min-w-0 break-all text-sm">{{.Value}}</span>
-        </div>
-        <label class="mb-2 flex items-center gap-2 text-sm"><input type="checkbox" class="size-4 rounded accent-brand-500" name="{{.Name}}_remove" value="1"> {{T "Remove image"}}</label>
-        {{end}}
-        <input class="input" id="{{.Name}}" name="{{.Name}}" type="file" accept="image/png,image/jpeg,image/webp,image/x-icon"{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
-        {{else}}
-        <input class="input" id="{{.Name}}" name="{{.Name}}" type="{{.Type}}" value="{{.Value}}"{{if .Required}} required{{end}}{{if eq .Type "password"}} autocomplete="new-password"{{end}}{{if eq .Type "number"}} min="0"{{end}}{{if .Error}} aria-invalid="true" aria-describedby="{{.Name}}-err"{{end}}>
-        {{if .Gen}}<button type="button" class="btn btn-ghost mt-2" @click="const a='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_',b=crypto.getRandomValues(new Uint8Array(24)),i=$el.previousElementSibling;i.type='text';i.value=Array.from(b,x=>a[x&63]).join('')">{{T "Generate"}}</button>{{end}}
-        {{end}}
-        {{end}}
-        {{with .Hint}}<p class="hint">{{T .}}</p>{{end}}
-        {{if .Error}}<p class="field-error" id="{{.Name}}-err">{{T .Error}}</p>{{end}}
-      </div>
-      {{end}}
-      {{end}}
-    </div>
-  </section>
-  {{if .Fold}}</details>{{end}}
-  {{end}}
+  {{template "formgroups" .}}
   <div class="flex gap-2">
     <button class="btn btn-primary" type="submit">{{T "Save"}}</button>
     <a class="btn btn-ghost" href="{{.Cancel}}">{{T "Cancel"}}</a>
@@ -91,3 +15,4 @@
 {{if .HasVars}}<script src="/static/tplvars.js"></script>{{end}}
 {{end}}
 {{end}}
+

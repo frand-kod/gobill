@@ -274,6 +274,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/settings/promo/{id}/up", promoOnly(s.promoMove(-1)))
 	mux.Handle("POST /admin/settings/promo/{id}/down", promoOnly(s.promoMove(1)))
 	superAdmin := s.requireAdmin("SuperAdmin")
+	s.setupRoutes(mux, superAdmin)
 	mux.Handle("POST /admin/settings/integrations/test/{kind}", superAdmin(http.HandlerFunc(s.integrationTest)))
 	mux.Handle("POST /admin/settings/payment/tripay-test", superAdmin(http.HandlerFunc(s.tripayTest)))
 	mux.Handle("POST /admin/settings/integrations/metrics-token", superAdmin(http.HandlerFunc(s.metricsTokenNew)))

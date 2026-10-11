@@ -305,6 +305,15 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 	msg := s.catalog.T(lang, "Import finished. Log in with a PHPNuxBill admin account.") + " " +
 		fmt.Sprintf(s.catalog.T(lang, "%d rows imported, %d skipped"), loaded, skipped) + ". " +
 		fmt.Sprintf(s.catalog.T(lang, "Backup saved as %s"), bak)
+	// Quick Setup switches to verifying the imported data, and the first-run dialog does not come back
+	if err := s.queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupModeKey, Value: "import"}); err != nil {
+		slog.Error("import setup mode", "err", err)
+	}
+	if cur, _ := s.queries.GetSetting(ctx, setupKey); cur == "" {
+		if err := s.queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupKey, Value: "started"}); err != nil {
+			slog.Error("import setup state", "err", err)
+		}
+	}
 	s.sessions.Destroy(ctx)
 	s.sessions.Put(ctx, "flash", msg)
 	http.Redirect(w, r, "/admin/login", http.StatusSeeOther)

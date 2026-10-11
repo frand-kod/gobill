@@ -14,6 +14,6 @@ var FS embed.FS
 // (docs/en). The list is explicit on purpose: a glob could pick up docs/*.sql (real customer data)
 // or the internal notes in docs/internal.
 //
-//go:embed docs/id/README.md docs/id/installation.md docs/id/upgrade.md docs/id/migration-phpnuxbill.md docs/id/configuration.md docs/id/integrations.md docs/id/security.md docs/id/mikrotik.md docs/id/freeradius-rest.md docs/id/monitoring.md docs/id/backup-restore.md docs/id/promotions.md docs/id/isolation.md
-//go:embed docs/en/README.md docs/en/installation.md docs/en/upgrade.md docs/en/migration-phpnuxbill.md docs/en/configuration.md docs/en/integrations.md docs/en/security.md docs/en/mikrotik.md docs/en/freeradius-rest.md docs/en/monitoring.md docs/en/backup-restore.md docs/en/promotions.md docs/en/isolation.md
+//go:embed docs/id/README.md docs/id/installation.md docs/id/quick-setup.md docs/id/upgrade.md docs/id/migration-phpnuxbill.md docs/id/configuration.md docs/id/integrations.md docs/id/security.md docs/id/mikrotik.md docs/id/freeradius-rest.md docs/id/monitoring.md docs/id/backup-restore.md docs/id/promotions.md docs/id/isolation.md
+//go:embed docs/en/README.md docs/en/installation.md docs/en/quick-setup.md docs/en/upgrade.md docs/en/migration-phpnuxbill.md docs/en/configuration.md docs/en/integrations.md docs/en/security.md docs/en/mikrotik.md docs/en/freeradius-rest.md docs/en/monitoring.md docs/en/backup-restore.md docs/en/promotions.md docs/en/isolation.md
 var Docs embed.FS

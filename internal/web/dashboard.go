@@ -35,12 +35,6 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 	if s.ClockWarning != nil {
 		d.Warn = s.ClockWarning()
 	}
-	if a := adminFrom(r); a != nil {
-		if d.Setup, d.SetupDone, err = s.setupChecklist(r.Context(), a.Role == "SuperAdmin"); err != nil {
-			s.fail(w, "dashboard", err)
-			return
-		}
-	}
 	s.render(w, r, http.StatusOK, "dashboard", Page{
 		Title: "Dashboard",
 		Data:  d,

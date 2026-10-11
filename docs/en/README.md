@@ -9,6 +9,7 @@ This document is the index of the operator guide in English. The guide is also a
 ## Getting started
 
 - [Installation](installation.md): install on an Armbian STB, a VPS, or Docker, and troubleshooting.
+- [Quick setup](quick-setup.md): step-by-step guide after installation, or import from PHPNuxBill.
 - [Upgrade](upgrade.md): replace the binary with a new version, version notes, and rollback.
 - [Migrating from PHPNuxBill](migration-phpnuxbill.md): import data, cutover, and the parallel-run checklist.
 

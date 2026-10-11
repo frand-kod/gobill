@@ -106,6 +106,7 @@ type Page struct {
 	Path          string
 	Tabs          []option          // settings sub-page menu
 	Brand         map[string]string // logo and login page text, filled by render
+	Setup         *setupNav         // Quick Setup state of a SuperAdmin page, filled by render
 	Dir           string            // "rtl" or "ltr"
 	Lang          string
 	Version       string

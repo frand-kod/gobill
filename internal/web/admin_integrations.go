@@ -23,15 +23,24 @@ func (s *Server) waTest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
+	v, e, err := s.waTestSend(r)
+	if err != nil {
+		s.fail(w, "wa test", err)
+		return
+	}
+	s.renderSettings(w, r, http.StatusOK, "integrations", v, e)
+}
+
+// waTestSend is the send itself, shared by Settings > Integrations and the Quick Setup WhatsApp step.
+// It returns the values and field errors the form shows again; the flash is set when the message was sent.
+func (s *Server) waTestSend(r *http.Request) (map[string]string, map[string]string, error) {
 	st, err := s.loadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "load settings", err)
-		return
+		return nil, nil, err
 	}
 	n, err := notify.Load(r.Context(), s.queries)
 	if err != nil {
-		s.fail(w, "wa test notifier", err)
-		return
+		return nil, nil, err
 	}
 	v := formVals(r, "alt_wga_server_url", "alt_wga_device_id", "alt_wga_username", "alt_wga_password", "wa_test_phone")
 	for k, x := range v {
@@ -67,7 +76,7 @@ func (s *Server) waTest(w http.ResponseWriter, r *http.Request) {
 			e["wa_test_phone"] = msg
 		}
 	}
-	s.renderSettings(w, r, http.StatusOK, "integrations", v, e)
+	return v, e, nil
 }
 
 // waTestError turns a send error into a plain sentence (Indonesian through the catalog).

@@ -111,7 +111,8 @@ func TestNoHardcodedBrandName(t *testing.T) {
 		if w.Code != 200 {
 			t.Fatalf("%s: %d", p, w.Code)
 		}
-		if strings.Contains(w.Body.String(), "NuxBill") {
+		// PHPNuxBill names the import source in the Quick Setup dialog, so only the bare brand counts
+		if strings.Contains(strings.ReplaceAll(w.Body.String(), "PHPNuxBill", ""), "NuxBill") {
 			t.Errorf("%s still shows the NuxBill brand", p)
 		}
 	}

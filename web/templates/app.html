@@ -22,6 +22,21 @@ function gbShell() {
 }
 </script>
 <div x-data="gbShell()" class="min-h-screen lg:flex">
+  {{with .Setup}}{{if .Modal}}
+  <div class="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" x-data="{open: true}" x-show="open" x-cloak role="dialog" aria-modal="true" aria-labelledby="setup-modal-title" @keydown.escape.window="open = false">
+    <div class="card w-full max-w-md">
+      <div class="card-body space-y-4">
+        <h2 id="setup-modal-title" class="text-lg font-semibold">{{T "Set up gobill quickly?"}}</h2>
+        <p class="text-sm text-ink-2">{{T "Setup cepat walks you through the business details, the MikroTik connection, speeds, plans, WhatsApp and QRIS. Every step can be skipped."}}</p>
+        <div class="grid gap-2">
+          <form method="post" action="/admin/setup/start"><input type="hidden" name="to" value="new"><button class="btn btn-primary w-full" type="submit">{{T "Start quick setup"}}</button></form>
+          <form method="post" action="/admin/setup/start"><input type="hidden" name="to" value="import"><button class="btn w-full" type="submit">{{T "Import from PHPNuxBill"}}</button></form>
+          <form method="post" action="/admin/setup/dismiss"><button class="btn btn-ghost w-full" type="submit">{{T "Skip"}}</button></form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{end}}{{end}}
   {{$act := navActive .Path "/admin" "/admin/docs" "/admin/customers" "/admin/recharge" "/admin/vouchers/redeem" "/admin/deposit" "/admin/vouchers" "/admin/subscriptions" "/admin/radius" "/admin/message" "/admin/reports" "/admin/reports/period" "/admin/transactions" "/admin/plans" "/admin/bandwidth" "/admin/pool" "/admin/coupons" "/admin/routers" "/admin/nas" "/admin/maps/customers" "/admin/maps/routers" "/admin/maps/odp" "/admin/odp" "/admin/payment-gateway" "/admin/logs" "/admin/users" "/admin/pages" "/admin/fields" "/admin/settings"}}
   <div x-show="drawer" x-cloak @click="drawer=false" class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
   <aside :class="[drawer ? '' : 'max-lg:hidden', rail ? 'lg:w-16 sidebar-rail' : 'lg:w-64']" @pointerover="tip($event)" @focusin="tip($event)" class="sb-scroll flex w-64 shrink-0 flex-col overflow-y-auto bg-surface text-ink max-lg:fixed max-lg:inset-y-0 max-lg:start-0 max-lg:z-40 lg:sticky lg:top-0 lg:z-30 lg:h-screen">
@@ -31,6 +46,7 @@ function gbShell() {
       <button type="button" class="btn sb-toggle hidden shrink-0 px-2 lg:inline-flex" @click="toggleRail()" :aria-expanded="rail ? 'false' : 'true'" aria-controls="gb-nav" aria-label="{{T "Toggle menu"}}">{{icon "panel-left-close"}}</button>
     </div>
     <nav id="gb-nav" class="flex-1 px-3 pb-6" aria-label="Main">
+      {{with .Setup}}{{if .Show}}<a class="nav-item setup-accent" href="/admin/setup" data-tip="{{T "Setup cepat"}}"{{if hasPrefix $.Path "/admin/setup"}} aria-current="page"{{end}}>{{icon "rocket"}}<span>{{T "Setup cepat"}}</span><span class="badge ms-auto">{{.Done}}/{{.Total}}</span></a>{{end}}{{end}}
       <a class="nav-item" href="/admin" data-tip="{{T "Dashboard"}}"{{if eq $act "/admin"}} aria-current="page"{{end}}>{{icon "layout-dashboard"}}<span>{{T "Dashboard"}}</span></a>
       <a class="nav-item" href="/admin/customers" data-tip="{{T "Customer"}}"{{if eq $act "/admin/customers"}} aria-current="page"{{end}}>{{icon "users"}}<span>{{T "Customer"}}</span></a>
       {{if $staff}}<a class="nav-item" href="/admin/recharge" data-tip="{{T "Recharge Account"}}"{{if eq $act "/admin/recharge"}} aria-current="page"{{end}}>{{icon "wallet"}}<span>{{T "Recharge Account"}}</span></a>
