@@ -170,6 +170,9 @@ func (s *Server) acceptBody(d radius.Decision) kv {
 	if d.Timeout > 0 {
 		b["reply:Session-Timeout"] = d.Timeout // not in old PHP; makes the NAS drop the user at expiry
 	}
+	if d.AddressList != "" { // isolir: the NAS puts the client in this address-list (see docs/isolation)
+		b["reply:Mikrotik-Address-List"] = d.AddressList
+	}
 	if pl.PlanType == "PPPoE" && pl.PoolName.Valid {
 		b["reply:Framed-Pool"] = pl.PoolName.String
 	}

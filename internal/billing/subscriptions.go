@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/isolir"
 	"strconv"
 	"time"
 )
@@ -383,16 +384,25 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 			return nf.Webhook(ctx, "recharge.expired", map[string]any{"username": c.Username, "plan": plan.Name, "expires_at": sub.ExpiresAt})
 		})
 	}
-	if autoRenew && c.AutoRenewal == 1 && c.Status == "Active" && c.Balance >= WithTax(settingsMap(ctx, s.Q), plan.Price)+s.BillsTotal(ctx, c.ID) {
-		if err := s.RechargeWithBalance(ctx, c.ID, plan.ID, 0); err != nil {
-			if nf != nil {
-				txt := fmt.Sprintf("FAILED RENEWAL #cron\n\n#u.%s #buy #%s \n%s\nPrice: %d", c.Username, plan.Type, plan.Name, plan.Price)
-				nf.Go("telegram", func(ctx context.Context) error { return nf.Telegram(ctx, txt) })
-			}
-			return fmt.Errorf("auto renewal: %w", err)
+	var renewErr error
+	// an ended isolation is never renewed: the isolir plan is free and the isolation is over
+	isIsolir := plan.ID == isolir.PlanID(setting(ctx, s.Q, "isolir_plan_id"))
+	if autoRenew && !isIsolir && c.AutoRenewal == 1 && c.Status == "Active" && c.Balance >= WithTax(settingsMap(ctx, s.Q), plan.Price)+s.BillsTotal(ctx, c.ID) {
+		err := s.RechargeWithBalance(ctx, c.ID, plan.ID, 0)
+		if err == nil {
+			return nil
 		}
+		if nf != nil {
+			txt := fmt.Sprintf("FAILED RENEWAL #cron\n\n#u.%s #buy #%s \n%s\nPrice: %d", c.Username, plan.Type, plan.Name, plan.Price)
+			nf.Go("telegram", func(ctx context.Context) error { return nf.Telegram(ctx, txt) })
+		}
+		renewErr = fmt.Errorf("auto renewal: %w", err)
 	}
-	return nil
+	// Not renewed: isolir (when enabled) keeps the customer online on the restricted plan.
+	if err := s.isolate(ctx, plan, c); err != nil {
+		slog.Error("isolir", "subscription", sub.ID, "err", err)
+	}
+	return renewErr
 }
 
 // ExpiryJob is the job.Run body: it skips (with a warning) while the clock is untrusted, since

@@ -265,6 +265,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/settings/payment/tripay-test", superAdmin(http.HandlerFunc(s.tripayTest)))
 	mux.Handle("POST /admin/settings/integrations/metrics-token", superAdmin(http.HandlerFunc(s.metricsTokenNew)))
 	mux.Handle("POST /admin/settings/integrations/metrics-token/disable", superAdmin(http.HandlerFunc(s.metricsTokenOff)))
+	mux.Handle("GET /admin/settings/isolir/preview", superAdmin(http.HandlerFunc(s.isolirPreview)))
+	mux.Handle("POST /admin/settings/isolir/reset/{section}", superAdmin(http.HandlerFunc(s.isolirReset)))
 	mux.Handle("GET /admin/settings/miscellaneous/import", superAdmin(http.HandlerFunc(s.importForm)))
 	mux.Handle("POST /admin/settings/miscellaneous/import", superAdmin(http.HandlerFunc(s.importPreview)))
 	mux.Handle("POST /admin/settings/miscellaneous/import/confirm", superAdmin(http.HandlerFunc(s.importConfirm)))
@@ -295,9 +297,15 @@ func (s *Server) Handler() http.Handler {
 	// RADIUS REST endpoint and payment callbacks (no session; bypass the origin check below)
 	s.radiusRestRoutes(mux)
 
+	// ISOLIR page for expired customers: public, identified by client IP; the voucher form posts
+	// from the sandboxed custom page (origin null), so it bypasses the origin check below
+	mux.HandleFunc("GET /isolir", s.isolirPage)
+	mux.HandleFunc("POST /isolir/voucher", s.isolirVoucher)
+
 	// the Tripay server posts the callback without our origin; its HMAC signature authenticates it
 	cop := http.NewCrossOriginProtection()
 	cop.AddInsecureBypassPattern("POST /callback/tripay")
+	cop.AddInsecureBypassPattern("POST /isolir/voucher")
 	cop.AddInsecureBypassPattern("POST /radius.php")
 	cop.AddInsecureBypassPattern("POST /radius/rest")
 	app := s.realIP(cop.Handler(s.sessions.LoadAndSave(s.idleGuard(s.maintenance(mux)))))

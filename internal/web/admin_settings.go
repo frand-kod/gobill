@@ -15,11 +15,13 @@ import (
 	"fmt"
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/isolir"
 	"github.com/frand-kod/gobill/internal/notify"
 	"github.com/frand-kod/gobill/internal/payment"
 	"github.com/skip2/go-qrcode"
 	"io"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -36,6 +38,7 @@ var settingsTabs = []struct {
 	{"notifications", "Notifications", false},
 	{"integrations", "Integrations", true},
 	{"payment", "Payment Gateway", true},
+	{"isolir", "Isolir", true},
 	{"miscellaneous", "Miscellaneous", false},
 }
 
@@ -254,6 +257,40 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			}
 		}
 		return append(out, section([]field{qris}, "QRIS", "")...)
+	case "isolir":
+		plans := s.isolirPlanOptions(v["isolir_plan_id"])
+		out := section([]field{
+			sel("isolir_enabled", "Isolir Aktif", settingsYesNo...).hint("Pelanggan yang paketnya habis masuk paket Isolir (64 kbps). Perlu setup router, lihat bagian Setup router di bawah"),
+			sel("isolir_plan_id", "Paket Isolir", plans...).hint("Kosong = paket Isolir otomatis (dibuat saat isolir diaktifkan pertama kali). Paket ini tidak dijual di portal"),
+			text("isolir_days", "Lama Isolir (hari)", v, e).as("number").hint("Hari setelah paket habis, lalu benar-benar nonaktif. 0 = isolir sampai bayar"),
+			{Name: "isolir_reset_paket", Label: "Kembalikan ke default", Type: "formbtn", Value: "/admin/settings/isolir/reset/paket", Btn: "Kembalikan ke default",
+				Hint: "Isolir nonaktif, 30 hari, paket otomatis"},
+		}, "Paket", "")
+		out = append(out, section([]field{
+			text("isolir_title", "Judul", v, e),
+			area("isolir_message", "Pesan").hint("Kosong tidak apa-apa; pesan default dipakai bila belum pernah diisi"),
+			text("isolir_wa", "Nomor WhatsApp admin", v, e).hint("Kosong = nomor telepon usaha (Pengaturan Umum)"),
+			sel("isolir_show_qris", "Tampilkan QRIS", settingsYesNo...).hint("Butuh QRIS statis di Pembayaran; jumlah dikunci ke harga paket terakhir"),
+			sel("isolir_show_voucher", "Tampilkan form voucher", settingsYesNo...),
+			text("isolir_address_list", "Nama address-list MikroTik", v, e).hint("Huruf, angka, titik, strip atau garis bawah. Dikirim RADIUS sebagai Mikrotik-Address-List"),
+			{Name: "isolir_reset_halaman", Label: "Kembalikan ke default", Type: "formbtn", Value: "/admin/settings/isolir/reset/halaman", Btn: "Kembalikan ke default",
+				Hint: "Judul, pesan, QRIS, voucher dan address-list kembali ke bawaan"},
+		}, "Halaman isolir", "")...)
+		out = append(out, section([]field{
+			sel("isolir_mode", "Mode tampilan", option{"default", "Bawaan"}, option{"custom", "HTML sendiri"}).hint("HTML sendiri dipakai jika isi HTML tidak kosong"),
+			func() field {
+				f := area("isolir_html", "HTML sendiri")
+				f.Hint = "HTML lengkap. Variabel yang tersedia di bawah. Ditampilkan dalam sandbox tanpa akses cookie gobill"
+				return f
+			}(),
+			{Name: "isolir_vars", Label: "Variabel", Type: "pre", Value: isolirVars},
+			{Name: "isolir_preview", Label: "Pratinjau halaman isolir (data contoh):", Type: "note", Value: "/admin/settings/isolir/preview", Btn: "Buka pratinjau"},
+			{Name: "isolir_reset_html", Label: "Kembali ke bawaan", Type: "formbtn", Value: "/admin/settings/isolir/reset/html", Btn: "Kembali ke bawaan",
+				Hint: "Mengosongkan HTML sendiri"},
+			{Name: "isolir_reset_mode", Label: "Kembalikan ke default", Type: "formbtn", Value: "/admin/settings/isolir/reset/mode", Btn: "Kembalikan ke default",
+				Hint: "Mode bawaan (HTML sendiri tidak dihapus)"},
+		}, "Mode tampilan", "")...)
+		return out
 	case "miscellaneous":
 		out := section([]field{
 			sel("extend_expiry", "Extend Package Expiry", settingsYesNo...),
@@ -322,7 +359,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 func fieldNames(fs []field) []string {
 	var out []string
 	for _, f := range fs {
-		if f.Type == "watest" || f.Type == "dsnow" || f.Type == "formbtn" || f.Type == "test" || f.Type == "note" {
+		if f.Type == "watest" || f.Type == "dsnow" || f.Type == "formbtn" || f.Type == "test" || f.Type == "note" || f.Type == "pre" {
 			continue // action button or text, not a setting
 		}
 		out = append(out, f.Name)
@@ -342,6 +379,20 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 		if x, ok := v[k]; ok && x == "" {
 			e[k] = "This field is required"
 		}
+	}
+	if x, ok := v["isolir_days"]; ok {
+		if n, err := strconv.Atoi(x); err != nil || n < 0 || n > 3650 {
+			e["isolir_days"] = "Masukkan 0 sampai 3650"
+		}
+	}
+	if x, ok := v["isolir_mode"]; ok && x != "default" && x != "custom" {
+		e["isolir_mode"] = "Pilih salah satu"
+	}
+	if x, ok := v["isolir_address_list"]; ok && !regexp.MustCompile(`^[A-Za-z0-9_.-]{1,64}$`).MatchString(x) {
+		e["isolir_address_list"] = "Wajib diisi: huruf, angka, titik, strip atau garis bawah, maks 64 karakter"
+	}
+	if x, ok := v["isolir_html"]; ok && len(x) > 100000 {
+		e["isolir_html"] = "Terlalu panjang (maks 100 KB)"
 	}
 	if x, ok := v["language"]; ok {
 		if _, ok := s.catalog[x]; !ok {
@@ -502,7 +553,17 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 	if v["expired_notify_minutes_before"] == "" { // never set: show the value the sender uses
 		v["expired_notify_minutes_before"] = strconv.Itoa(billing.ExpiredNoticeDefault)
 	}
+	if tab == "isolir" { // never saved = the default shown
+		for k := range isolir.Defaults {
+			if _, ok := v[k]; !ok {
+				v[k] = isolir.Value(st, k)
+			}
+		}
+	}
 	fp := formPage{Heading: "Settings", Action: "/admin/settings/" + tab, Cancel: "/admin", Fields: s.settingsFields(tab, v, e, st)}
+	if tab == "isolir" {
+		fp.Fields = append(fp.Fields, isolirSetupFields(r, st)...)
+	}
 	if tab == "payment" { // the URL to paste into the Tripay merchant dashboard
 		fp.Fields[0].Hint = "Callback URL for Tripay: " + baseURL(r) + "/callback/tripay"
 	}
@@ -625,6 +686,14 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 			s.fail(w, "save setting sms_url", err)
 			return
 		}
+	}
+	if tab == "isolir" && v["isolir_enabled"] == "yes" { // the isolir plan is created the first time it is enabled
+		id, err := isolir.EnsurePlan(r.Context(), q)
+		if err != nil {
+			s.fail(w, "isolir plan", err)
+			return
+		}
+		v["isolir_plan_id"] = strconv.FormatInt(id, 10)
 	}
 	for _, k := range keys {
 		if settingsSecret[k] && v[k] == "" {

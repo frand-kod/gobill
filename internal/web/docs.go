@@ -21,7 +21,7 @@ import (
 )
 
 // guideSlugs is the whitelist of guides, in index order. Each slug exists in docs/id and docs/en.
-var guideSlugs = []string{"README", "installation", "upgrade", "migration-phpnuxbill", "configuration", "integrations", "security", "mikrotik", "freeradius-rest", "monitoring", "backup-restore"}
+var guideSlugs = []string{"README", "installation", "upgrade", "migration-phpnuxbill", "configuration", "integrations", "security", "mikrotik", "freeradius-rest", "monitoring", "backup-restore", "isolation"}
 
 // docsLangs are the guide languages: the folder under docs/ and the value of ?lang=.
 var docsLangs = []string{"id", "en"}
@@ -33,14 +33,14 @@ var guideGroups = map[string][]guideGroup{
 		{"Mulai", []string{"installation", "upgrade", "migration-phpnuxbill"}},
 		{"Konfigurasi", []string{"configuration", "integrations", "security"}},
 		{"Jaringan", []string{"mikrotik", "freeradius-rest"}},
-		{"Operasional", []string{"monitoring", "backup-restore"}},
+		{"Operasional", []string{"monitoring", "backup-restore", "isolation"}},
 	},
 	"en": {
 		{"Index", []string{"README"}},
 		{"Getting started", []string{"installation", "upgrade", "migration-phpnuxbill"}},
 		{"Configuration", []string{"configuration", "integrations", "security"}},
 		{"Network", []string{"mikrotik", "freeradius-rest"}},
-		{"Operations", []string{"monitoring", "backup-restore"}},
+		{"Operations", []string{"monitoring", "backup-restore", "isolation"}},
 	},
 }
 

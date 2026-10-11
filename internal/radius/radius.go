@@ -26,6 +26,7 @@ import (
 	"layeh.com/radius/vendors/mikrotik"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/isolir"
 	"github.com/frand-kod/gobill/internal/metrics"
 	"github.com/frand-kod/gobill/internal/secret"
 )
@@ -148,15 +149,17 @@ type AuthRequest struct {
 
 // Decision is the outcome of Authorize. Reject != "" means Access-Reject with that message.
 type Decision struct {
-	Reject    string
-	Success   string // MS-CHAP2-Success blob, UDP only
-	Cust      db.Customer
-	Plan      db.GetRadiusPlanRow
-	Rate      string // Mikrotik-Rate-Limit, "" = none
-	Timeout   int64  // Session-Timeout seconds, 0 = none
-	Expires   int64
-	TotalLeft int64 // remaining bytes when a data limit applies (HasTotal)
-	HasTotal  bool
+	Reject  string
+	Success string // MS-CHAP2-Success blob, UDP only
+	Cust    db.Customer
+	Plan    db.GetRadiusPlanRow
+	Rate    string // Mikrotik-Rate-Limit, "" = none
+	// AddressList is the Mikrotik-Address-List of an isolated customer (isolir plan), "" = none.
+	AddressList string
+	Timeout     int64 // Session-Timeout seconds, 0 = none
+	Expires     int64
+	TotalLeft   int64 // remaining bytes when a data limit applies (HasTotal)
+	HasTotal    bool
 }
 
 // Authorize is the shared decision: customer lookup, password, active and unexpired plan
@@ -342,7 +345,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 			s.kickOldest(ctx, user, others[:min(n, max(0, n-pl.SharedUsers.Int64+1))])
 		}
 	}
-	d := Decision{Success: success, Cust: c, Plan: pl, Expires: pl.ExpiresAt}
+	d := Decision{Success: success, Cust: c, Plan: pl, Expires: pl.ExpiresAt, AddressList: isolir.AddressListFor(ctx, s.Q, pl.PlanID)}
 	if left > 0 {
 		d.Timeout = left
 	}
@@ -525,6 +528,9 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 	}
 	if d.Rate != "" {
 		mikrotik.MikrotikRateLimit_SetString(p, d.Rate)
+	}
+	if d.AddressList != "" {
+		mikrotik.MikrotikAddressList_AddString(p, d.AddressList)
 	}
 	if d.HasTotal {
 		rem := uint64(d.TotalLeft)

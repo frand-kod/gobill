@@ -143,8 +143,34 @@ func (q *Queries) GetNAS(ctx context.Context, id int64) (Na, error) {
 	return i, err
 }
 
+const getOpenRadiusSessionByFramedIP = `-- name: GetOpenRadiusSessionByFramedIP :one
+SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions WHERE framed_ip = ? AND stopped_at IS NULL ORDER BY started_at DESC, id DESC LIMIT 1
+`
+
+// The most recently started open session on a client IP (the /isolir page identifies the customer by it).
+func (q *Queries) GetOpenRadiusSessionByFramedIP(ctx context.Context, framedIp string) (RadiusSession, error) {
+	row := q.db.QueryRowContext(ctx, getOpenRadiusSessionByFramedIP, framedIp)
+	var i RadiusSession
+	err := row.Scan(
+		&i.ID,
+		&i.SessionID,
+		&i.Username,
+		&i.NasIp,
+		&i.NasIpAttr,
+		&i.NasIdentifier,
+		&i.FramedIp,
+		&i.Mac,
+		&i.StartedAt,
+		&i.UpdatedAt,
+		&i.StoppedAt,
+		&i.InputOctets,
+		&i.OutputOctets,
+	)
+	return i, err
+}
+
 const getRadiusPlan = `-- name: GetRadiusPlan :one
-SELECT s.started_at, s.expires_at, s.pending_start, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
+SELECT s.started_at, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        pl.name AS pool_name
@@ -160,6 +186,7 @@ type GetRadiusPlanRow struct {
 	StartedAt    int64
 	ExpiresAt    int64
 	PendingStart int64
+	PlanID       int64
 	PlanName     string
 	PlanType     string
 	Limited      int64
@@ -184,6 +211,7 @@ func (q *Queries) GetRadiusPlan(ctx context.Context, customerID int64) (GetRadiu
 		&i.StartedAt,
 		&i.ExpiresAt,
 		&i.PendingStart,
+		&i.PlanID,
 		&i.PlanName,
 		&i.PlanType,
 		&i.Limited,
