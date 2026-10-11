@@ -21,7 +21,8 @@ func TestCustomerListEndsOn(t *testing.T) {
 	}
 	loc := s.location()
 	now := time.Now().In(loc)
-	today := time.Date(now.Year(), now.Month(), now.Day(), 23, 0, 0, 0, loc).Unix()
+	// last second of today in the app time zone, so the fixture is "today" at any wall-clock hour
+	today := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc).Unix() - 1
 	sub := func(name string, end int64, pending int64) {
 		cu := newCust(t, q, name, "Ends "+name, "", "", "Active")
 		if end == 0 {
