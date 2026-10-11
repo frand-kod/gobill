@@ -407,9 +407,9 @@ func (s *Server) isolirSetupFields(st map[string]string) []field {
 		{Name: "isolir_cmd_filter", Label: t("2. Allow isolated clients to reach gobill"), Type: "pre", Section: sec,
 			Value: fmt.Sprintf("/ip firewall filter add chain=forward src-address-list=%s dst-address=%s action=accept", list, host),
 			Hint:  t("Place this rule above the drop rule for isolated clients (use place-before if needed).")},
-		{Name: "isolir_cmd_drop", Label: t("3. Drop other traffic from isolated clients"), Type: "pre", Section: sec,
+		{Name: "isolir_cmd_drop", Label: t("Optional: block all other traffic (full isolation)"), Type: "pre", Section: sec,
 			Value: fmt.Sprintf("/ip firewall filter add chain=forward src-address-list=%s action=drop", list),
-			Hint:  t("Add it after step 2, so isolated clients can reach only gobill. Keep it above any general accept rule in the forward chain.")},
+			Hint:  t("Also blocks WhatsApp and bank apps, so use it only for full isolation, and edit the default isolir message too. Add it after step 2, above any general accept rule in the forward chain.")},
 		{Name: "isolir_cmd_walled", Label: t("4. Walled garden hotspot for gobill"), Type: "pre", Section: sec,
 			Value: fmt.Sprintf("/ip hotspot walled-garden ip add dst-address=%s dst-port=%s action=accept", host, port),
 			Hint:  t("So the isolir page opens before hotspot login.")},
@@ -420,7 +420,7 @@ func (s *Server) isolirSetupFields(st map[string]string) []field {
 			Value: fmt.Sprintf(`curl -i -H "Host: example.com" http://%s:%s/`, host, port),
 			Hint:  t("gobill serves the isolir page to isolated clients at the root and at every other path. Do not test with /tool fetch: RouterOS sends a duplicate Host header and gets 400.")},
 		{Name: "isolir_cmd_note", Label: t("Note"), Type: "note", Section: sec,
-			Hint: t("Only HTTP on port 80 is redirected to the isolir page. Step 3 blocks all other traffic from isolated clients. The address-list is sent by RADIUS as Mikrotik-Address-List.")},
+			Hint: t("Only HTTP on port 80 is redirected to the isolir page. HTTPS and apps still work at the isolir speed unless the optional drop rule (step 3) is added. The address-list is sent by RADIUS as Mikrotik-Address-List.")},
 	}
 }
 

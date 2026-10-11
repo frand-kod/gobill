@@ -91,7 +91,7 @@ The rules apply in this order on the router. The `accept` rule must come before 
 
 1. **NAT.** Redirect HTTP port 80 from the isolir address-list to gobill.
 2. **Accept.** Let isolated clients reach gobill.
-3. **Drop.** Drop all other traffic from isolated clients.
+3. **Optional drop.** Block all other traffic from isolated clients. This is full isolation.
 4. **Walled garden.** Let the isolir page open before hotspot login.
 5. **Hotspot bypass.** Keep gobill's own traffic out of the hotspot.
 
@@ -105,7 +105,7 @@ The address and port are the ones gobill listens on. They are set by `GOBILL_HTT
 
 Replace `<MAC-HOST-GOBILL>` with the MAC address of gobill's LAN card. Without the bypass, the hotspot can capture gobill's own traffic.
 
-The drop rule also blocks HTTPS and apps for isolated clients. Only HTTP on port 80 reaches the isolir page.
+Only HTTP on port 80 is redirected to the isolir page. HTTPS and apps still work at the isolir speed. Add the optional drop rule (step 3) only for full isolation. It also blocks WhatsApp and bank apps, so edit the default isolir message too.
 
 ### Testing the isolir page
 

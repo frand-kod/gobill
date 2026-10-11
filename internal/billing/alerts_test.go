@@ -29,7 +29,7 @@ func TestNASSilentAlertOncePerEpisode(t *testing.T) {
 	if _, err := e.q.CreateNAS(ctx, db.CreateNASParams{Name: "pop-a", Ip: "10.9.0.5", SecretEnc: []byte("x")}); err != nil {
 		t.Fatal(err)
 	}
-	now := time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC)
+	now := time.Now().UTC().Truncate(time.Minute) // metrics expire series by wall clock
 	job := &AlertJob{S: e.s, Free: func() (int64, error) { return 9999, nil }, Now: func() time.Time { return now }}
 	last := now.Add(-time.Minute)
 	metrics.Set("radius_nas_last_packet_timestamp", float64(last.Unix()), "nas", "10.9.0.5")
@@ -58,7 +58,7 @@ func TestNASSilentWithoutTableEntry(t *testing.T) {
 	e := setup(t)
 	got := withNotify(t, e)
 	ctx := context.Background()
-	now := time.Date(2026, 10, 10, 10, 0, 0, 0, time.UTC)
+	now := time.Now().UTC().Truncate(time.Minute) // metrics expire series by wall clock
 	alert := &AlertJob{S: e.s, Free: func() (int64, error) { return 9999, nil }, Now: func() time.Time { return now }}
 	metrics.Set("radius_nas_last_packet_timestamp", float64(now.Add(-time.Hour).Unix()), "nas", "10.9.0.7")
 	run := func(what string, want int) {

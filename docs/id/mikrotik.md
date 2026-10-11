@@ -91,7 +91,7 @@ Aturan berikut berlaku dalam urutan ini di router. Aturan `accept` harus berada 
 
 1. **NAT.** Alihkan HTTP port 80 dari address-list isolir ke gobill.
 2. **Accept.** Izinkan klien isolir mencapai gobill.
-3. **Drop.** Blokir semua trafik lain dari klien isolir.
+3. **Drop opsional.** Blokir semua trafik lain dari klien isolir. Ini isolasi penuh.
 4. **Walled garden.** Izinkan halaman isolir terbuka sebelum login hotspot.
 5. **Bypass hotspot.** Jauhkan trafik gobill sendiri dari hotspot.
 
@@ -105,7 +105,7 @@ Alamat dan port adalah yang didengar gobill. Keduanya diatur oleh `GOBILL_HTTP`,
 
 Isi `<MAC-HOST-GOBILL>` dengan MAC address kartu LAN gobill. Tanpa bypass, hotspot bisa menangkap trafik gobill sendiri.
 
-Aturan drop juga memblokir HTTPS dan aplikasi untuk klien isolir. Hanya HTTP port 80 yang sampai ke halaman isolir.
+Hanya HTTP port 80 yang dialihkan ke halaman isolir. HTTPS dan aplikasi tetap bisa dipakai dengan kecepatan isolir. Tambahkan aturan drop opsional (langkah 3) hanya untuk isolasi penuh. Aturan ini juga memblokir WhatsApp dan aplikasi bank, jadi ubah pesan isolir bawaan juga.
 
 ### Tes halaman isolir
 
