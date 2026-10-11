@@ -39,6 +39,11 @@ UPDATE customers SET last_login_at = unixepoch() WHERE id = ?;
 UPDATE customers SET balance = balance + sqlc.arg(delta) WHERE id = sqlc.arg(id)
 RETURNING balance;
 
+-- name: DebitBalance :one
+-- Check and debit in one statement: no row (sql.ErrNoRows) when the balance is short.
+UPDATE customers SET balance = balance - sqlc.arg(amount) WHERE id = sqlc.arg(id) AND balance >= sqlc.arg(amount)
+RETURNING balance;
+
 -- name: DeleteCustomer :exec
 DELETE FROM customers WHERE id = ?;
 

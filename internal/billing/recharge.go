@@ -100,16 +100,13 @@ func (s *Service) rechargeWithBalance(ctx context.Context, customerID, planID, a
 	return nil
 }
 
-// debit takes amount off the balance. CHECK (balance >= 0) is the backstop against a concurrent overdraw.
+// debit takes amount off the balance in one conditional UPDATE, so a concurrent debit can never overdraw.
 func debit(ctx context.Context, q *db.Queries, customerID, amount int64) error {
-	c, err := q.GetCustomer(ctx, customerID)
-	if err != nil {
-		return err
-	}
-	if c.Balance < amount {
+	_, err := q.DebitBalance(ctx, db.DebitBalanceParams{Amount: amount, ID: customerID})
+	if errors.Is(err, sql.ErrNoRows) {
 		return ErrInsufficientBalance
 	}
-	if _, err := q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: -amount, ID: customerID}); err != nil {
+	if err != nil {
 		return fmt.Errorf("debit balance: %w", err)
 	}
 	return nil
