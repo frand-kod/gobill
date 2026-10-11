@@ -44,9 +44,9 @@ type promoView struct {
 // portalPromo is the dashboard card: the first live portal promo, the rest behind "Lainnya".
 // Key is the localStorage key; it changes with the promo ids and updated_at, so a change shows the card again.
 type portalPromo struct {
-	Key                   string
-	First                 promoView
-	More                  []promoView
+	Key                          string
+	First                        promoView
+	More                         []promoView
 	MoreLabel, CloseLabel, Label string // translated here: the card template has no translator
 }
 

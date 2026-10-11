@@ -624,19 +624,36 @@ func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) 
 	return err
 }
 
-const countCustomersByPhone = `-- name: CountCustomersByPhone :one
-SELECT COUNT(*) FROM customers WHERE phone = ?1 AND id <> ?2
+const listCustomerPhones = `-- name: ListCustomerPhones :many
+SELECT id, username, phone FROM customers WHERE phone <> ''
 `
 
-type CountCustomersByPhoneParams struct {
-	Phone string
-	Self  int64
+type ListCustomerPhonesRow struct {
+	ID       int64
+	Username string
+	Phone    string
 }
 
-// CountCustomersByPhone counts the other customers that use this exact phone number.
-func (q *Queries) CountCustomersByPhone(ctx context.Context, arg CountCustomersByPhoneParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countCustomersByPhone, arg.Phone, arg.Self)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
+// ListCustomerPhones lists the customers that have a phone number. Compare them with CanonicalPhone.
+func (q *Queries) ListCustomerPhones(ctx context.Context) ([]ListCustomerPhonesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCustomerPhones)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCustomerPhonesRow
+	for rows.Next() {
+		var i ListCustomerPhonesRow
+		if err := rows.Scan(&i.ID, &i.Username, &i.Phone); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

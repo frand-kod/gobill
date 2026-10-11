@@ -33,7 +33,7 @@ func (s *Server) pProfile(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal profile", err)
 		return
 	}
-	phone, email := strings.TrimSpace(r.PostFormValue("phone")), strings.TrimSpace(r.PostFormValue("email"))
+	phone, email := db.CanonicalPhone(r.PostFormValue("phone")), strings.TrimSpace(r.PostFormValue("email"))
 	if st["allow_phone_otp"] == "yes" { // changed only through the OTP flow
 		phone = c.Phone
 	}
@@ -111,16 +111,6 @@ func (s *Server) contactClear(r *http.Request) {
 	}
 }
 
-// normPhone keeps digits only (old Lang::phoneFormat strips +, spaces and dashes).
-func normPhone(p string) string {
-	return strings.Map(func(r rune) rune {
-		if r >= '0' && r <= '9' {
-			return r
-		}
-		return -1
-	}, p)
-}
-
 // msgPhoneTaken is the error for a WhatsApp number another account already uses (wa_unique_per_account = yes).
 const msgPhoneTaken = "This WhatsApp number is already used by another account."
 
@@ -147,8 +137,21 @@ func (s *Server) phoneTaken(ctx context.Context, phone string, self int64) (bool
 	if v, _ := s.queries.GetSetting(ctx, "wa_unique_per_account"); v != "yes" {
 		return false, nil
 	}
-	n, err := s.queries.CountCustomersByPhone(ctx, db.CountCustomersByPhoneParams{Phone: phone, Self: self})
-	return n > 0, err
+	want := db.CanonicalPhone(phone)
+	if want == "" {
+		return false, nil
+	}
+	// ponytail: loads every phone per check; compare in SQL if customers grow large.
+	rows, err := s.queries.ListCustomerPhones(ctx)
+	if err != nil {
+		return false, err
+	}
+	for _, c := range rows {
+		if c.ID != self && db.CanonicalPhone(c.Phone) == want {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
@@ -164,7 +167,7 @@ func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
 	}
 	val := strings.TrimSpace(r.PostFormValue("value"))
 	if kind == "phone" {
-		val = normPhone(val)
+		val = db.CanonicalPhone(val)
 		if len(val) < 10 {
 			s.profilePage(w, r, 200, "Invalid phone number format")
 			return

@@ -150,17 +150,29 @@ func anyOpts(label string, o ...string) []option {
 	return out
 }
 
+// phoneTerm turns a typed national number (0812...) into the stored form (62812...), so the customer
+// search finds it; other text is searched as typed. ponytail: a digit-only username starting with 0 no
+// longer matches its own name in this search.
+func phoneTerm(q string) string {
+	if len(q) >= 4 && strings.HasPrefix(q, "0") && strings.Trim(q, "0123456789") == "" {
+		return db.CanonicalPhone(q)
+	}
+	return q
+}
+
 func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 	p, sort, dir := custQuery(r)
 	_, pg := paging(r)
 	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
+	typed := p.Q
+	p.Q = phoneTerm(p.Q)
 	rows, err := s.queries.FilterCustomers(r.Context(), p)
 	if err != nil {
 		s.fail(w, "list customers", err)
 		return
 	}
 	role := adminFrom(r).Role
-	lp := listPage{Heading: "Customer", Base: "/admin/customers", Q: p.Q, Searchable: true, ViewLink: true,
+	lp := listPage{Heading: "Customer", Base: "/admin/customers", Q: typed, Searchable: true, ViewLink: true,
 		CanCreate: oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), CanEdit: oneOf(role, "SuperAdmin", "Admin"),
 		Cols:     []string{"Username", "Full Name", "Balance", "Package", "Service Type", "PPPoE Username", "Ends On", "Status"},
 		SortKeys: []string{"username", "fullname", "balance", "", "", "", "expires", "status"}, Sort: sort, Dir: dir,
@@ -385,6 +397,7 @@ func (s *Server) setPassword(ctx context.Context, id int64, pass string) error {
 func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
 	v := formVals(r, custNames...)
+	v["phone"] = db.CanonicalPhone(v["phone"])
 	pass, sec := r.PostFormValue("password"), r.PostFormValue("secret")
 	e := map[string]string{}
 	var cur db.Customer

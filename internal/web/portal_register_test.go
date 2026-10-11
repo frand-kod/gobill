@@ -35,7 +35,7 @@ func TestRegisterThreeFieldsLogsIn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Status != "Active" || c.Fullname != "newbie" || c.Phone != "081234567890" || c.Email != "" || c.Address != "" {
+	if c.Status != "Active" || c.Fullname != "newbie" || c.Phone != "6281234567890" || c.Email != "" || c.Address != "" {
 		t.Fatalf("customer: status %q fullname %q phone %q email %q address %q", c.Status, c.Fullname, c.Phone, c.Email, c.Address)
 	}
 	ck := sessionOf(w)
