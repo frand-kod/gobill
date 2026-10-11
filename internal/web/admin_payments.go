@@ -19,7 +19,7 @@ func (s *Server) pgList(w http.ResponseWriter, r *http.Request) {
 	if st["payment_gateway"] == "tripay" {
 		state = "Enabled"
 	}
-	lp := listPage{Heading: "Payment Gateway", Base: "/admin/payment-gateway", Cols: []string{"Gateway", "Status"},
+	lp := listPage{Heading: "Online payments", Base: "/admin/payment-gateway", Cols: []string{"Gateway", "Status"},
 		Rows:  []listRow{{1, []string{"Tripay", state}}},
 		Links: []option{{"/admin/settings/payment", "Settings"}, {"/admin/payment-gateway/audit", "Payment Audit"}}}
 	s.renderList(w, r, lp)
