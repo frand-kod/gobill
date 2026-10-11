@@ -398,7 +398,11 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 		}
 		if (lt == "Data_Limit" || lt == "Both_Limit") && pl.DataLimit.Valid {
 			total := LimitBytes(pl.DataLimit.Int64, pl.DataUnit.String)
-			used, _ := s.Q.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: user, StartedAt: pl.StartedAt})
+			used, err := s.Q.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: user, StartedAt: pl.StartedAt})
+			if err != nil { // fail closed: an unknown usage must not count as zero
+				slog.Error("radius: sum data usage", "user", user, "err", err)
+				return Decision{Reject: "Login invalid......"}
+			}
 			if total-used <= 0 {
 				return Decision{Reject: "You have exceeded your data limit."}
 			}
@@ -644,6 +648,11 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 		// NAS rebooted: its open sessions are gone.
 		return s.Q.CloseRadiusSessionsByNAS(ctx, db.CloseRadiusSessionsByNASParams{StoppedAt: sql.NullInt64{Int64: now, Valid: true}, NasIp: a.NAS})
 	case rfc2866.AcctStatusType_Value_Start, rfc2866.AcctStatusType_Value_InterimUpdate, rfc2866.AcctStatusType_Value_Stop:
+		// gigawords << 32 goes negative from 2^31 GB up, and a REST value can be negative: refuse,
+		// a negative counter would corrupt the usage sums
+		if a.InOctets < 0 || a.OutOctets < 0 {
+			return errors.New("radius: negative octet counter")
+		}
 		arg := db.UpsertRadiusSessionParams{SessionID: a.SessionID, Username: a.User, NasIp: a.NAS, NasIpAttr: a.NASIPAttr, NasIdentifier: a.NASID, FramedIp: a.FramedIP,
 			Mac: a.MAC, StartedAt: now - a.SessionTime, UpdatedAt: now, InputOctets: a.InOctets, OutputOctets: a.OutOctets}
 		if a.Type == rfc2866.AcctStatusType_Value_Stop {

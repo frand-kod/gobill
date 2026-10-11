@@ -400,3 +400,50 @@ func TestEmptySecretRejected(t *testing.T) {
 		}
 	}
 }
+
+func TestDataLimitQueryErrorRejects(t *testing.T) {
+	e := setup(t)
+	if _, err := e.conn.Exec("UPDATE plans SET limited=1, limit_type='Data_Limit', data_limit=1, data_unit='MB'"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.conn.Exec("DROP TABLE radius_sessions"); err != nil {
+		t.Fatal(err)
+	}
+	if r := e.auth(t, pap("alice", "pw")); r.Code != radius.CodeAccessReject {
+		t.Fatalf("usage query failed but code %v: quota must fail closed", r.Code)
+	}
+}
+
+func TestDataLimitGigawords(t *testing.T) {
+	e := setup(t)
+	if _, err := e.conn.Exec("UPDATE plans SET limited=1, limit_type='Data_Limit', data_limit=5, data_unit='GB'"); err != nil {
+		t.Fatal(err)
+	}
+	acct := func(in, out uint32) {
+		p := radius.New(radius.CodeAccountingRequest, nasSecret)
+		rfc2866.AcctStatusType_Set(p, rfc2866.AcctStatusType_Value_InterimUpdate)
+		rfc2866.AcctSessionID_SetString(p, "s1")
+		rfc2865.UserName_SetString(p, "alice")
+		rfc2869.AcctInputGigawords_Set(p, rfc2869.AcctInputGigawords(in))
+		rfc2869.AcctOutputGigawords_Set(p, rfc2869.AcctOutputGigawords(out))
+		e.s.HandleAcct(&rec{}, &radius.Request{Packet: p, RemoteAddr: &net.UDPAddr{IP: net.ParseIP("10.0.0.1")}})
+	}
+	acct(1, 0) // 4 GiB in, limit 5 GiB: 1 GiB left
+	r := e.auth(t, pap("alice", "pw"))
+	if r.Code != radius.CodeAccessAccept {
+		t.Fatal("4 GiB of 5 GiB must accept")
+	}
+	if got, _ := mikrotik.MikrotikTotalLimit_Lookup(r); got != 1<<30 {
+		t.Fatalf("total limit %d, want 1 GiB", got)
+	}
+	acct(1, 1) // counters are cumulative: 4 GiB in + 4 GiB out = 8 GiB, over the limit
+	if r := e.auth(t, pap("alice", "pw")); r.Code != radius.CodeAccessReject {
+		t.Fatal("8 GiB of 5 GiB must reject")
+	}
+	big := uint32(1 << 31) // gigawords << 32 overflows int64 (a runtime shift, so no compile error)
+	// a counter whose gigawords shift past int64 is refused, not stored
+	if err := e.s.Account(context.Background(), AcctRequest{Type: rfc2866.AcctStatusType_Value_InterimUpdate, SessionID: "s1", User: "alice",
+		NAS: "10.0.0.1", InOctets: int64(big) << 32}); err == nil {
+		t.Fatal("negative octet counter must be refused")
+	}
+}
