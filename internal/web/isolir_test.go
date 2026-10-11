@@ -317,12 +317,12 @@ func TestIsolirGateLetsIsolatedClientReachPortalAndAssets(t *testing.T) {
 	isoCustomer(t, s, q, "203.0.113.7", true)
 	isoEnable(t, s, q)
 	want := isoReq(h, "GET", "/isolir", "203.0.113.7", nil).Body.String()
-	for _, path := range []string{"/static/app.css", "/portal/login", "/portal", "/health", "/uploads/none.png"} {
+	for _, path := range []string{"/static/app.css", "/login", "/portal", "/health", "/uploads/none.png"} {
 		if w := isoReq(h, "GET", path, "203.0.113.7", nil); w.Body.String() == want {
 			t.Errorf("GET %s was hijacked", path)
 		}
 	}
-	if w := isoReq(h, "GET", "/portal/login", "203.0.113.7", nil); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "<form") {
+	if w := isoReq(h, "GET", "/login", "203.0.113.7", nil); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "<form") {
 		t.Errorf("portal login: code %d", w.Code)
 	}
 }
@@ -331,7 +331,7 @@ func TestIsolirGateLeavesOthersAlone(t *testing.T) {
 	s, h, q := isoSetup(t)
 	isoCustomer(t, s, q, "203.0.113.7", false) // expired, not isolated
 	isoEnable(t, s, q)
-	if w := isoReq(h, "GET", "/", "203.0.113.7", nil); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/admin" {
+	if w := isoReq(h, "GET", "/", "203.0.113.7", nil); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/login" {
 		t.Errorf("non-isolated customer: code %d", w.Code)
 	}
 	if w := isoReq(h, "GET", "/", "198.51.100.9", nil); w.Code != http.StatusSeeOther {

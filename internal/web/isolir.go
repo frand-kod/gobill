@@ -187,9 +187,9 @@ func (s *Server) isolirGate(next http.Handler) http.Handler {
 }
 
 // isolirExempt is true for the paths an isolated client still needs: the isolir page, static and
-// uploaded files, QRIS images, the customer portal (login and payment) and the health check.
+// uploaded files, QRIS images, the customer login and portal (payment) and the health check.
 func isolirExempt(p string) bool {
-	if p == "/isolir" || p == "/portal" || p == "/health" {
+	if p == "/isolir" || p == "/login" || p == "/portal" || p == "/health" {
 		return true
 	}
 	for _, dir := range []string{"/isolir/", "/static/", "/uploads/", "/qris/", "/portal/"} {

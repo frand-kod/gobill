@@ -131,7 +131,9 @@ func (s *Server) fillAppURL(r *http.Request) {
 // root sends a customer to the portal and everyone else to the customer login.
 func (s *Server) root(w http.ResponseWriter, r *http.Request) {
 	to := "/login"
-	if s.sessions.GetInt64(r.Context(), "customer_id") != 0 {
+	if s.sessions.GetInt64(r.Context(), "admin_id") != 0 {
+		to = "/admin"
+	} else if s.sessions.GetInt64(r.Context(), "customer_id") != 0 {
 		to = "/portal"
 	}
 	http.Redirect(w, r, to, http.StatusSeeOther)
