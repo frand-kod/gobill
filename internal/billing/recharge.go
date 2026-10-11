@@ -28,6 +28,8 @@ type pending struct {
 	expiry time.Time
 	// start_on_first_login: expiry is provisional until the first RADIUS login (StartPending)
 	pendingStart bool
+	// endedIsolir: an isolation ended with this recharge; its open RADIUS sessions are dropped after commit
+	endedIsolir bool
 }
 
 // Recharge activates/extends planID for the customer and records the transaction.
@@ -155,6 +157,11 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 			trx.RouterName = router.Name
 		}
 
+		// a paid recharge ends an isolation first, so the plan below starts from a clean slate
+		ended, err := endIsolation(ctx, q, now.Unix(), customerID, plan.ID)
+		if err != nil {
+			return nil, err
+		}
 		active, found, err := activeSub(ctx, q, customerID, rid, plan.Type)
 		if err != nil {
 			return nil, err
@@ -206,7 +213,7 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 				return nil, err
 			}
 		}
-		pend = &pending{cust: c, plan: plan, change: found && !extend, trx: trx, first: !found, expiry: exp, pendingStart: pendStart}
+		pend = &pending{cust: c, plan: plan, change: found && !extend, trx: trx, first: !found, expiry: exp, pendingStart: pendStart, endedIsolir: ended}
 	}
 
 	t, err := q.CreateTransaction(ctx, trx)
@@ -245,6 +252,9 @@ func (s *Service) apply(ctx context.Context, p *pending) {
 	var err error
 	if p.plan.Type != "Balance" {
 		err = s.activate(ctx, p)
+	}
+	if p.endedIsolir {
+		s.disconnectIsolated(ctx, p.cust)
 	}
 	if err != nil {
 		if f, ok := ctx.Value(deviceFailKey{}).(*bool); ok {

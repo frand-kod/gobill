@@ -16,7 +16,7 @@ import (
 func (s *Server) maintenance(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := r.URL.Path
-		if strings.HasPrefix(p, "/static/") || strings.HasPrefix(p, "/callback/") || isRadiusRest(p) {
+		if strings.HasPrefix(p, "/static/") || strings.HasPrefix(p, "/callback/") || isRadiusRest(p) || p == "/isolir" || p == "/isolir/voucher" {
 			next.ServeHTTP(w, r)
 			return
 		}
