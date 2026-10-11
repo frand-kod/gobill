@@ -39,6 +39,9 @@ func (s *Service) SendPlan(ctx context.Context, fromID int64, friend string, pla
 		} else if err != nil {
 			return err
 		}
+		if !SellablePlan(plan) {
+			return ErrAdminOnlyPlan
+		}
 		if to, err = q.GetCustomerByUsername(ctx, friend); errors.Is(err, sql.ErrNoRows) {
 			return ErrTargetNotFound
 		} else if err != nil {

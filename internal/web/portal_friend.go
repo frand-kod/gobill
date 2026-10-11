@@ -26,6 +26,10 @@ func (s *Server) friendPage(w http.ResponseWriter, r *http.Request, code int, us
 }
 
 func (s *Server) pFriendForm(w http.ResponseWriter, r *http.Request) {
+	if p, err := s.queries.GetPlan(r.Context(), pathID(r)); err != nil || !billing.SellablePlan(p) { // no form for admin-only or Rp 0 plans
+		http.NotFound(w, r)
+		return
+	}
 	s.friendPage(w, r, 200, strings.TrimSpace(r.URL.Query().Get("u")), "")
 }
 
@@ -37,7 +41,7 @@ func (s *Server) pFriend(w http.ResponseWriter, r *http.Request) {
 	user := strings.TrimSpace(r.PostFormValue("username"))
 	err := s.Billing.SendPlan(r.Context(), customerFrom(r).ID, user, pathID(r))
 	for _, e := range []error{billing.ErrSelfTransfer, billing.ErrTargetNotFound, billing.ErrInsufficientBalance, billing.ErrInactive,
-		billing.ErrTransferDisabled, billing.ErrPlanNotFound, billing.ErrFriendPlanDiffers} {
+		billing.ErrTransferDisabled, billing.ErrPlanNotFound, billing.ErrFriendPlanDiffers, billing.ErrAdminOnlyPlan} {
 		if errors.Is(err, e) {
 			s.friendPage(w, r, 200, user, s.catalog.T(s.language(), e.Error()))
 			return

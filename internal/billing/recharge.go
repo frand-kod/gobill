@@ -78,6 +78,9 @@ func (s *Service) RechargeWithBalance(ctx context.Context, customerID, planID, a
 		if plan.Type == "Balance" {
 			return errors.New("cannot pay a balance top-up from balance")
 		}
+		if !SellablePlan(plan) {
+			return ErrAdminOnlyPlan
+		}
 		// The debit is what the transaction records (recharge decides the price), so it follows it.
 		if p, err = s.recharge(ctx, q, customerID, planID, "Customer - Balance", adminID, nil); err != nil {
 			return err

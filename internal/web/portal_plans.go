@@ -114,6 +114,10 @@ func (s *Server) pBuyBalance(w http.ResponseWriter, r *http.Request) {
 		s.plansPage(w, r, 200, "Insufficient balance")
 		return
 	}
+	if errors.Is(err, billing.ErrAdminOnlyPlan) {
+		s.plansPage(w, r, 200, billing.ErrAdminOnlyPlan.Error())
+		return
+	}
 	if errors.Is(err, billing.ErrInactive) {
 		s.plansPage(w, r, 200, "account is not active")
 		return
@@ -162,7 +166,7 @@ func (s *Server) pExtend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	until, err := s.Billing.ExtendExpired(r.Context(), customerFrom(r).ID, pathID(r))
-	for _, e := range []error{billing.ErrExtendDisabled, billing.ErrExtendAlready, billing.ErrNotExpired, billing.ErrPlanNotFound, billing.ErrInactive} {
+	for _, e := range []error{billing.ErrExtendDisabled, billing.ErrExtendAlready, billing.ErrNotExpired, billing.ErrPlanNotFound, billing.ErrInactive, billing.ErrAdminOnlyPlan} {
 		if errors.Is(err, e) {
 			s.pDash(w, r, 200, s.catalog.T(s.language(), e.Error()))
 			return

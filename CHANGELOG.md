@@ -8,6 +8,14 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Fitur
+
+- Akses paket: setiap paket bisa **Publik** (dijual di portal pelanggan, bawaan) atau **Khusus admin** (hanya admin yang bisa memberikannya, tidak tampil di portal). Migrasi 0017 (`plans.audience`); paket yang ada tetap publik. Daftar paket admin menandai paket khusus admin.
+
+### Perbaikan
+
+- Portal pelanggan tidak lagi menjual paket Rp 0 atau paket khusus admin: tidak tampil di daftar, dan POST beli dari saldo, bayar lewat gateway, kirim ke teman, serta perpanjang ditolak dengan "Paket ini hanya bisa diberikan admin". Perpanjangan otomatis dari saldo tidak berlaku untuk paket ini.
+
 ## [0.1.5] - 2026-10-11
 
 ### Perubahan nama

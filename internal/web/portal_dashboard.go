@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/radius"
 )
@@ -243,7 +244,7 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		canExtend := (st["extend_expired"] == "1" || st["extend_expired"] == "yes") && c.Status == "Active"
 		for _, x := range subs { // newest first: the last plan that is not active
 			if x.Status != "active" {
-				if p, _ := s.queries.GetPlan(ctx, x.PlanID); canExtend {
+				if p, _ := s.queries.GetPlan(ctx, x.PlanID); canExtend && billing.SellablePlan(p) {
 					d.Extend = &pExtend{ID: x.ID, Plan: p.Name}
 				}
 				break

@@ -121,6 +121,15 @@ Sakelar `notify_customers`, `notify_otp`, dan `expired_notify_minutes_before` di
 
 `logo`, `logo_dark`, `login_page_*`, `date_format`, `dec_point`, `thousands_sep`, dan `language` diatur di **Pengaturan**. Tema terang atau gelap dan warna aksen diatur dari header, bukan dari pengaturan ini.
 
+## Paket layanan dan siapa yang boleh memakainya
+
+Setiap paket (**Admin > Paket Layanan**) punya akses, diatur di form paket pada **Siapa yang bisa memakai paket ini**:
+
+- **Publik** (bawaan): dijual di portal pelanggan. Pelanggan bisa membelinya dari saldo atau membayarnya lewat gateway, mengirimkannya ke teman, memperpanjangnya setelah habis, dan paket ini diperpanjang dari saldo jika perpanjangan otomatis aktif.
+- **Khusus admin**: untuk paket internal seperti staf atau teknisi. Paket ini disembunyikan dari portal pelanggan. Pelanggan tidak bisa membeli, membayar, mengirim, memperpanjang, atau memperpanjang otomatis paket ini. Admin tetap bisa memberikannya: isi ulang, isi ulang massal, tambah pelanggan dengan paket, dan voucher.
+
+Paket dengan harga Rp 0 tidak pernah dijual di portal, apa pun aksesnya. Kupon yang membuat paket publik menjadi Rp 0 tetap berlaku. Paket khusus admin atau paket Rp 0 tidak diperpanjang dari saldo saat habis: paket itu habis dan diisolir seperti paket lain. Paket yang sudah ada menjadi publik setelah pembaruan (migrasi 0017).
+
 ## Lihat juga
 
 - [Instalasi](installation.md): pemasangan dan variabel awal.
