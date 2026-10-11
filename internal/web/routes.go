@@ -189,6 +189,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/customers/{id}/recharge", staff(http.HandlerFunc(s.custRecharge)))
 	mux.Handle("POST /admin/customers/recharge", staff(http.HandlerFunc(s.bulkRechargeConfirm)))
 	mux.Handle("POST /admin/customers/recharge/run", staff(http.HandlerFunc(s.bulkRechargeRun)))
+	mux.Handle("GET /admin/customers/recharge/result", staff(http.HandlerFunc(s.bulkRechargeResult)))
 	mux.Handle("GET /admin/customers/{id}/summary", staff(http.HandlerFunc(s.custSummary)))
 	mux.Handle("GET /admin/recharge", staff(http.HandlerFunc(s.rechargePick)))
 	mux.Handle("POST /admin/recharge", staff(http.HandlerFunc(s.rechargeStart)))

@@ -8,8 +8,8 @@
     <p class="font-medium">{{.Summary}}</p>
     {{if not .Done}}
       <p class="text-sm text-ink-2">{{T "Payment Method"}}: {{T "Cash"}}. {{T "Each customer renews the plan they are on now."}}</p>
-      {{if .Ids}}<form method="post" action="/admin/customers/recharge/run" class="flex flex-wrap gap-2">
-        {{range .Ids}}<input type="hidden" name="ids" value="{{.}}">{{end}}
+      {{if .Token}}<form method="post" action="/admin/customers/recharge/run" class="flex flex-wrap gap-2">
+        <input type="hidden" name="token" value="{{.Token}}">
         <button class="btn btn-primary" type="submit">{{icon "wallet"}}<span>{{T "Recharge"}}</span></button>
         <a class="btn btn-ghost" href="/admin/customers">{{T "Cancel"}}</a>
       </form>{{else}}<a class="btn btn-ghost" href="/admin/customers">{{T "Cancel"}}</a>{{end}}
