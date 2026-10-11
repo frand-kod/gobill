@@ -322,7 +322,8 @@ func (s *Server) Handler() http.Handler {
 	cop.AddInsecureBypassPattern("POST /isolir/voucher")
 	cop.AddInsecureBypassPattern("POST /radius.php")
 	cop.AddInsecureBypassPattern("POST /radius/rest")
-	app := s.realIP(cop.Handler(s.sessions.LoadAndSave(s.idleGuard(s.maintenance(mux)))))
+	// isolirGate sits inside realIP (it needs the real client IP) and outside the session chain
+	app := s.realIP(s.isolirGate(cop.Handler(s.sessions.LoadAndSave(s.idleGuard(s.maintenance(mux))))))
 	// /health sits outside the session and maintenance chain so monitors always get an answer
 	top := http.NewServeMux()
 	top.HandleFunc("GET /health", s.health)

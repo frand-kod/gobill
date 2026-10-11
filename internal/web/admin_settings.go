@@ -565,7 +565,7 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 	}
 	fp := formPage{Heading: "Settings", Action: "/admin/settings/" + tab, Cancel: "/admin", Fields: s.settingsFields(tab, v, e, st)}
 	if tab == "isolir" {
-		fp.Fields = append(fp.Fields, isolirSetupFields(r, st)...)
+		fp.Fields = append(fp.Fields, s.isolirSetupFields(st)...)
 	}
 	if tab == "payment" { // the URL to paste into the Tripay merchant dashboard
 		fp.Fields[0].Hint = "Callback URL for Tripay: " + baseURL(r) + "/callback/tripay"

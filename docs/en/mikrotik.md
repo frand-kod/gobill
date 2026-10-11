@@ -83,6 +83,38 @@ Voucher login on the hotspot page uses the code as the username. This login goes
    2. Delete the test `/radius` entry.
    3. Delete the test profile and test user.
 
+## Isolir
+
+Isolir sends the HTTP traffic of isolated customers to gobill, so they see the isolir page instead of other sites. **Settings > Isolir > Setup router** shows the commands with your gobill address filled in. This section gives the rules behind them.
+
+The rules apply in this order on the router. The `accept` rule must come before the `drop` rule in the forward chain:
+
+1. **NAT.** Redirect HTTP port 80 from the isolir address-list to gobill.
+2. **Accept.** Let isolated clients reach gobill.
+3. **Drop.** Drop all other traffic from isolated clients.
+4. **Walled garden.** Let the isolir page open before hotspot login.
+5. **Hotspot bypass.** Keep gobill's own traffic out of the hotspot.
+
+    /ip firewall nat add chain=dstnat src-address-list=isolir protocol=tcp dst-port=80 action=dst-nat to-addresses=192.168.99.2 to-ports=8090
+    /ip firewall filter add chain=forward src-address-list=isolir dst-address=192.168.99.2 action=accept
+    /ip firewall filter add chain=forward src-address-list=isolir action=drop
+    /ip hotspot walled-garden ip add dst-address=192.168.99.2 dst-port=8090 action=accept
+    /ip hotspot ip-binding add mac-address=<MAC-HOST-GOBILL> type=bypassed
+
+The address and port are the ones gobill listens on. They are set by `GOBILL_HTTP`, see [configuration](configuration.md). For example, `GOBILL_HTTP=192.168.99.2:8090` gives `to-addresses=192.168.99.2 to-ports=8090`. If `GOBILL_HTTP` is empty or `0.0.0.0`, gobill uses the first LAN IPv4 address of its host. Set `GOBILL_HTTP` to a fixed LAN IP when the host has more than one address.
+
+Replace `<MAC-HOST-GOBILL>` with the MAC address of gobill's LAN card. Without the bypass, the hotspot can capture gobill's own traffic.
+
+The drop rule also blocks HTTPS and apps for isolated clients. Only HTTP on port 80 reaches the isolir page.
+
+### Testing the isolir page
+
+gobill serves the isolir page to an isolated client at `/` and at every other path, with any `Host` header. Test from a LAN client with curl:
+
+    curl -i -H "Host: example.com" http://192.168.99.2:8090/
+
+Do not test with `/tool fetch` on RouterOS. It sends a second `Host` header and gets `400 Bad Request`.
+
 ## See also
 
 - [Security](security.md#radius-hardening): RADIUS hardening, firewall, and CoA.

@@ -83,6 +83,38 @@ Login voucher di halaman hotspot memakai kode sebagai username. Login ini langsu
    2. Hapus entry `/radius` uji.
    3. Hapus profil dan user uji.
 
+## Isolir
+
+Isolir mengalihkan trafik HTTP pelanggan isolir ke gobill, sehingga mereka melihat halaman isolir dan bukan situs lain. **Pengaturan > Isolir > Setup router** menampilkan perintah dengan alamat gobill yang sudah terisi. Bagian ini menjelaskan aturan di balik perintah tersebut.
+
+Aturan berikut berlaku dalam urutan ini di router. Aturan `accept` harus berada sebelum aturan `drop` di chain forward:
+
+1. **NAT.** Alihkan HTTP port 80 dari address-list isolir ke gobill.
+2. **Accept.** Izinkan klien isolir mencapai gobill.
+3. **Drop.** Blokir semua trafik lain dari klien isolir.
+4. **Walled garden.** Izinkan halaman isolir terbuka sebelum login hotspot.
+5. **Bypass hotspot.** Jauhkan trafik gobill sendiri dari hotspot.
+
+    /ip firewall nat add chain=dstnat src-address-list=isolir protocol=tcp dst-port=80 action=dst-nat to-addresses=192.168.99.2 to-ports=8090
+    /ip firewall filter add chain=forward src-address-list=isolir dst-address=192.168.99.2 action=accept
+    /ip firewall filter add chain=forward src-address-list=isolir action=drop
+    /ip hotspot walled-garden ip add dst-address=192.168.99.2 dst-port=8090 action=accept
+    /ip hotspot ip-binding add mac-address=<MAC-HOST-GOBILL> type=bypassed
+
+Alamat dan port adalah yang didengar gobill. Keduanya diatur oleh `GOBILL_HTTP`, lihat [konfigurasi](configuration.md). Contohnya, `GOBILL_HTTP=192.168.99.2:8090` menghasilkan `to-addresses=192.168.99.2 to-ports=8090`. Jika `GOBILL_HTTP` kosong atau `0.0.0.0`, gobill memakai IPv4 LAN pertama dari host-nya. Isi `GOBILL_HTTP` dengan IP LAN tetap bila host punya lebih dari satu alamat.
+
+Isi `<MAC-HOST-GOBILL>` dengan MAC address kartu LAN gobill. Tanpa bypass, hotspot bisa menangkap trafik gobill sendiri.
+
+Aturan drop juga memblokir HTTPS dan aplikasi untuk klien isolir. Hanya HTTP port 80 yang sampai ke halaman isolir.
+
+### Tes halaman isolir
+
+gobill melayani halaman isolir untuk klien isolir di `/` dan di semua path lain, dengan header `Host` apa pun. Tes dari klien LAN dengan curl:
+
+    curl -i -H "Host: example.com" http://192.168.99.2:8090/
+
+Jangan tes dengan `/tool fetch` di RouterOS. Perintah itu mengirim header `Host` kedua dan mendapat `400 Bad Request`.
+
 ## Lihat juga
 
 - [Keamanan](security.md#pengerasan-radius): pengerasan RADIUS, firewall, dan CoA.
