@@ -20,6 +20,7 @@ import (
 var settingSample = map[string]string{
 	"company_name": "Acme Net", "currency_code": "Rp", "timezone": "Asia/Makassar", "reminder_hour": "8",
 	"reset_day": "5", "session_timeout_duration": "30", "daily_summary_time": "07:30", "maintenance_date": "2026-10-31",
+	"isolir_rate_down": "2M", "isolir_rate_up": "512k",
 	"wa_url":             "http://gw.test/wa?to=[number]&text=[text]",
 	"alt_wga_server_url": "http://127.0.0.1:3030", "smtp_port": "587", "webhook_url": "https://hook.test/x",
 	"voucher_redirect": "https://192.168.88.1/status", "trusted_proxies": "172.16.0.0/16, 10.0.0.2", "extend_days": "3", "minimum_transfer": "5000",
@@ -82,6 +83,9 @@ func TestSettingsEveryFieldShowsStoredValue(t *testing.T) {
 		fields := s.settingsFields(tab.Slug, nil, nil, nil)
 		form, want, checked := url.Values{}, map[string]string{}, map[string]bool{}
 		for i, f := range fields {
+			if settingsSpeed[f.Name] { // kept in the isolir bandwidth row, see TestIsolirSpeedSavesBandwidth
+				continue
+			}
 			switch f.Type {
 			case "watest", "dsnow", "formbtn", "test", "link", "password", "file", "hidden", "pre":
 				continue
@@ -100,6 +104,9 @@ func TestSettingsEveryFieldShowsStoredValue(t *testing.T) {
 		}
 		body := getBody(t, h, c, "/admin/settings/"+tab.Slug)
 		for _, f := range fields {
+			if settingsSpeed[f.Name] {
+				continue
+			}
 			switch f.Type {
 			case "watest", "dsnow", "formbtn", "test", "password", "file", "hidden", "note", "pre":
 				continue

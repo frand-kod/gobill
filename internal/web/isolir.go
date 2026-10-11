@@ -310,24 +310,6 @@ func (s *Server) isolirReset(w http.ResponseWriter, r *http.Request) {
 	s.done(w, r, "/admin/settings/isolir", "Settings saved", "settings.reset", "isolir "+sec)
 }
 
-// isolirPlanOptions lists the plans for the isolir plan select; "" = the automatic isolir plan. A
-// stored id that is not in the list (a deleted plan) is kept as an option so it still shows.
-func (s *Server) isolirPlanOptions(current string) []option {
-	out := []option{{"", "Otomatis: Isolir (dibuat saat diaktifkan)"}}
-	seen := map[string]bool{"": true}
-	plans, err := s.queries.ListPlans(context.Background(), db.ListPlansParams{Limit: 1000})
-	if err == nil {
-		for _, p := range plans {
-			out = append(out, option{fmt.Sprint(p.ID), p.Name})
-			seen[fmt.Sprint(p.ID)] = true
-		}
-	}
-	if !seen[current] {
-		out = append(out, option{current, "#" + current})
-	}
-	return out
-}
-
 // isolirVars is the variable reference shown under the custom HTML field.
 const isolirVars = `[[company_name]] [[logo_url]] [[title]] [[message]] [[username]] [[name]] [[plan_name]] [[expired_at]] [[amount]]
 [[qris_image]] (data URI, untuk src gambar) [[wa_admin_link]] [[voucher_form]] (form voucher) [[promos]] [[known]] (yes/no) [[notice]]

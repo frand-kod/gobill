@@ -57,6 +57,13 @@ func (s *Service) isolate(ctx context.Context, plan db.Plan, c db.Customer) erro
 	})
 }
 
+// isolirPlan reports whether planID is the isolir plan. The isolir plan is a system plan: it is never
+// recharged or assigned by hand, only the isolation above puts a customer on it.
+func isolirPlan(ctx context.Context, q *db.Queries, planID int64) bool {
+	v, err := q.GetSetting(ctx, "isolir_plan_id")
+	return err == nil && planID != 0 && isolir.PlanID(v) == planID
+}
+
 // endIsolation expires the customer's active isolir subscription so a recharge to keepPlanID can
 // take over. It reports whether an isolation was ended. Runs inside the caller's transaction.
 func endIsolation(ctx context.Context, q *db.Queries, now int64, customerID, keepPlanID int64) (bool, error) {

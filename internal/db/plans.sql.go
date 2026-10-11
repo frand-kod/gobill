@@ -256,17 +256,18 @@ func (q *Queries) ListPlans(ctx context.Context, arg ListPlansParams) ([]Plan, e
 }
 
 const searchPlans = `-- name: SearchPlans :many
-SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience FROM plans WHERE name LIKE '%' || CAST(?1 AS TEXT) || '%' ORDER BY name LIMIT ?3 OFFSET ?2
+SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience FROM plans WHERE name LIKE '%' || CAST(?1 AS TEXT) || '%' AND id <> ?4 ORDER BY name LIMIT ?3 OFFSET ?2
 `
 
 type SearchPlansParams struct {
 	Q          string
 	PageOffset int64
 	PageLimit  int64
+	HiddenID   int64
 }
 
 func (q *Queries) SearchPlans(ctx context.Context, arg SearchPlansParams) ([]Plan, error) {
-	rows, err := q.db.QueryContext(ctx, searchPlans, arg.Q, arg.PageOffset, arg.PageLimit)
+	rows, err := q.db.QueryContext(ctx, searchPlans, arg.Q, arg.PageOffset, arg.PageLimit, arg.HiddenID)
 	if err != nil {
 		return nil, err
 	}

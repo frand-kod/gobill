@@ -16,7 +16,7 @@ SELECT * FROM plans ORDER BY name LIMIT ? OFFSET ?;
 SELECT * FROM plans WHERE enabled = 1 AND type = ? AND audience = 'public' AND price > 0 ORDER BY price;
 
 -- name: SearchPlans :many
-SELECT * FROM plans WHERE name LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' ORDER BY name LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+SELECT * FROM plans WHERE name LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' AND id <> sqlc.arg(hidden_id) ORDER BY name LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 -- name: UpdatePlan :exec
 UPDATE plans SET name = ?, type = ?, billing = ?, price = ?, validity = ?, validity_unit = ?,

@@ -53,6 +53,9 @@ var settingsSecret = map[string]bool{"telegram_bot": true, "smtp_pass": true, "w
 // settingsFile are image uploads. The setting holds the stored filename; an empty post keeps it.
 var settingsFile = map[string]bool{"logo": true, "logo_dark": true, "login_page_logo": true, "login_page_logo_dark": true, "login_page_favicon": true, "login_page_wallpaper": true}
 
+// settingsSpeed are the Isolir rates. They are not stored as settings: save writes them to the isolir bandwidth row.
+var settingsSpeed = map[string]bool{"isolir_rate_down": true, "isolir_rate_up": true}
+
 // settingsZones is the timezone select; the server still checks any value with time.LoadLocation.
 var settingsZones = []string{"Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura", "Asia/Singapore", "Asia/Kuala_Lumpur",
 	"Asia/Bangkok", "Asia/Kolkata", "Asia/Dubai", "Asia/Tokyo", "Asia/Shanghai", "Europe/London", "Europe/Paris",
@@ -264,13 +267,15 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		}
 		return append(out, section([]field{qris}, "QRIS", "")...)
 	case "isolir":
-		plans := s.isolirPlanOptions(v["isolir_plan_id"])
 		out := section([]field{
-			sel("isolir_enabled", "Isolir Aktif", settingsYesNo...).hint("Pelanggan yang paketnya habis masuk paket Isolir (64 kbps). Perlu setup router, lihat bagian Setup router di bawah"),
-			sel("isolir_plan_id", "Paket Isolir", plans...).hint("Kosong = paket Isolir otomatis (dibuat saat isolir diaktifkan pertama kali). Paket ini tidak dijual di portal"),
+			sel("isolir_enabled", "Isolir Aktif", settingsYesNo...).hint("Pelanggan yang paketnya habis masuk paket Isolir. Perlu setup router, lihat bagian Setup router MikroTik di bawah"),
+			{Name: "isolir_plan_name", Label: "Nama paket", Type: "pre", Value: v["isolir_plan_name"],
+				Hint: "Paket sistem: tidak dijual di portal dan tidak bisa diberikan secara manual. Dibuat saat Isolir diaktifkan pertama kali"},
+			text("isolir_rate_down", "Kecepatan download", v, e).hint("Contoh 64k atau 2M. Disimpan ke profil bandwidth paket Isolir"),
+			text("isolir_rate_up", "Kecepatan upload", v, e).hint("Contoh 64k atau 2M"),
 			text("isolir_days", "Lama Isolir (hari)", v, e).as("number").hint("Hari setelah paket habis, lalu benar-benar nonaktif. 0 = isolir sampai bayar"),
 			{Name: "isolir_reset_paket", Label: "Kembalikan ke default", Type: "formbtn", Value: "/admin/settings/isolir/reset/paket", Btn: "Kembalikan ke default",
-				Hint: "Isolir nonaktif, 30 hari, paket otomatis"},
+				Hint: "Isolir nonaktif dan 30 hari. Kecepatan tidak diubah"},
 		}, "Package", "")
 		out = append(out, section([]field{
 			text("isolir_title", "Judul", v, e),
@@ -400,6 +405,11 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	}
 	if x, ok := v["isolir_html"]; ok && len(x) > 100000 {
 		e["isolir_html"] = "Terlalu panjang (maks 100 KB)"
+	}
+	for _, k := range []string{"isolir_rate_down", "isolir_rate_up"} { // empty keeps the stored rate
+		if _, _, valid := parseRate(v[k]); !valid && v[k] != "" {
+			e[k] = "Tulis kecepatan seperti 64k atau 2M"
+		}
 	}
 	if x, ok := v["language"]; ok {
 		if _, ok := s.catalog[x]; !ok {
@@ -569,6 +579,14 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 				v[k] = isolir.Value(st, k)
 			}
 		}
+		name, down, up := s.isolirSpeed(r.Context())
+		if name == "" {
+			name = "Belum dibuat. Dibuat saat Isolir diaktifkan"
+		}
+		v["isolir_plan_name"] = name
+		if _, ok := v["isolir_rate_down"]; !ok { // a posted rate is kept on a failed save
+			v["isolir_rate_down"], v["isolir_rate_up"] = down, up
+		}
 	}
 	fp := formPage{Heading: "Settings", Action: "/admin/settings/" + tab, Cancel: "/admin", Fields: s.settingsFields(tab, v, e, st)}
 	if tab == "isolir" {
@@ -713,9 +731,18 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 		}
 		v["isolir_plan_id"] = strconv.FormatInt(id, 10)
 	}
+	if tab == "isolir" {
+		if err := saveIsolirRates(r.Context(), q, v); err != nil {
+			s.fail(w, "isolir rates", err)
+			return
+		}
+	}
 	for _, k := range keys {
 		if settingsSecret[k] && v[k] == "" {
 			continue // empty secret keeps the stored value
+		}
+		if settingsSpeed[k] {
+			continue // written to the isolir bandwidth row above
 		}
 		if err := q.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: k, Value: v[k]}); err != nil {
 			s.fail(w, "save setting "+k, err)

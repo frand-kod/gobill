@@ -115,17 +115,18 @@ func (q *Queries) ListBandwidths(ctx context.Context, arg ListBandwidthsParams) 
 }
 
 const searchBandwidths = `-- name: SearchBandwidths :many
-SELECT id, name, rate_down, rate_down_unit, rate_up, rate_up_unit, burst FROM bandwidths WHERE name LIKE '%' || CAST(?1 AS TEXT) || '%' ORDER BY name LIMIT ?3 OFFSET ?2
+SELECT id, name, rate_down, rate_down_unit, rate_up, rate_up_unit, burst FROM bandwidths WHERE name LIKE '%' || CAST(?1 AS TEXT) || '%' AND id <> ?4 ORDER BY name LIMIT ?3 OFFSET ?2
 `
 
 type SearchBandwidthsParams struct {
 	Q          string
 	PageOffset int64
 	PageLimit  int64
+	HiddenID   int64
 }
 
 func (q *Queries) SearchBandwidths(ctx context.Context, arg SearchBandwidthsParams) ([]Bandwidth, error) {
-	rows, err := q.db.QueryContext(ctx, searchBandwidths, arg.Q, arg.PageOffset, arg.PageLimit)
+	rows, err := q.db.QueryContext(ctx, searchBandwidths, arg.Q, arg.PageOffset, arg.PageLimit, arg.HiddenID)
 	if err != nil {
 		return nil, err
 	}

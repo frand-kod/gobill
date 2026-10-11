@@ -39,6 +39,7 @@ type listPage struct {
 	From, To         string       // YYYY-MM-DD
 	Bulk             []bulkAction // row checkboxes + buttons posting the selected ids to Base/Path
 	Clean            string       // POST URL of the "keep N days / Clean logs" form; "" = none
+	Note, NoteLink   string       // muted line under the title, linking to NoteLink; "" = none
 }
 
 // bulkAction is a button that POSTs the checked row ids (name "ids") to Base/Path.

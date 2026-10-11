@@ -2161,5 +2161,6 @@
     "Login page title & logo": "Judul & logo halaman login",
     "System & Security": "Sistem & keamanan",
     "MikroTik router setup": "Setup router MikroTik",
-    "New token": "Token baru"
+    "New token": "Token baru",
+    "The Isolir plan is managed in Settings > Isolir": "Paket Isolir diatur di Pengaturan > Isolir"
 }

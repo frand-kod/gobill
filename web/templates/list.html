@@ -10,6 +10,7 @@
   </div>
 </div>
 {{template "callout" $.Intro}}
+{{with .Note}}<p class="hint mb-4"><a class="link" href="{{$d.NoteLink}}">{{T .}}</a></p>{{end}}
 {{if .Clean}}<form class="mb-4 flex flex-wrap items-center gap-2" method="post" action="{{.Clean}}" data-confirm="{{T "Clean Logs"}}?" data-confirm-danger>
   <input class="input w-32" type="number" name="keep" min="1" required placeholder="{{T "Keep logs (days)"}}" aria-label="{{T "Keep logs (days)"}}">
   <button class="btn btn-danger" type="submit">{{icon "trash-2"}}<span>{{T "Clean Logs"}}</span></button>
