@@ -5,6 +5,7 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/radius"
@@ -37,23 +38,29 @@ func (s *Server) sessRows(ss []db.RadiusSession, now int64) []sessRow {
 }
 
 func (s *Server) radiusSessions(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
-	ss, err := s.queries.SearchOpenRadiusSessions(r.Context(), db.SearchOpenRadiusSessionsParams{Q: q, PageLimit: limit, PageOffset: off})
+	q, pg := paging(r)
+	ss, err := s.queries.SearchOpenRadiusSessions(r.Context(), db.SearchOpenRadiusSessionsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
 		s.fail(w, "list radius sessions", err)
 		return
 	}
+	total, err := s.queries.CountOpenRadiusSessions(r.Context(), q)
+	if err != nil {
+		s.fail(w, "count radius sessions", err)
+		return
+	}
 	d := struct {
-		Q          string
-		Rows       []sessRow
-		Prev, Next int
+		Q    string
+		Rows []sessRow
+		Nav  pageNav
 	}{Q: q}
-	if len(ss) > perPage {
-		ss, d.Next = ss[:perPage], page+1
+	more := len(ss) > pg.Per
+	if more {
+		ss = ss[:pg.Per]
 	}
-	if page > 1 {
-		d.Prev = page - 1
-	}
+	d.Nav = newPageNav(pg, total, len(ss), more, func(page, per int) string {
+		return pageHref("/admin/radius/sessions", url.Values{"q": {q}}, page, per)
+	})
 	d.Rows = s.sessRows(ss, time.Now().Unix())
 	for i := range d.Rows { // ponytail: one tiny query per row (max 20); join in SQL if pages get bigger
 		d.Rows[i].Plan, _ = s.queries.ActivePlanNameByLogin(r.Context(), d.Rows[i].User)

@@ -76,12 +76,12 @@ func (s *Server) planOptions(r *http.Request, enabledOnly bool) ([]option, map[i
 }
 
 func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
+	q, pg := paging(r)
 	status := r.URL.Query().Get("status")
 	if status != "unused" && status != "used" {
 		status = ""
 	}
-	rows, err := s.queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Q: q, Status: status, PageLimit: limit, PageOffset: off})
+	rows, err := s.queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Q: q, Status: status, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
 		s.fail(w, "list vouchers", err)
 		return
@@ -109,7 +109,12 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 		}
 		lp.Rows = append(lp.Rows, listRow{v.ID, []string{v.Code, plans[v.PlanID].Name, v.Status, s.ts(v.CreatedAt), used}})
 	}
-	lp.finish(page)
+	total, err := s.queries.CountVouchers(r.Context(), db.CountVouchersParams{Q: q, Status: status})
+	if err != nil {
+		s.fail(w, "count vouchers", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }
 

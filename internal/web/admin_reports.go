@@ -30,8 +30,8 @@ type reportData struct {
 	Sum                            int64
 	ByType, ByMethod               []repTotal
 	Company, Query, Base           string
-	Prev, Next                     int  // row table page numbers, 0 = none
-	Truncated                      bool // print: rows capped at reportPrintCap
+	Nav                            pageNav // row table pager
+	Truncated                      bool    // print: rows capped at reportPrintCap
 }
 
 // reportPrintCap bounds the print view; the CSV export still has every row.
@@ -42,11 +42,6 @@ func parseDay(s string, loc *time.Location, def time.Time) time.Time {
 		return t
 	}
 	return def
-}
-
-// PageURL links another page of the row table, keeping the filter.
-func (d reportData) PageURL(page int) string {
-	return d.Base + "?" + d.Query + "&page=" + strconv.Itoa(page)
 }
 
 // reportFilter reads the request filter. Day bounds are local midnights in the app zone; "to" is inclusive.
@@ -125,19 +120,24 @@ func (s *Server) reportPage(period bool) http.HandlerFunc {
 			s.fail(w, "report", err)
 			return
 		}
-		_, page, limit, off := paging(r)
-		rows, err := s.reportRows(r.Context(), a, limit, off)
+		_, pg := paging(r)
+		rows, err := s.reportRows(r.Context(), a, pg.limit(), pg.offset())
 		if err != nil {
 			s.fail(w, "report rows", err)
 			return
 		}
-		if len(rows) > perPage {
-			rows = rows[:perPage]
-			d.Next = page + 1
+		more := len(rows) > pg.Per
+		if more {
+			rows = rows[:pg.Per]
 		}
-		if page > 1 {
-			d.Prev = page - 1
-		}
+		// d.Count is the number of rows the filter matches (the totals are computed over all of them)
+		d.Nav = newPageNav(pg, int64(d.Count), len(rows), more, func(page, per int) string {
+			href := d.Base + "?" + d.Query + "&page=" + strconv.Itoa(page)
+			if per != perPage {
+				href += "&per=" + strconv.Itoa(per)
+			}
+			return href
+		})
 		d.Rows = rows
 		d.Types = anyOpts("Type", "Hotspot", "PPPoE", "Balance")
 		d.Routers = anyOpts("Routers")
@@ -244,11 +244,11 @@ func (s *Server) trxInvoice(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) trxList(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
+	q, pg := paging(r)
 	sort, dir, param := listSort(r, "date", "amount", "username")
 	// ?customer=ID limits the list to one customer (the customer detail page links here)
 	cid, _ := strconv.ParseInt(r.URL.Query().Get("customer"), 10, 64)
-	rows, err := s.queries.SearchTransactions(r.Context(), db.SearchTransactionsParams{Q: q, Sort: param, CustomerID: cid, PageLimit: limit, PageOffset: off})
+	rows, err := s.queries.SearchTransactions(r.Context(), db.SearchTransactionsParams{Q: q, Sort: param, CustomerID: cid, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
 		s.fail(w, "list transactions", err)
 		return
@@ -266,6 +266,11 @@ func (s *Server) trxList(w http.ResponseWriter, r *http.Request) {
 	for _, t := range rows {
 		lp.Rows = append(lp.Rows, listRow{t.ID, []string{t.Invoice, s.ts(t.CreatedAt), t.Username, t.PlanName, t.Type, t.Method, money(t.Price)}})
 	}
-	lp.finish(page)
+	total, err := s.queries.CountSearchTransactions(r.Context(), db.CountSearchTransactionsParams{Q: q, CustomerID: cid})
+	if err != nil {
+		s.fail(w, "count transactions", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }

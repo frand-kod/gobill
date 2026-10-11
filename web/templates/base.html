@@ -17,6 +17,17 @@ document.querySelectorAll('[data-pw]').forEach(function (b) {
   i.addEventListener('keyup', function (e) { if (cap && e.getModifierState) cap.hidden = !e.getModifierState('CapsLock'); });
 });
 </script>{{end}}
+{{define "pager"}}{{if .Total}}
+<nav class="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-ink-2" aria-label="{{T "Pagination"}}">
+  <p>{{with .From}}{{printf (T "Showing %d–%d of %d") $.From $.To $.Total}}{{end}}</p>
+  <div class="flex flex-wrap items-center gap-2">
+    <span>{{T "Per page"}}</span>
+    {{range .Sizes}}<a class="btn btn-sm{{if .On}} btn-primary{{else}} btn-ghost{{end}}" href="{{.Href}}"{{if .On}} aria-current="true"{{end}}>{{.N}}</a>{{end}}
+    {{if .Prev}}<a class="btn btn-ghost" href="{{.Prev}}">{{T "Previous"}}</a>{{end}}
+    {{if .Next}}<a class="btn btn-ghost" href="{{.Next}}">{{T "Next"}}</a>{{end}}
+  </div>
+</nav>
+{{end}}{{end}}
 {{define "toastx"}}<button type="button" class="btn btn-sm shrink-0 border-transparent bg-transparent px-2" data-toast-close aria-label="{{T "Close"}}">{{icon "x"}}</button>{{end}}
 {{define "toasts"}}{{if or .Flash .Warn .Error}}<div id="toasts" class="fixed inset-x-4 top-4 z-[60] flex flex-col gap-2 sm:inset-x-auto sm:end-4 sm:w-[420px] sm:max-w-[calc(100vw-2rem)]">
   {{with .Flash}}<div class="alert alert-ok toast" role="status" data-toast="4000">{{icon "circle-check"}}<span class="min-w-0 flex-1">{{.}}</span>{{template "toastx"}}</div>{{end}}

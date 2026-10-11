@@ -30,6 +30,7 @@
     </div>
     {{end}}
     {{if .Sort}}<input type="hidden" name="sort" value="{{.Sort}}"><input type="hidden" name="dir" value="{{.Dir}}">{{end}}
+    <input type="hidden" name="per" value="{{.Nav.Per}}">
     <button class="btn btn-ghost max-sm:hidden" type="submit">{{T "Search"}}</button>
     {{if .Filtered}}<a class="btn btn-ghost btn-icon tip-end" href="{{.Base}}" aria-label="{{T "Reset filter"}}" data-tip="{{T "Reset filter"}}">{{icon "x"}}</a>{{end}}
   </form>
@@ -77,12 +78,7 @@
     </div>
   </div>
 </div>
-{{if or .Prev .Next}}
-<p class="mt-4 flex justify-end gap-2">
-  {{if .Prev}}<a class="btn btn-ghost" href="{{.PageURL .Prev}}">{{T "Previous"}}</a>{{end}}
-  {{if .Next}}<a class="btn btn-ghost" href="{{.PageURL .Next}}">{{T "Next"}}</a>{{end}}
-</p>
-{{end}}
+{{template "pager" .Nav}}
 </div>
 <script defer src="/static/list.js"></script>
 {{end}}

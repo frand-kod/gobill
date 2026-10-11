@@ -30,8 +30,8 @@ func poolFields(v, e map[string]string, routers []db.Router) []field {
 }
 
 func (s *Server) poolList(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
-	rows, err := s.queries.SearchPools(r.Context(), db.SearchPoolsParams{Q: q, PageLimit: limit, PageOffset: off})
+	q, pg := paging(r)
+	rows, err := s.queries.SearchPools(r.Context(), db.SearchPoolsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
 		s.fail(w, "list pools", err)
 		return
@@ -50,7 +50,12 @@ func (s *Server) poolList(w http.ResponseWriter, r *http.Request) {
 	for _, p := range rows {
 		lp.Rows = append(lp.Rows, listRow{p.ID, []string{p.Name, p.LocalIp, p.RangeIp, names[p.RouterID]}})
 	}
-	lp.finish(page)
+	total, err := s.queries.CountPools(r.Context(), q)
+	if err != nil {
+		s.fail(w, "count pools", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }
 

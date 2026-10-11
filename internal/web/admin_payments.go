@@ -47,9 +47,9 @@ func (s *Server) pgAuditRows(rs []db.SearchPaymentRequestsRow) [][]string {
 var pgStatuses = []option{{"", "Status"}, {"pending", "pending"}, {"paid", "paid"}, {"failed", "failed"}, {"expired", "expired"}}
 
 func (s *Server) pgAudit(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
+	q, pg := paging(r)
 	p := s.pgAuditParams(r)
-	p.PageLimit, p.PageOffset = limit, off
+	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
 	rs, err := s.queries.SearchPaymentRequests(r.Context(), p)
 	if err != nil {
 		s.fail(w, "payment audit", err)
@@ -62,7 +62,12 @@ func (s *Server) pgAudit(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{rs[i].ID, c})
 	}
 	lp.Links = []option{{"/admin/payment-gateway/audit/export?" + lp.query().Encode(), "Export CSV"}}
-	lp.finish(page)
+	total, err := s.queries.CountPaymentRequests(r.Context(), db.CountPaymentRequestsParams{Q: p.Q, Status: p.Status, FromTs: p.FromTs, ToTs: p.ToTs})
+	if err != nil {
+		s.fail(w, "count payments", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }
 

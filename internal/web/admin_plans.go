@@ -115,8 +115,8 @@ func planFormValues(p db.Plan) map[string]string {
 }
 
 func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
-	rows, err := s.queries.SearchPlans(r.Context(), db.SearchPlansParams{Q: q, PageLimit: limit, PageOffset: off})
+	q, pg := paging(r)
+	rows, err := s.queries.SearchPlans(r.Context(), db.SearchPlansParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
 		s.fail(w, "list plans", err)
 		return
@@ -140,7 +140,12 @@ func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{p.ID, []string{p.Name, p.Type + " / " + p.Billing, money(p.Price),
 			fmt.Sprint(p.Validity, " ", p.ValidityUnit), routers[p.RouterID.Int64], aud, st}})
 	}
-	lp.finish(page)
+	total, err := s.queries.CountPlans(r.Context(), q)
+	if err != nil {
+		s.fail(w, "count plans", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }
 

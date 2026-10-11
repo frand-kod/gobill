@@ -40,8 +40,8 @@ func (s *Server) logClean(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) logList(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
-	rows, err := s.queries.SearchActivityLogs(r.Context(), db.SearchActivityLogsParams{Q: q, PageLimit: limit, PageOffset: off})
+	q, pg := paging(r)
+	rows, err := s.queries.SearchActivityLogs(r.Context(), db.SearchActivityLogsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
 		s.fail(w, "list logs", err)
 		return
@@ -53,7 +53,12 @@ func (s *Server) logList(w http.ResponseWriter, r *http.Request) {
 		when := time.Unix(l.CreatedAt, 0).In(s.location()).Format("2006-01-02 15:04:05")
 		lp.Rows = append(lp.Rows, listRow{l.ID, []string{when, fmt.Sprint(l.ActorType, " #", l.ActorID), l.Action, l.Description, l.Ip}})
 	}
-	lp.finish(page)
+	total, err := s.queries.CountActivityLogs(r.Context(), q)
+	if err != nil {
+		s.fail(w, "count logs", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
@@ -107,9 +112,9 @@ func (s *Server) radiusLogRows(ss []db.RadiusSession) [][]string {
 
 // radiusLog lists all RADIUS sessions, open and closed (old logs/radius).
 func (s *Server) radiusLog(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
+	q, pg := paging(r)
 	p := s.radiusLogParams(r)
-	p.PageLimit, p.PageOffset = limit, off
+	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
 	ss, err := s.queries.SearchRadiusLogs(r.Context(), p)
 	if err != nil {
 		s.fail(w, "radius log", err)
@@ -121,7 +126,12 @@ func (s *Server) radiusLog(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{ss[i].ID, c})
 	}
 	lp.Links = []option{{"/admin/logs/radius/export?" + lp.query().Encode(), "Export CSV"}}
-	lp.finish(page)
+	total, err := s.queries.CountRadiusLogs(r.Context(), db.CountRadiusLogsParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
+	if err != nil {
+		s.fail(w, "count radius logs", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
@@ -157,9 +167,9 @@ func (s *Server) msgLogRows(ms []db.MessageLog) [][]string {
 
 // msgLog lists every send attempt of internal/notify (old logs/message).
 func (s *Server) msgLog(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
+	q, pg := paging(r)
 	p := s.msgLogParams(r)
-	p.PageLimit, p.PageOffset = limit, off
+	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
 	ms, err := s.queries.SearchMessageLogs(r.Context(), p)
 	if err != nil {
 		s.fail(w, "message log", err)
@@ -171,7 +181,12 @@ func (s *Server) msgLog(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{ms[i].ID, c})
 	}
 	lp.Links = []option{{"/admin/logs/messages/export?" + lp.query().Encode(), "Export CSV"}}
-	lp.finish(page)
+	total, err := s.queries.CountMessageLogs(r.Context(), db.CountMessageLogsParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
+	if err != nil {
+		s.fail(w, "count message logs", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }
 

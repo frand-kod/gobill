@@ -23,8 +23,8 @@ func bwFields(v, e map[string]string) []field {
 }
 
 func (s *Server) bwList(w http.ResponseWriter, r *http.Request) {
-	q, page, limit, off := paging(r)
-	rows, err := s.queries.SearchBandwidths(r.Context(), db.SearchBandwidthsParams{Q: q, PageLimit: limit, PageOffset: off})
+	q, pg := paging(r)
+	rows, err := s.queries.SearchBandwidths(r.Context(), db.SearchBandwidthsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
 		s.fail(w, "list bandwidths", err)
 		return
@@ -34,7 +34,12 @@ func (s *Server) bwList(w http.ResponseWriter, r *http.Request) {
 	for _, b := range rows {
 		lp.Rows = append(lp.Rows, listRow{b.ID, []string{b.Name, fmt.Sprint(b.RateDown, " ", b.RateDownUnit), fmt.Sprint(b.RateUp, " ", b.RateUpUnit), b.Burst}})
 	}
-	lp.finish(page)
+	total, err := s.queries.CountBandwidths(r.Context(), q)
+	if err != nil {
+		s.fail(w, "count bandwidths", err)
+		return
+	}
+	lp.finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
