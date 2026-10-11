@@ -24,8 +24,8 @@ func TestNotifTemplatesShowVariablesAndReset(t *testing.T) {
 	if !strings.Contains(body, `formaction="/admin/settings/notifications/reset/expired"`) {
 		t.Error("no reset button for the expired message")
 	}
-	if strings.Contains(body, `formaction="/admin/settings/notifications/reset/invoice_balance"`) {
-		t.Error("invoice_balance has no built-in text to reset to, yet it has a reset button")
+	if !strings.Contains(body, `data-var-insert="[[balance_before]]"`) || !strings.Contains(body, `formaction="/admin/settings/notifications/reset/invoice_balance"`) {
+		t.Error("invoice_balance lacks its variables or its reset button")
 	}
 	if !strings.Contains(body, `src="/static/tplvars.js"`) {
 		t.Error("the chip script is not loaded")

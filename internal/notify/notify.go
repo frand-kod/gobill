@@ -37,6 +37,7 @@ var defaults = map[string]string{
 	"balance_send":     "You sent [[balance]] to [[name]].",
 	"balance_received": "You have received [[balance]] from [[name]].",
 	"welcome_message":  "Welcome aboard, [[name]]! \r\nWe're excited to have you as a new [[company]] customer. \r\nPortal: [[url]]\r\nYour login is [[Username]]\r\nWelcome to the [[company]] family!",
+	"invoice_balance":  "*[[company_name]]*\r\n[[address]]\r\n[[phone]]\r\n\r\n\r\nINVOICE: *[[invoice]]*\r\nDate : [[date]]\r\n[[payment_gateway]] [[payment_channel]]\r\n\r\n\r\nType : *[[type]]*\r\nPackage : *[[plan_name]]*\r\nPrice : *[[plan_price]]*\r\n\r\n====================\r\n[[footer]]",
 	"invoice_paid":     "*[[company_name]]*\r\n[[address]]\r\n[[phone]]\r\n\r\nINVOICE: *[[invoice]]*\r\nDate : [[date]]\r\n[[payment_gateway]] [[payment_channel]]\r\n\r\nType : *[[type]]*\r\nPackage : *[[plan_name]]*\r\nPrice : *[[plan_price]]*\r\n\r\nUsername : *[[user_name]]*\r\n\r\nExpired : *[[expired_date]]*\r\n\r\n====================\r\n[[footer]]",
 }
 
@@ -76,6 +77,10 @@ var Vars = map[string][]Var{
 		{"Password", "Password, or ******** when it is not sent"},
 	}),
 	"invoice_paid": join(customerVars, invoiceVars),
+	"invoice_balance": join(customerVars, invoiceVars, []Var{
+		{"balance_before", "Balance before the top-up"},
+		{"balance", "Balance after the top-up"},
+	}),
 }
 
 func join(parts ...[]Var) []Var {
@@ -595,13 +600,23 @@ func custVars(c db.Customer, v map[string]string) map[string]string {
 // RechargeSuccess sends the invoice_paid message via user_notification_payment (Package.php).
 // vars: invoice, date, payment_gateway, payment_channel, type, plan_name, plan_price, expired_date, ...
 func (n *Notifier) RechargeSuccess(ctx context.Context, c db.Customer, vars map[string]string) error {
+	return n.invoice(ctx, c, "invoice_paid", vars)
+}
+
+// RechargeBalance sends the invoice_balance message for a balance top-up (Package.php #rechargeBalance),
+// in place of the paid invoice. vars are the RechargeSuccess ones plus balance_before and balance.
+func (n *Notifier) RechargeBalance(ctx context.Context, c db.Customer, vars map[string]string) error {
+	return n.invoice(ctx, c, "invoice_balance", vars)
+}
+
+func (n *Notifier) invoice(ctx context.Context, c db.Customer, name string, vars map[string]string) error {
 	v := custVars(c, vars)
 	for k, s := range map[string]string{"company_name": "company_name", "address": "address", "phone": "phone", "footer": "note"} {
 		if _, ok := v[k]; !ok {
 			v[k] = n.get(s)
 		}
 	}
-	return n.send(ctx, c, n.get("user_notification_payment"), "Invoice #"+v["invoice"], n.fill(n.template("invoice_paid"), v))
+	return n.send(ctx, c, n.get("user_notification_payment"), "Invoice #"+v["invoice"], n.fill(n.template(name), v))
 }
 
 // Expired sends the expired message via user_notification_expired (cron.php).

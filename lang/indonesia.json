@@ -2232,5 +2232,7 @@
     "Result of the last action, such as a voucher": "Hasil aksi terakhir, misalnya voucher",
     "Variables": "Variabel",
     "Reset to default": "Kembalikan ke default",
-    "Reset this message to the built-in text?": "Kembalikan pesan ini ke teks bawaan?"
+    "Reset this message to the built-in text?": "Kembalikan pesan ini ke teks bawaan?",
+    "Balance before the top-up": "Saldo sebelum isi ulang",
+    "Balance after the top-up": "Saldo setelah isi ulang"
 }
