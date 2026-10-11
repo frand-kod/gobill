@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -35,12 +36,14 @@ var settingsTabs = []struct {
 }{
 	{"app", "General", false},
 	{"localisation", "Localisation", false},
-	{"notifications", "Notifications", false},
+	{"billing", "Customers & Billing", false},
+	{"payment", "Payments", true},
 	{"integrations", "Integrations", true},
-	{"payment", "Payment Gateway", true},
+	{"notifications", "Notifications", false},
 	{"isolir", "Isolir", true},
 	{"promo", "Promosi", true},
-	{"miscellaneous", "Miscellaneous", false},
+	{"appearance", "Appearance", false},
+	{"system", "System & Security", false},
 }
 
 // settingsSecret are write-only: never rendered, and an empty post keeps the stored value.
@@ -49,6 +52,9 @@ var settingsSecret = map[string]bool{"telegram_bot": true, "smtp_pass": true, "w
 
 // settingsFile are image uploads. The setting holds the stored filename; an empty post keeps it.
 var settingsFile = map[string]bool{"logo": true, "logo_dark": true, "login_page_logo": true, "login_page_logo_dark": true, "login_page_favicon": true, "login_page_wallpaper": true}
+
+// settingsSpeed are the Isolir rates. They are not stored as settings: save writes them to the isolir bandwidth row.
+var settingsSpeed = map[string]bool{"isolir_rate_down": true, "isolir_rate_up": true}
 
 // settingsZones is the timezone select; the server still checks any value with time.LoadLocation.
 var settingsZones = []string{"Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura", "Asia/Singapore", "Asia/Kuala_Lumpur",
@@ -86,8 +92,13 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 	// notif shows the built-in message only when the setting was never saved; a cleared one stays empty
 	notif := func(name, label string) field {
 		f := area(name, label)
+		key := strings.TrimPrefix(name, "notif_")
 		if _, ok := v[name]; !ok {
-			f.Value = notify.DefaultTemplate(strings.TrimPrefix(name, "notif_"))
+			f.Value = notify.DefaultTemplate(key)
+		}
+		f.Vars = notify.VarsOf(key)
+		if notify.DefaultTemplate(key) != "" { // nothing to reset to without a built-in text
+			f.Reset = "/admin/settings/notifications/reset/" + key
 		}
 		return f
 	}
@@ -105,22 +116,24 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			upl("logo", "Company Logo").hint("Logo in the menu bar. Transparent PNG works best, 2 MB max."),
 			upl("logo_dark", "Company Logo (dark mode)").hint("Shown in dark mode. Empty = use the light logo."),
 			upl("login_page_favicon", "Favicon").hint("Browser tab icon. Empty = default icon."),
-		}, "Identitas usaha", "")
+		}, "Business identity", "")
 		out = append(out, section([]field{
 			text("phone", "Phone Number", v, e).hint("Operator phone or WhatsApp. Shown to customers on the portal."),
 			area("address", "Address").hint("Printed at the top of invoices."),
 			area("note", "Invoice Footer").hint("Printed at the bottom of invoices, e.g. your bank account."),
-		}, "Kontak & faktur", "")...)
-		out = append(out, section([]field{
+		}, "Contact & invoice", "")...)
+		return out
+	case "appearance":
+		out := section([]field{
 			area("login_page_description", "Page Description").hint("Short line under the title on the login page."),
 			upl("login_page_wallpaper", "Login Page Wallpaper").hint("Background image of the left panel on the login page."),
-		}, "Tampilan halaman login", "")...)
+		}, "Login page appearance", "")
 		// the overrides fall back to the main name and logo when empty
 		override := section([]field{
 			text("login_page_head", "Judul halaman login (kosong = nama usaha)", v, e).hint("Leave empty to use the company name."),
 			upl("login_page_logo", "Logo halaman login (kosong = logo utama)").hint("Leave empty to use the company logo."),
 			upl("login_page_logo_dark", "Logo halaman login (mode gelap)").hint("Only used together with the login page logo above."),
-		}, "Judul & logo halaman login", "")
+		}, "Login page title & logo", "")
 		for i := range override {
 			override[i].Fold = true // inside the collapsed "Advanced options"
 		}
@@ -259,14 +272,16 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		}
 		return append(out, section([]field{qris}, "QRIS", "")...)
 	case "isolir":
-		plans := s.isolirPlanOptions(v["isolir_plan_id"])
 		out := section([]field{
-			sel("isolir_enabled", "Isolir Aktif", settingsYesNo...).hint("Pelanggan yang paketnya habis masuk paket Isolir (64 kbps). Perlu setup router, lihat bagian Setup router di bawah"),
-			sel("isolir_plan_id", "Paket Isolir", plans...).hint("Kosong = paket Isolir otomatis (dibuat saat isolir diaktifkan pertama kali). Paket ini tidak dijual di portal"),
+			sel("isolir_enabled", "Isolir Aktif", settingsYesNo...).hint("Pelanggan yang paketnya habis masuk paket Isolir. Perlu setup router, lihat bagian Setup router MikroTik di bawah"),
+			{Name: "isolir_plan_name", Label: "Nama paket", Type: "pre", Value: v["isolir_plan_name"],
+				Hint: "Paket sistem: tidak dijual di portal dan tidak bisa diberikan secara manual. Dibuat saat Isolir diaktifkan pertama kali"},
+			text("isolir_rate_down", "Kecepatan download", v, e).hint("Contoh 64k atau 2M. Disimpan ke profil bandwidth paket Isolir"),
+			text("isolir_rate_up", "Kecepatan upload", v, e).hint("Contoh 64k atau 2M"),
 			text("isolir_days", "Lama Isolir (hari)", v, e).as("number").hint("Hari setelah paket habis, lalu benar-benar nonaktif. 0 = isolir sampai bayar"),
 			{Name: "isolir_reset_paket", Label: "Kembalikan ke default", Type: "formbtn", Value: "/admin/settings/isolir/reset/paket", Btn: "Kembalikan ke default",
-				Hint: "Isolir nonaktif, 30 hari, paket otomatis"},
-		}, "Paket", "")
+				Hint: "Isolir nonaktif dan 30 hari. Kecepatan tidak diubah"},
+		}, "Package", "")
 		out = append(out, section([]field{
 			text("isolir_title", "Judul", v, e),
 			area("isolir_message", "Pesan").hint("Kosong tidak apa-apa; pesan default dipakai bila belum pernah diisi"),
@@ -276,23 +291,23 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			text("isolir_address_list", "Nama address-list MikroTik", v, e).hint("Huruf, angka, titik, strip atau garis bawah. Dikirim RADIUS sebagai Mikrotik-Address-List"),
 			{Name: "isolir_reset_halaman", Label: "Kembalikan ke default", Type: "formbtn", Value: "/admin/settings/isolir/reset/halaman", Btn: "Kembalikan ke default",
 				Hint: "Judul, pesan, QRIS, voucher dan address-list kembali ke bawaan"},
-		}, "Halaman isolir", "")...)
+		}, "Isolir page", "")...)
 		out = append(out, section([]field{
 			sel("isolir_mode", "Mode tampilan", option{"default", "Bawaan"}, option{"custom", "HTML sendiri"}).hint("HTML sendiri dipakai jika isi HTML tidak kosong"),
 			func() field {
 				f := area("isolir_html", "HTML sendiri")
-				f.Hint = "HTML lengkap. Variabel yang tersedia di bawah. Ditampilkan dalam sandbox tanpa akses cookie gobill"
+				f.Hint = "HTML lengkap. Nilai di-escape HTML, kecuali voucher_form dan promos. Variabel tidak dikenal atau kosong menjadi kosong. Ditampilkan dalam sandbox tanpa akses cookie gobill"
+				f.Vars = isolirVarList
 				return f
 			}(),
-			{Name: "isolir_vars", Label: "Variabel", Type: "pre", Value: isolirVars},
 			{Name: "isolir_preview", Label: "Pratinjau halaman isolir (data contoh):", Type: "note", Value: "/admin/settings/isolir/preview", Btn: "Buka pratinjau"},
 			{Name: "isolir_reset_html", Label: "Kembali ke bawaan", Type: "formbtn", Value: "/admin/settings/isolir/reset/html", Btn: "Kembali ke bawaan",
 				Hint: "Mengosongkan HTML sendiri"},
 			{Name: "isolir_reset_mode", Label: "Kembalikan ke default", Type: "formbtn", Value: "/admin/settings/isolir/reset/mode", Btn: "Kembalikan ke default",
 				Hint: "Mode bawaan (HTML sendiri tidak dihapus)"},
-		}, "Mode tampilan", "")...)
+		}, "Display mode", "")...)
 		return out
-	case "miscellaneous":
+	case "billing":
 		out := section([]field{
 			sel("extend_expiry", "Extend Package Expiry", settingsYesNo...),
 			sel("admin_extend", "Extend button on subscriptions", option{"staff", "All staff (Admin, Agent, Sales)"}, option{"managers", "SuperAdmin and Admin"}, option{"super", "SuperAdmin only"}, option{"off", "Off"}).hint("Who may add free days to a subscription from the list. Off hides the button"),
@@ -312,21 +327,6 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			text("customer_password_min", "Minimum Password Length", v, e).as("number").hint("Minimum 4. Password same as username and common passwords are always rejected."),
 		}, "Registration", "")...)
 		out = append(out, section([]field{
-			text("session_timeout_duration", "Timeout Duration", v, e).as("number").hint("Minutes of inactivity before an admin is logged out. Empty = 120."),
-			sel("single_session", "Single Admin Session", settingsYesNo...),
-		}, "Session", "")...)
-		out = append(out, section([]field{
-			chk("maintenance_mode", "Maintenance Mode"),
-			chk("maintenance_mode_logout", "Log Out Customers During Maintenance"),
-			text("maintenance_date", "Maintenance Date", v, e).as("date"),
-			sel("clock_guard", "Clock Guard", settingsOnOff...).hint("Off disables the clock check"),
-			sel("trust_proxy", "Trust Proxy", settingsYesNo...).hint("Honour X-Forwarded-For only from loopback or Trusted Proxies"),
-			text("trusted_proxies", "Trusted Proxies", v, e).hint("Comma-separated IPs or CIDRs of your reverse proxies, e.g. 172.16.0.0/16"),
-			sel("router_check", "Router Check", settingsYesNo...).hint("Pings enabled routers every 5 minutes and alerts when one goes down"),
-			sel("check_customer_online", "Check Customer Online", option{"no", "No"}, option{"yes", "Yes"}).hint("Shows on the customer page whether the customer is connected"),
-			sel("update_check", "Check for updates", settingsYesNo...).hint("Once a day, asks GitHub for a newer gobill release. SuperAdmin sees a badge when one exists"),
-		}, "System", "")...)
-		out = append(out, section([]field{
 			sel("disable_voucher", "Disable Voucher", settingsYesNo...),
 			text("voucher_redirect", "Redirect URL after Activation", v, e).hint("Optional. http or https, e.g. https://192.168.88.1/status"),
 			sel("show_bandwidth_plan", "Show Bandwidth Plan", settingsYesNo...).hint("Displays the bandwidth plan to the customer"),
@@ -345,14 +345,31 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			sel("allow_phone_otp", "Phone OTP Required", settingsYesNo...),
 			sel("allow_email_otp", "Email OTP Required", settingsYesNo...),
 		}, "OTP", "")...)
-		out = append(out, section([]field{
-			sel("hs_auth_method", "Hotspot Auth Method", option{"pap", "PAP"}, option{"chap", "CHAP"}),
-			sel("shared_users_policy", "When the device limit is full", option{"kick_oldest", "Kick oldest device"}, option{"reject", "Reject new login"}).hint("Phones now use random MACs. Kick oldest device stops a customer from being locked out when their phone reconnects with a new MAC."),
-		}, "Hotspot", "")...)
 		return append(out, section([]field{
 			sel("default_plan_device", "Default Device for New Plans", option{"", "By plan type"}, option{"MikrotikHotspot", "MikrotikHotspot"},
 				option{"MikrotikPppoe", "MikrotikPppoe"}, option{"Dummy", "Dummy"}, option{"Radius", "Radius"}).hint("Preselected on the new plan form"),
 		}, "Plans", "")...)
+	case "system":
+		out := section([]field{
+			text("session_timeout_duration", "Timeout Duration", v, e).as("number").hint("Minutes of inactivity before an admin is logged out. Empty = 120."),
+			sel("single_session", "Single Admin Session", settingsYesNo...),
+		}, "Session", "")
+		out = append(out, section([]field{
+			chk("maintenance_mode", "Maintenance Mode"),
+			chk("maintenance_mode_logout", "Log Out Customers During Maintenance"),
+			text("maintenance_date", "Maintenance Date", v, e).as("date"),
+			sel("clock_guard", "Clock Guard", settingsOnOff...).hint("Off disables the clock check"),
+			sel("trust_proxy", "Trust Proxy", settingsYesNo...).hint("Honour X-Forwarded-For only from loopback or Trusted Proxies"),
+			text("trusted_proxies", "Trusted Proxies", v, e).hint("Comma-separated IPs or CIDRs of your reverse proxies, e.g. 172.16.0.0/16"),
+			sel("router_check", "Router Check", settingsYesNo...).hint("Pings enabled routers every 5 minutes and alerts when one goes down"),
+			sel("check_customer_online", "Check Customer Online", option{"no", "No"}, option{"yes", "Yes"}).hint("Shows on the customer page whether the customer is connected"),
+			sel("update_check", "Check for updates", settingsYesNo...).hint("Once a day, asks GitHub for a newer gobill release. SuperAdmin sees a badge when one exists"),
+		}, "System", "")...)
+		out = append(out, section([]field{
+			sel("hs_auth_method", "Hotspot Auth Method", option{"pap", "PAP"}, option{"chap", "CHAP"}),
+			sel("shared_users_policy", "When the device limit is full", option{"kick_oldest", "Kick oldest device"}, option{"reject", "Reject new login"}).hint("Phones now use random MACs. Kick oldest device stops a customer from being locked out when their phone reconnects with a new MAC."),
+		}, "Hotspot", "")...)
+		return out
 	}
 	return nil
 }
@@ -394,6 +411,11 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	}
 	if x, ok := v["isolir_html"]; ok && len(x) > 100000 {
 		e["isolir_html"] = "Terlalu panjang (maks 100 KB)"
+	}
+	for _, k := range []string{"isolir_rate_down", "isolir_rate_up"} { // empty keeps the stored rate
+		if _, _, valid := parseRate(v[k]); !valid && v[k] != "" {
+			e[k] = "Tulis kecepatan seperti 64k atau 2M"
+		}
 	}
 	if x, ok := v["language"]; ok {
 		if _, ok := s.catalog[x]; !ok {
@@ -563,6 +585,14 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 				v[k] = isolir.Value(st, k)
 			}
 		}
+		name, down, up := s.isolirSpeed(r.Context())
+		if name == "" {
+			name = "Belum dibuat. Dibuat saat Isolir diaktifkan"
+		}
+		v["isolir_plan_name"] = name
+		if _, ok := v["isolir_rate_down"]; !ok { // a posted rate is kept on a failed save
+			v["isolir_rate_down"], v["isolir_rate_up"] = down, up
+		}
 	}
 	fp := formPage{Heading: "Settings", Action: "/admin/settings/" + tab, Cancel: "/admin", Fields: s.settingsFields(tab, v, e, st)}
 	if tab == "isolir" {
@@ -575,15 +605,23 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 		snippet := "scrape_configs:\n  - job_name: gobill\n    metrics_path: /metrics\n    authorization:\n      type: Bearer\n      credentials: " + tok +
 			"\n    static_configs:\n      - targets: ['" + r.Host + "']"
 		once := field{Name: "metrics_token_once", Label: "Token /metrics baru", Type: "tokenshow", Value: tok, Snippet: snippet,
-			Section: "Token baru", Hint: "Copy it now. It is not shown again"}
+			Section: "New token", Hint: "Copy it now. It is not shown again"}
 		fp.Fields = append([]field{once}, fp.Fields...)
 	}
-	if tab == "miscellaneous" && adminFrom(r).Role == "SuperAdmin" { // backup is SuperAdmin only, as in the old dbstatus page
-		fp.Fields = append(fp.Fields, field{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/miscellaneous/backup", Section: "System", Hint: s.backupStatus(st)},
-			field{Name: "import", Label: "Import PHPNuxBill", Type: "link", Value: importPage, Btn: "Open import page",
+	if tab == "system" && adminFrom(r).Role == "SuperAdmin" { // backup is SuperAdmin only, as in the old dbstatus page
+		links := []field{{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/miscellaneous/backup", Section: "System", Hint: s.backupStatus(st)},
+			{Name: "import", Label: "Import PHPNuxBill", Type: "link", Value: importPage, Btn: "Open import page",
 				Hint: "Replaces the data in this app. A backup is made first.", Section: "System"},
-			field{Name: "restore", Label: "Restore database", Type: "link", Value: restorePage, Btn: "Open restore page",
-				Hint: "Replaces the data with a gobill backup and restarts the app. A backup is made first.", Section: "System"})
+			{Name: "restore", Label: "Restore database", Type: "link", Value: restorePage, Btn: "Open restore page",
+				Hint: "Replaces the data with a gobill backup and restarts the app. A backup is made first.", Section: "System"}}
+		// the links join the System card, which comes before the Hotspot card
+		at := len(fp.Fields)
+		for i, f := range fp.Fields {
+			if f.Section == "System" {
+				at = i + 1
+			}
+		}
+		fp.Fields = slices.Insert(fp.Fields, at, links...)
 	}
 	s.render(w, r, status, "form", Page{Title: "Settings", Flash: s.sessions.PopString(r.Context(), "flash"), Error: s.sessions.PopString(r.Context(), "error"), Tabs: nav, Data: fp})
 }
@@ -699,9 +737,18 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 		}
 		v["isolir_plan_id"] = strconv.FormatInt(id, 10)
 	}
+	if tab == "isolir" {
+		if err := saveIsolirRates(r.Context(), q, v); err != nil {
+			s.fail(w, "isolir rates", err)
+			return
+		}
+	}
 	for _, k := range keys {
 		if settingsSecret[k] && v[k] == "" {
 			continue // empty secret keeps the stored value
+		}
+		if settingsSpeed[k] {
+			continue // written to the isolir bandwidth row above
 		}
 		if err := q.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: k, Value: v[k]}); err != nil {
 			s.fail(w, "save setting "+k, err)
@@ -730,6 +777,24 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 		s.SettingsChanged(r.Context())
 	}
 	s.done(w, r, "/admin/settings/"+tab, "Settings saved", "settings.save", tab)
+}
+
+// notifReset is POST /admin/settings/notifications/reset/{name}: the message goes back to its built-in text.
+func (s *Server) notifReset(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	def := notify.DefaultTemplate(name)
+	if def == "" {
+		http.NotFound(w, r)
+		return
+	}
+	if err := s.queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "notif_" + name, Value: def}); err != nil {
+		s.fail(w, "reset notif "+name, err)
+		return
+	}
+	if s.SettingsChanged != nil {
+		s.SettingsChanged(r.Context())
+	}
+	s.done(w, r, "/admin/settings/notifications", "Settings saved", "settings.reset", "notif "+name)
 }
 
 // dbBackup streams a consistent copy of the database made with VACUUM INTO. SuperAdmin only.

@@ -20,6 +20,7 @@ import (
 var settingSample = map[string]string{
 	"company_name": "Acme Net", "currency_code": "Rp", "timezone": "Asia/Makassar", "reminder_hour": "8",
 	"reset_day": "5", "session_timeout_duration": "30", "daily_summary_time": "07:30", "maintenance_date": "2026-10-31",
+	"isolir_rate_down": "2M", "isolir_rate_up": "512k",
 	"wa_url":             "http://gw.test/wa?to=[number]&text=[text]",
 	"alt_wga_server_url": "http://127.0.0.1:3030", "smtp_port": "587", "webhook_url": "https://hook.test/x",
 	"voucher_redirect": "https://192.168.88.1/status", "trusted_proxies": "172.16.0.0/16, 10.0.0.2", "extend_days": "3", "minimum_transfer": "5000",
@@ -82,6 +83,9 @@ func TestSettingsEveryFieldShowsStoredValue(t *testing.T) {
 		fields := s.settingsFields(tab.Slug, nil, nil, nil)
 		form, want, checked := url.Values{}, map[string]string{}, map[string]bool{}
 		for i, f := range fields {
+			if settingsSpeed[f.Name] { // kept in the isolir bandwidth row, see TestIsolirSpeedSavesBandwidth
+				continue
+			}
 			switch f.Type {
 			case "watest", "dsnow", "formbtn", "test", "link", "password", "file", "hidden", "pre":
 				continue
@@ -100,6 +104,9 @@ func TestSettingsEveryFieldShowsStoredValue(t *testing.T) {
 		}
 		body := getBody(t, h, c, "/admin/settings/"+tab.Slug)
 		for _, f := range fields {
+			if settingsSpeed[f.Name] {
+				continue
+			}
 			switch f.Type {
 			case "watest", "dsnow", "formbtn", "test", "password", "file", "hidden", "note", "pre":
 				continue
@@ -256,11 +263,11 @@ func TestSettingsKeepsTypedValuesOn422(t *testing.T) {
 	_, h, _ := settingsSetup(t)
 	c := login(t, h, "alice")
 	form := url.Values{"voucher_redirect": {"https://typed.test/x"}, "extend_confirmation": {"Typed & kept"},
-		"voucher_format": {"numbers"}, "man_fields_email": {"1"}, "minimum_transfer": {"5000"}, "session_timeout_duration": {"abc"}}
-	w := do(h, "POST", "/admin/settings/miscellaneous", form, c)
+		"voucher_format": {"numbers"}, "man_fields_email": {"1"}, "minimum_transfer": {"5000"}, "customer_password_min": {"1"}}
+	w := do(h, "POST", "/admin/settings/billing", form, c)
 	body := w.Body.String()
 	for _, want := range []string{`value="https://typed.test/x"`, `Typed &amp; kept`, `<option value="numbers" selected>`,
-		`name="man_fields_email" value="1" checked>`, `name="minimum_transfer" type="number" value="5000"`} {
+		`name="man_fields_email" value="1" checked>`, `name="minimum_transfer" type="number" value="5000"`, `name="customer_password_min" type="number" value="1"`} {
 		if w.Code != http.StatusUnprocessableEntity || !strings.Contains(body, want) {
 			t.Fatalf("422 lost %s (%d)", want, w.Code)
 		}

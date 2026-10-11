@@ -118,6 +118,9 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 	if err != nil {
 		return nil, fmt.Errorf("plan %d: %w", planID, err)
 	}
+	if isolirPlan(ctx, q, planID) {
+		return nil, ErrIsolirPlan
+	}
 	c, err := q.GetCustomer(ctx, customerID)
 	if err != nil {
 		return nil, fmt.Errorf("customer %d: %w", customerID, err)

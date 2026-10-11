@@ -47,6 +47,7 @@ function gbShell() {
           <a class="nav-item" href="/admin/reports" data-tip="{{T "Daily Report"}}"{{if eq $act "/admin/reports"}} aria-current="page"{{end}}>{{icon "chart-column"}}<span>{{T "Daily Report"}}</span></a>
           <a class="nav-item" href="/admin/reports/period" data-tip="{{T "Period Report"}}"{{if eq $act "/admin/reports/period"}} aria-current="page"{{end}}>{{icon "calendar-days"}}<span>{{T "Period Report"}}</span></a>
           <a class="nav-item" href="/admin/transactions" data-tip="{{T "Transactions"}}"{{if eq $act "/admin/transactions"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Transactions"}}</span></a>
+          {{if $mgr}}<a class="nav-item" href="/admin/payment-gateway" data-tip="{{T "Online payments"}}"{{if eq $act "/admin/payment-gateway"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Online payments"}}</span></a>{{end}}
         </div>
       </div>
 
@@ -86,10 +87,9 @@ function gbShell() {
       </div>
 
       {{if $mgr}}
-      <div x-data="{o:{{if or (hasPrefix .Path "/admin/payment-gateway") (hasPrefix .Path "/admin/logs") (hasPrefix .Path "/admin/status")}}true{{else}}false{{end}}}">
+      <div x-data="{o:{{if or (hasPrefix .Path "/admin/logs") (hasPrefix .Path "/admin/status")}}true{{else}}false{{end}}}">
         <button type="button" class="nav-group" @click="o=!o" :aria-expanded="o ? 'true' : 'false'"><span>{{T "Admin"}}</span>{{icon "chevron-down"}}</button>
         <div x-show="o" x-cloak class="space-y-1">
-          <a class="nav-item" href="/admin/payment-gateway" data-tip="{{T "Payment Gateway"}}"{{if eq $act "/admin/payment-gateway"}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Payment Gateway"}}</span></a>
           <a class="nav-item" href="/admin/logs" data-tip="{{T "Logs"}}"{{if eq $act "/admin/logs"}} aria-current="page"{{end}}>{{icon "scroll-text"}}<span>{{T "Logs"}}</span></a>
           <a class="nav-item" href="/admin/status" data-tip="{{T "System Status"}}"{{if eq $act "/admin/status"}} aria-current="page"{{end}}>{{icon "activity"}}<span>{{T "System Status"}}</span></a>
         </div>

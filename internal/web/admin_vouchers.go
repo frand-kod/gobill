@@ -66,9 +66,10 @@ func (s *Server) planOptions(r *http.Request, enabledOnly bool) ([]option, map[i
 	}
 	var opts []option
 	byID := map[int64]db.Plan{}
+	isoPlan, _ := s.isolirIDs(r.Context())
 	for _, p := range plans {
-		byID[p.ID] = p
-		if !enabledOnly || p.Enabled == 1 {
+		byID[p.ID] = p // rows and names still resolve; only the options leave the isolir plan out
+		if p.ID != isoPlan && (!enabledOnly || p.Enabled == 1) {
 			opts = append(opts, option{fmt.Sprint(p.ID), fmt.Sprintf("%s (%s)", p.Name, money(p.Price))})
 		}
 	}
@@ -152,6 +153,9 @@ func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {
 	planID, ok := posInt(v["plan"])
 	if _, err := s.queries.GetPlan(r.Context(), planID); !ok || err != nil {
 		e["plan"] = "This field is required"
+	}
+	if isoPlan, _ := s.isolirIDs(r.Context()); ok && planID == isoPlan {
+		e["plan"] = billing.ErrIsolirPlan.Error()
 	}
 	count, ok := posInt(v["numbervoucher"])
 	if !ok || count > maxVouchers {

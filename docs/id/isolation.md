@@ -11,7 +11,8 @@ Buka **Pengaturan → Isolir**. Tab ini hanya bisa dibuka SuperAdmin. Setiap kol
 | Pengaturan | Bawaan | Keterangan |
 |---|---|---|
 | Isolir Aktif | Tidak | Aktifkan setelah router sudah disetup (lihat di bawah). |
-| Paket Isolir | Otomatis | Saat isolir diaktifkan pertama kali, gobill membuat paket **Isolir** (bandwidth **Isolir 64k**, 64 kbps/64 kbps). Paket ini tidak dijual di portal. Admin boleh memilih paket lain. |
+| Paket Isolir | Otomatis | Saat isolir diaktifkan pertama kali, gobill membuat paket **Isolir** (bandwidth **Isolir 64k**, 64 kbps/64 kbps). Ini paket sistem. Paket ini tidak dijual di portal, tidak muncul di daftar paket dan bandwidth, dan tidak bisa diberikan manual. |
+| Kecepatan download, Kecepatan upload | `64k` | Kecepatan paket Isolir, misalnya `64k` atau `2M`. Disimpan ke profil bandwidth **Isolir 64k**. |
 | Lama Isolir (hari) | 30 | Berapa hari isolir berjalan setelah paket habis. Setelah itu pelanggan nonaktif seperti biasa. `0` berarti isolir sampai pelanggan membayar. |
 | Judul | Paket internet Anda sudah habis | Judul halaman isolir. |
 | Pesan | Silakan bayar untuk mengaktifkan kembali. Internet tetap bisa dipakai pelan untuk membuka WhatsApp dan aplikasi bank. | Teks di bawah judul. |

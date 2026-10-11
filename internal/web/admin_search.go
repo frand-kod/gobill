@@ -68,7 +68,7 @@ var searchPages = []searchEntry{
 	{Title: "Router Map", URL: "/admin/maps/routers", Syn: "peta map lokasi router", Roles: roleMgr},
 	{Title: "ODP Map", URL: "/admin/maps/odp", Syn: "peta map lokasi odp", Roles: roleMgr},
 	{Title: "ODP", URL: "/admin/odp", Syn: "odp kotak distribusi tiang", Roles: roleMgr},
-	{Title: "Payment Gateway", URL: "/admin/payment-gateway", Syn: "pembayaran tripay qris gateway audit", Roles: roleMgr},
+	{Title: "Online payments", URL: "/admin/payment-gateway", Syn: "pembayaran tripay qris gateway audit", Roles: roleMgr},
 	{Title: "Logs", URL: "/admin/logs", Syn: "log catatan aktivitas riwayat", Roles: roleMgr},
 	{Title: "System Status", URL: "/admin/status", Syn: "status sistem kesehatan health monitor", Roles: roleMgr},
 	{Title: "Admin Users", URL: "/admin/users", Syn: "pengguna admin operator akun user", Roles: roleUsers},

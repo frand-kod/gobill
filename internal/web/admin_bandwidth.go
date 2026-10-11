@@ -24,7 +24,8 @@ func bwFields(v, e map[string]string) []field {
 
 func (s *Server) bwList(w http.ResponseWriter, r *http.Request) {
 	q, page, limit, off := paging(r)
-	rows, err := s.queries.SearchBandwidths(r.Context(), db.SearchBandwidthsParams{Q: q, PageLimit: limit, PageOffset: off})
+	_, isoBW := s.isolirIDs(r.Context()) // the isolir profile is set in Settings > Isolir
+	rows, err := s.queries.SearchBandwidths(r.Context(), db.SearchBandwidthsParams{Q: q, PageLimit: limit, PageOffset: off, HiddenID: isoBW})
 	if err != nil {
 		s.fail(w, "list bandwidths", err)
 		return

@@ -85,7 +85,7 @@ func (s *Server) parseTemplates() error {
 		"dashboard":        {"base.html", "app.html", "dashboard.html"},
 		"status":           {"base.html", "app.html", "status.html"},
 		"list":             {"base.html", "app.html", "list.html"},
-		"form":             {"base.html", "app.html", "form.html", "customer_pick.html"},
+		"form":             {"base.html", "app.html", "form.html", "customer_pick.html", "tplvars.html"},
 		"customer":         {"base.html", "app.html", "customer.html", "radius_usage.html", "recharge_dialog.html"},
 		"radius_sessions":  {"base.html", "app.html", "radius_sessions.html"},
 		"print":            {"print.html"},

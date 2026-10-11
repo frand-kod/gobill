@@ -50,8 +50,9 @@ func (s *Server) plansPage(w http.ResponseWriter, r *http.Request, code int, err
 			s.fail(w, "portal plans", err)
 			return
 		}
+		isoPlan, _ := s.isolirIDs(r.Context())
 		for _, p := range l {
-			if p.Billing == "prepaid" {
+			if p.Billing == "prepaid" && p.ID != isoPlan {
 				row := planRow{Plan: p}
 				if bw, err := s.queries.GetBandwidth(r.Context(), p.BandwidthID.Int64); st["show_bandwidth_plan"] == "yes" && p.BandwidthID.Valid && err == nil {
 					row.Bandwidth = bw.Name

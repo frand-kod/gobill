@@ -19,6 +19,7 @@ var (
 	ErrPlanNotFound     = errors.New("Plan Not Found or Not Active")
 	ErrInactive         = errors.New("account is not active")
 	ErrAdminOnlyPlan    = errors.New("Paket ini hanya bisa diberikan admin")
+	ErrIsolirPlan       = errors.New("The Isolir plan is managed in Settings > Isolir")
 )
 
 // SellablePlan reports whether a customer may take p (buy, friend, extend, auto-renew): an
