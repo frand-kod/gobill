@@ -1,6 +1,6 @@
 # Upgrade
 
-Dokumen ini menjelaskan cara mengganti binary gobill ke versi baru tanpa mengubah data dan konfigurasi. Cara yang disarankan adalah `sudo gobill update`. Cara manual tetap ada sebagai cadangan. Bagian akhir berisi catatan untuk setiap versi yang butuh tindakan khusus.
+Dokumen ini menjelaskan cara mengganti binary gobill ke versi baru tanpa mengubah data dan konfigurasi. Cara yang disarankan adalah `sudo gobill update`. Cara manual tetap ada sebagai cadangan. Bagian akhir berisi catatan versi yang butuh tindakan khusus.
 
 **Untuk:** operator
 
@@ -80,20 +80,22 @@ Karena migrasi berjalan otomatis saat start, mengganti binary saja tidak cukup. 
 
 ## Pemeriksaan versi baru
 
-Setting `update_check` ada di **Pengaturan > Sistem & keamanan**, bagian **System**. Bawaannya **Ya**.
+Setting `update_check` ada di **Pengaturan > Sistem & keamanan**, bagian **Sistem**. Bawaannya **Ya**.
 
 Jika aktif, gobill memeriksa rilis terbaru di GitHub beberapa menit setelah start, lalu sekali sehari. Jika ada rilis yang lebih baru, SuperAdmin melihat lencana `vX.Y.Z tersedia` di header. Lencana itu menuju ke halaman rilis dan ke panduan upgrade ini. Pilih **Tidak** untuk mematikan pemeriksaan. Jika pemeriksaan gagal, gobill hanya mencatatnya di log.
 
-## Upgrade dari v0.1.3 ke v0.1.4
+## Catatan versi
 
-Migrasi 0011 sampai 0014 berjalan otomatis saat start. Migrasi ini menambah kolom `start_on_first_login`, indeks, snapshot pelanggan pada pembayaran, dan 2FA admin.
+Sebelum upgrade, baca bagian "Perubahan perilaku" di [CHANGELOG](../../CHANGELOG.md) untuk versi tujuan. Bagian itu mencatat perubahan yang butuh tindakan operator.
 
-Sebelum upgrade, periksa hal berikut.
+**Upgrade dari v0.1.6 atau lebih lama ke v0.1.7:**
 
-- Jika FreeRADIUS berjalan di host lain, isi `radius_rest_allow` dengan IP-nya. Nilai kosong sekarang berarti hanya loopback.
-- Jika UI diakses lewat HTTP biasa ke IP LAN, set `GOBILL_HTTPS=0` di `config.env`. Bawaannya cookie memakai flag `Secure`, sehingga login gagal tanpa pengaturan ini.
-- Di belakang reverse proxy, set `trust_proxy` dan `trusted_proxies`. Lihat [konfigurasi](configuration.md#jaringan-dan-proxy).
-- Pemantau yang membaca versi atau sisa disk dari `/health` harus pindah ke `/metrics` atau `/admin/status.json`. Lihat [monitoring](monitoring.md).
+1. `gobill update` hanya bisa dipakai jika rilis menyertakan file `SHA256SUMS`. Rilis lama belum punya file itu, jadi upgrade pertama ke v0.1.7 memakai cara manual. Setelah itu, `sudo gobill update` bisa dipakai.
+2. Login pelanggan pindah ke `/login`, dan login admin ke `/admin/login`. Perbarui bookmark.
+3. Isi `GOBILL_HTTP` dengan IP LAN dan port, misalnya `192.168.99.2:8090`, di `/etc/gobill/config.env`. Perintah isolir di **Pengaturan > Isolir** memakai alamat ini.
+4. Backup, impor, dan restore ada di **Pengaturan > Sistem & keamanan**.
+5. Migrasi 0018 berjalan otomatis saat start. Untuk kembali ke versi lama, pulihkan backup pra-update yang dibuat saat upgrade. Lihat [rollback](#rollback-dengan-gobill-rollback).
+6. Nomor telepon pelanggan dinormalisasi ke format `62…` saat start.
 
 Daftar lengkap perubahan ada di [CHANGELOG](../../CHANGELOG.md).
 

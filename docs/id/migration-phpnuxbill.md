@@ -8,7 +8,7 @@ Dokumen ini untuk operator yang pindah dari PHPNuxBill dengan MySQL ke gobill. I
 
 ## Lewat UI
 
-Cara ini tidak memakai terminal. SuperAdmin membuka **Pengaturan > Sistem & keamanan > Import PHPNuxBill**, di `/admin/settings/system/import`.
+Cara ini tidak memakai terminal. SuperAdmin membuka **Pengaturan > Sistem & keamanan > Impor PHPNuxBill**, di `/admin/settings/system/import`.
 
 1. Unggah file backup JSON, yang wajib, dan `system/uploads/notifications.json`, yang opsional. Klik **Periksa**. Tidak ada data yang berubah. Laporan menampilkan per tabel: jumlah yang dibaca, yang akan diimpor, dan yang dilewati beserta alasannya. Laporan juga menampilkan jumlah data gobill saat ini.
 2. Klik **Impor sekarang**. Centang "Saya mengerti data akan ditimpa".
@@ -71,9 +71,9 @@ Perbedaan: pembayaran gateway online memakai harga paket ditambah tagihan saat p
 
 `account_type`, kota, kecamatan, provinsi, kode pos, `price_old`, dan `plan_type`.
 
-## Verifikasi yang sudah dilakukan
+## Verifikasi sebelum cutover
 
-Impor sudah diuji dengan dump produksi asli. Semua tanggal kedaluwarsa dan total transaksi cocok dengan sistem lama. Ulangi pembandingan ini pada dump terbaru sebelum cutover.
+Bandingkan tanggal kedaluwarsa, jumlah pelanggan aktif, dan total transaksi dengan sistem lama. Lakukan pada dump terbaru, sebelum cutover.
 
 ## WhatsApp setelah cutover
 
@@ -83,7 +83,7 @@ Di sistem lama, `wa_url` menunjuk ke aplikasi PHP sendiri, misalnya `http://<hos
 
 Setelah impor:
 
-1. Buka **Pengaturan > Integrasi**. Cek keempat isian "WhatsApp (server WA)" sudah terisi. Password tampil kosong, dan itu normal.
+1. Buka **Pengaturan > Integrasi**. Cek keempat isian di bagian "WhatsApp — GOWA" sudah terisi. Password tampil kosong, dan itu normal.
 2. Kosongkan `wa_url` yang masih menunjuk ke plugin PHP, lalu simpan.
 3. Pastikan server WA bisa dijangkau dari STB baru. Alamat `127.0.0.1` hanya benar jika server WA berjalan di STB yang sama.
 4. Klik "Kirim pesan uji" ke nomor Anda sendiri.
@@ -94,12 +94,12 @@ Lihat [integrasi](integrations.md#whatsapp).
 
 Sebelum jalan paralel, set `notify_customers` = `no` di **Pengaturan > Notifikasi**. Dengan begitu pelanggan tidak menerima pesan dari dua sistem sekaligus. Alert operator tetap berjalan. Lihat [integrasi](integrations.md#sakelar-pesan).
 
-1. Uji CoA Disconnect di MikroTik, setelah perbaikan NAS-IP-Address.
+1. Uji CoA Disconnect di MikroTik.
 2. Uji jalur FreeRADIUS REST. Arahkan `connect_uri` server uji ke gobill di instance uji, lalu jalankan `freeradius -X`.
 3. Uji login voucher hotspot lewat RADIUS dan pembatas MAC.
 4. Impor dump produksi terbaru ke STB. Bandingkan pelanggan aktif, kedaluwarsa, dan saldo dengan sistem lama.
 5. Jalankan paralel selama 1 sampai 3 hari dalam mode baca, yaitu accounting saja. Bandingkan sesi dan kedaluwarsa.
-6. Build ARM dan uji di STB: RAM, start tanpa RTC, listrik padam, dan backup ke USB.
+6. Uji di STB: RAM, start tanpa RTC, listrik padam, dan backup ke USB.
 7. Bersihkan sisa uji di router. Lihat [setup MikroTik](mikrotik.md#pelajaran-dari-uji-lapangan).
 
 ## Satu STB bersama PHPNuxBill, FreeRADIUS, dan server WA

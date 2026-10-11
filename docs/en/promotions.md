@@ -8,7 +8,7 @@ This document explains how to show short promos, for example a local shop, on th
 
 ## Where to set them up
 
-Open **Settings > Promosi**. Only SuperAdmin can see or change promos.
+Open **Settings > Promotions**. Only SuperAdmin can see or change promos.
 
 Each promo has:
 

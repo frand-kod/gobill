@@ -10,7 +10,10 @@ Billing ISP untuk hotspot dan PPPoE MikroTik, ditulis ulang dari PHPNuxBill dala
 - Portal pelanggan: pesan paket, aktivasi voucher, transfer saldo, OTP, inbox.
 - Pembayaran online lewat Tripay (opsional), atau QRIS statis: QR terkunci nominal per recharge dikirim lewat WhatsApp.
 - Notifikasi Telegram, WhatsApp (server WA langsung), SMS (URL gateway), email, dan webhook. Sakelar global untuk pesan pelanggan dan kode OTP.
-- Dashboard, laporan, peta/ODP, multi-role admin, verifikasi dua langkah (TOTP) untuk admin, dan 5 bahasa.
+- Setup cepat: panduan langkah demi langkah setelah instalasi, untuk router, paket, WhatsApp, QRIS, dan Isolir.
+- Isolir: pelanggan yang paketnya habis masuk paket Isolir dan halaman pembayaran, dengan kartu promosi di halaman itu.
+- Update satu perintah (`sudo gobill update`) dengan cek checksum, serta `gobill rollback`.
+- Dashboard, laporan, peta/ODP, multi-role admin, verifikasi dua langkah (TOTP) untuk admin, dan beberapa bahasa antarmuka.
 - Aman untuk perangkat tanpa RTC: job expiry menolak jalan saat jam sistem tidak dipercaya.
 - Impor satu kali dari PHPNuxBill: lewat MySQL, atau dari file backup JSON di UI atau CLI.
 - Backup harian, salinan mirror di luar perangkat, dan restore database dari UI.
@@ -55,7 +58,7 @@ Detail: [docs/internal/arsitektur.md](docs/internal/arsitektur.md).
        GOBILL_DB=./gobill.db GOBILL_HTTP=:8080 ./gobill
 
 3. Ambil password admin pertama dari file `initial-admin-password.txt` di folder database (`./` saat jalan manual, `/var/lib/gobill` di systemd). Password tidak dicetak ke log.
-4. Buka http://localhost:8080, login sebagai `admin`, lalu ganti password.
+4. Buka http://localhost:8080/admin/login, login sebagai `admin`, lalu ganti password.
 
 Untuk STB, systemd, atau Docker, lihat [instalasi](docs/id/installation.md).
 

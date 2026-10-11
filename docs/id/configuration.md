@@ -13,7 +13,7 @@ Daftar ini berisi semua variabel yang dibaca kode di `cmd/gobill`.
 | Variabel | Bawaan | Fungsi |
 |---|---|---|
 | `GOBILL_DB` | `./gobill.db`. Di Docker: `/data/gobill.db` | Lokasi file SQLite. Juga dipakai oleh `gobill import` |
-| `GOBILL_HTTP` | `:8080` | Alamat listen HTTP |
+| `GOBILL_HTTP` | `:8080` | Alamat listen HTTP. Untuk isolir, isi dengan IP LAN dan port, misalnya `192.168.99.2:8090`, agar perintah MikroTik benar. Jika kosong atau `0.0.0.0`, gobill memakai IPv4 LAN pertama dari host. |
 | `GOBILL_HTTPS` | aktif | Cookie sesi selalu memakai flag `Secure`. Isi `0` hanya jika UI diakses lewat HTTP biasa, misalnya IP LAN. Browser tidak mengirim cookie `Secure` lewat `http://`, kecuali `localhost`. Saat bernilai `0`, start mencatat peringatan. |
 | `GOBILL_SECRET_KEY` | kosong | Kunci AES-GCM untuk secret router, pelanggan, dan NAS. Jika kosong, kunci dibuat otomatis di `<GOBILL_DB>.key`. Jika diisi, nilainya menggantikan file `.key` dan harus disimpan dengan aman. Juga dipakai oleh `gobill import`. |
 | `GOBILL_RADIUS` | `:1812` | Alamat listen RADIUS UDP untuk auth. Accounting memakai port berikutnya. Kosong atau `off` mematikan listener UDP. `/radius.php` tetap berjalan. |
@@ -32,16 +32,18 @@ Opsi CLI:
 
 - `gobill --version` menampilkan versi.
 - `gobill import ...` memindahkan data dari PHPNuxBill. Lihat [migrasi](migration-phpnuxbill.md).
+- `gobill update` dan `gobill rollback` mengganti binary. Lihat [upgrade](upgrade.md).
+- `gobill reset-admin-password <username>` membuat password baru untuk akun admin. Lihat [keamanan](security.md#lupa-password-admin).
 
 ## Admin pertama
 
 Saat database kosong, tanpa admin, gobill membuat user `admin` dengan peran SuperAdmin. Password-nya acak dan 16 karakter. Password tidak dicetak ke log. Password ditulis ke `initial-admin-password.txt` di folder database dengan mode 0600.
 
-Login, ganti password, lalu hapus file itu. Jika file sudah ada dan database masih kosong, start berhenti dengan pesan. Hapus file lama dulu.
+Login di `/admin/login`, ganti password, lalu hapus file itu. Jika file sudah ada dan database masih kosong, start berhenti dengan pesan. Hapus file lama dulu.
 
 ## Pengaturan di UI
 
-Ubah pengaturan di menu **Pengaturan**. Kunci di bawah tersimpan di tabel `settings`. Jika tidak disebut, nilai bawaannya kosong atau `no`.
+Ubah pengaturan di menu **Pengaturan**. Kunci di bawah tersimpan di tabel `settings`. Tiga kunci tidak punya kolom di menu **Pengaturan** pada rilis ini: `radius_rest_allow`, `log_keep_days`, dan `backup_keep`. Ubah nilainya langsung di tabel `settings`. Jika tidak disebut, nilai bawaannya kosong atau `no`.
 
 ### Umum dan lokalisasi
 
@@ -64,6 +66,7 @@ Ubah pengaturan di menu **Pengaturan**. Kunci di bawah tersimpan di tabel `setti
 |---|---|
 | `session_timeout_duration` | Batas diam sesi admin dan portal, dalam menit. Bawaan 120. |
 | `single_session` | `yes` agar satu admin hanya punya satu sesi aktif. |
+| `update_check` | `no` mematikan pemeriksaan rilis baru di GitHub. Bawaannya `yes`. Jika ada rilis baru, SuperAdmin melihat lencana `vX.Y.Z tersedia` di header. |
 
 Peran admin dan 2FA diatur per akun di menu **Pengguna Admin** dan halaman `/admin/2fa`, bukan di **Pengaturan**. Lihat [keamanan](security.md#verifikasi-dua-langkah-2fa-admin).
 
@@ -120,11 +123,11 @@ Sakelar `notify_customers`, `notify_otp`, dan `expired_notify_minutes_before` di
 
 ### Tampilan
 
-`logo`, `logo_dark`, `login_page_*`, `date_format`, `dec_point`, `thousands_sep`, dan `language` diatur di **Pengaturan**. Pengaturan halaman login (`login_page_*`) ada di tab **Tampilan**. Yang lain ada di **Umum** dan **Lokalisasi**. Tema terang atau gelap dan warna aksen diatur dari header, bukan dari pengaturan ini.
+Logo usaha ada di tab **Umum**. Pengaturan halaman login (`login_page_*`) ada di tab **Tampilan**. Format tanggal, format angka, dan `language` ada di tab **Lokalisasi**. Tema terang atau gelap dan warna aksen diatur dari header, bukan dari pengaturan ini.
 
 ## Paket layanan dan siapa yang boleh memakainya
 
-Setiap paket (**Admin > Paket Layanan**) punya akses, diatur di form paket pada **Siapa yang bisa memakai paket ini**:
+Setiap paket (menu **Paket Layanan**) punya akses, diatur di form paket pada **Siapa yang bisa memakai paket ini**:
 
 - **Publik** (bawaan): dijual di portal pelanggan. Pelanggan bisa membelinya dari saldo atau membayarnya lewat gateway, mengirimkannya ke teman, memperpanjangnya setelah habis, dan paket ini diperpanjang dari saldo jika perpanjangan otomatis aktif.
 - **Khusus admin**: untuk paket internal seperti staf atau teknisi. Paket ini disembunyikan dari portal pelanggan. Pelanggan tidak bisa membeli, membayar, mengirim, atau memperpanjang paket ini. Admin tetap bisa memberikannya: isi ulang, isi ulang massal, tambah pelanggan dengan paket, dan voucher. Setelah diberikan, paket ini diperpanjang otomatis bila auto-renew pelanggan aktif: gratis untuk paket Rp 0, selain itu dibayar dari saldo.

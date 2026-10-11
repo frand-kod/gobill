@@ -47,7 +47,7 @@ Cara kerjanya:
 - Folder harus sudah ada. gobill tidak membuatnya otomatis, supaya disk yang belum ter-mount tidak menulis ke SD card.
 - Jika salinan gagal, alert dikirim sekali saat mirror mulai gagal, dan sekali saat pulih. Alert memakai kanal di `alert_channel`. Backup lokal tetap dibuat.
 - Mirror yang gagal dicoba ulang tiap jam.
-- Status terakhir tampil di **Pengaturan > Sistem & keamanan**, di bawah "Download backup".
+- Status terakhir tampil di **Pengaturan > Sistem & keamanan**, di bawah "Unduh backup".
 
 ### Pilihan tujuan mirror
 
@@ -115,7 +115,7 @@ Salinan manual:
 
 ## Pulihkan database
 
-SuperAdmin bisa memulihkan file backup `.db` dari **Pengaturan > Sistem & keamanan > Restore database**. Halamannya ada di `/admin/settings/system/restore`.
+SuperAdmin bisa memulihkan file backup `.db` dari **Pengaturan > Sistem & keamanan > Pulihkan database**. Halamannya ada di `/admin/settings/system/restore`.
 
 Alur restore:
 

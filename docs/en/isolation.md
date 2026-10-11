@@ -6,14 +6,14 @@ Isolation only works for customers who log in through gobill's RADIUS (plans on 
 
 ## Settings
 
-Open **Settings → Isolir**. This tab is for SuperAdmin only. Each field shows its default while it has never been saved. Each section has a **Restore default** button.
+Open **Settings > Isolation**. This tab is for SuperAdmin only. Each field shows its default while it has never been saved. Each section has a **Restore default** button.
 
 | Setting | Default | Notes |
 |---|---|---|
-| Isolation Enabled | No | Turn on after the router has been set up (see below). |
-| Isolir Plan | Automatic | When isolation is first enabled, gobill creates the **Isolir** plan (bandwidth **Isolir 64k**, 64 kbps up/down). It is a system plan. It is not sold in the portal, it is not in the plan and bandwidth lists, and no one can assign it by hand. |
-| Download rate, Upload rate | `64k` | Speed of the Isolir plan, for example `64k` or `2M`. Saved to the **Isolir 64k** bandwidth profile. |
-| Isolation Days | 30 | How many days isolation lasts after the package ends. Then the customer is inactive, as before. `0` means isolated until the customer pays. |
+| Isolation enabled | No | Turn on after the router has been set up (see below). |
+| Plan name | Automatic | System plan used by isolation. gobill creates the **Isolir** plan the first time isolation is enabled, with the **Isolir 64k** bandwidth profile. The plan is not sold in the portal and cannot be given manually. |
+| Download speed, Upload speed | `64k` | Speed of the Isolir plan, for example `64k` or `2M`. Saved to the **Isolir 64k** bandwidth profile. |
+| Isolation duration (days) | 30 | How many days isolation lasts after the package ends. Then the customer is inactive, as before. `0` means isolated until the customer pays. |
 | Title | Your internet package has run out | Title of the isolation page. |
 | Message | Please pay to reactivate. Internet still works slowly so you can open WhatsApp and banking apps. | Text under the title. |
 | Admin WhatsApp number | Company phone | Used by the "Paid? Chat admin" button. |
@@ -34,7 +34,7 @@ Isolation does not renew the Isolir plan automatically. A customer with enough b
 
 ## MikroTik router setup
 
-The Isolir tab shows the RouterOS commands, filled in with gobill's LAN address and port. The rules, the hotspot bypass and the curl test are in [MikroTik setup](mikrotik.md#isolir).
+The **Isolation** tab shows the RouterOS commands in the **MikroTik router setup** section, filled in with gobill's LAN address and port. The rules, the hotspot bypass and the curl test are in [MikroTik setup](mikrotik.md#isolir).
 
 ## Custom HTML
 
@@ -54,9 +54,11 @@ In **Custom HTML** mode, the HTML you write is shown after its variables are rep
 | `[[known]]` | `yes` when the customer is recognised, otherwise `no` |
 | `[[notice]]` | Result message of a voucher attempt |
 
+Click a variable below the HTML box to insert it at the cursor. **Back to default** deletes the custom HTML. **Restore default** in the **Display mode** section only switches the mode back, and keeps the HTML.
+
 Values other than `voucher_form` and `promos` are HTML-escaped. Unknown or empty variables become empty. The HTML runs in a sandbox with no access to gobill's cookies, so scripts in it cannot read the admin session. Blank HTML falls back to the default page.
 
-Use **Preview** to see the page with sample data. The preview uses the saved HTML, so save your changes first.
+Use **Open preview** to see the page with sample data. The preview uses the saved HTML, so save your changes first.
 
 ## Limits
 

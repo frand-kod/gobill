@@ -13,7 +13,7 @@ This list contains every variable the code reads in `cmd/gobill`.
 | Variable | Default | Purpose |
 |---|---|---|
 | `GOBILL_DB` | `./gobill.db`. In Docker: `/data/gobill.db` | Location of the SQLite file. `gobill import` also uses it |
-| `GOBILL_HTTP` | `:8080` | HTTP listen address |
+| `GOBILL_HTTP` | `:8080` | HTTP listen address. For isolir, set it to the LAN IP and port, for example `192.168.99.2:8090`, so the MikroTik commands are correct. If empty or `0.0.0.0`, gobill uses the first LAN IPv4 address of the host. |
 | `GOBILL_HTTPS` | enabled | The session cookie always has the `Secure` flag. Set `0` only if the UI is reached over plain HTTP, for example by a LAN IP. Browsers do not send `Secure` cookies over `http://`, except for `localhost`. When set to `0`, startup logs a warning. |
 | `GOBILL_SECRET_KEY` | empty | AES-GCM key for router, customer, and NAS secrets. If empty, the key is created automatically at `<GOBILL_DB>.key`. If set, the value replaces the `.key` file and must be stored safely. `gobill import` also uses it. |
 | `GOBILL_RADIUS` | `:1812` | RADIUS UDP listen address for authentication. Accounting uses the next port. An empty value or `off` turns off the UDP listener. `/radius.php` keeps running. |
@@ -32,16 +32,18 @@ CLI options:
 
 - `gobill --version` shows the version.
 - `gobill import ...` moves data from PHPNuxBill. See [migration](migration-phpnuxbill.md).
+- `gobill update` and `gobill rollback` replace the binary. See [upgrade](upgrade.md).
+- `gobill reset-admin-password <username>` sets a new password for an admin account. See [security](security.md#forgotten-admin-password).
 
 ## First admin
 
 When the database is empty and has no admin, gobill creates the user `admin` with the SuperAdmin role. Its password is random and 16 characters long. The password is not printed to the log. It is written to `initial-admin-password.txt` in the database folder, with mode 0600.
 
-Log in, change the password, then delete that file. If the file already exists and the database is still empty, startup stops with a message. Delete the old file first.
+Log in at `/admin/login`, change the password, then delete that file. If the file already exists and the database is still empty, startup stops with a message. Delete the old file first.
 
 ## Settings in the UI
 
-Change settings in the **Settings** menu. The keys below are stored in the `settings` table. If a default is not listed, the value is empty or `no`.
+Change settings in the **Settings** menu. The keys below are stored in the `settings` table. If a default is not listed, the value is empty or `no`. Three keys have no field in the **Settings** menu in this release: `radius_rest_allow`, `log_keep_days`, and `backup_keep`. Change their values directly in the `settings` table.
 
 ### General and localisation
 
@@ -64,6 +66,7 @@ Change settings in the **Settings** menu. The keys below are stored in the `sett
 |---|---|
 | `session_timeout_duration` | Idle timeout for admin and portal sessions, in minutes. Default 120. |
 | `single_session` | `yes` allows only one active session per admin. |
+| `update_check` | `no` turns off the check for new releases on GitHub. Default `yes`. When a newer release exists, SuperAdmin sees a `vX.Y.Z available` badge in the header. |
 
 Admin roles and 2FA are set per account in **Admin Users** and on the `/admin/2fa` page, not in **Settings**. See [security](security.md#two-step-verification-2fa-for-admins).
 
@@ -120,11 +123,11 @@ The switches `notify_customers`, `notify_otp`, and `expired_notify_minutes_befor
 
 ### Appearance
 
-`logo`, `logo_dark`, `login_page_*`, `date_format`, `dec_point`, `thousands_sep`, and `language` are set in **Settings**. The login page keys (`login_page_*`) are on the **Appearance** tab. The others are on **General** and **Localisation**. The light or dark theme and the accent colour are set from the header, not from these settings.
+The logo is on the **General** tab. The login page keys (`login_page_*`) are on the **Appearance** tab. Date format, number format, and `language` are on the **Localisation** tab.
 
 ## Service plans and audience
 
-Each plan (**Admin > Service Plan**) has an audience, set in the plan form under **Who can use this plan**:
+Each plan (**Service Plan** menu) has an audience, set in the plan form under **Who can use this plan**:
 
 - **Public** (default): sold on the customer portal. A customer can buy it from balance or pay it through the gateway, send it to a friend, extend it after it expires, and it is renewed from balance when auto-renewal is on.
 - **Admin only**: for internal plans such as staff or technicians. It is hidden from the customer portal. A customer cannot buy, pay, send or extend it. An admin can still give it: recharge, bulk recharge, add a customer with a plan, and vouchers. Once given, it renews itself when the customer has auto-renew on: free for a Rp 0 plan, otherwise paid from the balance.

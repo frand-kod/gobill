@@ -6,12 +6,12 @@ Isolir hanya bekerja untuk pelanggan yang login lewat RADIUS gobill (paket denga
 
 ## Pengaturan
 
-Buka **Pengaturan → Isolir**. Tab ini hanya bisa dibuka SuperAdmin. Setiap kolom menampilkan nilai bawaan bila belum pernah diisi. Setiap bagian punya tombol **Kembalikan ke default**.
+Buka **Pengaturan > Isolir**. Tab ini hanya bisa dibuka SuperAdmin. Setiap kolom menampilkan nilai bawaan bila belum pernah diisi. Setiap bagian punya tombol **Kembalikan ke default**.
 
 | Pengaturan | Bawaan | Keterangan |
 |---|---|---|
 | Isolir Aktif | Tidak | Aktifkan setelah router sudah disetup (lihat di bawah). |
-| Paket Isolir | Otomatis | Saat isolir diaktifkan pertama kali, gobill membuat paket **Isolir** (bandwidth **Isolir 64k**, 64 kbps/64 kbps). Ini paket sistem. Paket ini tidak dijual di portal, tidak muncul di daftar paket dan bandwidth, dan tidak bisa diberikan manual. |
+| Nama paket | Otomatis | Nama paket sistem untuk isolir. gobill membuat paket **Isolir** saat Isolir pertama kali diaktifkan, dengan profil bandwidth **Isolir 64k**. Paket ini tidak dijual di portal dan tidak bisa diberikan manual. |
 | Kecepatan download, Kecepatan upload | `64k` | Kecepatan paket Isolir, misalnya `64k` atau `2M`. Disimpan ke profil bandwidth **Isolir 64k**. |
 | Lama Isolir (hari) | 30 | Berapa hari isolir berjalan setelah paket habis. Setelah itu pelanggan nonaktif seperti biasa. `0` berarti isolir sampai pelanggan membayar. |
 | Judul | Paket internet Anda sudah habis | Judul halaman isolir. |
@@ -34,7 +34,7 @@ Isolir tidak memperpanjang otomatis paket Isolir. Pelanggan yang saldonya cukup 
 
 ## Setup router MikroTik
 
-Tab Isolir menampilkan perintah RouterOS, yang sudah terisi alamat dan port LAN gobill. Aturan, bypass hotspot, dan tes curl ada di [Setup MikroTik](mikrotik.md#isolir).
+Tab **Isolir** menampilkan perintah RouterOS di bagian **Setup router MikroTik**, yang sudah terisi alamat dan port LAN gobill. Aturan, bypass hotspot, dan tes curl ada di [Setup MikroTik](mikrotik.md#isolir).
 
 ## HTML sendiri
 
@@ -54,9 +54,11 @@ Mode **HTML sendiri** menampilkan HTML yang Anda tulis, dengan variabel yang dig
 | `[[known]]` | `yes` bila pelanggan dikenali, `no` bila tidak |
 | `[[notice]]` | Pesan hasil voucher |
 
+Ketuk variabel di bawah kolom HTML untuk menyisipkannya di posisi kursor. **Kembali ke bawaan** menghapus HTML sendiri. **Kembalikan ke default** di bagian **Mode tampilan** hanya mengembalikan mode, HTML tidak dihapus.
+
 Nilai selain `voucher_form` dan `promos` di-escape HTML. Variabel yang tidak dikenal atau kosong menjadi kosong. HTML berjalan dalam sandbox tanpa akses ke cookie gobill, jadi skrip di dalamnya tidak bisa membaca sesi admin. HTML kosong akan memakai halaman bawaan.
 
-Gunakan **Pratinjau** untuk melihat halaman dengan data contoh. Pratinjau memakai HTML yang tersimpan, jadi simpan dulu perubahan HTML.
+Gunakan **Buka pratinjau** untuk melihat halaman dengan data contoh. Pratinjau memakai HTML yang tersimpan, jadi simpan dulu perubahan HTML.
 
 ## Batasan
 

@@ -19,7 +19,7 @@ Di MikroTik, aktifkan:
 
 Form NAS di gobill punya pengaturan "Message-Authenticator" dengan tiga mode:
 
-- **Otomatis (disarankan, default).** Access-Request tanpa Message-Authenticator diterima sampai NAS pernah mengirim satu Message-Authenticator yang valid. Sejak itu, permintaan tanpa atribut ini dibuang dan dicatat. Daftar NAS menampilkan "MA: belum terlihat" atau "MA: sudah terlihat".
+- **Otomatis (disarankan).** Access-Request tanpa Message-Authenticator diterima sampai NAS pernah mengirim satu Message-Authenticator yang valid. Sejak itu, permintaan tanpa atribut ini dibuang dan dicatat. Daftar NAS menampilkan "MA: belum terlihat" atau "MA: sudah terlihat".
 - **Selalu wajib.** Permintaan tanpa Message-Authenticator yang valid langsung dibuang. Pakai hanya jika NAS selalu mengirimnya.
 - **Tidak wajib (NAS lama).** Permintaan tanpa Message-Authenticator diterima. Pakai untuk firmware lama yang tidak pernah mengirimnya. Atribut yang salah atau ganda tetap ditolak.
 
@@ -71,7 +71,7 @@ Jangan memakai `--add-port=1812/udp` atau `--add-port=8080/tcp`. Keduanya membuk
 
 Simpan di `/etc/nftables.conf`. Periksa dengan `sudo nft list ruleset`, lalu terapkan dengan `sudo nft -f /etc/nftables.conf`. Jika FreeRADIUS berada di host lain, tambahkan `ip saddr IP-FREERADIUS tcp dport 8080 accept`.
 
-**Batasi `/radius.php`.** Nilai `radius_rest_allow` kosong berarti hanya loopback. Ini bawaan sejak v0.1.4. Isi dengan IP FreeRADIUS jika berjalan di host lain. `trust_proxy` tidak memengaruhi allow-list ini. Lihat [FreeRADIUS lewat REST](freeradius-rest.md).
+**Batasi `/radius.php`.** Nilai `radius_rest_allow` kosong berarti hanya loopback. Isi dengan IP FreeRADIUS jika berjalan di host lain. `trust_proxy` tidak memengaruhi allow-list ini. Lihat [FreeRADIUS lewat REST](freeradius-rest.md).
 
 ### Link jarak jauh (VPS)
 
@@ -178,7 +178,7 @@ Disarankan untuk setiap SuperAdmin. Akun SuperAdmin bisa mengubah semua pengatur
 
 ### Menonaktifkan
 
-Di `/admin/2fa`, isi password saat ini dan satu kode 6 digit dari aplikasi. Kode pemulihan yang tersisa ikut dihapus.
+Di `/admin/2fa`, isi password saat ini dan satu kode 6 digit dari aplikasi, lalu klik **Nonaktifkan 2FA**. Kode pemulihan yang tersisa ikut dihapus.
 
 ### Reset oleh SuperAdmin
 
@@ -201,7 +201,7 @@ Ada dua jalur. Keduanya membuat password acak baru yang hanya ditampilkan sekali
 
 ### Dari layar: SuperAdmin
 
-1. SuperAdmin membuka **Pengguna Admin**, memilih akun, lalu klik **Reset kata sandi**. Tombol ini tidak muncul untuk akun sendiri. Untuk akun sendiri, pakai **Ganti Kata Sandi**.
+1. SuperAdmin membuka **Pengguna Admin**, memilih akun, lalu klik **Reset kata sandi**. Tombol ini tidak muncul untuk akun sendiri. Untuk akun sendiri, pakai **Ganti Password**.
 2. Konfirmasi. Salin password yang muncul. Setelah halaman ditutup, password itu tidak bisa dilihat lagi. Jika hilang, ulangi reset.
 3. Berikan password itu ke admin. Admin harus masuk ulang.
 

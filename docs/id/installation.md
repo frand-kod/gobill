@@ -46,7 +46,7 @@ Password admin pertama ada di file `initial-admin-password.txt` di folder databa
 
 Lalu:
 
-1. Buka `http://IP-STB:8080`.
+1. Buka `http://IP-STB:8080/admin/login`.
 2. Login sebagai `admin`.
 3. Ganti password.
 4. Hapus file password awal:
@@ -141,7 +141,7 @@ Lihat log service:
 | Service terus restart | Lihat log. Pastikan `/etc/gobill/config.env` ada dan berisi `GOBILL_SECRET_KEY`. |
 | Pelanggan tidak bisa login hotspot | Jalankan `journalctl -u gobill \| grep -i radius`. Pastikan secret cocok dan port 1812 tidak diblokir. |
 | Port 8080 atau 1812 sudah dipakai | Cek dengan `ss -ulnp \| grep 1812` atau `ss -tlnp \| grep 8080`. Ubah `GOBILL_HTTP` atau `GOBILL_RADIUS`. Jika FreeRADIUS memakai 1812 di host yang sama, set `GOBILL_RADIUS=off`. `/radius.php` tetap berjalan. |
-| Lupa password admin (lupa password admin) | SuperAdmin lain bisa mereset lewat **Pengguna Admin**. Jika tidak ada, jalankan `GOBILL_DB=/var/lib/gobill/gobill.db gobill reset-admin-password <username>`. Password baru tampil sekali. Tambahkan `--disable-2fa` jika authenticator juga hilang. Detailnya di [keamanan](security.md#lupa-password-admin). |
+| Lupa password admin | SuperAdmin lain bisa mereset lewat **Pengguna Admin**. Jika tidak ada, jalankan `GOBILL_DB=/var/lib/gobill/gobill.db gobill reset-admin-password <username>`. Password baru tampil sekali. Tambahkan `--disable-2fa` jika authenticator juga hilang. Detailnya di [keamanan](security.md#lupa-password-admin). |
 
 ## Lihat juga
 
