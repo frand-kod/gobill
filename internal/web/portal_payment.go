@@ -40,6 +40,10 @@ func (s *Server) pPay(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal pay", err)
 		return
 	}
+	if !billing.SellablePlan(p) { // admin-only or Rp 0: no order is created
+		s.plansPage(w, r, 200, billing.ErrAdminOnlyPlan.Error())
+		return
+	}
 	if c.Status != "Active" { // recharge would be refused after payment (PHP Package.php:44)
 		s.plansPage(w, r, 200, "account is not active")
 		return

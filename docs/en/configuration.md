@@ -121,6 +121,15 @@ The switches `notify_customers`, `notify_otp`, and `expired_notify_minutes_befor
 
 `logo`, `logo_dark`, `login_page_*`, `date_format`, `dec_point`, `thousands_sep`, and `language` are set in **Settings**. The light or dark theme and the accent colour are set from the header, not from these settings.
 
+## Service plans and audience
+
+Each plan (**Admin > Service Plan**) has an audience, set in the plan form under **Who can use this plan**:
+
+- **Public** (default): sold on the customer portal. A customer can buy it from balance or pay it through the gateway, send it to a friend, extend it after it expires, and it is renewed from balance when auto-renewal is on.
+- **Admin only**: for internal plans such as staff or technicians. It is hidden from the customer portal. A customer cannot buy, pay, send, extend or auto-renew it. An admin can still give it: recharge, bulk recharge, add a customer with a plan, and vouchers.
+
+A plan with price Rp 0 is never sold on the portal, whatever its audience. A coupon that brings a public plan to Rp 0 still works. An admin-only plan or a Rp 0 plan is not renewed from balance when it expires: it expires and is isolated like any other plan. Existing plans are public after the upgrade (migration 0017).
+
 ## See also
 
 - [Installation](installation.md): setup and first variables.

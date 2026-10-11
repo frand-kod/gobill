@@ -198,6 +198,7 @@ type Plan struct {
 	OnLogout      string
 	Device        string
 	Enabled       int64
+	Audience      string
 }
 
 type Pool struct {

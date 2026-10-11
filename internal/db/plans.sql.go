@@ -13,9 +13,9 @@ import (
 const createPlan = `-- name: CreatePlan :one
 INSERT INTO plans (name, type, billing, price, validity, validity_unit, time_limit, time_unit,
                    data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, enabled,
-                   limited, limit_type, expired_plan_id, billing_day, on_login, on_logout, device)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled
+                   limited, limit_type, expired_plan_id, billing_day, on_login, on_logout, device, audience)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(NULLIF(CAST(?23 AS TEXT), ''), 'public'))
+RETURNING id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience
 `
 
 type CreatePlanParams struct {
@@ -41,6 +41,7 @@ type CreatePlanParams struct {
 	OnLogin       string
 	OnLogout      string
 	Device        string
+	Audience      string
 }
 
 func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (Plan, error) {
@@ -67,6 +68,7 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (Plan, e
 		arg.OnLogin,
 		arg.OnLogout,
 		arg.Device,
+		arg.Audience,
 	)
 	var i Plan
 	err := row.Scan(
@@ -93,6 +95,7 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (Plan, e
 		&i.OnLogout,
 		&i.Device,
 		&i.Enabled,
+		&i.Audience,
 	)
 	return i, err
 }
@@ -107,7 +110,7 @@ func (q *Queries) DeletePlan(ctx context.Context, id int64) error {
 }
 
 const getPlan = `-- name: GetPlan :one
-SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled FROM plans WHERE id = ?
+SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience FROM plans WHERE id = ?
 `
 
 func (q *Queries) GetPlan(ctx context.Context, id int64) (Plan, error) {
@@ -137,14 +140,16 @@ func (q *Queries) GetPlan(ctx context.Context, id int64) (Plan, error) {
 		&i.OnLogout,
 		&i.Device,
 		&i.Enabled,
+		&i.Audience,
 	)
 	return i, err
 }
 
 const listEnabledPlansByType = `-- name: ListEnabledPlansByType :many
-SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled FROM plans WHERE enabled = 1 AND type = ? ORDER BY price
+SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience FROM plans WHERE enabled = 1 AND type = ? AND audience = 'public' AND price > 0 ORDER BY price
 `
 
+// Customer portal list: admin-only plans and Rp 0 plans are never sold to a customer.
 func (q *Queries) ListEnabledPlansByType(ctx context.Context, type_ string) ([]Plan, error) {
 	rows, err := q.db.QueryContext(ctx, listEnabledPlansByType, type_)
 	if err != nil {
@@ -178,6 +183,7 @@ func (q *Queries) ListEnabledPlansByType(ctx context.Context, type_ string) ([]P
 			&i.OnLogout,
 			&i.Device,
 			&i.Enabled,
+			&i.Audience,
 		); err != nil {
 			return nil, err
 		}
@@ -193,7 +199,7 @@ func (q *Queries) ListEnabledPlansByType(ctx context.Context, type_ string) ([]P
 }
 
 const listPlans = `-- name: ListPlans :many
-SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled FROM plans ORDER BY name LIMIT ? OFFSET ?
+SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience FROM plans ORDER BY name LIMIT ? OFFSET ?
 `
 
 type ListPlansParams struct {
@@ -234,6 +240,7 @@ func (q *Queries) ListPlans(ctx context.Context, arg ListPlansParams) ([]Plan, e
 			&i.OnLogout,
 			&i.Device,
 			&i.Enabled,
+			&i.Audience,
 		); err != nil {
 			return nil, err
 		}
@@ -249,7 +256,7 @@ func (q *Queries) ListPlans(ctx context.Context, arg ListPlansParams) ([]Plan, e
 }
 
 const searchPlans = `-- name: SearchPlans :many
-SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled FROM plans WHERE name LIKE '%' || CAST(?1 AS TEXT) || '%' ORDER BY name LIMIT ?3 OFFSET ?2
+SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience FROM plans WHERE name LIKE '%' || CAST(?1 AS TEXT) || '%' ORDER BY name LIMIT ?3 OFFSET ?2
 `
 
 type SearchPlansParams struct {
@@ -291,6 +298,7 @@ func (q *Queries) SearchPlans(ctx context.Context, arg SearchPlansParams) ([]Pla
 			&i.OnLogout,
 			&i.Device,
 			&i.Enabled,
+			&i.Audience,
 		); err != nil {
 			return nil, err
 		}
@@ -309,7 +317,7 @@ const updatePlan = `-- name: UpdatePlan :exec
 UPDATE plans SET name = ?, type = ?, billing = ?, price = ?, validity = ?, validity_unit = ?,
     time_limit = ?, time_unit = ?, data_limit = ?, data_unit = ?, shared_users = ?,
     bandwidth_id = ?, router_id = ?, pool_id = ?, enabled = ?,
-    limited = ?, limit_type = ?, expired_plan_id = ?, billing_day = ?, on_login = ?, on_logout = ?, device = ?
+    limited = ?, limit_type = ?, expired_plan_id = ?, billing_day = ?, on_login = ?, on_logout = ?, device = ?, audience = ?
 WHERE id = ?
 `
 
@@ -336,6 +344,7 @@ type UpdatePlanParams struct {
 	OnLogin       string
 	OnLogout      string
 	Device        string
+	Audience      string
 	ID            int64
 }
 
@@ -363,6 +372,7 @@ func (q *Queries) UpdatePlan(ctx context.Context, arg UpdatePlanParams) error {
 		arg.OnLogin,
 		arg.OnLogout,
 		arg.Device,
+		arg.Audience,
 		arg.ID,
 	)
 	return err

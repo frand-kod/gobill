@@ -15,7 +15,7 @@ import (
 var (
 	planNames = []string{"name", "type", "billing", "price", "validity", "validity_unit", "limited", "limit_type",
 		"time_limit", "time_unit", "data_limit", "data_unit", "shared_users", "bandwidth_id", "router_id", "pool_id",
-		"expired_plan_id", "billing_day", "device", "enabled", "on_login", "on_logout"}
+		"expired_plan_id", "billing_day", "device", "enabled", "on_login", "on_logout", "audience"}
 	// the device driver an empty "device" field falls back to, by plan type
 	defaultDevices = map[string]string{"Hotspot": "MikrotikHotspot", "PPPoE": "MikrotikPppoe"}
 )
@@ -69,11 +69,14 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 	}
 	dev := text("device", "Device", v, e).opts("", "MikrotikHotspot", "MikrotikPppoe", "Dummy", "Radius").hint("Empty = by plan type")
 	const notBalance, hotspot = "type !== 'Balance'", "type === 'Hotspot'"
+	aud := text("audience", "Who can use this plan", v, e).as("select").hint("Admin only: hidden from the customer portal. Customers cannot buy, extend or auto-renew it; admins can still give it.")
+	aud.Options = []option{{"public", "Public — sold on the customer portal"}, {"admin", "Admin only — only an admin can give it"}}
 	out := section([]field{
 		text("name", "Plan Name", v, e).req(),
 		text("type", "Type", v, e).opts("Hotspot", "PPPoE", "Balance").bind(),
 		text("billing", "Plan Type", v, e).opts("prepaid", "postpaid").bind(),
 		check("enabled", "Enable"),
+		aud,
 	}, "Basic", "")
 	out = append(out, section([]field{
 		text("price", "Plan Price", v, e).as("number").req(),
@@ -108,7 +111,7 @@ func planFormValues(p db.Plan) map[string]string {
 		"limit_type": p.LimitType.String, "time_limit": n(p.TimeLimit), "time_unit": p.TimeUnit.String,
 		"data_limit": n(p.DataLimit), "data_unit": p.DataUnit.String, "shared_users": n(p.SharedUsers),
 		"bandwidth_id": n(p.BandwidthID), "router_id": n(p.RouterID), "pool_id": n(p.PoolID),
-		"expired_plan_id": n(p.ExpiredPlanID), "billing_day": n(p.BillingDay), "device": p.Device, "enabled": fmt.Sprint(p.Enabled), "on_login": p.OnLogin, "on_logout": p.OnLogout}
+		"expired_plan_id": n(p.ExpiredPlanID), "billing_day": n(p.BillingDay), "device": p.Device, "enabled": fmt.Sprint(p.Enabled), "on_login": p.OnLogin, "on_logout": p.OnLogout, "audience": p.Audience}
 }
 
 func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
@@ -125,14 +128,17 @@ func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	lp := listPage{Heading: "Service Plan", Base: "/admin/plans", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
-		Cols: []string{"Plan Name", "Type", "Plan Price", "Plan Validity", "Router", "Status"}}
+		Cols: []string{"Plan Name", "Type", "Plan Price", "Plan Validity", "Router", "Audience", "Status"}}
 	for _, p := range rows {
-		st := "Disable"
+		st, aud := "Disable", ""
 		if p.Enabled == 1 {
 			st = "Enable"
 		}
+		if p.Audience == "admin" {
+			aud = "Admin only"
+		}
 		lp.Rows = append(lp.Rows, listRow{p.ID, []string{p.Name, p.Type + " / " + p.Billing, money(p.Price),
-			fmt.Sprint(p.Validity, " ", p.ValidityUnit), routers[p.RouterID.Int64], st}})
+			fmt.Sprint(p.Validity, " ", p.ValidityUnit), routers[p.RouterID.Int64], aud, st}})
 	}
 	lp.finish(page)
 	s.renderList(w, r, lp)
@@ -145,7 +151,7 @@ func (s *Server) planNew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := map[string]string{"type": "Hotspot", "billing": "prepaid", "validity": "1", "validity_unit": "Days", "enabled": "1",
-		"time_unit": "Hrs", "data_unit": "GB", "shared_users": "1"}
+		"time_unit": "Hrs", "data_unit": "GB", "shared_users": "1", "audience": "public"}
 	st, err := s.loadSettings(r.Context())
 	if err != nil {
 		s.fail(w, "load settings", err)
@@ -231,6 +237,12 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 	if !oneOf(v["device"], "", "MikrotikHotspot", "MikrotikPppoe", "Dummy", "Radius") {
 		e["device"] = "Invalid value"
 	}
+	if v["audience"] == "" { // a form without the field (older clients) keeps the portal plan
+		v["audience"] = "public"
+	}
+	if !oneOf(v["audience"], "public", "admin") {
+		e["audience"] = "Invalid value"
+	}
 	price, err := strconv.ParseInt(v["price"], 10, 64)
 	if err != nil || price < 0 {
 		e["price"] = "Enter a number of 0 or more"
@@ -245,7 +257,7 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	p := db.CreatePlanParams{Name: v["name"], Type: v["type"], Billing: v["billing"], Price: price, Validity: validity,
-		ValidityUnit: v["validity_unit"], Device: v["device"], OnLogin: v["on_login"], OnLogout: v["on_logout"]}
+		ValidityUnit: v["validity_unit"], Device: v["device"], OnLogin: v["on_login"], OnLogout: v["on_logout"], Audience: v["audience"]}
 	if v["enabled"] == "1" {
 		p.Enabled = 1
 	}
@@ -310,7 +322,7 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 				DataLimit: p.DataLimit, DataUnit: p.DataUnit, SharedUsers: p.SharedUsers, BandwidthID: p.BandwidthID,
 				RouterID: p.RouterID, PoolID: p.PoolID, Enabled: p.Enabled, Limited: p.Limited, LimitType: p.LimitType,
 				ExpiredPlanID: p.ExpiredPlanID, BillingDay: p.BillingDay, OnLogin: p.OnLogin, OnLogout: p.OnLogout,
-				Device: p.Device, ID: id})
+				Device: p.Device, Audience: p.Audience, ID: id})
 			if err == nil {
 				saved, err = s.queries.GetPlan(ctx, id)
 			}

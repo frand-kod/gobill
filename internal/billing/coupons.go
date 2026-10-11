@@ -75,6 +75,9 @@ func (s *Service) RechargeWithBalanceCoupon(ctx context.Context, customerID, pla
 		if plan.Type == "Balance" {
 			return errors.New("coupon not available for balance")
 		}
+		if !SellablePlan(plan) {
+			return ErrAdminOnlyPlan
+		}
 		c, err := q.GetCouponByCode(ctx, code)
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrCouponNotFound

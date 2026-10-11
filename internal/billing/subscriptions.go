@@ -159,6 +159,9 @@ func (s *Service) ExtendExpired(ctx context.Context, customerID, subID int64) (t
 		if err != nil {
 			return err
 		}
+		if !SellablePlan(plan) {
+			return ErrAdminOnlyPlan
+		}
 		until = now.AddDate(0, 0, days)
 		if err = q.UpdateSubscription(ctx, db.UpdateSubscriptionParams{PlanID: sub.PlanID, RouterID: sub.RouterID, Type: sub.Type,
 			ExpiresAt: until.Unix(), Status: "active", AdminID: sub.AdminID, ID: sub.ID}); err != nil {
@@ -387,7 +390,8 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 	var renewErr error
 	// an ended isolation is never renewed: the isolir plan is free and the isolation is over
 	isIsolir := plan.ID == isolir.PlanID(setting(ctx, s.Q, "isolir_plan_id"))
-	if autoRenew && !isIsolir && c.AutoRenewal == 1 && c.Status == "Active" && c.Balance >= WithTax(settingsMap(ctx, s.Q), plan.Price)+s.BillsTotal(ctx, c.ID) {
+	// an admin-audience or Rp 0 plan is never renewed from the balance: it expires like any other
+	if autoRenew && !isIsolir && SellablePlan(plan) && c.AutoRenewal == 1 && c.Status == "Active" && c.Balance >= WithTax(settingsMap(ctx, s.Q), plan.Price)+s.BillsTotal(ctx, c.ID) {
 		err := s.RechargeWithBalance(ctx, c.ID, plan.ID, 0)
 		if err == nil {
 			return nil

@@ -52,6 +52,7 @@
               {{if and (eq $i 0) (gt $d.StatusIndex 0)}}{{$st := index $r.Cells $d.StatusIndex}}<span class="me-1.5 inline-flex align-middle sm:hidden" title="{{T $st}}"><span class="sr-only">{{T $st}}</span><span class="size-2 shrink-0 rounded-full {{dot $st}}" aria-hidden="true"></span></span>{{end}}
               {{if eq (index $d.Cols $i) "Status"}}<span class="badge {{badge $c}}">{{T $c}}</span>
               {{else if eq (index $d.Cols $i) "Secret"}}{{if $c}}<span class="badge badge-warn">{{T $c}}</span>{{end}}
+              {{else if eq (index $d.Cols $i) "Audience"}}{{if $c}}<span class="badge badge-warn">{{T $c}}</span>{{end}}
               {{else if and (eq (index $d.Cols $i) "Ends On") (eq $c "Today")}}<span class="badge badge-warn">{{T $c}}</span>
               {{else if and (eq $i 0) (or $d.ViewLink $d.InvoiceLink)}}<a class="link" href="{{$d.Base}}/{{$r.ID}}{{if $d.InvoiceLink}}/invoice{{end}}">{{$c}}</a>
               {{else}}{{$c}}{{end}}
