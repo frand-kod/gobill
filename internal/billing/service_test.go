@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -188,6 +189,50 @@ func TestRechargeWithBalance(t *testing.T) {
 	}
 	if e.balance() != 0 {
 		t.Fatalf("balance %d", e.balance())
+	}
+}
+
+// Two balance payments race for 6000: exactly one may win, and the balance must never go negative.
+func TestConcurrentBalanceDebit(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	e.q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: 6000, ID: e.cust.ID})
+	mk := func(name string, price int64) db.Plan {
+		p, err := e.q.CreatePlan(ctx, db.CreatePlanParams{Name: name, Type: "PPPoE", Billing: "prepaid", Price: price, Validity: 1, ValidityUnit: "Days",
+			BandwidthID: e.day.BandwidthID, RouterID: e.day.RouterID, Enabled: 1})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	plans := []db.Plan{mk("race5", 5000), mk("race2", 2000)}
+	var start sync.WaitGroup
+	start.Add(1)
+	errs := make(chan error, len(plans))
+	for _, p := range plans {
+		go func(p db.Plan) {
+			start.Wait()
+			errs <- e.s.RechargeWithBalance(ctx, e.cust.ID, p.ID, 0)
+		}(p)
+	}
+	start.Done()
+	var ok int
+	var paid int64
+	for range plans {
+		switch err := <-errs; {
+		case err == nil:
+			ok++
+		case errors.Is(err, ErrInsufficientBalance):
+		default:
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+	for _, p := range plans {
+		if e.balance() == 6000-p.Price {
+			paid = p.Price
+		}
+	}
+	if ok != 1 || e.balance() != 6000-paid || e.balance() < 0 {
+		t.Fatalf("ok %d, balance %d, paid %d", ok, e.balance(), paid)
 	}
 }
 
