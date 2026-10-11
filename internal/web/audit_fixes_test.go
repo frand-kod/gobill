@@ -22,10 +22,11 @@ func TestForgotSameAnswerKnownUnknown(t *testing.T) {
 
 func TestForgotResetMinimumLength(t *testing.T) {
 	e, otp := forgotApp(t)
+	setting(t, e, "customer_password_min", "8")
 	ck := sessionOf(do(e.h, "POST", "/portal/forgot", url.Values{"username": {"u1"}}, nil))
 	do(e.h, "POST", "/portal/forgot/verify", url.Values{"otp_code": {otp()}}, ck)
 	w := do(e.h, "POST", "/portal/forgot/reset", url.Values{"npass": {"newpas7"}, "cnpass": {"newpas7"}}, ck)
-	if !strings.Contains(w.Body.String(), tr("Password should be between 8 to 35 characters")) {
+	if !strings.Contains(w.Body.String(), "Password should be between 8 to 64 characters") {
 		t.Fatal("7-character password accepted")
 	}
 }
@@ -40,10 +41,10 @@ func TestVoucherPrintRoles(t *testing.T) {
 
 func TestCustomerPasswordMinimum(t *testing.T) {
 	_, h, _, c := crudApp(t)
-	form := url.Values{"username": {"pwcust"}, "password": {"1234567"}, "fullname": {"Pw Cust"}, "service_type": {"Hotspot"}, "status": {"Active"}}
-	wantCode(t, do(h, "POST", "/admin/customers", form, c), 422, "7-character password")
-	form.Set("password", "12345678")
-	wantCode(t, do(h, "POST", "/admin/customers", form, c), 303, "8-character password")
+	form := url.Values{"username": {"pwcust"}, "password": {"abc"}, "fullname": {"Pw Cust"}, "service_type": {"Hotspot"}, "status": {"Active"}}
+	wantCode(t, do(h, "POST", "/admin/customers", form, c), 422, "3-character password")
+	form.Set("password", "xk9q")
+	wantCode(t, do(h, "POST", "/admin/customers", form, c), 303, "4-character password at the default minimum")
 }
 
 // The failure maps drop keys with nothing recent once they grow past 10000.

@@ -91,7 +91,7 @@ Jika Cloudflare ada di depan Nginx, atur `set_real_ip_from` dengan rentang IP Cl
 | `admin_extend` | Siapa yang boleh memakai tombol Perpanjang di daftar langganan. Bawaannya `staff`, yaitu Admin, Agent, dan Sales. `managers` berarti SuperAdmin dan Admin. `super` berarti hanya SuperAdmin. `off` menyembunyikan tombol. |
 | `enable_balance` | Sistem saldo: isi saldo, transfer saldo, dan perpanjang otomatis dari saldo. Bawaan aktif jika belum diisi. |
 | `start_on_first_login` | `yes` agar masa aktif paket RADIUS mulai saat login pertama, bukan saat recharge. Bawaan `no`. Lihat bagian "Start on first login" di bawah. |
-| `disable_registration`, `disable_voucher`, `allow_phone_otp`, `registration_username`, `phone_otp_type` | Pembatasan dan metode di portal pelanggan. `phone_otp_type` memilih `sms` atau `wa`. |
+| `disable_registration`, `disable_voucher`, `allow_phone_otp`, `phone_otp_type`, `customer_password_min` | Pembatasan dan metode di portal pelanggan. `phone_otp_type` memilih `sms` atau `wa`. `customer_password_min` adalah panjang minimal kata sandi pelanggan, 4 sampai 64. |
 | `voucher_format` | Format kode voucher bawaan: `up`, `low`, `rand`, atau `numbers`. |
 | `hs_auth_method` | Metode auth hotspot yang ditampilkan di **Aneka ragam**: `pap` atau `chap`. Pengaturan ini tidak mengubah server RADIUS bawaan. Server bawaan menerima PAP, CHAP, dan MS-CHAPv2. |
 | `check_customer_online` | `yes` menampilkan di halaman pelanggan apakah pelanggan sedang terhubung lewat device paket. |

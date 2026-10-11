@@ -265,6 +265,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			sel("sms_otp_registration", "SMS OTP Registration", settingsYesNo...),
 			sel("phone_otp_type", "OTP Method", option{"sms", "SMS"}, option{"wa", "WhatsApp"}),
 			sel("reg_nofify_admin", "Notify Admin", settingsYesNo...),
+			text("customer_password_min", "Minimum Password Length", v, e).as("number").hint("Minimum 4. Password same as username and common passwords are always rejected."),
 		}, "Registration", "")...)
 		out = append(out, section([]field{
 			text("session_timeout_duration", "Timeout Duration", v, e).as("number").hint("Minutes of inactivity before an admin is logged out. Empty = 120."),
@@ -385,6 +386,9 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	}
 	if x := v["registration_username"]; x != "" && !oneOf(x, "username", "phone") {
 		e["registration_username"] = "Choose username or phone"
+	}
+	if x := v["customer_password_min"]; x != "" && !inRange(x, 4, 64) {
+		e["customer_password_min"] = "Enter a whole number from 4 to 64"
 	}
 	if x := v["voucher_format"]; x != "" && !oneOf(x, "up", "low", "rand", "numbers") {
 		e["voucher_format"] = "Choose one of the listed formats"

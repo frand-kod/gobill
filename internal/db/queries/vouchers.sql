@@ -2,6 +2,10 @@
 INSERT INTO vouchers (code, plan_id, generated_by) VALUES (?, ?, ?)
 RETURNING *;
 
+-- name: FindVoucherCodeFold :one
+-- Case-insensitive: a voucher with this code exists (self-registration must not take a code as username).
+SELECT id FROM vouchers WHERE lower(code) = lower(sqlc.arg(code)) LIMIT 1;
+
 -- name: GetVoucher :one
 SELECT * FROM vouchers WHERE id = ?;
 

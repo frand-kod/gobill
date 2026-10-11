@@ -132,7 +132,7 @@ If `connect_uri` uses `https`, make sure `check_cert = yes` is set in the `tls` 
   - OTP sending: 5 times per IP in 15 minutes. Per phone number, a 60-second cooldown and at most 5 times per hour. If `notify_otp` = `no`, no OTP is sent at all.
   - Detected brute force also triggers an operator alert. See [monitoring](monitoring.md).
 - **Forgotten password.** The reply is the same whether or not the username exists. It cannot be used to guess accounts.
-- **Customer passwords.** At least 8 characters and at most 35. They apply to registration, change, reset, and edits by an admin.
+- **Customer passwords.** At least `customer_password_min` characters (default 4, allowed 4 to 64). They apply to registration, change, reset, and edits by an admin. A password equal to the username, and common passwords such as `1234` or `password`, are always rejected.
 - **First admin password.** It is random, 16 characters, and written to `initial-admin-password.txt` in the database folder, with mode 0600. It is not written to the log. Delete the file after you log in.
 - **Proxy.** `X-Forwarded-For` is read only if the direct connection comes from loopback, or from `trusted_proxies` with `trust_proxy` = `yes`. The login limiter uses that client address. The `/radius.php` allow-list always uses the real connection address, so headers from outside cannot fake the IP.
 - **Voucher printing.** Only for staff roles: SuperAdmin, Admin, Agent, and Sales.

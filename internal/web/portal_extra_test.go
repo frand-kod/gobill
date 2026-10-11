@@ -77,7 +77,7 @@ func TestPortalTransfer(t *testing.T) {
 
 func TestPortalRegistrationOptions(t *testing.T) {
 	e := billApp(t)
-	f := url.Values{"username": {"newbie"}, "fullname": {"New Bie"}, "password": {"abc12345"}, "cpassword": {"abc12345"}}
+	f := url.Values{"username": {"newbie"}, "phone_number": {"0812000001"}, "password": {"abc12345"}}
 	setting(t, e, "disable_registration", "noreg")
 	if w := do(e.h, "POST", "/portal/register", f, nil); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/portal/login" {
 		t.Fatalf("disabled: %d", w.Code)
@@ -85,13 +85,9 @@ func TestPortalRegistrationOptions(t *testing.T) {
 	if _, err := e.q.GetCustomerByUsername(t.Context(), "newbie"); err == nil {
 		t.Fatal("registered while disabled")
 	}
-	setting(t, e, "disable_registration", "", "registration_username", "phone")
-	if w := do(e.h, "POST", "/portal/register", f, nil); w.Code != 200 {
-		t.Fatalf("non-phone username accepted: %d", w.Code)
-	}
-	f.Set("username", "081234567890")
+	setting(t, e, "disable_registration", "")
 	if w := do(e.h, "POST", "/portal/register", f, nil); w.Code != http.StatusSeeOther {
-		t.Fatalf("phone username: %d", w.Code)
+		t.Fatalf("open registration: %d", w.Code)
 	}
 }
 

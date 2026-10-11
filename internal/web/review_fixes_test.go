@@ -81,8 +81,8 @@ func TestRegisterOTPSendLimited(t *testing.T) {
 	gw, sent := countingGateway(t)
 	setting(t, e, "sms_url", gw, "sms_otp_registration", "yes")
 	for i := 0; i < 6; i++ {
-		do(e.h, "POST", "/portal/register", url.Values{"username": {"nb" + strconv.Itoa(i)}, "fullname": {"N"}, "phone_number": {"0812000000" + strconv.Itoa(i)},
-			"password": {"abc12345"}, "cpassword": {"abc12345"}, "send_otp": {"1"}}, nil)
+		do(e.h, "POST", "/portal/register", url.Values{"username": {"nbotp" + strconv.Itoa(i)}, "phone_number": {"0812000000" + strconv.Itoa(i)},
+			"password": {"abc12345"}, "send_otp": {"1"}}, nil)
 	}
 	if sent.Load() != 5 {
 		t.Fatalf("sent %d, want 5", sent.Load())

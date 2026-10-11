@@ -79,16 +79,24 @@ func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	s.clearFailures(ip)
 	s.clearFailures(uk)
-	if err := s.sessions.RenewToken(r.Context()); err != nil {
+	if err := s.portalSignIn(r, c); err != nil {
 		s.fail(w, "renew session", err)
 		return
+	}
+	http.Redirect(w, r, "/portal", http.StatusSeeOther)
+}
+
+// portalSignIn starts a fresh portal session for the customer.
+func (s *Server) portalSignIn(r *http.Request, c db.Customer) error {
+	if err := s.sessions.RenewToken(r.Context()); err != nil {
+		return err
 	}
 	s.sessions.Put(r.Context(), "customer_id", c.ID)
 	s.sessions.Put(r.Context(), "csv", c.SessionVersion)
 	if err := s.queries.TouchCustomerLogin(r.Context(), c.ID); err != nil {
 		slog.Error("touch login", "err", err)
 	}
-	http.Redirect(w, r, "/portal", http.StatusSeeOther)
+	return nil
 }
 
 // keepSession re-stamps the acting session with the customer's bumped session_version.
