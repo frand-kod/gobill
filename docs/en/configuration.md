@@ -94,6 +94,7 @@ If Cloudflare is in front of Nginx, set `set_real_ip_from` in Nginx to the Cloud
 | `disable_registration`, `disable_voucher`, `allow_phone_otp`, `phone_otp_type`, `customer_password_min` | Restrictions and methods in the customer portal. `phone_otp_type` selects `sms` or `wa`. `customer_password_min` is the minimum customer password length, 4 to 64. |
 | `voucher_format` | Default voucher code format: `up`, `low`, `rand`, or `numbers`. |
 | `hs_auth_method` | Hotspot auth method shown under **Miscellaneous**: `pap` or `chap`. This setting does not change the built-in RADIUS server. The built-in server accepts PAP, CHAP, and MS-CHAPv2. |
+| `shared_users_policy` | What a Hotspot plan does when its device limit (`shared_users`) is full and a new device logs in. `kick_oldest` (default, also when never set) drops the customer's oldest online session on its NAS and accepts the new login. `reject` refuses the new login with "Akun sedang dipakai perangkat lain..." ("the account is in use by another device"). Phones with random MACs reconnect as a new device, so `kick_oldest` avoids locking out a single-device customer. |
 | `check_customer_online` | `yes` shows on the customer page whether the customer is connected through a plan device. |
 
 ### Start on first login (`start_on_first_login`)

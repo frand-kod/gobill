@@ -13,6 +13,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
 	"github.com/frand-kod/gobill/internal/payment"
@@ -159,7 +160,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		}, "Message templates", "")...)
 		out = append(out, section([]field{
 			sel("user_notification_expired", "Expired Notification", settingsChannels...),
-			text("expired_notify_minutes_before", "Send expired message earlier (minutes)", v, e).as("number").hint("The expired message is sent this many minutes before the plan ends, so a customer still online receives it. The plan itself still ends at its time. 0 = at the end of the plan"),
+			text("expired_notify_minutes_before", "Send expired message earlier (minutes)", v, e).as("number").hint("The expired message is sent this many minutes before the plan ends, so a customer still online receives it. The plan itself still ends at its time. Default 10. 0 = at the end of the plan"),
 			sel("user_notification_payment", "Payment Notification", settingsChannels...),
 			sel("user_notification_reminder", "Reminder Notification", settingsChannels...),
 		}, "Channels", "")...)
@@ -302,6 +303,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		}, "OTP", "")...)
 		out = append(out, section([]field{
 			sel("hs_auth_method", "Hotspot Auth Method", option{"pap", "PAP"}, option{"chap", "CHAP"}),
+			sel("shared_users_policy", "When the device limit is full", option{"kick_oldest", "Kick oldest device"}, option{"reject", "Reject new login"}).hint("Phones now use random MACs. Kick oldest device stops a customer from being locked out when their phone reconnects with a new MAC."),
 		}, "Hotspot", "")...)
 		return append(out, section([]field{
 			sel("default_plan_device", "Default Device for New Plans", option{"", "By plan type"}, option{"MikrotikHotspot", "MikrotikHotspot"},
@@ -490,6 +492,9 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 		if _, ok := v[k]; !ok {
 			v[k] = x
 		}
+	}
+	if v["expired_notify_minutes_before"] == "" { // never set: show the value the sender uses
+		v["expired_notify_minutes_before"] = strconv.Itoa(billing.ExpiredNoticeDefault)
 	}
 	fp := formPage{Heading: "Settings", Action: "/admin/settings/" + tab, Cancel: "/admin", Fields: s.settingsFields(tab, v, e, st)}
 	if tab == "payment" { // the URL to paste into the Tripay merchant dashboard

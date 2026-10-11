@@ -50,37 +50,6 @@ func (q *Queries) CloseStaleRadiusSessions(ctx context.Context, updatedAt int64)
 	return result.RowsAffected()
 }
 
-const countOtherOpenRadiusSessions = `-- name: CountOtherOpenRadiusSessions :one
-SELECT COUNT(*) FROM radius_sessions
-WHERE username = ? AND stopped_at IS NULL AND updated_at >= ?
-  AND (framed_ip <> ? OR ? = '')
-  AND (mac <> ? OR ? = '')
-`
-
-type CountOtherOpenRadiusSessionsParams struct {
-	Username  string
-	UpdatedAt int64
-	FramedIp  string
-	Column4   interface{}
-	Mac       string
-	Column6   interface{}
-}
-
-// Open, recently updated sessions of the user that are not the requesting device (same framed IP or MAC).
-func (q *Queries) CountOtherOpenRadiusSessions(ctx context.Context, arg CountOtherOpenRadiusSessionsParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countOtherOpenRadiusSessions,
-		arg.Username,
-		arg.UpdatedAt,
-		arg.FramedIp,
-		arg.Column4,
-		arg.Mac,
-		arg.Column6,
-	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createNAS = `-- name: CreateNAS :one
 INSERT INTO nas (name, ip, secret_enc, description, require_message_auth) VALUES (?, ?, ?, ?, ?) RETURNING id, name, ip, secret_enc, description, require_message_auth
 `
@@ -334,6 +303,68 @@ func (q *Queries) ListOpenRadiusSessionsByUser(ctx context.Context, username str
 	return items, nil
 }
 
+const listOtherOpenRadiusSessions = `-- name: ListOtherOpenRadiusSessions :many
+SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions
+WHERE username = ? AND stopped_at IS NULL AND updated_at >= ?
+  AND (framed_ip <> ? OR ? = '')
+  AND (mac <> ? OR ? = '')
+ORDER BY started_at ASC, id ASC
+`
+
+type ListOtherOpenRadiusSessionsParams struct {
+	Username  string
+	UpdatedAt int64
+	FramedIp  string
+	Column4   interface{}
+	Mac       string
+	Column6   interface{}
+}
+
+// Open, recently updated sessions of the user that are not the requesting device (same framed IP or MAC), oldest first.
+func (q *Queries) ListOtherOpenRadiusSessions(ctx context.Context, arg ListOtherOpenRadiusSessionsParams) ([]RadiusSession, error) {
+	rows, err := q.db.QueryContext(ctx, listOtherOpenRadiusSessions,
+		arg.Username,
+		arg.UpdatedAt,
+		arg.FramedIp,
+		arg.Column4,
+		arg.Mac,
+		arg.Column6,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RadiusSession
+	for rows.Next() {
+		var i RadiusSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Username,
+			&i.NasIp,
+			&i.NasIpAttr,
+			&i.NasIdentifier,
+			&i.FramedIp,
+			&i.Mac,
+			&i.StartedAt,
+			&i.UpdatedAt,
+			&i.StoppedAt,
+			&i.InputOctets,
+			&i.OutputOctets,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRadiusSessionsByUsers = `-- name: ListRadiusSessionsByUsers :many
 SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions
 WHERE username = ?1 OR username = ?2
@@ -539,6 +570,20 @@ func (q *Queries) SearchRadiusLogs(ctx context.Context, arg SearchRadiusLogsPara
 		return nil, err
 	}
 	return items, nil
+}
+
+const stopRadiusSession = `-- name: StopRadiusSession :exec
+UPDATE radius_sessions SET stopped_at = ? WHERE id = ? AND stopped_at IS NULL
+`
+
+type StopRadiusSessionParams struct {
+	StoppedAt sql.NullInt64
+	ID        int64
+}
+
+func (q *Queries) StopRadiusSession(ctx context.Context, arg StopRadiusSessionParams) error {
+	_, err := q.db.ExecContext(ctx, stopRadiusSession, arg.StoppedAt, arg.ID)
+	return err
 }
 
 const sumRadiusSessionTime = `-- name: SumRadiusSessionTime :one

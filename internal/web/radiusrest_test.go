@@ -13,8 +13,20 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/radius"
 	"github.com/frand-kod/gobill/internal/secret"
 )
+
+// The shared-users reject keeps the Auth-Type Accept semantics of the old PHP limit reject.
+func TestRejectBodySharedUsers(t *testing.T) {
+	b := rejectBody(radius.SharedUsersFullMsg)
+	if b["control:Auth-Type"] != "Accept" || b["Reply-Message"] != radius.SharedUsersFullMsg {
+		t.Fatalf("shared users reject: %v", b)
+	}
+	if b := rejectBody("Login invalid......"); b["control:Auth-Type"] != "Reject" {
+		t.Fatalf("other reject: %v", b)
+	}
+}
 
 // restSetup: customer "bob"/"pw" with a Hotspot plan (5M down, 512K up) expiring in +1h (or -1h if expired).
 func restSetup(t *testing.T, expired bool) (*Server, *db.Queries) {

@@ -34,12 +34,16 @@ ORDER BY s.expires_at DESC LIMIT 1;
 SELECT CAST(COALESCE(SUM(input_octets + output_octets), 0) AS INTEGER) FROM radius_sessions
 WHERE username = ? AND started_at >= ?;
 
--- name: CountOtherOpenRadiusSessions :one
--- Open, recently updated sessions of the user that are not the requesting device (same framed IP or MAC).
-SELECT COUNT(*) FROM radius_sessions
+-- name: ListOtherOpenRadiusSessions :many
+-- Open, recently updated sessions of the user that are not the requesting device (same framed IP or MAC), oldest first.
+SELECT * FROM radius_sessions
 WHERE username = ? AND stopped_at IS NULL AND updated_at >= ?
   AND (framed_ip <> ? OR ? = '')
-  AND (mac <> ? OR ? = '');
+  AND (mac <> ? OR ? = '')
+ORDER BY started_at ASC, id ASC;
+
+-- name: StopRadiusSession :exec
+UPDATE radius_sessions SET stopped_at = ? WHERE id = ? AND stopped_at IS NULL;
 
 -- name: UpsertRadiusSession :exec
 INSERT INTO radius_sessions (session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets)

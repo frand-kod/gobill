@@ -9,6 +9,17 @@ import (
 	"context"
 )
 
+const getSetting = `-- name: GetSetting :one
+SELECT value FROM settings WHERE key = ?
+`
+
+func (q *Queries) GetSetting(ctx context.Context, key string) (string, error) {
+	row := q.db.QueryRowContext(ctx, getSetting, key)
+	var value string
+	err := row.Scan(&value)
+	return value, err
+}
+
 const listSettings = `-- name: ListSettings :many
 SELECT "key", value FROM settings
 `

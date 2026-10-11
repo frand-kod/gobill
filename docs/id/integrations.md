@@ -14,7 +14,7 @@ Sakelar ini ada di **Pengaturan > Notifikasi**, di bagian paling atas, "Global s
 |---|---|
 | `notify_customers` | `no` menghentikan semua pesan ke pelanggan. Pesan itu meliputi pengingat, kedaluwarsa, invoice dan tautan QRIS, pesan selamat datang, pesan saldo, dan pesan manual. Ringkasan dan notifikasi operator tetap berjalan. |
 | `notify_otp` | `no` mematikan kode OTP untuk pendaftaran, lupa kata sandi, dan ganti kontak. Fitur tersebut menampilkan bahwa kode tidak tersedia. |
-| `expired_notify_minutes_before` | Pesan kedaluwarsa dikirim N menit sebelum paket berakhir, dengan rentang 0 sampai 1440. Bawaan 0, yaitu saat paket berakhir. Pesannya tetap satu per periode. Paket tetap berakhir pada waktunya. Perpanjangan atau recharge baru mengirim pesan lagi pada periode barunya. |
+| `expired_notify_minutes_before` | Pesan kedaluwarsa dikirim N menit sebelum paket berakhir, dengan rentang 0 sampai 1440. Bawaan 10. Isi 0 agar dikirim saat paket berakhir. Pesannya tetap satu per periode. Paket tetap berakhir pada waktunya. Perpanjangan atau recharge baru mengirim pesan lagi pada periode barunya. |
 
 `notify_customers` dan `notify_otp` bawaannya `yes` jika belum diisi.
 

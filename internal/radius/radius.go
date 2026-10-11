@@ -46,6 +46,8 @@ type Server struct {
 	Redeem func(ctx context.Context, code string, customerID int64) error
 	// Start begins a start_on_first_login subscription at the customer's first login (billing.StartPending).
 	Start func(ctx context.Context, customerID int64) error
+	// Kick drops one session on its NAS when shared_users_policy is kick_oldest. nil = Disconnect-Request (CoA).
+	Kick func(ctx context.Context, sess db.RadiusSession) error
 
 	userFails   failLimiter // failed password checks per username
 	dups        dupCache    // answered requests, for retransmits
@@ -188,6 +190,9 @@ func (s *Server) Authorize(ctx context.Context, rq AuthRequest) Decision {
 
 const badPassword = "Username or Password is wrong"
 
+// SharedUsersFullMsg is the Reply-Message when shared_users is full and shared_users_policy is reject.
+const SharedUsersFullMsg = "Akun sedang dipakai perangkat lain. Coba lagi beberapa menit lagi atau hubungi admin."
+
 // rejectReason maps a reject message to the metric label reason.
 func rejectReason(msg string) string {
 	switch {
@@ -195,7 +200,7 @@ func rejectReason(msg string) string {
 		return "voucher"
 	case strings.Contains(msg, "xpired"):
 		return "expired"
-	case strings.Contains(msg, "limit") || strings.Contains(msg, "already logged in"):
+	case strings.Contains(msg, "limit") || msg == SharedUsersFullMsg:
 		return "limit"
 	}
 	return "other"
@@ -219,6 +224,38 @@ func (s *Server) decide(ctx context.Context, rq AuthRequest) Decision {
 		voucherFails.fail(nasKey, now)
 	}
 	return d
+}
+
+// sharedPolicy is the shared_users_policy setting: "reject" or "kick_oldest" (default, also when unset).
+func (s *Server) sharedPolicy(ctx context.Context) string {
+	if v, err := s.Q.GetSetting(ctx, "shared_users_policy"); err == nil && v == "reject" {
+		return "reject"
+	}
+	return "kick_oldest"
+}
+
+// kickOldest stops the given sessions now and drops them on the NAS in the background, so the
+// Access-Accept does not wait for the NAS. The stop is recorded even when the NAS does not answer.
+func (s *Server) kickOldest(ctx context.Context, user string, sessions []db.RadiusSession) {
+	kick := s.Kick
+	if kick == nil {
+		kick = func(ctx context.Context, sess db.RadiusSession) error {
+			return Disconnect(ctx, s.Q, s.Key, CoAPort, sess)
+		}
+	}
+	for _, sess := range sessions {
+		if err := s.Q.StopRadiusSession(ctx, db.StopRadiusSessionParams{StoppedAt: sql.NullInt64{Int64: s.now().Unix(), Valid: true}, ID: sess.ID}); err != nil {
+			slog.Error("radius: stop replaced session", "user", user, "session_id", sess.ID, "err", err)
+		}
+		slog.Info("radius: shared_users full, dropping oldest session", "user", user, "session_id", sess.ID)
+		go func() {
+			cctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			if err := kick(cctx, sess); err != nil {
+				slog.Warn("radius: disconnect of replaced session failed", "user", user, "session_id", sess.ID, "err", err)
+			}
+		}()
+	}
 }
 
 // LimitSeconds converts a plan time limit (Mins or Hrs) to seconds.
@@ -293,12 +330,16 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 		}
 		slog.Warn("radius: clock untrusted, accepting expired subscription", "user", user)
 	}
-	// Old PHP: Hotspot only, count of logged-in sessions >= shared_users is refused.
+	// Old PHP: Hotspot only, count of logged-in sessions >= shared_users is refused (reject policy),
+	// or the oldest ones are dropped so that this login fits (kick_oldest, the default).
 	if pl.PlanType == "Hotspot" && pl.SharedUsers.Valid {
-		n, _ := s.Q.CountOtherOpenRadiusSessions(ctx, db.CountOtherOpenRadiusSessionsParams{
+		others, _ := s.Q.ListOtherOpenRadiusSessions(ctx, db.ListOtherOpenRadiusSessionsParams{
 			Username: user, UpdatedAt: s.now().Unix() - staleAfter, FramedIp: rq.FramedIP, Column4: rq.FramedIP, Mac: rq.MAC, Column6: rq.MAC})
-		if n >= pl.SharedUsers.Int64 {
-			return Decision{Reject: "You are already logged in - access denied"}
+		if n := int64(len(others)); n >= pl.SharedUsers.Int64 {
+			if s.sharedPolicy(ctx) == "reject" {
+				return Decision{Reject: SharedUsersFullMsg}
+			}
+			s.kickOldest(ctx, user, others[:min(n, max(0, n-pl.SharedUsers.Int64+1))])
 		}
 	}
 	d := Decision{Success: success, Cust: c, Plan: pl, Expires: pl.ExpiresAt}
