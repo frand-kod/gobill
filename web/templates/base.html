@@ -136,6 +136,13 @@ document.querySelectorAll('[data-pw]').forEach(function (b) {
 <meta name="theme-color" content="{{.Brand.theme_color}}">
 <link rel="stylesheet" href="/static/app.css">
 <script defer src="/static/vendor/alpine-3.14.9.min.js"></script>
+{{if or (hasPrefix .Path "/admin") (hasPrefix .Path "/portal")}}<script type="speculationrules">
+{"prefetch": [
+  {"source": "document", "eagerness": "moderate", "where": {"and": [{"href_matches": "/admin/*"}, {"not": {"href_matches": "/*.json"}}, {"not": {"selector_matches": "[data-no-prefetch]"}}]}},
+  {"source": "document", "eagerness": "moderate", "where": {"and": [{"href_matches": "/portal/*"}, {"not": {"href_matches": "/*.json"}}, {"not": {"selector_matches": "[data-no-prefetch]"}}]}}
+]}
+</script>
+<script defer src="/static/nav.js"></script>{{end}}
 </head>
 <body>
 {{block "body" .}}{{end}}
