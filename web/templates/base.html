@@ -159,8 +159,12 @@ document.querySelectorAll('[data-pw]').forEach(function (b) {
 // Floating UI, no layout shift. Toasts: success/info close after 4s, warnings after 8s, errors stay; hover or focus
 // pauses the timer. Intro popover: the "?" in the page header; closes on x, Escape or an outside click, and returns
 // focus to the "?" button. Without JS the toasts are visible and the intro stays closed.
-(function () {
-  document.querySelectorAll('#toasts > *').forEach(function (t) {
+// gbBind(root) wires the toasts and intro popovers under root. Each element is wired once (data-bound), so the
+// settings tab swap in nav.js can call it again for the new content.
+function gbIntroClose(d, back) { d.open = false; if (back) d.querySelector('summary').focus(); }
+window.gbBind = function (root) {
+  root.querySelectorAll('#toasts > *:not([data-bound])').forEach(function (t) {
+    t.dataset.bound = '1';
     var left = +t.dataset.toast, start = 0, timer = 0;
     t.querySelector('[data-toast-close]').onclick = function () { t.remove(); };
     if (!left) return;
@@ -172,20 +176,23 @@ document.querySelectorAll('[data-pw]').forEach(function (b) {
     t.addEventListener('focusout', function () { if (!t.matches(':hover')) arm(); });
     arm();
   });
-  document.querySelectorAll('[data-intro]').forEach(function (d) {
+  root.querySelectorAll('[data-intro]:not([data-bound])').forEach(function (d) {
+    d.dataset.bound = '1';
     var s = d.querySelector('summary'), x = d.querySelector('[data-intro-close]');
     x.classList.remove('hidden');
     s.setAttribute('aria-expanded', 'false');
-    function close(back) { d.open = false; if (back) s.focus(); }
     d.addEventListener('toggle', function () {
       s.setAttribute('aria-expanded', String(d.open));
       if (d.open) x.focus();
     });
-    x.onclick = function () { close(true); };
-    document.addEventListener('keydown', function (e) { if (d.open && e.key === 'Escape') close(true); });
-    document.addEventListener('click', function (e) { if (d.open && !d.contains(e.target)) close(false); });
+    x.onclick = function () { gbIntroClose(d, true); };
   });
-})();
+};
+function gbOpenIntros() { return Array.prototype.slice.call(document.querySelectorAll('[data-intro][open]')); }
+// once for the whole page: Escape and an outside click close any open intro
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') gbOpenIntros().forEach(function (d) { gbIntroClose(d, true); }); });
+document.addEventListener('click', function (e) { gbOpenIntros().forEach(function (d) { if (!d.contains(e.target)) gbIntroClose(d, false); }); });
+gbBind(document);
 </script>
 <script>
 // Forms work without JS. With JS: data-confirm="text {field}" (on form or submit button) asks first in the

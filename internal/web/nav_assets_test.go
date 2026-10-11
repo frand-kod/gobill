@@ -49,6 +49,12 @@ func TestSettingsTabsSwapContainer(t *testing.T) {
 	if !strings.Contains(block, `<h1 class="page-title" tabindex="-1">`) || !strings.Contains(block, `<form method="post"`) {
 		t.Error("heading (focus target) or form missing from #tab-content")
 	}
+	if !strings.Contains(block, `data-no-swap href="/admin/settings/promo"`) {
+		t.Error("Promotions tab must be data-no-swap: its page has no #tab-content")
+	}
+	if !strings.Contains(body, "window.gbBind = function") {
+		t.Error("intro and toast wiring must be callable again after a swap (gbBind)")
+	}
 }
 
 // No flash: the theme is applied by an inline script in <head>, ahead of the stylesheet, and the built
