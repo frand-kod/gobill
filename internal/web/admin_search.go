@@ -44,7 +44,7 @@ type searchGroup struct {
 	Items []searchItem `json:"items"`
 }
 
-// searchPages is the sidebar menu, in menu order. Keep it in step with web/templates/app.html.
+// searchPages is the sidebar menu, in menu order. Keep it in step with web/templates/admin/app.html.
 var searchPages = []searchEntry{
 	{Title: "Dashboard", URL: "/admin", Syn: "beranda home dasbor ringkasan", Roles: nil},
 	{Title: "Customer", URL: "/admin/customers", Syn: "pelanggan member pengguna customers", Roles: nil},
