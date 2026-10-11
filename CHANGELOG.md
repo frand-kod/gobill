@@ -8,13 +8,32 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-10-11
+
 ### Fitur
 
-- Akses paket: setiap paket bisa **Publik** (dijual di portal pelanggan, bawaan) atau **Khusus admin** (hanya admin yang bisa memberikannya, tidak tampil di portal). Migrasi 0017 (`plans.audience`); paket yang ada tetap publik. Daftar paket admin menandai paket khusus admin.
+- **Isolir**: tab pengaturan sendiri (khusus SuperAdmin). Pelanggan yang paketnya habis dipindah ke paket isolir (bawaan 64 kbps, 30 hari) dengan address-list MikroTik `isolir`. Halaman `/isolir` menampilkan nama, paket terakhir, QRIS bernominal, tombol chat admin, form voucher, dan promosi. Mode HTML kustom dengan variabel `[[...]]` berjalan dalam sandbox browser. Perintah MikroTik siap salin.
+- **Promosi**: tab sendiri (khusus SuperAdmin), blok gambar + teks + link, tampil di halaman isolir dan opsional di dashboard portal sebagai kartu kecil yang bisa ditutup. Migrasi 0016.
+- **Akses paket**: setiap paket **Publik** (dijual di portal) atau **Khusus admin** (hanya admin yang memberikan). Paket khusus admin diperpanjang otomatis bila auto-renew pelanggan aktif; paket Rp 0 gratis. Migrasi 0017.
+- **Daftar pelanggan 3 kolom**: username, password, nomor WhatsApp. Akun langsung aktif. Panjang minimal password diatur `customer_password_min` (bawaan 4); password sama dengan username dan password umum selalu ditolak.
+- **Batas perangkat penuh**: pilihan *Keluarkan perangkat terlama* (bawaan) atau *Tolak login baru*, untuk ponsel dengan MAC acak.
+- **Tambah pelanggan + langsung aktifkan paket** (Cash) dalam satu form, dan opsi kirim username + password lewat WA saat admin membuat akun.
+- **Isi ulang massal** paket yang sama dari daftar pelanggan, dengan halaman konfirmasi dan token sekali pakai.
+- **Reset password admin**: `gobill reset-admin-password <username> [--disable-2fa]` dan tombol khusus SuperAdmin.
+- Diagnosa pelanggan lebih lengkap, kolom **Tanggal habis** di daftar pelanggan, badge **Hari ini**, link 2FA di menu profil, checklist setup awal mencakup WhatsApp, QRIS, Tripay, dan Isolir.
 
-### Perbaikan
+### Perubahan perilaku
 
-- Portal pelanggan tidak lagi menjual paket Rp 0 atau paket khusus admin: tidak tampil di daftar, dan POST beli dari saldo, bayar lewat gateway, kirim ke teman, serta perpanjang ditolak dengan "Paket ini hanya bisa diberikan admin". Perpanjangan otomatis dari saldo tidak berlaku untuk paket ini.
+- Pesan expired dikirim **10 menit** sebelum paket habis secara bawaan (`expired_notify_minutes_before`; `0` = saat habis).
+- Portal tidak pernah menjual paket Rp 0. Paket publik Rp 0 tidak diperpanjang otomatis.
+- Aturan password pelanggan juga berlaku saat admin mengisi password.
+- Istilah: "Tanggal habis" dan "Tambah Saldo".
+
+### Upgrade dari 0.1.5
+
+1. Backup dulu. Migrasi 0016 dan 0017 berjalan otomatis saat start.
+2. Ubah paket internal (staf, teknisi) menjadi **Khusus admin**.
+3. Untuk *Keluarkan perangkat terlama* agar benar-benar memutus perangkat lama, daftarkan router sebagai NAS dengan secret-nya.
 
 ## [0.1.5] - 2026-10-11
 
