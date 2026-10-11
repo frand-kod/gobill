@@ -1891,7 +1891,7 @@
     "Restore scheduled. The app is restarting…": "Pemulihan dijadwalkan, aplikasi restart…",
     "If the app does not come back within a minute, restart it yourself: stop the service, then start it again. The backup is applied at startup.": "Jika aplikasi tidak kembali dalam satu menit, restart manual: hentikan layanan lalu jalankan lagi. Backup diterapkan saat aplikasi start.",
     "gobill backup file (.db)": "File backup gobill (.db)",
-    "From Settings > Miscellaneous > Database backup. The file must be encrypted with the same GOBILL_SECRET_KEY as this app.": "Dari Pengaturan > Lainnya > Backup database. File harus dienkripsi dengan GOBILL_SECRET_KEY yang sama dengan aplikasi ini.",
+    "From Settings > System & Security > Database backup. The file must be encrypted with the same GOBILL_SECRET_KEY as this app.": "Dari Pengaturan > Lainnya > Backup database. File harus dienkripsi dengan GOBILL_SECRET_KEY yang sama dengan aplikasi ini.",
     "Check result": "Hasil pemeriksaan",
     "File size": "Ukuran file",
     "bytes": "byte",

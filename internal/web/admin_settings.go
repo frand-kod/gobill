@@ -609,7 +609,7 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 		fp.Fields = append([]field{once}, fp.Fields...)
 	}
 	if tab == "system" && adminFrom(r).Role == "SuperAdmin" { // backup is SuperAdmin only, as in the old dbstatus page
-		links := []field{{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/miscellaneous/backup", Section: "System", Hint: s.backupStatus(st)},
+		links := []field{{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/system/backup", Section: "System", Hint: s.backupStatus(st)},
 			{Name: "import", Label: "Import PHPNuxBill", Type: "link", Value: importPage, Btn: "Open import page",
 				Hint: "Replaces the data in this app. A backup is made first.", Section: "System"},
 			{Name: "restore", Label: "Restore database", Type: "link", Value: restorePage, Btn: "Open restore page",

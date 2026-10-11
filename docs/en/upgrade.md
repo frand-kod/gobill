@@ -80,7 +80,7 @@ Migrations run automatically at start, so replacing the binary alone is not enou
 
 ## Update check
 
-The `update_check` setting is in **Settings > Miscellaneous**, in the **System** section. The default is **Yes**.
+The `update_check` setting is in **Settings > System & Security**, in the **System** section. The default is **Yes**.
 
 When it is on, gobill checks the latest release on GitHub a few minutes after start, and then once a day. If a newer release exists, SuperAdmin sees a `vX.Y.Z available` badge in the header. The badge links to the release page and to this upgrade guide. Choose **No** to turn the check off. If the check fails, gobill only writes it to the log.
 

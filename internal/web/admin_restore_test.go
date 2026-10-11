@@ -15,7 +15,7 @@ import (
 	"github.com/frand-kod/gobill/internal/secret"
 )
 
-const restorePageURL = "/admin/settings/miscellaneous/restore"
+const restorePageURL = "/admin/settings/system/restore"
 
 // restoreApp is the test app with its database file known, as main sets it.
 func restoreApp(t *testing.T) (*Server, http.Handler, *http.Cookie) {

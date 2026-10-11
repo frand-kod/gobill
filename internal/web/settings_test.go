@@ -356,13 +356,13 @@ func TestBrandingAndBackupRoutesReachable(t *testing.T) {
 	if w := do(h, "GET", "/admin/login", nil, nil); !strings.Contains(w.Body.String(), "Acme Head") || !strings.Contains(w.Body.String(), "Log in here") || !strings.Contains(w.Body.String(), "/uploads/"+name) {
 		t.Fatal("branding missing on login page")
 	}
-	if w := do(h, "GET", "/admin/settings/miscellaneous/backup", nil, c); w.Code != http.StatusOK || !strings.HasPrefix(w.Body.String(), "SQLite format 3\x00") {
+	if w := do(h, "GET", "/admin/settings/system/backup", nil, c); w.Code != http.StatusOK || !strings.HasPrefix(w.Body.String(), "SQLite format 3\x00") {
 		t.Fatalf("backup as SuperAdmin: %d", w.Code)
 	}
-	if w := do(h, "GET", "/admin/settings/miscellaneous/backup", nil, login(t, h, "bob")); w.Code != http.StatusForbidden {
+	if w := do(h, "GET", "/admin/settings/system/backup", nil, login(t, h, "bob")); w.Code != http.StatusForbidden {
 		t.Fatalf("backup as Admin: %d", w.Code)
 	}
-	if w := do(h, "GET", "/admin/settings/system", nil, c); !strings.Contains(w.Body.String(), "/admin/settings/miscellaneous/backup") {
+	if w := do(h, "GET", "/admin/settings/system", nil, c); !strings.Contains(w.Body.String(), "/admin/settings/system/backup") {
 		t.Fatal("backup button missing")
 	}
 	if w := do(h, "GET", "/admin/settings/app", nil, c); !strings.Contains(w.Body.String(), `enctype="multipart/form-data"`) {

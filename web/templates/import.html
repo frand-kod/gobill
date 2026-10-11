@@ -1,7 +1,7 @@
 {{define "content"}}
 {{with .Data}}
 <div class="page-head"><h1 class="page-title">{{T "Import PHPNuxBill"}}</h1></div>
-<form class="card mb-4" method="post" action="/admin/settings/miscellaneous/import" enctype="multipart/form-data">
+<form class="card mb-4" method="post" action="/admin/settings/system/import" enctype="multipart/form-data">
   <div class="card-body space-y-4">
     <div>
       <label class="label" for="backup">{{T "PHPNuxBill backup file (.json)"}} <span class="text-err-fg" aria-hidden="true">*</span></label>
@@ -40,12 +40,12 @@
     {{if .Filled}}
     <button class="btn btn-primary" type="button" @click="$refs.dlg.showModal()">{{T "Import now"}}</button>
     {{else}}
-    <form method="post" action="/admin/settings/miscellaneous/import/confirm">
+    <form method="post" action="/admin/settings/system/import/confirm">
       <input type="hidden" name="token" value="{{.Token}}">
       <button class="btn btn-primary" type="submit">{{T "Import now"}}</button>
     </form>
     {{end}}
-    <form method="post" action="/admin/settings/miscellaneous/import/cancel">
+    <form method="post" action="/admin/settings/system/import/cancel">
       <button class="btn btn-ghost" type="submit">{{T "Cancel"}}</button>
     </form>
   </div>
@@ -53,7 +53,7 @@
 
 {{if .Filled}}
 <dialog x-ref="dlg" class="m-auto w-[calc(100%-2rem)] max-w-lg bg-transparent p-0 text-inherit backdrop:bg-black/50" aria-labelledby="import-dlg-title">
-  <form class="card" method="post" action="/admin/settings/miscellaneous/import/confirm">
+  <form class="card" method="post" action="/admin/settings/system/import/confirm">
     <div class="card-body space-y-4">
       <h2 class="card-title" id="import-dlg-title">{{T "Overwrite existing data?"}}</h2>
       <p class="text-sm">{{T "Existing data will be OVERWRITTEN:"}} {{.Current.Customers}} {{T "Customers"}}, {{.Current.Plans}} {{T "Plans"}}, {{.Current.Subscriptions}} {{T "Subscriptions"}}, {{.Current.Transactions}} {{T "Transactions"}}, {{.Current.Admins}} {{T "Admins"}}. {{T "A backup is made automatically first."}}</p>

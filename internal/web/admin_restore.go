@@ -1,6 +1,6 @@
 package web
 
-// Restore a gobill backup (a .db copy) from Settings > Miscellaneous (SuperAdmin only). The upload is
+// Restore a gobill backup (a .db copy) from Settings > System & Security (SuperAdmin only). The upload is
 // staged next to the live database and checked read-only. Confirm backs up the current data, moves the
 // staged file to <db>.restore and restarts the app. db.ApplyPendingRestore swaps it in at startup.
 
@@ -21,7 +21,7 @@ import (
 	"github.com/frand-kod/gobill/internal/secret"
 )
 
-const restorePage = "/admin/settings/miscellaneous/restore"
+const restorePage = "/admin/settings/system/restore"
 
 // restoreView is the page data. Token, Backup and Newest are set after a check; Done after confirm.
 type restoreView struct {

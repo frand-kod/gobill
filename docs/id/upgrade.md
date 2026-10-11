@@ -80,7 +80,7 @@ Karena migrasi berjalan otomatis saat start, mengganti binary saja tidak cukup. 
 
 ## Pemeriksaan versi baru
 
-Setting `update_check` ada di **Pengaturan > Aneka ragam**, bagian **System**. Bawaannya **Ya**.
+Setting `update_check` ada di **Pengaturan > Sistem & keamanan**, bagian **System**. Bawaannya **Ya**.
 
 Jika aktif, gobill memeriksa rilis terbaru di GitHub beberapa menit setelah start, lalu sekali sehari. Jika ada rilis yang lebih baru, SuperAdmin melihat lencana `vX.Y.Z tersedia` di header. Lencana itu menuju ke halaman rilis dan ke panduan upgrade ini. Pilih **Tidak** untuk mematikan pemeriksaan. Jika pemeriksaan gagal, gobill hanya mencatatnya di log.
 

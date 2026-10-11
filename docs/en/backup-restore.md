@@ -115,7 +115,7 @@ Manual copy:
 
 ## Restore the database
 
-A SuperAdmin can restore a gobill backup file (`.db`) from **Settings > System & Security > Restore database**. The page is at `/admin/settings/miscellaneous/restore`.
+A SuperAdmin can restore a gobill backup file (`.db`) from **Settings > System & Security > Restore database**. The page is at `/admin/settings/system/restore`.
 
 The restore flow:
 
