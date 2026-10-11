@@ -17,6 +17,7 @@ This document is the index of the operator guide in English. The guide is also a
 - [Configuration](configuration.md): `GOBILL_*` variables and settings in the UI.
 - [Integrations](integrations.md): WhatsApp, SMS, Telegram, email, webhooks, Tripay, and QRIS.
 - [Security](security.md): RADIUS hardening, firewall, application security, and admin 2FA.
+- [Promotions](promotions.md): short promo cards on the isolir page and the portal dashboard.
 
 ## Network
 

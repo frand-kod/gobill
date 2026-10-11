@@ -13,4 +13,5 @@
   <div class="self-end"><button class="btn" type="submit">{{T "Send Balance"}}</button></div>
 </div></form>{{end}}
 {{with .Data.Notice}}<div class="card mb-4"><h2 class="card-title">{{T "Announcement"}}</h2><div class="card-body whitespace-pre-line text-sm">{{.}}</div></div>{{end}}
+{{with .Data.Promo}}{{template "promo_portal" .}}{{end}}
 {{end}}

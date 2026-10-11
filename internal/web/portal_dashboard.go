@@ -110,8 +110,9 @@ type pDashData struct {
 	Words        pWords
 	Now          int64
 	LastLogin    string
-	Notice       string // the announcement page, plain text
-	Transfer     bool   // allow_balance_transfer
+	Notice       string       // the announcement page, plain text
+	Promo        *portalPromo // the Promosi card at the bottom, nil when no live portal promo
+	Transfer     bool         // allow_balance_transfer
 	Minimum      string
 	Voucher      bool
 	Company      string // operator contact from Settings
@@ -270,6 +271,10 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		return
 	}
 	d.Notice = ann.Body
+	if d.Promo, err = s.promoPortal(ctx); err != nil {
+		s.fail(w, "portal promo", err)
+		return
+	}
 	s.prender(w, r, code, "p_dashboard", Page{Title: "Dashboard", Error: errMsg, Data: d})
 }
 
