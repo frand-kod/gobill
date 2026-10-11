@@ -2146,5 +2146,14 @@
     "Admin only — only an admin can give it": "Khusus admin — hanya bisa diberikan admin",
     "Admin only: hidden from the customer portal. Customers cannot buy, extend or auto-renew it; admins can still give it.": "Khusus admin: tidak tampil di portal pelanggan. Pelanggan tidak bisa membeli, memperpanjang, atau memperpanjang otomatis paket ini; admin tetap bisa memberikannya.",
     "Audience": "Akses",
-    "Admin only": "Khusus admin"
+    "Admin only": "Khusus admin",
+    "Message-Authenticator": "Message-Authenticator",
+    "Auto (recommended)": "Otomatis (disarankan)",
+    "Always required": "Selalu wajib",
+    "Not required (legacy NAS)": "Tidak wajib (NAS lama)",
+    "Auto: once this NAS has sent a valid Message-Authenticator, requests without one are dropped. RouterOS 6.49.18+ and 7.15+ send it; add /radius set require-message-auth=yes on the router too": "Otomatis: setelah NAS ini pernah mengirim Message-Authenticator yang valid, permintaan tanpa atribut itu ditolak. RouterOS 6.49.18+ dan 7.15+ mengirimnya; di router tambahkan juga /radius set require-message-auth=yes",
+    "required": "wajib",
+    "off (legacy)": "mati (NAS lama)",
+    "MA: seen": "MA: sudah terlihat",
+    "MA: not seen yet": "MA: belum terlihat"
 }

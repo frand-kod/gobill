@@ -51,7 +51,7 @@ Di menu NAS, isi:
 
 - IP router;
 - secret yang sama;
-- opsi "require Message-Authenticator", jika router mendukungnya.
+- mode Message-Authenticator. Biarkan "Otomatis" kecuali router lebih lama dari RouterOS 6.49.18 (atau 7.15). Untuk itu pilih "Tidak wajib".
 
 `address` pada `/radius` harus sama dengan IP host gobill yang bisa dijangkau router. Tanpa baris NAS, paket dari router dibuang dan dicatat di log. Disconnect hanya menjadi peringatan.
 
@@ -65,9 +65,11 @@ Login voucher di halaman hotspot memakai kode sebagai username. Login ini langsu
 
    Cara lain: letakkan host di port atau VLAN terpisah.
 
-2. **RouterOS 6.49 dan `require-message-auth`.** gobill menambahkan Message-Authenticator pada semua balasan. Router menerima nilai `yes-for-request-resp`:
+2. **RouterOS 6.49.18+ / 7.15+ dan `require-message-auth`.** gobill menambahkan Message-Authenticator pada semua balasan. Pada versi ini, atur di router agar balasan itu diperiksa:
 
-        /radius set [find] require-message-auth=yes-for-request-resp
+        /radius set [find] require-message-auth=yes
+
+   Versi sebelum 6.49.18 dan 7.15 mungkin tidak mengirim Message-Authenticator pada permintaan. Untuk versi itu, atur NAS ke "Tidak wajib" di gobill (lihat [security.md](security.md)).
 
 3. **NAS-IP-Address dan IP sumber untuk CoA.** Router mencocokkan CoA dengan NAS-IP-Address miliknya. CoA dengan identitas yang salah ditolak (NAK). gobill sekarang mengirim NAS-IP-Address yang dilaporkan NAS itu sendiri, dan mendecode Error-Cause di log. Pastikan IP NAS di gobill sama dengan IP yang dipakai router sebagai sumber paket RADIUS. Jika router punya beberapa IP, set `src-address` pada `/radius`.
 

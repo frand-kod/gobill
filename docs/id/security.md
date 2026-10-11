@@ -17,7 +17,19 @@ Di MikroTik, aktifkan:
     /radius set [find] require-message-auth=yes-for-request-resp
     /radius print detail
 
-Di form NAS gobill, aktifkan opsi "require Message-Authenticator". Perangkat yang tidak mengirim atribut ini akan ditolak. Karena itu, perbarui firmware NAS lebih dulu.
+Form NAS di gobill punya pengaturan "Message-Authenticator" dengan tiga mode:
+
+- **Otomatis (disarankan, default).** Access-Request tanpa Message-Authenticator diterima sampai NAS pernah mengirim satu Message-Authenticator yang valid. Sejak itu, permintaan tanpa atribut ini dibuang dan dicatat. Daftar NAS menampilkan "MA: belum terlihat" atau "MA: sudah terlihat".
+- **Selalu wajib.** Permintaan tanpa Message-Authenticator yang valid langsung dibuang. Pakai hanya jika NAS selalu mengirimnya.
+- **Tidak wajib (NAS lama).** Permintaan tanpa Message-Authenticator diterima. Pakai untuk firmware lama yang tidak pernah mengirimnya. Atribut yang salah atau ganda tetap ditolak.
+
+Message-Authenticator yang ada tetapi salah, rusak, atau berulang selalu ditolak, di mode mana pun.
+
+RouterOS 6.49.18 ke atas dan 7.15 ke atas mengirim Message-Authenticator pada Access-Request. Versi lebih lama mungkin tidak, jadi pakai "Tidak wajib" untuk versi itu. Agar router memeriksa balasan yang dikirim gobill, jalankan di router:
+
+    /radius set [find] require-message-auth=yes
+
+Endpoint RADIUS REST `/radius.php` tidak terpengaruh mode ini. FreeRADIUS di depannya melakukan pemeriksaannya sendiri.
 
 ### Shared secret
 

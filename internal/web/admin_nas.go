@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"net/http"
 	"net/netip"
+	"strconv"
 
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
@@ -23,9 +24,12 @@ func nasFields(v, e map[string]string, editing bool) []field {
 		pw.Hint = "Leave empty to keep the current secret. Generate shows a new one once: copy it to the MikroTik"
 	}
 	pw.Value = "" // never rendered back
-	ma := text("require_message_auth", "Require Message-Authenticator", v, e).as("checkbox")
-	ma.Checked = v["require_message_auth"] == "1"
-	ma.Hint = "Drop Access-Requests without Message-Authenticator (RouterOS: require-message-auth)"
+	ma := text("require_message_auth", "Message-Authenticator", v, e).as("select")
+	ma.Options = []option{{"0", "Auto (recommended)"}, {"1", "Always required"}, {"2", "Not required (legacy NAS)"}}
+	if ma.Value == "" {
+		ma.Value = "0"
+	}
+	ma.Hint = "Auto: once this NAS has sent a valid Message-Authenticator, requests without one are dropped. RouterOS 6.49.18+ and 7.15+ send it; add /radius set require-message-auth=yes on the router too"
 	out := section([]field{
 		text("name", "NAS Name", v, e).req(),
 		text("ip", "IP / CIDR", v, e).req().hint("e.g. 10.0.0.1 or 10.0.0.0/24"),
@@ -68,6 +72,19 @@ func (s *Server) secretReused(r *http.Request, id int64, p string) (bool, error)
 	return false, err
 }
 
+// maStatus is the NAS list text for its require_message_auth policy and whether it has sent one.
+func maStatus(policy, seen int64) string {
+	switch {
+	case policy == 1:
+		return "required"
+	case policy == 2:
+		return "off (legacy)"
+	case seen == 1:
+		return "MA: seen"
+	}
+	return "MA: not seen yet"
+}
+
 func (s *Server) nasList(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.queries.ListNAS(r.Context())
 	if err != nil {
@@ -75,13 +92,13 @@ func (s *Server) nasList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp := listPage{Heading: "NAS", Base: "/admin/nas", CanCreate: true, CanEdit: true,
-		Cols: []string{"Name", "IP / CIDR", "Description", "Secret"}}
+		Cols: []string{"Name", "IP / CIDR", "Description", "Secret", "Message-Authenticator"}}
 	for _, n := range rows {
 		weak := "" // legacy rows keep working; only flagged
 		if p, err := secret.Open(s.SecretKey, n.SecretEnc); err == nil && weakSecret(string(p)) != "" {
 			weak = "secret lemah"
 		}
-		lp.Rows = append(lp.Rows, listRow{n.ID, []string{n.Name, n.Ip, n.Description, weak}})
+		lp.Rows = append(lp.Rows, listRow{n.ID, []string{n.Name, n.Ip, n.Description, weak, maStatus(n.RequireMessageAuth, n.MaSeen)}})
 	}
 	s.renderList(w, r, lp)
 }
@@ -150,9 +167,9 @@ func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		var err error
-		var rma int64
-		if v["require_message_auth"] == "1" {
-			rma = 1
+		var rma int64 // 0 auto, 1 always, 2 never
+		if p := v["require_message_auth"]; p == "1" || p == "2" {
+			rma, _ = strconv.ParseInt(p, 10, 64)
 		}
 		if id == 0 {
 			_, err = s.queries.CreateNAS(r.Context(), db.CreateNASParams{Name: v["name"], Ip: v["ip"], SecretEnc: enc, Description: v["description"], RequireMessageAuth: rma})

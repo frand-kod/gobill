@@ -51,7 +51,7 @@ In the NAS menu, fill in:
 
 - the router IP;
 - the same secret;
-- the option "require Message-Authenticator", if the router supports it.
+- the Message-Authenticator mode. Keep "Auto" unless the router is older than RouterOS 6.49.18 (or 7.15). Then choose "Not required".
 
 The `address` on `/radius` must match the gobill host IP that the router can reach. Without a NAS row, packets from the router are dropped and logged. Disconnects then only produce a warning.
 
@@ -65,9 +65,11 @@ Voucher login on the hotspot page uses the code as the username. This login goes
 
    Another option is to place the host on a separate port or VLAN.
 
-2. **RouterOS 6.49 and `require-message-auth`.** gobill adds Message-Authenticator to all replies. The router accepts the value `yes-for-request-resp`:
+2. **RouterOS 6.49.18+ / 7.15+ and `require-message-auth`.** gobill adds Message-Authenticator to all replies. On these versions, set it on the router so it checks them:
 
-        /radius set [find] require-message-auth=yes-for-request-resp
+        /radius set [find] require-message-auth=yes
+
+   Versions before 6.49.18 and 7.15 may not send Message-Authenticator in requests. For them, set the NAS to "Not required" in gobill (see [security.md](security.md)).
 
 3. **NAS-IP-Address and source IP for CoA.** The router matches CoA against its own NAS-IP-Address. CoA with the wrong identity is rejected (NAK). gobill now sends the NAS-IP-Address that the NAS reports itself, and decodes Error-Cause in the log. Make sure the NAS IP in gobill matches the IP the router uses as the source of RADIUS packets. If the router has several IPs, set `src-address` on `/radius`.
 

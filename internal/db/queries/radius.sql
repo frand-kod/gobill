@@ -13,6 +13,9 @@ UPDATE nas SET name = ?, ip = ?, secret_enc = ?, description = ?, require_messag
 -- name: DeleteNAS :exec
 DELETE FROM nas WHERE id = ?;
 
+-- name: MarkNASMASeen :exec
+UPDATE nas SET ma_seen = 1 WHERE id = ?;
+
 -- name: GetCustomerForRadius :one
 SELECT * FROM customers
 WHERE (username = sqlc.arg(name) OR (pppoe_username <> '' AND pppoe_username = sqlc.arg(name))) AND status = 'Active'
