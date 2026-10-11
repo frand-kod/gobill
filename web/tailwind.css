@@ -425,3 +425,14 @@
 .field-wrap:target { animation: field-flash 2.4s ease-out 1; }
 @keyframes field-flash { from { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent); } to { box-shadow: 0 0 0 4px transparent; } }
 @media (prefers-reduced-motion: reduce) { .field-wrap:target { animation: none; outline: 2px solid var(--accent); } }
+
+/* Admin shell: full page loads cross-fade only the content; the sidebar and top bar keep still. The names are on admin-only ids, so other pages get no change. Browsers without View Transitions ignore all of this. */
+@view-transition { navigation: auto; }
+#gb-sidebar { view-transition-name: sidebar; }
+#gb-topbar { view-transition-name: topbar; }
+::view-transition-old(sidebar), ::view-transition-new(sidebar),
+::view-transition-old(topbar), ::view-transition-new(topbar) { animation: none; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 150ms; }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+}
