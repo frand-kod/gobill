@@ -43,3 +43,72 @@
   document.addEventListener('touchstart', function (e) { prefetch(anchor(e.target)); }, {passive: true});
   document.addEventListener('focusin', function (e) { prefetch(anchor(e.target)); });
 })();
+
+// Settings tabs switch in place. A tab link under #tab-content > nav fetches its page and swaps the #tab-content
+// block (tabs and form) in, then sets the title and the history entry, moves focus to the heading and runs Alpine
+// on the new block. Any error, a non-OK answer, or a page without the block falls back to a normal navigation.
+// A form with unsaved edits navigates normally, as before. Scripts in the block are run again (tplvars.js guards
+// itself against that).
+(function () {
+  var box = document.getElementById('tab-content'), seq = 0;
+  if (!box || !window.DOMParser || !window.fetch || !history.pushState) return;
+
+  function dirty() {
+    var f = box.querySelector('form');
+    return !!f && Array.prototype.some.call(f.elements, function (el) {
+      if (el.tagName === 'SELECT') return Array.prototype.some.call(el.options, function (o) { return o.selected !== o.defaultSelected; });
+      if (el.type === 'checkbox' || el.type === 'radio') return el.checked !== el.defaultChecked;
+      if (el.type === 'file') return el.files.length > 0;
+      return 'value' in el && el.type !== 'submit' && el.type !== 'button' && el.value !== el.defaultValue;
+    });
+  }
+
+  // a script from DOMParser does not run; a fresh element does, in order
+  function revive(node) {
+    Array.prototype.forEach.call(node.querySelectorAll('script'), function (old) {
+      var s = document.createElement('script');
+      Array.prototype.forEach.call(old.attributes, function (a) { s.setAttribute(a.name, a.value); });
+      s.async = false;
+      s.textContent = old.textContent;
+      old.parentNode.replaceChild(s, old);
+    });
+  }
+
+  function show(url, push) {
+    var n = ++seq;
+    fetch(url, {credentials: 'same-origin', headers: {Accept: 'text/html'}}).then(function (r) {
+      if (!r.ok) throw new Error('status ' + r.status);
+      return r.text();
+    }).then(function (html) {
+      var doc = new DOMParser().parseFromString(html, 'text/html');
+      var next = doc.getElementById('tab-content');
+      if (!next) throw new Error('no tab content');
+      if (n !== seq) return; // a newer click has won
+      var swap = function () {
+        var node = document.importNode(next, true);
+        revive(node);
+        box.replaceWith(node);
+        box = node;
+        if (window.Alpine) Alpine.initTree(node);
+        document.title = doc.title;
+        if (push) history.pushState({gbTabs: true}, '', url);
+        var h = node.querySelector('h1');
+        if (h) h.focus();
+      };
+      if (document.startViewTransition) document.startViewTransition(swap); else swap();
+    }).catch(function () {
+      if (n === seq) location.href = url;
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest ? e.target.closest('#tab-content > nav a[href]') : null;
+    if (!a || e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (a.origin !== location.origin || a.target && a.target !== '_self') return;
+    if (!/^\/admin\/settings\/[\w-]+$/.test(a.pathname) || a.pathname === location.pathname) return;
+    if (dirty()) return;
+    e.preventDefault();
+    show(a.href, true);
+  });
+  window.addEventListener('popstate', function () { show(location.href, false); });
+})();

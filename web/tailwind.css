@@ -130,6 +130,8 @@
   /* logos carry width/height attributes to reserve their box; auto keeps the logo's own proportions */
   img.logo-light, img.logo-dark { width: auto; }
   :focus-visible { outline: 2px solid var(--accent-fg); outline-offset: 2px; }
+  /* the heading takes focus after an in-place settings tab switch; no ring on the heading itself */
+  h1[tabindex="-1"]:focus { outline: none; }
 }
 
 @layer components {

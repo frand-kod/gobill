@@ -29,6 +29,28 @@ func TestPrefetchWiring(t *testing.T) {
 	}
 }
 
+// Settings tabs: the tab links sit inside #tab-content, which nav.js swaps in place; the form and its tabs
+// both come back in that block.
+func TestSettingsTabsSwapContainer(t *testing.T) {
+	h, _ := newTestServer(t)
+	c := login(t, h, "alice")
+	body := do(h, "GET", "/admin/settings/app", nil, c).Body.String()
+	start := strings.Index(body, `<div id="tab-content"><nav`)
+	end := strings.Index(body, `<footer`)
+	if start < 0 || end < start {
+		t.Fatal("settings page lacks the #tab-content block")
+	}
+	block := body[start:end]
+	for _, slug := range []string{"app", "notifications", "payment"} {
+		if !strings.Contains(block, `href="/admin/settings/`+slug+`"`) {
+			t.Errorf("tab link %s is not inside #tab-content", slug)
+		}
+	}
+	if !strings.Contains(block, `<h1 class="page-title" tabindex="-1">`) || !strings.Contains(block, `<form method="post"`) {
+		t.Error("heading (focus target) or form missing from #tab-content")
+	}
+}
+
 // No flash: the theme is applied by an inline script in <head>, ahead of the stylesheet, and the built
 // stylesheet sets color-scheme and the page background on html.
 func TestThemeAppliedBeforeStylesheet(t *testing.T) {
