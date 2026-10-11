@@ -540,8 +540,14 @@ func (n *Notifier) Custom(ctx context.Context, c db.Customer, name, subject stri
 }
 
 // CustomOn is Custom on explicit channels (sms, wa, email) instead of user_notification_payment.
+// A real Password (not the "********" mask) that the template has no [[Password]] for goes on its
+// own line, so it is not silently dropped.
 func (n *Notifier) CustomOn(ctx context.Context, c db.Customer, vias []string, name, subject string, vars map[string]string) error {
-	msg, err := n.fill(n.template(name), custVars(c, vars)), error(nil)
+	tpl := n.template(name)
+	msg, err := n.fill(tpl, custVars(c, vars)), error(nil)
+	if pw := vars["Password"]; pw != "" && pw != "********" && !strings.Contains(tpl, "[[Password]]") {
+		msg += "\nPassword: " + pw
+	}
 	for _, v := range vias {
 		err = errors.Join(err, n.send(ctx, c, v, subject, msg))
 	}

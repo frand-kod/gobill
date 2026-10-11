@@ -32,6 +32,8 @@ This document is the index of the operator guide in English. The guide is also a
 
 The search box in the top bar finds customers, subscriptions, invoices, vouchers, plans, routers, NAS, menus, quick actions, and settings. Press `/` or `Ctrl+K` (`Cmd+K` on Mac) to type in the box right away. Up and down arrows choose a result, Enter opens it, and Esc closes it. On a phone, results use the full screen width. Settings go straight to their field, and the field is briefly highlighted. You only see results you are allowed to open for your role.
 
+The add customer form has an optional **Langsung aktifkan paket** card. Pick a plan there to activate it right after the customer is created, paid in Cash. Only plans that fit the service type are listed, and Balance plans are left out. If activation fails, the customer is still created, and the customer page shows the reason. Leave the plan empty to choose one later from the customer page.
+
 ## See also
 
 - [Project README](../../README.md): project overview. Written in Indonesian.

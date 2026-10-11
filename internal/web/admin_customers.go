@@ -25,7 +25,7 @@ import (
 var (
 	custStatuses = []string{"Active", "Banned", "Disabled", "Inactive", "Limited", "Suspended"}
 	custNames    = []string{"username", "fullname", "address", "phone", "email", "service_type", "pppoe_username",
-		"pppoe_ip", "billing_day", "auto_renewal", "status", "coordinates", "send_welcome_message", "notify_sms", "notify_wa", "notify_email"}
+		"pppoe_ip", "billing_day", "auto_renewal", "status", "coordinates", "send_welcome_message", "notify_sms", "notify_wa", "notify_email", "plan"}
 )
 
 func custFields(v, e map[string]string, editing bool) []field {
@@ -61,6 +61,48 @@ func custFields(v, e map[string]string, editing bool) []field {
 			chk("notify_wa", "WhatsApp"), chk("notify_email", "Email")}, "Welcome Message", "")...)
 	}
 	return out
+}
+
+// canRecharge: the roles that may recharge a customer (same list as the customer page's CanSell).
+func canRecharge(role string) bool { return oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales") }
+
+// addPlans are the plans the add form offers: the Recharge page's list (SuperAdmin/Admin also see
+// disabled plans), without Balance plans, and only those that fit the service type. Empty for roles
+// that may not recharge.
+func (s *Server) addPlans(r *http.Request, serviceType string) ([]option, map[int64]db.Plan, error) {
+	fit := map[int64]db.Plan{}
+	if !canRecharge(adminFrom(r).Role) {
+		return nil, fit, nil
+	}
+	opts, byID, err := s.planOptions(r, !oneOf(adminFrom(r).Role, "SuperAdmin", "Admin"))
+	if err != nil {
+		return nil, nil, err
+	}
+	var out []option
+	for _, o := range opts {
+		id, _ := strconv.ParseInt(o.Value, 10, 64)
+		if p := byID[id]; p.Type != "Balance" && (serviceType == "Others" || p.Type == serviceType) {
+			out = append(out, o)
+			fit[id] = p
+		}
+	}
+	return out, fit, nil
+}
+
+// addCustomerForm is the add form: the customer fields plus the optional "Langsung aktifkan paket" card.
+func (s *Server) addCustomerForm(r *http.Request, v, e map[string]string) ([]field, error) {
+	fs, err := s.customerForm(r.Context(), 0, v, e, false)
+	if err != nil {
+		return nil, err
+	}
+	opts, _, err := s.addPlans(r, v["service_type"])
+	if err != nil || !canRecharge(adminFrom(r).Role) {
+		return fs, err
+	}
+	plan := text("plan", "Plan", v, e).as("select").hint("Leave empty to choose a plan later from the customer page.")
+	plan.Options = append([]option{{"", "-"}}, opts...)
+	pay := field{Name: "payment_text", Label: "Payment method: Cash", Type: "note"}
+	return append(fs, section([]field{plan, pay}, "Langsung aktifkan paket", "")...), nil
 }
 
 var custSorts = []string{"username", "fullname", "balance", "status"}
@@ -175,7 +217,7 @@ func (s *Server) custExport(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) custNew(w http.ResponseWriter, r *http.Request) {
 	v := map[string]string{"service_type": "Others", "status": "Active", "auto_renewal": "1"}
-	fs, err := s.customerForm(r.Context(), 0, v, nil, false)
+	fs, err := s.addCustomerForm(r, v, nil)
 	if err != nil {
 		s.fail(w, "custom fields", err)
 		return
@@ -395,6 +437,19 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "check custom fields", err)
 		return
 	}
+	// Optional plan on the add form, activated with Cash after the customer is created.
+	var plan db.Plan
+	if id == 0 && v["plan"] != "" {
+		_, fit, perr := s.addPlans(r, v["service_type"])
+		if perr != nil {
+			s.fail(w, "list plans", perr)
+			return
+		}
+		pid, _ := posInt(v["plan"])
+		if plan = fit[pid]; plan.ID == 0 {
+			e["plan"] = msgPlanMissing
+		}
+	}
 	if len(e) == 0 {
 		enc := cur.SecretEnc
 		if rs := cmp.Or(sec, pass); rs != "" { // one password like the old app; explicit secret wins
@@ -411,6 +466,7 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 		var err error
 		ctx := r.Context()
 		cid := id
+		var created db.Customer
 		if id == 0 {
 			var hash []byte
 			if hash, err = bcrypt.GenerateFromPassword([]byte(pass), bcryptCost); err != nil {
@@ -422,9 +478,9 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 				Fullname: v["fullname"], Address: v["address"], Phone: v["phone"], Email: v["email"], ServiceType: v["service_type"],
 				PppoeUsername: v["pppoe_username"], PppoeIp: v["pppoe_ip"], SecretEnc: enc, AutoRenewal: renew,
 				Status: v["status"], CreatedBy: sql.NullInt64{Int64: adminFrom(r).ID, Valid: true}, BillingDay: bday, Coordinates: coords})
-			cid = c.ID
+			cid, created = c.ID, c
 			if err == nil && v["send_welcome_message"] == "1" {
-				s.welcome(ctx, c, welcomeChannels(v))
+				s.welcome(ctx, c, welcomeChannels(v), pass)
 			}
 		} else {
 			if v["username"] != cur.Username { // first, so a clash changes nothing
@@ -467,6 +523,11 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 			next := "/admin/customers"
 			if id == 0 { // a new customer has no plan yet: go to the page where one is chosen
 				next, msg = fmt.Sprint("/admin/customers/", cid), "Customer created. Choose a plan below to switch the internet on."
+				if plan.ID != 0 {
+					if msg = s.activateNew(w, r, created, plan, act); msg == "" {
+						return
+					}
+				}
 			}
 			s.done(w, r, next, msg, act, v["username"])
 			return
@@ -477,11 +538,33 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 		action, head = fmt.Sprint("/admin/customers/", id), "Edit Contact: "+cur.Username
 	}
 	fs, err := s.customerForm(r.Context(), id, v, e, id != 0)
+	if id == 0 && err == nil {
+		fs, err = s.addCustomerForm(r, v, e)
+	}
 	if err != nil {
 		s.fail(w, "custom fields", err)
 		return
 	}
 	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{head, action, "/admin/customers", fs})
+}
+
+// activateNew charges the plan chosen on the add form with Cash, right after the customer was
+// created. It returns the flash for the customer page, or "" after it has redirected with the
+// activation error (the customer stays, without a plan).
+func (s *Server) activateNew(w http.ResponseWriter, r *http.Request, c db.Customer, plan db.Plan, act string) string {
+	ctx := r.Context()
+	devFailed, err := s.chargePlan(r, c, plan, "Cash", "Cash")
+	if err != nil {
+		s.logActivity(r, act, c.Username)
+		s.sessions.Put(ctx, "error", s.catalog.T(s.language(), "Customer created, but the plan could not be activated")+": "+s.catalog.T(s.language(), rechargeFailMsg(err, c, plan)))
+		http.Redirect(w, r, fmt.Sprint("/admin/customers/", c.ID), http.StatusSeeOther)
+		return ""
+	}
+	s.logActivity(r, "customer.recharge", c.Username+" ["+plan.Name+"]")
+	if devFailed {
+		s.sessions.Put(ctx, "warn", s.catalog.T(s.language(), msgNotSynced))
+	}
+	return "Customer created and plan activated, paid in Cash"
 }
 
 func (s *Server) custDelete(w http.ResponseWriter, r *http.Request) {

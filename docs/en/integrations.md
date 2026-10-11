@@ -26,6 +26,8 @@ Message templates are in **Settings > Notifications**. Settings `notif_*` contai
 
 Templates can use placeholders such as `[[price]]`. Unknown placeholders are removed from the message.
 
+`send_credentials_on_create` (default `no`) sends the username and password with the welcome message when an admin creates a customer with a phone number and ticks Send Welcome Message. The password is sent as plain text to that customer's own number, for customers who never open the portal. With `no`, the password shows as `********`. `notify_customers` = `no` still stops the message. The password is never written to the logs; the message log shows `********`. If the template has no `[[Password]]` placeholder, the line `Password: <password>` is added at the end.
+
 ## WhatsApp
 
 There are two ways to send WhatsApp messages. gobill chooses the one to use automatically.

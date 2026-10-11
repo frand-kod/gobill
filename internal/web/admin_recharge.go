@@ -122,16 +122,40 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 		fail(planErrMsg(err == nil, plan.Enabled))
 		return
 	}
-	admin := adminFrom(r)
 	method, label, ok := s.rechargeMethod(r)
 	if !ok {
 		fail("Invalid payment method")
 		return
 	}
+	devFailed, err := s.chargePlan(r, c, plan, method, label)
+	if errors.Is(err, billing.ErrInsufficientBalance) {
+		s.sessions.Put(r.Context(), "errlink", "/admin/deposit?customer="+url.QueryEscape(c.Username))
+	}
+	if err != nil {
+		fail(rechargeFailMsg(err, c, plan))
+		return
+	}
+	if devFailed { // money and transaction are saved; only the router missed the change
+		s.logActivity(r, "customer.recharge", c.Username+" ["+plan.Name+"] router not updated")
+		s.sessions.Put(r.Context(), "warn", s.catalog.T(s.language(), msgNotSynced))
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	s.done(w, r, back, "Recharge Successful", "customer.recharge", c.Username+" ["+plan.Name+"]")
+}
+
+// chargePlan activates plan for c as the Recharge page does: method is Zero, Balance or a payment
+// method, label its display name. devFailed reports that the money is saved and only the router
+// missed the change (see rechargeFailMsg for err).
+func (s *Server) chargePlan(r *http.Request, c db.Customer, plan db.Plan, method, label string) (devFailed bool, err error) {
+	if s.Billing == nil {
+		return false, errors.New("billing service not configured")
+	}
+	admin := adminFrom(r)
 	// PHP records "<method> - <admin name>" (Recharge Zero for free ones); balance payments keep
 	// "Customer - Balance" so the dashboard can leave them out (S1).
 	rec := titleWords(label) + " - " + admin.Fullname
-	ctx, devFailed := billing.TrackDeviceFailure(r.Context())
+	ctx, failed := billing.TrackDeviceFailure(r.Context())
 	switch method {
 	case methodZero:
 		err = s.Billing.RechargeZero(ctx, c.ID, plan.ID, "Recharge Zero - "+admin.Fullname, admin.ID)
@@ -140,25 +164,19 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 	default:
 		err = s.Billing.Recharge(ctx, c.ID, plan.ID, rec, admin.ID)
 	}
-	if errors.Is(err, billing.ErrInsufficientBalance) {
-		s.sessions.Put(r.Context(), "errlink", "/admin/deposit?customer="+url.QueryEscape(c.Username))
-		fail(msgNoBalance)
-		return
-	} else if errors.Is(err, billing.ErrInactive) {
-		fail("account is not active")
-		return
-	} else if err != nil {
-		slog.Error("recharge", "customer", c.Username, "plan", plan.Name, "err", err)
-		fail(msgRechargeFail)
-		return
+	return *failed, err
+}
+
+// rechargeFailMsg is the message for a recharge that charged nothing, the texts the Recharge page shows.
+func rechargeFailMsg(err error, c db.Customer, plan db.Plan) string {
+	switch {
+	case errors.Is(err, billing.ErrInsufficientBalance):
+		return msgNoBalance
+	case errors.Is(err, billing.ErrInactive):
+		return "account is not active"
 	}
-	if *devFailed { // money and transaction are saved; only the router missed the change
-		s.logActivity(r, "customer.recharge", c.Username+" ["+plan.Name+"] router not updated")
-		s.sessions.Put(r.Context(), "warn", s.catalog.T(s.language(), msgNotSynced))
-		http.Redirect(w, r, back, http.StatusSeeOther)
-		return
-	}
-	s.done(w, r, back, "Recharge Successful", "customer.recharge", c.Username+" ["+plan.Name+"]")
+	slog.Error("recharge", "customer", c.Username, "plan", plan.Name, "err", err)
+	return msgRechargeFail
 }
 
 const methodZero = "Zero"

@@ -26,6 +26,8 @@ Template pesan ada di **Pengaturan > Notifikasi**. Pengaturan `notif_*` berisi t
 
 Template bisa memakai placeholder seperti `[[price]]`. Placeholder yang tidak dikenal dihapus dari pesan.
 
+`send_credentials_on_create` (default `no`) mengirim username dan password bersama pesan selamat datang saat admin membuat pelanggan dengan nomor telepon dan mencentang Kirim Pesan Selamat Datang. Password dikirim dalam teks biasa ke nomor pelanggan itu sendiri, untuk pelanggan yang tidak pernah membuka portal. Dengan `no`, password tampil sebagai `********`. `notify_customers` = `no` tetap menghentikan pesan. Password tidak pernah ditulis ke log; log pesan menampilkan `********`. Jika template tidak memakai placeholder `[[Password]]`, baris `Password: <password>` ditambahkan di akhir pesan.
+
 ## WhatsApp
 
 Ada dua cara mengirim WhatsApp. gobill memilih cara yang dipakai secara otomatis.
