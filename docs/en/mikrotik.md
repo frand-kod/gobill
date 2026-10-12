@@ -87,29 +87,48 @@ Voucher login on the hotspot page uses the code as the username. This login goes
 
 ## Isolir
 
-Isolir sends the HTTP traffic of isolated customers to gobill, so they see the isolir page instead of other sites. **Settings > Isolation**, section **MikroTik router setup**, shows the commands with your gobill address filled in. This section gives the rules behind them.
+Isolated customers get full isolation except an allow-list. Their web requests are redirected to the isolir page, so the phone's captive-portal check opens it. Every other app and site is blocked. The hosts in **Allowed while isolated** stay reachable: WhatsApp by default, so the customer can contact you, and a bank app if you add it. **Settings > Isolation**, section **Setup router**, shows the rules as one copyable block, with your gobill address, address-list name and allow-list filled in.
 
-The rules apply in this order on the router. The `accept` rule must come before the `drop` rule in the forward chain:
-
-1. **NAT.** Redirect HTTP port 80 from the isolir address-list to gobill, except traffic to the router itself.
-2. **Accept.** Let isolated clients reach gobill.
-3. **Optional drop.** Block all other traffic from isolated clients. This is full isolation.
-4. **Walled garden.** Let the isolir page open before hotspot login.
-5. **Hotspot bypass.** Keep gobill's own traffic out of the hotspot.
+Paste the whole block at once, in order. The rules must sit above any general `accept` rule in the forward chain, or isolated clients are not cut off. The block has this shape (the list name is `isolir`, the allow-list is `isolir-allow`):
 
     /ip firewall nat add chain=dstnat src-address-list=isolir dst-address-type=!local protocol=tcp dst-port=80 action=dst-nat to-addresses=192.168.99.2 to-ports=8090
     /ip firewall filter add chain=forward src-address-list=isolir dst-address=192.168.99.2 action=accept
-    /ip firewall filter add chain=forward src-address-list=isolir action=drop
+    /ip firewall address-list add list=isolir-allow address=wa.me comment="gobill isolir allow"
+    /ip firewall filter add chain=forward src-address-list=isolir protocol=tcp dst-port=443 tls-host=*.whatsapp.net action=add-dst-to-address-list address-list=isolir-allow address-list-timeout=1d comment="isolir: learn *.whatsapp.net"
+    /ip firewall filter add chain=forward src-address-list=isolir protocol=tcp dst-port=443 tls-host=wa.me action=add-dst-to-address-list address-list=isolir-allow address-list-timeout=1d comment="isolir: learn wa.me"
+    /ip firewall filter add chain=forward src-address-list=isolir protocol=tcp dst-port=443 tcp-flags=syn action=accept comment="isolir: TLS handshake"
+    /ip firewall filter add chain=forward src-address-list=isolir dst-address-list=isolir-allow action=accept comment="isolir: allowed apps"
+    /ip firewall filter add chain=forward src-address-list=isolir action=drop comment="isolir: block the rest"
+
+The rules do this, in order:
+
+1. **NAT.** HTTP port 80 from isolated clients goes to gobill. `dst-address-type=!local` leaves traffic to the router itself alone, so the hotspot login and logout pages stay reachable, for example `http://192.168.20.1/logout`.
+2. **gobill accept.** Isolated clients may reach gobill.
+3. **Allow-list.** Each exact host (no `*.`) is added to the `isolir-allow` address-list. Every entry, wildcard or not, gets a `tls-host` rule: when an isolated client opens a TLS connection whose SNI matches the entry, the destination IP is added to `isolir-allow` for one day.
+4. **TLS handshake.** New HTTPS connections (SYN) are accepted, so the handshake runs and the rule above can learn the IP.
+5. **Allowed apps.** Traffic to an address in `isolir-allow` is accepted.
+6. **Block the rest.** Everything else from isolated clients is dropped.
+
+The list name is the **MikroTik address-list name** setting (default `isolir`). The allow-list is that name with `-allow` added. The allow-list is set in **Allowed while isolated**, one host per line. Wildcards such as `*.whatsapp.net` are allowed. After you change it, paste the block again.
+
+### RouterOS 6 limitation
+
+- DNS entries in an address-list resolve exact names only on RouterOS 6. That is why exact hosts are added to the list up front, and wildcard hosts are learned instead.
+- A wildcard host is learned when the app opens a TLS connection to it. The learned IPs last one day. An app that connects to a new CDN host gets through once the rule has learned that host.
+- So WhatsApp media from CDN hosts that change may sometimes fail. Messages and calls to the admin still work.
+
+### Adding a bank app
+
+Find the host the app connects to, for example with the router's connection list or the app's support notes. Add it on its own line in **Allowed while isolated**, such as `*.bank.example` for all its hosts or `m.bank.example` for one. Save, then paste the block again. Test from an isolated client that the app works, then check that other sites stay blocked.
+
+Two more items are outside the forward chain:
+
     /ip hotspot walled-garden ip add dst-address=192.168.99.2 dst-port=8090 action=accept
     /ip hotspot ip-binding add mac-address=<MAC-HOST-GOBILL> type=bypassed
 
-The address and port are the ones gobill listens on. They are set by `GOBILL_HTTP`, see [configuration](configuration.md). For example, `GOBILL_HTTP=192.168.99.2:8090` gives `to-addresses=192.168.99.2 to-ports=8090`. If `GOBILL_HTTP` is empty or `0.0.0.0`, gobill uses the first LAN IPv4 address of its host. Set `GOBILL_HTTP` to a fixed LAN IP when the host has more than one address.
-
-The `dst-address-type=!local` condition keeps traffic to the router itself out of the redirect. This keeps the hotspot login and logout pages on the router reachable, for example `http://192.168.20.1/logout`. Without it, an isolated customer cannot log out or switch accounts.
+The walled garden lets the isolir page open before hotspot login. The address and port are the ones gobill listens on, set by `GOBILL_HTTP` (see [configuration](configuration.md)). For example, `GOBILL_HTTP=192.168.99.2:8090` gives `to-addresses=192.168.99.2 to-ports=8090`. If `GOBILL_HTTP` is empty or `0.0.0.0`, gobill uses the first LAN IPv4 address of its host. Set `GOBILL_HTTP` to a fixed LAN IP when the host has more than one address.
 
 Replace `<MAC-HOST-GOBILL>` with the MAC address of gobill's LAN card. Without the bypass, the hotspot can capture gobill's own traffic.
-
-Only HTTP on port 80 is redirected to the isolir page. HTTPS and apps still work at the isolir speed. Add the optional drop rule (step 3) only for full isolation. It also blocks WhatsApp and bank apps, so edit the default isolir message too.
 
 ### Testing the isolir page
 

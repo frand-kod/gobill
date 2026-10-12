@@ -386,34 +386,52 @@ var isolirVarList = []notify.Var{
 	{Name: "notice", Desc: "Result of the last action, such as a voucher"},
 }
 
+// isolirRouterRules is the one block of RouterOS commands that isolates a client except the
+// allow-list. The rules are appended to the forward chain, so they must sit above any general
+// accept rule. Every allow-list entry gets a tls-host rule that learns its IPs from the TLS SNI;
+// exact hosts are also added to the allow address-list up front.
+func isolirRouterRules(list, host, port string, hosts []string) string {
+	allow := list + "-allow"
+	var b strings.Builder
+	fmt.Fprintf(&b, "/ip firewall nat add chain=dstnat src-address-list=%s dst-address-type=!local protocol=tcp dst-port=80 action=dst-nat to-addresses=%s to-ports=%s\n", list, host, port)
+	fmt.Fprintf(&b, "/ip firewall filter add chain=forward src-address-list=%s dst-address=%s action=accept\n", list, host)
+	for _, h := range hosts {
+		if !strings.HasPrefix(h, "*.") {
+			fmt.Fprintf(&b, "/ip firewall address-list add list=%s address=%s comment=\"gobill isolir allow\"\n", allow, h)
+		}
+	}
+	for _, h := range hosts {
+		fmt.Fprintf(&b, "/ip firewall filter add chain=forward src-address-list=%s protocol=tcp dst-port=443 tls-host=%s action=add-dst-to-address-list address-list=%s address-list-timeout=1d comment=\"isolir: learn %s\"\n", list, h, allow, h)
+	}
+	fmt.Fprintf(&b, "/ip firewall filter add chain=forward src-address-list=%s protocol=tcp dst-port=443 tcp-flags=syn action=accept comment=\"isolir: TLS handshake\"\n", list)
+	fmt.Fprintf(&b, "/ip firewall filter add chain=forward src-address-list=%s dst-address-list=%s action=accept comment=\"isolir: allowed apps\"\n", list, allow)
+	fmt.Fprintf(&b, "/ip firewall filter add chain=forward src-address-list=%s action=drop comment=\"isolir: block the rest\"", list)
+	return b.String()
+}
+
 // isolirSetupFields is the MikroTik setup helper: copyable RouterOS commands for the address gobill
 // listens on (see gobillAddr).
 func (s *Server) isolirSetupFields(st map[string]string) []field {
 	t := func(text string) string { return s.catalog.T(s.language(), text) }
 	host, port := s.gobillAddr()
 	list := isolir.Value(st, "isolir_address_list")
+	hosts := isolir.HostLines(isolir.Value(st, "isolir_allow_hosts"))
 	sec := t("Setup router (MikroTik, RouterOS 6 and 7)")
 	return []field{
-		{Name: "isolir_cmd_nat", Label: t("1. Redirect HTTP of isolated clients to gobill"), Type: "pre", Section: sec,
-			Value: fmt.Sprintf("/ip firewall nat add chain=dstnat src-address-list=%s dst-address-type=!local protocol=tcp dst-port=80 action=dst-nat to-addresses=%s to-ports=%s", list, host, port),
-			Hint:  t("dst-address-type=!local keeps the hotspot login and logout pages on the router reachable, because traffic to the router itself is not redirected. to-addresses is the LAN address of gobill and to-ports is its GOBILL_HTTP port. If GOBILL_HTTP is empty or 0.0.0.0, gobill uses its first LAN IPv4 address. Set GOBILL_HTTP to a LAN IP, for example 192.168.99.2:8090, to choose another one.")},
-		{Name: "isolir_cmd_filter", Label: t("2. Allow isolated clients to reach gobill"), Type: "pre", Section: sec,
-			Value: fmt.Sprintf("/ip firewall filter add chain=forward src-address-list=%s dst-address=%s action=accept", list, host),
-			Hint:  t("Place this rule above the drop rule for isolated clients (use place-before if needed).")},
-		{Name: "isolir_cmd_drop", Label: t("Optional: block all other traffic (full isolation)"), Type: "pre", Section: sec,
-			Value: fmt.Sprintf("/ip firewall filter add chain=forward src-address-list=%s action=drop", list),
-			Hint:  t("Also blocks WhatsApp and bank apps, so use it only for full isolation, and edit the default isolir message too. Add it after step 2, above any general accept rule in the forward chain.")},
-		{Name: "isolir_cmd_walled", Label: t("4. Walled garden hotspot for gobill"), Type: "pre", Section: sec,
+		{Name: "isolir_cmd_rules", Label: t("1. Isolation rules (paste the whole block, in this order)"), Type: "pre", Section: sec,
+			Value: isolirRouterRules(list, host, port, hosts),
+			Hint:  t("The rules must sit above any general accept rule in the forward chain, or isolated clients are not cut off. Only HTTP on port 80 is redirected to the isolir page. Hosts in Allowed while isolated are reachable; wildcard hosts are learned when the app opens a TLS connection. Changed the allowed hosts? Paste the block again.")},
+		{Name: "isolir_cmd_walled", Label: t("2. Walled garden hotspot for gobill"), Type: "pre", Section: sec,
 			Value: fmt.Sprintf("/ip hotspot walled-garden ip add dst-address=%s dst-port=%s action=accept", host, port),
 			Hint:  t("So the isolir page opens before hotspot login.")},
-		{Name: "isolir_cmd_bypass", Label: t("5. Bypass the hotspot for the gobill host"), Type: "pre", Section: sec,
+		{Name: "isolir_cmd_bypass", Label: t("3. Bypass the hotspot for the gobill host"), Type: "pre", Section: sec,
 			Value: "/ip hotspot ip-binding add mac-address=<MAC-HOST-GOBILL> type=bypassed",
 			Hint:  t("Replace <MAC-HOST-GOBILL> with the MAC address of gobill's LAN card. Without this rule, the hotspot can capture gobill's own traffic.")},
 		{Name: "isolir_cmd_test", Label: t("Test from the LAN with curl"), Type: "pre", Section: sec,
 			Value: fmt.Sprintf(`curl -i -H "Host: example.com" http://%s:%s/`, host, port),
 			Hint:  t("gobill serves the isolir page to isolated clients at the root and at every other path. Do not test with /tool fetch: RouterOS sends a duplicate Host header and gets 400.")},
 		{Name: "isolir_cmd_note", Label: t("Note"), Type: "note", Section: sec,
-			Hint: t("Only HTTP on port 80 is redirected to the isolir page. HTTPS and apps still work at the isolir speed unless the optional drop rule (step 3) is added. The address-list is sent by RADIUS as Mikrotik-Address-List.")},
+			Hint: t("The address-list is sent by RADIUS as Mikrotik-Address-List. RouterOS 6 resolves DNS allow-list entries to exact names only, so a host whose CDN address changes may sometimes fail, such as WhatsApp media. Add a bank app by putting its host in Allowed while isolated, then paste the block again.")},
 	}
 }
 

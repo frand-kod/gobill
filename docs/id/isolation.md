@@ -1,6 +1,6 @@
 # Isolir pelanggan yang paketnya habis
 
-Isolir membuat pelanggan yang paketnya habis tidak langsung diputus. Mereka masuk ke paket **Isolir** (64 kbps) selama beberapa hari. Di paket ini internet tetap bisa dipakai pelan untuk membuka WhatsApp dan aplikasi bank. Saat membuka situs lain, pelanggan diarahkan ke halaman isolir. Halaman ini menampilkan nama paket, tombol **Hubungi admin**, tombol logout (bila diatur) dan form voucher. Halaman isolir tidak menawarkan pembayaran: pelanggan membayar lewat admin atau portal.
+Isolir membuat pelanggan yang paketnya habis tidak langsung diputus. Mereka masuk ke paket **Isolir** (64 kbps) selama beberapa hari. Di paket ini pelanggan mendapat isolasi penuh kecuali daftar izin host. WhatsApp diizinkan secara bawaan agar pelanggan bisa menghubungi Anda, dan Anda bisa menambah aplikasi bank. Halaman web dialihkan ke halaman isolir, sementara aplikasi dan situs lain diblokir. Halaman ini menampilkan nama paket, tombol **Hubungi admin**, tombol logout (bila diatur) dan form voucher. Halaman isolir tidak menawarkan pembayaran: pelanggan membayar lewat admin atau portal.
 
 Isolir hanya bekerja untuk pelanggan yang login lewat RADIUS gobill (paket dengan perangkat **Radius**). Pelanggan yang akunnya disimpan langsung di MikroTik (hotspot atau PPPoE lokal) tetap diputus seperti biasa.
 
@@ -15,10 +15,11 @@ Buka **Pengaturan > Isolir**. Tab ini hanya bisa dibuka SuperAdmin. Setiap kolom
 | Kecepatan download, Kecepatan upload | `64k` | Kecepatan paket Isolir, misalnya `64k` atau `2M`. Disimpan ke profil bandwidth **Isolir 64k**. |
 | Lama Isolir (hari) | 30 | Berapa hari isolir berjalan setelah paket habis. Setelah itu pelanggan nonaktif seperti biasa. `0` berarti isolir sampai pelanggan membayar. |
 | Judul | Paket internet Anda sudah habis | Judul halaman isolir. |
-| Pesan | Silakan bayar untuk mengaktifkan kembali. Internet tetap bisa dipakai pelan untuk membuka WhatsApp dan aplikasi bank. | Teks di bawah judul. |
+| Pesan | Internet Anda dibatasi sampai paket diperpanjang. WhatsApp tetap bisa dipakai untuk menghubungi kami. | Teks di bawah judul. |
 | Nomor WhatsApp admin | Nomor telepon usaha | Dipakai untuk tombol **Hubungi admin**. |
 | Tampilkan form voucher | Ya | Pelanggan bisa memasukkan voucher langsung dari halaman isolir. |
-| Nama address-list MikroTik | `isolir` | Nama address-list yang dikirim RADIUS untuk pelanggan yang diisolir. |
+| Nama address-list MikroTik | `isolir` | Nama address-list yang dikirim RADIUS untuk pelanggan yang diisolir. Daftar izinnya adalah nama ini dengan `-allow`. |
+| Diizinkan saat diisolir | `*.whatsapp.net`, `*.whatsapp.com`, `whatsapp.com`, `whatsapp.net`, `g.whatsapp.net`, `mmg.whatsapp.net`, `wa.me` | Host yang tetap bisa diakses pelanggan saat diisolir, satu per baris. Wildcard `*.` diperbolehkan. Setelah diubah, tempel lagi perintah router. |
 | Alamat hotspot | Kosong | Alamat yang dipakai pelanggan untuk halaman login hotspot, misalnya `http://fourkeys.net` atau `http://192.168.20.1`. Kosong berarti tanpa tombol keluar. |
 | Mode tampilan | Bawaan | `HTML sendiri` memakai HTML dari kolom di bawahnya. |
 
@@ -36,7 +37,7 @@ Isolir tidak memperpanjang otomatis paket Isolir. Pelanggan yang saldonya cukup 
 
 ## Setup router MikroTik
 
-Tab **Isolir** menampilkan perintah RouterOS di bagian **Setup router MikroTik**, yang sudah terisi alamat dan port LAN gobill. Aturan, bypass hotspot, dan tes curl ada di [Setup MikroTik](mikrotik.md#isolir).
+Tab **Isolir** menampilkan aturan RouterOS di bagian **Setup router** sebagai satu blok yang bisa disalin, sudah terisi alamat dan port LAN gobill, nama address-list, dan daftar izin. Tempel seluruh blok sekaligus, sesuai urutan. Aturan harus berada di atas aturan accept umum di chain forward. Bypass hotspot dan tes curl ada sebagai item terpisah di bawahnya. Detail, batasan RouterOS 6, dan cara menambah aplikasi bank ada di [Setup MikroTik](mikrotik.md#isolir).
 
 ## HTML sendiri
 
