@@ -87,6 +87,6 @@ func saveIsolirRates(ctx context.Context, q *db.Queries, v map[string]string) er
 	if err != nil {
 		return nil
 	}
-	return q.UpdateBandwidth(ctx, db.UpdateBandwidthParams{Name: b.Name, RateDown: down, RateDownUnit: dunit,
+	return q.UpdateBandwidth(ctx, db.UpdateBandwidthParams{Name: isolir.BandwidthName, RateDown: down, RateDownUnit: dunit,
 		RateUp: up, RateUpUnit: uunit, Burst: b.Burst, ID: b.ID})
 }

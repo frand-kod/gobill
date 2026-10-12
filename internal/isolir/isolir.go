@@ -15,7 +15,8 @@ import (
 
 const (
 	PlanName        = "Isolir"
-	BandwidthName   = "Isolir 64k"
+	BandwidthName   = "Isolir"
+	legacyBWName    = "Isolir 64k" // name before v0.1.11; renamed when the isolir speed is saved
 	DefaultAddrList = "isolir"
 	DefaultDays     = 30
 	// DefaultAllowHosts is the allow-list used when isolir_allow_hosts was never saved: WhatsApp, so
@@ -159,7 +160,7 @@ func bandwidth(ctx context.Context, q *db.Queries) (int64, error) {
 		return 0, err
 	}
 	for _, b := range bws {
-		if b.Name == BandwidthName {
+		if b.Name == BandwidthName || b.Name == legacyBWName {
 			return b.ID, nil
 		}
 	}

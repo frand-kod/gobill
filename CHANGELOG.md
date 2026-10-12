@@ -15,6 +15,7 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ### Perbaikan
 
+- Profil bandwidth isolir bernama netral **Isolir** (sebelumnya "Isolir 64k"), karena kecepatannya bisa diubah di tab Isolir. Nama lama diganti saat kecepatan isolir disimpan.
 - Pesan isolir bawaan tidak lagi menjanjikan internet pelan untuk WhatsApp dan aplikasi bank. Berlaku untuk instalasi yang belum pernah menyimpan pesan.
 
 ## [0.1.10] - 2026-10-12
