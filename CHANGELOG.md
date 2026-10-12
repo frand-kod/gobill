@@ -23,7 +23,7 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 - **Template pesan**: daftar variabel per template yang bisa diketuk untuk disisipkan, tombol kembali ke bawaan, dan template kosong otomatis memakai teks bawaan.
 - **Nomor WhatsApp bersama**: pengaturan "Satu nomor WhatsApp per akun" (bawaan: tidak). Lupa username mengirim semua akun pada nomor itu.
 - Pesan `invoice_balance` dikirim saat isi saldo, seperti PHPNuxBill.
-- Pengaturan baru di Sistem & Keamanan: `radius_rest_allow` (khusus SuperAdmin), `log_keep_days`, `backup_keep`.
+- Pengaturan baru di Sistem & keamanan: `radius_rest_allow` (khusus SuperAdmin), `log_keep_days`, `backup_keep`.
 - Form paket ditata ulang: Layanan dan Cara bayar, masa aktif satu baris, bagian "Saat paket habis", perangkat dipilih lebih dulu, ringkasan live, tombol simpan menempel.
 - Navigasi lebih halus: prefetch saat kursor atau jari menyentuh tautan, transisi antar halaman, tab Pengaturan berganti di tempat, sidebar mengingat grup yang terbuka dan posisi scroll, ikon sidebar berwarna per grup.
 - Dashboard: Aktif/Kedaluwarsa dan total pelanggan dalam satu kartu.
@@ -32,7 +32,7 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 ### Perubahan perilaku
 
 - **Alamat login berubah**: login pelanggan sekarang di `/login`, dan login admin di `/admin/login`. Login 2FA admin pindah ke `/admin/login/2fa`. `/portal/login` dihapus. `GET /` membuka `/admin` untuk admin yang sudah login, `/portal` untuk pelanggan yang sudah login, dan `/login` untuk yang lain. Tautan login di pesan WhatsApp memakai `app_url` + `/login`.
-- **Tab Pengaturan ditata ulang**: Umum, Lokalisasi, Pelanggan & Tagihan, Pembayaran, Integrasi, Notifikasi, Isolir, Promosi, Tampilan, Sistem & Keamanan. Tab Lain-lain dihapus. Backup, impor, dan restore pindah ke `/admin/settings/system/...`. Menu Payment Gateway di sidebar menjadi "Pembayaran online" di grup Laporan.
+- **Tab Pengaturan ditata ulang**: Umum, Lokalisasi, Pelanggan & tagihan, Pembayaran, Integrasi, Notifikasi, Isolir, Promosi, Tampilan, Sistem & keamanan. Tab Lain-lain dihapus. Backup, impor, dan restore pindah ke `/admin/settings/system/...`. Menu Payment Gateway di sidebar menjadi "Pembayaran online" di grup Laporan.
 - **Nomor telepon dinormalkan** ke format `62…` saat disimpan, dan data lama dinormalkan sekali saat start.
 - **Perintah MikroTik di tab Isolir** memakai alamat LAN dan port dari `GOBILL_HTTP`, bukan `app_url`. Isi `GOBILL_HTTP` dengan IP LAN, misalnya `192.168.99.2:8090`. Aturan drop untuk isolasi penuh kini opsional.
 - Migrasi 0018 (kolom `nas.ma_seen`) berjalan otomatis. Rollback dari versi ini butuh restore backup database.
