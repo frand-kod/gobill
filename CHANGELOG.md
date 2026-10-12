@@ -8,6 +8,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-10-12
+
 ### Fitur
 
 - **Isolir: isolasi penuh dengan daftar izin**: pelanggan yang diisolir kini tidak bisa memakai aplikasi atau situs apa pun, kecuali host di pengaturan baru **Diizinkan saat diisolir** (bawaan WhatsApp, supaya pelanggan bisa menghubungi admin). Tambahkan host aplikasi bank di sana. Perintah RouterOS kini satu blok yang ditempel sekaligus dan berurutan, di atas aturan accept umum. Aturan drop opsional dihapus karena sudah termasuk di blok.
