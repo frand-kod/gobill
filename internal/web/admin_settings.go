@@ -305,11 +305,11 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			text("isolir_title", "Title", v, e),
 			area("isolir_message", "Message").hint("Empty is fine; the default message is used when it was never filled in"),
 			text("isolir_wa", "Admin WhatsApp number", v, e).hint("Empty = business phone number (General settings)"),
-			sel("isolir_show_qris", "Show QRIS", settingsYesNo...).hint("Needs a static QRIS in Payments; the amount is locked to the last plan price"),
 			sel("isolir_show_voucher", "Show voucher form", settingsYesNo...),
 			text("isolir_address_list", "MikroTik address-list name", v, e).hint("Letters, digits, dots, dashes or underscores. Sent by RADIUS as Mikrotik-Address-List"),
+			text("isolir_hotspot_url", "Hotspot address", v, e).hint("The address customers use for the hotspot login page, e.g. http://fourkeys.net or http://192.168.20.1. Empty = no logout button on the isolir page"),
 			{Name: "isolir_reset_halaman", Label: "Restore default", Type: "formbtn", Value: "/admin/settings/isolir/reset/halaman", Btn: "Restore default",
-				Hint: "Title, message, QRIS, voucher and address-list go back to default"},
+				Hint: "Title, message, voucher and address-list go back to default"},
 		}, "Isolir page", "")...)
 		out = append(out, section([]field{
 			sel("isolir_mode", "Display mode", option{"default", "Default"}, option{"custom", "Custom HTML"}).hint("Custom HTML is used when the HTML is not empty"),
@@ -454,6 +454,11 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	}
 	if x, ok := v["isolir_address_list"]; ok && !regexp.MustCompile(`^[A-Za-z0-9_.-]{1,64}$`).MatchString(x) {
 		e["isolir_address_list"] = "Required: letters, digits, dots, dashes or underscores, max 64 characters"
+	}
+	if x := v["isolir_hotspot_url"]; x != "" {
+		if u, err := url.Parse(x); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			e["isolir_hotspot_url"] = "Use an http or https URL"
+		}
 	}
 	if x, ok := v["isolir_html"]; ok && len(x) > 100000 {
 		e["isolir_html"] = "Too long (max 100 KB)"

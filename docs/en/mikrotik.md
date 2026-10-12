@@ -91,19 +91,21 @@ Isolir sends the HTTP traffic of isolated customers to gobill, so they see the i
 
 The rules apply in this order on the router. The `accept` rule must come before the `drop` rule in the forward chain:
 
-1. **NAT.** Redirect HTTP port 80 from the isolir address-list to gobill.
+1. **NAT.** Redirect HTTP port 80 from the isolir address-list to gobill, except traffic to the router itself.
 2. **Accept.** Let isolated clients reach gobill.
 3. **Optional drop.** Block all other traffic from isolated clients. This is full isolation.
 4. **Walled garden.** Let the isolir page open before hotspot login.
 5. **Hotspot bypass.** Keep gobill's own traffic out of the hotspot.
 
-    /ip firewall nat add chain=dstnat src-address-list=isolir protocol=tcp dst-port=80 action=dst-nat to-addresses=192.168.99.2 to-ports=8090
+    /ip firewall nat add chain=dstnat src-address-list=isolir dst-address-type=!local protocol=tcp dst-port=80 action=dst-nat to-addresses=192.168.99.2 to-ports=8090
     /ip firewall filter add chain=forward src-address-list=isolir dst-address=192.168.99.2 action=accept
     /ip firewall filter add chain=forward src-address-list=isolir action=drop
     /ip hotspot walled-garden ip add dst-address=192.168.99.2 dst-port=8090 action=accept
     /ip hotspot ip-binding add mac-address=<MAC-HOST-GOBILL> type=bypassed
 
 The address and port are the ones gobill listens on. They are set by `GOBILL_HTTP`, see [configuration](configuration.md). For example, `GOBILL_HTTP=192.168.99.2:8090` gives `to-addresses=192.168.99.2 to-ports=8090`. If `GOBILL_HTTP` is empty or `0.0.0.0`, gobill uses the first LAN IPv4 address of its host. Set `GOBILL_HTTP` to a fixed LAN IP when the host has more than one address.
+
+The `dst-address-type=!local` condition keeps traffic to the router itself out of the redirect. This keeps the hotspot login and logout pages on the router reachable, for example `http://192.168.20.1/logout`. Without it, an isolated customer cannot log out or switch accounts.
 
 Replace `<MAC-HOST-GOBILL>` with the MAC address of gobill's LAN card. Without the bypass, the hotspot can capture gobill's own traffic.
 

@@ -485,7 +485,7 @@ func TestSettingsQRISPreview(t *testing.T) {
 	if strings.Contains(do(h, "GET", "/admin/settings/payment", nil, c).Body.String(), "data:image/png;base64") {
 		t.Fatal("preview without a stored QRIS")
 	}
-	payload := "00020101021126520016ID.CO.CONTOH.WWW01129360000000010212ID10000000015204549953033605802ID5911CONTOH QRIS6006CONTOH9989XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX63048FAE"
+	payload := isoQRIS
 	if err := q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "qris_payload", Value: payload}); err != nil {
 		t.Fatal(err)
 	}

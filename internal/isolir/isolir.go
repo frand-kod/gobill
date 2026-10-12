@@ -30,9 +30,9 @@ var Defaults = map[string]string{
 	"isolir_title":        "Paket internet Anda sudah habis",
 	"isolir_message":      "Silakan bayar untuk mengaktifkan kembali. Internet tetap bisa dipakai pelan untuk membuka WhatsApp dan aplikasi bank.",
 	"isolir_wa":           "",
-	"isolir_show_qris":    "yes",
 	"isolir_show_voucher": "yes",
 	"isolir_address_list": DefaultAddrList,
+	"isolir_hotspot_url":  "",
 	"isolir_mode":         "default",
 	"isolir_html":         "",
 }
