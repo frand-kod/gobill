@@ -1,6 +1,7 @@
 package payment
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -26,6 +27,27 @@ func TestQRIS(t *testing.T) {
 	}
 	if _, err := QRISAmount(staticQRIS, 0); err == nil {
 		t.Fatal("zero amount accepted")
+	}
+}
+
+// QRISDetailsOf reads the merchant fields and maps the provider domain, falling back to the domain.
+func TestQRISDetailsOf(t *testing.T) {
+	d := QRISDetailsOf(staticQRIS)
+	if d.MerchantName != "CONTOH QRIS" || d.City != "CONTOH" || d.Provider != "Contoh" || d.NMID != "" {
+		t.Fatalf("dummy: %+v", d)
+	}
+	if d := QRISDetailsOf("not a payload"); d != (QRISDetails{}) {
+		t.Fatalf("invalid input: %+v", d)
+	}
+	// a GO-JEK domain in tag 26 is mapped to its name
+	merchant := tlvOf("00", "COM.GO-JEK.WWW", "02", "ID1234567890")
+	s := tlvOf("00", "01", "26", merchant, "59", "TOKO", "60", "KOTA") + "6304"
+	s += fmt.Sprintf("%04X", crc16(s))
+	if d := QRISDetailsOf(s); d.Provider != "GoPay" || d.MerchantName != "TOKO" || d.City != "KOTA" {
+		t.Fatalf("gopay: %+v", d)
+	}
+	if d := QRISDetailsOf(tlvOf("00", "01", "26", tlvOf("00", "ID.FOO.BAR"))); d.Provider != "ID.FOO.BAR" {
+		t.Fatal("unknown domain not shown as is:", d)
 	}
 }
 

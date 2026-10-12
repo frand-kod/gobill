@@ -74,8 +74,7 @@ func qrisFromImage(b []byte) (string, error) {
 }
 
 type qrisData struct {
-	Invoice, Plan, Amount string
-	QR                    template.URL
+	Card template.HTML // the QRIS card, see qrisCard
 }
 
 func (s *Server) qrisPage(w http.ResponseWriter, r *http.Request) {
@@ -104,6 +103,7 @@ func (s *Server) qrisPage(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "qris png", err)
 		return
 	}
-	d := qrisData{t.Invoice, t.PlanName, money(t.Price), template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))}
+	qr := template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))
+	d := qrisData{Card: s.qrisCard(st, payment.QRISDetailsOf(st["qris_payload"]), qr, money(t.Price), t.Invoice+" · "+t.PlanName, false)}
 	s.render(w, r, 200, "p_qris", Page{Title: "Pay via QRIS", Data: d})
 }

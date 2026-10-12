@@ -102,27 +102,69 @@ func QRISAmount(static string, amount int64) (string, error) {
 	return b.String(), nil
 }
 
-// QRISInfo returns the merchant name (tag 59) and NMID (tag 51, sub-tag 02) of a payload, "" when absent.
-func QRISInfo(s string) (merchant, nmid string) {
+// QRISDetails are the parts of a QRIS a customer checks before paying.
+type QRISDetails struct {
+	MerchantName string // tag 59
+	City         string // tag 60
+	NMID         string // tag 51, sub-tag 02
+	Provider     string // from the merchant account domain in tags 26-45, "" when unknown
+}
+
+// providers maps the start of a merchant account domain to the e-wallet or bank name shown to
+// customers. Other domains are shown as they are.
+var providers = []struct{ prefix, name string }{
+	{"COM.GO-JEK", "GoPay"}, {"ID.DANA", "DANA"}, {"ID.CO.SHOPEE", "ShopeePay"},
+	{"COM.OVO", "OVO"}, {"ID.LINKAJA", "LinkAja"}, {"ID.CO.CONTOH", "Contoh"},
+}
+
+// QRISDetailsOf reads the merchant details of a payload. Missing or invalid fields are "".
+func QRISDetailsOf(s string) QRISDetails {
+	var d QRISDetails
 	tlvs, err := qrisParse(strings.TrimSpace(s))
 	if err != nil {
-		return "", ""
+		return d
 	}
+	var domain string
 	for _, t := range tlvs {
-		switch t.tag {
-		case "59":
-			merchant = t.val
-		case "51":
+		switch {
+		case t.tag == "59":
+			d.MerchantName = t.val
+		case t.tag == "60":
+			d.City = t.val
+		case t.tag == "51":
 			if subs, err := qrisParse(t.val); err == nil {
 				for _, u := range subs {
 					if u.tag == "02" {
-						nmid = u.val
+						d.NMID = u.val
+					}
+				}
+			}
+		case len(t.tag) == 2 && t.tag >= "26" && t.tag <= "45" && domain == "":
+			if subs, err := qrisParse(t.val); err == nil {
+				for _, u := range subs {
+					if u.tag == "00" {
+						domain = strings.ToUpper(u.val)
 					}
 				}
 			}
 		}
 	}
-	return merchant, nmid
+	if domain != "" {
+		d.Provider = domain
+		for _, p := range providers {
+			if strings.HasPrefix(domain, p.prefix) {
+				d.Provider = p.name
+				break
+			}
+		}
+	}
+	return d
+}
+
+// QRISInfo returns the merchant name (tag 59) and NMID (tag 51, sub-tag 02) of a payload, "" when absent.
+func QRISInfo(s string) (merchant, nmid string) {
+	d := QRISDetailsOf(s)
+	return d.MerchantName, d.NMID
 }
 
 // QRISToken is the public URL token of transaction id's QRIS page: 16 hex chars of HMAC-SHA256.
