@@ -5,7 +5,9 @@ package isolir
 import (
 	"context"
 	"database/sql"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -16,7 +18,27 @@ const (
 	BandwidthName   = "Isolir 64k"
 	DefaultAddrList = "isolir"
 	DefaultDays     = 30
+	// DefaultAllowHosts is the allow-list used when isolir_allow_hosts was never saved: WhatsApp, so
+	// the customer can still contact the admin.
+	DefaultAllowHosts = "*.whatsapp.net\n*.whatsapp.com\nwhatsapp.com\nwhatsapp.net\ng.whatsapp.net\nmmg.whatsapp.net\nwa.me"
 )
+
+var hostRe = regexp.MustCompile(`^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)*$`)
+
+// HostLines splits an allow-list into lowercase hosts, one per line. Blank lines are dropped.
+func HostLines(v string) []string {
+	var out []string
+	for _, line := range strings.Split(v, "\n") {
+		if h := strings.ToLower(strings.TrimSpace(line)); h != "" {
+			out = append(out, h)
+		}
+	}
+	return out
+}
+
+// ValidHost reports whether h (lowercase) is a hostname or a *. wildcard of one, such as wa.me or
+// *.whatsapp.net.
+func ValidHost(h string) bool { return hostRe.MatchString(h) }
 
 // Forever is the expiry of an isolation with isolir_days = 0 (isolated until paid).
 var Forever = time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -28,10 +50,11 @@ var Defaults = map[string]string{
 	"isolir_plan_id":      "",
 	"isolir_days":         "30",
 	"isolir_title":        "Paket internet Anda sudah habis",
-	"isolir_message":      "Silakan bayar untuk mengaktifkan kembali. Internet tetap bisa dipakai pelan untuk membuka WhatsApp dan aplikasi bank.",
+	"isolir_message":      "Internet Anda dibatasi sampai paket diperpanjang. WhatsApp tetap bisa dipakai untuk menghubungi kami.",
 	"isolir_wa":           "",
 	"isolir_show_voucher": "yes",
 	"isolir_address_list": DefaultAddrList,
+	"isolir_allow_hosts":  DefaultAllowHosts,
 	"isolir_hotspot_url":  "",
 	"isolir_mode":         "default",
 	"isolir_html":         "",

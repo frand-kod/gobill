@@ -312,6 +312,9 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 				Hint: "Title, message, voucher and address-list go back to default"},
 		}, "Isolir page", "")...)
 		out = append(out, section([]field{
+			area("isolir_allow_hosts", "Allowed while isolated").hint("Hosts customers can still reach while isolated, one per line, e.g. wa.me or *.bank.example. The default is WhatsApp. After changing it, paste the router commands again"),
+		}, "Router allow-list", "")...)
+		out = append(out, section([]field{
 			sel("isolir_mode", "Display mode", option{"default", "Default"}, option{"custom", "Custom HTML"}).hint("Custom HTML is used when the HTML is not empty"),
 			func() field {
 				f := area("isolir_html", "Custom HTML")
@@ -454,6 +457,14 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	}
 	if x, ok := v["isolir_address_list"]; ok && !regexp.MustCompile(`^[A-Za-z0-9_.-]{1,64}$`).MatchString(x) {
 		e["isolir_address_list"] = "Required: letters, digits, dots, dashes or underscores, max 64 characters"
+	}
+	if x, ok := v["isolir_allow_hosts"]; ok {
+		for _, h := range isolir.HostLines(x) {
+			if !isolir.ValidHost(h) {
+				e["isolir_allow_hosts"] = "Each line must be a host such as wa.me or *.example.com (letters, digits, dots and dashes)"
+				break
+			}
+		}
 	}
 	if x := v["isolir_hotspot_url"]; x != "" {
 		if u, err := url.Parse(x); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {

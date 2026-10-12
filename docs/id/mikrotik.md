@@ -87,29 +87,48 @@ Login voucher di halaman hotspot memakai kode sebagai username. Login ini langsu
 
 ## Isolir
 
-Isolir mengalihkan trafik HTTP pelanggan isolir ke gobill, sehingga mereka melihat halaman isolir dan bukan situs lain. **Pengaturan > Isolir**, bagian **Setup router MikroTik**, menampilkan perintah dengan alamat gobill yang sudah terisi. Bagian ini menjelaskan aturan di balik perintah tersebut.
+Pelanggan yang diisolir mendapat isolasi penuh kecuali daftar izin. Permintaan web mereka dialihkan ke halaman isolir, sehingga pengecekan captive-portal di ponsel membuka halaman itu. Semua aplikasi dan situs lain diblokir. Host di **Diizinkan saat diisolir** tetap bisa diakses: WhatsApp secara bawaan, supaya pelanggan bisa menghubungi Anda, dan aplikasi bank bila Anda menambahkannya. **Pengaturan > Isolir**, bagian **Setup router**, menampilkan aturan sebagai satu blok yang bisa disalin, dengan alamat gobill, nama address-list, dan daftar izin yang sudah terisi.
 
-Aturan berikut berlaku dalam urutan ini di router. Aturan `accept` harus berada sebelum aturan `drop` di chain forward:
-
-1. **NAT.** Alihkan HTTP port 80 dari address-list isolir ke gobill, kecuali trafik ke router itu sendiri.
-2. **Accept.** Izinkan klien isolir mencapai gobill.
-3. **Drop opsional.** Blokir semua trafik lain dari klien isolir. Ini isolasi penuh.
-4. **Walled garden.** Izinkan halaman isolir terbuka sebelum login hotspot.
-5. **Bypass hotspot.** Jauhkan trafik gobill sendiri dari hotspot.
+Tempel seluruh blok sekaligus, sesuai urutan. Aturan harus berada di atas aturan `accept` umum di chain forward, jika tidak klien isolir tidak terputus. Bentuk blok ini (nama list `isolir`, daftar izin `isolir-allow`):
 
     /ip firewall nat add chain=dstnat src-address-list=isolir dst-address-type=!local protocol=tcp dst-port=80 action=dst-nat to-addresses=192.168.99.2 to-ports=8090
     /ip firewall filter add chain=forward src-address-list=isolir dst-address=192.168.99.2 action=accept
-    /ip firewall filter add chain=forward src-address-list=isolir action=drop
+    /ip firewall address-list add list=isolir-allow address=wa.me comment="gobill isolir allow"
+    /ip firewall filter add chain=forward src-address-list=isolir protocol=tcp dst-port=443 tls-host=*.whatsapp.net action=add-dst-to-address-list address-list=isolir-allow address-list-timeout=1d comment="isolir: learn *.whatsapp.net"
+    /ip firewall filter add chain=forward src-address-list=isolir protocol=tcp dst-port=443 tls-host=wa.me action=add-dst-to-address-list address-list=isolir-allow address-list-timeout=1d comment="isolir: learn wa.me"
+    /ip firewall filter add chain=forward src-address-list=isolir protocol=tcp dst-port=443 tcp-flags=syn action=accept comment="isolir: TLS handshake"
+    /ip firewall filter add chain=forward src-address-list=isolir dst-address-list=isolir-allow action=accept comment="isolir: allowed apps"
+    /ip firewall filter add chain=forward src-address-list=isolir action=drop comment="isolir: block the rest"
+
+Aturan ini bekerja sebagai berikut, berurutan:
+
+1. **NAT.** HTTP port 80 dari klien isolir diarahkan ke gobill. `dst-address-type=!local` membiarkan trafik ke router itu sendiri, sehingga halaman login dan logout hotspot tetap bisa dibuka, misalnya `http://192.168.20.1/logout`.
+2. **Accept gobill.** Klien isolir boleh mencapai gobill.
+3. **Daftar izin.** Setiap host persis (tanpa `*.`) ditambahkan ke address-list `isolir-allow`. Setiap entri, wildcard atau bukan, mendapat aturan `tls-host`: saat klien isolir membuka koneksi TLS dengan SNI yang cocok, IP tujuan ditambahkan ke `isolir-allow` selama satu hari.
+4. **Handshake TLS.** Koneksi HTTPS baru (SYN) diterima, sehingga handshake berjalan dan aturan di atas bisa mempelajari IP-nya.
+5. **Aplikasi yang diizinkan.** Trafik ke alamat di `isolir-allow` diterima.
+6. **Blokir sisanya.** Semua trafik lain dari klien isolir dibuang.
+
+Nama list diambil dari pengaturan **Nama address-list MikroTik** (bawaan `isolir`). Daftar izin adalah nama itu ditambah `-allow`. Daftar izin diatur di **Diizinkan saat diisolir**, satu host per baris. Wildcard seperti `*.whatsapp.net` diperbolehkan. Setelah diubah, tempel lagi bloknya.
+
+### Batasan RouterOS 6
+
+- Entri DNS di address-list hanya menyelesaikan nama persis di RouterOS 6. Karena itu host persis langsung dimasukkan ke list, dan host wildcard dipelajari.
+- Host wildcard dipelajari saat aplikasi membuka koneksi TLS ke host itu. IP yang dipelajari berlaku satu hari. Aplikasi yang terhubung ke host CDN baru lolos setelah aturan mempelajari host itu.
+- Karena itu media WhatsApp dari host CDN yang berubah kadang bisa gagal. Pesan dan panggilan ke admin tetap berfungsi.
+
+### Menambah aplikasi bank
+
+Cari host yang dihubungi aplikasi, misalnya dari daftar koneksi router atau catatan dukungan aplikasi. Tambahkan di baris sendiri di **Diizinkan saat diisolir**, misalnya `*.bank.example` untuk semua hostnya atau `m.bank.example` untuk satu host. Simpan, lalu tempel lagi bloknya. Uji dari klien yang diisolir bahwa aplikasinya berfungsi, lalu pastikan situs lain tetap diblokir.
+
+Dua item lain berada di luar chain forward:
+
     /ip hotspot walled-garden ip add dst-address=192.168.99.2 dst-port=8090 action=accept
     /ip hotspot ip-binding add mac-address=<MAC-HOST-GOBILL> type=bypassed
 
-Alamat dan port adalah yang didengar gobill. Keduanya diatur oleh `GOBILL_HTTP`, lihat [konfigurasi](configuration.md). Contohnya, `GOBILL_HTTP=192.168.99.2:8090` menghasilkan `to-addresses=192.168.99.2 to-ports=8090`. Jika `GOBILL_HTTP` kosong atau `0.0.0.0`, gobill memakai IPv4 LAN pertama dari host-nya. Isi `GOBILL_HTTP` dengan IP LAN tetap bila host punya lebih dari satu alamat.
-
-Kondisi `dst-address-type=!local` membuat trafik ke router itu sendiri tidak ikut dialihkan. Dengan begitu halaman login dan logout hotspot di router tetap bisa dibuka, misalnya `http://192.168.20.1/logout`. Tanpa kondisi ini, pelanggan yang diisolir tidak bisa keluar (logout) atau berganti akun.
+Walled garden membuat halaman isolir bisa dibuka sebelum login hotspot. Alamat dan port adalah yang didengar gobill, diatur oleh `GOBILL_HTTP` (lihat [konfigurasi](configuration.md)). Misalnya, `GOBILL_HTTP=192.168.99.2:8090` menghasilkan `to-addresses=192.168.99.2 to-ports=8090`. Jika `GOBILL_HTTP` kosong atau `0.0.0.0`, gobill memakai IPv4 LAN pertama dari host-nya. Isi `GOBILL_HTTP` dengan IP LAN tetap bila host punya lebih dari satu alamat.
 
 Isi `<MAC-HOST-GOBILL>` dengan MAC address kartu LAN gobill. Tanpa bypass, hotspot bisa menangkap trafik gobill sendiri.
-
-Hanya HTTP port 80 yang dialihkan ke halaman isolir. HTTPS dan aplikasi tetap bisa dipakai dengan kecepatan isolir. Tambahkan aturan drop opsional (langkah 3) hanya untuk isolasi penuh. Aturan ini juga memblokir WhatsApp dan aplikasi bank, jadi ubah pesan isolir bawaan juga.
 
 ### Tes halaman isolir
 

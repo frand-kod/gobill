@@ -8,6 +8,15 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Fitur
+
+- **Isolir: isolasi penuh dengan daftar izin**: pelanggan yang diisolir kini tidak bisa memakai aplikasi atau situs apa pun, kecuali host di pengaturan baru **Diizinkan saat diisolir** (bawaan WhatsApp, supaya pelanggan bisa menghubungi admin). Tambahkan host aplikasi bank di sana. Perintah RouterOS kini satu blok yang ditempel sekaligus dan berurutan, di atas aturan accept umum. Aturan drop opsional dihapus karena sudah termasuk di blok.
+- Batasan RouterOS 6: host wildcard dipelajari dari koneksi TLS saat aplikasi terhubung, dan media WhatsApp dari host CDN yang berubah kadang gagal. Lihat [Setup MikroTik](docs/id/mikrotik.md#isolir).
+
+### Perbaikan
+
+- Pesan isolir bawaan tidak lagi menjanjikan internet pelan untuk WhatsApp dan aplikasi bank. Berlaku untuk instalasi yang belum pernah menyimpan pesan.
+
 ## [0.1.10] - 2026-10-12
 
 ### Perbaikan

@@ -27,6 +27,7 @@ var settingSample = map[string]string{
 	"language":           "english",
 	"qris_payload":       isoQRIS,
 	"isolir_hotspot_url": "http://192.168.20.1",
+	"isolir_allow_hosts": "wa.me\n*.bank.example",
 }
 
 // settingSampleFor picks the value a test saves into a non-secret field: the last real choice of a

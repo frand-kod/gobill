@@ -1,6 +1,6 @@
 # Isolation of expired customers
 
-Isolation keeps customers whose package has run out online at a restricted speed instead of cutting them off at once. They move to the **Isolir** plan (64 kbps) for a set number of days. On this plan the internet still works slowly, enough to open WhatsApp and banking apps. When they open other sites, they are redirected to the isolation page. It shows the package, a **Contact admin** button, an optional logout button and a voucher form. The isolation page offers no payment: the customer pays through the admin or the portal.
+Isolation keeps customers whose package has run out online at a restricted speed instead of cutting them off at once. They move to the **Isolir** plan (64 kbps) for a set number of days. On this plan the customer has full isolation except an allow-list of hosts. WhatsApp is allowed by default, so they can contact you, and you can add a bank app. Web pages are redirected to the isolation page, and other apps and sites are blocked. It shows the package, a **Contact admin** button, an optional logout button and a voucher form. The isolation page offers no payment: the customer pays through the admin or the portal.
 
 Isolation only works for customers who log in through gobill's RADIUS (plans on the **Radius** device). Customers whose accounts live directly on a MikroTik (local hotspot or PPPoE users) are cut off as before.
 
@@ -15,10 +15,11 @@ Open **Settings > Isolation**. This tab is for SuperAdmin only. Each field shows
 | Download speed, Upload speed | `64k` | Speed of the Isolir plan, for example `64k` or `2M`. Saved to the **Isolir 64k** bandwidth profile. |
 | Isolation duration (days) | 30 | How many days isolation lasts after the package ends. Then the customer is inactive, as before. `0` means isolated until the customer pays. |
 | Title | Your internet package has run out | Title of the isolation page. |
-| Message | Please pay to reactivate. Internet still works slowly so you can open WhatsApp and banking apps. | Text under the title. |
+| Message | Your internet is limited until the package is renewed. WhatsApp still works so you can contact us. | Text under the title. |
 | Admin WhatsApp number | Company phone | Used by the **Contact admin** button. |
 | Show voucher form | Yes | Lets the customer enter a voucher on the isolation page. |
-| MikroTik address-list name | `isolir` | Address-list name sent by RADIUS to isolated customers. |
+| MikroTik address-list name | `isolir` | Address-list name sent by RADIUS to isolated customers. The allow-list is this name with `-allow`. |
+| Allowed while isolated | `*.whatsapp.net`, `*.whatsapp.com`, `whatsapp.com`, `whatsapp.net`, `g.whatsapp.net`, `mmg.whatsapp.net`, `wa.me` | Hosts an isolated customer can still reach, one per line. `*.` wildcards are allowed. After a change, paste the router commands again. |
 | Hotspot address | Empty | Address customers use for the hotspot login page, for example `http://fourkeys.net` or `http://192.168.20.1`. Empty means no logout button. |
 | Display mode | Default | `Custom HTML` uses the HTML in the field below. |
 
@@ -36,7 +37,7 @@ Isolation does not renew the Isolir plan automatically. A customer with enough b
 
 ## MikroTik router setup
 
-The **Isolation** tab shows the RouterOS commands in the **MikroTik router setup** section, filled in with gobill's LAN address and port. The rules, the hotspot bypass and the curl test are in [MikroTik setup](mikrotik.md#isolir).
+The **Isolation** tab shows the RouterOS rules in the **Setup router** section as one copyable block, filled in with gobill's LAN address, port, address-list name and allow-list. Paste the whole block at once, in order. The rules must sit above any general accept rule in the forward chain. The hotspot bypass and the curl test are separate items below it. Details, the RouterOS 6 limits and how to add a bank app are in [MikroTik setup](mikrotik.md#isolir).
 
 ## Custom HTML
 

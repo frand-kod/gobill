@@ -61,7 +61,7 @@ var wizSteps = []wizStep{
 		"Only the code text is stored, not the image.", "integrations", false},
 	{"tripay", "Tripay (optional)", "Tripay is a payment gateway that creates a payment for each invoice and confirms it automatically. Skip it if QRIS is enough.",
 		"The keys come from your Tripay dashboard. Sandbox is for testing.", "integrations", true},
-	{"isolir", "Isolation (optional)", "Isolation sends customers whose plan has expired to a page that asks them to pay, instead of cutting them off. It needs three commands on the MikroTik.",
+	{"isolir", "Isolation (optional)", "Isolation sends customers whose plan has expired to a page that asks them to pay, instead of cutting them off. It needs a few commands on the MikroTik.",
 		"Turn it on, then paste the commands into the router. Details are in the guide.", "isolation", true},
 	{"customer", "First customer or voucher", "Make one test voucher for a plan. You use it in the last step to check that a customer can log in. Real customers can be added later.",
 		"A voucher is a prepaid code the customer types on the hotspot login page.", "configuration", false},

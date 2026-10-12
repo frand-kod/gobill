@@ -363,9 +363,7 @@ func TestIsolirSetupCommandsUseListenAddress(t *testing.T) {
 		cmds[f.Name] = f.Value
 	}
 	for name, want := range map[string]string{
-		"isolir_cmd_nat":    "dst-address-type=!local protocol=tcp dst-port=80 action=dst-nat to-addresses=192.168.99.2 to-ports=8090",
-		"isolir_cmd_filter": "dst-address=192.168.99.2 action=accept",
-		"isolir_cmd_drop":   "src-address-list=isolir action=drop",
+		"isolir_cmd_rules":  "dst-address-type=!local protocol=tcp dst-port=80 action=dst-nat to-addresses=192.168.99.2 to-ports=8090",
 		"isolir_cmd_walled": "dst-address=192.168.99.2 dst-port=8090",
 		"isolir_cmd_bypass": "type=bypassed",
 		"isolir_cmd_test":   `curl -i -H "Host: example.com" http://192.168.99.2:8090/`,
@@ -438,5 +436,72 @@ func TestIsolirPreviewContactAdmin(t *testing.T) {
 	}
 	if strings.Contains(body, "data:image/png") {
 		t.Error("preview shows a QR code")
+	}
+}
+
+// The router block is one paste: the NAT and the gobill accept, exact hosts in the allow address-list,
+// a tls-host rule for every allow entry, then the SYN, allowed-apps and drop rules in that order.
+func TestIsolirRouterRulesBlock(t *testing.T) {
+	s, _, _ := isoSetup(t)
+	s.ListenAddr = "192.168.99.2:8090"
+	block := func(st map[string]string) string {
+		for _, f := range s.isolirSetupFields(st) {
+			if f.Name == "isolir_cmd_rules" {
+				return f.Value
+			}
+		}
+		t.Fatal("no isolir_cmd_rules field")
+		return ""
+	}
+	b := block(map[string]string{"isolir_address_list": "fw-iso", "isolir_allow_hosts": "*.whatsapp.net\n\n  wa.me \n Bank.Example \n"})
+	for _, want := range []string{
+		"/ip firewall nat add chain=dstnat src-address-list=fw-iso dst-address-type=!local protocol=tcp dst-port=80 action=dst-nat to-addresses=192.168.99.2 to-ports=8090",
+		"/ip firewall filter add chain=forward src-address-list=fw-iso dst-address=192.168.99.2 action=accept",
+		`/ip firewall address-list add list=fw-iso-allow address=wa.me comment="gobill isolir allow"`,
+		`/ip firewall address-list add list=fw-iso-allow address=bank.example comment="gobill isolir allow"`,
+		"tls-host=*.whatsapp.net action=add-dst-to-address-list address-list=fw-iso-allow address-list-timeout=1d",
+		"tls-host=wa.me ", "tls-host=bank.example ",
+		"tcp-flags=syn action=accept",
+		"dst-address-list=fw-iso-allow action=accept",
+		"src-address-list=fw-iso action=drop",
+	} {
+		if !strings.Contains(b, want) {
+			t.Errorf("block misses %q", want)
+		}
+	}
+	if strings.Contains(b, "address=*.whatsapp.net") || strings.Contains(b, "src-address-list=isolir ") {
+		t.Errorf("wildcard in the address-list or the default list name:\n%s", b)
+	}
+	order := []string{"tls-host=wa.me", "tcp-flags=syn", "dst-address-list=fw-iso-allow", "action=drop"}
+	last := -1
+	for _, o := range order {
+		i := strings.Index(b, o)
+		if i <= last {
+			t.Fatalf("%q out of order in:\n%s", o, b)
+		}
+		last = i
+	}
+	if !strings.HasSuffix(b, "action=drop comment=\"isolir: block the rest\"") {
+		t.Errorf("drop is not the last rule:\n%s", b)
+	}
+	// unset: the default list and the default allow-list (WhatsApp)
+	d := block(nil)
+	for _, want := range []string{"src-address-list=isolir dst-address-type", "list=isolir-allow address=wa.me", "tls-host=*.whatsapp.net", "tls-host=g.whatsapp.net"} {
+		if !strings.Contains(d, want) {
+			t.Errorf("default block misses %q", want)
+		}
+	}
+}
+
+// Allow-list lines must be hostnames or *. wildcards; blank lines are fine.
+func TestIsolirAllowHostsValidated(t *testing.T) {
+	s, _, _ := isoSetup(t)
+	for _, bad := range []string{"foo bar", "http://x", "*bad", "*.", "a..b"} {
+		if e := s.settingsErrors(map[string]string{"isolir_allow_hosts": "wa.me\n" + bad}); e["isolir_allow_hosts"] == "" {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+	if e := s.settingsErrors(map[string]string{"isolir_allow_hosts": "wa.me\r\n\r\n*.whatsapp.net\r\n"}); e["isolir_allow_hosts"] != "" {
+		t.Errorf("valid list rejected: %v", e)
 	}
 }
