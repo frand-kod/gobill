@@ -20,7 +20,10 @@ Open **Settings > Isolation**. This tab is for SuperAdmin only. Each field shows
 | Show QRIS | Yes | QRIS locked to the last package price. Needs a static QRIS under Payment. |
 | Show voucher form | Yes | Lets the customer enter a voucher on the isolation page. |
 | MikroTik address-list name | `isolir` | Address-list name sent by RADIUS to isolated customers. |
+| Hotspot address | Empty | Address customers use for the hotspot login page, for example `http://fourkeys.net` or `http://192.168.20.1`. Empty means no logout button. |
 | Display mode | Default | `Custom HTML` uses the HTML in the field below. |
+
+**Log out / use another account.** When the Hotspot address is set, the isolir page shows a **Log out / use another account** button that links to `<Hotspot address>/logout`. The hotspot logout clears the login cookie on the customer's device, so they can sign in with another account. The router must not redirect that address, see the `dst-address-type=!local` rule in [MikroTik setup](mikrotik.md#isolir).
 
 ## Behaviour
 
@@ -48,6 +51,7 @@ In **Custom HTML** mode, the HTML you write is shown after its variables are rep
 | `[[username]]`, `[[name]]` | Customer username and name |
 | `[[plan_name]]`, `[[expired_at]]`, `[[amount]]` | Last package, end time and price |
 | `[[qris_image]]` | QRIS image (data URI), for an image `src` |
+| `[[logout_url]]` | Hotspot logout address (`<Hotspot address>/logout`), empty when the Hotspot address is not set |
 | `[[wa_admin_link]]` | Chat-admin link |
 | `[[voucher_form]]` | Ready-made voucher form |
 | `[[promos]]` | Promo blocks |

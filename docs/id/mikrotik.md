@@ -91,19 +91,21 @@ Isolir mengalihkan trafik HTTP pelanggan isolir ke gobill, sehingga mereka melih
 
 Aturan berikut berlaku dalam urutan ini di router. Aturan `accept` harus berada sebelum aturan `drop` di chain forward:
 
-1. **NAT.** Alihkan HTTP port 80 dari address-list isolir ke gobill.
+1. **NAT.** Alihkan HTTP port 80 dari address-list isolir ke gobill, kecuali trafik ke router itu sendiri.
 2. **Accept.** Izinkan klien isolir mencapai gobill.
 3. **Drop opsional.** Blokir semua trafik lain dari klien isolir. Ini isolasi penuh.
 4. **Walled garden.** Izinkan halaman isolir terbuka sebelum login hotspot.
 5. **Bypass hotspot.** Jauhkan trafik gobill sendiri dari hotspot.
 
-    /ip firewall nat add chain=dstnat src-address-list=isolir protocol=tcp dst-port=80 action=dst-nat to-addresses=192.168.99.2 to-ports=8090
+    /ip firewall nat add chain=dstnat src-address-list=isolir dst-address-type=!local protocol=tcp dst-port=80 action=dst-nat to-addresses=192.168.99.2 to-ports=8090
     /ip firewall filter add chain=forward src-address-list=isolir dst-address=192.168.99.2 action=accept
     /ip firewall filter add chain=forward src-address-list=isolir action=drop
     /ip hotspot walled-garden ip add dst-address=192.168.99.2 dst-port=8090 action=accept
     /ip hotspot ip-binding add mac-address=<MAC-HOST-GOBILL> type=bypassed
 
 Alamat dan port adalah yang didengar gobill. Keduanya diatur oleh `GOBILL_HTTP`, lihat [konfigurasi](configuration.md). Contohnya, `GOBILL_HTTP=192.168.99.2:8090` menghasilkan `to-addresses=192.168.99.2 to-ports=8090`. Jika `GOBILL_HTTP` kosong atau `0.0.0.0`, gobill memakai IPv4 LAN pertama dari host-nya. Isi `GOBILL_HTTP` dengan IP LAN tetap bila host punya lebih dari satu alamat.
+
+Kondisi `dst-address-type=!local` membuat trafik ke router itu sendiri tidak ikut dialihkan. Dengan begitu halaman login dan logout hotspot di router tetap bisa dibuka, misalnya `http://192.168.20.1/logout`. Tanpa kondisi ini, pelanggan yang diisolir tidak bisa keluar (logout) atau berganti akun.
 
 Isi `<MAC-HOST-GOBILL>` dengan MAC address kartu LAN gobill. Tanpa bypass, hotspot bisa menangkap trafik gobill sendiri.
 

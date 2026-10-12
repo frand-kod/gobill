@@ -20,7 +20,10 @@ Buka **Pengaturan > Isolir**. Tab ini hanya bisa dibuka SuperAdmin. Setiap kolom
 | Tampilkan QRIS | Ya | QRIS dengan nominal terkunci ke harga paket terakhir. Perlu QRIS statis di Pembayaran. |
 | Tampilkan form voucher | Ya | Pelanggan bisa memasukkan voucher langsung dari halaman isolir. |
 | Nama address-list MikroTik | `isolir` | Nama address-list yang dikirim RADIUS untuk pelanggan yang diisolir. |
+| Alamat hotspot | Kosong | Alamat yang dipakai pelanggan untuk halaman login hotspot, misalnya `http://fourkeys.net` atau `http://192.168.20.1`. Kosong berarti tanpa tombol keluar. |
 | Mode tampilan | Bawaan | `HTML sendiri` memakai HTML dari kolom di bawahnya. |
+
+**Keluar / pakai akun lain.** Bila Alamat hotspot diisi, halaman isolir menampilkan tombol **Keluar / pakai akun lain** yang mengarah ke `<Alamat hotspot>/logout`. Logout hotspot menghapus cookie login di perangkat pelanggan, sehingga pelanggan bisa login dengan akun lain. Router tidak boleh mengalihkan alamat itu, lihat aturan `dst-address-type=!local` di [Setup MikroTik](mikrotik.md#isolir).
 
 ## Perilaku
 
@@ -48,6 +51,7 @@ Mode **HTML sendiri** menampilkan HTML yang Anda tulis, dengan variabel yang dig
 | `[[username]]`, `[[name]]` | Username dan nama pelanggan |
 | `[[plan_name]]`, `[[expired_at]]`, `[[amount]]` | Paket terakhir, waktu habis, dan harga |
 | `[[qris_image]]` | Gambar QRIS (data URI), untuk `src` gambar |
+| `[[logout_url]]` | Alamat logout hotspot (`<Alamat hotspot>/logout`), kosong bila Alamat hotspot belum diisi |
 | `[[wa_admin_link]]` | Link chat admin |
 | `[[voucher_form]]` | Form voucher siap pakai |
 | `[[promos]]` | Blok promo |

@@ -5,13 +5,13 @@ import (
 	"testing"
 )
 
-const staticQRIS = "00020101021126520016ID.CO.CONTOH.WWW01129360000000010212ID10000000015204549953033605802ID5911CONTOH QRIS6006CONTOH9989XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX63048FAE"
+const staticQRIS = "00020101021126520016ID.CO.CONTOH.WWW01129360000000010212ID10000000015204549953033605802ID5911CONTOH QRIS6006CONTOH9954XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX63048687"
 
 func TestQRIS(t *testing.T) {
 	if err := QRISValid(staticQRIS); err != nil {
 		t.Fatal(err)
 	}
-	if err := QRISValid(strings.Replace(staticQRIS, "BA80", "BA81", 1)); err == nil {
+	if err := QRISValid(strings.Replace(staticQRIS, "8687", "8688", 1)); err == nil {
 		t.Fatal("bad CRC accepted")
 	}
 	got, err := QRISAmount(staticQRIS, 165000)
@@ -33,5 +33,24 @@ func TestQRISToken(t *testing.T) {
 	a, b := QRISToken([]byte("k"), 7), QRISToken([]byte("k"), 8)
 	if len(a) != 16 || a == b || a != QRISToken([]byte("k"), 7) {
 		t.Fatal(a, b)
+	}
+}
+
+// DummyQRIS has the requested length, a valid CRC and only the fake merchant data.
+func TestDummyQRIS(t *testing.T) {
+	if DummyQRIS(len(staticQRIS)) != staticQRIS {
+		t.Fatal("staticQRIS is not DummyQRIS output")
+	}
+	for n := 130; n <= 400; n++ {
+		s := DummyQRIS(n)
+		if len(s) != n {
+			t.Fatalf("length %d: got %d", n, len(s))
+		}
+		if err := QRISValid(s); err != nil {
+			t.Fatalf("length %d: %v", n, err)
+		}
+	}
+	if m, _ := QRISInfo(staticQRIS); m != "CONTOH QRIS" || !strings.Contains(staticQRIS, "CONTOH") {
+		t.Fatal("not the fake merchant:", m)
 	}
 }

@@ -131,3 +131,41 @@ func QRISToken(key []byte, id int64) string {
 	h.Write([]byte("qris:" + strconv.FormatInt(id, 10)))
 	return hex.EncodeToString(h.Sum(nil))[:16]
 }
+
+// DummyQRIS is a sample static QRIS of exactly length characters (when length is above the fixed
+// part, about 125), with a valid CRC. It has the EMV structure of a real code but fake merchant
+// data, so previews and tests never show a merchant's own code. Spare length goes into tag 99.
+func DummyQRIS(length int) string {
+	name := "CONTOH QRIS"
+	merchant := tlvOf("00", "ID.CO.CONTOH.WWW", "01", "936000000001", "02", "ID1000000001")
+	fixed := func(name string) string {
+		return tlvOf("00", "01", "01", "11", "26", merchant, "52", "5499", "53", "360", "58", "ID",
+			"59", name, "60", "CONTOH") + "6304"
+	}
+	pad := length - (len(fixed(name)) + 4)
+	if pad > 0 && pad < 4 { // a tag needs 4 characters, so the name takes the rest
+		name += strings.Repeat(" ", pad)
+		pad = 0
+	}
+	var b strings.Builder
+	for pad > 0 {
+		c := min(pad, 103) // tag 99 holds at most 99 characters
+		if r := pad - c; r > 0 && r < 4 {
+			c = pad - 4
+		}
+		fmt.Fprintf(&b, "99%02d%s", c-4, strings.Repeat("X", c-4))
+		pad -= c
+	}
+	s := fixed(name)
+	s = s[:len(s)-4] + b.String() + "6304"
+	return s + fmt.Sprintf("%04X", crc16(s))
+}
+
+// tlvOf encodes alternating tag and value pairs as EMV TLV.
+func tlvOf(kv ...string) string {
+	var b strings.Builder
+	for i := 0; i < len(kv); i += 2 {
+		fmt.Fprintf(&b, "%s%02d%s", kv[i], len(kv[i+1]), kv[i+1])
+	}
+	return b.String()
+}

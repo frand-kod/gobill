@@ -47,6 +47,8 @@ type isolirView struct {
 	Amount      string
 	QRIS        template.URL // data URI of the amount-locked QRIS, "" when not shown
 	WAAdmin     string
+	LogoutURL   string // hotspot logout link, "" when isolir_hotspot_url is not set
+	QRISSample  bool   // the QRIS is the dummy sample of the preview, not payable
 	Title       string
 	Message     string
 	Logo        string
@@ -235,6 +237,7 @@ func (s *Server) writeIsolir(w http.ResponseWriter, r *http.Request, st map[stri
 	}
 	v.Promos = s.promoBlocks(r.Context(), "isolir")
 	v.WAAdmin = isolirWALink(v, isolir.Value(st, "isolir_wa"))
+	v.LogoutURL = isolirLogoutURL(st)
 
 	custom := isolir.Value(st, "isolir_mode") == "custom" && strings.TrimSpace(st["isolir_html"]) != ""
 	s.emitIsolir(w, st, v, status, custom, st["isolir_html"])
@@ -252,6 +255,16 @@ func (s *Server) emitIsolir(w http.ResponseWriter, st map[string]string, v isoli
 	if err := s.isolirDefault().Execute(w, v); err != nil {
 		s.fail(w, "isolir page", err)
 	}
+}
+
+// isolirLogoutURL is the hotspot logout address: isolir_hotspot_url without a trailing slash, plus
+// /logout. "" when the setting is empty, which hides the button.
+func isolirLogoutURL(st map[string]string) string {
+	base := strings.TrimRight(strings.TrimSpace(st["isolir_hotspot_url"]), "/")
+	if base == "" {
+		return ""
+	}
+	return base + "/logout"
 }
 
 // isolirWALink is the wa.me link with the customer, plan and amount filled in; "" without a number.
@@ -281,7 +294,7 @@ func renderIsolirCustom(src string, v isolirView) string {
 		"company_name": v.Company, "logo_url": v.Logo, "username": v.Username, "name": v.Name,
 		"plan_name": v.PlanName, "expired_at": v.ExpiredAt, "amount": v.Amount, "qris_image": string(v.QRIS),
 		"wa_admin_link": v.WAAdmin, "voucher_form": string(v.VoucherForm), "promos": string(v.Promos),
-		"known": known, "title": v.Title, "message": v.Message, "notice": v.Notice,
+		"known": known, "title": v.Title, "message": v.Message, "notice": v.Notice, "logout_url": v.LogoutURL,
 	}
 	return isolirTokenRe.ReplaceAllStringFunc(src, func(m string) string {
 		name := m[2 : len(m)-2]
@@ -314,8 +327,9 @@ img.qris{display:block;width:220px;max-width:100%;height:auto;margin:8px auto}
 <div class="card"><h1>{{.Title}}</h1>
 {{if .Known}}<p>{{T "Hello"}} <b>{{.Name}}</b></p><p class="muted">{{T "Last plan"}}: {{.PlanName}}<br>{{T "Ends"}}: {{.ExpiredAt}}</p>{{end}}
 <p>{{.Message}}</p></div>
-{{if .QRIS}}<div class="card"><p>{{T "Pay"}} <b>{{.Amount}}</b> {{T "with QRIS"}}:</p><img class="qris" src="{{.QRIS}}" width="220" height="220" alt="QRIS {{.Amount}}"><a class="btn btn-ghost" href="{{.QRIS}}" download="qris-isolir.png">{{T "Save image"}}</a></div>{{end}}
+{{if .QRIS}}<div class="card"><p>{{T "Pay"}} <b>{{.Amount}}</b> {{T "with QRIS"}}:</p><img class="qris" src="{{.QRIS}}" width="220" height="220" alt="QRIS {{.Amount}}">{{if .QRISSample}}<p class="muted">{{T "Sample QR, not payable"}}</p>{{end}}<a class="btn btn-ghost" href="{{.QRIS}}" download="qris-isolir.png">{{T "Save image"}}</a></div>{{end}}
 {{if .WAAdmin}}<a class="btn" href="{{.WAAdmin}}" rel="noopener">{{T "Already paid? Chat with admin"}}</a>{{end}}
+{{if .LogoutURL}}<a class="btn btn-ghost" href="{{.LogoutURL}}" rel="noopener">{{T "Log out / use another account"}}</a>{{end}}
 {{if .ShowVoucher}}<div class="card"><h2>{{T "Have a voucher?"}}</h2>{{.VoucherForm}}</div>{{end}}
 {{.Promos}}
 </main></body></html>`
@@ -341,12 +355,19 @@ func (s *Server) isolirPreview(w http.ResponseWriter, r *http.Request) {
 	if st["logo"] != "" {
 		v.Logo = "/uploads/" + st["logo"]
 	}
-	if isolir.Value(st, "isolir_show_qris") == "yes" && st["qris_payload"] != "" {
-		v.QRIS = qrisDataURI(st["qris_payload"], 150000)
+	if isolir.Value(st, "isolir_show_qris") == "yes" {
+		// never the merchant's QRIS: a dummy of the same length, so the code looks the same
+		n := len(st["qris_payload"])
+		if n == 0 {
+			n = 180
+		}
+		v.QRIS = qrisDataURI(payment.DummyQRIS(n), 150000)
+		v.QRISSample = true
 	}
 	v.VoucherForm = s.isolirVoucherForm()
 	v.Promos = s.promoBlocks(r.Context(), "isolir")
 	v.WAAdmin = isolirWALink(v, isolir.Value(st, "isolir_wa"))
+	v.LogoutURL = isolirLogoutURL(st)
 	v.Notice = "Sample view. Customer data is not real."
 	s.emitIsolir(w, st, v, http.StatusOK, strings.TrimSpace(st["isolir_html"]) != "", st["isolir_html"])
 }
@@ -391,6 +412,7 @@ var isolirVarList = []notify.Var{
 	{Name: "expired_at", Desc: "Expiry date and time"},
 	{Name: "amount", Desc: "Price of the package"},
 	{Name: "qris_image", Desc: "QRIS image as a data URI, for an image src"},
+	{Name: "logout_url", Desc: "Hotspot logout address, empty when the Hotspot address is not set"},
 	{Name: "wa_admin_link", Desc: "WhatsApp link to the admin"},
 	{Name: "voucher_form", Desc: "Voucher form, rendered by gobill"},
 	{Name: "promos", Desc: "Promotions, rendered by gobill"},
@@ -407,8 +429,8 @@ func (s *Server) isolirSetupFields(st map[string]string) []field {
 	sec := t("Setup router (MikroTik, RouterOS 6 and 7)")
 	return []field{
 		{Name: "isolir_cmd_nat", Label: t("1. Redirect HTTP of isolated clients to gobill"), Type: "pre", Section: sec,
-			Value: fmt.Sprintf("/ip firewall nat add chain=dstnat src-address-list=%s protocol=tcp dst-port=80 action=dst-nat to-addresses=%s to-ports=%s", list, host, port),
-			Hint:  t("to-addresses is the LAN address of gobill and to-ports is its GOBILL_HTTP port. If GOBILL_HTTP is empty or 0.0.0.0, gobill uses its first LAN IPv4 address. Set GOBILL_HTTP to a LAN IP, for example 192.168.99.2:8090, to choose another one.")},
+			Value: fmt.Sprintf("/ip firewall nat add chain=dstnat src-address-list=%s dst-address-type=!local protocol=tcp dst-port=80 action=dst-nat to-addresses=%s to-ports=%s", list, host, port),
+			Hint:  t("dst-address-type=!local keeps the hotspot login and logout pages on the router reachable, because traffic to the router itself is not redirected. to-addresses is the LAN address of gobill and to-ports is its GOBILL_HTTP port. If GOBILL_HTTP is empty or 0.0.0.0, gobill uses its first LAN IPv4 address. Set GOBILL_HTTP to a LAN IP, for example 192.168.99.2:8090, to choose another one.")},
 		{Name: "isolir_cmd_filter", Label: t("2. Allow isolated clients to reach gobill"), Type: "pre", Section: sec,
 			Value: fmt.Sprintf("/ip firewall filter add chain=forward src-address-list=%s dst-address=%s action=accept", list, host),
 			Hint:  t("Place this rule above the drop rule for isolated clients (use place-before if needed).")},

@@ -8,6 +8,11 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Perbaikan
+
+- **Pelanggan isolir bisa logout dari hotspot**: aturan NAT isolir kini memakai `dst-address-type=!local`, sehingga halaman login dan logout hotspot di router tetap bisa dibuka. Sebelumnya semua port 80 dialihkan ke halaman isolir, termasuk `http://192.168.20.1/logout`. Pengaturan baru **Alamat hotspot** menambah tombol **Keluar / pakai akun lain** di halaman isolir, dan variabel `[[logout_url]]` untuk HTML sendiri.
+- **QRIS asli tidak lagi tampil di pratinjau halaman isolir**: pratinjau memakai QRIS contoh dengan panjang yang sama dan bertanda "Contoh QR, tidak bisa dibayar". Data merchant asli juga dihapus dari semua tes.
+
 ## [0.1.9] - 2026-10-12
 
 ### Fitur

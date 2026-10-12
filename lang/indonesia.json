@@ -2150,7 +2150,7 @@
     "Admin only": "Khusus admin",
     "Setup router (MikroTik, RouterOS 6 and 7)": "Setup router (MikroTik, RouterOS 6 dan 7)",
     "1. Redirect HTTP of isolated clients to gobill": "1. Alihkan HTTP klien isolir ke gobill",
-    "to-addresses is the LAN address of gobill and to-ports is its GOBILL_HTTP port. If GOBILL_HTTP is empty or 0.0.0.0, gobill uses its first LAN IPv4 address. Set GOBILL_HTTP to a LAN IP, for example 192.168.99.2:8090, to choose another one.": "to-addresses adalah alamat LAN gobill dan to-ports adalah port GOBILL_HTTP. Jika GOBILL_HTTP kosong atau 0.0.0.0, gobill memakai IPv4 LAN pertamanya. Isi GOBILL_HTTP dengan IP LAN, mis. 192.168.99.2:8090, untuk memilih yang lain.",
+    "dst-address-type=!local keeps the hotspot login and logout pages on the router reachable, because traffic to the router itself is not redirected. to-addresses is the LAN address of gobill and to-ports is its GOBILL_HTTP port. If GOBILL_HTTP is empty or 0.0.0.0, gobill uses its first LAN IPv4 address. Set GOBILL_HTTP to a LAN IP, for example 192.168.99.2:8090, to choose another one.": "dst-address-type=!local menjaga halaman login dan logout hotspot di router tetap bisa dibuka, karena trafik ke router itu sendiri tidak dialihkan. to-addresses adalah alamat LAN gobill dan to-ports adalah port GOBILL_HTTP. Jika GOBILL_HTTP kosong atau 0.0.0.0, gobill memakai IPv4 LAN pertamanya. Isi GOBILL_HTTP dengan IP LAN, mis. 192.168.99.2:8090, untuk memilih yang lain.",
     "2. Allow isolated clients to reach gobill": "2. Izinkan klien isolir mencapai gobill",
     "Place this rule above the drop rule for isolated clients (use place-before if needed).": "Letakkan aturan ini di atas aturan drop untuk klien isolir (gunakan place-before jika perlu).",
     "4. Walled garden hotspot for gobill": "4. Walled garden hotspot untuk gobill",
@@ -2467,5 +2467,10 @@
     "This period": "Periode ini",
     "Daily usage, last 7 days": "Pemakaian harian, 7 hari terakhir",
     "Validity used": "Masa aktif terpakai",
-    "Data this period": "Data periode ini"
+    "Data this period": "Data periode ini",
+    "Hotspot address": "Alamat hotspot",
+    "The address customers use for the hotspot login page, e.g. http://fourkeys.net or http://192.168.20.1. Empty = no logout button on the isolir page": "Alamat yang dipakai pelanggan untuk halaman login hotspot, mis. http://fourkeys.net atau http://192.168.20.1. Kosong = tidak ada tombol keluar di halaman isolir",
+    "Log out / use another account": "Keluar / pakai akun lain",
+    "Sample QR, not payable": "Contoh QR, tidak bisa dibayar",
+    "Hotspot logout address, empty when the Hotspot address is not set": "Alamat logout hotspot, kosong jika Alamat hotspot belum diisi"
 }

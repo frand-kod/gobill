@@ -33,6 +33,7 @@ var Defaults = map[string]string{
 	"isolir_show_qris":    "yes",
 	"isolir_show_voucher": "yes",
 	"isolir_address_list": DefaultAddrList,
+	"isolir_hotspot_url":  "",
 	"isolir_mode":         "default",
 	"isolir_html":         "",
 }

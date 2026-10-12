@@ -17,7 +17,7 @@ import (
 	"github.com/frand-kod/gobill/internal/secret"
 )
 
-const isoQRIS = "00020101021126520016ID.CO.CONTOH.WWW01129360000000010212ID10000000015204549953033605802ID5911CONTOH QRIS6006CONTOH9989XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX63048FAE"
+const isoQRIS = "00020101021126520016ID.CO.CONTOH.WWW01129360000000010212ID10000000015204549953033605802ID5911CONTOH QRIS6006CONTOH9954XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX63048687"
 
 // isoReq sends a request from client ip (RemoteAddr) with optional headers as key/value pairs.
 func isoReq(h http.Handler, method, path, ip string, form url.Values, hdr ...string) *httptest.ResponseRecorder {
@@ -362,7 +362,7 @@ func TestIsolirSetupCommandsUseListenAddress(t *testing.T) {
 		cmds[f.Name] = f.Value
 	}
 	for name, want := range map[string]string{
-		"isolir_cmd_nat":    "to-addresses=192.168.99.2 to-ports=8090",
+		"isolir_cmd_nat":    "dst-address-type=!local protocol=tcp dst-port=80 action=dst-nat to-addresses=192.168.99.2 to-ports=8090",
 		"isolir_cmd_filter": "dst-address=192.168.99.2 action=accept",
 		"isolir_cmd_drop":   "src-address-list=isolir action=drop",
 		"isolir_cmd_walled": "dst-address=192.168.99.2 dst-port=8090",
@@ -376,5 +376,68 @@ func TestIsolirSetupCommandsUseListenAddress(t *testing.T) {
 	s.ListenAddr = ":8090"
 	if host, port := s.gobillAddr(); host != lanIPv4() || port != "8090" {
 		t.Errorf("wildcard listen gave %s:%s", host, port)
+	}
+}
+
+// The logout button shows only when a hotspot address is set, and points at its /logout.
+func TestIsolirLogoutButton(t *testing.T) {
+	s, h, q := isoSetup(t)
+	isoSettings(t, q, map[string]string{"qris_payload": isoQRIS})
+	isoCustomer(t, s, q, "203.0.113.7", true)
+	if body := isoReq(h, "GET", "/isolir", "203.0.113.7", nil).Body.String(); strings.Contains(body, "/logout") {
+		t.Fatal("logout button shown without a hotspot address")
+	}
+	isoSettings(t, q, map[string]string{"isolir_hotspot_url": "http://192.168.20.1/"})
+	body := isoReq(h, "GET", "/isolir", "203.0.113.7", nil).Body.String()
+	if !strings.Contains(body, `href="http://192.168.20.1/logout"`) || !strings.Contains(body, "Keluar / pakai akun lain") {
+		t.Fatal("logout button missing or wrong link")
+	}
+}
+
+// [[logout_url]] is the logout address in custom HTML, empty when unset, and it is escaped.
+func TestIsolirLogoutURLVariable(t *testing.T) {
+	if got := renderIsolirCustom("[[logout_url]]", isolirView{}); got != "" {
+		t.Fatalf("unset: %q", got)
+	}
+	v := isolirView{LogoutURL: isoLogout("http://fourkeys.net")}
+	if got := renderIsolirCustom(`<a href="[[logout_url]]">x</a>`, v); got != `<a href="http://fourkeys.net/logout">x</a>` {
+		t.Fatalf("set: %q", got)
+	}
+	if got := isoLogout(`http://x"y`); strings.Contains(renderIsolirCustom("[[logout_url]]", isolirView{LogoutURL: got}), `"`) {
+		t.Fatal("quote not escaped")
+	}
+}
+
+// isoLogout is the logout address for a hotspot address, as the page builds it.
+func isoLogout(base string) string {
+	return isolirLogoutURL(map[string]string{"isolir_hotspot_url": base + "/"})
+}
+
+// The settings page takes only http or https hotspot addresses.
+func TestIsolirHotspotURLValidated(t *testing.T) {
+	_, h, _ := settingsSetup(t)
+	c := login(t, h, "alice")
+	for _, bad := range []string{"javascript:alert(1)", "fourkeys.net", "ftp://192.168.20.1"} {
+		if w := do(h, "POST", "/admin/settings/isolir", url.Values{"isolir_hotspot_url": {bad}, "isolir_mode": {"default"}}, c); w.Code != http.StatusUnprocessableEntity {
+			t.Errorf("%q accepted: %d", bad, w.Code)
+		}
+	}
+}
+
+// The preview shows a dummy QR (never the stored merchant code) with a not-payable note, and the
+// logout button when the hotspot address is set.
+func TestIsolirPreviewSampleQR(t *testing.T) {
+	_, h, q := settingsSetup(t)
+	c := login(t, h, "alice")
+	isoSettings(t, q, map[string]string{"isolir_show_qris": "yes", "qris_payload": isoQRIS, "isolir_hotspot_url": "http://192.168.20.1"})
+	body := do(h, "GET", "/admin/settings/isolir/preview", nil, c).Body.String()
+	for _, want := range []string{"data:image/png;base64,", "Sample QR, not payable", `href="http://192.168.20.1/logout"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("preview misses %q", want)
+		}
+	}
+	isoSettings(t, q, map[string]string{"qris_payload": ""})
+	if body := do(h, "GET", "/admin/settings/isolir/preview", nil, c).Body.String(); !strings.Contains(body, "data:image/png;base64,") {
+		t.Error("preview without a stored QRIS shows no sample")
 	}
 }
