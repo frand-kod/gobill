@@ -1,108 +1,115 @@
-{{define "pmeter"}}{{if .Bar}}<div class="h-3 w-full overflow-hidden rounded-full border border-line bg-surface-2" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Pct}}" aria-label="{{.Text}}"><div class="h-full {{if .Warn}}bg-warn-fg{{else}}bg-brand-500{{end}}" style="width: {{.Pct}}%"></div></div>{{end}}{{end}}
 {{define "dash_cards"}}
-<script>
-// Countdown ticker for the active plan. Same wording as Go's pWords.countdown (portal_dashboard.go).
-window.gbCountdown = function (end, now, w) {
-  var t0 = Date.now() / 1000;
-  return {
-    tick: 0,
-    init: function () { var self = this; setInterval(function () { self.tick++; }, 1000); },
-    get left() {
-      this.tick;
-      var s = Math.floor(end - (now + Date.now() / 1000 - t0));
-      if (s <= 0) return w.done;
-      var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), t;
-      if (d > 0) t = d + " " + w.days + (h > 0 ? " " + h + " " + w.hours : "");
-      else if (h > 0) t = h + " " + w.hours + (m > 0 ? " " + m + " " + w.minutes : "");
-      else t = (m === 0 ? 1 : m) + " " + w.minutes;
-      return t + " " + w.left;
-    }
-  };
-};
-</script>
+{{/* not deferred: portalLive and gbCountdown must exist before Alpine (deferred) starts; see usage.js */}}
+<script src="{{asset "/static/usage.js"}}"></script>
 
+{{/* a) plan: name, time left, validity used, one buy or extend button, balance */}}
 <section class="card mb-4" aria-labelledby="c-plan"><div class="card-body">
   <h2 id="c-plan" class="card-title">{{T "Active Plan"}}</h2>
   {{with .Data.Plan}}
-  {{if .Pending}}<div>
-    <p class="text-lg font-semibold">{{.Name}}</p>
-    <p class="mt-1 text-2xl font-semibold text-accent-fg">{{.Left}}</p>
-  </div>{{else}}<div x-data="gbCountdown({{.Expires}}, {{$.Data.Now}}, {{$.Data.Words.JSON}})">
-    <p class="text-lg font-semibold">{{.Name}}</p>
-    <p class="mt-1 text-2xl font-semibold text-accent-fg" x-text="left">{{.Left}}</p>
-  </div>{{end}}
-  <p class="mt-1 text-sm text-ink-2">{{T "Expires On"}}: {{.Ends}}</p>
+  <p class="text-lg font-semibold">{{.Name}}</p>
+  {{if .Pending}}<p class="mt-1 text-3xl font-semibold text-accent-fg">{{.Left}}</p>
+  {{else}}<p class="mt-1 text-3xl font-semibold text-accent-fg" x-data="gbCountdown({{.Expires}}, {{$.Data.Now}}, {{$.Data.Words.JSON}})" x-text="left">{{.Left}}</p>{{end}}
+  <div class="mt-3">
+    {{if not .Pending}}<div class="h-1.5 w-full overflow-hidden rounded-full bg-surface-2" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Pct}}" aria-label="{{T "Validity used"}}"><div class="h-full bg-brand-500" style="width: {{.Pct}}%"></div></div>{{end}}
+    <p class="mt-2 text-sm text-ink-2">{{T "Expires On"}}: {{.Ends}}</p>
+  </div>
   {{else}}
   <p class="text-base">{{with $.Data.PlanEnded}}{{.}}{{else}}{{T "You have no active plan yet."}}{{end}}</p>
-  {{with $.Data.Extend}}<form class="mt-3" method="post" action="/portal/extend/{{.ID}}" data-confirm="{{T "Extend"}} {{.Plan}}?"><button class="btn btn-ghost min-h-12 w-full px-6 text-base" type="submit">{{icon "calendar-plus"}}<span>{{T "Extend"}} {{.Plan}}</span></button></form>{{end}}
   {{end}}
-  <a class="btn btn-primary mt-4 min-h-12 w-full px-6 text-base" href="/portal/plans">{{icon "wallet"}}<span>{{T "Buy / Extend"}}</span></a>
+  <p class="mt-3 text-sm text-ink-2">{{T "Balance"}}: <span class="font-medium text-ink">{{money .Customer.Balance}}</span></p>
+  {{with $.Data.Extend}}<form class="mt-4" method="post" action="/portal/extend/{{.ID}}" data-confirm="{{T "Extend"}} {{.Plan}}?"><button class="btn btn-primary min-h-12 w-full px-6 text-base" type="submit">{{icon "calendar-plus"}}<span>{{T "Extend"}} {{.Plan}}</span></button></form>
+  {{else}}<a class="btn btn-primary mt-4 min-h-12 w-full px-6 text-base" href="/portal/plans">{{icon "wallet"}}<span>{{T "Buy / Extend"}}</span></a>{{end}}
 </div></section>
 
+{{/* b) live connection: the same meter as the admin online sessions page; polled every 15 s while visible */}}
+<section class="card mb-4" aria-labelledby="c-live"><div class="card-body" x-data="portalLive()" data-state="{{.Data.Live.JSON}}" data-url="/portal/usage.json" data-idle="{{T "Refreshes every 15 seconds"}}" data-updated="{{T "Updated %s"}}" data-failed="{{T "Connection lost, retrying"}}">
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <h2 id="c-live" class="card-title">{{T "Connection status"}}</h2>
+    <p class="text-xs text-ink-2" x-text="status">{{T "Refreshes every 15 seconds"}}</p>
+  </div>
+  <div x-show="live.online">
+    <p><span class="badge badge-ok">{{T "Online"}}</span></p>
+    <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+      <dt class="text-ink-2">{{T "IP"}}</dt><dd class="font-mono" x-text="live.ip">{{.Data.Live.IP}}</dd>
+      <dt class="text-ink-2">{{T "Device"}}</dt><dd class="font-mono" x-text="live.device || '-'">{{if .Data.Live.Device}}{{.Data.Live.Device}}{{else}}-{{end}}</dd>
+      <dt class="text-ink-2">{{T "Connected since"}}</dt><dd x-text="live.since">{{.Data.Live.Since}}</dd>
+      <dt class="text-ink-2">{{T "Connected for"}}</dt><dd x-text="live.for">{{.Data.Live.For}}</dd>
+      <dt class="text-ink-2">{{T "Session data"}}</dt><dd x-text="live.used">{{.Data.Live.Used}}</dd>
+    </dl>
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+      <div class="flex items-center gap-2 whitespace-nowrap" role="img" aria-label="{{.Data.Live.Label}}" :aria-label="live.label">
+        <span class="flex items-end gap-0.5" aria-hidden="true"><i class="h-3 w-1.5 rounded-sm" :class="seg(0)"></i><i class="h-3 w-1.5 rounded-sm" :class="seg(1)"></i><i class="h-3 w-1.5 rounded-sm" :class="seg(2)"></i><i class="h-3 w-1.5 rounded-sm" :class="seg(3)"></i><i class="h-3 w-1.5 rounded-sm" :class="seg(4)"></i></span>
+      </div>
+      <p class="text-sm tabular-nums"><span aria-hidden="true">↓</span> <span class="font-medium" x-text="live.down">{{.Data.Live.Down}}</span> <span class="text-ink-2" aria-hidden="true">·</span> <span aria-hidden="true">↑</span> <span class="font-medium" x-text="live.up">{{.Data.Live.Up}}</span></p>
+    </div>
+    <p class="mt-1 text-xs text-ink-2" x-show="live.limit">{{T "Plan speed"}}: <span x-text="live.limit">{{.Data.Live.Limit}}</span></p>
+  </div>
+  <div x-show="!live.online">
+    <p><span class="badge badge-warn">{{T "Offline"}}</span></p>
+    <p class="mt-2 text-sm" x-show="live.seen">{{T "Last seen"}}: <span x-text="live.seen">{{.Data.Live.Seen}}</span></p>
+    <p class="mt-2 text-sm text-ink-2" x-show="!live.seen">{{T "No connection record yet"}}</p>
+  </div>
+</div></section>
+
+{{/* c) usage: this period against the data limit, today, and the last 7 days */}}
 <section class="card mb-4" aria-labelledby="c-usage"><div class="card-body">
-  <h2 id="c-usage" class="card-title">{{T "Usage"}}</h2>
+  <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+    <h2 id="c-usage" class="card-title">{{T "Usage"}}</h2>
+    <a class="text-sm underline" href="/portal/connection">{{T "Connection history"}}</a>
+  </div>
   {{with .Data.Usage}}
-    {{with .Note}}<p class="text-sm text-ink-2">{{.}}</p>{{else}}
+    {{with .Note}}<p class="mb-4 text-sm text-ink-2">{{.}}</p>{{else}}
     <div class="mb-4">
-      <div class="mb-1 flex flex-wrap justify-between gap-2 text-sm"><span class="font-medium">{{T "Data"}}</span><span>{{.Data.Text}}{{if .Data.Warn}} <span class="badge badge-warn">{{T "Almost used up"}}</span>{{end}}</span></div>
+      <div class="mb-1 flex flex-wrap justify-between gap-2 text-sm"><span class="font-medium">{{T "Data this period"}}</span><span>{{.Data.Text}}{{if .Data.Warn}} <span class="badge badge-warn">{{T "Almost used up"}}</span>{{end}}</span></div>
       {{template "pmeter" .Data}}
     </div>
     {{if .HasTime}}
-    <div>
+    <div class="mb-4">
       <div class="mb-1 flex flex-wrap justify-between gap-2 text-sm"><span class="font-medium">{{T "Online time"}}</span><span>{{.Time.Text}}{{if .Time.Warn}} <span class="badge badge-warn">{{T "Almost used up"}}</span>{{end}}</span></div>
       {{template "pmeter" .Time}}
     </div>
     {{end}}
     {{end}}
   {{end}}
+  <dl class="grid grid-cols-2 gap-3 text-sm">
+    <div class="rounded-md border border-line p-3"><dt class="text-ink-2">{{T "Today"}}</dt><dd class="mt-1 tabular-nums">↓ {{.Data.Today.Down}}<br>↑ {{.Data.Today.Up}}</dd></div>
+    <div class="rounded-md border border-line p-3"><dt class="text-ink-2">{{T "This period"}}</dt><dd class="mt-1 tabular-nums">↓ {{.Data.Period.Down}}<br>↑ {{.Data.Period.Up}}</dd></div>
+  </dl>
+  <figure class="mt-4">
+    <svg class="h-32 w-full text-brand-500" viewBox="0 0 280 120" role="img" aria-label="{{T "Daily usage, last 7 days"}}">
+      {{range .Data.Days}}<g>
+        <rect x="{{.X}}" y="{{.DownY}}" width="28" height="{{.DownH}}" rx="2" fill="currentColor"/>
+        <rect x="{{.X}}" y="{{.UpY}}" width="28" height="{{.UpH}}" rx="2" fill="currentColor" opacity="0.4"/>
+        <text x="{{.Mid}}" y="116" text-anchor="middle" font-size="9" fill="currentColor" class="text-ink-2">{{.Label}}</text>
+      </g>{{end}}
+      <line x1="0" y1="100" x2="280" y2="100" stroke="currentColor" stroke-opacity="0.3"/>
+    </svg>
+    <figcaption class="mt-1 flex flex-wrap gap-3 text-xs text-ink-2"><span><span class="mr-1 inline-block size-2 bg-brand-500"></span>{{T "Download"}}</span><span><span class="mr-1 inline-block size-2 bg-brand-500 opacity-40"></span>{{T "Upload"}}</span></figcaption>
+  </figure>
 </div></section>
 
-<section class="card mb-4" aria-labelledby="c-conn"><div class="card-body">
-  <h2 id="c-conn" class="card-title">{{T "Connection status"}}</h2>
-  {{with .Data.Conn}}
-    {{if .Online}}
-      <p><span class="badge badge-ok">{{T "Online"}}</span></p>
-      <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-        <dt class="text-ink-2">{{T "IP"}}</dt><dd class="font-mono">{{.IP}}</dd>
-        <dt class="text-ink-2">{{T "Device"}}</dt><dd class="font-mono">{{if .MAC}}{{.MAC}}{{else}}-{{end}}</dd>
-        <dt class="text-ink-2">{{T "Connected since"}}</dt><dd>{{.Since}}</dd>
-        <dt class="text-ink-2">{{T "Connected for"}}</dt><dd>{{.For}}</dd>
-      </dl>
-    {{else if .Has}}
-      <p><span class="badge badge-warn">{{T "Offline"}}</span></p>
-      <p class="mt-2 text-sm">{{T "Last seen"}}: {{.Seen}}</p>
-    {{else}}
-      <p class="text-sm text-ink-2">{{T "No connection record yet"}}</p>
-    {{end}}
-  {{end}}
-</div></section>
-
-<section class="card mb-4" id="riwayat" aria-labelledby="c-hist"><div class="card-body pb-0">
-  <h2 id="c-hist" class="card-title">{{T "Connection History"}}</h2>
-</div>
-<div class="overflow-x-auto"><table class="table">
-<thead><tr><th>{{T "Start"}}</th><th>{{T "Duration"}}</th><th>{{T "Upload"}}</th><th>{{T "Download"}}</th><th>{{T "Device"}}</th></tr></thead>
-<tbody>{{range .Data.Sessions}}<tr><td>{{.Start}}{{if .Open}} <span class="badge badge-ok">{{T "Online"}}</span>{{end}}</td><td>{{.For}}</td><td>{{.Up}}</td><td>{{.Down}}</td><td class="font-mono">{{if .MAC}}{{.MAC}}{{else}}-{{end}}</td></tr>
-{{else}}<tr><td class="py-8 text-center text-ink-2" colspan="5">{{T "No data"}}</td></tr>{{end}}</tbody></table></div>
-{{if or .Data.SPrev .Data.SNext}}
-<p class="flex justify-end gap-2 p-4">
-  {{if .Data.SPrev}}<a class="btn btn-ghost" href="/portal?spage={{.Data.SPrev}}#riwayat">{{T "Previous"}}</a>{{end}}
-  {{if .Data.SNext}}<a class="btn btn-ghost" href="/portal?spage={{.Data.SNext}}#riwayat">{{T "Next"}}</a>{{end}}
-</p>
-{{end}}
-</section>
-
-<section class="card mb-4" aria-labelledby="c-sec"><div class="card-body flex flex-wrap items-center justify-between gap-3">
-  <div>
-    <h2 id="c-sec" class="card-title">{{T "Account Security"}}</h2>
-    <p class="text-sm">{{T "Last Login"}}: {{with .Data.LastLogin}}{{.}}{{else}}-{{end}}</p>
-  </div>
-  <a class="btn btn-ghost" href="/portal/profile#password">{{T "Change Password"}}</a>
-</div></section>
-
+{{/* d) recent transactions */}}
 <section class="card mb-4" aria-labelledby="c-trx"><div class="card-body flex items-center justify-between gap-2"><h2 id="c-trx" class="card-title">{{T "Recent Transactions"}}</h2><a class="btn btn-ghost" href="/portal/orders">{{T "See all"}}</a></div>
 <div class="overflow-x-auto"><table class="table">
 <thead><tr><th>{{T "Invoice"}}</th><th>{{T "Package Name"}}</th><th>{{T "Package Price"}}</th><th>{{T "Created On"}}</th></tr></thead>
 <tbody>{{range .Data.Trx}}<tr><td><a class="underline" href="/portal/orders/{{.ID}}/invoice">{{.Invoice}}</a></td><td>{{.PlanName}}</td><td>{{money .Price}}</td><td>{{ts .CreatedAt}}</td></tr>
 {{else}}<tr><td class="py-8 text-center text-ink-2" colspan="4">{{T "No data"}}</td></tr>{{end}}</tbody></table></div></section>
+
+{{/* e) account security and help, side by side on wider screens */}}
+<div class="mb-4 grid gap-4 sm:grid-cols-2">
+  <section class="card" aria-labelledby="c-sec"><div class="card-body flex h-full flex-col gap-3">
+    <h2 id="c-sec" class="card-title">{{T "Account Security"}}</h2>
+    <p class="text-sm">{{T "Last Login"}}: {{with .Data.LastLogin}}{{.}}{{else}}-{{end}}</p>
+    <a class="btn btn-ghost mt-auto self-start" href="/portal/profile#password">{{T "Change Password"}}</a>
+  </div></section>
+  <section class="card" aria-labelledby="c-help"><div class="card-body flex h-full flex-col gap-3">
+    <h2 id="c-help" class="card-title">{{T "Help"}}</h2>
+    {{if or .Data.Phone .Data.WA}}<p class="text-sm"><span class="font-semibold">{{T "Need help? Contact"}} {{with .Data.Company}}{{.}}{{else}}{{T "your operator"}}{{end}}</span>{{with .Data.Phone}}<br><a class="text-accent-fg underline" href="tel:{{.}}">{{.}}</a>{{end}}</p>
+    {{with .Data.WA}}<a class="btn btn-ghost mt-auto self-start" href="{{.}}" target="_blank" rel="noopener">WhatsApp</a>{{end}}
+    {{else}}<p class="text-sm text-ink-2">{{T "No contact number yet"}}</p>{{end}}
+  </div></section>
+</div>
+
+{{/* f) voucher activation */}}
+{{if .Data.Voucher}}<p class="mb-4"><a class="btn btn-ghost w-full" href="/portal/voucher">{{icon "ticket"}}<span>{{T "Voucher Activation"}}</span></a></p>{{end}}
 {{end}}

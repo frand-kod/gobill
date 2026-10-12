@@ -206,8 +206,8 @@ func TestPortalOrdersPaginationAndIsolation(t *testing.T) {
 	}
 
 	dash := do(e.h, "GET", "/portal", nil, cc).Body.String()
-	if !strings.Contains(dash, "MINE-24") || !strings.Contains(dash, "MINE-15") || strings.Contains(dash, "MINE-14") {
-		t.Fatal("dashboard: latest 10 wrong")
+	if !strings.Contains(dash, "MINE-24") || !strings.Contains(dash, "MINE-22") || strings.Contains(dash, "MINE-21") {
+		t.Fatal("dashboard: latest 3 wrong")
 	}
 	if !strings.Contains(dash, `href="/portal/orders"`) || strings.Contains(dash, "THEIRS") {
 		t.Fatal("dashboard: see-all link or isolation wrong")

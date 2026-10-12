@@ -1,11 +1,6 @@
 {{define "content"}}
 <h1 class="page-title mb-4">{{T "Dashboard"}}{{template "callout" .Intro}}</h1>
 {{template "dash_cards" .}}
-<div class="card mb-4"><div class="card-body flex flex-wrap items-center justify-between gap-4"><div><p class="text-sm text-ink-2">{{T "Balance"}}</p><p class="page-title">{{money .Customer.Balance}}</p></div>
-  <a class="btn btn-primary min-h-12 px-6 text-base" href="/portal/plans">{{icon "wallet"}}<span>{{T "Buy / Extend"}}</span></a></div></div>
-{{if or .Data.Phone .Data.WA}}<div class="card mb-4"><div class="card-body flex flex-wrap items-center justify-between gap-3 text-sm"><p><span class="font-semibold">{{T "Need help? Contact"}} {{with .Data.Company}}{{.}}{{else}}{{T "your operator"}}{{end}}</span>{{with .Data.Phone}}<br><a class="text-accent-fg hover:underline" href="tel:{{.}}">{{.}}</a>{{end}}</p>
-  {{with .Data.WA}}<a class="btn btn-ghost" href="{{.}}" target="_blank" rel="noopener">WhatsApp</a>{{end}}</div></div>{{end}}
-{{if .Data.Voucher}}<p class="mb-4"><a class="btn btn-ghost" href="/portal/voucher">{{T "Voucher Activation"}}</a></p>{{end}}
 {{if .Data.Transfer}}<form class="card mb-4" method="post" action="/portal/transfer" data-confirm="{{T "Send {balance} to {username}?"}}"><h2 class="card-title">{{T "Send Balance"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">
   <div><label class="label" for="tu">{{T "Username"}}</label><input class="input" id="tu" name="username" required autocomplete="off"></div>
   <div><label class="label" for="tb">{{T "Balance"}}{{if .Data.Minimum}} (min {{.Data.Minimum}}){{end}}</label><input class="input" id="tb" name="balance" type="number" min="1" inputmode="numeric" required></div>
@@ -14,3 +9,4 @@
 {{with .Data.Notice}}<div class="card mb-4"><h2 class="card-title">{{T "Announcement"}}</h2><div class="card-body whitespace-pre-line text-sm">{{.}}</div></div>{{end}}
 {{with .Data.Promo}}{{template "promo_portal" .}}{{end}}
 {{end}}
+{{define "pmeter"}}{{if .Bar}}<div class="h-3 w-full overflow-hidden rounded-full border border-line bg-surface-2" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Pct}}" aria-label="{{.Text}}"><div class="h-full {{if .Warn}}bg-warn-fg{{else}}bg-brand-500{{end}}" style="width: {{.Pct}}%"></div></div>{{end}}{{end}}
