@@ -39,11 +39,11 @@ func TestQRISDetailsOf(t *testing.T) {
 	if d := QRISDetailsOf("not a payload"); d != (QRISDetails{}) {
 		t.Fatalf("invalid input: %+v", d)
 	}
-	// a GO-JEK domain in tag 26 is mapped to its name
-	merchant := tlvOf("00", "COM.GO-JEK.WWW", "02", "ID1234567890")
+	// a known provider domain in tag 26 is mapped to its name
+	merchant := tlvOf("00", "ID.DANA.WWW", "02", "ID1234567890")
 	s := tlvOf("00", "01", "26", merchant, "59", "TOKO", "60", "KOTA") + "6304"
 	s += fmt.Sprintf("%04X", crc16(s))
-	if d := QRISDetailsOf(s); d.Provider != "GoPay" || d.MerchantName != "TOKO" || d.City != "KOTA" {
+	if d := QRISDetailsOf(s); d.Provider != "DANA" || d.MerchantName != "TOKO" || d.City != "KOTA" {
 		t.Fatalf("gopay: %+v", d)
 	}
 	if d := QRISDetailsOf(tlvOf("00", "01", "26", tlvOf("00", "ID.FOO.BAR"))); d.Provider != "ID.FOO.BAR" {
