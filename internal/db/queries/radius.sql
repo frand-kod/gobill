@@ -124,3 +124,13 @@ SELECT COUNT(*) FROM radius_sessions WHERE started_at >= ?;
 
 -- name: CountRadiusDisconnectsSince :one
 SELECT COUNT(*) FROM radius_sessions WHERE stopped_at >= ?;
+
+-- name: ListRadiusUsageSince :many
+-- Octets of the customer's two login names by the time each session was last updated, for the daily usage chart.
+SELECT updated_at, input_octets, output_octets FROM radius_sessions
+WHERE (username = sqlc.arg(name1) OR username = sqlc.arg(name2)) AND updated_at >= sqlc.arg(since);
+
+-- name: SumRadiusOctetsByUsers :one
+-- Upload (input) and download (output) octets of the customer's login names since started_at.
+SELECT CAST(COALESCE(SUM(input_octets), 0) AS INTEGER) AS input, CAST(COALESCE(SUM(output_octets), 0) AS INTEGER) AS output FROM radius_sessions
+WHERE (username = sqlc.arg(name1) OR username = sqlc.arg(name2)) AND started_at >= sqlc.arg(started_at);

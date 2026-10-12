@@ -1,5 +1,5 @@
 {{define "content"}}
-<h1 class="page-title mb-4">{{T "Order History"}}</h1>
+<div class="mb-4 flex flex-wrap items-center justify-between gap-2"><h1 class="page-title">{{T "Order History"}}</h1><a class="btn btn-ghost" href="/portal/activation">{{T "Activation History"}}</a></div>
 <div class="card"><div class="overflow-x-auto"><table class="table">
 <thead><tr><th>{{T "Invoice"}}</th><th>{{T "Package Name"}}</th><th>{{T "Payment Method"}}</th><th>{{T "Package Price"}}</th><th>{{T "Created On"}}</th><th>{{T "Expires On"}}</th></tr></thead>
 <tbody>{{range .Data.Rows}}<tr><td><a class="underline" href="/portal/orders/{{.ID}}/invoice">{{.Invoice}}</a></td><td>{{.PlanName}}</td><td>{{.Method}}</td><td>{{money .Price}}</td><td>{{ts .CreatedAt}}</td><td>{{ts .PeriodEnd}}</td></tr>

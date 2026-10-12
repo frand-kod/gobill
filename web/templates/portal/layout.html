@@ -3,21 +3,37 @@
   <span>{{T "You are logged in as admin"}}: {{.Customer.Username}}</span>
   <form method="post" action="/portal/impersonate/end"><button class="btn btn-ghost btn-sm" type="submit">{{T "Back to admin"}}</button></form>
 </div>{{end}}
+{{$p := .Path}}
+{{$dash := or (eq $p "/portal") (eq $p "/portal/connection")}}
+{{$plans := hasPrefix $p "/portal/plans"}}
+{{$orders := or (hasPrefix $p "/portal/orders") (eq $p "/portal/activation")}}
+{{$inbox := hasPrefix $p "/portal/inbox"}}
+{{$profile := hasPrefix $p "/portal/profile"}}
 <header class="border-b border-line bg-surface">
   <div class="fiber-stripe" aria-hidden="true"></div>
-  <nav class="mx-auto flex max-w-4xl flex-wrap items-center gap-1 px-4 py-2" aria-label="Main">
-    <a href="/portal" class="me-4 flex items-center gap-2 font-semibold text-accent-fg">{{template "logoA" .Brand}}</a>
-    <a class="btn" href="/portal">{{T "Dashboard"}}</a>
-    <a class="btn" href="/portal/plans">{{T "Order Package"}}</a>
-    <a class="btn" href="/portal/orders">{{T "Order History"}}</a>
-    <a class="btn" href="/portal/activation">{{T "Activation History"}}</a>
-    <a class="btn" href="/portal/inbox">{{T "Inbox"}}{{if .Unread}} <span class="badge badge-bad">{{.Unread}}</span>{{end}}</a>
-    <a class="btn" href="/portal/profile">{{T "Profile"}}</a>
-    <form class="ms-auto" method="post" action="/portal/logout"><button class="btn" type="submit">{{T "Logout"}}</button></form>
+  <div class="mx-auto flex max-w-4xl items-center gap-3 px-4 py-2">
+    <a href="/portal" class="flex min-w-0 items-center gap-2 font-semibold text-accent-fg">{{template "logoA" .Brand}}</a>
+    <form class="ms-auto" method="post" action="/portal/logout"><button class="btn" type="submit">{{icon "log-out"}}<span>{{T "Logout"}}</span></button></form>
+  </div>
+  {{/* desktop: one row of tabs; phones use the bottom bar below */}}
+  <nav class="mx-auto hidden max-w-4xl items-center gap-1 px-4 sm:flex" aria-label="{{T "Main"}}">
+    <a class="border-b-2 px-3 py-2 text-sm {{if $dash}}border-brand-500 font-semibold text-accent-fg{{else}}border-transparent text-ink-2 hover:text-ink{{end}}" href="/portal"{{if $dash}} aria-current="page"{{end}}>{{T "Dashboard"}}</a>
+    <a class="border-b-2 px-3 py-2 text-sm {{if $plans}}border-brand-500 font-semibold text-accent-fg{{else}}border-transparent text-ink-2 hover:text-ink{{end}}" href="/portal/plans"{{if $plans}} aria-current="page"{{end}}>{{T "Order Package"}}</a>
+    <a class="border-b-2 px-3 py-2 text-sm {{if $orders}}border-brand-500 font-semibold text-accent-fg{{else}}border-transparent text-ink-2 hover:text-ink{{end}}" href="/portal/orders"{{if $orders}} aria-current="page"{{end}}>{{T "Order History"}}</a>
+    <a class="border-b-2 px-3 py-2 text-sm {{if $inbox}}border-brand-500 font-semibold text-accent-fg{{else}}border-transparent text-ink-2 hover:text-ink{{end}}" href="/portal/inbox"{{if $inbox}} aria-current="page"{{end}}>{{T "Inbox"}}{{if .Unread}} <span class="badge badge-bad">{{.Unread}}</span>{{end}}</a>
+    <a class="border-b-2 px-3 py-2 text-sm {{if $profile}}border-brand-500 font-semibold text-accent-fg{{else}}border-transparent text-ink-2 hover:text-ink{{end}}" href="/portal/profile"{{if $profile}} aria-current="page"{{end}}>{{T "Profile"}}</a>
   </nav>
 </header>
-<main class="mx-auto max-w-4xl p-4">
+<main class="mx-auto max-w-4xl p-4 pb-24 sm:pb-6">
   {{template "content" .}}
 </main>
+{{/* phones: a fixed bottom tab bar with the five main pages */}}
+<nav class="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] sm:hidden" aria-label="{{T "Main"}}">
+  <a class="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 border-t-2 px-1 text-xs [&>svg]:size-5 {{if $dash}}border-brand-500 font-semibold text-accent-fg{{else}}border-transparent text-ink-2{{end}}" href="/portal"{{if $dash}} aria-current="page"{{end}}>{{icon "layout-dashboard"}}<span>{{T "Dashboard"}}</span></a>
+  <a class="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 border-t-2 px-1 text-xs [&>svg]:size-5 {{if $plans}}border-brand-500 font-semibold text-accent-fg{{else}}border-transparent text-ink-2{{end}}" href="/portal/plans"{{if $plans}} aria-current="page"{{end}}>{{icon "package"}}<span>{{T "Order Package"}}</span></a>
+  <a class="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 border-t-2 px-1 text-xs [&>svg]:size-5 {{if $orders}}border-brand-500 font-semibold text-accent-fg{{else}}border-transparent text-ink-2{{end}}" href="/portal/orders"{{if $orders}} aria-current="page"{{end}}>{{icon "receipt"}}<span>{{T "Order History"}}</span></a>
+  <a class="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 border-t-2 px-1 text-xs [&>svg]:size-5 {{if $inbox}}border-brand-500 font-semibold text-accent-fg{{else}}border-transparent text-ink-2{{end}}" href="/portal/inbox"{{if $inbox}} aria-current="page"{{end}}>{{icon "message-circle"}}<span>{{T "Inbox"}}{{if .Unread}} <span class="badge badge-bad">{{.Unread}}</span>{{end}}</span></a>
+  <a class="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 border-t-2 px-1 text-xs [&>svg]:size-5 {{if $profile}}border-brand-500 font-semibold text-accent-fg{{else}}border-transparent text-ink-2{{end}}" href="/portal/profile"{{if $profile}} aria-current="page"{{end}}>{{icon "user-round"}}<span>{{T "Profile"}}</span></a>
+</nav>
 <footer class="mx-auto max-w-4xl px-4 pb-6 text-xs text-ink-2">{{or .Brand.company_name "gobill"}} · {{with .Version}}{{if or (eq . "dev") (hasPrefix . "v")}}{{.}}{{else}}v{{.}}{{end}}{{else}}dev{{end}} · GPL-3.0</footer>
 {{end}}

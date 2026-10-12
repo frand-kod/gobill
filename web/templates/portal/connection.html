@@ -1,0 +1,18 @@
+{{define "content"}}
+<h1 class="page-title mb-4">{{T "Connection History"}}</h1>
+{{range .Data.Days}}
+<section class="card mb-4" aria-label="{{.Label}}">
+  <div class="card-body flex flex-wrap items-baseline justify-between gap-2">
+    <h2 class="font-semibold">{{.Label}}</h2>
+    <p class="text-sm text-ink-2 tabular-nums">{{T "Download"}} {{.Down}} · {{T "Upload"}} {{.Up}}</p>
+  </div>
+  <div class="overflow-x-auto"><table class="table">
+    <thead><tr><th>{{T "Start"}}</th><th>{{T "Duration"}}</th><th>{{T "Upload"}}</th><th>{{T "Download"}}</th><th>{{T "Device"}}</th></tr></thead>
+    <tbody>{{range .Rows}}<tr><td>{{.Start}}{{if .Open}} <span class="badge badge-ok">{{T "Online"}}</span>{{end}}</td><td>{{.For}}</td><td>{{.Up}}</td><td>{{.Down}}</td><td class="font-mono">{{if .MAC}}{{.MAC}}{{else}}-{{end}}</td></tr>{{end}}</tbody>
+  </table></div>
+</section>
+{{else}}
+<div class="card"><div class="card-body text-center text-ink-2">{{T "No data"}}</div></div>
+{{end}}
+{{template "pager" .Data.Nav}}
+{{end}}

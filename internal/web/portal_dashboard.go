@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -56,8 +55,6 @@ func (s *Server) pActivations(w http.ResponseWriter, r *http.Request) {
 
 // ---- dashboard, orders ----
 
-const sessPerPage = 10 // connection history rows per dashboard page
-
 // pPlan is the active plan card. Left is the countdown as text; the Alpine ticker keeps it live.
 type pPlan struct {
 	Name    string
@@ -65,6 +62,7 @@ type pPlan struct {
 	Expires int64
 	Pending bool // start_on_first_login: no countdown until the first login
 	Left    string
+	Pct     int // share of the validity used, 0..100
 }
 
 // pExtend is the renew button of an ended plan (POST /portal/extend/{ID}).
@@ -88,16 +86,8 @@ type pUsage struct {
 	Time    pMeter
 }
 
-// pConn is the connection card: online now (open RADIUS session), else last seen.
-type pConn struct {
-	Online bool
-	Has    bool   // some session is on record
-	Seen   string // offline: last time the device was seen
-	IP     string
-	MAC    string // masked
-	Since  string
-	For    string
-}
+// pTotal is an upload and download sum, as text.
+type pTotal struct{ Down, Up string }
 
 // pSess is one row of the connection history.
 type pSess struct {
@@ -106,25 +96,26 @@ type pSess struct {
 }
 
 type pDashData struct {
-	Plan         *pPlan   // nil when there is no active plan
-	PlanEnded    string   // no active plan: the last plan that ended, "" if none
-	Extend       *pExtend // no active plan and extend_expired is on: renew the last ended plan
-	Usage        pUsage
-	Conn         pConn
-	Sessions     []pSess
-	SPrev, SNext int // connection history pages (?spage=), 0 = none
-	Words        pWords
-	Now          int64
-	LastLogin    string
-	Notice       string       // the announcement page, plain text
-	Promo        *portalPromo // the Promosi card at the bottom, nil when no live portal promo
-	Transfer     bool         // allow_balance_transfer
-	Minimum      string
-	Voucher      bool
-	Company      string // operator contact from Settings
-	Phone        string
-	WA           string           // wa.me link of Phone, "" when it is not a usable number
-	Trx          []db.Transaction // latest 10 orders, "See all" opens /portal/orders
+	Plan      *pPlan   // nil when there is no active plan
+	PlanEnded string   // no active plan: the last plan that ended, "" if none
+	Extend    *pExtend // no active plan and extend_expired is on: renew the last ended plan
+	Usage     pUsage
+	Live      pLive    // the live card: online now, else last seen
+	Days      []dayBar // the 7-day usage chart
+	Today     pTotal   // today's usage
+	Period    pTotal   // usage since the plan started
+	Words     pWords
+	Now       int64
+	LastLogin string
+	Notice    string       // the announcement page, plain text
+	Promo     *portalPromo // the Promosi card at the bottom, nil when no live portal promo
+	Transfer  bool         // allow_balance_transfer
+	Minimum   string
+	Voucher   bool
+	Company   string // operator contact from Settings
+	Phone     string
+	WA        string           // wa.me link of Phone, "" when it is not a usable number
+	Trx       []db.Transaction // latest 3 orders, "See all" opens /portal/orders
 }
 
 // pWords are the countdown and duration words, translated. The Alpine ticker gets the same ones.
@@ -143,7 +134,7 @@ func (w pWords) JSON() string {
 	return string(b)
 }
 
-// span: "3 hari 4 jam", "2 jam 15 menit", "45 menit". The ticker's gbSpan in dash_cards.html does the same.
+// span: "3 hari 4 jam", "2 jam 15 menit", "45 menit". The ticker's gbSpan in usage.js does the same.
 func (w pWords) span(sec int64) string {
 	if sec < 0 {
 		sec = 0
@@ -193,13 +184,9 @@ func loginNames(c db.Customer) []string {
 	return names
 }
 
-// pageParam reads a 1-based page number from the query string; bad or missing is page 1.
-func pageParam(r *http.Request, key string) int {
-	n, err := strconv.Atoi(r.URL.Query().Get(key))
-	if err != nil || n < 1 {
-		return 1
-	}
-	return min(n, 100000)
+// names2 are the two login names the queries take: the same name twice when there is only one.
+func names2(names []string) (string, string) {
+	return names[0], names[len(names)-1]
 }
 
 func (s *Server) pDashboard(w http.ResponseWriter, r *http.Request) { s.pDash(w, r, 200, "") }
@@ -219,6 +206,7 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 	}
 	now := time.Now().Unix()
 	names := loginNames(*c)
+	n1, n2 := names2(names)
 	d := pDashData{Words: s.pTexts(), Now: now, Transfer: st["enable_balance"] != "no" && st["allow_balance_transfer"] == "yes", Minimum: st["minimum_transfer"], Voucher: st["disable_voucher"] != "yes",
 		Company: st["company_name"], Phone: st["phone"], WA: waLink(st["phone"], st["country_code_phone"])}
 	if c.LastLoginAt.Valid {
@@ -235,11 +223,18 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 	if sub != nil {
 		p, _ := s.queries.GetPlan(ctx, sub.PlanID)
 		left := sub.ExpiresAt - now
-		d.Plan = &pPlan{Name: p.Name, Ends: s.subExpiry(sub.PendingStart, sub.ExpiresAt), Expires: sub.ExpiresAt, Left: d.Words.countdown(left)}
+		d.Plan = &pPlan{Name: p.Name, Ends: s.subExpiry(sub.PendingStart, sub.ExpiresAt), Expires: sub.ExpiresAt, Left: d.Words.countdown(left),
+			Pct: validityPct(sub.StartedAt, sub.ExpiresAt, now)}
 		if sub.PendingStart == 1 {
-			d.Plan.Pending, d.Plan.Left = true, s.catalog.T(s.language(), "Starts on first login")
+			d.Plan.Pending, d.Plan.Left, d.Plan.Pct = true, s.catalog.T(s.language(), "Starts on first login"), 0
 		}
-		d.Usage = s.pUsage(ctx, names, *sub, p, d.Words)
+		oct, err := s.queries.SumRadiusOctetsByUsers(ctx, db.SumRadiusOctetsByUsersParams{Name1: n1, Name2: n2, StartedAt: sub.StartedAt})
+		if err != nil {
+			s.fail(w, "portal usage", err)
+			return
+		}
+		d.Period = pTotal{Down: humanBytes(oct.Output), Up: humanBytes(oct.Input)}
+		d.Usage = s.pUsage(ctx, names, *sub, p, d.Words, oct.Input+oct.Output)
 	} else {
 		d.Usage.Note = s.catalog.T(s.language(), "No active plan")
 		if len(subs) > 0 { // only finished plans: say which one ended
@@ -257,16 +252,21 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		}
 	}
 
-	if d.Conn, err = s.pConnection(ctx, names, now, d.Words); err != nil {
+	if d.Live, err = s.pLiveOf(ctx, *c, now, d.Words); err != nil {
 		s.fail(w, "portal connection", err)
 		return
 	}
-	if d.Sessions, d.SPrev, d.SNext, err = s.pSessions(ctx, names, pageParam(r, "spage"), now, d.Words); err != nil {
-		s.fail(w, "portal sessions", err)
+	// the chart: the last 7 days; today is the last bar
+	rows, err := s.queries.ListRadiusUsageSince(ctx, db.ListRadiusUsageSinceParams{Name1: n1, Name2: n2, Since: weekSince(now, s.location())})
+	if err != nil {
+		s.fail(w, "portal usage chart", err)
 		return
 	}
+	days := dailyUsage(rows, now, s.location())
+	d.Days = chartBars(days)
+	d.Today = pTotal{Down: humanBytes(days[len(days)-1].Down), Up: humanBytes(days[len(days)-1].Up)}
 
-	d.Trx, err = s.queries.ListTransactionsByCustomer(ctx, db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, Limit: 10})
+	d.Trx, err = s.queries.ListTransactionsByCustomer(ctx, db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, Limit: 3})
 	if err != nil {
 		s.fail(w, "portal dashboard orders", err)
 		return
@@ -284,13 +284,22 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 	s.prender(w, r, code, "p_dashboard", Page{Title: "Dashboard", Error: errMsg, Data: d})
 }
 
+// validityPct is the share of the subscription's validity that has passed, 0..100.
+func validityPct(start, end, now int64) int {
+	if end <= start {
+		return 0
+	}
+	return int(min(max((now-start)*100/(end-start), 0), 100))
+}
+
 // pUsage: data and time used since the subscription started, the same sums the RADIUS login check uses.
-func (s *Server) pUsage(ctx context.Context, names []string, sub db.Subscription, p db.Plan, w pWords) pUsage {
+// used is the data octets of the same period; it is shown when the plan has no data limit.
+func (s *Server) pUsage(ctx context.Context, names []string, sub db.Subscription, p db.Plan, w pWords, used int64) pUsage {
 	if p.Limited == 1 && p.Device != "Radius" {
 		return pUsage{Note: s.catalog.T(s.language(), "Usage is not recorded for this plan")}
 	}
 	q := s.planQuota(ctx, names, sub, p)
-	u := pUsage{Data: pMeter{Text: s.catalog.T(s.language(), "No limit")}}
+	u := pUsage{Data: pMeter{Text: s.catalog.T(s.language(), "No limit") + " · " + humanBytes(used)}}
 	if q.HasData {
 		u.Data = meter(q.Data, q.DataLim, humanBytes)
 	}
@@ -307,67 +316,14 @@ func meter(used, lim int64, text func(int64) string) pMeter {
 	return pMeter{Text: text(used) + " / " + text(lim), Bar: true, Pct: int(pct), Warn: used*100 > lim*80}
 }
 
-// pConnection: online when the customer has an open session that was updated recently, else last seen.
-func (s *Server) pConnection(ctx context.Context, names []string, now int64, w pWords) (pConn, error) {
-	var open []db.RadiusSession
-	var last *db.RadiusSession
-	for _, n := range names {
-		ss, err := s.queries.ListOpenRadiusSessionsByUser(ctx, n)
-		if err != nil {
-			return pConn{}, err
-		}
-		open = append(open, ss...)
-		recent, err := s.queries.ListRecentRadiusSessionsByUser(ctx, n)
-		if err != nil {
-			return pConn{}, err
-		}
-		if len(recent) > 0 && (last == nil || recent[0].StartedAt > last.StartedAt) {
-			last = &recent[0]
-		}
+// pSession maps one RADIUS session to a history row; the duration of an open session runs to now.
+func (s *Server) pSession(x db.RadiusSession, now int64, w pWords) pSess {
+	end := now
+	if x.StoppedAt.Valid {
+		end = x.StoppedAt.Int64
 	}
-	var cur *db.RadiusSession
-	for i := range open {
-		if cur == nil || open[i].UpdatedAt > cur.UpdatedAt {
-			cur = &open[i]
-		}
-	}
-	var c pConn
-	if last != nil {
-		c.Has = true
-		c.Seen = s.ts(max(last.UpdatedAt, last.StoppedAt.Int64))
-	}
-	if cur != nil && now-cur.UpdatedAt <= radius.StaleAfter {
-		c.Has, c.Online = true, true
-		c.IP, c.MAC = cur.FramedIp, maskMAC(cur.Mac)
-		c.Since, c.For = s.ts(cur.StartedAt), w.span(now-cur.StartedAt)
-	}
-	return c, nil
-}
-
-// pSessions is one page of the customer's own connection history, newest first.
-func (s *Server) pSessions(ctx context.Context, names []string, page int, now int64, w pWords) ([]pSess, int, int, error) {
-	ss, err := s.queries.ListRadiusSessionsByUsers(ctx, db.ListRadiusSessionsByUsersParams{Name1: names[0], Name2: names[len(names)-1],
-		PageLimit: sessPerPage + 1, PageOffset: int64(page-1) * sessPerPage})
-	if err != nil {
-		return nil, 0, 0, err
-	}
-	prev, next := 0, 0
-	if len(ss) > sessPerPage {
-		ss, next = ss[:sessPerPage], page+1
-	}
-	if page > 1 {
-		prev = page - 1
-	}
-	out := make([]pSess, 0, len(ss))
-	for _, x := range ss {
-		end := now
-		if x.StoppedAt.Valid {
-			end = x.StoppedAt.Int64
-		}
-		out = append(out, pSess{Start: s.ts(x.StartedAt), For: w.span(end - x.StartedAt), Up: humanBytes(x.InputOctets), Down: humanBytes(x.OutputOctets),
-			MAC: maskMAC(x.Mac), Open: !x.StoppedAt.Valid && now-x.UpdatedAt <= radius.StaleAfter})
-	}
-	return out, prev, next, nil
+	return pSess{Start: s.ts(x.StartedAt), For: w.span(end - x.StartedAt), Up: humanBytes(x.InputOctets), Down: humanBytes(x.OutputOctets),
+		MAC: maskMAC(x.Mac), Open: !x.StoppedAt.Valid && now-x.UpdatedAt <= radius.StaleAfter}
 }
 
 // pOrders lists the customer's own transactions, perPage at a time.

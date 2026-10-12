@@ -803,3 +803,68 @@ func (q *Queries) ListActivePlanRates(ctx context.Context) ([]ListActivePlanRate
 	}
 	return items, nil
 }
+
+const listRadiusUsageSince = `-- name: ListRadiusUsageSince :many
+SELECT updated_at, input_octets, output_octets FROM radius_sessions
+WHERE (username = ?1 OR username = ?2) AND updated_at >= ?3
+`
+
+type ListRadiusUsageSinceParams struct {
+	Name1 string
+	Name2 string
+	Since int64
+}
+
+type ListRadiusUsageSinceRow struct {
+	UpdatedAt    int64
+	InputOctets  int64
+	OutputOctets int64
+}
+
+// Octets of the customer's two login names by the time each session was last updated, for the daily usage chart.
+func (q *Queries) ListRadiusUsageSince(ctx context.Context, arg ListRadiusUsageSinceParams) ([]ListRadiusUsageSinceRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRadiusUsageSince, arg.Name1, arg.Name2, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRadiusUsageSinceRow
+	for rows.Next() {
+		var i ListRadiusUsageSinceRow
+		if err := rows.Scan(&i.UpdatedAt, &i.InputOctets, &i.OutputOctets); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const sumRadiusOctetsByUsers = `-- name: SumRadiusOctetsByUsers :one
+SELECT CAST(COALESCE(SUM(input_octets), 0) AS INTEGER) AS input, CAST(COALESCE(SUM(output_octets), 0) AS INTEGER) AS output FROM radius_sessions
+WHERE (username = ?1 OR username = ?2) AND started_at >= ?3
+`
+
+type SumRadiusOctetsByUsersParams struct {
+	Name1     string
+	Name2     string
+	StartedAt int64
+}
+
+type SumRadiusOctetsByUsersRow struct {
+	Input  int64
+	Output int64
+}
+
+// Upload (input) and download (output) octets of the customer's login names since started_at.
+func (q *Queries) SumRadiusOctetsByUsers(ctx context.Context, arg SumRadiusOctetsByUsersParams) (SumRadiusOctetsByUsersRow, error) {
+	row := q.db.QueryRowContext(ctx, sumRadiusOctetsByUsers, arg.Name1, arg.Name2, arg.StartedAt)
+	var i SumRadiusOctetsByUsersRow
+	err := row.Scan(&i.Input, &i.Output)
+	return i, err
+}

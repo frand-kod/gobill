@@ -109,6 +109,8 @@ func (s *Server) portalRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /portal/profile", s.requireCustomer(s.pProfile))
 	mux.Handle("POST /portal/password", s.requireCustomer(s.pPassword))
 	mux.Handle("GET /portal/orders", s.requireCustomer(s.pOrders))
+	mux.Handle("GET /portal/connection", s.requireCustomer(s.pConnHistory))
+	mux.Handle("GET /portal/usage.json", s.requireCustomer(s.pUsageJSON))
 	mux.Handle("GET /portal/orders/{id}/invoice", s.requireCustomer(s.pInvoice))
 	mux.Handle("GET /portal/plans", s.requireCustomer(s.pPlans))
 	mux.Handle("POST /portal/plans/{id}/balance", s.requireCustomer(s.pBuyBalance))

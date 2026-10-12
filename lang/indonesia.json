@@ -2456,5 +2456,16 @@
     "Allowed addresses for /radius.php": "Alamat yang diizinkan ke /radius.php",
     "Activity logs, closed RADIUS sessions, read messages and unpaid payments older than this are deleted once a day. Default 90. 0 = keep forever. Paid payments are never deleted": "Log aktivitas, sesi RADIUS yang sudah ditutup, pesan yang sudah dibaca, dan pembayaran belum lunas yang lebih lama dari ini dihapus sekali sehari. Bawaan 90. 0 = simpan selamanya. Pembayaran lunas tidak pernah dihapus",
     "Number of automatic daily backups kept, in the main folder and in the mirror. Default 7, at least 1": "Jumlah backup harian otomatis yang disimpan, di folder utama dan di mirror. Bawaan 7, minimal 1",
-    "Comma-separated IPs or CIDR ranges that may call /radius.php, e.g. 192.168.1.10, 10.0.0.0/24. Empty = loopback only. Saved changes apply to the next request, no restart needed": "IP atau rentang CIDR, dipisah koma, yang boleh memanggil /radius.php, misalnya 192.168.1.10, 10.0.0.0/24. Kosong = hanya loopback. Perubahan berlaku pada permintaan berikutnya, tanpa restart"
+    "Comma-separated IPs or CIDR ranges that may call /radius.php, e.g. 192.168.1.10, 10.0.0.0/24. Empty = loopback only. Saved changes apply to the next request, no restart needed": "IP atau rentang CIDR, dipisah koma, yang boleh memanggil /radius.php, misalnya 192.168.1.10, 10.0.0.0/24. Kosong = hanya loopback. Perubahan berlaku pada permintaan berikutnya, tanpa restart",
+    "Plan speed": "Kecepatan paket",
+    "Connection history": "Riwayat koneksi",
+    "Main": "Menu utama",
+    "Session data": "Data sesi ini",
+    "Refreshes every 15 seconds": "Diperbarui setiap 15 detik",
+    "No contact number yet": "Nomor kontak belum diatur",
+    "Help": "Bantuan",
+    "This period": "Periode ini",
+    "Daily usage, last 7 days": "Pemakaian harian, 7 hari terakhir",
+    "Validity used": "Masa aktif terpakai",
+    "Data this period": "Data periode ini"
 }
