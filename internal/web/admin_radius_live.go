@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/radius"
 )
 
 // liveSpark is the sparkline length: one online count every 5 minutes for 24 hours.
@@ -63,6 +64,7 @@ type liveMonitor struct {
 	rates map[int64]*liveRate // open sessions only: refresh drops the rest
 	ring  [liveSpark]int      // online counts, the oldest is overwritten first
 	n, at int                 // samples held, next write position
+	swept int64               // when observe last swept stale rate entries
 }
 
 // refresh records the counters of the open sessions and forgets the sessions that are no longer open.
@@ -79,6 +81,31 @@ func (m *liveMonitor) refresh(open []db.RadiusSession) {
 		keep[x.ID] = r
 	}
 	m.rates = keep
+}
+
+// observe records the counters of one open session, for the customer's live card. The other sessions keep
+// their samples. Entries of sessions silent for radius.StaleAfter are swept at most once a minute; the admin
+// refresh drops the rest.
+func (m *liveMonitor) observe(x db.RadiusSession, now int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.rates == nil {
+		m.rates = map[int64]*liveRate{}
+	}
+	if now-m.swept >= 60 {
+		m.swept = now
+		for id, r := range m.rates {
+			if now-r.last.at > radius.StaleAfter {
+				delete(m.rates, id)
+			}
+		}
+	}
+	r := m.rates[x.ID]
+	if r == nil {
+		r = &liveRate{}
+		m.rates[x.ID] = r
+	}
+	r.add(liveSample{x.UpdatedAt, x.InputOctets, x.OutputOctets})
 }
 
 // rate is the current rate of an open session, see liveRate.bps.
@@ -154,13 +181,17 @@ type planSpeed struct {
 	DownLabel      string // "10 Mbps", as the plan's bandwidth is written
 }
 
+// newPlanSpeed is the speed limits of a plan's bandwidth.
+func newPlanSpeed(name string, down int64, downUnit string, up int64, upUnit string) planSpeed {
+	return planSpeed{Name: name, MaxDown: limitBps(down, downUnit), MaxUp: limitBps(up, upUnit), DownLabel: limitLabel(down, downUnit)}
+}
+
 // planSpeeds maps each login name (username and pppoe_username) to its plan. The rows come newest expiry
 // first, so the first plan of a login is the one that counts.
 func planSpeeds(rows []db.ListActivePlanRatesRow) map[string]planSpeed {
 	m := make(map[string]planSpeed, 2*len(rows))
 	for _, p := range rows {
-		ps := planSpeed{Name: p.PlanName, MaxDown: limitBps(p.RateDown, p.RateDownUnit), MaxUp: limitBps(p.RateUp, p.RateUpUnit),
-			DownLabel: limitLabel(p.RateDown, p.RateDownUnit)}
+		ps := newPlanSpeed(p.PlanName, p.RateDown, p.RateDownUnit, p.RateUp, p.RateUpUnit)
 		for _, login := range []string{p.Username, p.PppoeUsername} {
 			if _, dup := m[login]; login != "" && !dup {
 				m[login] = ps
