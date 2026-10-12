@@ -305,12 +305,11 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			text("isolir_title", "Title", v, e),
 			area("isolir_message", "Message").hint("Empty is fine; the default message is used when it was never filled in"),
 			text("isolir_wa", "Admin WhatsApp number", v, e).hint("Empty = business phone number (General settings)"),
-			sel("isolir_show_qris", "Show QRIS", settingsYesNo...).hint("Needs a static QRIS in Payments; the amount is locked to the last plan price"),
 			sel("isolir_show_voucher", "Show voucher form", settingsYesNo...),
 			text("isolir_address_list", "MikroTik address-list name", v, e).hint("Letters, digits, dots, dashes or underscores. Sent by RADIUS as Mikrotik-Address-List"),
 			text("isolir_hotspot_url", "Hotspot address", v, e).hint("The address customers use for the hotspot login page, e.g. http://fourkeys.net or http://192.168.20.1. Empty = no logout button on the isolir page"),
 			{Name: "isolir_reset_halaman", Label: "Restore default", Type: "formbtn", Value: "/admin/settings/isolir/reset/halaman", Btn: "Restore default",
-				Hint: "Title, message, QRIS, voucher and address-list go back to default"},
+				Hint: "Title, message, voucher and address-list go back to default"},
 		}, "Isolir page", "")...)
 		out = append(out, section([]field{
 			sel("isolir_mode", "Display mode", option{"default", "Default"}, option{"custom", "Custom HTML"}).hint("Custom HTML is used when the HTML is not empty"),

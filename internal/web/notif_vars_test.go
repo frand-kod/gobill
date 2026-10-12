@@ -34,7 +34,7 @@ func TestNotifTemplatesShowVariablesAndReset(t *testing.T) {
 	if !strings.Contains(body, `src="/static/tplvars.js?v=`) {
 		t.Error("the chip script is not loaded")
 	}
-	if !strings.Contains(getBody(t, h, c, "/admin/settings/isolir"), `data-var-insert="[[qris_image]]"`) {
+	if !strings.Contains(getBody(t, h, c, "/admin/settings/isolir"), `data-var-insert="[[logout_url]]"`) {
 		t.Error("the Isolir custom HTML has no variable chips")
 	}
 }

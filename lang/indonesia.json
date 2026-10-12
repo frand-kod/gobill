@@ -2472,5 +2472,6 @@
     "The address customers use for the hotspot login page, e.g. http://fourkeys.net or http://192.168.20.1. Empty = no logout button on the isolir page": "Alamat yang dipakai pelanggan untuk halaman login hotspot, mis. http://fourkeys.net atau http://192.168.20.1. Kosong = tidak ada tombol keluar di halaman isolir",
     "Log out / use another account": "Keluar / pakai akun lain",
     "Sample QR, not payable": "Contoh QR, tidak bisa dibayar",
+    "Contact admin": "Hubungi admin",
     "Hotspot logout address, empty when the Hotspot address is not set": "Alamat logout hotspot, kosong jika Alamat hotspot belum diisi"
 }

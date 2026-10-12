@@ -1,6 +1,6 @@
 # Isolation of expired customers
 
-Isolation keeps customers whose package has run out online at a restricted speed instead of cutting them off at once. They move to the **Isolir** plan (64 kbps) for a set number of days. On this plan the internet still works slowly, enough to open WhatsApp and banking apps. When they open other sites, they are redirected to the isolation page with the bill, a QRIS code, a chat-admin button and a voucher form.
+Isolation keeps customers whose package has run out online at a restricted speed instead of cutting them off at once. They move to the **Isolir** plan (64 kbps) for a set number of days. On this plan the internet still works slowly, enough to open WhatsApp and banking apps. When they open other sites, they are redirected to the isolation page. It shows the package, a **Contact admin** button, an optional logout button and a voucher form. The isolation page offers no payment: the customer pays through the admin or the portal.
 
 Isolation only works for customers who log in through gobill's RADIUS (plans on the **Radius** device). Customers whose accounts live directly on a MikroTik (local hotspot or PPPoE users) are cut off as before.
 
@@ -16,8 +16,7 @@ Open **Settings > Isolation**. This tab is for SuperAdmin only. Each field shows
 | Isolation duration (days) | 30 | How many days isolation lasts after the package ends. Then the customer is inactive, as before. `0` means isolated until the customer pays. |
 | Title | Your internet package has run out | Title of the isolation page. |
 | Message | Please pay to reactivate. Internet still works slowly so you can open WhatsApp and banking apps. | Text under the title. |
-| Admin WhatsApp number | Company phone | Used by the "Paid? Chat admin" button. |
-| Show QRIS | Yes | QRIS locked to the last package price. Needs a static QRIS under Payment. |
+| Admin WhatsApp number | Company phone | Used by the **Contact admin** button. |
 | Show voucher form | Yes | Lets the customer enter a voucher on the isolation page. |
 | MikroTik address-list name | `isolir` | Address-list name sent by RADIUS to isolated customers. |
 | Hotspot address | Empty | Address customers use for the hotspot login page, for example `http://fourkeys.net` or `http://192.168.20.1`. Empty means no logout button. |
@@ -50,7 +49,6 @@ In **Custom HTML** mode, the HTML you write is shown after its variables are rep
 | `[[title]]`, `[[message]]` | Isolation title and message |
 | `[[username]]`, `[[name]]` | Customer username and name |
 | `[[plan_name]]`, `[[expired_at]]`, `[[amount]]` | Last package, end time and price |
-| `[[qris_image]]` | QRIS image (data URI), for an image `src` |
 | `[[logout_url]]` | Hotspot logout address (`<Hotspot address>/logout`), empty when the Hotspot address is not set |
 | `[[wa_admin_link]]` | Chat-admin link |
 | `[[voucher_form]]` | Ready-made voucher form |

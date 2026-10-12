@@ -1,6 +1,6 @@
 # Isolir pelanggan yang paketnya habis
 
-Isolir membuat pelanggan yang paketnya habis tidak langsung diputus. Mereka masuk ke paket **Isolir** (64 kbps) selama beberapa hari. Di paket ini internet tetap bisa dipakai pelan untuk membuka WhatsApp dan aplikasi bank. Saat membuka situs lain, pelanggan diarahkan ke halaman isolir yang berisi tagihan, QRIS, tombol chat admin dan form voucher.
+Isolir membuat pelanggan yang paketnya habis tidak langsung diputus. Mereka masuk ke paket **Isolir** (64 kbps) selama beberapa hari. Di paket ini internet tetap bisa dipakai pelan untuk membuka WhatsApp dan aplikasi bank. Saat membuka situs lain, pelanggan diarahkan ke halaman isolir. Halaman ini menampilkan nama paket, tombol **Hubungi admin**, tombol logout (bila diatur) dan form voucher. Halaman isolir tidak menawarkan pembayaran: pelanggan membayar lewat admin atau portal.
 
 Isolir hanya bekerja untuk pelanggan yang login lewat RADIUS gobill (paket dengan perangkat **Radius**). Pelanggan yang akunnya disimpan langsung di MikroTik (hotspot atau PPPoE lokal) tetap diputus seperti biasa.
 
@@ -16,8 +16,7 @@ Buka **Pengaturan > Isolir**. Tab ini hanya bisa dibuka SuperAdmin. Setiap kolom
 | Lama Isolir (hari) | 30 | Berapa hari isolir berjalan setelah paket habis. Setelah itu pelanggan nonaktif seperti biasa. `0` berarti isolir sampai pelanggan membayar. |
 | Judul | Paket internet Anda sudah habis | Judul halaman isolir. |
 | Pesan | Silakan bayar untuk mengaktifkan kembali. Internet tetap bisa dipakai pelan untuk membuka WhatsApp dan aplikasi bank. | Teks di bawah judul. |
-| Nomor WhatsApp admin | Nomor telepon usaha | Dipakai untuk tombol "Sudah bayar? Chat admin". |
-| Tampilkan QRIS | Ya | QRIS dengan nominal terkunci ke harga paket terakhir. Perlu QRIS statis di Pembayaran. |
+| Nomor WhatsApp admin | Nomor telepon usaha | Dipakai untuk tombol **Hubungi admin**. |
 | Tampilkan form voucher | Ya | Pelanggan bisa memasukkan voucher langsung dari halaman isolir. |
 | Nama address-list MikroTik | `isolir` | Nama address-list yang dikirim RADIUS untuk pelanggan yang diisolir. |
 | Alamat hotspot | Kosong | Alamat yang dipakai pelanggan untuk halaman login hotspot, misalnya `http://fourkeys.net` atau `http://192.168.20.1`. Kosong berarti tanpa tombol keluar. |
@@ -50,7 +49,6 @@ Mode **HTML sendiri** menampilkan HTML yang Anda tulis, dengan variabel yang dig
 | `[[title]]`, `[[message]]` | Judul dan pesan isolir |
 | `[[username]]`, `[[name]]` | Username dan nama pelanggan |
 | `[[plan_name]]`, `[[expired_at]]`, `[[amount]]` | Paket terakhir, waktu habis, dan harga |
-| `[[qris_image]]` | Gambar QRIS (data URI), untuk `src` gambar |
 | `[[logout_url]]` | Alamat logout hotspot (`<Alamat hotspot>/logout`), kosong bila Alamat hotspot belum diisi |
 | `[[wa_admin_link]]` | Link chat admin |
 | `[[voucher_form]]` | Form voucher siap pakai |

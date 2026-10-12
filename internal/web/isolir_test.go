@@ -105,7 +105,7 @@ func TestIsolirPageKnownCustomer(t *testing.T) {
 		t.Fatalf("code %d", w.Code)
 	}
 	body := w.Body.String()
-	for _, want := range []string{"Halo <b>Budi Santoso</b>", "Paket 10M", money(150000), "data:image/png;base64,", "Simpan gambar",
+	for _, want := range []string{"Halo <b>Budi Santoso</b>", "Paket 10M", "Hubungi admin",
 		"https://wa.me/6281234567890?text=", "Paket internet Anda sudah habis", `action="/isolir/voucher"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page misses %q", want)
@@ -168,9 +168,10 @@ func TestIsolirCustomBlankFallsBackToDefault(t *testing.T) {
 }
 
 func TestRenderIsolirCustomEscapesValues(t *testing.T) {
-	out := renderIsolirCustom(`[[name]]|[[promos]]|[[qris_image]]|[[nope]]|[[voucher_form]]`, isolirView{
-		Name: `<a>"x"</a>`, Promos: template.HTML("<b>p</b>"), QRIS: template.URL("data:image/png;base64,AA"), VoucherForm: "<form>v</form>"})
-	want := `&lt;a&gt;&#34;x&#34;&lt;/a&gt;|<b>p</b>|data:image/png;base64,AA||<form>v</form>`
+	out := renderIsolirCustom(`[[name]]|[[promos]]|[[qris_image]]|[[qris_merchant]]|[[nope]]|[[voucher_form]]`, isolirView{
+		Name: `<a>"x"</a>`, Promos: template.HTML("<b>p</b>"), VoucherForm: "<form>v</form>"})
+	// old QRIS variables are no longer filled: they become empty so old custom pages still render
+	want := `&lt;a&gt;&#34;x&#34;&lt;/a&gt;|<b>p</b>||||<form>v</form>`
 	if out != want {
 		t.Fatalf("got %q\nwant %q", out, want)
 	}
@@ -424,20 +425,18 @@ func TestIsolirHotspotURLValidated(t *testing.T) {
 	}
 }
 
-// The preview shows a dummy QR (never the stored merchant code) with a not-payable note, and the
-// logout button when the hotspot address is set.
-func TestIsolirPreviewSampleQR(t *testing.T) {
+// The preview has no QR: the isolir page never offers payment. It shows the contact and logout buttons.
+func TestIsolirPreviewContactAdmin(t *testing.T) {
 	_, h, q := settingsSetup(t)
 	c := login(t, h, "alice")
-	isoSettings(t, q, map[string]string{"isolir_show_qris": "yes", "qris_payload": isoQRIS, "isolir_hotspot_url": "http://192.168.20.1"})
+	isoSettings(t, q, map[string]string{"isolir_wa": "081234567890", "isolir_hotspot_url": "http://192.168.20.1"})
 	body := do(h, "GET", "/admin/settings/isolir/preview", nil, c).Body.String()
-	for _, want := range []string{"data:image/png;base64,", "Sample QR, not payable", `href="http://192.168.20.1/logout"`} {
+	for _, want := range []string{"Contact admin", "https://wa.me/6281234567890", `href="http://192.168.20.1/logout"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("preview misses %q", want)
 		}
 	}
-	isoSettings(t, q, map[string]string{"qris_payload": ""})
-	if body := do(h, "GET", "/admin/settings/isolir/preview", nil, c).Body.String(); !strings.Contains(body, "data:image/png;base64,") {
-		t.Error("preview without a stored QRIS shows no sample")
+	if strings.Contains(body, "data:image/png") {
+		t.Error("preview shows a QR code")
 	}
 }
