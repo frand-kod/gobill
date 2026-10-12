@@ -4,13 +4,13 @@ Jurnal ini dijaga di bawah 1000 kata. Rencana awal: [rencana/](rencana/README.md
 
 **Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
 
-**Pembaruan terakhir:** 2026-10-12, setelah rilis v0.1.6 (lihat [CHANGELOG.md](../../CHANGELOG.md)).
+**Pembaruan terakhir:** 2026-10-12, setelah rilis v0.1.9 (lihat [CHANGELOG.md](../../CHANGELOG.md)).
 
 ## Status
 
-- Rilis terbaru: v0.1.6 (2026-10-11). Perubahan berikutnya ada di bagian Unreleased CHANGELOG (v0.1.7).
-- Dokumen operator di `docs/id` dan `docs/en` sudah diselaraskan dengan kode v0.1.7.
-- Belum ada uji lapangan untuk v0.1.7.
+- Rilis terbaru: v0.1.9 (2026-10-12). Prod (STB Armbian, 99.2) berjalan di v0.1.9, dipasang dengan `sudo gobill update`.
+- Uji beban di prod selama seminggu (sampai sekitar 2026-10-18). Development dihentikan sementara; temuan dicatat sebagai issue GitHub, dievaluasi di akhir pekan.
+- MikroTik prod: `require-message-auth=yes-for-request-resp`, aturan drop isolir dihapus (isolir = 64k + halaman isolir), `radius-interim-update=1m`.
 
 ## Sudah selesai di v0.1.4
 
@@ -22,15 +22,14 @@ Jurnal ini dijaga di bawah 1000 kata. Rencana awal: [rencana/](rencana/README.md
 
 ## Menunggu pengguna
 
-1. **Uji paralel.** Impor data terbaru, set `notify_customers` = Tidak, lalu jalankan gobill berdampingan dengan PHPNuxBill selama 1 sampai 3 hari dalam mode baca. Bandingkan sesi, expiry, dan saldo. Langkah lengkap ada di [migrasi-phpnuxbill.md](../id/migration-phpnuxbill.md#checklist-jalan-paralel).
+1. **Uji isolir langsung.** Login hotspot dengan akun `test` (terisolir), buka `http://example.com`: halaman isolir harus tampil, dan akun masuk address-list `isolir`.
 2. **Drill restore.** Uji pemulihan dari file mirror dan dari UI restore di instance uji. Catat hasilnya di sini.
-3. **Screenshot UI.** Pengguna mengambil screenshot halaman baru (Status Sistem, 2FA, impor, restore, QRIS, pengaturan alert) untuk direview.
-4. **Bersihkan router uji.** Hapus user `claude-test` di MikroTik, profil dan entry `/radius` uji, dan pastikan `split-user-domain=no` di profil yang dipakai pelanggan.
-5. **Keputusan rilis.** Review bagian Unreleased di CHANGELOG (v0.1.7), lalu tag dan publish.
+3. **Bersihkan akses uji.** Hapus user `claude-test` di MikroTik dan ganti password akun SSH STB.
+4. **Issue uji seminggu.** Kumpulkan di GitHub untuk evaluasi akhir pekan.
 
 ## Belum pernah diuji di dunia nyata
 
-- Build dan jalan di STB ARM (RAM, startup tanpa RTC, listrik padam, backup ke USB).
+- STB ARM saat listrik padam, startup tanpa RTC, dan backup ke USB.
 - Mirror backup ke NAS atau rclone, dan alert saat mirror gagal.
 - Login 2FA dengan aplikasi authenticator sungguhan di browser.
 - Scrape `/metrics` oleh Prometheus dan alert lewat WhatsApp.
