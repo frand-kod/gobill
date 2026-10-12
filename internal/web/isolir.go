@@ -251,11 +251,11 @@ func isolirWALink(v isolirView, phone string) string {
 	if link == "" {
 		return ""
 	}
-	text := "Halo admin, saya sudah bayar paket internet"
+	text := "Halo admin, paket internet saya sudah habis"
 	if v.Known {
-		text += " " + v.PlanName + " (" + v.Amount + ") untuk " + v.Name + " (" + v.Username + ")"
+		text += " (" + v.Name + ", " + v.Username + ", paket " + v.PlanName + ")"
 	}
-	return link + "?text=" + url.QueryEscape(text+". Mohon diaktifkan.")
+	return link + "?text=" + url.QueryEscape(text+". Mohon bantuannya.")
 }
 
 // isolirTokenRe matches the [[name]] variables of the custom HTML.
