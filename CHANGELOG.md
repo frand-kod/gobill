@@ -8,6 +8,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-10-12
+
 ### Fitur
 
 - **Setup cepat**: wizard langkah demi langkah untuk SuperAdmin (usaha, router/NAS dengan perintah MikroTik siap salin dan indikator paket RADIUS live, kecepatan, paket, WhatsApp, QRIS, Tripay, Isolir, voucher uji). Menggantikan checklist di dashboard. Setelah impor PHPNuxBill, langkah yang sudah berisi data menjadi verifikasi.
