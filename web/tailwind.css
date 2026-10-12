@@ -62,6 +62,9 @@
     --border-strong: #c3cad3;
     --text: #1f2328;
     --text-2: #575f69;
+    /* sidebar icon hue per group (muted, >=3:1 on --surface); see .nav-hue-* below */
+    --nav-hue-top: #5f7f7b; --nav-hue-reports: #8c6d2e; --nav-hue-plans: #7a6aa8;
+    --nav-hue-network: #4b7aa0; --nav-hue-maps: #5a7f5e; --nav-hue-admin: #8e5f6e;
 
     --ok-fg: #14693a;   --ok-bg: #e6f5ec;
     --warn-fg: #7a4a00; --warn-bg: #fdf0d5;
@@ -113,6 +116,8 @@
     --bg: #0f1216; --surface: #171b21; --surface-2: #1e232a; --field: #1b2029;
     --border: #2b323b; --border-strong: #3a434e;
     --text: #e8eaed; --text-2: #a3abb5;
+    --nav-hue-top: #a8c4c0; --nav-hue-reports: #d4bb85; --nav-hue-plans: #b9adde;
+    --nav-hue-network: #9dc4e2; --nav-hue-maps: #a6cba9; --nav-hue-admin: #d9a9b8;
     --accent-50: color-mix(in srgb, var(--accent) 14%, var(--surface));
     --accent-100: color-mix(in srgb, var(--accent) 24%, var(--surface));
     --ok-fg: #6fd49a;   --ok-bg: #12301f;
@@ -121,6 +126,13 @@
     --info-fg: #8fc1f5; --info-bg: #13263d;
     --meter-ok: #4fc282; --meter-warn: #f0b429; --meter-err: #ff7a7a;
     color-scheme: dark;
+  }
+  /* more contrast requested: sidebar icons fall back to the normal text colour */
+  @media (prefers-contrast: more) {
+    :root, :root.dark {
+      --nav-hue-top: var(--text); --nav-hue-reports: var(--text); --nav-hue-plans: var(--text);
+      --nav-hue-network: var(--text); --nav-hue-maps: var(--text); --nav-hue-admin: var(--text);
+    }
   }
 
   [x-cloak] { display: none !important; }
@@ -296,6 +308,16 @@
   .nav-item.setup-accent { @apply mb-2 bg-brand-500 font-medium text-on-accent hover:bg-brand-600; border-inline-start-color: transparent; }
   .nav-item.setup-accent[aria-current="page"] { @apply bg-brand-600 text-on-accent; }
   .setup-accent .badge { background: color-mix(in srgb, var(--on-accent) 22%, transparent); color: var(--on-accent); border-color: transparent; }
+  /* sidebar icons take their group's hue (labels stay text colour); the active item uses the accent,
+     and Setup cepat keeps on-accent because it sits on the accent fill. Order matters: the last rule wins at equal specificity. */
+  .nav-hue-top svg { color: var(--nav-hue-top); }
+  .nav-hue-reports svg { color: var(--nav-hue-reports); }
+  .nav-hue-plans svg { color: var(--nav-hue-plans); }
+  .nav-hue-network svg { color: var(--nav-hue-network); }
+  .nav-hue-maps svg { color: var(--nav-hue-maps); }
+  .nav-hue-admin svg { color: var(--nav-hue-admin); }
+  .nav-item[aria-current="page"] svg { color: var(--accent-fg); }
+  .nav-item.setup-accent svg { color: var(--on-accent); }
   /* wizard steps fade and slide in; no motion when the system asks for less */
   .wiz-body { animation: wiz-in 180ms ease-out both; }
   @keyframes wiz-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
