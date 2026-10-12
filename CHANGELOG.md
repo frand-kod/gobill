@@ -8,6 +8,10 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Fitur
+
+- **Portal pelanggan ditata ulang (HP lebih dulu)**: kartu paket dengan sisa waktu, bar masa aktif, saldo, dan satu tombol Beli/Perpanjang; kartu koneksi live (online/offline, perangkat, kecepatan sekarang dengan meter 5 segmen dibanding kecepatan paket, data sesi ini) yang diperbarui tiap 15 detik; kartu pemakaian (kuota terpakai, hari ini, grafik 7 hari); riwayat koneksi pindah ke halaman sendiri, dikelompokkan per hari; tab navigasi di bawah layar HP.
+
 ### Perbaikan
 
 - Sesi online: angka ringkasan, meter, dan pembaruan tiap 10 detik kini tampil. Script halaman dimuat sebelum Alpine, sehingga komponen live tidak lagi kosong.
