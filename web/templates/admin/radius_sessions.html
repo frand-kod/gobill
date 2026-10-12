@@ -62,7 +62,8 @@
 </div>
 {{template "pager" .Nav}}
 </div>
-<script defer src="{{asset "/static/sessions.js"}}"></script>
+{{/* not deferred: liveSessions must exist before Alpine (deferred) starts */}}
+<script src="{{asset "/static/sessions.js"}}"></script>
 {{end}}
 {{end}}
 

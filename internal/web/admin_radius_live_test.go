@@ -173,3 +173,13 @@ func TestOnlineSampleAndDashboardLink(t *testing.T) {
 		t.Fatal("dashboard has no link to the live sessions page")
 	}
 }
+
+// Alpine is loaded with defer and starts right after it runs, so a script that defines an x-data component
+// must not be deferred; a deferred sessions.js left every tile blank.
+func TestLiveSessionsScriptNotDeferred(t *testing.T) {
+	_, h, _, c := crudApp(t)
+	body := do(h, "GET", "/admin/radius/sessions", nil, c).Body.String()
+	if !strings.Contains(body, `<script src="/static/sessions.js?v=`) || strings.Contains(body, `defer src="/static/sessions.js`) {
+		t.Fatal("sessions.js must load without defer, before Alpine starts")
+	}
+}

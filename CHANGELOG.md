@@ -8,6 +8,12 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-10-12
+
+### Perbaikan
+
+- Sesi online: angka ringkasan, meter, dan pembaruan tiap 10 detik kini tampil. Script halaman dimuat sebelum Alpine, sehingga komponen live tidak lagi kosong.
+
 ## [0.1.8] - 2026-10-12
 
 ### Perbaikan
