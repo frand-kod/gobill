@@ -10,14 +10,44 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ### Fitur
 
+- **Setup cepat**: wizard langkah demi langkah untuk SuperAdmin (usaha, router/NAS dengan perintah MikroTik siap salin dan indikator paket RADIUS live, kecepatan, paket, WhatsApp, QRIS, Tripay, Isolir, voucher uji). Menggantikan checklist di dashboard. Setelah impor PHPNuxBill, langkah yang sudah berisi data menjadi verifikasi.
+- **Sesi online live**: meter kecepatan 5 segmen per sesi (hijau/kuning/merah dibanding kecepatan paket), ringkasan per NAS dan paket, throughput total, sparkline 24 jam, diperbarui tiap 10 detik tanpa reload.
+- **Semua tabel**: "Menampilkan X–Y dari N" dan pilihan 20/50/100 baris; filter tetap saat pindah halaman.
+- **Message-Authenticator per NAS**: Otomatis (bawaan; wajib setelah NAS pernah mengirimnya), Selalu wajib, atau Tidak wajib (NAS lama). Atribut ganda atau rusak selalu ditolak.
+- **Diagnosa secret RADIUS salah**: log dengan IP dan nama NAS (dibatasi sekali per menit), metric `radius_bad_secret_total`, lencana di Status Sistem, dan alert operator setelah 10 paket berturut-turut.
 - **Update satu perintah**: `sudo gobill update` mengambil rilis terbaru dari GitHub, memeriksa checksum `SHA256SUMS`, membuat backup database, memasang binary, lalu memeriksa `/health`. Jika pemeriksaan gagal, binary dan database dipulihkan otomatis. `--version vX.Y.Z` memasang rilis tertentu.
 - **Rollback**: `sudo gobill rollback` kembali ke binary sebelumnya, dan menawarkan pemulihan backup pra-update jika update sempat menjalankan migrasi.
 - **Pemeriksaan versi baru**: sekali sehari gobill memeriksa rilis terbaru di GitHub. SuperAdmin melihat lencana di header jika ada versi baru. Matikan dengan pengaturan `update_check`.
 - Rilis menyertakan file `SHA256SUMS`. Salinan `sha256sums.txt` tetap ada.
+- **Paket Isolir milik sistem**: disembunyikan dari daftar paket, bandwidth, pencarian, dan semua pilihan paket, serta ditolak di server. Kecepatannya diatur di tab Isolir.
+- **Template pesan**: daftar variabel per template yang bisa diketuk untuk disisipkan, tombol kembali ke bawaan, dan template kosong otomatis memakai teks bawaan.
+- **Nomor WhatsApp bersama**: pengaturan "Satu nomor WhatsApp per akun" (bawaan: tidak). Lupa username mengirim semua akun pada nomor itu.
+- Pesan `invoice_balance` dikirim saat isi saldo, seperti PHPNuxBill.
+- Pengaturan baru di Sistem & Keamanan: `radius_rest_allow` (khusus SuperAdmin), `log_keep_days`, `backup_keep`.
+- Form paket ditata ulang: Layanan dan Cara bayar, masa aktif satu baris, bagian "Saat paket habis", perangkat dipilih lebih dulu, ringkasan live, tombol simpan menempel.
+- Navigasi lebih halus: prefetch saat kursor atau jari menyentuh tautan, transisi antar halaman, tab Pengaturan berganti di tempat, sidebar mengingat grup yang terbuka dan posisi scroll, ikon sidebar berwarna per grup.
+- Dashboard: Aktif/Kedaluwarsa dan total pelanggan dalam satu kartu.
+- `govulncheck` berjalan di CI.
 
 ### Perubahan perilaku
 
-- **Alamat login berubah**: login pelanggan sekarang di `/login`, dan login admin di `/admin/login`. Login 2FA admin pindah ke `/admin/login/2fa`. `GET /` membuka `/portal` untuk pelanggan yang sudah login, dan `/login` untuk yang lain. Tautan login di pesan selamat datang WhatsApp memakai `app_url` + `/login`.
+- **Alamat login berubah**: login pelanggan sekarang di `/login`, dan login admin di `/admin/login`. Login 2FA admin pindah ke `/admin/login/2fa`. `/portal/login` dihapus. `GET /` membuka `/admin` untuk admin yang sudah login, `/portal` untuk pelanggan yang sudah login, dan `/login` untuk yang lain. Tautan login di pesan WhatsApp memakai `app_url` + `/login`.
+- **Tab Pengaturan ditata ulang**: Umum, Lokalisasi, Pelanggan & Tagihan, Pembayaran, Integrasi, Notifikasi, Isolir, Promosi, Tampilan, Sistem & Keamanan. Tab Lain-lain dihapus. Backup, impor, dan restore pindah ke `/admin/settings/system/...`. Menu Payment Gateway di sidebar menjadi "Pembayaran online" di grup Laporan.
+- **Nomor telepon dinormalkan** ke format `62…` saat disimpan, dan data lama dinormalkan sekali saat start.
+- **Perintah MikroTik di tab Isolir** memakai alamat LAN dan port dari `GOBILL_HTTP`, bukan `app_url`. Isi `GOBILL_HTTP` dengan IP LAN, misalnya `192.168.99.2:8090`. Aturan drop untuk isolasi penuh kini opsional.
+- Migrasi 0018 (kolom `nas.ma_seen`) berjalan otomatis. Rollback dari versi ini butuh restore backup database.
+- Go 1.26.9.
+
+### Perbaikan
+
+- Klien terisolir kini melihat halaman isolir walau membuka situs atau path apa pun, bukan redirect ke `/admin` (#1).
+- Potong saldo dalam satu query atomik, sehingga dua pembayaran bersamaan tidak bisa membuat saldo minus (#3).
+- Counter accounting RADIUS tidak bisa turun oleh Interim/Stop yang datang terlambat; counter negatif dianggap 0 (#3).
+- Gagal menghitung pemakaian kuota data atau waktu kini menolak login, bukan dianggap 0 (#5).
+- Cache peringatan NAS tak dikenal dibatasi; body `/radius.php` dibatasi 64 KiB dan form rusak ditolak (#4).
+- Prefetch tidak mengubah sesi, sehingga pesan sekali tampil tidak hilang.
+- Footer portal menampilkan `v0.1.x`, bukan `vv0.1.x`.
+- `filippo.io/edwards25519` v1.1.1.
 
 ## [0.1.6] - 2026-10-11
 

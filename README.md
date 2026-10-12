@@ -5,7 +5,7 @@ Billing ISP untuk hotspot dan PPPoE MikroTik, ditulis ulang dari PHPNuxBill dala
 ## Fitur utama
 
 - Paket hotspot, PPPoE, dan saldo (prepaid/postpaid), voucher dengan QR, kupon, perpanjangan otomatis, dan opsi mulai masa aktif saat login pertama (RADIUS).
-- Server RADIUS bawaan (auth, accounting, CoA, login voucher hotspot) dan endpoint kompatibel FreeRADIUS REST (`/radius.php`).
+- Server RADIUS bawaan (auth, accounting, CoA, login voucher hotspot) dengan Message-Authenticator mode otomatis per NAS (mitigasi BlastRADIUS), dan endpoint kompatibel FreeRADIUS REST (`/radius.php`).
 - Driver MikroTik lewat RouterOS API, atau mode RADIUS tanpa API.
 - Portal pelanggan: pesan paket, aktivasi voucher, transfer saldo, OTP, inbox.
 - Pembayaran online lewat Tripay (opsional), atau QRIS statis: QR terkunci nominal per recharge dikirim lewat WhatsApp.
@@ -13,7 +13,9 @@ Billing ISP untuk hotspot dan PPPoE MikroTik, ditulis ulang dari PHPNuxBill dala
 - Setup cepat: panduan langkah demi langkah setelah instalasi, untuk router, paket, WhatsApp, QRIS, dan Isolir.
 - Isolir: pelanggan yang paketnya habis masuk paket Isolir dan halaman pembayaran, dengan kartu promosi di halaman itu.
 - Update satu perintah (`sudo gobill update`) dengan cek checksum, serta `gobill rollback`.
-- Dashboard, laporan, peta/ODP, multi-role admin, verifikasi dua langkah (TOTP) untuk admin, dan beberapa bahasa antarmuka.
+- Sesi online live: meter kecepatan per pelanggan dibanding kecepatan paket, ringkasan per NAS dan paket, diperbarui tanpa reload.
+- Dashboard, laporan, peta/ODP, semua tabel dengan total baris dan pilihan 20/50/100, multi-role admin, verifikasi dua langkah (TOTP) untuk admin, dan beberapa bahasa antarmuka.
+- Template pesan dengan daftar variabel yang bisa diketuk dan tombol kembali ke bawaan.
 - Aman untuk perangkat tanpa RTC: job expiry menolak jalan saat jam sistem tidak dipercaya.
 - Impor satu kali dari PHPNuxBill: lewat MySQL, atau dari file backup JSON di UI atau CLI.
 - Backup harian, salinan mirror di luar perangkat, dan restore database dari UI.
@@ -58,7 +60,7 @@ Detail: [docs/internal/arsitektur.md](docs/internal/arsitektur.md).
        GOBILL_DB=./gobill.db GOBILL_HTTP=:8080 ./gobill
 
 3. Ambil password admin pertama dari file `initial-admin-password.txt` di folder database (`./` saat jalan manual, `/var/lib/gobill` di systemd). Password tidak dicetak ke log.
-4. Buka http://localhost:8080/admin/login, login sebagai `admin`, lalu ganti password.
+4. Buka http://localhost:8080/admin/login, login sebagai `admin`, lalu ganti password. Pelanggan login di `/login`.
 
 Untuk STB, systemd, atau Docker, lihat [instalasi](docs/id/installation.md).
 
