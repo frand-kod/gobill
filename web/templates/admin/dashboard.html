@@ -124,8 +124,8 @@
     </table></div></div>
   </section>
 </div>
-<script src="/static/vendor/chart-4.4.9.umd.js"></script>
-<script src="/static/dashboard.js"></script>
+<script src="{{asset "/static/vendor/chart-4.4.9.umd.js"}}"></script>
+<script src="{{asset "/static/dashboard.js"}}"></script>
 {{end}}
 {{end}}
 {{define "collapse"}}<button type="button" class="btn btn-ghost btn-icon card-toggle hidden" data-collapse-toggle aria-controls="{{.}}-body" aria-expanded="true" aria-label="{{T "Show or hide"}}">{{icon "chevron-down"}}</button>{{end}}

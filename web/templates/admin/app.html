@@ -174,7 +174,7 @@ function gbNav(id) {
     <div class="fiber-stripe lg:hidden" aria-hidden="true"></div>
     <header id="gb-topbar" class="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-surface px-4 py-2">
       <button type="button" class="btn lg:hidden" @click="drawer=true" aria-label="Menu">{{icon "menu"}}</button>
-      <script src="/static/search.js"></script>
+      <script src="{{asset "/static/search.js"}}"></script>
       <form method="get" action="/admin/search" role="search" class="relative min-w-0 max-w-sm flex-1" x-data="gbPalette()" @click.outside="close()" @keydown.window="hotkey($event)">
         <span class="pointer-events-none absolute inset-y-0 start-3 flex items-center text-ink-2">{{icon "search"}}</span>
         <input class="input ps-10" type="search" name="q" x-ref="q" x-model="q" placeholder="{{T "Search customers, menus, settings…"}}" aria-label="{{T "Search"}}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="gb-search-list" :aria-expanded="open" :aria-activedescendant="active >= 0 ? 'gb-sr-' + active : false" @input.debounce.150ms="find()" @focus="open = true; if (!done) find()" @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.escape="close()" @keydown.enter="enter($event)">

@@ -31,7 +31,7 @@ func TestNotifTemplatesShowVariablesAndReset(t *testing.T) {
 	if !strings.Contains(body, `data-var-insert="[[balance_before]]"`) || !strings.Contains(body, `formaction="/admin/settings/notifications/reset/invoice_balance"`) {
 		t.Error("invoice_balance lacks its variables or its reset button")
 	}
-	if !strings.Contains(body, `src="/static/tplvars.js"`) {
+	if !strings.Contains(body, `src="/static/tplvars.js?v=`) {
 		t.Error("the chip script is not loaded")
 	}
 	if !strings.Contains(getBody(t, h, c, "/admin/settings/isolir"), `data-var-insert="[[qris_image]]"`) {

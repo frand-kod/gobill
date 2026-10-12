@@ -8,6 +8,10 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Perbaikan
+
+- File CSS/JS kini memakai URL berversi dan gobill mengirim header cache sendiri, sehingga setelah upgrade browser atau Cloudflare tidak lagi menyajikan tampilan lama.
+
 ## [0.1.7] - 2026-10-12
 
 ### Fitur

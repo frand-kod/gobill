@@ -16,7 +16,7 @@
     <a class="btn btn-ghost" href="{{.Cancel}}">{{T "Cancel"}}</a>
   </div>{{end}}
 </form>
-{{if .HasVars}}<script src="/static/tplvars.js"></script>{{end}}
+{{if .HasVars}}<script src="{{asset "/static/tplvars.js"}}"></script>{{end}}
 {{end}}
 {{if .Tabs}}</div>{{end}}
 {{end}}

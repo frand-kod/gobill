@@ -2,10 +2,10 @@
 <div class="page-head">
   <h1 class="page-title">{{TT .Title}}{{template "callout" .Intro}}</h1>
 </div>
-<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="{{asset "/static/vendor/leaflet/leaflet.css"}}">
 <div class="card overflow-hidden">
   <div id="map" class="h-[70vh] w-full" data-src="{{.Data}}" role="application" aria-label="{{TT .Title}}"></div>
 </div>
-<script src="/static/vendor/leaflet/leaflet.js"></script>
-<script src="/static/maps.js"></script>
+<script src="{{asset "/static/vendor/leaflet/leaflet.js"}}"></script>
+<script src="{{asset "/static/maps.js"}}"></script>
 {{end}}
