@@ -114,3 +114,31 @@ func TestAdminSidebarKeepsPlace(t *testing.T) {
 		}
 	}
 }
+
+// Sidebar icon hues: each group carries its nav-hue class, the top items share one wrapper, and app.css
+// defines every --nav-hue token with both its light and its dark value.
+func TestSidebarGroupHueClasses(t *testing.T) {
+	s, _ := newTestApp(t)
+	h := s.Handler()
+	c := login(t, h, "alice")
+	body := do(h, "GET", "/admin", nil, c).Body.String()
+	if !strings.Contains(body, `<div class="nav-hue-top">`) {
+		t.Error("top sidebar items are not wrapped in nav-hue-top")
+	}
+	for _, hue := range []string{"reports", "plans", "network", "maps", "admin"} {
+		if !strings.Contains(body, `class="nav-hue-`+hue+`"`) {
+			t.Errorf("sidebar group %q has no nav-hue-%s class", hue, hue)
+		}
+	}
+	css := do(h, "GET", "/static/app.css", nil, nil).Body.String()
+	for hue, pair := range map[string][2]string{
+		"top": {"#5f7f7b", "#a8c4c0"}, "reports": {"#8c6d2e", "#d4bb85"}, "plans": {"#7a6aa8", "#b9adde"},
+		"network": {"#4b7aa0", "#9dc4e2"}, "maps": {"#5a7f5e", "#a6cba9"}, "admin": {"#8e5f6e", "#d9a9b8"},
+	} {
+		for _, v := range pair {
+			if want := "--nav-hue-" + hue + ":" + v; !strings.Contains(css, want) {
+				t.Errorf("app.css missing %s", want)
+			}
+		}
+	}
+}
