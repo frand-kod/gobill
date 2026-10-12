@@ -106,10 +106,10 @@ func (s *Server) errorPage(w http.ResponseWriter, ref string) {
 	t := func(k string) string { return html.EscapeString(s.catalog.T(s.language(), k)) }
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusInternalServerError)
-	fmt.Fprintf(w, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%[1]s</title><link rel="stylesheet" href="/static/app.css"></head>
+	fmt.Fprintf(w, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%[1]s</title><link rel="stylesheet" href="%[5]s"></head>
 <body><main class="mx-auto max-w-md p-4"><div class="card mt-12"><div class="card-body space-y-4" role="alert"><h1 class="text-xl font-semibold">%[1]s</h1><p>%[2]s</p><p class="hint">Ref: %[3]s</p>
 <a class="btn btn-primary min-h-10" href="/" onclick="history.back();return false">%[4]s</a></div></div></main></body></html>`,
-		t("Something went wrong"), t("The request could not be completed. Check the data before trying again."), ref, t("Go back"))
+		t("Something went wrong"), t("The request could not be completed. Check the data before trying again."), ref, t("Go back"), s.asset("/static/app.css"))
 }
 
 func pathID(r *http.Request) int64 {

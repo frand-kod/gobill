@@ -13,7 +13,7 @@ func TestPrefetchWiring(t *testing.T) {
 	c := login(t, h, "alice")
 	body := do(h, "GET", "/admin", nil, c).Body.String()
 	for _, want := range []string{`<script type="speculationrules">`, `"prefetch"`, `"eagerness": "moderate"`,
-		`"href_matches": "/admin/*"`, `"href_matches": "/portal/*"`, `"selector_matches": "[data-no-prefetch]"`, `<script defer src="/static/nav.js">`} {
+		`"href_matches": "/admin/*"`, `"href_matches": "/portal/*"`, `"selector_matches": "[data-no-prefetch]"`, `<script defer src="/static/nav.js?v=`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("/admin page missing %s", want)
 		}
@@ -64,7 +64,7 @@ func TestThemeAppliedBeforeStylesheet(t *testing.T) {
 	c := login(t, h, "alice")
 	body := do(h, "GET", "/admin", nil, c).Body.String()
 	head, end := strings.Index(body, "<head>"), strings.Index(body, "</head>")
-	theme, css := strings.Index(body, "window.gbThemeCtl"), strings.Index(body, `<link rel="stylesheet" href="/static/app.css">`)
+	theme, css := strings.Index(body, "window.gbThemeCtl"), strings.Index(body, `<link rel="stylesheet" href="/static/app.css?v=`)
 	if head < 0 || end < head || theme < head || theme > css || css > end {
 		t.Fatalf("theme script must sit in <head> before app.css (head %d, theme %d, css %d, end %d)", head, theme, css, end)
 	}

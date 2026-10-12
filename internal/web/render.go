@@ -64,6 +64,7 @@ func (s *Server) parseTemplates() error {
 			return s.catalog.T(s.language(), text)
 		},
 		"hasPrefix": strings.HasPrefix,
+		"asset":     s.asset,
 		"spark":     sparkline,
 		"navActive": navActive,
 		"money":     money,

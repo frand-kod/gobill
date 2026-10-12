@@ -92,6 +92,7 @@ Langkahnya sama seperti di STB, dengan binary `amd64`. Ada tiga perbedaan pentin
 - Jam VPS sudah sinkron, jadi guard jam jarang berpengaruh.
 - Jangan kirim UDP RADIUS atau CoA lewat internet terbuka. Gunakan WireGuard atau RadSec. Lihat [keamanan](security.md#link-jarak-jauh-vps).
 - Pasang reverse proxy dengan HTTPS di depan `:8080`. Biarkan `GOBILL_HTTPS` tidak diset agar cookie tetap `Secure`. Set pengaturan `trust_proxy` = `yes`. Jika proxy tidak berjalan di host yang sama, isi `trusted_proxies` dengan IP proxy. Lihat [konfigurasi](configuration.md#jaringan-dan-proxy).
+- gobill mengirim header cache sendiri (`/static/` dan HTML diperiksa ulang, aset berversi tidak berubah). Di belakang Cloudflare, biarkan "Respect existing headers" (Browser Cache TTL) aktif agar header ini dipakai.
 
 ## Docker
 

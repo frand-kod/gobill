@@ -179,7 +179,7 @@ func (s *Server) Handler() http.Handler {
 
 	// auth: root redirect, static files, uploads, admin login/logout, own password
 	mux.HandleFunc("GET /{$}", s.root)
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(static)))
+	mux.Handle("GET /static/", staticHandler(static))
 	mux.HandleFunc("GET /admin/login", s.loginForm)
 	mux.HandleFunc("GET /uploads/{name}", s.serveUpload)
 	mux.HandleFunc("POST /admin/login", s.loginSubmit)
@@ -365,5 +365,5 @@ func (s *Server) Handler() http.Handler {
 	top.HandleFunc("GET /health", s.health)
 	top.HandleFunc("GET /metrics", s.metricsHandler)
 	top.Handle("/", app)
-	return top
+	return cacheDefaults(top)
 }
