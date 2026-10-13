@@ -2,10 +2,10 @@
 
 # gobill
 
-**Billing ISP untuk hotspot dan PPPoE MikroTik. Satu binary, satu file database, tanpa PHP.**
+**Billing ISP untuk layanan hotspot dan PPPoE.**
 
-Penulisan ulang PHPNuxBill dalam Go untuk RT/RW Net dan ISP kecil-menengah.
-Berjalan di STB Armbian dengan RAM 1 GB, VPS, atau Docker.
+Satu binary dan satu file database. Ditulis dalam Go, berbasis PHPNuxBill.
+Ringan untuk perangkat kecil, VPS, maupun Docker.
 
 [![Release](https://img.shields.io/github/v/release/frand-kod/gobill?sort=semver)](https://github.com/frand-kod/gobill/releases)
 [![CI](https://img.shields.io/github/actions/workflow/status/frand-kod/gobill/ci.yml?branch=main&label=CI)](https://github.com/frand-kod/gobill/actions/workflows/ci.yml)
@@ -22,16 +22,14 @@ gobill tidak akan ada tanpa [PHPNuxBill](https://github.com/hotspotbilling/phpnu
 
 gobill adalah karya turunan PHPNuxBill dan tetap berlisensi copyleft. Jika PHPNuxBill sudah cukup untuk Anda, pakai PHPNuxBill dan dukung pembuatnya lewat [donasi ke ibnux](https://paypal.me/ibnux).
 
-## Kenapa ditulis ulang
+## Tujuan
 
-PHPNuxBill membuktikan kebutuhannya. Masalahnya ada di dua hal: target perangkat dan dasar kode.
+- **Ringan.** Web, RADIUS, dan job terjadwal berjalan dalam satu proses dengan satu file database, sehingga cocok untuk perangkat dengan RAM kecil.
+- **Aman secara bawaan.** Query berparameter, password di-hash dengan bcrypt, secret dienkripsi, sesi disimpan di server, dan akun admin bisa memakai 2FA.
+- **Data konsisten.** Uang disimpan sebagai bilangan bulat, masa aktif sebagai satu timestamp, dan relasi dijaga foreign key.
+- **Teruji.** Ratusan test otomatis berjalan di CI untuk setiap perubahan.
 
-- **Perangkat kecil.** PHPNuxBill butuh web server, PHP-FPM atau Apache, MySQL, crontab, dan biasanya FreeRADIUS. Di STB dengan RAM 1-2 GB dan eMMC, lima proses itu berebut memori dan sulit dirawat.
-- **Keamanan.** Audit PHPNuxBill 2025.3.20 menemukan SQL injection di `radius.php`, sekitar 63 raw query, password admin `sha1` tanpa salt, dan password pelanggan plaintext.
-- **Integritas data.** Harga disimpan sebagai `varchar`, masa aktif dipecah ke dua kolom tanpa timezone, dan tidak ada foreign key.
-- **Tanpa test.** Kode lama tidak punya test otomatis, sehingga setiap perubahan berisiko.
-
-Detail temuan ada di [audit kode lama](docs/internal/rencana/audit-legacy.md). Alasan memilih Go ada di [keputusan stack](docs/internal/rencana/keputusan-stack.md).
+Alasan pemilihan teknologi ada di [keputusan stack](docs/internal/rencana/keputusan-stack.md).
 
 ## Benchmark
 
@@ -60,10 +58,10 @@ Latensi p50 login RADIUS turun dari 100 ms menjadi 50 ms, dan p99 dari 285 ms me
 
 Yang perlu Anda ketahui:
 
-- Daftar pelanggan belum lebih cepat. SQLite pure-Go lebih lambat daripada MariaDB untuk mengurutkan ribuan baris.
+- Daftar pelanggan belum lebih cepat. Pengurutan ribuan baris di SQLite pure-Go masih menjadi batasnya.
 - Cold start sedikit lebih lambat karena gobill memperbarui statistik database saat start. Cold start PHPNuxBill tidak menghitung start MariaDB.
 - Benchmark ini menemukan lima masalah performa dan satu bug sesi admin di gobill. Semuanya sudah diperbaiki sebelum angka di atas diambil, lihat [CHANGELOG](CHANGELOG.md).
-- Angka diukur di laptop Intel i7-8650U, bukan di STB. Rasio antar aplikasi lebih bermakna daripada angka absolutnya.
+- Angka diukur di laptop Intel i7-8650U. Rasio antar aplikasi lebih bermakna daripada angka absolutnya.
 
 Metodologi, batasan, dan hasil mentah ada di [bench/README.md](bench/README.md). Untuk mengulang di mesin Anda:
 
@@ -121,35 +119,45 @@ PHPNUXBILL=../phpnuxbill bench/run.sh
 4. Buka `http://localhost:8080/admin/login`, login sebagai `admin`, lalu ganti password.
 5. Ikuti **Setup cepat** di dashboard. Pelanggan login di `/login`.
 
-Sudah memakai PHPNuxBill? Impor datanya dengan satu perintah:
+Untuk systemd dan Docker, baca [instalasi](docs/id/installation.md).
+
+## Untuk pengguna PHPNuxBill
+
+Data PHPNuxBill bisa diimpor dengan satu perintah:
 
 ```sh
 gobill import --mysql-dsn 'user:<SECRET>@tcp(127.0.0.1:3306)/phpnuxbill'
 ```
 
-Untuk STB, systemd, dan Docker, baca [instalasi](docs/id/installation.md). Untuk cutover dari sistem lama, baca [migrasi dari PHPNuxBill](docs/id/migration-phpnuxbill.md).
+Langkah cutover ada di [migrasi dari PHPNuxBill](docs/id/migration-phpnuxbill.md).
+
+Pengelola PHPNuxBill menerbitkan [advisory keamanan](https://github.com/hotspotbilling/phpnuxbill/security/advisories). Selama Anda masih menjalankan PHPNuxBill, baik akan pindah maupun tidak, langkah berikut mengurangi risiko:
+
+1. Batasi akses `radius.php` hanya untuk alamat server FreeRADIUS Anda.
+2. Jangan buka panel admin ke internet. Akses lewat VPN atau jaringan lokal.
+3. Pantau halaman advisory dan pasang pembaruan begitu tersedia.
 
 ## Tech stack
 
 | Bagian | Pilihan | Alasan |
 |---|---|---|
-| Bahasa | Go 1.26, `net/http` stdlib | Satu binary statis tanpa runtime. Tanpa web framework. |
-| Database | SQLite lewat `modernc.org/sqlite` | Pure Go tanpa CGO, sehingga cross-compile ke ARM mudah. |
-| Query | `sqlc` | SQL biasa, hasilnya fungsi Go yang type-safe. Tanpa ORM. |
-| UI | `html/template`, Tailwind CSS v4, Alpine.js | Render di server, tanpa build step JS dan tanpa Node. |
+| Bahasa | Go 1.26, `net/http` stdlib | Satu binary statis. Routing memakai stdlib. |
+| Database | SQLite lewat `modernc.org/sqlite` | Pure Go, sehingga cross-compile mudah. |
+| Query | `sqlc` | SQL biasa, hasilnya fungsi Go yang type-safe. |
+| UI | `html/template`, Tailwind CSS v4, Alpine.js | Render di server. Aset di-embed ke binary. |
 | Grafik dan peta | Chart.js, Leaflet | Di-embed ke binary. |
 | RADIUS | `layeh.com/radius` | Server RADIUS di dalam proses yang sama. |
 | MikroTik | `go-routeros/routeros` | RouterOS API. |
 | Session dan auth | `alexedwards/scs`, `bcrypt`, AES-GCM | Library teruji untuk bagian sensitif. |
-| Job terjadwal | goroutine dan `time.Ticker` | Tanpa crontab. |
-| Test | `testing` dan `httptest` stdlib | Tanpa framework test. |
+| Job terjadwal | goroutine dan `time.Ticker` | Berjalan di proses yang sama. |
+| Test | `testing` dan `httptest` stdlib | Cukup stdlib. |
 | Deploy | Binary amd64, arm64, armv7. systemd atau Docker. | |
 
 Daftar lengkap dependency dan lisensinya ada di [NOTICE](NOTICE).
 
 ## Arsitektur
 
-Semua komponen berjalan dalam satu proses. Tidak ada PHP-FPM, web server, crontab, atau database server terpisah.
+Web, RADIUS, dan job terjadwal berjalan dalam satu proses dengan satu file database SQLite.
 
 ```
  Browser admin / pelanggan --HTTP :8080--+
