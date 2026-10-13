@@ -18,7 +18,7 @@ Ringan untuk perangkat kecil, VPS, maupun Docker.
 
 ## Terima kasih untuk PHPNuxBill
 
-gobill tidak akan ada tanpa [PHPNuxBill](https://github.com/hotspotbilling/phpnuxbill). Terima kasih kepada [Ibnu Maksum](https://github.com/ibnux) dan [seluruh kontributor PHPNuxBill](https://github.com/hotspotbilling/phpnuxbill/graphs/contributors). Model data, alur bisnis, kontrak `radius.php`, dan file bahasa di `lang/` berasal dari kerja mereka.
+gobill tidak akan ada tanpa [PHPNuxBill](https://github.com/hotspotbilling/phpnuxbill). Terima kasih kepada [Ibnu Maksum](https://github.com/ibnux) dan [seluruh kontributor PHPNuxBill](https://github.com/hotspotbilling/phpnuxbill/graphs/contributors). Kerja dan dedikasi mereka sangat patut untuk selalu dikenang sebagai usaha berbagi
 
 gobill adalah karya turunan PHPNuxBill dan tetap berlisensi copyleft. Jika PHPNuxBill sudah cukup untuk Anda, pakai PHPNuxBill dan dukung pembuatnya lewat [donasi ke ibnux](https://paypal.me/ibnux).
 
