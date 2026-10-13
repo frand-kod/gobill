@@ -12,3 +12,4 @@ docs/*.sql
 docs/phpnuxbill_*.json
 *.sql.gz
 /dev/
+/docs/private/
