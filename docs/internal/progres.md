@@ -4,13 +4,19 @@ Jurnal ini dijaga di bawah 1000 kata. Rencana awal: [rencana/](rencana/README.md
 
 **Untuk:** pengembangan. Hanya tersedia dalam bahasa Indonesia.
 
-**Pembaruan terakhir:** 2026-10-12, setelah rilis v0.1.9 (lihat [CHANGELOG.md](../../CHANGELOG.md)).
+**Pembaruan terakhir:** 2026-10-13, setelah rilis v0.1.13 (lihat [CHANGELOG.md](../../CHANGELOG.md)).
 
 ## Status
 
-- Rilis terbaru: v0.1.9 (2026-10-12). Prod (STB Armbian, 99.2) berjalan di v0.1.9, dipasang dengan `sudo gobill update`.
+- Rilis terbaru: v0.1.13 (2026-10-13). Prod (STB Armbian) berjalan di v0.1.13, dipasang dengan `sudo gobill update -yes`.
 - Uji beban di prod selama seminggu (sampai sekitar 2026-10-18). Development dihentikan sementara; temuan dicatat sebagai issue GitHub, dievaluasi di akhir pekan.
 - MikroTik prod: `require-message-auth=yes-for-request-resp`, aturan drop isolir dihapus (isolir = 64k + halaman isolir), `radius-interim-update=1m`.
+
+## Sudah selesai di v0.1.12 dan v0.1.13
+
+- **Benchmark:** `bench/run.sh` membandingkan PHPNuxBill dan gobill dengan 5.000 pelanggan yang sama. Hasil: memori 3,4× lebih kecil, RADIUS REST 2,1-2,6× lebih cepat, dashboard 1,7×, daftar pelanggan setara, cold start 0,2 detik lebih lambat. Detail di [bench/README.md](../../bench/README.md).
+- **Perbaikan dari benchmark:** statistik planner saat start dan setelah impor, prepared statement, pool koneksi SQLite, query daftar pelanggan, sesi tidak hilang saat request dibatalkan, bcrypt impor paralel.
+- **Dokumentasi:** README netral dengan bagian untuk pengguna PHPNuxBill.
 
 ## Sudah selesai di v0.1.4
 
@@ -24,7 +30,7 @@ Jurnal ini dijaga di bawah 1000 kata. Rencana awal: [rencana/](rencana/README.md
 
 1. **Uji isolir langsung.** Login hotspot dengan akun `test` (terisolir), buka `http://example.com`: halaman isolir harus tampil, dan akun masuk address-list `isolir`.
 2. **Drill restore.** Uji pemulihan dari file mirror dan dari UI restore di instance uji. Catat hasilnya di sini.
-3. **Bersihkan akses uji.** Hapus user `claude-test` di MikroTik dan ganti password akun SSH STB.
+3. **Bersihkan akses uji.** Hapus user `claude-test` di MikroTik dan ganti password akun SSH STB. Lebih baik pasang SSH key lalu matikan login password.
 4. **Issue uji seminggu.** Kumpulkan di GitHub untuk evaluasi akhir pekan.
 
 ## Belum pernah diuji di dunia nyata
