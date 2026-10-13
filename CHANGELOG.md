@@ -8,6 +8,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.1.13] - 2026-10-13
+
 ### Dokumentasi
 
 - README dibuat netral: bagian tentang kekurangan PHPNuxBill diganti dengan tujuan gobill, dan bagian baru **Untuk pengguna PHPNuxBill** berisi cara impor, tautan ke advisory keamanan resmi PHPNuxBill, serta langkah mengurangi risiko.
