@@ -140,7 +140,7 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 
 	s := &Server{
 		conn:      conn,
-		queries:   db.New(conn),
+		queries:   db.NewCached(conn),
 		sessions:  sm,
 		catalog:   catalog,
 		dummyHash: dummy,

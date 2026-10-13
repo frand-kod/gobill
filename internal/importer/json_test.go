@@ -62,6 +62,9 @@ func TestImportFromJSON(t *testing.T) {
 	if n := count("SELECT count(*) FROM subscriptions"); n != 1 {
 		t.Errorf("subscriptions = %d", n)
 	}
+	if n := count("SELECT count(*) FROM sqlite_stat1 WHERE tbl = 'subscriptions'"); n == 0 {
+		t.Error("import must leave planner stats (ANALYZE)")
+	}
 	for _, name := range []string{"transactions", "activity_logs"} {
 		var missing bool
 		for _, tb := range rep.Tables {

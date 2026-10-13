@@ -3,6 +3,7 @@ package web
 // Customer portal login, logout, session guard and page rendering.
 
 import (
+	"database/sql"
 	"log/slog"
 	"net/http"
 
@@ -30,6 +31,10 @@ func (s *Server) requireCustomer(next http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := s.sessions.GetInt64(r.Context(), "customer_id")
 		c, err := s.queries.GetCustomer(r.Context(), id)
+		if id != 0 && err != nil && err != sql.ErrNoRows {
+			s.fail(w, "load customer", err) // a cancelled request or a busy DB keeps the session
+			return
+		}
 		if id == 0 || err != nil || c.Status == "Banned" || c.Status == "Disabled" || c.SessionVersion != s.sessions.GetInt64(r.Context(), "csv") {
 			s.sessions.Remove(r.Context(), "customer_id")
 			http.Redirect(w, r, "/login", http.StatusSeeOther)

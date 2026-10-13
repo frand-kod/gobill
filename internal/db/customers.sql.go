@@ -136,29 +136,46 @@ func (q *Queries) DetachCustomerTransactions(ctx context.Context, customerID sql
 }
 
 const filterCustomers = `-- name: FilterCustomers :many
-SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, c.session_version, c.coordinates, CAST(COALESCE((SELECT group_concat(p.name, ', ') FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, c.session_version, c.coordinates, x.sort_key, CAST(COALESCE((SELECT group_concat(p.name, ', ') FROM subscriptions s JOIN plans p ON p.id = s.plan_id
                            WHERE s.customer_id = c.id AND s.status = 'active'), '') AS TEXT) AS packages,
-       CAST(COALESCE((SELECT MIN(s.expires_at) FROM subscriptions s WHERE s.customer_id = c.id AND s.status = 'active' AND s.pending_start = 0), 0) AS INTEGER) AS next_expires,
-       CAST(?1 AS TEXT) AS sort_key -- e.g. username_desc; anything else = newest first
-FROM customers c
-WHERE (c.username LIKE '%' || CAST(?2 AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(?2 AS TEXT) || '%'
-       OR c.phone LIKE '%' || CAST(?2 AS TEXT) || '%' OR c.pppoe_username LIKE '%' || CAST(?2 AS TEXT) || '%')
-  AND (CAST(?3 AS TEXT) = '' OR c.service_type = ?3)
-  AND (CAST(?4 AS TEXT) = '' OR c.status = ?4)
+       CAST(COALESCE((SELECT MIN(s.expires_at) FROM subscriptions s WHERE s.customer_id = c.id AND s.status = 'active' AND s.pending_start = 0), 0) AS INTEGER) AS next_expires
+FROM (
+  SELECT c.id, CAST(?1 AS TEXT) AS sort_key -- e.g. username_desc; anything else = newest first
+  FROM customers c
+  WHERE (c.username LIKE '%' || CAST(?2 AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(?2 AS TEXT) || '%'
+         OR c.phone LIKE '%' || CAST(?2 AS TEXT) || '%' OR c.pppoe_username LIKE '%' || CAST(?2 AS TEXT) || '%')
+    AND (CAST(?3 AS TEXT) = '' OR c.service_type = ?3)
+    AND (CAST(?4 AS TEXT) = '' OR c.status = ?4)
+  ORDER BY
+    CASE WHEN sort_key = 'username_asc' THEN c.username END ASC,
+    CASE WHEN sort_key = 'username_desc' THEN c.username END DESC,
+    CASE WHEN sort_key = 'fullname_asc' THEN c.fullname END ASC,
+    CASE WHEN sort_key = 'fullname_desc' THEN c.fullname END DESC,
+    CASE WHEN sort_key = 'balance_asc' THEN c.balance END ASC,
+    CASE WHEN sort_key = 'balance_desc' THEN c.balance END DESC,
+    CASE WHEN sort_key = 'status_asc' THEN c.status END ASC,
+    CASE WHEN sort_key = 'status_desc' THEN c.status END DESC,
+    -- no expiry sorts last either way: NULL/0 becomes max int64 ascending, 0 descending
+    CASE WHEN sort_key = 'expires_asc' THEN COALESCE(NULLIF((SELECT MIN(s.expires_at) FROM subscriptions s
+      WHERE s.customer_id = c.id AND s.status = 'active' AND s.pending_start = 0), 0), 9223372036854775807) END ASC,
+    CASE WHEN sort_key = 'expires_desc' THEN COALESCE((SELECT MIN(s.expires_at) FROM subscriptions s
+      WHERE s.customer_id = c.id AND s.status = 'active' AND s.pending_start = 0), 0) END DESC,
+    c.id DESC
+  LIMIT ?6 OFFSET ?5
+) x JOIN customers c ON c.id = x.id
 ORDER BY
-  CASE WHEN sort_key = 'username_asc' THEN c.username END ASC,
-  CASE WHEN sort_key = 'username_desc' THEN c.username END DESC,
-  CASE WHEN sort_key = 'fullname_asc' THEN c.fullname END ASC,
-  CASE WHEN sort_key = 'fullname_desc' THEN c.fullname END DESC,
-  CASE WHEN sort_key = 'balance_asc' THEN c.balance END ASC,
-  CASE WHEN sort_key = 'balance_desc' THEN c.balance END DESC,
-  CASE WHEN sort_key = 'status_asc' THEN c.status END ASC,
-  CASE WHEN sort_key = 'status_desc' THEN c.status END DESC,
-  CASE WHEN sort_key LIKE 'expires_%' THEN next_expires = 0 END ASC, -- no expiry sorts last either way
-  CASE WHEN sort_key = 'expires_asc' THEN next_expires END ASC,
-  CASE WHEN sort_key = 'expires_desc' THEN next_expires END DESC,
+  CASE WHEN x.sort_key = 'username_asc' THEN c.username END ASC,
+  CASE WHEN x.sort_key = 'username_desc' THEN c.username END DESC,
+  CASE WHEN x.sort_key = 'fullname_asc' THEN c.fullname END ASC,
+  CASE WHEN x.sort_key = 'fullname_desc' THEN c.fullname END DESC,
+  CASE WHEN x.sort_key = 'balance_asc' THEN c.balance END ASC,
+  CASE WHEN x.sort_key = 'balance_desc' THEN c.balance END DESC,
+  CASE WHEN x.sort_key = 'status_asc' THEN c.status END ASC,
+  CASE WHEN x.sort_key = 'status_desc' THEN c.status END DESC,
+  CASE WHEN x.sort_key LIKE 'expires_%' THEN next_expires = 0 END ASC, -- no expiry sorts last either way
+  CASE WHEN x.sort_key = 'expires_asc' THEN next_expires END ASC,
+  CASE WHEN x.sort_key = 'expires_desc' THEN next_expires END DESC,
   c.id DESC
-LIMIT ?6 OFFSET ?5
 `
 
 type FilterCustomersParams struct {
@@ -191,13 +208,16 @@ type FilterCustomersRow struct {
 	LastLoginAt    sql.NullInt64
 	SessionVersion int64
 	Coordinates    string
+	SortKey        string
 	Packages       string
 	NextExpires    int64
-	SortKey        string
 }
 
 // Empty service_type/status = any. page_limit -1 = all rows (CSV).
 // next_expires: the nearest end of an active, started subscription (0 = none); served by subscriptions_active_uniq.
+// The inner query sorts ids only (sorting whole rows is ~5x slower at 5000 customers); packages and
+// next_expires are computed for the page rows only. The expiry subquery runs per row only when sorting by expiry.
+// Same order again for the page rows; SQL does not promise to keep the subquery order.
 func (q *Queries) FilterCustomers(ctx context.Context, arg FilterCustomersParams) ([]FilterCustomersRow, error) {
 	rows, err := q.db.QueryContext(ctx, filterCustomers,
 		arg.Sort,
@@ -235,9 +255,9 @@ func (q *Queries) FilterCustomers(ctx context.Context, arg FilterCustomersParams
 			&i.LastLoginAt,
 			&i.SessionVersion,
 			&i.Coordinates,
+			&i.SortKey,
 			&i.Packages,
 			&i.NextExpires,
-			&i.SortKey,
 		); err != nil {
 			return nil, err
 		}
@@ -314,6 +334,39 @@ func (q *Queries) GetCustomerByUsername(ctx context.Context, username string) (C
 		&i.Coordinates,
 	)
 	return i, err
+}
+
+const listCustomerPhones = `-- name: ListCustomerPhones :many
+SELECT id, username, phone FROM customers WHERE phone <> ''
+`
+
+type ListCustomerPhonesRow struct {
+	ID       int64
+	Username string
+	Phone    string
+}
+
+func (q *Queries) ListCustomerPhones(ctx context.Context) ([]ListCustomerPhonesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listCustomerPhones)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCustomerPhonesRow
+	for rows.Next() {
+		var i ListCustomerPhonesRow
+		if err := rows.Scan(&i.ID, &i.Username, &i.Phone); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listCustomers = `-- name: ListCustomers :many
@@ -622,38 +675,4 @@ func (q *Queries) UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) 
 		arg.ID,
 	)
 	return err
-}
-
-const listCustomerPhones = `-- name: ListCustomerPhones :many
-SELECT id, username, phone FROM customers WHERE phone <> ''
-`
-
-type ListCustomerPhonesRow struct {
-	ID       int64
-	Username string
-	Phone    string
-}
-
-// ListCustomerPhones lists the customers that have a phone number. Compare them with CanonicalPhone.
-func (q *Queries) ListCustomerPhones(ctx context.Context) ([]ListCustomerPhonesRow, error) {
-	rows, err := q.db.QueryContext(ctx, listCustomerPhones)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListCustomerPhonesRow
-	for rows.Next() {
-		var i ListCustomerPhonesRow
-		if err := rows.Scan(&i.ID, &i.Username, &i.Phone); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }

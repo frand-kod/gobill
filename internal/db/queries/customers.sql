@@ -50,29 +50,49 @@ DELETE FROM customers WHERE id = ?;
 -- name: FilterCustomers :many
 -- Empty service_type/status = any. page_limit -1 = all rows (CSV).
 -- next_expires: the nearest end of an active, started subscription (0 = none); served by subscriptions_active_uniq.
-SELECT c.*, CAST(COALESCE((SELECT group_concat(p.name, ', ') FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+-- The inner query sorts ids only (sorting whole rows is ~5x slower at 5000 customers); packages and
+-- next_expires are computed for the page rows only. The expiry subquery runs per row only when sorting by expiry.
+SELECT c.*, x.sort_key, CAST(COALESCE((SELECT group_concat(p.name, ', ') FROM subscriptions s JOIN plans p ON p.id = s.plan_id
                            WHERE s.customer_id = c.id AND s.status = 'active'), '') AS TEXT) AS packages,
-       CAST(COALESCE((SELECT MIN(s.expires_at) FROM subscriptions s WHERE s.customer_id = c.id AND s.status = 'active' AND s.pending_start = 0), 0) AS INTEGER) AS next_expires,
-       CAST(sqlc.arg(sort) AS TEXT) AS sort_key -- e.g. username_desc; anything else = newest first
-FROM customers c
-WHERE (c.username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
-       OR c.phone LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.pppoe_username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%')
-  AND (CAST(sqlc.arg(service_type) AS TEXT) = '' OR c.service_type = sqlc.arg(service_type))
-  AND (CAST(sqlc.arg(status) AS TEXT) = '' OR c.status = sqlc.arg(status))
+       CAST(COALESCE((SELECT MIN(s.expires_at) FROM subscriptions s WHERE s.customer_id = c.id AND s.status = 'active' AND s.pending_start = 0), 0) AS INTEGER) AS next_expires
+FROM (
+  SELECT c.id, CAST(sqlc.arg(sort) AS TEXT) AS sort_key -- e.g. username_desc; anything else = newest first
+  FROM customers c
+  WHERE (c.username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
+         OR c.phone LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.pppoe_username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%')
+    AND (CAST(sqlc.arg(service_type) AS TEXT) = '' OR c.service_type = sqlc.arg(service_type))
+    AND (CAST(sqlc.arg(status) AS TEXT) = '' OR c.status = sqlc.arg(status))
+  ORDER BY
+    CASE WHEN sort_key = 'username_asc' THEN c.username END ASC,
+    CASE WHEN sort_key = 'username_desc' THEN c.username END DESC,
+    CASE WHEN sort_key = 'fullname_asc' THEN c.fullname END ASC,
+    CASE WHEN sort_key = 'fullname_desc' THEN c.fullname END DESC,
+    CASE WHEN sort_key = 'balance_asc' THEN c.balance END ASC,
+    CASE WHEN sort_key = 'balance_desc' THEN c.balance END DESC,
+    CASE WHEN sort_key = 'status_asc' THEN c.status END ASC,
+    CASE WHEN sort_key = 'status_desc' THEN c.status END DESC,
+    -- no expiry sorts last either way: NULL/0 becomes max int64 ascending, 0 descending
+    CASE WHEN sort_key = 'expires_asc' THEN COALESCE(NULLIF((SELECT MIN(s.expires_at) FROM subscriptions s
+      WHERE s.customer_id = c.id AND s.status = 'active' AND s.pending_start = 0), 0), 9223372036854775807) END ASC,
+    CASE WHEN sort_key = 'expires_desc' THEN COALESCE((SELECT MIN(s.expires_at) FROM subscriptions s
+      WHERE s.customer_id = c.id AND s.status = 'active' AND s.pending_start = 0), 0) END DESC,
+    c.id DESC
+  LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset)
+) x JOIN customers c ON c.id = x.id
+-- Same order again for the page rows; SQL does not promise to keep the subquery order.
 ORDER BY
-  CASE WHEN sort_key = 'username_asc' THEN c.username END ASC,
-  CASE WHEN sort_key = 'username_desc' THEN c.username END DESC,
-  CASE WHEN sort_key = 'fullname_asc' THEN c.fullname END ASC,
-  CASE WHEN sort_key = 'fullname_desc' THEN c.fullname END DESC,
-  CASE WHEN sort_key = 'balance_asc' THEN c.balance END ASC,
-  CASE WHEN sort_key = 'balance_desc' THEN c.balance END DESC,
-  CASE WHEN sort_key = 'status_asc' THEN c.status END ASC,
-  CASE WHEN sort_key = 'status_desc' THEN c.status END DESC,
-  CASE WHEN sort_key LIKE 'expires_%' THEN next_expires = 0 END ASC, -- no expiry sorts last either way
-  CASE WHEN sort_key = 'expires_asc' THEN next_expires END ASC,
-  CASE WHEN sort_key = 'expires_desc' THEN next_expires END DESC,
-  c.id DESC
-LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+  CASE WHEN x.sort_key = 'username_asc' THEN c.username END ASC,
+  CASE WHEN x.sort_key = 'username_desc' THEN c.username END DESC,
+  CASE WHEN x.sort_key = 'fullname_asc' THEN c.fullname END ASC,
+  CASE WHEN x.sort_key = 'fullname_desc' THEN c.fullname END DESC,
+  CASE WHEN x.sort_key = 'balance_asc' THEN c.balance END ASC,
+  CASE WHEN x.sort_key = 'balance_desc' THEN c.balance END DESC,
+  CASE WHEN x.sort_key = 'status_asc' THEN c.status END ASC,
+  CASE WHEN x.sort_key = 'status_desc' THEN c.status END DESC,
+  CASE WHEN x.sort_key LIKE 'expires_%' THEN next_expires = 0 END ASC, -- no expiry sorts last either way
+  CASE WHEN x.sort_key = 'expires_asc' THEN next_expires END ASC,
+  CASE WHEN x.sort_key = 'expires_desc' THEN next_expires END DESC,
+  c.id DESC;
 
 -- name: DetachCustomerTransactions :exec
 -- Customer delete keeps history: transactions stay with customer_id NULL (username/plan_name remain).

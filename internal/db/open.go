@@ -35,7 +35,15 @@ func Open(path string) (*sql.DB, error) {
 		conn.Close()
 		return nil, err
 	}
+	// Planner stats for tables that have none or grew a lot, e.g. right after an install or an import.
+	// Without them RADIUS auth picked the status index and scanned every active subscription
+	// (about 30x slower at 5000 customers) until the daily cleanup ran PRAGMA optimize.
+	// A failure here only costs speed, so it does not stop the start.
+	conn.Exec("PRAGMA optimize=0x10002")
 	conn.SetMaxOpenConns(4) // ponytail: fixed pool for the STB's RAM; raise if portal requests queue
+	// Keep them all open: the default 2 idle conns made concurrent requests reopen a connection
+	// (and rerun every pragma) for most queries, about a quarter of the CPU under load.
+	conn.SetMaxIdleConns(4)
 	return conn, nil
 }
 

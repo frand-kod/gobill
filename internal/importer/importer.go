@@ -8,8 +8,10 @@ import (
 	"io"
 	"net"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -177,7 +179,13 @@ func Run(ctx context.Context, my, lite *sql.DB, o Options) (*Report, error) {
 	if o.DryRun {
 		return m.rep, nil
 	}
-	return m.rep, tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	// Fresh planner stats for the imported row counts; without them RADIUS auth scans every
+	// active subscription. A failure only costs speed: the data is already committed.
+	lite.ExecContext(ctx, "ANALYZE")
+	return m.rep, nil
 }
 
 func (m *imp) table(name string) *Table {
@@ -352,13 +360,25 @@ func (m *imp) plan() error {
 
 func (m *imp) customer() error {
 	t := m.table("customers")
-	return m.each(t, `SELECT id, username, password, fullname, COALESCE(address,''), COALESCE(phonenumber,''), COALESCE(email,''),
+	var rows []row
+	err := m.each(t, `SELECT id, username, password, fullname, COALESCE(address,''), COALESCE(phonenumber,''), COALESCE(email,''),
 		balance, COALESCE(service_type,'Others'), pppoe_username, pppoe_password, pppoe_ip, auto_renewal, status, created_by,
 		COALESCE(created_at,''), COALESCE(last_login,'') FROM tbl_customers ORDER BY id`, 17, func(r row) {
-		hash, err := bcrypt.GenerateFromPassword([]byte(r[2]), bcrypt.DefaultCost)
+		rows = append(rows, r)
+	})
+	if err != nil {
+		return err
+	}
+	pws := make([]string, len(rows))
+	for i, r := range rows {
+		pws[i] = r[2]
+	}
+	hashes, herrs := hashAll(pws)
+	for i, r := range rows {
+		hash, err := hashes[i], herrs[i]
 		if err != nil { // passwords over 72 bytes
 			t.skip(r[0], err)
-			return
+			continue
 		}
 		pass := r[2]
 		if r[8] == "PPPoE" && r[10] != "" {
@@ -367,7 +387,7 @@ func (m *imp) customer() error {
 		enc, err := secret.Seal(m.o.Key, []byte(pass))
 		if err != nil {
 			t.skip(r[0], err)
-			return
+			continue
 		}
 		bal, err := ParsePrice(r[7])
 		if err != nil || bal < 0 {
@@ -401,7 +421,30 @@ func (m *imp) customer() error {
 			m.customers[r[1]] = r.i(0)
 			m.custIDs[r.i(0)] = true
 		}
-	})
+	}
+	return nil
+}
+
+// hashAll bcrypts every password on all CPUs. bcrypt is the slow part of an import:
+// serially, 5000 customers took about 25 minutes on a laptop.
+func hashAll(pws []string) ([]string, []error) {
+	hashes, errs := make([]string, len(pws)), make([]error, len(pws))
+	jobs := make(chan int)
+	var wg sync.WaitGroup
+	for range runtime.GOMAXPROCS(0) {
+		wg.Go(func() {
+			for i := range jobs {
+				h, err := bcrypt.GenerateFromPassword([]byte(pws[i]), bcrypt.DefaultCost)
+				hashes[i], errs[i] = string(h), err
+			}
+		})
+	}
+	for i := range pws {
+		jobs <- i
+	}
+	close(jobs)
+	wg.Wait()
+	return hashes, errs
 }
 
 func (m *imp) routerID(name string) (any, bool) {
