@@ -38,7 +38,7 @@ Audit dilakukan pada 2026-10-08 terhadap branch `master` (commit `d3e05962`).
 | Payment gateway | `system/controllers/order.php`, `callback.php`, `paymentgateway.php` | Konvensi nama fungsi: `{gw}_validate_config`, `{gw}_show_config`, `{gw}_save_config`, `{gw}_create_transaction`, `{gw}_get_status`, `{gw}_payment_notification`. Kode gateway ada di repo terpisah |
 | Hook plugin | `system/autoload/Hookers.php` | `register_hook`, `run_hook` (±129 titik panggil), `register_menu`. `run_hook` berhenti di hook pertama yang cocok |
 | Cron | `system/cron.php` (expiry), `system/cron_reminder.php` (pengingat) | Butuh crontab OS. Ada lock file di `system/cron.php` |
-| API | `system/api.php` | Memakai ulang controller dengan dummy `$ui`. Token `md5`. CORS `*` |
+| API | `system/api.php` | Memakai ulang controller dengan dummy `$ui` |
 | Notifikasi | `system/autoload/Message.php` | Telegram, SMS/WA via URL gateway, email (PHPMailer) |
 | Installer & update | `install/`, `update.php`, `system/updates.json` | Download zip dari GitHub |
 
@@ -46,13 +46,12 @@ Audit dilakukan pada 2026-10-08 terhadap branch `master` (commit `d3e05962`).
 
 ### Keamanan
 
-1. **SQL injection di `radius.php`.** Contoh: `whereRaw("BINARY username = '$username' AND status = 'Active'")`, dengan `$username` berasal langsung dari request RADIUS.
+1. **SQL injection di `radius.php`.** Sudah diumumkan pengelola PHPNuxBill sebagai advisory [GHSA-q8ch-r8cv-q579](https://github.com/hotspotbilling/phpnuxbill/security/advisories/GHSA-q8ch-r8cv-q579).
 2. **±63 pemakaian raw SQL** (`whereRaw`, `raw_query`, `raw_execute`) di controller, autoload, dan `radius.php`. Setiap pemakaian perlu diperiksa.
 3. **Password admin memakai `sha1` tanpa salt** (`system/autoload/Password.php`, `_crypt`/`_verify`).
 4. **Password pelanggan disimpan plaintext.** Nilai aslinya memang dibutuhkan untuk CHAP dan PPPoE, tetapi kolomnya tidak dienkripsi.
-5. **Cookie login** ditandatangani dengan `sha1(id.time.db_pass)`, jadi password DB dipakai sebagai secret.
-6. **API** memakai `Access-Control-Allow-Origin: *`. Token API menurut komentar kode tidak bisa di-revoke.
-7. **Plugin** di-`include` begitu saja ke proses yang sama, dan exception-nya ditelan diam-diam.
+5. **Dua temuan lain** tentang cookie login dan API dilaporkan secara privat ke pengelola PHPNuxBill pada 2026-10-13. Detailnya tidak ditulis di sini sampai ada advisory resmi.
+6. **Plugin** di-`include` begitu saja ke proses yang sama, dan exception-nya ditelan diam-diam.
 
 ### Integritas data
 

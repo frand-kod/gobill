@@ -153,7 +153,7 @@ Berisi tata letak widget yang disusun dari `$config['dashboard_Admin']` (lihat b
 | `username` | Username | text | required | `username` (`login.html`) | ✅ | |
 | `password` | Password | password | required | `password` | ✅ | Hash lama `sha1` tanpa salt diganti bcrypt; pembatas brute-force |
 | (baru, v0.1.4) | Kode 2FA | 6 digit TOTP | opsional per admin | `/login/2fa` (`login_2fa.html`) | ✅ | Setelah kata sandi benar; kode pemulihan 8 kali pakai. Diatur di `/admin/2fa`, ditautkan dari dropdown profil (v0.1.5). Lihat [keamanan.md](../id/security.md) |
-| (cookie "remember") | — | — | cookie `sha1(id.time.db_pass)` | session `scs` (sqlite3store) | ⚠️ | Disengaja: cookie bertanda tangan password DB dianggap lemah (01-audit keamanan 5) |
+| (cookie "remember") | — | — | cookie bertanda tangan | session `scs` (sqlite3store) | ⚠️ | Disengaja: sesi disimpan di server (01-audit keamanan 5) |
 | `csrf_token` | — | hidden | `csrf_enabled` setting | `http.NewCrossOriginProtection` | ⚠️ | CSRF selalu aktif, tidak bisa dimatikan |
 
 Aksi: Login, Logout (`POST /logout`). Tidak ada link "lupa password" admin di lama.
