@@ -69,6 +69,7 @@ func (s *Service) DeleteCustomer(ctx context.Context, id int64) error {
 	for _, p := range plans {
 		dev, dc, dp, _, e := s.prepare(ctx, c, p)
 		if e == nil {
+			dp.ExpiredPlan = nil // a deleted customer leaves the router entirely (PHP customers/delete)
 			e = dev.RemoveCustomer(ctx, dc, dp)
 		}
 		if e != nil {

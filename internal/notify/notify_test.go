@@ -53,6 +53,17 @@ func TestSMSUsesWAURLOrLegacySMSURL(t *testing.T) {
 	}
 }
 
+// SMS gets the same country code as WhatsApp: 08... becomes 62... with country_code_phone=62.
+func TestSMSAddsCountryCode(t *testing.T) {
+	var to string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { to = r.URL.Query().Get("to") }))
+	defer srv.Close()
+	n := nt(map[string]string{"sms_url": srv.URL + "/sms?to=[number]&m=[text]", "country_code_phone": "62"})
+	if err := n.SMS(context.Background(), "0812345678", "hi"); err != nil || to != "62812345678" {
+		t.Fatalf("to %q err %v", to, err)
+	}
+}
+
 func TestRender(t *testing.T) {
 	got := Render("Hi [[name]] [[x]] [[name]]", map[string]string{"name": "Ann"})
 	if got != "Hi Ann [[x]] Ann" {
@@ -92,7 +103,7 @@ func TestGatewayAndChannel(t *testing.T) {
 	if err := n.SMS(ctx, "+62 81", "hi & bye"); err != nil {
 		t.Fatal(err)
 	}
-	if sms != "to=%2B62+81&m=hi+%26+bye" {
+	if sms != "to=6281&m=hi+%26+bye" {
 		t.Fatal(sms)
 	}
 	c := db.Customer{Fullname: "Ann", Phone: "0812345"}
