@@ -130,7 +130,7 @@ func run() error {
 		guard.Run(ctx)
 	}()
 
-	svc := &billing.Service{DB: conn, Q: db.New(conn), Key: key}
+	svc := &billing.Service{DB: conn, Q: db.NewCached(conn), Key: key}
 	reload := func(ctx context.Context) {
 		n, err := notify.Load(ctx, svc.Q)
 		if err != nil {
@@ -172,7 +172,7 @@ func run() error {
 	}
 
 	errCh := make(chan error, 2)
-	rs := &radius.Server{Q: db.New(conn), Key: key, Trusted: guard.Trusted, Redeem: svc.RedeemVoucher, Start: svc.StartPending}
+	rs := &radius.Server{Q: db.NewCached(conn), Key: key, Trusted: guard.Trusted, Redeem: svc.RedeemVoucher, Start: svc.StartPending}
 	app.Radius = rs // shared with /radius.php so throttles and dedup state are common
 	if ra, on := radiusAddr(); on {
 		host, port, err := net.SplitHostPort(ra)

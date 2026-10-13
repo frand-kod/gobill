@@ -8,6 +8,19 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Perbaikan
+
+- **Admin tidak lagi ter-logout saat request dibatalkan**: jika browser membatalkan request, misalnya karena pindah halaman sebelum halaman selesai dimuat, error database dianggap sesi rusak dan sesi admin dihapus. Kini error selain "akun tidak ada" menampilkan halaman error tanpa menghapus sesi. Hal yang sama berlaku untuk portal pelanggan.
+- **RADIUS REST sekitar 2,5 kali lebih cepat di bawah beban**: query yang sering dipakai kini disiapkan sekali sebagai prepared statement, bukan di-parse ulang setiap kali. Pool koneksi SQLite juga tetap terbuka, sehingga koneksi tidak dibuka ulang di tengah beban.
+- **Login RADIUS lambat setelah instalasi atau impor**: database baru belum punya statistik query planner, sehingga setiap login RADIUS memindai semua langganan aktif. Dengan 5.000 pelanggan, throughput hanya sekitar 3% dari normal sampai pembersihan harian pertama berjalan. Statistik kini diperbarui saat start dan setelah impor.
+- **Impor dari PHPNuxBill jauh lebih cepat**: password pelanggan kini di-hash dengan bcrypt di semua core CPU, tidak lagi satu per satu. Sebelumnya impor 5.000 pelanggan butuh sekitar 25 menit di laptop.
+- **Daftar pelanggan lebih cepat**: query daftar pelanggan kini mengurutkan id saja, lalu menghitung paket dan masa aktif hanya untuk baris di halaman itu. Dengan 5.000 pelanggan, waktu muat halaman turun dari sekitar 170 ms menjadi sekitar 70 ms.
+
+### Dokumentasi
+
+- README ditulis ulang: ucapan terima kasih untuk PHPNuxBill, alasan penulisan ulang, hasil benchmark, dan tech stack.
+- Skrip benchmark `bench/run.sh` membandingkan PHPNuxBill dan gobill dengan data dan host yang sama.
+
 ## [0.1.11] - 2026-10-12
 
 ### Fitur

@@ -227,10 +227,12 @@ func (s *Server) requireAdmin(roles ...string) func(http.Handler) http.Handler {
 				return
 			}
 			admin, err := s.queries.GetAdmin(r.Context(), id)
+			if err != nil && err != sql.ErrNoRows {
+				// A cancelled request or a busy DB is not a reason to log the admin out.
+				s.fail(w, "load admin", err)
+				return
+			}
 			if err != nil || admin.Status != "Active" {
-				if err != nil && err != sql.ErrNoRows {
-					slog.Error("load admin", "err", err)
-				}
 				s.sessions.Destroy(r.Context())
 				http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 				return
