@@ -8,6 +8,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-10-13
+
 ### Perbaikan
 
 - **Admin tidak lagi ter-logout saat request dibatalkan**: jika browser membatalkan request, misalnya karena pindah halaman sebelum halaman selesai dimuat, error database dianggap sesi rusak dan sesi admin dihapus. Kini error selain "akun tidak ada" menampilkan halaman error tanpa menghapus sesi. Hal yang sama berlaku untuk portal pelanggan.
