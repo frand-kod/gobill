@@ -6,6 +6,33 @@ Dokumen ini membandingkan UI lama (`../phpnuxbill/ui/ui`, 157 template) dengan r
 
 Sumber: template `ui/ui/admin/**`, `ui/ui/customer/*.tpl`, `ui/ui/widget/**`; controller `system/controllers/*.php`; sisi baru `internal/web/*.go`, `web/templates/*.html`, `internal/db/migrations/0001-0003`. Fase dan non-goal dari `rencana/audit-legacy.md` dan `progres.md`.
 
+## Status cek ulang 2026-10-13
+
+Tabel di bawah adalah potret 2026-10-08. Banyak status layar sudah usang. Setiap field bertanda ❌ dicek ulang terhadap kode v0.1.13 dengan hasil berikut.
+
+**Sudah ada sekarang**, walau di bawah masih tertulis ❌ atau `Belum`:
+
+- `payment_usings` untuk metode bayar admin, termasuk Recharge Zero.
+- Login voucher di portal: `voucher` dan `voucher_only`.
+- Lupa username: `find`.
+- Ganti nomor HP dan email lewat OTP di profil pelanggan.
+- Portal pelanggan C1 sampai C10: login, registrasi, lupa password, dashboard, profil, ganti password, inbox, voucher, order, dan halaman statis.
+- Widget pelanggan W15 sampai W22 diganti kartu di dashboard portal.
+
+**Masih belum ada**, dan tidak berlabel Non-goal atau Ditunda:
+
+| Area | Field |
+|---|---|
+| Akun admin | `send_notif` |
+| Pelanggan | `account_type`, `city`, `district`, `state`, `zip`, pilihan kanal notifikasi `sms`, `wa`, `mail` |
+| Paket | `plan_type`, `price_old` |
+| Cetak voucher | `voucher_per_page`, `from_id`, `vpl`, `pagebreak`, `selected_datetime` |
+| Pesan massal | mode uji `test` |
+| Pengaturan | `login_page_type`, `mikrotik_sms_command`, `email_invoice`, tarif pajak |
+| Profil portal | field kustom pelanggan |
+
+Field ❌ lain berlabel Non-goal atau Ditunda, dan label itu tetap berlaku. Status `Sebagian` per layar admin belum dicek ulang satu per satu.
+
 ## 1. Legenda dan ringkasan
 
 **Penanda field:** ✅ ada (setara) · ⚠️ beda (cara/nama/tipe berbeda, dijelaskan di Catatan) · ❌ belum ada.
