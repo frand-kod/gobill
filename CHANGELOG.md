@@ -8,6 +8,12 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Perbaikan
+
+- **SMS kini memakai kode negara**: nomor `08...` diubah dengan `country_code_phone`, sama seperti WhatsApp. Gateway SMS yang butuh `62...` tidak lagi gagal.
+- **Hapus pelanggan mengeluarkannya dari router**: pelanggan yang dihapus kini dihapus dari router, walaupun paketnya punya profil expired. Sebelumnya pelanggan itu dipindah ke profil expired dan tertinggal di router.
+- **Recharge admin tidak menawarkan Balance saat saldo dimatikan**: metode Balance hanya muncul bila `enable_balance` bukan `no`. Request yang tetap memakai Balance ditolak tanpa memotong saldo.
+
 ## [0.1.13] - 2026-10-13
 
 ### Dokumentasi

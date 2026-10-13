@@ -310,7 +310,7 @@ func (n *Notifier) SMS(ctx context.Context, phone, text string) error {
 	if tpl == "" || text == "" {
 		return nil
 	}
-	return n.logged("sms", phone, "", text, n.getURL(ctx, gateway(tpl, phone, text)))
+	return n.logged("sms", phone, "", text, n.getURL(ctx, gateway(tpl, n.phoneFormat(nonDigit.ReplaceAllString(phone, "")), text)))
 }
 
 // WAError is a failed send through the alt WhatsApp gateway. Status is 0 when the server

@@ -196,7 +196,10 @@ func (s *Server) rechargeMethods(ctx context.Context) []option {
 	if len(out) == 0 {
 		out = append(out, option{"Cash", "Cash"})
 	}
-	return append(out, option{"Balance", "Balance"}, option{methodZero, "Recharge Zero"})
+	if st["enable_balance"] != "no" { // like billing: balance is on unless explicitly off
+		out = append(out, option{"Balance", "Balance"})
+	}
+	return append(out, option{methodZero, "Recharge Zero"})
 }
 
 // rechargeMethod validates the posted method against rechargeMethods; label is its display name.

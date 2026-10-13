@@ -310,3 +310,38 @@ func TestExpireOneSkipsRenewedSnapshot(t *testing.T) {
 		t.Fatalf("renewed sub was expired: calls %v", *e.calls)
 	}
 }
+
+type recordRemove struct {
+	device.Dummy
+	got *[]device.Plan
+}
+
+func (r recordRemove) RemoveCustomer(_ context.Context, _ device.Customer, p device.Plan) error {
+	*r.got = append(*r.got, p)
+	return nil
+}
+
+// A deleted customer must leave the router, not move to the expired profile (PHP customers/delete).
+func TestDeleteCustomerIgnoresExpiredPlan(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	exp, err := e.q.CreatePlan(ctx, db.CreatePlanParams{Name: "expired", Type: "PPPoE", Billing: "prepaid", Price: 0, Validity: 1, ValidityUnit: "Days", Enabled: 1, BandwidthID: e.day.BandwidthID, RouterID: e.day.RouterID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	withExp, err := e.q.CreatePlan(ctx, db.CreatePlanParams{Name: "withexp", Type: "PPPoE", Billing: "prepaid", Price: 10000, Validity: 1, ValidityUnit: "Days", Enabled: 1, BandwidthID: e.day.BandwidthID, RouterID: e.day.RouterID, ExpiredPlanID: sql.NullInt64{Int64: exp.ID, Valid: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.s.Recharge(ctx, e.cust.ID, withExp.ID, "Admin - Cash", 0); err != nil {
+		t.Fatal(err)
+	}
+	var got []device.Plan
+	e.s.DeviceFor = func(db.Plan, db.Router) (device.Device, error) { return recordRemove{got: &got}, nil }
+	if err := e.s.DeleteCustomer(ctx, e.cust.ID); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].ExpiredPlan != nil {
+		t.Fatalf("remove calls %+v, want one with no ExpiredPlan", got)
+	}
+}

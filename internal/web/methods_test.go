@@ -38,3 +38,24 @@ func TestRechargeMethods(t *testing.T) {
 		t.Fatal("unknown method recharged")
 	}
 }
+
+// With enable_balance=no the recharge form does not offer Balance, and a posted Balance is refused without a debit.
+func TestRechargeBalanceDisabled(t *testing.T) {
+	e := billApp(t)
+	p := e.plan(t, "day", "PPPoE", 10000)
+	ctx := t.Context()
+	if _, err := e.q.AdjustBalance(ctx, db.AdjustBalanceParams{Delta: 50000, ID: e.cust.ID}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.q.UpsertSetting(ctx, db.UpsertSettingParams{Key: "enable_balance", Value: "no"}); err != nil {
+		t.Fatal(err)
+	}
+	if body := do(e.h, "GET", "/admin/recharge?customer=u1", nil, e.c).Body.String(); strings.Contains(body, `value="Balance"`) {
+		t.Fatal("Balance offered while enable_balance=no")
+	}
+	do(e.h, "POST", "/admin/customers/"+itoa(e.cust.ID)+"/recharge", url.Values{"plan": {itoa(p.ID)}, "method": {"Balance"}}, e.c)
+	c, _ := e.q.GetCustomer(ctx, e.cust.ID)
+	if c.Balance != 50000 || len(*e.calls) != 0 {
+		t.Fatalf("balance %d calls %v: Balance was charged while disabled", c.Balance, *e.calls)
+	}
+}
