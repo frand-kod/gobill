@@ -8,6 +8,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.1.14] - 2026-10-13
+
 ### Perbaikan
 
 - **SMS kini memakai kode negara**: nomor `08...` diubah dengan `country_code_phone`, sama seperti WhatsApp. Gateway SMS yang butuh `62...` tidak lagi gagal.
