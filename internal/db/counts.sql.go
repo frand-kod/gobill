@@ -84,7 +84,7 @@ func (q *Queries) CountCoupons(ctx context.Context, term string) (int64, error) 
 
 const countFilteredCustomers = `-- name: CountFilteredCustomers :one
 SELECT COUNT(*) FROM customers c
-WHERE (c.username LIKE '%' || CAST(?1 AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(?1 AS TEXT) || '%'
+WHERE (CAST(?1 AS TEXT) = '' OR c.username LIKE '%' || CAST(?1 AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(?1 AS TEXT) || '%'
        OR c.phone LIKE '%' || CAST(?1 AS TEXT) || '%' OR c.pppoe_username LIKE '%' || CAST(?1 AS TEXT) || '%')
   AND (CAST(?2 AS TEXT) = '' OR c.service_type = ?2)
   AND (CAST(?3 AS TEXT) = '' OR c.status = ?3)
@@ -105,7 +105,7 @@ func (q *Queries) CountFilteredCustomers(ctx context.Context, arg CountFilteredC
 
 const countFilteredSubscriptions = `-- name: CountFilteredSubscriptions :one
 SELECT COUNT(*) FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id
-WHERE (c.username LIKE '%' || CAST(?1 AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(?1 AS TEXT) || '%'
+WHERE (CAST(?1 AS TEXT) = '' OR c.username LIKE '%' || CAST(?1 AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(?1 AS TEXT) || '%'
        OR p.name LIKE '%' || CAST(?1 AS TEXT) || '%')
   AND (CAST(?2 AS TEXT) = '' OR s.status = ?2)
   AND (CAST(?3 AS TEXT) = '' OR s.type = ?3)

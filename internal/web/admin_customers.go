@@ -160,13 +160,27 @@ func phoneTerm(q string) string {
 	return q
 }
 
+// filterCustomers is FilterCustomers, through FilterCustomersNewest for the default view (no search,
+// filter or sort), which reads the page off the id index instead of sorting every customer.
+func (s *Server) filterCustomers(ctx context.Context, p db.FilterCustomersParams) ([]db.FilterCustomersRow, error) {
+	if p != (db.FilterCustomersParams{PageOffset: p.PageOffset, PageLimit: p.PageLimit}) {
+		return s.queries.FilterCustomers(ctx, p)
+	}
+	rows, err := s.queries.FilterCustomersNewest(ctx, db.FilterCustomersNewestParams{PageOffset: p.PageOffset, PageLimit: p.PageLimit})
+	out := make([]db.FilterCustomersRow, len(rows))
+	for i, r := range rows {
+		out[i] = db.FilterCustomersRow(r)
+	}
+	return out, err
+}
+
 func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 	p, sort, dir := custQuery(r)
 	_, pg := paging(r)
 	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
 	typed := p.Q
 	p.Q = phoneTerm(p.Q)
-	rows, err := s.queries.FilterCustomers(r.Context(), p)
+	rows, err := s.filterCustomers(r.Context(), p)
 	if err != nil {
 		s.fail(w, "list customers", err)
 		return
@@ -186,7 +200,12 @@ func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{c.ID, []string{c.Username, c.Fullname, money(c.Balance), c.Packages, c.ServiceType, c.PppoeUsername, s.endsCell(c.NextExpires), c.Status}})
 	}
 	lp.Links = []option{{"/admin/customers/export?" + lp.query().Encode(), "Export CSV"}}
-	total, err := s.queries.CountFilteredCustomers(r.Context(), db.CountFilteredCustomersParams{Q: p.Q, ServiceType: p.ServiceType, Status: p.Status})
+	var total int64
+	if p.Q == "" && p.ServiceType == "" && p.Status == "" {
+		total, err = s.queries.CountCustomers(r.Context()) // no LIKE scan over every customer
+	} else {
+		total, err = s.queries.CountFilteredCustomers(r.Context(), db.CountFilteredCustomersParams{Q: p.Q, ServiceType: p.ServiceType, Status: p.Status})
+	}
 	if err != nil {
 		s.fail(w, "count customers", err)
 		return
@@ -229,7 +248,7 @@ func (s *Server) custPick(w http.ResponseWriter, r *http.Request) {
 func (s *Server) custExport(w http.ResponseWriter, r *http.Request) {
 	p, _, _ := custQuery(r)
 	p.PageLimit = -1
-	rows, err := s.queries.FilterCustomers(r.Context(), p)
+	rows, err := s.filterCustomers(r.Context(), p)
 	if err != nil {
 		s.fail(w, "export customers", err)
 		return
