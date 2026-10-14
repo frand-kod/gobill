@@ -8,6 +8,39 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Keamanan
+
+- **`/radius.php` tidak lagi terbuka lewat reverse proxy di host yang sama**: dengan `radius_rest_allow` kosong, request yang membawa header proxy (`X-Forwarded-For`, `X-Real-IP`, `Forwarded`, `CF-Connecting-IP`) ditolak. Sebelumnya, di belakang Nginx atau cloudflared lokal, semua klien internet terlihat datang dari loopback.
+- **Header keamanan di semua respons**: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, dan `Referrer-Policy: same-origin`.
+
+### Performa
+
+- **RADIUS UDP 8x lebih kuat**: batas login per detik dengan 2 CPU dan 50.000 pelanggan naik dari sekitar 250/s menjadi 2000/s. Diukur dengan `bench/radius`.
+  - `sqlite_stat4` dihapus setelah `PRAGMA optimize`. Sampel STAT4 membuat SQLite meng-compile ulang query login di setiap eksekusi.
+  - Daftar NAS di-cache selama 2 detik. Sebelumnya tabel NAS dibaca tiga kali per paket.
+  - Cache retransmit tidak lagi memindai semua entri per paket.
+  - Penghitung login gagal tidak lagi memindai semua entri per kegagalan. Serangan spray username memakan sebagian besar CPU.
+  - Paket di atas kapasitas langsung di-drop (`radius_packets_shed_total`), sehingga memori tetap terbatas dan sisa paket tetap dijawab sebelum NAS menyerah.
+
+- **Accounting RADIUS 10x lebih cepat di disk sungguhan**: paket accounting yang datang bersamaan kini ditulis dalam satu transaksi (group commit), dengan satu `fsync` untuk semuanya. Balasan ke NAS tetap dikirim setelah data tersimpan. Diukur di 1 core dengan DB di ext4 NVMe dan 5000 pelanggan: 150/s menjadi 1500/s. Di SD card atau eMMC, yang `fsync`-nya lebih lambat, selisihnya lebih besar.
+- **Login RADIUS lebih ringan**: data pelanggan dan paket aktif diambil dengan satu query, bukan dua. Secret NAS dan setting yang dipakai RADIUS di-cache 2 detik. Login di 1 core naik dari 200/s (v0.1.14) menjadi 1100/s.
+- **Tidak macet saat menunggu disk di perangkat 1 core**: gobill memakai minimal 2 thread Go (`GOMAXPROCS`). Dengan satu thread, setiap `fsync` SQLite menghentikan seluruh aplikasi, termasuk pembacaan paket RADIUS.
+- **Buffer socket RADIUS 4 MB**: lonjakan paket tidak lagi dibuang kernel (`RcvbufErrors`). Linux membatasinya dengan `net.core.rmem_max`.
+- **Dashboard admin 3x lebih cepat dengan banyak transaksi**: index baru `transactions_income_idx` (migrasi 0019) membuat total pendapatan (hari ini, bulan ini, dan 12 grafik bulanan) dihitung dari index saja. Dengan 60.000 transaksi, dashboard naik dari 3,4 menjadi 11,3 halaman/s.
+- **Daftar pelanggan admin 2,8x lebih cepat**: tampilan default (tanpa pencarian, filter, atau urutan) membaca satu halaman langsung dari urutan id, tanpa mengurutkan semua pelanggan. Totalnya memakai hitungan biasa. Pencarian kosong tidak lagi menjalankan `LIKE` di setiap baris. Dengan 5000 pelanggan, halaman naik dari 28 menjadi 78/s.
+- **Memori menyesuaikan perangkat**: `GOMEMLIMIT` otomatis diisi dari batas cgroup atau RAM sistem, dan cache SQLite dikecilkan pada budget 256 MB atau kurang. Dengan batas 64 MB dan 5000 pelanggan di satu core, gobill sebelumnya mati kena OOM saat beban tinggi. Sekarang gobill tetap berjalan.
+
+### Perbaikan
+
+- **Retransmit tetap dikenali saat trafik tinggi**: cache retransmit penuh mulai sekitar 333 paket/s, lalu berhenti mendeteksi duplikat. Accounting dan voucher bisa terproses dua kali saat banyak router reconnect bersamaan.
+- **Memori penghitung login gagal kini terbatas**: spray username tidak lagi membuat map tumbuh tanpa batas.
+
+### Lainnya
+
+- `GOBILL_PPROF` menyalakan profiler Go di alamat lokal untuk benchmark.
+- `bench/radius`: load generator RADIUS (ramp, spike, mixed dengan serangan).
+- CI menjalankan test dengan `-race`.
+
 ## [0.1.14] - 2026-10-13
 
 ### Perbaikan

@@ -62,7 +62,8 @@ chmod -R a+rwX "$W/php"
 podman pod create --name bench-php -p 8081:80 -p 3307:3306 >/dev/null
 podman run -d --pod bench-php --name bench-php-db --cpus "$CPUS" \
 	-e MARIADB_ROOT_PASSWORD=bench -e MARIADB_DATABASE=phpnuxbill docker.io/library/mariadb:10.11 >/dev/null
-until podman exec bench-php-db mariadb -uroot -pbench -e 'select 1' >/dev/null 2>&1; do sleep 1; done
+# TCP, not the socket: the image first runs a socket-only server for init, then restarts it
+until podman exec bench-php-db mariadb -h127.0.0.1 -uroot -pbench -e 'select 1' >/dev/null 2>&1; do sleep 1; done
 for f in install/phpnuxbill.sql install/radius.sql; do podman exec -i bench-php-db mariadb -uroot -pbench phpnuxbill <"$W/php/$f"; done
 sed "s/@CUSTOMERS@/$CUSTOMERS/" "$ROOT/bench/seed.sql" | podman exec -i bench-php-db mariadb -uroot -pbench phpnuxbill
 
@@ -98,7 +99,8 @@ curl -fs -c "$W/php.cj" -b "$W/php.cj" -o /dev/null -d 'username=admin&password=
 curl -fs -c "$W/go.cj" -b "$W/go.cj" -o /dev/null -d 'username=admin&password=admin' "$GO/admin/login"
 jar() { awk '(!/^#/ || /^#HttpOnly_/) && NF>=7{printf "%s=%s; ", $6, $7}' "$1"; }
 PHP_COOKIE=$(jar "$W/php.cj") GO_COOKIE=$(jar "$W/go.cj")
-curl -fs -H "Cookie: $PHP_COOKIE" "$PHP/?_route=dashboard" | grep -q '<title>Dashboard' || { echo "PHPNuxBill login failed" >&2; exit 1; }
+# grep without -q reads to the end: -q exits at the match, curl gets SIGPIPE and pipefail fails the check
+curl -fs -H "Cookie: $PHP_COOKIE" "$PHP/?_route=dashboard" | grep '<title>Dashboard' >/dev/null || { echo "PHPNuxBill login failed" >&2; exit 1; }
 curl -fs -H "Cookie: $GO_COOKIE" -o /dev/null -w '%{url_effective}' "$GO/admin/customers" | grep -q customers || { echo "gobill login failed" >&2; exit 1; }
 
 # Warm up opcache, buffer pools and the SQLite page cache.
