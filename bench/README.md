@@ -56,6 +56,33 @@ Memori diukur sebagai PSS, yaitu RSS dengan halaman bersama dibagi rata antar pr
 - Cold start PHPNuxBill hanya mengukur Apache. MariaDB sudah berjalan lebih dulu karena dibutuhkan untuk seed.
 - Halaman admin kedua aplikasi tidak identik. Isi dan ukuran HTML berbeda.
 
+## Hasil mentah 2026-10-14
+
+Branch `perf-security-hardening` (commit `e31bfba`). Pengaturan sama dengan hasil 2026-10-13 di bawah.
+
+```
+Host: Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz, 8 threads, 7 GB RAM, Linux 7.2.9-201.fc44.x86_64
+Each server container limited to 2 CPUs. 5000 customers. ab -k -t 30 -c 50 per scenario.
+```
+
+| Scenario | PHPNuxBill req/s | gobill req/s | Speed-up | PHPNuxBill p50 / p99 | gobill p50 / p99 | Non-2xx (PHP / Go) |
+|---|---:|---:|---:|---:|---:|---:|
+| RADIUS REST authenticate | 427 | 1819 | **4.3x** | 101 / 270 ms | 25 / 73 ms | 0 / 0 |
+| RADIUS REST authorize | 322 | 1631 | **5.1x** | 143 / 300 ms | 27 / 82 ms | 0 / 0 |
+| Admin customer list | 30 | 61 | **2.0x** | 1627 / 1896 ms | 773 / 1607 ms | 0 / 0 |
+| Admin dashboard | 12 | 20 | **1.7x** | 4206 / 4612 ms | 2389 / 3860 ms | 0 / 0 |
+
+| Resource | PHPNuxBill (Apache + PHP + MariaDB) | gobill |
+|---|---:|---:|
+| Memory idle, after warm-up (PSS) | 152 MB | 46 MB |
+| Memory peak under load (PSS) | 232 MB | 75 MB |
+| Cold start to first HTTP 200 | 815 ms | 1168 ms |
+| Image size | 853 MB | 27 MB |
+| Import of 5000 PHPNuxBill customers | - | 223 s |
+| Processes | 32 | 1 |
+
+Dibanding 2026-10-13: RADIUS REST naik dari 2,1x/2,6x menjadi 4,3x/5,1x terhadap PHPNuxBill, dan daftar pelanggan dari 0,9x menjadi 2,0x. Dashboard tetap 1,7x. Data uji hanya punya satu transaksi per pelanggan, jadi index pendapatan baru tidak banyak berpengaruh di sini. Dengan 60.000 transaksi, dashboard 3x lebih cepat (lihat CHANGELOG).
+
 ## Hasil mentah 2026-10-13
 
 Commit `cd32e8a` ditambah perubahan di `[Unreleased]` [CHANGELOG](../CHANGELOG.md). Podman 5.8.7, ApacheBench 2.3, Go 1.26.9.
