@@ -42,6 +42,7 @@ var help = map[string]string{
 	"radius_bad_secret_last_timestamp":   "Unix time of the last bad-secret RADIUS packet from each NAS.",
 	"radius_bad_secret_streak":           "Bad-secret RADIUS packets in a row from each NAS, reset by a valid one.",
 	"radius_rest_forbidden_total":        "Requests to /radius.php refused by the allow list.",
+	"radius_packets_shed_total":          "RADIUS packets dropped unanswered because the server was at capacity; the NAS retransmits them.",
 	"job_runs_total":                     "Background job runs, by job.",
 	"notifications_sent_total":           "Notifications sent successfully, by channel.",
 	"notifications_failed_total":         "Notifications that failed, by channel.",

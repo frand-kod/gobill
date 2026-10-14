@@ -71,7 +71,7 @@ Jangan memakai `--add-port=1812/udp` atau `--add-port=8080/tcp`. Keduanya membuk
 
 Simpan di `/etc/nftables.conf`. Periksa dengan `sudo nft list ruleset`, lalu terapkan dengan `sudo nft -f /etc/nftables.conf`. Jika FreeRADIUS berada di host lain, tambahkan `ip saddr IP-FREERADIUS tcp dport 8080 accept`.
 
-**Batasi `/radius.php`.** Nilai `radius_rest_allow` kosong berarti hanya loopback. Isi dengan IP FreeRADIUS jika berjalan di host lain. `trust_proxy` tidak memengaruhi allow-list ini. Lihat [FreeRADIUS lewat REST](freeradius-rest.md).
+**Batasi `/radius.php`.** Nilai `radius_rest_allow` kosong berarti hanya loopback. Isi dengan IP FreeRADIUS jika berjalan di host lain. `trust_proxy` tidak memengaruhi allow-list ini. Selama kosong, request yang membawa header proxy (`X-Forwarded-For`, `X-Real-IP`, `Forwarded`, `CF-Connecting-IP`) ditolak, karena di belakang Nginx atau cloudflared di host yang sama semua klien internet datang dari loopback. Lihat [FreeRADIUS lewat REST](freeradius-rest.md).
 
 ### Link jarak jauh (VPS)
 
@@ -137,6 +137,7 @@ Jika `connect_uri` memakai `https`, pastikan `check_cert = yes` di blok `tls` pa
 - **Secret terenkripsi.** Secret router, pelanggan PPPoE dan hotspot, dan NAS memakai AES-GCM. Kuncinya berasal dari `GOBILL_SECRET_KEY` atau file `.key`. Simpan backup kunci bersama database. Lihat [backup dan restore](backup-restore.md#backup-kunci-bersama-database).
 - **Catatan.** Secret integrasi, yaitu SMTP, Telegram, Tripay, dan token metrics, tersimpan dalam teks biasa di tabel `settings`. Ini sama seperti aplikasi lama. Lindungi file database dan backup-nya.
 - **CSRF.** Dilindungi lewat `http.CrossOriginProtection` dari stdlib. Pengecualiannya hanya callback Tripay, yang diverifikasi tanda tangannya, dan `/radius.php`, yang memakai allow-list.
+- **Header keamanan.** Setiap respons mengirim `X-Frame-Options: DENY` untuk mencegah clickjacking, `X-Content-Type-Options: nosniff`, dan `Referrer-Policy: same-origin`, sehingga link pembayaran QRIS beserta tokennya tidak pernah terkirim ke situs lain.
 - **Pembatas percobaan.** Pembatas brute-force tersimpan di memori dan di-reset saat restart.
   - Login admin dan portal: 10 kegagalan dalam 15 menit, dihitung per IP dan per username. Login 2FA memakai pembatas yang sama.
   - Voucher RADIUS: 10 kegagalan dalam 15 menit per NAS dan MAC, dan 100 per NAS.

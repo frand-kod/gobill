@@ -87,12 +87,14 @@ func TestRequestMessageAuth(t *testing.T) {
 	if _, err := e.conn.Exec(`UPDATE nas SET require_message_auth = 2`); err != nil { // never: the NAS already sent one, so auto would require it
 		t.Fatal(err)
 	}
+	e.s.forgetNAS() // as an admin edit does after nasTTL
 	if r := e.auth(t, pap("alice", "pw")); r == nil || r.Code != radius.CodeAccessAccept {
 		t.Fatal("no M-A must pass when not required")
 	}
 	if _, err := e.conn.Exec(`UPDATE nas SET require_message_auth = 1`); err != nil {
 		t.Fatal(err)
 	}
+	e.s.forgetNAS() // as an admin edit does after nasTTL
 	if r := e.auth(t, pap("alice", "pw")); r != nil {
 		t.Fatal("missing M-A must be dropped when required")
 	}

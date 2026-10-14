@@ -142,13 +142,13 @@ func findOrCreatePlan(ctx context.Context, q *db.Queries) (int64, error) {
 }
 
 // AddressListFor is the Mikrotik-Address-List for a plan: the isolir list when planID is the isolir
-// plan, else "". The name is isolir_address_list, DefaultAddrList when unset or empty.
-func AddressListFor(ctx context.Context, q *db.Queries, planID int64) string {
-	id, err := q.GetSetting(ctx, "isolir_plan_id")
-	if err != nil || planID == 0 || PlanID(id) != planID {
+// plan, else "". The name is isolir_address_list, DefaultAddrList when unset or empty. st is the
+// settings table (RADIUS passes its cached copy, so a login costs no query here).
+func AddressListFor(st map[string]string, planID int64) string {
+	if planID == 0 || PlanID(st["isolir_plan_id"]) != planID {
 		return ""
 	}
-	if v, err := q.GetSetting(ctx, "isolir_address_list"); err == nil && v != "" {
+	if v := st["isolir_address_list"]; v != "" {
 		return v
 	}
 	return DefaultAddrList

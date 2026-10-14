@@ -71,7 +71,7 @@ Do not use `--add-port=1812/udp` or `--add-port=8080/tcp`. Both open the port to
 
 Save it to `/etc/nftables.conf`. Check it with `sudo nft list ruleset`, then apply it with `sudo nft -f /etc/nftables.conf`. If FreeRADIUS is on another host, add `ip saddr IP-FREERADIUS tcp dport 8080 accept`.
 
-**Limit `/radius.php`.** An empty `radius_rest_allow` means loopback only. Fill it with the FreeRADIUS IP if FreeRADIUS runs on another host. `trust_proxy` does not affect this allow-list. See [FreeRADIUS over REST](freeradius-rest.md).
+**Limit `/radius.php`.** An empty `radius_rest_allow` means loopback only. Fill it with the FreeRADIUS IP if FreeRADIUS runs on another host. `trust_proxy` does not affect this allow-list. While it is empty, a request that carries a proxy header (`X-Forwarded-For`, `X-Real-IP`, `Forwarded`, `CF-Connecting-IP`) is refused, because behind Nginx or cloudflared on the same host every internet client arrives from loopback. See [FreeRADIUS over REST](freeradius-rest.md).
 
 ### Remote link (VPS)
 
@@ -137,6 +137,7 @@ If `connect_uri` uses `https`, make sure `check_cert = yes` is set in the `tls` 
 - **Encrypted secrets.** Router, customer (PPPoE and hotspot), and NAS secrets use AES-GCM. The key comes from `GOBILL_SECRET_KEY` or the `.key` file. Store the key backup together with the database. See [backup and restore](backup-restore.md#key-backup-with-the-database).
 - **Note.** Integration secrets, namely SMTP, Telegram, Tripay, and the metrics token, are stored as plain text in the `settings` table. This is the same as in the old application. Protect the database file and its backups.
 - **CSRF.** Protected with the standard library's `http.CrossOriginProtection`. The only exceptions are the Tripay callback, which is verified by its signature, and `/radius.php`, which uses an allow-list.
+- **Security headers.** Every response sends `X-Frame-Options: DENY` against clickjacking, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: same-origin`, so a QRIS payment link with its token is never sent to another site.
 - **Attempt limits.** Brute-force limits are kept in memory and reset on restart.
   - Admin and portal login: 10 failures in 15 minutes, counted per IP and per username. 2FA login uses the same limit.
   - RADIUS vouchers: 10 failures in 15 minutes per NAS and MAC, and 100 per NAS.

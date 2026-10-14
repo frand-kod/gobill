@@ -85,8 +85,16 @@ func TestDupCacheExpiresAndCaps(t *testing.T) {
 		d.serve(now, &rec{}, &radius.Request{Packet: radius.New(radius.CodeAccessRequest, nasSecret), RemoteAddr: &net.UDPAddr{Port: i}},
 			func(w radius.ResponseWriter, r *radius.Request) { w.Write(r.Response(radius.CodeAccessReject)) })
 	}
-	if len(d.m) > dupMax {
-		t.Fatalf("cache grew to %d", len(d.m))
+	if n := len(d.cur) + len(d.old); n > dupMax {
+		t.Fatalf("cache grew to %d", n)
+	}
+	// a later generation drops the old entries whole
+	for _, at := range []time.Time{now.Add(dupTTL), now.Add(2 * dupTTL)} {
+		d.serve(at, &rec{}, &radius.Request{Packet: radius.New(radius.CodeAccessRequest, nasSecret), RemoteAddr: &net.UDPAddr{Port: 1}},
+			func(w radius.ResponseWriter, r *radius.Request) { w.Write(r.Response(radius.CodeAccessReject)) })
+	}
+	if n := len(d.cur) + len(d.old); n > 2 {
+		t.Fatalf("expired generations kept: %d entries", n)
 	}
 }
 
@@ -120,5 +128,51 @@ func TestUserThrottle(t *testing.T) {
 	}
 	if r := e.auth(t, pap("alice", "pw")); r.Code != radius.CodeAccessAccept {
 		t.Fatal(fmt.Sprint("success did not reset: ", rfc2865.ReplyMessage_GetString(r)))
+	}
+}
+
+// At 500 requests/s a 30 s window holds 15000 requests; retransmits must still be caught then
+// (the old 10000-entry cap stopped deduplicating from about 333 requests/s).
+func TestDupCacheHoldsBusyWindow(t *testing.T) {
+	var d dupCache
+	now := time.Unix(1, 0)
+	calls := 0
+	h := func(w radius.ResponseWriter, r *radius.Request) {
+		calls++
+		w.Write(r.Response(radius.CodeAccessReject))
+	}
+	for i := range 15000 {
+		d.serve(now, &rec{}, &radius.Request{Packet: radius.New(radius.CodeAccessRequest, nasSecret), RemoteAddr: &net.UDPAddr{Port: i}}, h)
+	}
+	r := &radius.Request{Packet: radius.New(radius.CodeAccessRequest, nasSecret), RemoteAddr: &net.UDPAddr{Port: 1}}
+	calls = 0
+	d.serve(now, &rec{}, r, h)
+	d.serve(now.Add(time.Second), &rec{}, r, h)
+	if calls != 1 {
+		t.Fatalf("retransmit processed again: %d calls", calls)
+	}
+}
+
+// A spray of distinct usernames must keep memory bounded and still throttle the account under attack.
+func TestFailLimiterSprayBounded(t *testing.T) {
+	var l failLimiter
+	now := int64(1_000_000)
+	for i := range voucherMaxFails {
+		l.fail("victim", now+int64(i))
+	}
+	for i := range 3 * failMaxKeys {
+		l.fail(fmt.Sprint("ghost", i), now+10)
+	}
+	if n := len(l.cur) + len(l.old); n > 2*failMaxKeys {
+		t.Fatalf("%d keys kept", n)
+	}
+	for i := range voucherMaxFails {
+		l.fail("victim2", now+20+int64(i))
+	}
+	if !l.blocked("victim2", now+30, voucherMaxFails) {
+		t.Fatal("throttle lost")
+	}
+	if l.blocked("victim2", now+20+voucherWindow+voucherMaxFails, voucherMaxFails) {
+		t.Fatal("window did not expire")
 	}
 }

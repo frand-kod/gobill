@@ -34,6 +34,7 @@ Login voucher juga didukung di endpoint ini. Kode voucher dipakai sebagai userna
 
 - Isi dengan IP FreeRADIUS. Boleh memakai CIDR, dan dipisah koma.
 - Jika kosong, hanya loopback yang diizinkan, yaitu `127.0.0.0/8` dan `::1`. gobill mencatat peringatan saat start.
+- Jika kosong, request yang membawa header proxy (`X-Forwarded-For`, `X-Real-IP`, `Forwarded`, `CF-Connecting-IP`) ditolak. Di belakang Nginx atau cloudflared di host yang sama, semua klien internet datang dari loopback.
 - Jika FreeRADIUS berjalan di host lain, isi dengan IP-nya.
 
 `X-Forwarded-For` hanya dipercaya jika `trust_proxy` = `yes` dan koneksi langsung datang dari loopback atau dari `trusted_proxies`. Allow-list selalu memakai alamat koneksi asli.

@@ -47,18 +47,30 @@ RETURNING balance;
 -- name: DeleteCustomer :exec
 DELETE FROM customers WHERE id = ?;
 
+-- name: FilterCustomersNewest :many
+-- FilterCustomers for the default view (no search, no filter, newest first): the rowid gives the page
+-- directly. FilterCustomers sorts every customer id through its CASE keys first: 30 ms per page at 5000
+-- customers, against 0.05 ms here. Same columns, so the rows convert to FilterCustomersRow.
+SELECT c.*, CAST('' AS TEXT) AS sort_key, CAST(COALESCE((SELECT group_concat(p.name, ', ') FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+                           WHERE s.customer_id = c.id AND s.status = 'active'), '') AS TEXT) AS packages,
+       CAST(COALESCE((SELECT MIN(s.expires_at) FROM subscriptions s WHERE s.customer_id = c.id AND s.status = 'active' AND s.pending_start = 0), 0) AS INTEGER) AS next_expires
+FROM customers c
+ORDER BY c.id DESC
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+
 -- name: FilterCustomers :many
 -- Empty service_type/status = any. page_limit -1 = all rows (CSV).
 -- next_expires: the nearest end of an active, started subscription (0 = none); served by subscriptions_active_uniq.
 -- The inner query sorts ids only (sorting whole rows is ~5x slower at 5000 customers); packages and
 -- next_expires are computed for the page rows only. The expiry subquery runs per row only when sorting by expiry.
+-- An empty q skips the four LIKE scans (they matched every row anyway).
 SELECT c.*, x.sort_key, CAST(COALESCE((SELECT group_concat(p.name, ', ') FROM subscriptions s JOIN plans p ON p.id = s.plan_id
                            WHERE s.customer_id = c.id AND s.status = 'active'), '') AS TEXT) AS packages,
        CAST(COALESCE((SELECT MIN(s.expires_at) FROM subscriptions s WHERE s.customer_id = c.id AND s.status = 'active' AND s.pending_start = 0), 0) AS INTEGER) AS next_expires
 FROM (
   SELECT c.id, CAST(sqlc.arg(sort) AS TEXT) AS sort_key -- e.g. username_desc; anything else = newest first
   FROM customers c
-  WHERE (c.username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
+  WHERE (CAST(sqlc.arg(q) AS TEXT) = '' OR c.username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
          OR c.phone LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.pppoe_username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%')
     AND (CAST(sqlc.arg(service_type) AS TEXT) = '' OR c.service_type = sqlc.arg(service_type))
     AND (CAST(sqlc.arg(status) AS TEXT) = '' OR c.status = sqlc.arg(status))

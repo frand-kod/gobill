@@ -171,6 +171,92 @@ func (q *Queries) GetOpenRadiusSessionByFramedIP(ctx context.Context, framedIp s
 	return i, err
 }
 
+const getRadiusLogin = `-- name: GetRadiusLogin :one
+SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, c.session_version, c.coordinates, s.started_at, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
+       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
+       b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
+       pl.name AS pool_name
+FROM customers c
+JOIN subscriptions s ON s.id = (SELECT id FROM subscriptions WHERE customer_id = c.id AND status = 'active' ORDER BY expires_at DESC LIMIT 1)
+JOIN plans p ON p.id = s.plan_id
+LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
+LEFT JOIN pools pl ON pl.id = p.pool_id
+WHERE (c.username = ?1 OR (c.pppoe_username <> '' AND c.pppoe_username = ?1)) AND c.status = 'Active'
+LIMIT 1
+`
+
+type GetRadiusLoginRow struct {
+	Customer     Customer
+	StartedAt    int64
+	ExpiresAt    int64
+	PendingStart int64
+	PlanID       int64
+	PlanName     string
+	PlanType     string
+	Limited      int64
+	LimitType    sql.NullString
+	TimeLimit    sql.NullInt64
+	TimeUnit     sql.NullString
+	DataLimit    sql.NullInt64
+	DataUnit     sql.NullString
+	SharedUsers  sql.NullInt64
+	RateDown     sql.NullInt64
+	RateDownUnit sql.NullString
+	RateUp       sql.NullInt64
+	RateUpUnit   sql.NullString
+	Burst        sql.NullString
+	PoolName     sql.NullString
+}
+
+// GetCustomerForRadius and GetRadiusPlan in one statement for the common case, an active customer with
+// an active plan: one read transaction per login instead of two. No row: use the two queries.
+func (q *Queries) GetRadiusLogin(ctx context.Context, name string) (GetRadiusLoginRow, error) {
+	row := q.db.QueryRowContext(ctx, getRadiusLogin, name)
+	var i GetRadiusLoginRow
+	err := row.Scan(
+		&i.Customer.ID,
+		&i.Customer.Username,
+		&i.Customer.PasswordHash,
+		&i.Customer.Fullname,
+		&i.Customer.Address,
+		&i.Customer.Phone,
+		&i.Customer.Email,
+		&i.Customer.Balance,
+		&i.Customer.ServiceType,
+		&i.Customer.PppoeUsername,
+		&i.Customer.PppoeIp,
+		&i.Customer.SecretEnc,
+		&i.Customer.BillingDay,
+		&i.Customer.AutoRenewal,
+		&i.Customer.Status,
+		&i.Customer.CreatedBy,
+		&i.Customer.CreatedAt,
+		&i.Customer.LastLoginAt,
+		&i.Customer.SessionVersion,
+		&i.Customer.Coordinates,
+		&i.StartedAt,
+		&i.ExpiresAt,
+		&i.PendingStart,
+		&i.PlanID,
+		&i.PlanName,
+		&i.PlanType,
+		&i.Limited,
+		&i.LimitType,
+		&i.TimeLimit,
+		&i.TimeUnit,
+		&i.DataLimit,
+		&i.DataUnit,
+		&i.SharedUsers,
+		&i.RateDown,
+		&i.RateDownUnit,
+		&i.RateUp,
+		&i.RateUpUnit,
+		&i.Burst,
+		&i.PoolName,
+	)
+	return i, err
+}
+
 const getRadiusPlan = `-- name: GetRadiusPlan :one
 SELECT s.started_at, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,

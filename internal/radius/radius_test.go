@@ -37,7 +37,7 @@ type env struct {
 }
 
 // setup: NAS 10.0.0.1, customer "alice" (password "pw") with an active Hotspot sub expiring in 1h.
-func setup(t *testing.T) *env {
+func setup(t testing.TB) *env {
 	t.Helper()
 	ctx := context.Background()
 	conn, err := db.Open(filepath.Join(t.TempDir(), "t.db"))

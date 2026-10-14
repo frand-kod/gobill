@@ -4,7 +4,7 @@
 
 **Billing ISP untuk layanan hotspot dan PPPoE.**
 
-Satu binary dan satu file database. Ditulis dalam Go, berbasis PHPNuxBill.
+Satu binary dan satu file database. Ditulis dalam Go.
 Ringan untuk perangkat kecil, VPS, maupun Docker.
 
 [![Release](https://img.shields.io/github/v/release/frand-kod/gobill?sort=semver)](https://github.com/frand-kod/gobill/releases)
@@ -37,30 +37,33 @@ PHPNuxBill 2025.3.20 dan gobill diuji berdampingan. Keduanya memakai data yang s
 
 **Sumber daya**
 
-| | PHPNuxBill | gobill | Selisih |
-|---|---:|---:|---:|
-| Memori idle | 152 MB | 45 MB | **3,4× lebih kecil** |
-| Memori puncak saat beban | 229 MB | 66 MB | **3,5× lebih kecil** |
-| Ukuran image | 853 MB | 26 MB | **33× lebih kecil** |
-| Jumlah proses | 32 | 1 | |
-| Cold start | 817 ms | 1.006 ms | 0,2 detik lebih lambat |
+|                          | PHPNuxBill |   gobill |                 Selisih |
+| ------------------------ | ---------: | -------: | ----------------------: |
+| Memori idle              |     152 MB |    46 MB |    **3,3× lebih kecil** |
+| Memori puncak saat beban |     232 MB |    75 MB |    **3,1× lebih kecil** |
+| Ukuran image             |     853 MB |    27 MB |     **32× lebih kecil** |
+| Jumlah proses            |         32 |        1 |                         |
+| Cold start               |     815 ms | 1.168 ms | 0,4 detik lebih lambat |
 
 **Throughput**, `ab -k -c 50` selama 30 detik per skenario
 
-| Skenario | PHPNuxBill | gobill | Selisih |
-|---|---:|---:|---:|
-| RADIUS REST authenticate | 432 req/s | 928 req/s | **2,1× lebih cepat** |
-| RADIUS REST authorize | 317 req/s | 825 req/s | **2,6× lebih cepat** |
-| Dashboard admin | 12 req/s | 20 req/s | **1,7× lebih cepat** |
-| Daftar pelanggan admin | 31 req/s | 29 req/s | setara |
+| Skenario                 | PHPNuxBill |      gobill |              Selisih |
+| ------------------------ | ---------: | ----------: | -------------------: |
+| RADIUS REST authenticate |  427 req/s | 1.819 req/s | **4,3× lebih cepat** |
+| RADIUS REST authorize    |  322 req/s | 1.631 req/s | **5,1× lebih cepat** |
+| Dashboard admin          |   12 req/s |    20 req/s | **1,7× lebih cepat** |
+| Daftar pelanggan admin   |   30 req/s |    61 req/s | **2,0× lebih cepat** |
 
-Latensi p50 login RADIUS turun dari 100 ms menjadi 50 ms, dan p99 dari 285 ms menjadi 130 ms.
+Latensi p50 login RADIUS turun dari 101 ms menjadi 25 ms, dan p99 dari 270 ms menjadi 73 ms.
+
+**Perangkat kecil.** Server RADIUS UDP bawaan gobill diuji dengan [bench/radius](bench/README.md#radius-udp-benchradius): 1 core, database di disk, 5.000 pelanggan. Hasilnya 1.100 login/s dan 1.500 paket accounting/s. gobill tetap berjalan dengan batas memori 48 MB. PHPNuxBill tidak punya server RADIUS sendiri, jadi bagian ini tidak dibandingkan.
 
 Yang perlu Anda ketahui:
 
-- Daftar pelanggan belum lebih cepat. Pengurutan ribuan baris di SQLite pure-Go masih menjadi batasnya.
+- Daftar pelanggan cepat untuk tampilan default. Pencarian, filter, dan urut per kolom masih mengurutkan semua pelanggan yang cocok.
+- Dashboard di benchmark ini hanya punya satu transaksi per pelanggan. Dengan 60.000 transaksi, dashboard gobill 3× lebih cepat dari versi sebelumnya.
 - Cold start sedikit lebih lambat karena gobill memperbarui statistik database saat start. Cold start PHPNuxBill tidak menghitung start MariaDB.
-- Benchmark ini menemukan lima masalah performa dan satu bug sesi admin di gobill. Semuanya sudah diperbaiki sebelum angka di atas diambil, lihat [CHANGELOG](CHANGELOG.md).
+- Masalah performa yang ditemukan lewat benchmark sudah diperbaiki sebelum angka di atas diambil, lihat [CHANGELOG](CHANGELOG.md).
 - Angka diukur di laptop Intel i7-8650U. Rasio antar aplikasi lebih bermakna daripada angka absolutnya.
 
 Metodologi, batasan, dan hasil mentah ada di [bench/README.md](bench/README.md). Untuk mengulang di mesin Anda:
@@ -139,19 +142,19 @@ Pengelola PHPNuxBill menerbitkan [advisory keamanan](https://github.com/hotspotb
 
 ## Tech stack
 
-| Bagian | Pilihan | Alasan |
-|---|---|---|
-| Bahasa | Go 1.26, `net/http` stdlib | Satu binary statis. Routing memakai stdlib. |
-| Database | SQLite lewat `modernc.org/sqlite` | Pure Go, sehingga cross-compile mudah. |
-| Query | `sqlc` | SQL biasa, hasilnya fungsi Go yang type-safe. |
-| UI | `html/template`, Tailwind CSS v4, Alpine.js | Render di server. Aset di-embed ke binary. |
-| Grafik dan peta | Chart.js, Leaflet | Di-embed ke binary. |
-| RADIUS | `layeh.com/radius` | Server RADIUS di dalam proses yang sama. |
-| MikroTik | `go-routeros/routeros` | RouterOS API. |
-| Session dan auth | `alexedwards/scs`, `bcrypt`, AES-GCM | Library teruji untuk bagian sensitif. |
-| Job terjadwal | goroutine dan `time.Ticker` | Berjalan di proses yang sama. |
-| Test | `testing` dan `httptest` stdlib | Cukup stdlib. |
-| Deploy | Binary amd64, arm64, armv7. systemd atau Docker. | |
+| Bagian           | Pilihan                                          | Alasan                                        |
+| ---------------- | ------------------------------------------------ | --------------------------------------------- |
+| Bahasa           | Go 1.26, `net/http` stdlib                       | Satu binary statis. Routing memakai stdlib.   |
+| Database         | SQLite lewat `modernc.org/sqlite`                | Pure Go, sehingga cross-compile mudah.        |
+| Query            | `sqlc`                                           | SQL biasa, hasilnya fungsi Go yang type-safe. |
+| UI               | `html/template`, Tailwind CSS v4, Alpine.js      | Render di server. Aset di-embed ke binary.    |
+| Grafik dan peta  | Chart.js, Leaflet                                | Di-embed ke binary.                           |
+| RADIUS           | `layeh.com/radius`                               | Server RADIUS di dalam proses yang sama.      |
+| MikroTik         | `go-routeros/routeros`                           | RouterOS API.                                 |
+| Session dan auth | `alexedwards/scs`, `bcrypt`, AES-GCM             | Library teruji untuk bagian sensitif.         |
+| Job terjadwal    | goroutine dan `time.Ticker`                      | Berjalan di proses yang sama.                 |
+| Test             | `testing` dan `httptest` stdlib                  | Cukup stdlib.                                 |
+| Deploy           | Binary amd64, arm64, armv7. systemd atau Docker. |                                               |
 
 Daftar lengkap dependency dan lisensinya ada di [NOTICE](NOTICE).
 
@@ -181,12 +184,12 @@ Detail ada di [arsitektur](docs/internal/arsitektur.md).
 
 Panduan operator tersedia dalam [bahasa Indonesia](docs/id/README.md) dan [English](docs/en/README.md) dengan isi yang sama. Panduan yang sama juga ada di aplikasi, menu **Panduan**.
 
-| Topik | Dokumen |
-|---|---|
-| Mulai | [Instalasi](docs/id/installation.md), [upgrade](docs/id/upgrade.md), [migrasi dari PHPNuxBill](docs/id/migration-phpnuxbill.md) |
-| Konfigurasi | [Konfigurasi](docs/id/configuration.md), [integrasi](docs/id/integrations.md), [keamanan](docs/id/security.md) |
-| Jaringan | [Setup MikroTik](docs/id/mikrotik.md), [FreeRADIUS lewat REST](docs/id/freeradius-rest.md) |
-| Operasional | [Monitoring](docs/id/monitoring.md), [backup dan restore](docs/id/backup-restore.md) |
+| Topik        | Dokumen                                                                                                                                                                                                                                         |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mulai        | [Instalasi](docs/id/installation.md), [upgrade](docs/id/upgrade.md), [migrasi dari PHPNuxBill](docs/id/migration-phpnuxbill.md)                                                                                                                 |
+| Konfigurasi  | [Konfigurasi](docs/id/configuration.md), [integrasi](docs/id/integrations.md), [keamanan](docs/id/security.md)                                                                                                                                  |
+| Jaringan     | [Setup MikroTik](docs/id/mikrotik.md), [FreeRADIUS lewat REST](docs/id/freeradius-rest.md)                                                                                                                                                      |
+| Operasional  | [Monitoring](docs/id/monitoring.md), [backup dan restore](docs/id/backup-restore.md)                                                                                                                                                            |
 | Pengembangan | [Arsitektur](docs/internal/arsitektur.md), [pengembangan](docs/internal/pengembangan.md), [progres](docs/internal/progres.md), [rencana](docs/internal/rencana/README.md), [panduan menulis dokumentasi](docs/internal/panduan-menulis-docs.md) |
 
 ## Berkontribusi

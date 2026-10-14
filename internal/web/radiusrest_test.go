@@ -250,6 +250,17 @@ func TestRadiusRestEmptyAllowLoopbackOnly(t *testing.T) {
 			t.Errorf("%s: %v want %v", remote, got, want)
 		}
 	}
+	// a same-host reverse proxy: the peer is loopback but the client is on the internet
+	for _, h := range []string{"X-Forwarded-For", "X-Real-Ip", "Forwarded", "Cf-Connecting-Ip"} {
+		r := &http.Request{RemoteAddr: "127.0.0.1:1", Header: http.Header{h: {"203.0.113.9"}}}
+		if radiusRestAllowed(r, m) {
+			t.Errorf("loopback with %s must be refused when the allow-list is empty", h)
+		}
+	}
+	r := &http.Request{RemoteAddr: "127.0.0.1:1", Header: http.Header{"X-Forwarded-For": {"203.0.113.9"}}}
+	if !radiusRestAllowed(r, map[string]string{"radius_rest_allow": "127.0.0.1"}) {
+		t.Error("an explicit allow-list keeps checking the TCP peer only")
+	}
 }
 
 func TestRealIPMiddleware(t *testing.T) {

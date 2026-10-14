@@ -5,7 +5,7 @@ SELECT COUNT(*) FROM coupons WHERE code LIKE '%' || CAST(sqlc.arg(term) AS TEXT)
 
 -- name: CountFilteredCustomers :one
 SELECT COUNT(*) FROM customers c
-WHERE (c.username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
+WHERE (CAST(sqlc.arg(q) AS TEXT) = '' OR c.username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
        OR c.phone LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.pppoe_username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%')
   AND (CAST(sqlc.arg(service_type) AS TEXT) = '' OR c.service_type = sqlc.arg(service_type))
   AND (CAST(sqlc.arg(status) AS TEXT) = '' OR c.status = sqlc.arg(status));
@@ -46,7 +46,7 @@ WHERE (username LIKE '%' || sqlc.arg(q) || '%' OR fullname LIKE '%' || sqlc.arg(
 
 -- name: CountFilteredSubscriptions :one
 SELECT COUNT(*) FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id
-WHERE (c.username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
+WHERE (CAST(sqlc.arg(q) AS TEXT) = '' OR c.username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
        OR p.name LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%')
   AND (CAST(sqlc.arg(status) AS TEXT) = '' OR s.status = sqlc.arg(status))
   AND (CAST(sqlc.arg(type) AS TEXT) = '' OR s.type = sqlc.arg(type))
