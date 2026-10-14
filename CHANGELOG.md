@@ -8,6 +8,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.1.16] - 2026-10-15
+
 ### Keamanan
 
 - **Batas `shared_users` tidak lagi terlewati saat query gagal**: jika daftar sesi aktif tidak bisa dibaca, login ditolak, sama seperti batas waktu dan kuota. Sebelumnya error diabaikan dan login dianggap tanpa sesi lain.
