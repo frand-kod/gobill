@@ -52,7 +52,7 @@ Memori diukur sebagai PSS, yaitu RSS dengan halaman bersama dibagi rata antar pr
 
 - `ab` dan server berjalan di mesin yang sama dan berebut CPU. Rasio antar aplikasi lebih bermakna daripada angka absolutnya.
 - Angka di STB ARM akan lebih rendah. Rasionya belum diukur di STB.
-- RADIUS UDP bawaan gobill tidak dibandingkan, karena PHPNuxBill tidak punya server RADIUS sendiri. Yang dibandingkan adalah kontrak `rlm_rest` yang dimiliki keduanya.
+- RADIUS UDP bawaan gobill tidak dibandingkan, karena PHPNuxBill tidak punya server RADIUS sendiri. RADIUS UDP diukur terpisah, lihat [RADIUS UDP](#radius-udp-benchradius). Yang dibandingkan adalah kontrak `rlm_rest` yang dimiliki keduanya.
 - Cold start PHPNuxBill hanya mengukur Apache. MariaDB sudah berjalan lebih dulu karena dibutuhkan untuk seed.
 - Halaman admin kedua aplikasi tidak identik. Isi dan ukuran HTML berbeda.
 
@@ -141,9 +141,9 @@ Load generator untuk server RADIUS UDP bawaan gobill. Generator ini open-loop: p
 
 Profil CPU selama beban: `go tool pprof http://127.0.0.1:6060/debug/pprof/profile?seconds=15`. Paket yang hilang karena buffer socket penuh terlihat di `RcvbufErrors` pada `/proc/net/snmp`.
 
-### Hasil 2026-10-14
+### Hasil 2026-10-14: 2 core, `tmpfs`
 
-Host yang sama dengan hasil di atas. Server dibatasi 2 CPU dengan `taskset`, generator di 6 CPU lain. 50.000 pelanggan, 50 NAS, timeout NAS 3 detik.
+Host yang sama dengan hasil di atas. Server dibatasi 2 CPU dengan `taskset`, generator di 6 CPU lain. DB di `tmpfs`, sehingga biaya `fsync` tidak ikut terukur (lihat bagian berikutnya). 50.000 pelanggan, 50 NAS, timeout NAS 3 detik.
 
 **Ramp: login valid per detik.**
 
