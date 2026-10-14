@@ -33,6 +33,21 @@ LEFT JOIN pools pl ON pl.id = p.pool_id
 WHERE s.customer_id = ? AND s.status = 'active'
 ORDER BY s.expires_at DESC LIMIT 1;
 
+-- name: GetRadiusLogin :one
+-- GetCustomerForRadius and GetRadiusPlan in one statement for the common case, an active customer with
+-- an active plan: one read transaction per login instead of two. No row: use the two queries.
+SELECT sqlc.embed(c), s.started_at, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
+       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
+       b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
+       pl.name AS pool_name
+FROM customers c
+JOIN subscriptions s ON s.id = (SELECT id FROM subscriptions WHERE customer_id = c.id AND status = 'active' ORDER BY expires_at DESC LIMIT 1)
+JOIN plans p ON p.id = s.plan_id
+LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
+LEFT JOIN pools pl ON pl.id = p.pool_id
+WHERE (c.username = sqlc.arg(name) OR (c.pppoe_username <> '' AND c.pppoe_username = sqlc.arg(name))) AND c.status = 'Active'
+LIMIT 1;
+
 -- name: SumRadiusUsage :one
 SELECT CAST(COALESCE(SUM(input_octets + output_octets), 0) AS INTEGER) FROM radius_sessions
 WHERE username = ? AND started_at >= ?;

@@ -40,6 +40,7 @@ func TestMessageAuthPolicy(t *testing.T) {
 		if _, err := e.conn.Exec("UPDATE nas SET require_message_auth = ?, ma_seen = 0", policy); err != nil {
 			t.Fatal(err)
 		}
+		e.s.forgetNAS() // as an admin edit does after nasTTL
 	}
 	seen := func() int64 {
 		t.Helper()

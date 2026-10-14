@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // LogKinds are the log tables CleanLog knows.
@@ -73,7 +75,7 @@ func (s *Service) LogCleanJob(trusted func() bool) func(context.Context) error {
 				return err
 			}
 		}
-		if _, err := s.DB.ExecContext(ctx, "PRAGMA optimize"); err != nil {
+		if err := db.Optimize(ctx, s.DB, "PRAGMA optimize"); err != nil {
 			return err
 		}
 		last = day

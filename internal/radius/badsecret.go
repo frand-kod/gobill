@@ -13,7 +13,6 @@ import (
 	"layeh.com/radius"
 
 	"github.com/frand-kod/gobill/internal/metrics"
-	"github.com/frand-kod/gobill/internal/secret"
 )
 
 // nasConn is the RADIUS socket: it drops packets that fail the NAS signature check.
@@ -33,6 +32,9 @@ func (c *nasConn) ReadFrom(b []byte) (int, net.Addr, error) {
 	}
 }
 
+// udpReadBuffer is the receive buffer asked for each RADIUS socket.
+const udpReadBuffer = 4 << 20
+
 // serve is PacketServer.ListenAndServe with the socket wrapped in nasConn.
 func (s *Server) serve(ps *radius.PacketServer) error {
 	pc, err := net.ListenPacket("udp", ps.Addr)
@@ -40,24 +42,32 @@ func (s *Server) serve(ps *radius.PacketServer) error {
 		return err
 	}
 	defer pc.Close()
+	// The default buffer (about 200 KB) holds a few hundred packets. On one core the read loop waits
+	// behind the handlers each commit wakes, and the kernel dropped packets meanwhile (RcvbufErrors).
+	// Linux caps this at net.core.rmem_max.
+	if u, ok := pc.(*net.UDPConn); ok {
+		if err := u.SetReadBuffer(udpReadBuffer); err != nil {
+			slog.Warn("radius: set socket read buffer", "err", err)
+		}
+	}
 	return ps.Serve(&nasConn{PacketConn: pc, s: s})
 }
 
 // verifySource reports whether pkt may be handed to the library. Access-Request has no signature
 // the library can check; handleAuth checks its Message-Authenticator instead.
-// ponytail: runs on the read loop, one nas lookup per packet; cache the nas list if rates grow.
+// It runs on the read loop; the nas lookup is served from the listNAS cache.
 func (s *Server) verifySource(pkt []byte, addr net.Addr) bool {
 	ip := addrIP(addr)
+	if len(pkt) > 0 && radius.Code(pkt[0]) == radius.CodeAccessRequest {
+		return true
+	}
 	n, ok, err := s.nasByIP(context.Background(), ip)
 	if err != nil || !ok {
 		return true // unknown NAS: RADIUSSecret reports it
 	}
-	sec, err := secret.Open(s.Key, n.SecretEnc)
-	if err != nil || len(sec) == 0 {
+	sec := n.sec
+	if n.secErr != nil || len(sec) == 0 {
 		return true // the library reports these
-	}
-	if len(pkt) > 0 && radius.Code(pkt[0]) == radius.CodeAccessRequest {
-		return true
 	}
 	if !radius.IsAuthenticRequest(pkt, sec) {
 		s.badSecret(ip, n.Name)

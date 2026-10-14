@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	_ "net/http/pprof" // DefaultServeMux only; served by GOBILL_PPROF, never by the app mux
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -68,6 +69,10 @@ func run() error {
 	dbPath := env("GOBILL_DB", "./gobill.db")
 	addr := env("GOBILL_HTTP", ":8080")
 	secure := os.Getenv("GOBILL_HTTPS") != "0"
+	if a := os.Getenv("GOBILL_PPROF"); a != "" { // profiling for bench/; unauthenticated, so bind it to loopback
+		slog.Warn("GOBILL_PPROF: profiler listening, do not expose it", "addr", a)
+		go func() { slog.Error("pprof", "err", http.ListenAndServe(a, nil)) }()
+	}
 	if !secure {
 		slog.Warn("GOBILL_HTTPS=0: session cookies are sent without the Secure flag")
 	}
@@ -76,6 +81,10 @@ func run() error {
 	backupDir := env("GOBILL_BACKUP_DIR", filepath.Join(filepath.Dir(dbPath), "backup"))
 	if err := db.ApplyPendingRestore(dbPath); err != nil {
 		return fmt.Errorf("restore: %w", err)
+	}
+	minProcs()
+	if budget, src := tuneMemory(); budget > 0 {
+		slog.Info("memory budget", "mib", budget>>20, "from", src, "sqlite_cache_kib_per_conn", db.CacheKiB)
 	}
 	conn, err := db.Open(dbPath)
 	if err != nil {
@@ -172,7 +181,7 @@ func run() error {
 	}
 
 	errCh := make(chan error, 2)
-	rs := &radius.Server{Q: db.NewCached(conn), Key: key, Trusted: guard.Trusted, Redeem: svc.RedeemVoucher, Start: svc.StartPending}
+	rs := &radius.Server{Q: db.NewCached(conn), DB: conn, Key: key, Trusted: guard.Trusted, Redeem: svc.RedeemVoucher, Start: svc.StartPending}
 	app.Radius = rs // shared with /radius.php so throttles and dedup state are common
 	if ra, on := radiusAddr(); on {
 		host, port, err := net.SplitHostPort(ra)
