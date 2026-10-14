@@ -46,7 +46,7 @@ Skrip memakai port `8081`, `8082`, dan `3307`. Semua container dan file sementar
 | Daftar pelanggan admin | `/?_route=customers` | `/admin/customers` |
 | Dashboard admin | `/?_route=dashboard` | `/admin` |
 
-Memori diukur sebagai PSS, yaitu RSS dengan halaman bersama dibagi rata antar proses. Angka PHPNuxBill adalah jumlah semua proses Apache, PHP, dan MariaDB. Memori puncak diambil tiap 0,2 detik selama skenario dashboard.
+Memori diukur sebagai PSS, yaitu RSS dengan halaman bersama dibagi rata antar proses. Angka PHPNuxBill adalah jumlah semua proses Apache, PHP, dan MariaDB. Memori puncak diambil tiap 0,2 detik selama pengukuran.
 
 ## Batasan
 
@@ -63,6 +63,7 @@ Commit `cd32e8a` ditambah perubahan di `[Unreleased]` [CHANGELOG](../CHANGELOG.m
 ```
 Host: Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz, 8 threads, 7 GB RAM, Linux 7.2.9-201.fc44.x86_64
 Each server container limited to 2 CPUs. 5000 customers. ab -k -t 30 -c 50 per scenario.
+```
 
 | Scenario | PHPNuxBill req/s | gobill req/s | Speed-up | PHPNuxBill p50 / p99 | gobill p50 / p99 | Non-2xx (PHP / Go) |
 |---|---:|---:|---:|---:|---:|---:|
@@ -79,7 +80,6 @@ Each server container limited to 2 CPUs. 5000 customers. ab -k -t 30 -c 50 per s
 | Image size | 853 MB | 26 MB |
 | Import of 5000 PHPNuxBill customers | - | 217 s |
 | Processes | 32 | 1 |
-```
 
 ## Lihat juga
 
