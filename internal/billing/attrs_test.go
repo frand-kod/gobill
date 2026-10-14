@@ -34,8 +34,8 @@ func TestRechargeAddsBills(t *testing.T) {
 	if err != nil || trx.Price != 10800 {
 		t.Fatalf("trx %+v %v", trx, err)
 	}
-	if got := attrs(ctx, e.q, e.cust.ID)["Phone Bill"]; got != "300:0" {
-		t.Fatalf("installment = %q", got)
+	if a, _ := attrs(ctx, e.q, e.cust.ID); a["Phone Bill"] != "300:0" {
+		t.Fatalf("installment = %q", a["Phone Bill"])
 	}
 	// installment finished: only the fixed bill is left
 	if err := e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0); err != nil {

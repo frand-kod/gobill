@@ -24,7 +24,7 @@ func TestCombinedPrice(t *testing.T) {
 	if pv, _ := e.s.Preview(ctx, e.cust.ID, e.day.ID); pv.Price != 11800 { // 10000 + 1000 + 800
 		t.Fatalf("preview %d", pv.Price)
 	}
-	if got := e.s.OrderPrice(ctx, e.cust.ID, 10000); got != 11800 {
+	if got, err := e.s.OrderPrice(ctx, e.cust.ID, 10000); err != nil || got != 11800 {
 		t.Fatalf("order price %d", got)
 	}
 	if err := e.s.RechargeWithBalance(ctx, e.cust.ID, e.day.ID, 0); err != nil {
@@ -33,8 +33,8 @@ func TestCombinedPrice(t *testing.T) {
 	if p, _ := lastPrice(e); p != 11800 || e.balance() != 100000-11800 {
 		t.Fatalf("price %d balance %d", p, e.balance())
 	}
-	if got := attrs(ctx, e.q, e.cust.ID)["Phone Bill"]; got != "300:1" {
-		t.Fatalf("installment %q", got)
+	if a, _ := attrs(ctx, e.q, e.cust.ID); a["Phone Bill"] != "300:1" {
+		t.Fatalf("installment %q", a["Phone Bill"])
 	}
 	// coupon: 2000 off the plan price only; tax on the discounted price, bills on top
 	e.q.CreateCoupon(ctx, db.CreateCouponParams{Code: "C2", Type: "fixed", Value: 2000, Status: "active", StartDate: "2000-01-01", EndDate: "2999-01-01"})
@@ -53,8 +53,8 @@ func TestCombinedPrice(t *testing.T) {
 	if p, _ := lastPrice(e); p != 12345 {
 		t.Fatalf("gateway price %d", p)
 	}
-	if got := attrs(ctx, e.q, e.cust.ID)["Phone Bill"]; got != "300:0" {
-		t.Fatalf("installment after gateway %q", got)
+	if a, _ := attrs(ctx, e.q, e.cust.ID); a["Phone Bill"] != "300:0" {
+		t.Fatalf("installment after gateway %q", a["Phone Bill"])
 	}
 }
 
@@ -88,5 +88,22 @@ func TestFirstPeriodAndVoucherPrice(t *testing.T) {
 	}
 	if p, _ := lastPrice(e); p != 10000+500 { // bills yes (as IM1), tax no
 		t.Fatalf("voucher %d", p)
+	}
+}
+
+// A failed read of the customer's bills must stop the sale, not price it without them.
+func TestPriceQueryErrorFails(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	if _, err := e.conn.Exec("DROP TABLE customer_field_values"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.s.OrderPrice(ctx, e.cust.ID, 10000); err == nil {
+		t.Fatal("order price without bills must fail")
+	}
+	if _, err := e.s.Preview(ctx, e.cust.ID, e.day.ID); err == nil {
+		t.Fatal("preview without bills must fail")
+	}
+	if err := e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0); err == nil {
+		t.Fatal("recharge without bills must fail")
 	}
 }

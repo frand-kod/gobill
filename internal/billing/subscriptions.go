@@ -394,16 +394,20 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 	// an ended isolation is never renewed: the isolir plan is free and the isolation is over
 	isIsolir := plan.ID == isolir.PlanID(setting(ctx, s.Q, "isolir_plan_id"))
 	// a public Rp 0 plan never renews; an admin-audience plan does (the admin gave it on purpose)
-	if autoRenew && !isIsolir && (SellablePlan(plan) || plan.Audience == "admin") && c.AutoRenewal == 1 && c.Status == "Active" && c.Balance >= WithTax(settingsMap(ctx, s.Q), plan.Price)+s.BillsTotal(ctx, c.ID) {
-		err := s.rechargeWithBalance(ctx, c.ID, plan.ID, 0, true)
-		if err == nil {
-			return nil
+	if autoRenew && !isIsolir && (SellablePlan(plan) || plan.Audience == "admin") && c.AutoRenewal == 1 && c.Status == "Active" {
+		price, err := s.OrderPrice(ctx, c.ID, plan.Price)
+		if err == nil && c.Balance >= price {
+			if err = s.rechargeWithBalance(ctx, c.ID, plan.ID, 0, true); err == nil {
+				return nil
+			}
+			if nf != nil {
+				txt := fmt.Sprintf("FAILED RENEWAL #cron\n\n#u.%s #buy #%s \n%s\nPrice: %d", c.Username, plan.Type, plan.Name, plan.Price)
+				nf.Go("telegram", func(ctx context.Context) error { return nf.Telegram(ctx, txt) })
+			}
 		}
-		if nf != nil {
-			txt := fmt.Sprintf("FAILED RENEWAL #cron\n\n#u.%s #buy #%s \n%s\nPrice: %d", c.Username, plan.Type, plan.Name, plan.Price)
-			nf.Go("telegram", func(ctx context.Context) error { return nf.Telegram(ctx, txt) })
+		if err != nil { // the price could not be read, or the recharge failed
+			renewErr = fmt.Errorf("auto renewal: %w", err)
 		}
-		renewErr = fmt.Errorf("auto renewal: %w", err)
 	}
 	// Not renewed: isolir (when enabled) keeps the customer online on the restricted plan.
 	if err := s.isolate(ctx, plan, c); err != nil {

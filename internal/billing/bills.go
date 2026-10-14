@@ -23,16 +23,17 @@ type billItem struct {
 	Inst bool // installment ("cost:remaining")
 }
 
-func attrs(ctx context.Context, q *db.Queries, customerID int64) map[string]string {
+// attrs returns the error: a failed read must not price a recharge without the customer's bills.
+func attrs(ctx context.Context, q *db.Queries, customerID int64) (map[string]string, error) {
 	rows, err := q.ListCustomerAttrs(ctx, customerID)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	m := make(map[string]string, len(rows))
 	for _, r := range rows {
 		m[r.Name] = strings.TrimSpace(r.Value)
 	}
-	return m
+	return m, nil
 }
 
 func parseMoney(s string) int64 {
@@ -63,9 +64,13 @@ func customerBills(a map[string]string) (items []billItem, total int64) {
 }
 
 // BillsTotal is the extra charge a recharge of this customer adds to the plan price.
-func (s *Service) BillsTotal(ctx context.Context, customerID int64) int64 {
-	_, t := customerBills(attrs(ctx, s.Q, customerID))
-	return t
+func (s *Service) BillsTotal(ctx context.Context, customerID int64) (int64, error) {
+	a, err := attrs(ctx, s.Q, customerID)
+	if err != nil {
+		return 0, err
+	}
+	_, t := customerBills(a)
+	return t, nil
 }
 
 func billsNote(items []billItem) string {
@@ -78,11 +83,15 @@ func billsNote(items []billItem) string {
 
 // payBills is User::billsPaid: one installment less per paid recharge.
 func payBills(ctx context.Context, q *db.Queries, customerID int64, items []billItem) error {
+	a, err := attrs(ctx, q, customerID)
+	if err != nil {
+		return err
+	}
 	for _, it := range items {
 		if !it.Inst {
 			continue
 		}
-		v := attrs(ctx, q, customerID)[it.Name]
+		v := a[it.Name]
 		cost, rem, _ := strings.Cut(v, ":")
 		if n, err := strconv.Atoi(rem); err == nil && n != 0 {
 			if err := setAttr(ctx, q, customerID, it.Name, fmt.Sprintf("%s:%d", cost, n-1)); err != nil {
@@ -96,7 +105,8 @@ func payBills(ctx context.Context, q *db.Queries, customerID int64, items []bill
 // packageVars are the [[price]] and [[bills]] placeholders of sendPackageNotification:
 // bills lists the customer's extra charges and ends with the total.
 func (s *Service) packageVars(ctx context.Context, customerID, price int64) map[string]string {
-	items, add := customerBills(attrs(ctx, s.Q, customerID))
+	a, _ := attrs(ctx, s.Q, customerID) // message text only: on error the bills lines are left out
+	items, add := customerBills(a)
 	var b strings.Builder
 	for _, it := range items {
 		fmt.Fprintf(&b, "%s : %s\n", it.Name, notify.Money(it.Cost))

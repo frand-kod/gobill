@@ -131,7 +131,10 @@ func (s *Service) SendDailySummary(ctx context.Context) ([]string, error) {
 // daily_summary_time (default 07:00); daily_summary_last (local date) survives restarts.
 func (s *Service) DailySummaryJob(trusted func() bool) func(context.Context) error {
 	return func(ctx context.Context) error {
-		st := settingsMap(ctx, s.Q)
+		st, err := settingsMap(ctx, s.Q)
+		if err != nil {
+			return err
+		}
 		if st["daily_summary_enabled"] != "yes" {
 			return nil
 		}

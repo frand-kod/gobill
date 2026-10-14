@@ -8,6 +8,14 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Keamanan
+
+- **Batas `shared_users` tidak lagi terlewati saat query gagal**: jika daftar sesi aktif tidak bisa dibaca, login ditolak, sama seperti batas waktu dan kuota. Sebelumnya error diabaikan dan login dianggap tanpa sesi lain.
+
+### Diperbaiki
+
+- **Harga tidak lagi dihitung tanpa pajak atau tagihan saat database gagal dibaca**: recharge, preview, order gateway, dan auto-renew kini gagal dengan error. Sebelumnya setting pajak atau atribut tagihan pelanggan yang gagal dibaca dianggap kosong, sehingga pelanggan bisa ditagih kurang.
+
 ## [0.1.15] - 2026-10-14
 
 ### Keamanan

@@ -29,13 +29,17 @@ func WithTax(st map[string]string, price int64) int64 {
 	return price + int64(math.Round(float64(price)*r/100))
 }
 
-func settingsMap(ctx context.Context, q *db.Queries) map[string]string {
-	m := map[string]string{}
-	rows, _ := q.ListSettings(ctx)
+// settingsMap returns the error: a failed read must not price a recharge without tax.
+func settingsMap(ctx context.Context, q *db.Queries) (map[string]string, error) {
+	rows, err := q.ListSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[string]string, len(rows))
 	for _, r := range rows {
 		m[r.Key] = r.Value
 	}
-	return m
+	return m, nil
 }
 
 type quoted struct {
@@ -61,7 +65,10 @@ func quote(ctx context.Context, q *db.Queries, customerID int64, plan db.Plan, c
 			return quoted{}, err
 		}
 	}
-	at := attrs(ctx, q, customerID)
+	at, err := attrs(ctx, q, customerID)
+	if err != nil {
+		return quoted{}, err
+	}
 	bills, add := customerBills(at)
 	base := plan.Price
 	if inv := parseMoney(at["Invoice"]); period && inv > 0 {
@@ -72,7 +79,11 @@ func quote(ctx context.Context, q *db.Queries, customerID int64, plan db.Plan, c
 	}
 	out := quoted{price: base + add, bills: bills}
 	if cp == nil || !cp.noTax {
-		out.price = WithTax(settingsMap(ctx, q), base) + add
+		st, err := settingsMap(ctx, q)
+		if err != nil {
+			return quoted{}, err
+		}
+		out.price = WithTax(st, base) + add
 	}
 	if cp != nil && cp.mode == modeTotal {
 		out.price = cp.price
@@ -85,6 +96,14 @@ func quote(ctx context.Context, q *db.Queries, customerID int64, plan db.Plan, c
 
 // OrderPrice is what a gateway order for a plan at base price costs: tax on base, plus the
 // customer's bills, the same as quote.
-func (s *Service) OrderPrice(ctx context.Context, customerID, base int64) int64 {
-	return WithTax(settingsMap(ctx, s.Q), base) + s.BillsTotal(ctx, customerID)
+func (s *Service) OrderPrice(ctx context.Context, customerID, base int64) (int64, error) {
+	st, err := settingsMap(ctx, s.Q)
+	if err != nil {
+		return 0, err
+	}
+	bills, err := s.BillsTotal(ctx, customerID)
+	if err != nil {
+		return 0, err
+	}
+	return WithTax(st, base) + bills, nil
 }

@@ -61,7 +61,11 @@ func (s *Service) sendReminders(ctx context.Context, n *notify.Notifier, now tim
 			return err
 		}
 		price := p.Price
-		if inv := parseMoney(attrs(ctx, s.Q, c.ID)["Invoice"]); p.ValidityUnit == "Period" && inv > 0 {
+		at, err := attrs(ctx, s.Q, c.ID)
+		if err != nil {
+			return err
+		}
+		if inv := parseMoney(at["Invoice"]); p.ValidityUnit == "Period" && inv > 0 {
 			price = inv // postpaid: the invoice amount, as cron_reminder.php
 		}
 		v := s.packageVars(ctx, c.ID, price)

@@ -77,7 +77,10 @@ func (s *Server) pPay(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if s.Billing != nil { // same formula as recharge: tax on the (discounted) price, then the customer's bills
-		amount = s.Billing.OrderPrice(r.Context(), c.ID, amount)
+		if amount, err = s.Billing.OrderPrice(r.Context(), c.ID, amount); err != nil {
+			s.fail(w, "portal pay price", err)
+			return
+		}
 	}
 	s.payOrder(w, r, g, c, p.ID, p.Name, amount, code, channel)
 }

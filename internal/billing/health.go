@@ -61,7 +61,10 @@ func (a *AlertJob) Run(ctx context.Context) error {
 	if a.Now != nil {
 		now = a.Now()
 	}
-	st := settingsMap(ctx, a.S.Q)
+	st, err := settingsMap(ctx, a.S.Q)
+	if err != nil {
+		return err
+	}
 	var errs []error
 
 	mb, err := a.Free()

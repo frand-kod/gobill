@@ -492,8 +492,12 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 	// Old PHP: Hotspot only, count of logged-in sessions >= shared_users is refused (reject policy),
 	// or the oldest ones are dropped so that this login fits (kick_oldest, the default).
 	if pl.PlanType == "Hotspot" && pl.SharedUsers.Valid {
-		others, _ := s.Q.ListOtherOpenRadiusSessions(ctx, db.ListOtherOpenRadiusSessionsParams{
+		others, err := s.Q.ListOtherOpenRadiusSessions(ctx, db.ListOtherOpenRadiusSessionsParams{
 			Username: user, UpdatedAt: s.now().Unix() - staleAfter, FramedIp: rq.FramedIP, Column4: rq.FramedIP, Mac: rq.MAC, Column6: rq.MAC})
+		if err != nil { // fail closed: unknown sessions must not count as zero
+			slog.Error("radius: list open sessions", "user", user, "err", err)
+			return Decision{Reject: "Login invalid......"}
+		}
 		if n := int64(len(others)); n >= pl.SharedUsers.Int64 {
 			if s.sharedPolicy(ctx) == "reject" {
 				return Decision{Reject: SharedUsersFullMsg}

@@ -491,3 +491,14 @@ func TestTimeLimitQueryErrorRejects(t *testing.T) {
 		t.Fatalf("time usage query failed but code %v: time limit must fail closed", r.Code)
 	}
 }
+
+func TestSharedUsersQueryErrorRejects(t *testing.T) {
+	e := setup(t)
+	e.setShared(t, 1)
+	if _, err := e.conn.Exec("DROP TABLE radius_sessions"); err != nil {
+		t.Fatal(err)
+	}
+	if r := e.auth(t, pap("alice", "pw")); r.Code != radius.CodeAccessReject {
+		t.Fatalf("session query failed but code %v: shared_users must fail closed", r.Code)
+	}
+}
