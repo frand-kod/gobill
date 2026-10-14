@@ -8,6 +8,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.1.15] - 2026-10-14
+
 ### Keamanan
 
 - **`/radius.php` tidak lagi terbuka lewat reverse proxy di host yang sama**: dengan `radius_rest_allow` kosong, request yang membawa header proxy (`X-Forwarded-For`, `X-Real-IP`, `Forwarded`, `CF-Connecting-IP`) ditolak. Sebelumnya, di belakang Nginx atau cloudflared lokal, semua klien internet terlihat datang dari loopback.
