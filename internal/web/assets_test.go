@@ -18,6 +18,11 @@ func TestStaticAssetCacheHeaders(t *testing.T) {
 	if cc := page.Header().Get("Cache-Control"); cc != "private, no-cache" {
 		t.Errorf("HTML Cache-Control = %q, want private, no-cache", cc)
 	}
+	for k, want := range map[string]string{"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "same-origin"} {
+		if got := page.Header().Get(k); got != want {
+			t.Errorf("%s = %q, want %q", k, got, want)
+		}
+	}
 
 	versioned := do(h, "GET", "/static/app.css?v=x", nil, nil)
 	wantCode(t, versioned, 200, "versioned css")

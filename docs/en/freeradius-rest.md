@@ -34,6 +34,7 @@ The old `radius.php` had no authentication. In gobill, the protection is the set
 
 - Fill it with the FreeRADIUS IP. CIDR is allowed, and entries are separated by commas.
 - If it is empty, only loopback is allowed: `127.0.0.0/8` and `::1`. gobill writes a warning at startup.
+- If it is empty, a request that carries a proxy header (`X-Forwarded-For`, `X-Real-IP`, `Forwarded`, `CF-Connecting-IP`) is refused. Behind Nginx or cloudflared on the same host, every internet client arrives from loopback.
 - If FreeRADIUS runs on another host, fill in its IP.
 
 `X-Forwarded-For` is trusted only if `trust_proxy` = `yes` and the direct connection comes from loopback or from `trusted_proxies`. The allow-list always uses the real connection address.

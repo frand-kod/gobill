@@ -21,9 +21,16 @@ import (
 func isRadiusRest(path string) bool { return path == "/radius.php" || path == "/radius/rest" }
 
 // radiusRestAllowed: empty allow-list = loopback only. It checks the TCP peer, never X-Forwarded-For.
+// With the default list, a request carrying a proxy header is refused: behind Nginx or cloudflared on
+// the same host every internet client arrives from loopback, and FreeRADIUS never sets these headers.
 func radiusRestAllowed(r *http.Request, m map[string]string) bool {
 	allow := strings.TrimSpace(m["radius_rest_allow"])
 	if allow == "" {
+		for _, h := range []string{"X-Forwarded-For", "X-Real-Ip", "Forwarded", "Cf-Connecting-Ip"} {
+			if r.Header.Get(h) != "" {
+				return false
+			}
+		}
 		allow = "127.0.0.0/8,::1"
 	}
 	a, ok := peerAddr(originalPeer(r))

@@ -87,8 +87,14 @@ func staticHandler(fsys fs.FS) http.Handler {
 // cacheDefaults sets Cache-Control on every response before the handler runs, so a handler that sets
 // its own value (static files, no-store JSON) overrides it. Pages are private and revalidated, so
 // Cloudflare and browsers never keep an old page. Uploads may be cached for an hour.
+// It also sets the security headers every page needs: no framing (clickjacking), no MIME sniffing, and
+// no full URL in Referer, so a /qris/{id}/{token} link never leaks to an outside site.
 func cacheDefaults(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "same-origin")
 		if w.Header().Get("Cache-Control") == "" {
 			w.Header().Set("Cache-Control", "private, no-cache")
 			if strings.HasPrefix(r.URL.Path, "/uploads/") {
