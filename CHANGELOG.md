@@ -8,6 +8,21 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.1.17] - 2026-10-16
+
+### Diperbaiki
+
+- **Enter di form registrasi kini mendaftar**: sebelumnya Enter mengirim ulang OTP saat verifikasi OTP aktif.
+- **Halaman pembayaran hanya reload saat tab terlihat**: pelanggan tidak lagi kehilangan posisi scroll dan kuota saat tab di latar belakang.
+- **Satu input kupon per paket**: kartu paket tidak lagi menampilkan dua input kupon saat saldo dan payment gateway sama-sama aktif.
+
+### Diubah
+
+- **Portal lebih nyaman di HP**: kolom tabel sekunder disembunyikan di layar kecil, label bottom nav diperpendek, dan badge pesan baru tidak lagi berwarna merah.
+- **Form password**: tombol Show, `minlength`, dan hint panjang minimum dari setting `customer_password_min`.
+- **Lupa password**: tombol kirim ulang kode di langkah verifikasi.
+- **Lainnya**: hint pada field kontak yang terkunci, saldo tampil di halaman beli untuk teman, tab antara Riwayat Order dan Riwayat Aktivasi, serta link login admin dihapus dari halaman login pelanggan.
+
 ## [0.1.16] - 2026-10-15
 
 ### Keamanan
