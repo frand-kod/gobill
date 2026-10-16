@@ -15,7 +15,7 @@
 <h1 class="page-title mb-4">{{T "Inbox"}}</h1>
 <div class="card"><div class="overflow-x-auto"><table class="table">
 <thead><tr><th>{{T "Subject"}}</th><th>{{T "From"}}</th><th>{{T "Date"}}</th></tr></thead>
-<tbody>{{range .List}}<tr class="{{if not .ReadAt.Valid}}font-semibold{{end}}"><td><a class="underline" href="/portal/inbox/{{.ID}}" data-no-prefetch>{{.Subject}}</a>{{if not .ReadAt.Valid}} <span class="badge badge-bad">{{T "New"}}</span>{{end}}</td><td>{{.FromName}}</td><td>{{ts .CreatedAt}}</td></tr>
+<tbody>{{range .List}}<tr class="{{if not .ReadAt.Valid}}font-semibold{{end}}"><td><a class="underline" href="/portal/inbox/{{.ID}}" data-no-prefetch>{{.Subject}}</a>{{if not .ReadAt.Valid}} <span class="badge badge-warn">{{T "New"}}</span>{{end}}</td><td>{{.FromName}}</td><td>{{ts .CreatedAt}}</td></tr>
 {{else}}<tr><td class="py-8 text-center text-ink-2" colspan="3">{{T "No data"}}</td></tr>{{end}}</tbody></table></div></div>
 {{end}}
 {{end}}

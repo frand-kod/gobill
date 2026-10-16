@@ -1427,5 +1427,9 @@
     "Delete used vouchers older than 3 months": "Delete used vouchers older than 3 months",
     "Send message to selected": "Send message to selected",
     "Select at least one row": "Select at least one row",
-    "Select all": "Select all"
+    "Select all": "Select all",
+    "Packages": "Packages",
+    "At least %s characters": "At least %s characters",
+    "Change it with the verification form below": "Change it with the verification form below",
+    "Resend code": "Resend code"
 }

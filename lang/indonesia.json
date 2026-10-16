@@ -2483,5 +2483,9 @@
     "Provider": "Penyedia",
     "Save / print": "Simpan / cetak",
     "Support on WhatsApp": "Bantuan lewat WhatsApp",
-    "Hotspot logout address, empty when the Hotspot address is not set": "Alamat logout hotspot, kosong jika Alamat hotspot belum diisi"
+    "Hotspot logout address, empty when the Hotspot address is not set": "Alamat logout hotspot, kosong jika Alamat hotspot belum diisi",
+    "Packages": "Paket",
+    "At least %s characters": "Minimal %s karakter",
+    "Change it with the verification form below": "Ubah lewat formulir verifikasi di bawah",
+    "Resend code": "Kirim ulang kode"
 }

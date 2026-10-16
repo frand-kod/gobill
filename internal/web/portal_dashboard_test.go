@@ -202,7 +202,7 @@ func TestPortalConnectionHistoryPagingAndIsolation(t *testing.T) {
 	dashSess(t, e, other.Username, "x", "10.9.9.9", "DE:AD:BE:EF:00:01", now-600, now, 1, 1)
 
 	page1 := portalGet(t, e, c, "/portal/connection")
-	if n := strings.Count(page1, `<td class="font-mono">`); n != perPage {
+	if n := strings.Count(page1, `<td class="font-mono hidden sm:table-cell">`); n != perPage {
 		t.Fatalf("page 1 rows = %d, want %d", n, perPage)
 	}
 	if !strings.Contains(page1, "/portal/connection?page=2") || strings.Contains(page1, "/portal/connection?page=3") {
@@ -212,7 +212,7 @@ func TestPortalConnectionHistoryPagingAndIsolation(t *testing.T) {
 		t.Fatal("no day group on the history page")
 	}
 	page2 := portalGet(t, e, c, "/portal/connection?page=2")
-	if n := strings.Count(page2, `<td class="font-mono">`); n != 2 {
+	if n := strings.Count(page2, `<td class="font-mono hidden sm:table-cell">`); n != 2 {
 		t.Fatalf("page 2 rows = %d, want 2", n)
 	}
 	for _, p := range []string{page1, page2} {
@@ -221,7 +221,7 @@ func TestPortalConnectionHistoryPagingAndIsolation(t *testing.T) {
 		}
 	}
 	// garbage page numbers fall back to page 1
-	if n := strings.Count(portalGet(t, e, c, "/portal/connection?page=abc"), `<td class="font-mono">`); n != perPage {
+	if n := strings.Count(portalGet(t, e, c, "/portal/connection?page=abc"), `<td class="font-mono hidden sm:table-cell">`); n != perPage {
 		t.Fatalf("bad page rows = %d", n)
 	}
 	// the dashboard has no session table any more

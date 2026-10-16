@@ -10,16 +10,17 @@
       <div><label class="label" for="username">{{T "Username"}}</label><input class="input" id="username" name="username" autocapitalize="none" autocomplete="username" required value="{{.Username}}"></div>
       <div><label class="label" for="password">{{T "Password"}}</label>
         <div class="pw-wrap">
-          <input class="input" id="password" name="password" type="password" autocomplete="new-password" required>
+          <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="{{$.Brand.pass_min}}" required>
           <button class="pw-toggle" type="button" hidden data-pw="password" data-show="{{T "Show"}}" data-hide="{{T "Hide"}}" aria-pressed="false" aria-controls="password">{{T "Show"}}</button>
-        </div></div>
+        </div>
+        <p class="hint">{{printf (T "At least %s characters") $.Brand.pass_min}}</p></div>
       <div><label class="label" for="phone_number">{{T "WhatsApp Number"}}</label><input class="input" id="phone_number" name="phone_number" type="tel" inputmode="tel" required value="{{.Phone}}"></div>
       {{if .OTP}}
       <div><label class="label" for="otp_code">{{T "Verification Code"}}</label><input class="input" id="otp_code" name="otp_code" inputmode="numeric"></div>
-      <button class="btn btn-ghost w-full" type="submit" name="send_otp" value="1">{{T "Request OTP"}}</button>
       {{end}}
       {{end}}
       <button class="btn btn-primary w-full" type="submit">{{T "Register"}}</button>
+      {{with .Data}}{{if .OTP}}<button class="btn btn-ghost w-full" type="submit" name="send_otp" value="1">{{T "Request OTP"}}</button>{{end}}{{end}}
       <a class="btn btn-ghost w-full" href="/login">{{T "Cancel"}}</a>
     </div>
   </form>

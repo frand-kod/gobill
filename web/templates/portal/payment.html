@@ -1,5 +1,5 @@
 {{define "content"}}
-{{with .Data}}{{if eq .P.Status "pending"}}<script>setTimeout(function () { location.reload(); }, 10000);</script>{{end}}{{end}}
+{{with .Data}}{{if eq .P.Status "pending"}}<script>setInterval(function () { if (!document.hidden) location.reload(); }, 10000);</script>{{end}}{{end}}
 {{with .Data}}{{$p := .P}}
 <h1 class="page-title mb-4">{{T "Order Details"}}</h1>
 <div class="card"><div class="card-body space-y-3">

@@ -23,12 +23,17 @@
           <button class="btn btn-primary w-full" type="submit">{{T "Validate"}}</button>
           <a class="btn btn-ghost w-full" href="/portal/forgot?cancel=1" data-no-prefetch>{{T "Cancel"}}</a>
         </form>
+        <form method="post" action="/portal/forgot">
+          <input type="hidden" name="username" value="{{.Username}}">
+          <button class="btn btn-ghost w-full" type="submit">{{T "Resend code"}}</button>
+        </form>
         {{else}}
         <form method="post" action="/portal/forgot/reset" class="space-y-4">
           <div><label class="label" for="npass">{{T "New Password"}}</label>
-            <input class="input" id="npass" name="npass" type="password" autocomplete="new-password" required autofocus></div>
+            <div class="pw-wrap"><input class="input" id="npass" name="npass" type="password" autocomplete="new-password" minlength="{{$.Brand.pass_min}}" required autofocus><button class="pw-toggle" type="button" hidden data-pw="npass" data-show="{{T "Show"}}" data-hide="{{T "Hide"}}" aria-pressed="false" aria-controls="npass">{{T "Show"}}</button></div>
+            <p class="hint">{{printf (T "At least %s characters") $.Brand.pass_min}}</p></div>
           <div><label class="label" for="cnpass">{{T "Confirm New Password"}}</label>
-            <input class="input" id="cnpass" name="cnpass" type="password" autocomplete="new-password" required></div>
+            <input class="input" id="cnpass" name="cnpass" type="password" autocomplete="new-password" minlength="{{$.Brand.pass_min}}" required></div>
           <button class="btn btn-primary w-full" type="submit">{{T "Save"}}</button>
         </form>
         {{end}}
@@ -36,4 +41,5 @@
     </div>
   </div>
 </main>
+{{template "pwscript"}}
 {{end}}

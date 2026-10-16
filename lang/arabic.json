@@ -715,5 +715,9 @@
   "Error": "خطأ",
   "Warning": "تحذير",
   "Force_Logout_": "تسجيل الخروج القسري:",
-  "Disconnect": "قطع الاتصال"
+  "Disconnect": "قطع الاتصال",
+    "Packages": "الباقات",
+    "At least %s characters": "%s أحرف على الأقل",
+    "Change it with the verification form below": "غيّره من خلال نموذج التحقق أدناه",
+    "Resend code": "إعادة إرسال الرمز"
 }

@@ -3,6 +3,7 @@
 {{with .Data}}
 <form class="card max-w-md" method="post" action="/portal/plans/{{.Plan.ID}}/friend" data-confirm="{{printf (T "Pay %s %s from balance %s for {username}?") .Plan.Name (money .Plan.Price) (money $.Customer.Balance)}}"><div class="card-body space-y-4">
   <p><b>{{.Plan.Name}}</b> - {{money .Plan.Price}}</p>
+  <p class="text-sm text-ink-2">{{T "Your balance"}}: <b class="text-ink">{{money $.Customer.Balance}}</b></p>
   <div><label class="label" for="fu">{{T "Friend's Username"}}</label><input class="input" id="fu" name="username" value="{{.Username}}" required autofocus autocomplete="off"></div>
   <button class="btn btn-primary" type="submit">{{T "Pay with Balance"}}</button>
 </div></form>

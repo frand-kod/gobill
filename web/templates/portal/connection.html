@@ -7,8 +7,8 @@
     <p class="text-sm text-ink-2 tabular-nums">{{T "Download"}} {{.Down}} · {{T "Upload"}} {{.Up}}</p>
   </div>
   <div class="overflow-x-auto"><table class="table">
-    <thead><tr><th>{{T "Start"}}</th><th>{{T "Duration"}}</th><th>{{T "Upload"}}</th><th>{{T "Download"}}</th><th>{{T "Device"}}</th></tr></thead>
-    <tbody>{{range .Rows}}<tr><td>{{.Start}}{{if .Open}} <span class="badge badge-ok">{{T "Online"}}</span>{{end}}</td><td>{{.For}}</td><td>{{.Up}}</td><td>{{.Down}}</td><td class="font-mono">{{if .MAC}}{{.MAC}}{{else}}-{{end}}</td></tr>{{end}}</tbody>
+    <thead><tr><th>{{T "Start"}}</th><th>{{T "Duration"}}</th><th class="hidden sm:table-cell">{{T "Upload"}}</th><th>{{T "Download"}}</th><th class="hidden sm:table-cell">{{T "Device"}}</th></tr></thead>
+    <tbody>{{range .Rows}}<tr><td>{{.Start}}{{if .Open}} <span class="badge badge-ok">{{T "Online"}}</span>{{end}}</td><td>{{.For}}</td><td class="hidden sm:table-cell">{{.Up}}</td><td>{{.Down}}</td><td class="font-mono hidden sm:table-cell">{{if .MAC}}{{.MAC}}{{else}}-{{end}}</td></tr>{{end}}</tbody>
   </table></div>
 </section>
 {{else}}

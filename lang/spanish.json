@@ -838,5 +838,9 @@
     "Update": "Actualizar",
     "Update_PHPNuxBill": "Actualizar PHPNuxBill",
     "Ask_Github_Community": "Pregunta a la comunidad de Github",
-    "Ask_Telegram_Community": "Pregunta a la comunidad de Telegram"
+    "Ask_Telegram_Community": "Pregunta a la comunidad de Telegram",
+    "Packages": "Paquetes",
+    "At least %s characters": "Al menos %s caracteres",
+    "Change it with the verification form below": "Cámbialo con el formulario de verificación de abajo",
+    "Resend code": "Reenviar código"
 }
