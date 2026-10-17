@@ -32,7 +32,7 @@ Script ini:
 
 - mendeteksi arsitektur dan memasang binary ke `/usr/local/bin/gobill`;
 - membuat user sistem `gobill` dan folder `/var/lib/gobill`;
-- membuat `/etc/gobill/config.env` dengan `GOBILL_SECRET_KEY` acak, hanya jika file belum ada, dengan mode 600;
+- membuat `/etc/gobill/config.env` dengan `GOBILL_SECRET_KEY` acak, hanya jika file belum ada, dengan mode 600. Setiap variabel dijelaskan di komentarnya (lihat `gobill config-example`);
 - mengaktifkan chrony atau systemd-timesyncd jika ada;
 - mengaktifkan dan menjalankan service `gobill`.
 

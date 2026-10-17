@@ -32,7 +32,7 @@ The script:
 
 - detects the architecture and installs the binary to `/usr/local/bin/gobill`;
 - creates the system user `gobill` and the folder `/var/lib/gobill`;
-- creates `/etc/gobill/config.env` with a random `GOBILL_SECRET_KEY`, only if the file does not exist yet, with mode 600;
+- creates `/etc/gobill/config.env` with a random `GOBILL_SECRET_KEY`, only if the file does not exist yet, with mode 600. Every variable is explained in comments (see `gobill config-example`);
 - enables chrony or systemd-timesyncd if present;
 - enables and starts the `gobill` service.
 

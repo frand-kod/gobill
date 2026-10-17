@@ -99,7 +99,7 @@ PHPNUXBILL=../phpnuxbill bench/run.sh
 **Operasional**
 
 - Setup cepat langkah demi langkah untuk router, paket, WhatsApp, QRIS, dan Isolir.
-- Update satu perintah `sudo gobill update` dengan cek checksum, dan `gobill rollback`.
+- Update satu perintah `sudo gobill update` dengan cek tanda tangan rilis dan checksum, dan `gobill rollback`.
 - Backup harian, mirror di luar perangkat, dan restore dari UI.
 - Halaman Status Sistem, `/health`, `/metrics` untuk Prometheus, dan alert operator lewat Telegram atau WhatsApp.
 - Aman untuk perangkat tanpa RTC: job kedaluwarsa tidak jalan selama jam sistem belum dipercaya.
