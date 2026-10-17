@@ -22,9 +22,11 @@ Daftar ini berisi semua variabel yang dibaca kode di `cmd/gobill`.
 | `GOBILL_RADIUS` | `:1812` | Alamat listen RADIUS UDP untuk auth. Accounting memakai port berikutnya. Kosong atau `off` mematikan listener UDP. `/radius.php` tetap berjalan. |
 | `GOBILL_BACKUP_DIR` | folder `backup` di samping database | Folder backup harian dan backup otomatis sebelum impor, restore, atau pemulihan. Lihat [backup dan restore](backup-restore.md). |
 | `GOBILL_BACKUP_MIRROR` | kosong, mati | Salinan kedua backup harian di folder lain, misalnya USB, NAS, atau rclone. Folder harus sudah ada. Lihat [backup dan restore](backup-restore.md#mirror). |
+| `GOBILL_STALE_AFTER` | `10m` | Lanjutan. Lama sesi RADIUS yang terbuka boleh tanpa Interim-Update sebelum dianggap basi. Sesi basi tidak dihitung untuk `shared_users`. Isi sekitar 2× interval interim NAS, misalnya `20m` untuk interim 10 menit. Menerima `1m` sampai `1h`. Nilai salah menghentikan start. |
+| `GOBILL_NAS_ONLINE_WINDOW` | `15m` | Lanjutan. NAS tampil online di dashboard selama paket RADIUS terbarunya tidak lebih tua dari nilai ini. Menerima `1m` sampai `24h`. Nilai salah menghentikan start. |
 | `GOBILL_TEST_MYSQL_DSN`, `GOBILL_TEST_PHP_SQL` | kosong | Hanya untuk test importer. Tidak dibaca saat aplikasi berjalan. Lihat [panduan pengembangan](../internal/pengembangan.md). |
 
-Contoh `/etc/gobill/config.env`:
+Pada instalasi baru, `install.sh` menulis `/etc/gobill/config.env` lengkap dengan komentar (bahasa Inggris) untuk setiap variabel di atas. Untuk melihat template versi Anda, jalankan `gobill config-example`. Bentuk singkatnya:
 
     GOBILL_DB=/var/lib/gobill/gobill.db
     GOBILL_HTTP=:8080
@@ -34,6 +36,7 @@ Contoh `/etc/gobill/config.env`:
 Opsi CLI:
 
 - `gobill --version` menampilkan versi.
+- `gobill config-example` menampilkan template `config.env` berkomentar.
 - `gobill import ...` memindahkan data dari PHPNuxBill. Lihat [migrasi](migration-phpnuxbill.md).
 - `gobill update` dan `gobill rollback` mengganti binary. Lihat [upgrade](upgrade.md).
 - `gobill reset-admin-password <username>` membuat password baru untuk akun admin. Lihat [keamanan](security.md#lupa-password-admin).

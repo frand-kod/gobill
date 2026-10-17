@@ -33,9 +33,10 @@ import (
 	"github.com/frand-kod/gobill/internal/secret"
 )
 
-// staleAfter: an open session not updated for this long no longer counts toward shared_users.
-// ponytail: fixed 2x a 5-minute interim; make it a setting if NAS interim differs.
-const staleAfter = 600
+// StaleAfter is how long (seconds) an open session may go without an update before it no longer
+// counts toward shared_users and shows as stale. The default is 2x a 5-minute interim update;
+// GOBILL_STALE_AFTER overrides it at startup (see cmd/gobill).
+var StaleAfter int64 = 600
 
 type Server struct {
 	Q        *db.Queries
@@ -493,7 +494,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 	// or the oldest ones are dropped so that this login fits (kick_oldest, the default).
 	if pl.PlanType == "Hotspot" && pl.SharedUsers.Valid {
 		others, err := s.Q.ListOtherOpenRadiusSessions(ctx, db.ListOtherOpenRadiusSessionsParams{
-			Username: user, UpdatedAt: s.now().Unix() - staleAfter, FramedIp: rq.FramedIP, Column4: rq.FramedIP, Mac: rq.MAC, Column6: rq.MAC})
+			Username: user, UpdatedAt: s.now().Unix() - StaleAfter, FramedIp: rq.FramedIP, Column4: rq.FramedIP, Mac: rq.MAC, Column6: rq.MAC})
 		if err != nil { // fail closed: unknown sessions must not count as zero
 			slog.Error("radius: list open sessions", "user", user, "err", err)
 			return Decision{Reject: "Login invalid......"}

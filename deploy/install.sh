@@ -72,13 +72,19 @@ if [ ! -f "$CONF" ]; then
 	(
 		umask 077
 		KEY=$(od -An -tx1 -N32 /dev/urandom | tr -d ' \n')
-		cat > "$CONF" <<EOF
+		# Template berkomentar lengkap (Inggris) dari binary; binary lama tanpa perintah ini memakai versi singkat.
+		if "$BIN" config-example > "$CONF.tmp" 2>/dev/null && grep -q '^GOBILL_SECRET_KEY=' "$CONF.tmp"; then
+			sed -e "s#^GOBILL_DB=.*#GOBILL_DB=$STATE_DIR/gobill.db#" -e "s#^GOBILL_SECRET_KEY=.*#GOBILL_SECRET_KEY=$KEY#" "$CONF.tmp" > "$CONF"
+		else
+			cat > "$CONF" <<EOF
 GOBILL_DB=$STATE_DIR/gobill.db
 GOBILL_HTTP=:8080
 # GOBILL_RADIUS=off mematikan listener UDP built-in (misal jika FreeRADIUS memakai 1812)
 GOBILL_RADIUS=:1812
 GOBILL_SECRET_KEY=$KEY
 EOF
+		fi
+		rm -f "$CONF.tmp"
 	)
 	chmod 600 "$CONF"
 fi

@@ -16,7 +16,7 @@ The command does the following steps.
 
 1. Fetches the latest release info from GitHub. If the version is the same as the running one, the command stops with `already up to date`.
 2. Shows the old and new versions, and the first lines of the release notes. The command asks for confirmation, unless you pass `--yes`.
-3. Downloads the binary for the device architecture and the `SHA256SUMS` file. The checksum must match. If it does not match, or the checksum file is missing, the install stops and nothing changes.
+3. Downloads the binary for the device architecture, the `SHA256SUMS` file and its signature `SHA256SUMS.sig`. The signature must match the release key built into gobill, and then the checksum must match. If either does not match, or a file is missing, the install stops and nothing changes. The signature proves that the gobill maintainer made the release. A checksum alone only proves that the download is intact.
 4. Creates a database backup with `VACUUM INTO` in the backup folder, named `gobill-YYYYMMDD-HHMMSS-pre-update.db`. The path is shown. The daily backup rotation does not delete this file.
 5. Keeps the old binary as `/usr/local/bin/gobill.prev`, then replaces the binary with the new version.
 6. Restarts the service, then checks `/health` for up to 60 seconds.
@@ -87,6 +87,11 @@ When it is on, gobill checks the latest release on GitHub a few minutes after st
 ## Version notes
 
 Before you upgrade, read the behaviour changes section ("Perubahan perilaku") of the [CHANGELOG](../../CHANGELOG.md) for the target version. The CHANGELOG is written in Indonesian. Its behaviour changes list what the operator must act on.
+
+**Upgrade to v0.1.18:**
+
+1. v0.1.18 is the first release that checks release signatures. The update from v0.1.17 works as before. After that, `gobill update` refuses releases without a valid `SHA256SUMS.sig`.
+2. No configuration change is needed. New optional variables are explained in `gobill config-example`. An existing `/etc/gobill/config.env` is not changed.
 
 **Upgrade from v0.1.6 or older to v0.1.7:**
 

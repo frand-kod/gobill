@@ -13,3 +13,6 @@ docs/phpnuxbill_*.json
 *.sql.gz
 /dev/
 /docs/private/
+
+# Release signing key: never commit (see SECURITY.md)
+release.key

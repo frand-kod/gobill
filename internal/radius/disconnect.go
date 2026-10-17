@@ -15,10 +15,6 @@ import (
 	"github.com/frand-kod/gobill/internal/secret"
 )
 
-// StaleAfter is how long (seconds) an open session may go without an update before it is
-// considered stale.
-const StaleAfter = staleAfter
-
 // CoAPort is the RFC 5176 Disconnect-Request port on the NAS.
 const CoAPort = "3799"
 

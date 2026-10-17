@@ -19,6 +19,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	gobill "github.com/frand-kod/gobill"
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/job"
@@ -40,6 +41,10 @@ const exitRestart = 3
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "--version" {
 		fmt.Println(version)
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "config-example" {
+		fmt.Print(gobill.ConfigExample)
 		return
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
@@ -77,6 +82,10 @@ func run() error {
 		slog.Warn("GOBILL_HTTPS=0: session cookies are sent without the Secure flag")
 	}
 	slog.Info("gobill starting", "version", version)
+
+	if err := tuneWindows(); err != nil {
+		return err
+	}
 
 	backupDir := env("GOBILL_BACKUP_DIR", filepath.Join(filepath.Dir(dbPath), "backup"))
 	if err := db.ApplyPendingRestore(dbPath); err != nil {
@@ -236,6 +245,36 @@ func radiusAddr() (addr string, enabled bool) {
 		return "", false
 	}
 	return v, true
+}
+
+// tuneWindows applies the GOBILL_STALE_AFTER and GOBILL_NAS_ONLINE_WINDOW overrides. A bad value
+// stops startup, so a typo never silently keeps the default. See config.env.example.
+func tuneWindows() error {
+	if d, ok, err := envDuration("GOBILL_STALE_AFTER", time.Minute, time.Hour); err != nil {
+		return err
+	} else if ok {
+		radius.StaleAfter = int64(d / time.Second)
+		slog.Info("RADIUS stale window overridden", "GOBILL_STALE_AFTER", d)
+	}
+	if d, ok, err := envDuration("GOBILL_NAS_ONLINE_WINDOW", time.Minute, 24*time.Hour); err != nil {
+		return err
+	} else if ok {
+		web.NASFreshFor = d
+		slog.Info("NAS online window overridden", "GOBILL_NAS_ONLINE_WINDOW", d)
+	}
+	return nil
+}
+
+// envDuration reads a Go duration ("10m", "90s") from key; ok is false when the key is unset.
+func envDuration(key string, lo, hi time.Duration) (d time.Duration, ok bool, err error) {
+	v := os.Getenv(key)
+	if v == "" {
+		return 0, false, nil
+	}
+	if d, err = time.ParseDuration(v); err != nil || d < lo || d > hi {
+		return 0, false, fmt.Errorf("%s=%q: want a duration between %s and %s, e.g. 10m", key, v, lo, hi)
+	}
+	return d, true, nil
 }
 
 func env(key, fallback string) string {

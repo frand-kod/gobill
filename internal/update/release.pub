@@ -1,0 +1,1 @@
+# gobill release public key (ed25519, base64). Generate with: go run ./tools/releasesign keygen

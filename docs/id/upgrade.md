@@ -16,7 +16,7 @@ Perintah ini melakukan langkah berikut.
 
 1. Mengambil info rilis terbaru dari GitHub. Jika versinya sama dengan yang berjalan, perintah berhenti dengan pesan `already up to date`.
 2. Menampilkan versi lama dan baru, serta beberapa baris pertama catatan rilis. Perintah meminta konfirmasi, kecuali dengan `--yes`.
-3. Mengunduh binary untuk arsitektur perangkat dan file `SHA256SUMS`. Checksum harus cocok. Jika tidak cocok, atau file checksum tidak ada, instalasi dibatalkan dan tidak ada yang berubah.
+3. Mengunduh binary untuk arsitektur perangkat, file `SHA256SUMS`, dan tanda tangannya `SHA256SUMS.sig`. Tanda tangan harus cocok dengan kunci rilis yang tertanam di gobill, lalu checksum harus cocok. Jika salah satu tidak cocok, atau ada file yang tidak ada, instalasi dibatalkan dan tidak ada yang berubah. Tanda tangan membuktikan rilis dibuat oleh pengelola gobill. Checksum saja hanya membuktikan unduhan utuh.
 4. Membuat backup database dengan `VACUUM INTO` di folder backup, dengan nama `gobill-YYYYMMDD-HHMMSS-pre-update.db`. Path-nya ditampilkan. Rotasi backup harian tidak menghapus file ini.
 5. Menyimpan binary lama sebagai `/usr/local/bin/gobill.prev`, lalu mengganti binary dengan versi baru.
 6. Me-restart service, lalu memeriksa `/health` selama sampai 60 detik.
@@ -87,6 +87,11 @@ Jika aktif, gobill memeriksa rilis terbaru di GitHub beberapa menit setelah star
 ## Catatan versi
 
 Sebelum upgrade, baca bagian "Perubahan perilaku" di [CHANGELOG](../../CHANGELOG.md) untuk versi tujuan. Bagian itu mencatat perubahan yang butuh tindakan operator.
+
+**Upgrade ke v0.1.18:**
+
+1. v0.1.18 adalah rilis pertama yang memeriksa tanda tangan rilis. Update dari v0.1.17 berjalan seperti biasa. Setelah itu, `gobill update` menolak rilis tanpa `SHA256SUMS.sig` yang valid.
+2. Tidak ada konfigurasi yang wajib diubah. Variabel opsional baru dijelaskan di `gobill config-example`. `/etc/gobill/config.env` yang sudah ada tidak diubah.
 
 **Upgrade dari v0.1.6 atau lebih lama ke v0.1.7:**
 

@@ -290,7 +290,7 @@ func TestSharedUsers(t *testing.T) {
 	if r := e.authFrom(t, "172.16.0.9", "BB:BB"); r.Code != radius.CodeAccessReject {
 		t.Fatal("different device at the limit must be rejected")
 	}
-	e.now = e.now.Add(staleAfter*time.Second + time.Second)
+	e.now = e.now.Add(time.Duration(StaleAfter)*time.Second + time.Second)
 	if r := e.authFrom(t, "172.16.0.9", "BB:BB"); r.Code != radius.CodeAccessAccept {
 		t.Fatal("stale session must be ignored")
 	}

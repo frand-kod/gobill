@@ -17,6 +17,7 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/job"
 	"github.com/frand-kod/gobill/internal/metrics"
+	"github.com/frand-kod/gobill/internal/radius"
 )
 
 func (s *Server) metricsHandler(w http.ResponseWriter, r *http.Request) {
@@ -75,11 +76,11 @@ func (s *Server) computedFamilies(r *http.Request) []metrics.Family {
 	return fams
 }
 
-// openRadiusSessions counts sessions that are open and were updated in the last 10 minutes (staleAfter in package radius).
+// openRadiusSessions counts sessions that are open and were updated within radius.StaleAfter.
 func (s *Server) openRadiusSessions(r *http.Request) (int64, error) {
 	var n int64
 	err := s.conn.QueryRowContext(r.Context(), "SELECT COUNT(*) FROM radius_sessions WHERE stopped_at IS NULL AND updated_at >= ?",
-		time.Now().Unix()-600).Scan(&n)
+		time.Now().Unix()-radius.StaleAfter).Scan(&n)
 	return n, err
 }
 

@@ -45,3 +45,23 @@ func TestLoadZone(t *testing.T) {
 		t.Errorf("valid name: got %v", got)
 	}
 }
+
+func TestEnvDuration(t *testing.T) {
+	for _, c := range []struct {
+		v       string
+		ok, bad bool
+		want    time.Duration
+	}{
+		{"", false, false, 0},
+		{"20m", true, false, 20 * time.Minute},
+		{"30s", false, true, 0}, // below the minimum
+		{"2h", false, true, 0},  // above the maximum
+		{"600", false, true, 0}, // no unit
+	} {
+		t.Setenv("GOBILL_TEST_WINDOW", c.v)
+		d, ok, err := envDuration("GOBILL_TEST_WINDOW", time.Minute, time.Hour)
+		if ok != c.ok || (err != nil) != c.bad || d != c.want {
+			t.Errorf("%q: got %s, %v, %v", c.v, d, ok, err)
+		}
+	}
+}

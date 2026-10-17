@@ -3,7 +3,9 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
@@ -19,6 +21,9 @@ import (
 	"github.com/frand-kod/gobill/internal/update"
 )
 
+// testPub, testPriv stand in for the release key; fakeGitHub signs SHA256SUMS with testPriv.
+var testPub, testPriv, _ = ed25519.GenerateKey(nil)
+
 // fakeGitHub serves one release at /latest and /tags/<tag>, with the new binary and SHA256SUMS.
 func fakeGitHub(t *testing.T, tag string, bin []byte, sums string, withSums bool) *httptest.Server {
 	t.Helper()
@@ -33,11 +38,14 @@ func fakeGitHub(t *testing.T, tag string, bin []byte, sums string, withSums bool
 			w.Write(bin)
 		case r.URL.Path == "/dl/sums":
 			w.Write([]byte(sums))
+		case r.URL.Path == "/dl/sig":
+			w.Write([]byte(base64.StdEncoding.EncodeToString(ed25519.Sign(testPriv, []byte(sums)))))
 		case r.URL.Path == "/latest" || strings.HasPrefix(r.URL.Path, "/tags/"):
 			rel := update.Release{Tag: tag, URL: "https://example.test/" + tag, Notes: "first line\nsecond line",
 				Assets: []update.Asset{{Name: name, URL: srv.URL + "/dl/bin"}}}
 			if withSums {
-				rel.Assets = append(rel.Assets, update.Asset{Name: "SHA256SUMS", URL: srv.URL + "/dl/sums"})
+				rel.Assets = append(rel.Assets, update.Asset{Name: "SHA256SUMS", URL: srv.URL + "/dl/sums"},
+					update.Asset{Name: update.SigName, URL: srv.URL + "/dl/sig"})
 			}
 			json.NewEncoder(w).Encode(rel)
 		default:
@@ -87,6 +95,7 @@ func newTestUpdater(t *testing.T, api, input string) testUpdater {
 		infoPath:    filepath.Join(dir, "last-update.json"),
 		healthURL:   "http://127.0.0.1:1/health",
 		apiURL:      api,
+		pubKey:      testPub,
 		client:      &http.Client{Timeout: 5 * time.Second},
 		in:          bufio.NewReader(strings.NewReader(input)),
 		out:         &bytes.Buffer{},
@@ -126,6 +135,18 @@ func TestUpdateRefusesBadChecksum(t *testing.T) {
 	}
 	if _, err := os.Stat(tu.backupDir); err == nil {
 		t.Fatal("database backup taken before the checksum passed")
+	}
+}
+
+func TestUpdateRefusesWrongSigner(t *testing.T) {
+	srv := fakeGitHub(t, "v0.2.0", []byte("new"), sumsFor([]byte("new")), true)
+	tu := newTestUpdater(t, srv.URL, "")
+	tu.pubKey, _, _ = ed25519.GenerateKey(nil) // valid checksums, signed by someone else
+	if err := tu.update(t.Context(), "v0.1.6", "", true); err == nil || !strings.Contains(err.Error(), "not signed") {
+		t.Fatalf("release signed by another key accepted: %v", err)
+	}
+	if b, _ := os.ReadFile(tu.bin); string(b) != "old" || len(*tu.calls) != 0 {
+		t.Fatalf("binary changed to %q, systemctl %v", b, *tu.calls)
 	}
 }
 

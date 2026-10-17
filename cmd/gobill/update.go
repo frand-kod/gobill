@@ -8,6 +8,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -47,6 +48,7 @@ type updateInfo struct {
 type updater struct {
 	bin, dbPath, backupDir, infoPath, healthURL string
 	apiURL                                      string
+	pubKey                                      ed25519.PublicKey // release signing key, see update.PublicKey
 	client                                      *http.Client
 	in                                          *bufio.Reader
 	out                                         io.Writer
@@ -103,6 +105,10 @@ func newUpdater(in io.Reader, out io.Writer) (*updater, error) {
 		return nil, err
 	}
 	dbPath := cfgOr(cfg, "GOBILL_DB", "/var/lib/gobill/gobill.db")
+	pub, err := update.PublicKey()
+	if err != nil {
+		return nil, err
+	}
 	_, port, err := net.SplitHostPort(cfgOr(cfg, "GOBILL_HTTP", ":8080"))
 	if err != nil {
 		return nil, fmt.Errorf("GOBILL_HTTP in %s: want host:port", configPath)
@@ -114,6 +120,7 @@ func newUpdater(in io.Reader, out io.Writer) (*updater, error) {
 		infoPath:    filepath.Join(filepath.Dir(dbPath), "last-update.json"),
 		healthURL:   "http://127.0.0.1:" + port + "/health",
 		apiURL:      update.APIURL,
+		pubKey:      pub,
 		client:      &http.Client{Timeout: 30 * time.Second},
 		in:          bufio.NewReader(in),
 		out:         out,
@@ -145,12 +152,15 @@ func (u *updater) update(ctx context.Context, current, want string, yes bool) er
 	if err != nil {
 		return err
 	}
-	binURL, sumsURL := assetURL(rel, name), assetURL(rel, "SHA256SUMS")
+	binURL, sumsURL, sigURL := assetURL(rel, name), assetURL(rel, "SHA256SUMS"), assetURL(rel, update.SigName)
 	if binURL == "" {
 		return fmt.Errorf("release %s has no %s file", rel.Tag, name)
 	}
 	if sumsURL == "" {
 		return fmt.Errorf("release %s has no SHA256SUMS; refusing to install an unverified binary", rel.Tag)
+	}
+	if sigURL == "" {
+		return fmt.Errorf("release %s has no %s; refusing to install an unsigned binary", rel.Tag, update.SigName)
 	}
 
 	fmt.Fprintf(u.out, "current %s -> new %s\n", current, rel.Tag)
@@ -177,6 +187,19 @@ func (u *updater) update(ctx context.Context, current, want string, yes bool) er
 	defer os.Remove(sumsPath)
 	sums, err := os.ReadFile(sumsPath)
 	if err != nil {
+		return err
+	}
+	sigPath, err := download(ctx, sigURL, dir)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(sigPath)
+	sig, err := os.ReadFile(sigPath)
+	if err != nil {
+		return err
+	}
+	// Signature first: a checksum from an unsigned SHA256SUMS proves nothing.
+	if err := update.VerifySig(sums, sig, u.pubKey); err != nil {
 		return err
 	}
 	if err := update.Verify(newBin, sums, name); err != nil {

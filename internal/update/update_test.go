@@ -1,6 +1,8 @@
 package update
 
 import (
+	"crypto/ed25519"
+	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -85,5 +87,26 @@ func TestFetch(t *testing.T) {
 	}
 	if _, err := Fetch(t.Context(), srv.Client(), srv.URL+"/tags/v9"); err == nil {
 		t.Fatal("404 accepted")
+	}
+}
+
+func TestVerifySig(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(nil)
+	sums := []byte("abc  gobill-linux-amd64\n")
+	sig := []byte("# comment\n" + base64.StdEncoding.EncodeToString(ed25519.Sign(priv, sums)) + "\n")
+	if err := VerifySig(sums, sig, pub); err != nil {
+		t.Fatalf("good signature refused: %v", err)
+	}
+	if err := VerifySig([]byte("tampered"), sig, pub); err == nil {
+		t.Fatal("signature accepted for other content")
+	}
+	if err := VerifySig(sums, []byte("garbage"), pub); err == nil {
+		t.Fatal("garbage signature accepted")
+	}
+	if _, err := ParseKey("# no key yet\n"); err == nil {
+		t.Fatal("empty key file accepted")
+	}
+	if k, err := ParseKey(base64.StdEncoding.EncodeToString(pub)); err != nil || !k.Equal(pub) {
+		t.Fatalf("ParseKey: %v", err)
 	}
 }

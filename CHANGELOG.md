@@ -8,6 +8,25 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Keamanan
+
+- **Rilis ditandatangani**: `gobill update` kini memeriksa tanda tangan ed25519 `SHA256SUMS.sig` dengan kunci publik yang tertanam di binary, sebelum memeriksa checksum. Rilis tanpa tanda tangan yang valid ditolak. Token GitHub yang bocor tidak lagi cukup untuk memasang binary palsu.
+- **`SECURITY.md`**: jalur privat untuk melaporkan celah keamanan.
+
+### Ditambahkan
+
+- **`gobill config-example`**: menampilkan template `config.env` dengan penjelasan lengkap (bahasa Inggris) untuk setiap variabel. `install.sh` memakainya pada instalasi baru.
+- **`GOBILL_STALE_AFTER`** dan **`GOBILL_NAS_ONLINE_WINDOW`** (lanjutan): mengganti batas sesi basi (default `10m`) dan jendela online NAS (default `15m`). Nilai yang salah menghentikan start.
+
+### Diubah
+
+- **Alur rilis**: CI membuat rilis sebagai draft dengan catatan dari CHANGELOG. Rilis baru terlihat oleh `gobill update` setelah ditandatangani dan dipublikasikan dengan `make sign`.
+- Halaman Status dan metrik `/metrics` memakai batas sesi basi yang sama dengan RADIUS, bukan angka 600 detik yang ditulis ulang.
+
+### Perubahan perilaku
+
+- Setelah update ke v0.1.18, `gobill update` hanya memasang rilis yang ditandatangani.
+
 ## [0.1.17] - 2026-10-16
 
 ### Diperbaiki

@@ -17,8 +17,9 @@ import (
 	"github.com/frand-kod/gobill/internal/secret"
 )
 
-// ponytail: a NAS counts as online while its newest RADIUS packet is this recent; no heartbeat is stored.
-const nasFreshFor = 15 * time.Minute
+// NASFreshFor: a NAS counts as online while its newest RADIUS packet is this recent; no heartbeat is
+// stored. GOBILL_NAS_ONLINE_WINDOW overrides it at startup (see cmd/gobill).
+var NASFreshFor = 15 * time.Minute
 
 // netRow is one line of the dashboard card.
 type netRow struct {
@@ -140,7 +141,7 @@ func (s *Server) nasRow(n db.Na, stats map[string]netStat, now time.Time) netRow
 		}
 		row.Metric = fmt.Sprintf(s.catalog.T(lang, key), st.Active, s.ts(st.LastSeen))
 		row.Status = "Offline"
-		if now.Sub(time.Unix(st.LastSeen, 0)) <= nasFreshFor {
+		if now.Sub(time.Unix(st.LastSeen, 0)) <= NASFreshFor {
 			row.Status = "Online"
 		}
 	}

@@ -22,9 +22,11 @@ This list contains every variable the code reads in `cmd/gobill`.
 | `GOBILL_RADIUS` | `:1812` | RADIUS UDP listen address for authentication. Accounting uses the next port. An empty value or `off` turns off the UDP listener. `/radius.php` keeps running. |
 | `GOBILL_BACKUP_DIR` | a `backup` folder next to the database | Folder for daily backups and for automatic backups before an import, restore, or recovery. See [backup and restore](backup-restore.md). |
 | `GOBILL_BACKUP_MIRROR` | empty, off | A second copy of the daily backups in another folder, for example USB, NAS, or rclone. The folder must already exist. See [backup and restore](backup-restore.md#mirror). |
+| `GOBILL_STALE_AFTER` | `10m` | Advanced. How long an open RADIUS session may go without an Interim-Update before it is stale. Stale sessions do not count toward `shared_users`. Set it to about 2x the NAS interim interval, for example `20m` for a 10-minute interim. Accepts `1m` to `1h`. A bad value stops startup. |
+| `GOBILL_NAS_ONLINE_WINDOW` | `15m` | Advanced. A NAS shows as online on the dashboard while its newest RADIUS packet is this recent. Accepts `1m` to `24h`. A bad value stops startup. |
 | `GOBILL_TEST_MYSQL_DSN`, `GOBILL_TEST_PHP_SQL` | empty | Only for importer tests. They are not read while the application runs. See the [developer guide](../internal/pengembangan.md), which is in Indonesian only. |
 
-Example `/etc/gobill/config.env`:
+`install.sh` writes a fully commented `/etc/gobill/config.env` on a new install. Every variable above is explained there. To see the template for your version, run `gobill config-example`. The short form is:
 
     GOBILL_DB=/var/lib/gobill/gobill.db
     GOBILL_HTTP=:8080
@@ -34,6 +36,7 @@ Example `/etc/gobill/config.env`:
 CLI options:
 
 - `gobill --version` shows the version.
+- `gobill config-example` prints the commented `config.env` template.
 - `gobill import ...` moves data from PHPNuxBill. See [migration](migration-phpnuxbill.md).
 - `gobill update` and `gobill rollback` replace the binary. See [upgrade](upgrade.md).
 - `gobill reset-admin-password <username>` sets a new password for an admin account. See [security](security.md#forgotten-admin-password).

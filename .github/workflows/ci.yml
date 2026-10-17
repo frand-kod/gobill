@@ -53,6 +53,9 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      # A release built without the key could never verify the next one: `gobill update` would refuse everything.
+      - name: Release public key is set
+        run: go run ./tools/releasesign check-key
       - name: Cross-build
         env:
           CGO_ENABLED: "0"
@@ -68,5 +71,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --generate-notes
+          # Notes are the CHANGELOG section of this version. The release stays a draft, hidden from
+          # `gobill update`, until the maintainer signs SHA256SUMS offline and publishes it: make sign TAG=$TAG
+          awk -v v="${TAG#v}" '$0 ~ "^## \\[" v "\\]" {on=1; next} on && /^## \[/ {exit} on' CHANGELOG.md > notes.md
+          [ -s notes.md ] || { echo "CHANGELOG.md has no section for $TAG"; exit 1; }
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes-file notes.md --draft
           gh release upload "$TAG" dist/* --clobber
