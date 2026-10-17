@@ -8,6 +8,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.1.18] - 2026-10-17
+
 ### Keamanan
 
 - **Rilis ditandatangani**: `gobill update` kini memeriksa tanda tangan ed25519 `SHA256SUMS.sig` dengan kunci publik yang tertanam di binary, sebelum memeriksa checksum. Rilis tanpa tanda tangan yang valid ditolak. Token GitHub yang bocor tidak lagi cukup untuk memasang binary palsu.
