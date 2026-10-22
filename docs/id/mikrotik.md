@@ -1,5 +1,6 @@
 # Setup MikroTik
 
+   **Router di belakang NAT atau CGNAT tidak bisa menerima CoA.** gobill mengirim CoA ke IP sumber paket RADIUS di port 3799. Jika router keluar lewat NAT, misalnya modem ISP atau CGNAT, paket itu tidak sampai. Login dan accounting tetap jalan, tetapi Disconnect dan isolir paksa gagal. Sesi baru berakhir saat pelanggan reconnect. Solusinya, sambungkan router dan gobill lewat tunnel, lihat [link jarak jauh](security.md#link-jarak-jauh-vps).
 Dokumen ini menjelaskan cara menghubungkan router MikroTik ke gobill. Ada dua mode, dan keduanya bisa dipakai bersamaan:
 
 - **Mode API.** gobill mengatur router lewat RouterOS API.
