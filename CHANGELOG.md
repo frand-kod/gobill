@@ -10,6 +10,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ### Keamanan
 
+- **Pengaturan rahasia dienkripsi**: token Telegram, password SMTP, secret webhook, password GOWA, kunci Tripay dan Duitku, dan token metrics kini disimpan terenkripsi (AES-GCM, kunci yang sama dengan secret NAS, awalan `enc1:`) dan didekripsi saat dibaca. Nilai lama yang masih teks biasa tetap terbaca dan dienkripsi saat start. Impor PHPNuxBill menyimpannya terenkripsi. Restore dari backup dengan kunci lain ditolak.
+
 - **Callback pembayaran memeriksa jumlah**: Tripay (`total_amount` dikurangi `fee_customer`) dan Duitku harus sama dengan jumlah pesanan. Callback PAID tanpa jumlah juga ditolak. Jika tidak cocok, callback ditolak (400), dicatat, dan dihitung di `payment_callbacks_total{result="amount_mismatch"}`.
 - **`make sign` memeriksa hasil CI**: sebelum menandatangani, `tools/reproduce.sh` membangun ulang biner rilis secara lokal (versi Go dan flag sama dengan CI, dua kali untuk memastikan hasilnya reproduksibel) dan hanya lanjut jika semua hash sama dengan `SHA256SUMS` dari CI. Versi Go lokal harus sama dengan `go.mod`.
 - **`install.sh` memverifikasi unduhan**: untuk URL rilis GitHub, `install.sh` memeriksa tanda tangan ed25519 `SHA256SUMS.sig` dengan `openssl` (kunci publik tertanam di skrip), lalu SHA-256 binary terhadap `SHA256SUMS`, sebelum memasang sebagai root. Binary tidak pernah dijalankan sebelum lolos. Tanpa `openssl` atau tanda tangan valid, pemasangan dibatalkan; `GOBILL_INSECURE=1` melewati pemeriksaan tanda tangan (checksum tetap diperiksa).
@@ -45,6 +47,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 ## [0.1.18] - 2026-10-17
 
 ### Keamanan
+
+- **Pengaturan rahasia dienkripsi**: token Telegram, password SMTP, secret webhook, password GOWA, kunci Tripay dan Duitku, dan token metrics kini disimpan terenkripsi (AES-GCM, kunci yang sama dengan secret NAS, awalan `enc1:`) dan didekripsi saat dibaca. Nilai lama yang masih teks biasa tetap terbaca dan dienkripsi saat start. Impor PHPNuxBill menyimpannya terenkripsi. Restore dari backup dengan kunci lain ditolak.
 
 - **Rilis ditandatangani**: `gobill update` kini memeriksa tanda tangan ed25519 `SHA256SUMS.sig` dengan kunci publik yang tertanam di binary, sebelum memeriksa checksum. Rilis tanpa tanda tangan yang valid ditolak. Token GitHub yang bocor tidak lagi cukup untuk memasang binary palsu.
 - **`SECURITY.md`**: jalur privat untuk melaporkan celah keamanan.
@@ -82,6 +86,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ### Keamanan
 
+- **Pengaturan rahasia dienkripsi**: token Telegram, password SMTP, secret webhook, password GOWA, kunci Tripay dan Duitku, dan token metrics kini disimpan terenkripsi (AES-GCM, kunci yang sama dengan secret NAS, awalan `enc1:`) dan didekripsi saat dibaca. Nilai lama yang masih teks biasa tetap terbaca dan dienkripsi saat start. Impor PHPNuxBill menyimpannya terenkripsi. Restore dari backup dengan kunci lain ditolak.
+
 - **Batas `shared_users` tidak lagi terlewati saat query gagal**: jika daftar sesi aktif tidak bisa dibaca, login ditolak, sama seperti batas waktu dan kuota. Sebelumnya error diabaikan dan login dianggap tanpa sesi lain.
 
 ### Diperbaiki
@@ -91,6 +97,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 ## [0.1.15] - 2026-10-14
 
 ### Keamanan
+
+- **Pengaturan rahasia dienkripsi**: token Telegram, password SMTP, secret webhook, password GOWA, kunci Tripay dan Duitku, dan token metrics kini disimpan terenkripsi (AES-GCM, kunci yang sama dengan secret NAS, awalan `enc1:`) dan didekripsi saat dibaca. Nilai lama yang masih teks biasa tetap terbaca dan dienkripsi saat start. Impor PHPNuxBill menyimpannya terenkripsi. Restore dari backup dengan kunci lain ditolak.
 
 - **`/radius.php` tidak lagi terbuka lewat reverse proxy di host yang sama**: dengan `radius_rest_allow` kosong, request yang membawa header proxy (`X-Forwarded-For`, `X-Real-IP`, `Forwarded`, `CF-Connecting-IP`) ditolak. Sebelumnya, di belakang Nginx atau cloudflared lokal, semua klien internet terlihat datang dari loopback.
 - **Header keamanan di semua respons**: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, dan `Referrer-Policy: same-origin`.
@@ -294,6 +302,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 ## [0.1.4] - 2026-10-10
 
 ### Keamanan
+
+- **Pengaturan rahasia dienkripsi**: token Telegram, password SMTP, secret webhook, password GOWA, kunci Tripay dan Duitku, dan token metrics kini disimpan terenkripsi (AES-GCM, kunci yang sama dengan secret NAS, awalan `enc1:`) dan didekripsi saat dibaca. Nilai lama yang masih teks biasa tetap terbaca dan dienkripsi saat start. Impor PHPNuxBill menyimpannya terenkripsi. Restore dari backup dengan kunci lain ditolak.
 
 - `/radius.php`: `radius_rest_allow` kosong sekarang berarti hanya loopback (sebelumnya semua IP boleh).
 - `GOBILL_HTTPS` aktif secara default: cookie sesi selalu diberi flag `Secure`. `GOBILL_HTTPS=0` untuk opt-out.

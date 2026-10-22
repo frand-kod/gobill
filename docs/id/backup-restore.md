@@ -129,7 +129,7 @@ Alur restore:
 
 Setelah yakin pemulihan berhasil, file `gobill.db.pre-restore-*` boleh dihapus. Backup otomatis sudah tersedia.
 
-Backup harus dibuat dengan `GOBILL_SECRET_KEY` atau file `gobill.db.key` yang sama dengan aplikasi tujuan. Jika tidak sama, pemulihan ditolak.
+Backup harus dibuat dengan `GOBILL_SECRET_KEY` atau file `gobill.db.key` yang sama dengan aplikasi tujuan. Jika tidak sama, pemulihan ditolak. Ini juga berlaku untuk pengaturan rahasia di dalam backup (kunci API, token): dengan kunci lain nilainya tidak bisa dibuka.
 
 ### Restore manual
 

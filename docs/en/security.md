@@ -134,7 +134,7 @@ If `connect_uri` uses `https`, make sure `check_cert = yes` is set in the `tls` 
 ## Application security
 
 - **Passwords.** Admin and customer passwords use bcrypt. Old sha1 hashes are marked `legacy_sha1` and replaced at the first login.
-- **Encrypted secrets.** Router, customer (PPPoE and hotspot), and NAS secrets use AES-GCM. The key comes from `GOBILL_SECRET_KEY` or the `.key` file. Store the key backup together with the database. See [backup and restore](backup-restore.md#key-backup-with-the-database).
+- **Encrypted secrets.** Router, customer (PPPoE and hotspot), and NAS secrets, plus the secret settings (Telegram token, SMTP password, webhook secret, GOWA password, Tripay and Duitku keys, metrics token), use AES-GCM. Settings saved by an older version are encrypted at the next start. The key comes from `GOBILL_SECRET_KEY` or the `.key` file. Store the key backup together with the database. See [backup and restore](backup-restore.md#key-backup-with-the-database).
 - **Note.** Integration secrets, namely SMTP, Telegram, Tripay, and the metrics token, are stored as plain text in the `settings` table. This is the same as in the old application. Protect the database file and its backups.
 - **CSRF.** Protected with the standard library's `http.CrossOriginProtection`. The only exceptions are the Tripay callback, which is verified by its signature, and `/radius.php`, which uses an allow-list.
 - **Security headers.** Every response sends `X-Frame-Options: DENY` against clickjacking, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: same-origin`, so a QRIS payment link with its token is never sent to another site.

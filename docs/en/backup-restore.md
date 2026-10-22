@@ -129,7 +129,7 @@ The restore flow:
 
 After you are sure the restore worked, you can delete the `gobill.db.pre-restore-*` files. The automatic backup is already kept.
 
-A backup must be made with the same `GOBILL_SECRET_KEY` or `gobill.db.key` as the target application. If the keys differ, the restore is refused.
+A backup must be made with the same `GOBILL_SECRET_KEY` or `gobill.db.key` as the target application. If the keys differ, the restore is refused. This also covers the secret settings inside the backup (API keys, tokens): with another key they cannot be opened.
 
 ### Manual restore
 

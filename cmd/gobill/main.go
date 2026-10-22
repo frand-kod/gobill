@@ -123,6 +123,10 @@ func run() error {
 		slog.Warn("generated a new secret key; back it up with the database", "path", dbPath+".key")
 	}
 
+	db.SettingsKey = key
+	if err := db.EncryptSettings(context.Background(), conn); err != nil {
+		return fmt.Errorf("encrypt settings: %w", err)
+	}
 	app, err := web.New(conn, secure)
 	if err != nil {
 		return err
