@@ -38,7 +38,7 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 - **Peringatan `trust_proxy`**: jika permintaan dari loopback membawa `CF-Connecting-IP`, `X-Forwarded-For`, `X-Real-IP` atau `Forwarded` saat `trust_proxy` = `no`, Status Sistem dan Setup cepat menampilkan peringatan, dan satu baris dicatat di log. Tanpa `trust_proxy`, semua pengunjung terlihat sebagai 127.0.0.1.
 ### Ditambahkan
 
-- **CoA saat paket Radius berubah**: isi ulang, ganti paket, atau edit paket/bandwidth oleh admin kini mengirim CoA-Request (RFC 5176) dengan `Mikrotik-Rate-Limit` dan `Session-Timeout` baru ke sesi online. Jika NAS menolak atau tidak menjawab, sesi diputus dengan Disconnect-Request.
+- **CoA saat paket Radius berubah**: isi ulang, ganti paket, atau edit paket/bandwidth oleh admin kini mengirim CoA-Request (RFC 5176) dengan `Mikrotik-Rate-Limit` dan `Session-Timeout` baru ke sesi online. Jika NAS menolak atau tidak menjawab, sesi diputus dengan Disconnect-Request. Diuji di RouterOS 7.24.5: kecepatan berubah tanpa memutus sesi. Message-Authenticator pada CoA-Request kini dihitung dengan authenticator nol (RFC 5176); sebelumnya salah sehingga RouterOS membuang CoA diam-diam.
 
 ### Diubah
 

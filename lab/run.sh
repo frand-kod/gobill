@@ -305,9 +305,9 @@ test_lab() {
 	check "data survived restart (admin login)" gb_login
 
 	echo "-- 8 plan change while online: CoA, else Disconnect fallback"
-	# Editing plan lab-rad (20M -> 5M) sends CoA-Request with Mikrotik-Rate-Limit to rad01's NAS. RouterOS
-	# 7.24.5 answers neither ACK nor NAK, so gobill falls back to Disconnect-Request after 3s; the
-	# client then redials and Access-Accept carries the new rate. Both outcomes are accepted below.
+	# Editing plan lab-rad (20M -> 5M) sends CoA-Request with Mikrotik-Rate-Limit to rad01's NAS; RouterOS
+	# applies it in place. If the CoA fails, gobill falls back to Disconnect-Request and the redial carries
+	# the new rate. Both outcomes are accepted below.
 	if [ "$LAB_MODE" = direct ]; then
 		radplan_bw 3 >/dev/null   # start from lab-20M
 		client_start 1 rad01 pw-rad01
@@ -324,7 +324,7 @@ test_lab() {
 			echo "     CoA applied: uptime $up0 -> $up1, $(rad01_limit)"
 			check "rate changed in place, uptime did not reset" [ -n "$up1" ] && [ "$(secs "$up1")" -ge "$(secs "$up0")" ]
 		else
-			echo "     CoA not applied (RouterOS gave no ACK/NAK): checking the Disconnect fallback"
+			echo "     CoA not applied: checking the Disconnect fallback"
 			check "fallback Disconnect dropped the client (PADT)" wait_for 20 rc_is 1 10
 			check "gobill logged CoA failure" bash -c "podman logs lab-gobill 2>&1 | grep -q 'CoA failed, disconnecting'"
 			client_start 1 rad01 pw-rad01
