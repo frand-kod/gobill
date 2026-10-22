@@ -13,6 +13,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/notify"
 )
 
 // msgCustomer creates a customer with password pw12345, optionally with a phone.
@@ -29,8 +30,10 @@ func msgCustomer(t *testing.T, q *db.Queries, user, svc, phone string) db.Custom
 
 func TestMessagePlaceholders(t *testing.T) {
 	c := db.Customer{Username: "budi", Fullname: "Budi", Phone: "0812"}
-	got := messageFor(c, "ACME", "Hi [[name]] ([[user_name]], [[phone]]) from [[company_name]] [[unknown]]")
-	want := "Hi Budi (budi, 0812) from ACME [[unknown]]"
+	n := &notify.Notifier{Settings: map[string]string{"app_url": "https://bill.example"}}
+	st := map[string]string{"company_name": "ACME"}
+	got := messageFor(n, c, st, "Hi [[name]] ([[username]], [[phone]]) from [[company]] [[payment_link]] [[unknown]]")
+	want := "Hi Budi (budi, 0812) from ACME https://bill.example/portal/plans "
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}

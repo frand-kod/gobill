@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/notify"
 	"strconv"
 )
 
@@ -83,10 +84,10 @@ func (s *Service) SendPlan(ctx context.Context, fromID int64, friend string, pla
 	}
 	s.apply(ctx, p) // friend: router + "recharge success" message
 	if n := s.notifier(); n != nil {
-		price := strconv.FormatInt(p.trx.Price, 10)
+		price := notify.Money(p.trx.Price)
 		n.Go("balance_send", func(c context.Context) error {
 			return n.Custom(c, from, "balance_send", "Balance Notification", map[string]string{"name": to.Fullname + " (" + to.Username + ")",
-				"balance": price, "current_balance": strconv.FormatInt(from.Balance, 10)})
+				"balance": price, "current_balance": notify.Money(from.Balance)})
 		})
 	}
 	return nil
@@ -149,12 +150,12 @@ func (s *Service) TransferBalance(ctx context.Context, fromID int64, toUsername 
 		return err
 	}
 	if n := s.notifier(); n != nil {
-		bal := strconv.FormatInt(amount, 10)
+		bal := notify.Money(amount)
 		n.Go("balance_send", func(c context.Context) error {
-			return n.Custom(c, from, "balance_send", "Balance Notification", map[string]string{"name": to.Fullname + " (" + to.Username + ")", "balance": bal, "current_balance": strconv.FormatInt(from.Balance, 10)})
+			return n.Custom(c, from, "balance_send", "Balance Notification", map[string]string{"name": to.Fullname + " (" + to.Username + ")", "balance": bal, "current_balance": notify.Money(from.Balance)})
 		})
 		n.Go("balance_received", func(c context.Context) error {
-			return n.Custom(c, to, "balance_received", "Balance Notification", map[string]string{"name": from.Fullname + " (" + from.Username + ")", "balance": bal, "current_balance": strconv.FormatInt(to.Balance, 10)})
+			return n.Custom(c, to, "balance_received", "Balance Notification", map[string]string{"name": from.Fullname + " (" + from.Username + ")", "balance": bal, "current_balance": notify.Money(to.Balance)})
 		})
 		n.Go("telegram", func(c context.Context) error {
 			return n.Telegram(c, fmt.Sprintf("#u%s send balance to #u%s \n%d", from.Username, to.Username, amount))

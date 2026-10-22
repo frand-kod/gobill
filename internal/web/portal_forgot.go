@@ -84,7 +84,6 @@ func (s *Server) pForgotUser(w http.ResponseWriter, r *http.Request) {
 			if isMail {
 				var n *notify.Notifier
 				if n, err = notify.Load(bg, s.queries); err == nil {
-					n.Log = notify.LogTo(s.queries)
 					err = n.Email(bg, contact, "["+st["company_name"]+"] "+s.catalog.T(lang, "Your usernames"), list)
 				}
 			} else {
