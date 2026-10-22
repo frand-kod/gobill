@@ -28,6 +28,13 @@ Directly from the release URL. `{arch}` is replaced automatically with `arm64`, 
 
     sudo sh install.sh https://github.com/frand-kod/gobill/releases/latest/download/gobill-linux-{arch}
 
+For a GitHub release URL the script also downloads `SHA256SUMS` and `SHA256SUMS.sig`, checks the signature with `openssl` (the public key is built into the script), then checks the binary's SHA-256, all before the binary is installed or run. It aborts if `openssl` is missing or the signature is bad; `GOBILL_INSECURE=1` skips the signature check (the checksum is still checked).
+
+To check a release by hand before installing (the same files as above, from the release page):
+
+    sha256sum --check --ignore-missing SHA256SUMS
+    chmod +x gobill-linux-arm64 && ./gobill-linux-arm64 verify-release SHA256SUMS SHA256SUMS.sig
+
 The script:
 
 - detects the architecture and installs the binary to `/usr/local/bin/gobill`;

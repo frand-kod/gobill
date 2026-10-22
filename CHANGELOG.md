@@ -25,6 +25,10 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 ### Fitur
 
 - **Gateway pembayaran Duitku** (#15): pilih Duitku di **Pengaturan > Pembayaran** (merchant code, API key, mode sandbox/production, metode bawaan). Mendukung pembuatan transaksi, cek status, daftar metode pembayaran, dan callback `POST /callback/duitku` yang diverifikasi dengan tanda tangan HMAC-SHA256. Belum diuji terhadap sandbox Duitku sungguhan.
+### Keamanan
+
+- **`make sign` memeriksa hasil CI**: sebelum menandatangani, `tools/reproduce.sh` membangun ulang biner rilis secara lokal (versi Go dan flag sama dengan CI, dua kali untuk memastikan hasilnya reproduksibel) dan hanya lanjut jika semua hash sama dengan `SHA256SUMS` dari CI. Versi Go lokal harus sama dengan `go.mod`.
+- **`install.sh` memverifikasi unduhan**: untuk URL rilis GitHub, `install.sh` memeriksa tanda tangan ed25519 `SHA256SUMS.sig` dengan `openssl` (kunci publik tertanam di skrip), lalu SHA-256 binary terhadap `SHA256SUMS`, sebelum memasang sebagai root. Binary tidak pernah dijalankan sebelum lolos. Tanpa `openssl` atau tanda tangan valid, pemasangan dibatalkan; `GOBILL_INSECURE=1` melewati pemeriksaan tanda tangan (checksum tetap diperiksa).
 
 ## [0.1.18] - 2026-10-17
 

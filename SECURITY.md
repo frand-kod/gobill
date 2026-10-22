@@ -51,5 +51,10 @@ To check a release by hand:
     go run ./tools/releasesign verify path/to/SHA256SUMS   # SHA256SUMS.sig must be next to it
     sha256sum --check --ignore-missing SHA256SUMS
 
+`gobill verify-release SHA256SUMS SHA256SUMS.sig` does the same check with a downloaded binary;
+`deploy/install.sh` runs it for GitHub release URLs. `make sign` rebuilds the release binaries
+locally (same Go version and flags as CI, twice, to prove the build is reproducible) and signs
+only if every hash equals CI's `SHA256SUMS`, so a compromised CI cannot get a binary signed.
+
 The private key is kept offline by the maintainer and is never stored in GitHub. CI builds a
 draft release; the maintainer signs `SHA256SUMS` locally and publishes it with `make sign`.

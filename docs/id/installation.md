@@ -28,6 +28,13 @@ Langsung dari URL rilis. `{arch}` diganti otomatis menjadi `arm64`, `armv7`, ata
 
     sudo sh install.sh https://github.com/frand-kod/gobill/releases/latest/download/gobill-linux-{arch}
 
+Untuk URL rilis GitHub, script juga mengunduh `SHA256SUMS` dan `SHA256SUMS.sig`, memeriksa tanda tangan dengan `openssl` (kunci publik tertanam di script), lalu SHA-256 binary, semuanya sebelum binary dipasang atau dijalankan. Script berhenti jika `openssl` tidak ada atau tanda tangan salah; `GOBILL_INSECURE=1` melewati pemeriksaan tanda tangan (checksum tetap diperiksa).
+
+Untuk memeriksa rilis secara manual sebelum memasang (file yang sama, dari halaman rilis):
+
+    sha256sum --check --ignore-missing SHA256SUMS
+    chmod +x gobill-linux-arm64 && ./gobill-linux-arm64 verify-release SHA256SUMS SHA256SUMS.sig
+
 Script ini:
 
 - mendeteksi arsitektur dan memasang binary ke `/usr/local/bin/gobill`;
