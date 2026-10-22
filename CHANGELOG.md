@@ -8,41 +8,39 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
-### Perbaikan
-
-- **Sesi pertama setelah router menyala tidak lagi tertutup sendiri**: router mengirim Accounting-On dan Start pertama bersamaan. Jika Start tercatat lebih dulu, Accounting-On menutup sesi yang baru dibuka, sehingga sesi itu hilang dari daftar online dan tidak bisa di-Disconnect atau diisolir. Kini Accounting-On hanya menutup sesi yang tidak diperbarui dalam 5 detik terakhir.
-
-### Dokumentasi
-
-- Panduan MikroTik menjelaskan bahwa router di belakang NAT atau CGNAT tidak bisa menerima CoA, sehingga Disconnect dan isolir paksa gagal, beserta solusinya lewat tunnel.
 ### Keamanan
 
-- **Callback Tripay memeriksa jumlah**: `total_amount` (dikurangi `fee_customer`) harus sama dengan jumlah pesanan. Jika tidak cocok, callback ditolak (400), dicatat, dan dihitung di `payment_callbacks_total{result="amount_mismatch"}`.
+- **Callback pembayaran memeriksa jumlah**: Tripay (`total_amount` dikurangi `fee_customer`) dan Duitku harus sama dengan jumlah pesanan. Callback PAID tanpa jumlah juga ditolak. Jika tidak cocok, callback ditolak (400), dicatat, dan dihitung di `payment_callbacks_total{result="amount_mismatch"}`.
+- **`make sign` memeriksa hasil CI**: sebelum menandatangani, `tools/reproduce.sh` membangun ulang biner rilis secara lokal (versi Go dan flag sama dengan CI, dua kali untuk memastikan hasilnya reproduksibel) dan hanya lanjut jika semua hash sama dengan `SHA256SUMS` dari CI. Versi Go lokal harus sama dengan `go.mod`.
+- **`install.sh` memverifikasi unduhan**: untuk URL rilis GitHub, `install.sh` memeriksa tanda tangan ed25519 `SHA256SUMS.sig` dengan `openssl` (kunci publik tertanam di skrip), lalu SHA-256 binary terhadap `SHA256SUMS`, sebelum memasang sebagai root. Binary tidak pernah dijalankan sebelum lolos. Tanpa `openssl` atau tanda tangan valid, pemasangan dibatalkan; `GOBILL_INSECURE=1` melewati pemeriksaan tanda tangan (checksum tetap diperiksa).
+- **Login tidak bisa dikunci orang lain, aman untuk CGNAT**: kunci setelah 10 kegagalan kini per pasangan IP dan username, ditambah batas longgar 100 kegagalan per IP per 15 menit. Pelanggan di balik satu IP CGNAT tidak saling mengunci. Satu username hanya diperlambat (0,25 detik per kegagalan, maksimal 3 detik). Berlaku untuk login admin, langkah 2FA, dan login portal.
+
+### Ditambahkan
+
+- **Gateway pembayaran Duitku** (#15): pilih Duitku di **Pengaturan > Pembayaran** (merchant code, API key, mode sandbox/production, metode bawaan). Mendukung pembuatan transaksi, cek status, daftar metode pembayaran, dan callback `POST /callback/duitku` yang diverifikasi dengan tanda tangan HMAC-SHA256. `callbackUrl` dibangun dari `app_url`. Belum diuji terhadap sandbox Duitku sungguhan.
+- **CoA saat paket Radius berubah**: isi ulang, ganti paket, atau edit paket/bandwidth oleh admin mengirim CoA-Request (RFC 5176) dengan `Mikrotik-Rate-Limit` dan `Session-Timeout` baru ke sesi online, di background. Diuji di RouterOS 7.24.5: kecepatan berubah tanpa memutus sesi. Jika NAS menolak atau tidak menjawab, sesi diputus dengan Disconnect-Request.
+- **Peringatan `trust_proxy`**: jika permintaan dari loopback membawa `CF-Connecting-IP`, `X-Forwarded-For`, `X-Real-IP` atau `Forwarded` saat `trust_proxy` = `no`, Status Sistem dan Setup cepat menampilkan peringatan, dan satu baris dicatat di log.
+- **Lab uji CHR** (`lab/`): RouterOS CHR di podman untuk menguji sinkronisasi, PPPoE lewat RADIUS, Disconnect, CoA, dan gobill sebagai service.
+- **Fuzz test** (`make fuzz`) untuk paket RADIUS, Message-Authenticator, dan endpoint REST.
 
 ### Diperbaiki
 
-- **Email ganda di portal**: pemeriksaan "email sudah dipakai pelanggan lain" saat verifikasi kontak tidak pernah cocok (pencarian pelanggan tidak mencakup kolom email). Kini memakai query khusus yang tidak peka huruf besar/kecil.
-### Fitur
-
-- **Gateway pembayaran Duitku** (#15): pilih Duitku di **Pengaturan > Pembayaran** (merchant code, API key, mode sandbox/production, metode bawaan). Mendukung pembuatan transaksi, cek status, daftar metode pembayaran, dan callback `POST /callback/duitku` yang diverifikasi dengan tanda tangan HMAC-SHA256. Belum diuji terhadap sandbox Duitku sungguhan.
-### Keamanan
-
-- **`make sign` memeriksa hasil CI**: sebelum menandatangani, `tools/reproduce.sh` membangun ulang biner rilis secara lokal (versi Go dan flag sama dengan CI, dua kali untuk memastikan hasilnya reproduksibel) dan hanya lanjut jika semua hash sama dengan `SHA256SUMS` dari CI. Versi Go lokal harus sama dengan `go.mod`.
-- **`install.sh` memverifikasi unduhan**: untuk URL rilis GitHub, `install.sh` memeriksa tanda tangan ed25519 `SHA256SUMS.sig` dengan `openssl` (kunci publik tertanam di skrip), lalu SHA-256 binary terhadap `SHA256SUMS`, sebelum memasang sebagai root. Binary tidak pernah dijalankan sebelum lolos. Tanpa `openssl` atau tanda tangan valid, pemasangan dibatalkan; `GOBILL_INSECURE=1` melewati pemeriksaan tanda tangan (checksum tetap diperiksa).
-### Keamanan
-
-- **Login admin tidak bisa dikunci orang lain**: kunci setelah 10 kegagalan kini hanya per IP. Satu username hanya diperlambat (0,25 detik per kegagalan, maksimal 3 detik), tidak lagi dikunci. Berlaku juga untuk login portal dan langkah 2FA.
-
-### Perbaikan
-
-- **Peringatan `trust_proxy`**: jika permintaan dari loopback membawa `CF-Connecting-IP`, `X-Forwarded-For`, `X-Real-IP` atau `Forwarded` saat `trust_proxy` = `no`, Status Sistem dan Setup cepat menampilkan peringatan, dan satu baris dicatat di log. Tanpa `trust_proxy`, semua pengunjung terlihat sebagai 127.0.0.1.
-### Ditambahkan
-
-- **CoA saat paket Radius berubah**: isi ulang, ganti paket, atau edit paket/bandwidth oleh admin kini mengirim CoA-Request (RFC 5176) dengan `Mikrotik-Rate-Limit` dan `Session-Timeout` baru ke sesi online. Jika NAS menolak atau tidak menjawab, sesi diputus dengan Disconnect-Request. Diuji di RouterOS 7.24.5: kecepatan berubah tanpa memutus sesi. Message-Authenticator pada CoA-Request kini dihitung dengan authenticator nol (RFC 5176); sebelumnya salah sehingga RouterOS membuang CoA diam-diam.
+- **Sesi pertama setelah router menyala tidak lagi tertutup sendiri**: Accounting-On kini hanya menutup sesi yang tidak diperbarui dalam 5 detik terakhir, sehingga Start yang datang bersamaan tidak ikut tertutup.
+- **Pelanggan auto-renew tidak lagi menerima pesan "paket habis"** (dan webhook `recharge.expired`) saat perpanjangan berhasil, juga tidak menerima pemberitahuan sebelum habis bila saldonya cukup.
+- **Pengiriman pesan**: panggilan ke gateway WhatsApp/SMS punya timeout 20 detik; satu pelanggan yang error tidak lagi menghentikan pengingat hari itu; pengingat dikirim berurutan dengan jeda `message_delay`; pemberitahuan habis yang gagal dicoba ulang; channel kosong dicatat sebagai peringatan.
+- **Log pesan lengkap**: pesan admin, pesan massal, OTP, dan pesan selamat datang kini tercatat di halaman Logs.
+- **Isi pesan**: saldo pada pesan transfer memakai format `Rp`; nomor WhatsApp dibersihkan dari karakter non-angka; pesan admin mengisi `[[username]]`, `[[company]]`, `[[url]]`, `[[payment_link]]` (placeholder tak dikenal dikosongkan); OTP mode "both" mencoba SMS bila WhatsApp gagal; subjek email admin memakai prefix `[company]`.
+- **Email ganda di portal**: pemeriksaan "email sudah dipakai pelanggan lain" saat verifikasi kontak tidak pernah cocok. Kini memakai query khusus yang tidak peka huruf besar/kecil.
+- **Cek status pembayaran di portal** dibatasi sekali per 30 detik per transaksi, agar merchant tidak diblokir gateway.
+- **Edit paket Radius tanpa router** kini tetap mengirim CoA ke sesi online.
 
 ### Diubah
 
 - **Batas sesi basi per NAS**: dihitung dari jarak Interim-Update yang teramati (sekitar 2x interval + 1 menit); `GOBILL_STALE_AFTER` menjadi batas bawah.
+
+### Dokumentasi
+
+- Panduan MikroTik menjelaskan bahwa router di belakang NAT atau CGNAT tidak bisa menerima CoA, sehingga Disconnect dan isolir paksa gagal, beserta solusinya lewat tunnel.
 
 ## [0.1.18] - 2026-10-17
 
