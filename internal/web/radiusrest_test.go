@@ -29,7 +29,7 @@ func TestRejectBodySharedUsers(t *testing.T) {
 }
 
 // restSetup: customer "bob"/"pw" with a Hotspot plan (5M down, 512K up) expiring in +1h (or -1h if expired).
-func restSetup(t *testing.T, expired bool) (*Server, *db.Queries) {
+func restSetup(t testing.TB, expired bool) (*Server, *db.Queries) {
 	t.Helper()
 	s, q := newTestApp(t)
 	ctx := t.Context()
