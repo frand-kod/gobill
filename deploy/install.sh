@@ -14,6 +14,25 @@ UNIT=/etc/systemd/system/gobill.service
 die() { echo "error: $*" >&2; exit 1; }
 log() { echo "==> $*"; }
 
+# Kunci publik rilis (sama dengan internal/update/release.pub, dalam bentuk PEM).
+PUBPEM='-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEALHIK3Gd13BFfHN2yvRRhOQYlBAOuRZpiqY5Q4ihg7Bw=
+-----END PUBLIC KEY-----'
+
+# verify_sums SUMS SIG: SIG berisi tanda tangan ed25519 base64 atas byte mentah SUMS. Gagal = tolak.
+verify_sums() {
+	command -v openssl >/dev/null 2>&1 || die "openssl tidak ada, tanda tangan tidak bisa diperiksa (pasang openssl, atau GOBILL_INSECURE=1 dengan risiko sendiri)"
+	_k=$1.key; _b=$2.bin
+	printf '%s\n' "$PUBPEM" > "$_k"
+	openssl base64 -d -A -in "$2" -out "$_b" 2>/dev/null || { rm -f "$_k" "$_b"; return 1; }
+	# -rawin ada di OpenSSL 3; OpenSSL 1.1.1 memeriksa ed25519 tanpa -rawin.
+	{ openssl pkeyutl -verify -pubin -inkey "$_k" -rawin -in "$1" -sigfile "$_b" ||
+	  openssl pkeyutl -verify -pubin -inkey "$_k" -in "$1" -sigfile "$_b"; } >/dev/null 2>&1
+	_r=$?
+	rm -f "$_k" "$_b"
+	return $_r
+}
+
 [ "$(id -u)" -eq 0 ] || die "jalankan sebagai root (sudo)"
 command -v systemctl >/dev/null 2>&1 || die "systemd tidak ditemukan"
 
@@ -49,24 +68,23 @@ case "$SRC" in
 		}
 		log "mengunduh $URL"
 		fetch "$URL" "$TMP" || die "unduhan gagal"
-		# Rilis GitHub: cocokkan hash dengan SHA256SUMS, lalu periksa tanda tangannya dengan kunci di binary itu sendiri.
+		# Rilis GitHub: periksa tanda tangan SHA256SUMS (kunci tertanam di atas), lalu cocokkan hash binary. Binary tidak dijalankan sebelum lolos.
 		case "$URL" in
 			https://github.com/*/releases/*download/*)
 				BASE=${URL%/*}
 				SUMS=$TMP.sums
-				trap 'rm -f "$TMP" "$SUMS" "$SUMS.sig"' EXIT
+				trap 'rm -f "$TMP" "$SUMS" "$SUMS.sig" "$SUMS.key" "$SUMS.sig.bin"' EXIT
 				log "memverifikasi SHA256SUMS"
 				fetch "$BASE/SHA256SUMS" "$SUMS" || die "SHA256SUMS tidak bisa diunduh"
+				if [ "${GOBILL_INSECURE:-}" = 1 ]; then
+					echo "peringatan: tanda tangan tidak diperiksa (GOBILL_INSECURE=1)" >&2
+				else
+					fetch "$BASE/SHA256SUMS.sig" "$SUMS.sig" || die "SHA256SUMS.sig tidak bisa diunduh"
+					verify_sums "$SUMS" "$SUMS.sig" || die "tanda tangan SHA256SUMS tidak valid; unduhan ditolak"
+				fi
 				WANT=$(awk -v f="${URL##*/}" '$2 == f || $2 == "*" f {print $1; exit}' "$SUMS")
 				[ -n "$WANT" ] || die "${URL##*/} tidak ada di SHA256SUMS"
 				[ "$(sha256sum "$TMP" | cut -d' ' -f1)" = "$WANT" ] || die "checksum tidak cocok; unduhan ditolak"
-				if [ "${GOBILL_SKIP_SIGNATURE:-}" = 1 ]; then
-					echo "peringatan: tanda tangan tidak diperiksa (GOBILL_SKIP_SIGNATURE=1)" >&2
-				else
-					fetch "$BASE/SHA256SUMS.sig" "$SUMS.sig" || die "SHA256SUMS.sig tidak bisa diunduh"
-					chmod +x "$TMP"
-					"$TMP" verify-release "$SUMS" "$SUMS.sig" || die "tanda tangan tidak valid, atau binary terlalu lama untuk perintah verify-release (sebelum v0.1.19). Periksa manual (docs/id/installation.md) lalu ulangi dengan GOBILL_SKIP_SIGNATURE=1"
-				fi
 				;;
 		esac
 		;;
