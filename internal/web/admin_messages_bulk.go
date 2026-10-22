@@ -60,13 +60,7 @@ func (j *bulkJob) finish() {
 }
 
 // messageDelay is the pause between bulk messages: setting message_delay in seconds, default 1.
-func messageDelay(st map[string]string) time.Duration {
-	sec, err := strconv.ParseFloat(st["message_delay"], 64)
-	if err != nil || sec < 0 {
-		sec = 1
-	}
-	return time.Duration(sec * float64(time.Second))
-}
+func messageDelay(st map[string]string) time.Duration { return notify.MessageDelay(st) }
 
 // runBulk sends to every customer in order in one goroutine, with the delay between messages.
 func (s *Server) runBulk(st map[string]string, cs []db.Customer, channel, from, subject, tpl string) {

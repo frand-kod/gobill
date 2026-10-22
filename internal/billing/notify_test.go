@@ -25,7 +25,7 @@ func withNotify(t *testing.T, e *env) chan string {
 	}))
 	t.Cleanup(srv.Close)
 	set := map[string]string{"webhook_url": srv.URL + "/hook", "telegram_bot": "T", "user_notification_expired": "wa",
-		"user_notification_reminder": "wa", "wa_url": srv.URL + "/wa?n=[number]&t=[text]"}
+		"user_notification_reminder": "wa", "message_delay": "0", "wa_url": srv.URL + "/wa?n=[number]&t=[text]"}
 	for k, v := range set {
 		if err := e.q.UpsertSetting(context.Background(), db.UpsertSettingParams{Key: k, Value: v}); err != nil {
 			t.Fatal(err)

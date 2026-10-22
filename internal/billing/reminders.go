@@ -6,6 +6,7 @@ import (
 	"context"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
+	"log/slog"
 	"strconv"
 	"time"
 )
@@ -33,7 +34,12 @@ func (s *Service) ReminderJob(trusted func() bool) func(context.Context) error {
 		if err := s.Q.UpsertSetting(ctx, db.UpsertSettingParams{Key: "reminder_last_run", Value: today}); err != nil {
 			return err
 		}
-		return s.sendReminders(ctx, n, now)
+		if err := s.sendReminders(ctx, n, now); err != nil {
+			// nothing was queued: free the day so the next tick retries
+			_ = s.Q.UpsertSetting(ctx, db.UpsertSettingParams{Key: "reminder_last_run", Value: ""})
+			return err
+		}
+		return nil
 	}
 }
 
@@ -45,6 +51,7 @@ func (s *Service) sendReminders(ctx context.Context, n *notify.Notifier, now tim
 	if err != nil {
 		return err
 	}
+	var sends []func(context.Context) error
 	for _, sub := range subs {
 		e := time.Unix(sub.ExpiresAt, 0).In(now.Location())
 		eDay := time.Date(e.Year(), e.Month(), e.Day(), 0, 0, 0, 0, now.Location())
@@ -54,23 +61,40 @@ func (s *Service) sendReminders(ctx context.Context, n *notify.Notifier, now tim
 		}
 		c, err := s.Q.GetCustomer(ctx, sub.CustomerID)
 		if err != nil {
-			return err
+			slog.Error("reminder: customer", "subscription", sub.ID, "err", err)
+			continue
 		}
 		p, err := s.Q.GetPlan(ctx, sub.PlanID)
 		if err != nil {
-			return err
+			slog.Error("reminder: plan", "subscription", sub.ID, "err", err)
+			continue
 		}
 		price := p.Price
 		at, err := attrs(ctx, s.Q, c.ID)
 		if err != nil {
-			return err
+			slog.Error("reminder: attrs", "subscription", sub.ID, "err", err)
+			continue
 		}
 		if inv := parseMoney(at["Invoice"]); p.ValidityUnit == "Period" && inv > 0 {
 			price = inv // postpaid: the invoice amount, as cron_reminder.php
 		}
 		v := s.packageVars(ctx, c.ID, price)
 		v["expired_date"] = e.Format("2006-01-02 15:04:05")
-		n.Go("reminder", func(ctx context.Context) error { return n.Reminder(ctx, c, days, p.Name, v) })
+		sends = append(sends, func(ctx context.Context) error { return n.Reminder(ctx, c, days, p.Name, v) })
 	}
+	// one goroutine, paced by message_delay like bulk messages
+	delay := notify.MessageDelay(n.Settings)
+	go func() {
+		for i, send := range sends {
+			if i > 0 {
+				time.Sleep(delay)
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), n.Timeout)
+			if err := send(ctx); err != nil {
+				slog.Error("notify failed", "kind", "reminder", "err", err)
+			}
+			cancel()
+		}
+	}()
 	return nil
 }
