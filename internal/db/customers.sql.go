@@ -570,6 +570,38 @@ func (q *Queries) ListCustomersByIDs(ctx context.Context, ids []int64) ([]Custom
 	return items, nil
 }
 
+const listOtherCustomerIDsByEmail = `-- name: ListOtherCustomerIDsByEmail :many
+SELECT id FROM customers WHERE email <> '' AND lower(email) = lower(CAST(?1 AS TEXT)) AND id <> ?2 LIMIT 1
+`
+
+type ListOtherCustomerIDsByEmailParams struct {
+	Email string
+	Self  int64
+}
+
+func (q *Queries) ListOtherCustomerIDsByEmail(ctx context.Context, arg ListOtherCustomerIDsByEmailParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listOtherCustomerIDsByEmail, arg.Email, arg.Self)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const quickSearchCustomers = `-- name: QuickSearchCustomers :many
 SELECT id, username, fullname, phone, pppoe_username, status, balance FROM customers
 WHERE CAST(?1 AS TEXT) = ''

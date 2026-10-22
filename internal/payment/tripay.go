@@ -178,26 +178,29 @@ func (t *Tripay) Channels(ctx context.Context) ([]Channel, error) {
 	return out, nil
 }
 
-func (t *Tripay) HandleCallback(r *http.Request) (string, Status, error) {
+func (t *Tripay) HandleCallback(r *http.Request) (string, Status, int64, error) {
 	raw, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 	if err != nil {
-		return "", "", err
+		return "", "", 0, err
 	}
 	got, _ := hex.DecodeString(r.Header.Get("X-Callback-Signature"))
 	want, _ := hex.DecodeString(t.sign(string(raw)))
 	if len(got) == 0 || !hmac.Equal(got, want) {
-		return "", "", errors.New("tripay: bad callback signature")
+		return "", "", 0, errors.New("tripay: bad callback signature")
 	}
 	if ev := r.Header.Get("X-Callback-Event"); ev != "payment_status" {
-		return "", "", fmt.Errorf("tripay: unexpected event %q", ev)
+		return "", "", 0, fmt.Errorf("tripay: unexpected event %q", ev)
 	}
 	var p struct {
 		MerchantRef string `json:"merchant_ref"`
 		Status      string `json:"status"`
+		TotalAmount int64  `json:"total_amount"`
+		FeeCustomer int64  `json:"fee_customer"`
 	}
 	if err := json.Unmarshal(raw, &p); err != nil || p.MerchantRef == "" {
-		return "", "", errors.New("tripay: bad callback body")
+		return "", "", 0, errors.New("tripay: bad callback body")
 	}
 	st, err := mapStatus(p.Status)
-	return p.MerchantRef, st, err
+	// total_amount includes the fee charged to the customer; the order amount excludes it.
+	return p.MerchantRef, st, p.TotalAmount - p.FeeCustomer, err
 }

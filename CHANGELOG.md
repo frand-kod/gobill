@@ -15,6 +15,13 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 ### Dokumentasi
 
 - Panduan MikroTik menjelaskan bahwa router di belakang NAT atau CGNAT tidak bisa menerima CoA, sehingga Disconnect dan isolir paksa gagal, beserta solusinya lewat tunnel.
+### Keamanan
+
+- **Callback Tripay memeriksa jumlah**: `total_amount` (dikurangi `fee_customer`) harus sama dengan jumlah pesanan. Jika tidak cocok, callback ditolak (400), dicatat, dan dihitung di `payment_callbacks_total{result="amount_mismatch"}`.
+
+### Diperbaiki
+
+- **Email ganda di portal**: pemeriksaan "email sudah dipakai pelanggan lain" saat verifikasi kontak tidak pernah cocok (pencarian pelanggan tidak mencakup kolom email). Kini memakai query khusus yang tidak peka huruf besar/kecil.
 
 ## [0.1.18] - 2026-10-17
 

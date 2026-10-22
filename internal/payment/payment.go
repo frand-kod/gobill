@@ -54,7 +54,8 @@ type PaymentGateway interface {
 	CreateTransaction(ctx context.Context, trx Transaction) (Created, error)
 	Status(ctx context.Context, trx Transaction) (Status, error)
 	// HandleCallback must verify the signature; error means the caller answers 4xx.
-	HandleCallback(r *http.Request) (trxID string, st Status, err error)
+	// amount is the order amount in rupiah the gateway reports; 0 means not reported (not checked).
+	HandleCallback(r *http.Request) (trxID string, st Status, amount int64, err error)
 }
 
 // Registry maps gateway name to instance; filled in main.go.
