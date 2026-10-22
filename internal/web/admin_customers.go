@@ -522,8 +522,14 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 		if v["auto_renewal"] == "1" {
 			renew = 1
 		}
-		var err error
 		ctx := r.Context()
+		tx, err := s.conn.BeginTx(ctx, nil) // customer row and custom field values commit together
+		if err != nil {
+			s.fail(w, "begin save customer", err)
+			return
+		}
+		defer tx.Rollback()
+		q := s.queries.WithTx(tx)
 		cid := id
 		var created db.Customer
 		if id == 0 {
@@ -533,32 +539,32 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			var c db.Customer
-			c, err = s.queries.CreateCustomer(ctx, db.CreateCustomerParams{Username: v["username"], PasswordHash: string(hash),
+			c, err = q.CreateCustomer(ctx, db.CreateCustomerParams{Username: v["username"], PasswordHash: string(hash),
 				Fullname: v["fullname"], Address: v["address"], Phone: v["phone"], Email: v["email"], ServiceType: v["service_type"],
 				PppoeUsername: v["pppoe_username"], PppoeIp: v["pppoe_ip"], SecretEnc: enc, AutoRenewal: renew,
 				Status: v["status"], CreatedBy: sql.NullInt64{Int64: adminFrom(r).ID, Valid: true}, BillingDay: bday, Coordinates: coords})
 			cid, created = c.ID, c
-			if err == nil && v["send_welcome_message"] == "1" {
-				s.welcome(ctx, c, welcomeChannels(v), pass)
-			}
 		} else {
 			if v["username"] != cur.Username { // first, so a clash changes nothing
-				err = s.queries.RenameCustomer(ctx, db.RenameCustomerParams{Username: v["username"], ID: id})
+				err = q.RenameCustomer(ctx, db.RenameCustomerParams{Username: v["username"], ID: id})
 			}
 			if err == nil {
-				err = s.queries.UpdateCustomer(ctx, db.UpdateCustomerParams{Fullname: v["fullname"], Address: v["address"],
+				err = q.UpdateCustomer(ctx, db.UpdateCustomerParams{Fullname: v["fullname"], Address: v["address"],
 					Phone: v["phone"], Email: v["email"], ServiceType: v["service_type"], PppoeUsername: v["pppoe_username"],
 					PppoeIp: v["pppoe_ip"], SecretEnc: enc, AutoRenewal: renew, Status: v["status"], BillingDay: bday, Coordinates: coords, ID: id})
 			}
 			if err == nil && pass != "" {
 				var hash []byte
 				if hash, err = bcrypt.GenerateFromPassword([]byte(pass), bcryptCost); err == nil {
-					err = s.queries.SetCustomerPassword(ctx, db.SetCustomerPasswordParams{PasswordHash: string(hash), ID: id})
+					err = q.SetCustomerPassword(ctx, db.SetCustomerPasswordParams{PasswordHash: string(hash), ID: id})
 				}
 			}
 		}
 		if err == nil {
-			err = s.cfStore(ctx, cid, cfv)
+			err = s.cfStore(ctx, q, cid, cfv)
+		}
+		if err == nil {
+			err = tx.Commit()
 		}
 		switch {
 		case isUnique(err):
@@ -568,6 +574,9 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 			return
 		default:
 			act, msg := "customer.create", "Data Created Successfully"
+			if id == 0 && v["send_welcome_message"] == "1" { // after the commit: no welcome for a rolled-back customer
+				s.welcome(ctx, created, welcomeChannels(v), pass)
+			}
 			if id != 0 {
 				act, msg = "customer.update", "Data Updated Successfully"
 				// A new password, username, pppoe username/ip goes to the router, as the old app did.

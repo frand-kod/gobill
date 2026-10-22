@@ -85,7 +85,7 @@ type Server struct {
 	NewGateway func(cfg map[string]string) (Gateway, error)
 	chanCache  paymentCache
 
-	// ponytail: in-memory limiter, resets on restart; persist if needed. Locks per client IP; usernames only get a delay
+	// ponytail: in-memory limiter, resets on restart; persist if needed. Login locks per ip|username; per IP, 100 failures/15 min across usernames
 	mu       sync.Mutex
 	otpSent  map[string][]time.Time // "ip:x" / "ph:y" -> OTP send times, see otpAllow
 	failed   map[string][]time.Time // client IP -> times of recent failed logins
