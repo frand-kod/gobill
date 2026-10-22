@@ -240,11 +240,20 @@ func Load(ctx context.Context, q *db.Queries) (*Notifier, error) {
 	if err != nil {
 		return nil, err
 	}
-	n := &Notifier{Settings: map[string]string{}, HTTP: http.DefaultClient, TelegramAPI: "https://api.telegram.org", Timeout: 20 * time.Second}
+	n := &Notifier{Settings: map[string]string{}, HTTP: &http.Client{Timeout: 20 * time.Second}, TelegramAPI: "https://api.telegram.org", Timeout: 20 * time.Second}
 	for _, r := range rows {
 		n.Settings[r.Key] = r.Value
 	}
 	return n, nil
+}
+
+// MessageDelay is the pause between bulk messages: setting message_delay in seconds, default 1.
+func MessageDelay(st map[string]string) time.Duration {
+	sec, err := strconv.ParseFloat(st["message_delay"], 64)
+	if err != nil || sec < 0 {
+		sec = 1
+	}
+	return time.Duration(sec * float64(time.Second))
 }
 
 func (n *Notifier) get(k string) string { return n.Settings[k] }
@@ -586,6 +595,7 @@ func (n *Notifier) send(ctx context.Context, c db.Customer, via, subject, msg st
 	case "email":
 		return n.Email(ctx, c.Email, "["+n.get("company_name")+"] "+subject, msg)
 	}
+	slog.Warn("customer notification has no channel", "kind", subject, "via", via, "customer", c.Username)
 	return nil
 }
 

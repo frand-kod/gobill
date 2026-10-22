@@ -29,6 +29,21 @@ func (q *Queries) ClaimExpiryNotice(ctx context.Context, arg ClaimExpiryNoticePa
 	return result.RowsAffected()
 }
 
+const releaseExpiryNotice = `-- name: ReleaseExpiryNotice :exec
+UPDATE subscriptions SET expired_notified_at = NULL WHERE id = ?1 AND expires_at = ?2
+`
+
+type ReleaseExpiryNoticeParams struct {
+	ID        int64
+	ExpiresAt int64
+}
+
+// Undoes ClaimExpiryNotice after the send failed, so the next run retries it.
+func (q *Queries) ReleaseExpiryNotice(ctx context.Context, arg ReleaseExpiryNoticeParams) error {
+	_, err := q.db.ExecContext(ctx, releaseExpiryNotice, arg.ID, arg.ExpiresAt)
+	return err
+}
+
 const createSubscription = `-- name: CreateSubscription :one
 INSERT INTO subscriptions (customer_id, plan_id, router_id, type, started_at, expires_at, method, admin_id, pending_start)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
