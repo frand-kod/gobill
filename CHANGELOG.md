@@ -8,6 +8,14 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Keamanan
+
+- **Login admin tidak bisa dikunci orang lain**: kunci setelah 10 kegagalan kini hanya per IP. Satu username hanya diperlambat (0,25 detik per kegagalan, maksimal 3 detik), tidak lagi dikunci. Berlaku juga untuk login portal dan langkah 2FA.
+
+### Perbaikan
+
+- **Peringatan `trust_proxy`**: jika permintaan dari loopback membawa `CF-Connecting-IP`, `X-Forwarded-For`, `X-Real-IP` atau `Forwarded` saat `trust_proxy` = `no`, Status Sistem dan Setup cepat menampilkan peringatan, dan satu baris dicatat di log. Tanpa `trust_proxy`, semua pengunjung terlihat sebagai 127.0.0.1.
+
 ## [0.1.18] - 2026-10-17
 
 ### Keamanan

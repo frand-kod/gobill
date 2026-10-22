@@ -31,13 +31,14 @@ type loginData struct{ Username string }
 func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.PostFormValue("username"))
 	ip, uk := clientIP(r), "u:"+strings.ToLower(username)
-	if s.tooManyFailures(ip) || s.tooManyFailures(uk) {
+	if s.tooManyFailures(ip) {
 		s.render(w, r, http.StatusTooManyRequests, "login", Page{
 			Title: "Sign in",
 			Error: "Too many failed attempts. Try again in 15 minutes.",
 		})
 		return
 	}
+	s.userDelay(uk)
 
 	password := r.PostFormValue("password")
 
@@ -152,6 +153,16 @@ func (s *Server) tooManyFailures(ip string) bool {
 	return len(s.recent(ip)) >= maxFailedLogins
 }
 
+// userDelay slows guessing against one username, whatever the client IP, by loginDelayStep per recent
+// failure up to loginDelayMax. It never locks: a hard per-username lock would let anyone lock admin out.
+// ponytail: the delay applies to 2FA accounts too; exempt them if the wait annoys real admins.
+func (s *Server) userDelay(uk string) {
+	s.mu.Lock()
+	n := len(s.recent(uk))
+	s.mu.Unlock()
+	time.Sleep(min(time.Duration(n)*loginDelayStep, loginDelayMax))
+}
+
 func (s *Server) recordFailure(ip string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -163,13 +174,13 @@ func (s *Server) recordFailure(ip string) {
 	s.failed[ip] = append(s.recent(ip), time.Now())
 }
 
-// lockedCount returns how many login keys (client IPs and usernames) are over the failure limit now.
+// lockedCount returns how many login keys (client IPs; usernames only delay, see userDelay) are over the failure limit now.
 func (s *Server) lockedCount() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	n := 0
 	for k := range s.failed {
-		if len(s.recent(k)) >= maxFailedLogins {
+		if !strings.HasPrefix(k, "u:") && !strings.HasPrefix(k, "cu:") && len(s.recent(k)) >= maxFailedLogins {
 			n++
 		}
 	}

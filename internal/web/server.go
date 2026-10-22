@@ -19,6 +19,7 @@ import (
 	"github.com/frand-kod/gobill/internal/i18n"
 	"github.com/frand-kod/gobill/internal/radius"
 	"golang.org/x/crypto/bcrypt"
+	"log/slog"
 	"net"
 	"strings"
 	"sync"
@@ -28,6 +29,12 @@ import (
 const (
 	maxFailedLogins = 10
 	loginWindow     = 15 * time.Minute
+)
+
+// Per-username delay (see userDelay); vars so tests can zero them.
+var (
+	loginDelayStep = 250 * time.Millisecond
+	loginDelayMax  = 3 * time.Second
 )
 
 // Server wires the database, sessions, translations and templates together.
@@ -74,7 +81,7 @@ type Server struct {
 	NewGateway func(cfg map[string]string) (Gateway, error)
 	chanCache  paymentCache
 
-	// ponytail: in-memory limiter, resets on restart; persist if needed
+	// ponytail: in-memory limiter, resets on restart; persist if needed. Locks per client IP; usernames only get a delay
 	mu       sync.Mutex
 	otpSent  map[string][]time.Time // "ip:x" / "ph:y" -> OTP send times, see otpAllow
 	failed   map[string][]time.Time // client IP -> times of recent failed logins
@@ -83,11 +90,12 @@ type Server struct {
 	// telegramAPI overrides the Telegram API root in tests (empty = the notify default)
 	telegramAPI string
 
-	idle    atomic.Int64 // admin idle timeout in ns, see ReloadSessionSettings
-	single  atomic.Bool  // single_session
-	isolir  atomic.Bool  // isolir_enabled, see isolirGate
-	trust   atomic.Bool  // trust_proxy, see realIP
-	proxies atomic.Value // []netip.Prefix from trusted_proxies, see realIP
+	idle      atomic.Int64 // admin idle timeout in ns, see ReloadSessionSettings
+	single    atomic.Bool  // single_session
+	isolir    atomic.Bool  // isolir_enabled, see isolirGate
+	trust     atomic.Bool  // trust_proxy, see realIP
+	proxyHint atomic.Int64 // unix time a loopback request carried proxy headers while trust_proxy=no, see noteProxyHeaders
+	proxies   atomic.Value // []netip.Prefix from trusted_proxies, see realIP
 }
 
 // Page is the data every template receives.
@@ -225,9 +233,36 @@ func (s *Server) realIP(next http.Handler) http.Handler {
 		r = r.WithContext(context.WithValue(r.Context(), peerKey{}, peer))
 		if xf := r.Header.Get("X-Forwarded-For"); xf != "" && s.trust.Load() && s.fromProxy(peer) {
 			r.RemoteAddr = strings.TrimSpace(xf[strings.LastIndexByte(xf, ',')+1:])
+		} else if !s.trust.Load() {
+			s.noteProxyHeaders(r, peer)
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// noteProxyHeaders records a loopback request that carries proxy headers while trust_proxy=no: a reverse
+// proxy on this host whose clients all look like 127.0.0.1. It logs once per process, the status page
+// and Quick Setup keep showing proxyWarning.
+func (s *Server) noteProxyHeaders(r *http.Request, peer string) {
+	if a, ok := peerAddr(peer); !ok || !a.IsLoopback() {
+		return
+	}
+	for _, h := range []string{"CF-Connecting-IP", "X-Forwarded-For", "X-Real-IP", "Forwarded"} {
+		if r.Header.Get(h) != "" {
+			if s.proxyHint.Swap(time.Now().Unix()) == 0 {
+				slog.Warn("proxy headers from loopback but trust_proxy=no: every client shows as 127.0.0.1; set trust_proxy=yes", "header", h)
+			}
+			return
+		}
+	}
+}
+
+// proxyWarning is the admin warning for noteProxyHeaders, empty when there is nothing to warn about.
+func (s *Server) proxyWarning(r *http.Request) string {
+	if s.proxyHint.Load() == 0 || s.trust.Load() {
+		return ""
+	}
+	return s.catalog.T(s.language(), "Requests arrive through a reverse proxy but Trust Proxy is off. All visitors share one IP: one attacker can lock every login, and the audit log loses real IPs. Set Trust Proxy to yes in Settings.")
 }
 
 // fromProxy reports whether the TCP peer may set X-Forwarded-For: loopback, or inside trusted_proxies.

@@ -1982,6 +1982,7 @@
     "Login failures (10 min)": "Gagal login (10 menit)",
     "2FA failures": "Gagal 2FA",
     "Locked now": "Terkunci sekarang",
+    "Requests arrive through a reverse proxy but Trust Proxy is off. All visitors share one IP: one attacker can lock every login, and the audit log loses real IPs. Set Trust Proxy to yes in Settings.": "Permintaan datang lewat reverse proxy, tetapi Trust Proxy mati. Semua pengunjung memakai satu IP: satu penyerang bisa mengunci semua login, dan log audit kehilangan IP asli. Set Trust Proxy ke yes di Pengaturan.",
     "forbidden": "ditolak",
     "Last local backup": "Backup lokal terakhir",
     "Older than 36 hours": "Lebih dari 36 jam",

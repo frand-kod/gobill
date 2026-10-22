@@ -108,7 +108,7 @@ func (s *Server) statusPage(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "status", err)
 		return
 	}
-	s.render(w, r, http.StatusOK, "status", Page{Title: "System Status", Data: d})
+	s.render(w, r, http.StatusOK, "status", Page{Title: "System Status", Data: d, Warn: s.proxyWarning(r)})
 }
 
 func (s *Server) statusJSON(w http.ResponseWriter, r *http.Request) {

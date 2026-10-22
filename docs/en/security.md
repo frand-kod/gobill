@@ -139,7 +139,7 @@ If `connect_uri` uses `https`, make sure `check_cert = yes` is set in the `tls` 
 - **CSRF.** Protected with the standard library's `http.CrossOriginProtection`. The only exceptions are the Tripay callback, which is verified by its signature, and `/radius.php`, which uses an allow-list.
 - **Security headers.** Every response sends `X-Frame-Options: DENY` against clickjacking, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: same-origin`, so a QRIS payment link with its token is never sent to another site.
 - **Attempt limits.** Brute-force limits are kept in memory and reset on restart.
-  - Admin and portal login: 10 failures in 15 minutes, counted per IP and per username. 2FA login uses the same limit.
+  - Admin and portal login: 10 failures in 15 minutes lock that IP. A single username is only slowed (0.25 s added per failure, up to 3 s), never locked, so nobody else can lock an admin account. 2FA login uses the same limit.
   - RADIUS vouchers: 10 failures in 15 minutes per NAS and MAC, and 100 per NAS.
   - RADIUS auth per username: a separate limit for wrong passwords.
   - OTP sending: 5 times per IP in 15 minutes. Per phone number, a 60-second cooldown and at most 5 times per hour. If `notify_otp` = `no`, no OTP is sent at all.
@@ -192,7 +192,7 @@ That admin can log in with the password only. 2FA must be enabled again. The act
 
 ### Limits
 
-- Wrong code attempts count toward the login limit: 10 failures in 15 minutes per IP and per username.
+- Wrong code attempts count toward the login limit: 10 failures in 15 minutes lock the IP, and the username is slowed.
 - A used code cannot be used again. The list of used codes is kept in memory. After a restart, the same code may be accepted again for the rest of its time step, at most about 90 seconds.
 - Customer login and the API do not use admin 2FA. Admin sessions are opened only through the login page.
 
