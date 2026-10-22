@@ -119,16 +119,8 @@ func (s *Server) contactTaken(r *http.Request, kind, val string, self int64) (bo
 	if kind == "phone" {
 		return s.phoneTaken(r.Context(), val, self)
 	}
-	rows, err := s.queries.SearchCustomers(r.Context(), db.SearchCustomersParams{Q: val, PageLimit: 50, PageOffset: 0})
-	if err != nil {
-		return false, err
-	}
-	for _, c := range rows {
-		if c.ID != self && strings.EqualFold(c.Email, val) {
-			return true, nil
-		}
-	}
-	return false, nil
+	ids, err := s.queries.ListOtherCustomerIDsByEmail(r.Context(), db.ListOtherCustomerIDsByEmailParams{Email: val, Self: self})
+	return len(ids) > 0, err
 }
 
 // phoneTaken reports whether another customer uses this WhatsApp number. Only checked when
