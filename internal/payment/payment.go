@@ -29,8 +29,10 @@ type Transaction struct {
 	Email     string
 	Phone     string
 	ReturnURL string
-	Channel   string // overrides gateway default channel when set
-	Expiry    time.Time
+	// CallbackURL is the public address the gateway notifies (used by gateways that take it per transaction).
+	CallbackURL string
+	Channel     string // overrides gateway default channel when set
+	Expiry      time.Time
 }
 
 type Channel struct {

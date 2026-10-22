@@ -1,6 +1,6 @@
 # Integrations
 
-This document explains how to connect gobill to WhatsApp, SMS, Telegram, email, webhooks, and online payments. Online payments use Tripay or a static QRIS.
+This document explains how to connect gobill to WhatsApp, SMS, Telegram, email, webhooks, and online payments. Online payments use Tripay, Duitku, or a static QRIS.
 
 **For:** operators
 
@@ -99,19 +99,20 @@ Each section has a test button in **Settings > Integrations**. Only SuperAdmin c
 | Send gateway test | Sends an SMS to a number you type, through the `wa_url` gateway. |
 | Send email test | Sends an email to an address you type, through the saved SMTP settings. |
 | Send webhook test | Sends a signed `test` event to `webhook_url`, and shows the HTTP status. |
-| Check connection | In **Settings > Payments**, for Tripay. Calls the Tripay payment channel list to confirm that the key and merchant code are correct. |
+| Check connection | In **Settings > Payments**, for Tripay. Calls the payment channel list of the gateway (Tripay or Duitku) to confirm that the key and merchant code are correct. |
 
 ## Online payments
 
-The setting `payment_gateway` selects the gateway: `""` for off, or `tripay`. The settings are in **Settings > Payments**.
+The setting `payment_gateway` selects the gateway: `""` for off, `tripay`, or `duitku`. The settings are in **Settings > Payments**.
 
 | Setting | Purpose |
 |---|---|
-| `payment_gateway` | `""` for off, or `tripay`. |
+| `payment_gateway` | `""` for off, `tripay`, or `duitku`. |
 | `tripay_mode`, `tripay_merchant_code`, `tripay_api_key`, `tripay_private_key`, `tripay_channel` | Tripay gateway settings. The API key and private key are stored as plain text in the `settings` table. See [security](security.md#application-security). |
+| `duitku_mode`, `duitku_merchant_code`, `duitku_api_key`, `duitku_channel` | Duitku gateway settings. `duitku_channel` is the optional default payment method code. The API key is stored as plain text in the `settings` table. |
 | `qris_payload` | Text of the merchant's static QRIS. It is filled in by uploading a QRIS photo. The image itself is not stored. |
 
-Tripay callbacks go to `POST /callback/tripay`. The callback is verified with its signature.
+Tripay callbacks go to `POST /callback/tripay` and Duitku callbacks to `POST /callback/duitku`. Both are verified with their signature. For Duitku the callback URL is sent with every transaction and uses the same domain as the portal pages.
 
 ## Static QRIS
 

@@ -22,6 +22,9 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 ### Diperbaiki
 
 - **Email ganda di portal**: pemeriksaan "email sudah dipakai pelanggan lain" saat verifikasi kontak tidak pernah cocok (pencarian pelanggan tidak mencakup kolom email). Kini memakai query khusus yang tidak peka huruf besar/kecil.
+### Fitur
+
+- **Gateway pembayaran Duitku** (#15): pilih Duitku di **Pengaturan > Pembayaran** (merchant code, API key, mode sandbox/production, metode bawaan). Mendukung pembuatan transaksi, cek status, daftar metode pembayaran, dan callback `POST /callback/duitku` yang diverifikasi dengan tanda tangan HMAC-SHA256. Belum diuji terhadap sandbox Duitku sungguhan.
 
 ## [0.1.18] - 2026-10-17
 
