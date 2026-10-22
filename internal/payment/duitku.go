@@ -101,10 +101,8 @@ func (d *Duitku) CreateTransaction(ctx context.Context, trx Transaction) (Create
 	if ch == "" {
 		return Created{}, errors.New("duitku: no payment channel")
 	}
-	// Transaction has no callback URL field: derive it from the return URL's origin.
-	ru, err := url.Parse(trx.ReturnURL)
-	if err != nil || ru.Host == "" {
-		return Created{}, errors.New("duitku: bad return url")
+	if cu, err := url.Parse(trx.CallbackURL); err != nil || cu.Host == "" {
+		return Created{}, errors.New("duitku: bad callback url")
 	}
 	name := []rune(trx.Name)
 	if len(name) > 20 { // customerVaName is limited to 20 characters
@@ -120,7 +118,7 @@ func (d *Duitku) CreateTransaction(ctx context.Context, trx Transaction) (Create
 		"email":           trx.Email,
 		"phoneNumber":     trx.Phone,
 		"returnUrl":       trx.ReturnURL,
-		"callbackUrl":     ru.Scheme + "://" + ru.Host + "/callback/duitku",
+		"callbackUrl":     trx.CallbackURL,
 		"signature":       d.sign(d.MerchantCode + trx.ID + strconv.FormatInt(trx.Amount, 10)),
 	}
 	if !trx.Expiry.IsZero() {
@@ -192,26 +190,30 @@ func (d *Duitku) Channels(ctx context.Context) ([]Channel, error) {
 
 // HandleCallback verifies the form-encoded notification. The signature covers
 // merchantCode+amount+merchantOrderId, so the amount cannot be altered in transit.
-func (d *Duitku) HandleCallback(r *http.Request) (string, Status, error) {
+func (d *Duitku) HandleCallback(r *http.Request) (string, Status, int64, error) {
 	r.Body = http.MaxBytesReader(nil, r.Body, 1<<20)
 	if err := r.ParseForm(); err != nil {
-		return "", "", err
+		return "", "", 0, err
 	}
 	code, amt, id := r.PostFormValue("merchantCode"), r.PostFormValue("amount"), r.PostFormValue("merchantOrderId")
 	got, _ := hex.DecodeString(r.PostFormValue("signature"))
 	want, _ := hex.DecodeString(d.sign(code + amt + id))
 	if len(got) == 0 || !hmac.Equal(got, want) || code != d.MerchantCode {
-		return "", "", errors.New("duitku: bad callback signature")
+		return "", "", 0, errors.New("duitku: bad callback signature")
 	}
 	if id == "" {
-		return "", "", errors.New("duitku: bad callback body")
+		return "", "", 0, errors.New("duitku: bad callback body")
+	}
+	n, err := strconv.ParseInt(amt, 10, 64)
+	if err != nil || n <= 0 { // the amount is signed but must also be a positive whole rupiah figure
+		return "", "", 0, errors.New("duitku: bad callback amount")
 	}
 	switch rc := r.PostFormValue("resultCode"); rc {
 	case "00":
-		return id, Paid, nil
+		return id, Paid, n, nil
 	case "01":
-		return id, Failed, nil
+		return id, Failed, n, nil
 	default:
-		return "", "", fmt.Errorf("duitku: unknown resultCode %q", rc)
+		return "", "", 0, fmt.Errorf("duitku: unknown resultCode %q", rc)
 	}
 }

@@ -46,6 +46,9 @@ type Server struct {
 	Radius     *radius.Server
 	radiusOnce sync.Once
 
+	payCheckMu sync.Mutex // guards payCheckAt: last gateway status call per payment id, see payCheckAllowed
+	payCheckAt map[int64]time.Time
+
 	// Version is shown in the admin sidebar footer and on /health.
 	Version string
 	// DBPath is the SQLite file: /health reports its disk space, restore stages uploads next to it.

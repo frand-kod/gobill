@@ -1450,6 +1450,7 @@
     "Transaction ID": "ID Transaksi",
     "Payment Link": "Tautan Pembayaran",
     "Payment gateway error, try again later": "Gerbang pembayaran bermasalah, coba lagi nanti",
+    "Please wait a moment before checking again, try again later": "Mohon tunggu sebentar sebelum memeriksa lagi, coba lagi nanti",
     "Tripay API Key": "Kunci API Tripay",
     "Tripay Private Key": "Kunci Privat Tripay",
     "Tripay Merchant Code": "Kode Merchant Tripay",

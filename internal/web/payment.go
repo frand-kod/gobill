@@ -148,7 +148,7 @@ func (s *Server) tripayCallback(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	ref, status, err := g.HandleCallback(r)
+	ref, status, amount, err := g.HandleCallback(r)
 	metrics.Set("payment_callback_last_timestamp", float64(time.Now().Unix()))
 	if err != nil {
 		metrics.Inc("payment_callbacks_total", "result", "failed")
@@ -159,6 +159,11 @@ func (s *Server) tripayCallback(w http.ResponseWriter, r *http.Request) {
 	pr, err := s.queries.GetPaymentRequestByRef(r.Context(), ref)
 	if err != nil {
 		slog.Warn("tripay callback: unknown reference", "ref", ref, "err", err)
+	} else if amount != 0 && amount != pr.Amount {
+		metrics.Inc("payment_callbacks_total", "result", "amount_mismatch")
+		slog.Warn("tripay callback: amount mismatch", "ref", ref, "got", amount, "want", pr.Amount)
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
 	} else if err := s.settlePayment(r.Context(), pr, status); err != nil {
 		metrics.Inc("payment_callbacks_total", "result", "failed")
 		s.fail(w, "tripay callback settle "+ref, err) // 500 makes Tripay retry

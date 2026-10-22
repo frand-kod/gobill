@@ -46,7 +46,7 @@ func TestDuitkuCreate(t *testing.T) {
 	defer srv.Close()
 	g := newD(srv.URL)
 	c, err := g.CreateTransaction(context.Background(), Transaction{ID: "INV1", Amount: 50000, PlanName: "P",
-		Name: "A very long customer name indeed", ReturnURL: "https://isp.example/portal/payments/1", Expiry: time.Now().Add(time.Hour)})
+		Name: "A very long customer name indeed", ReturnURL: "https://isp.example/portal/payments/1", CallbackURL: "https://isp.example/callback/duitku", Expiry: time.Now().Add(time.Hour)})
 	if err != nil || c.PayURL != "https://pay/x" || c.Reference != "R1" {
 		t.Fatal(c, err)
 	}
@@ -67,12 +67,12 @@ func TestDuitkuCreateErrors(t *testing.T) {
 		w.Write([]byte(`{"Message":"Wrong signature"}`))
 	}))
 	defer srv.Close()
-	_, err := newD(srv.URL).CreateTransaction(context.Background(), Transaction{ID: "I", Amount: 1, ReturnURL: "https://h/x"})
+	_, err := newD(srv.URL).CreateTransaction(context.Background(), Transaction{ID: "I", Amount: 1, ReturnURL: "https://h/x", CallbackURL: "https://h/callback/duitku"})
 	if err == nil || !strings.Contains(err.Error(), "Wrong signature") {
 		t.Fatal(err)
 	}
 	if _, err := newD(srv.URL).CreateTransaction(context.Background(), Transaction{ID: "I", Amount: 1}); err == nil {
-		t.Fatal("missing return url accepted")
+		t.Fatal("missing callback url accepted")
 	}
 }
 
@@ -121,27 +121,30 @@ func TestDuitkuCallback(t *testing.T) {
 		return r
 	}
 	sig := g.sign("D150000INV1")
-	if id, st, err := g.HandleCallback(req("D1", "50000", "INV1", "00", sig)); err != nil || id != "INV1" || st != Paid {
+	if id, st, amt, err := g.HandleCallback(req("D1", "50000", "INV1", "00", sig)); err != nil || id != "INV1" || st != Paid || amt != 50000 {
+		t.Fatal(id, st, amt, err)
+	}
+	if id, st, _, err := g.HandleCallback(req("D1", "50000", "INV1", "01", sig)); err != nil || id != "INV1" || st != Failed {
 		t.Fatal(id, st, err)
 	}
-	if id, st, err := g.HandleCallback(req("D1", "50000", "INV1", "01", sig)); err != nil || id != "INV1" || st != Failed {
-		t.Fatal(id, st, err)
-	}
-	if _, _, err := g.HandleCallback(req("D1", "1", "INV1", "00", sig)); err == nil {
+	if _, _, _, err := g.HandleCallback(req("D1", "1", "INV1", "00", sig)); err == nil {
 		t.Error("tampered amount accepted")
 	}
-	if _, _, err := g.HandleCallback(req("D1", "50000", "INV1", "00", "deadbeef")); err == nil {
+	if _, _, _, err := g.HandleCallback(req("D1", "50000", "INV1", "00", "deadbeef")); err == nil {
 		t.Error("bad sig accepted")
 	}
-	if _, _, err := g.HandleCallback(req("D1", "50000", "INV1", "00", "")); err == nil {
+	if _, _, _, err := g.HandleCallback(req("D1", "50000", "INV1", "00", "")); err == nil {
 		t.Error("empty sig accepted")
 	}
-	if _, _, err := g.HandleCallback(req("D1", "50000", "INV1", "07", sig)); err == nil {
+	if _, _, _, err := g.HandleCallback(req("D1", "50000", "INV1", "07", sig)); err == nil {
 		t.Error("unknown resultCode accepted")
+	}
+	if _, _, _, err := g.HandleCallback(req("D1", "abc", "INV1", "00", g.sign("D1abcINV1"))); err == nil {
+		t.Error("non-numeric amount accepted")
 	}
 	other := newD("")
 	other.MerchantCode = "D2"
-	if _, _, err := g.HandleCallback(req("D2", "50000", "INV1", "00", other.sign("D250000INV1"))); err == nil {
+	if _, _, _, err := g.HandleCallback(req("D2", "50000", "INV1", "00", other.sign("D250000INV1"))); err == nil {
 		t.Error("foreign merchant code accepted")
 	}
 }
