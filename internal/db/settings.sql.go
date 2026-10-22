@@ -20,12 +20,12 @@ func (q *Queries) GetSetting(ctx context.Context, key string) (string, error) {
 	return value, err
 }
 
-const listSettings = `-- name: ListSettings :many
+const listSettingsRaw = `-- name: ListSettingsRaw :many
 SELECT "key", value FROM settings
 `
 
-func (q *Queries) ListSettings(ctx context.Context) ([]Setting, error) {
-	rows, err := q.db.QueryContext(ctx, listSettings)
+func (q *Queries) ListSettingsRaw(ctx context.Context) ([]Setting, error) {
+	rows, err := q.db.QueryContext(ctx, listSettingsRaw)
 	if err != nil {
 		return nil, err
 	}
@@ -47,17 +47,17 @@ func (q *Queries) ListSettings(ctx context.Context) ([]Setting, error) {
 	return items, nil
 }
 
-const upsertSetting = `-- name: UpsertSetting :exec
+const upsertSettingRaw = `-- name: UpsertSettingRaw :exec
 INSERT INTO settings (key, value) VALUES (?, ?)
 ON CONFLICT (key) DO UPDATE SET value = excluded.value
 `
 
-type UpsertSettingParams struct {
+type UpsertSettingRawParams struct {
 	Key   string
 	Value string
 }
 
-func (q *Queries) UpsertSetting(ctx context.Context, arg UpsertSettingParams) error {
-	_, err := q.db.ExecContext(ctx, upsertSetting, arg.Key, arg.Value)
+func (q *Queries) UpsertSettingRaw(ctx context.Context, arg UpsertSettingRawParams) error {
+	_, err := q.db.ExecContext(ctx, upsertSettingRaw, arg.Key, arg.Value)
 	return err
 }

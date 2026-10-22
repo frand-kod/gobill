@@ -15,7 +15,7 @@ import (
 func TestImportFromJSON(t *testing.T) {
 	ctx := context.Background()
 	fixture := `{
-	"tbl_appconfig": [{"id":"1","setting":"timezone","value":"Asia/Jakarta"}, {"id":"2","setting":"CompanyName","value":"ACME"}],
+	"tbl_appconfig": [{"id":"1","setting":"timezone","value":"Asia/Jakarta"}, {"id":"2","setting":"CompanyName","value":"ACME"}, {"id":"3","setting":"smtp_pass","value":"hunter2"}],
 	"tbl_routers": [{"id":"1","name":"r1","ip_address":"10.0.0.1","username":"api","password":"rpw","description":null,"enabled":"1"}],
 	"tbl_bandwidth": [{"id":"1","name_bw":"5M","rate_down":"5","rate_down_unit":"Mbps","rate_up":"5","rate_up_unit":"Mbps","burst":null}],
 	"tbl_plans": [{"id":"1","name_plan":"Gold","id_bw":"1","price":"10000","type":"PPPOE","typebp":"Unlimited","limit_type":null,
@@ -58,6 +58,9 @@ func TestImportFromJSON(t *testing.T) {
 	count := func(q string) (n int) { lite.QueryRow(q).Scan(&n); return }
 	if n := count("SELECT count(*) FROM customers WHERE phone = '62812345678'"); n != 1 {
 		t.Errorf("customer with phone 62812345678: %d", n)
+	}
+	if n := count("SELECT count(*) FROM settings WHERE key = 'smtp_pass' AND value LIKE 'enc1:%' AND value NOT LIKE '%hunter2%'"); n != 1 {
+		t.Errorf("smtp_pass not stored encrypted: %d", n)
 	}
 	if n := count("SELECT count(*) FROM subscriptions"); n != 1 {
 		t.Errorf("subscriptions = %d", n)

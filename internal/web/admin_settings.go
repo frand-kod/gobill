@@ -49,8 +49,7 @@ var settingsTabs = []struct {
 }
 
 // settingsSecret are write-only: never rendered, and an empty post keeps the stored value.
-// ponytail: stored plaintext in settings, as the old app did; move to internal/secret if needed.
-var settingsSecret = map[string]bool{"telegram_bot": true, "smtp_pass": true, "webhook_secret": true, "alt_wga_password": true, "tripay_api_key": true, "tripay_private_key": true, "duitku_api_key": true, "metrics_token": true}
+var settingsSecret = db.SecretSettings
 
 // settingsFile are image uploads. The setting holds the stored filename; an empty post keeps it.
 var settingsFile = map[string]bool{"logo": true, "logo_dark": true, "login_page_logo": true, "login_page_logo_dark": true, "login_page_favicon": true, "login_page_wallpaper": true}

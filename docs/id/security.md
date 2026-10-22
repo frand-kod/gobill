@@ -134,7 +134,7 @@ Jika `connect_uri` memakai `https`, pastikan `check_cert = yes` di blok `tls` pa
 ## Keamanan aplikasi
 
 - **Password.** Password admin dan pelanggan memakai bcrypt. Hash sha1 lama ditandai `legacy_sha1` dan diganti saat login pertama.
-- **Secret terenkripsi.** Secret router, pelanggan PPPoE dan hotspot, dan NAS memakai AES-GCM. Kuncinya berasal dari `GOBILL_SECRET_KEY` atau file `.key`. Simpan backup kunci bersama database. Lihat [backup dan restore](backup-restore.md#backup-kunci-bersama-database).
+- **Secret terenkripsi.** Secret router, pelanggan PPPoE dan hotspot, dan NAS, serta pengaturan rahasia (token Telegram, password SMTP, secret webhook, password GOWA, kunci Tripay dan Duitku, token metrics), memakai AES-GCM. Pengaturan dari versi lama dienkripsi saat start berikutnya. Kuncinya berasal dari `GOBILL_SECRET_KEY` atau file `.key`. Simpan backup kunci bersama database. Lihat [backup dan restore](backup-restore.md#backup-kunci-bersama-database).
 - **Catatan.** Secret integrasi, yaitu SMTP, Telegram, Tripay, dan token metrics, tersimpan dalam teks biasa di tabel `settings`. Ini sama seperti aplikasi lama. Lindungi file database dan backup-nya.
 - **CSRF.** Dilindungi lewat `http.CrossOriginProtection` dari stdlib. Pengecualiannya hanya callback Tripay, yang diverifikasi tanda tangannya, dan `/radius.php`, yang memakai allow-list.
 - **Header keamanan.** Setiap respons mengirim `X-Frame-Options: DENY` untuk mencegah clickjacking, `X-Content-Type-Options: nosniff`, dan `Referrer-Policy: same-origin`, sehingga link pembayaran QRIS beserta tokennya tidak pernah terkirim ke situs lain.
