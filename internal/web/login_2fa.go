@@ -47,21 +47,22 @@ func (s *Server) login2FASubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	// Same throttle keys as the password step: 2FA guesses count against the IP and the account.
 	ip, uk := clientIP(r), "u:"+strings.ToLower(admin.Username)
-	if s.tooManyFailures(ip) || s.tooManyFailures(uk) {
+	if s.loginLocked(ip, admin.Username) {
 		s.render(w, r, http.StatusTooManyRequests, "login_2fa", Page{
 			Title: "Two-factor login",
 			Error: "Too many failed attempts. Try again in 15 minutes.",
 		})
 		return
 	}
+	s.userDelay(uk)
 	if !s.verify2FA(r, admin, cleanCode(r.PostFormValue("code"))) {
 		metrics.Inc("login_failures_total", "scope", "2fa")
-		s.recordFailure(ip)
+		s.loginFailed(ip, admin.Username)
 		s.recordFailure(uk)
 		s.render(w, r, http.StatusOK, "login_2fa", Page{Title: "Two-factor login", Error: "Invalid code"})
 		return
 	}
-	s.clearFailures(ip)
+	s.clearFailures(loginKey(ip, admin.Username))
 	s.clearFailures(uk)
 	s.sessions.Remove(ctx, "pending_2fa")
 	s.sessions.Remove(ctx, "pending_2fa_until")

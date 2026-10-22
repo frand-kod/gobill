@@ -98,7 +98,7 @@ The steps are the same as for the STB, with the `amd64` binary. There are three 
 
 - The VPS clock is already synced, so the clock guard rarely matters.
 - Do not send RADIUS UDP or CoA over the open internet. Use WireGuard or RadSec. See [security](security.md#remote-link-vps).
-- Put a reverse proxy with HTTPS in front of `:8080`. Leave `GOBILL_HTTPS` unset so the cookie stays `Secure`. Set the setting `trust_proxy` = `yes`. If the proxy does not run on the same host, set `trusted_proxies` to the proxy IP. See [configuration](configuration.md#network-and-proxy).
+- Put a reverse proxy with HTTPS in front of `:8080`. Leave `GOBILL_HTTPS` unset so the cookie stays `Secure`. Set the setting `trust_proxy` = `yes`. If the proxy does not run on the same host, set `trusted_proxies` to the proxy IP. See [configuration](configuration.md#network-and-proxy). If you forget, System Status and Quick Setup show a warning once a loopback request carries proxy headers.
 - gobill sets its own cache headers (`/static/` and HTML are revalidated, versioned assets are immutable). Behind Cloudflare, keep "Respect existing headers" (Browser Cache TTL) enabled so these headers are honoured.
 
 ## Docker
