@@ -220,6 +220,18 @@ rc_is() { [ "$(podman exec "lab-client-$1" cat /tmp/pppoe.rc 2>/dev/null)" = "$2
 health_is() { [ "$(podman inspect -f '{{.State.Health.Status}}' lab-gobill)" = "$1" ]; }
 restarted() { local p; p=$(podman inspect -f '{{.State.Pid}}' lab-gobill); [ "$p" != 0 ] && [ "$p" != "$1" ]; }
 
+# secs "1m5s" -> 65 (RouterOS durations: w d h m s)
+secs() { awk -v d="$1" 'BEGIN{n=0;while(match(d,/^[0-9]+[wdhms]/)){v=substr(d,1,RLENGTH-1)+0;u=substr(d,RLENGTH,1);n+=v*(u=="w"?604800:u=="d"?86400:u=="h"?3600:u=="m"?60:1);d=substr(d,RLENGTH+1)}print n}'; }
+chr_field() { chr run "$@" | grep -o "$FIELD=[^ ]*" | head -1 | cut -d= -f2; }
+rad01_uptime() { FIELD=uptime chr_field /ppp/active/print ?name=rad01; }
+rad01_limit() { chr run /queue/simple/print ?name='<pppoe-rad01>' | grep -o 'max-limit=[^ ]*' | head -1; }
+rate_is_5m() { rad01_limit | grep -q 'max-limit=5000000/5000000'; }
+rate_or_dropped() { rate_is_5m || podman exec lab-client-1 test -s /tmp/pppoe.rc; }
+radplan_bw() { # bandwidth id: re-save RADIUS plan 3 (lab-rad) with that bandwidth; gobill sends CoA to its online users
+	gb_post /admin/plans/3 -d name=lab-rad -d bandwidth_id="$1" -d price=200000 -d type=PPPoE -d billing=prepaid -d validity=30 \
+		-d validity_unit=Days -d device=Radius -d enabled=1
+}
+
 test_lab() {
 	local t0; t0=$(date +%s)
 	gb_login || die "cannot log in to gobill at $GOBILL"
@@ -291,6 +303,39 @@ test_lab() {
 	check "restart count is 1" [ "$(podman inspect -f '{{.RestartCount}}' lab-gobill)" = 1 ]
 	check "healthy again" wait_for 40 health_is healthy
 	check "data survived restart (admin login)" gb_login
+
+	echo "-- 8 plan change while online: CoA, else Disconnect fallback"
+	# Editing plan lab-rad (20M -> 5M) sends CoA-Request with Mikrotik-Rate-Limit to rad01's NAS. RouterOS
+	# 7.24.5 answers neither ACK nor NAK, so gobill falls back to Disconnect-Request after 3s; the
+	# client then redials and Access-Accept carries the new rate. Both outcomes are accepted below.
+	if [ "$LAB_MODE" = direct ]; then
+		radplan_bw 3 >/dev/null   # start from lab-20M
+		client_start 1 rad01 pw-rad01
+		check "rad01 session up" wait_for 40 log_has 1 'session up'
+		check "rad01 on CHR at 20M" wait_for 20 chr_grep 'name=rad01' /ppp/active/print
+		sleep 5
+		local up0 up1
+		up0=$(rad01_uptime || true)
+		echo "     before: uptime=$up0 $(rad01_limit || true)"
+		radplan_bw 1 >/dev/null   # lab-20M -> lab-5M
+		wait_for 25 rate_or_dropped || true
+		if rate_is_5m; then
+			up1=$(rad01_uptime || true)
+			echo "     CoA applied: uptime $up0 -> $up1, $(rad01_limit)"
+			check "rate changed in place, uptime did not reset" [ -n "$up1" ] && [ "$(secs "$up1")" -ge "$(secs "$up0")" ]
+		else
+			echo "     CoA not applied (RouterOS gave no ACK/NAK): checking the Disconnect fallback"
+			check "fallback Disconnect dropped the client (PADT)" wait_for 20 rc_is 1 10
+			check "gobill logged CoA failure" bash -c "podman logs lab-gobill 2>&1 | grep -q 'CoA failed, disconnecting'"
+			client_start 1 rad01 pw-rad01
+			check "redial gets the new rate (5M)" wait_for 40 rate_is_5m
+		fi
+		podman logs lab-gobill 2>&1 | grep -i 'CoA' | tail -3 | sed 's/^/     gobill: /' || true
+		radplan_bw 3 >/dev/null
+		podman exec lab-client-1 pkill pppoe >/dev/null 2>&1 || true
+	else
+		echo "skip (direct mode only)"
+	fi
 
 	echo
 	echo "$PASS passed, $FAIL failed ($(($(date +%s) - t0))s)"

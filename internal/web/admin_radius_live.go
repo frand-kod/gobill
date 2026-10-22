@@ -84,7 +84,7 @@ func (m *liveMonitor) refresh(open []db.RadiusSession) {
 }
 
 // observe records the counters of one open session, for the customer's live card. The other sessions keep
-// their samples. Entries of sessions silent for radius.StaleAfter are swept at most once a minute; the admin
+// their samples. Entries of sessions silent for radius.StaleMax() are swept at most once a minute; the admin
 // refresh drops the rest.
 func (m *liveMonitor) observe(x db.RadiusSession, now int64) {
 	m.mu.Lock()
@@ -95,7 +95,7 @@ func (m *liveMonitor) observe(x db.RadiusSession, now int64) {
 	if now-m.swept >= 60 {
 		m.swept = now
 		for id, r := range m.rates {
-			if now-r.last.at > radius.StaleAfter {
+			if now-r.last.at > radius.StaleMax() {
 				delete(m.rates, id)
 			}
 		}

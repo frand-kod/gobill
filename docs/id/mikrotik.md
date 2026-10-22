@@ -35,7 +35,9 @@ Lalu sinkronkan paket ke profil router.
     /radius add service=hotspot,ppp address=192.168.88.10 secret=<SECRET> authentication-port=1812 accounting-port=1813 timeout=2s
     /radius incoming set accept=yes port=3799
 
-`/radius incoming` membuka CoA di port 3799. gobill memakai CoA untuk memutus sesi. Ganti paket lewat CoA untuk paket Radius sedang dikerjakan; sampai itu selesai, perubahan kecepatan berlaku saat pelanggan reconnect.
+`/radius incoming` membuka CoA di port 3799. gobill memakai CoA untuk memutus sesi atau mengubah paket, tanpa menunggu pelanggan reconnect. Saat paket Radius pelanggan berubah (isi ulang, ganti paket, atau admin mengedit paket/bandwidth), gobill mengirim CoA-Request berisi `Mikrotik-Rate-Limit` dan `Session-Timeout` baru ke sesi yang online. Jika NAS menolak (NAK) atau tidak menjawab, gobill memutus sesi dengan Disconnect-Request dan pelanggan mendapat paket baru saat login ulang. Di lab kami, RouterOS 7.24.5 tidak menjawab CoA berisi `Mikrotik-Rate-Limit`, jadi dalam praktik ganti paket memutus sesi beberapa detik.
+
+Atur interval interim di router (contoh di bawah memakai `1m`). gobill menghitung batas sesi basi per NAS dari jarak Interim-Update yang teramati (sekitar 2x interval + 1 menit). `GOBILL_STALE_AFTER` tetap menjadi batas bawah. Tanpa interim, sesi dianggap basi setelah `GOBILL_STALE_AFTER`.
 
 ### Hotspot
 
@@ -72,8 +74,6 @@ Login voucher di halaman hotspot memakai kode sebagai username. Login ini langsu
    Versi sebelum 6.49.18 dan 7.15 mungkin tidak mengirim Message-Authenticator pada permintaan. Untuk versi itu, atur NAS ke **Tidak wajib (NAS lama)** di gobill (lihat [keamanan](security.md#pengerasan-radius)).
 
 3. **NAS-IP-Address dan IP sumber untuk CoA.** Router mencocokkan CoA dengan NAS-IP-Address miliknya. CoA dengan identitas yang salah ditolak (NAK). gobill mengirim NAS-IP-Address yang dilaporkan NAS itu sendiri, dan mendecode Error-Cause di log. Pastikan IP NAS di gobill sama dengan IP yang dipakai router sebagai sumber paket RADIUS. Jika router punya beberapa IP, set `src-address` pada `/radius`.
-
-   **Router di belakang NAT atau CGNAT tidak bisa menerima CoA.** gobill mengirim CoA ke IP sumber paket RADIUS di port 3799. Jika router keluar lewat NAT, misalnya modem ISP atau CGNAT, paket itu tidak sampai. Login dan accounting tetap jalan, tetapi Disconnect dan isolir paksa gagal. Sesi baru berakhir saat pelanggan reconnect. Solusinya, sambungkan router dan gobill lewat tunnel, lihat [link jarak jauh](security.md#link-jarak-jauh-vps).
 
 4. **Uji aman di router produksi.** Jangan ubah profil yang dipakai pelanggan. Buat entry `/radius` terpisah dan profil uji dengan `domain=` dan `split-user-domain=yes`:
 

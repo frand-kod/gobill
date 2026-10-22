@@ -36,6 +36,13 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 ### Perbaikan
 
 - **Peringatan `trust_proxy`**: jika permintaan dari loopback membawa `CF-Connecting-IP`, `X-Forwarded-For`, `X-Real-IP` atau `Forwarded` saat `trust_proxy` = `no`, Status Sistem dan Setup cepat menampilkan peringatan, dan satu baris dicatat di log. Tanpa `trust_proxy`, semua pengunjung terlihat sebagai 127.0.0.1.
+### Ditambahkan
+
+- **CoA saat paket Radius berubah**: isi ulang, ganti paket, atau edit paket/bandwidth oleh admin kini mengirim CoA-Request (RFC 5176) dengan `Mikrotik-Rate-Limit` dan `Session-Timeout` baru ke sesi online. Jika NAS menolak atau tidak menjawab, sesi diputus dengan Disconnect-Request.
+
+### Diubah
+
+- **Batas sesi basi per NAS**: dihitung dari jarak Interim-Update yang teramati (sekitar 2x interval + 1 menit); `GOBILL_STALE_AFTER` menjadi batas bawah.
 
 ## [0.1.18] - 2026-10-17
 

@@ -67,7 +67,7 @@ func (s *Server) pLiveOf(ctx context.Context, c db.Customer, now int64, w pWords
 			cur = &open[i]
 		}
 	}
-	if cur == nil || now-cur.UpdatedAt > radius.StaleAfter {
+	if cur == nil || now-cur.UpdatedAt > radius.StaleFor(cur.NasIp) {
 		return l, nil
 	}
 	l.Online = true

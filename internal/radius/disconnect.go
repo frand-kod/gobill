@@ -2,7 +2,9 @@ package radius
 
 import (
 	"context"
+	"database/sql"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -10,12 +12,13 @@ import (
 	"layeh.com/radius"
 	"layeh.com/radius/rfc2865"
 	"layeh.com/radius/rfc2866"
+	"layeh.com/radius/vendors/mikrotik"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/secret"
 )
 
-// CoAPort is the RFC 5176 Disconnect-Request port on the NAS.
+// CoAPort is the RFC 5176 Disconnect-/CoA-Request port on the NAS.
 const CoAPort = "3799"
 
 // errorCauses are the RFC 5176 Error-Cause values worth naming.
@@ -40,6 +43,45 @@ func rfc5176ErrorCause(p *radius.Packet) (uint32, error) {
 // Disconnect sends a Disconnect-Request for one session to its NAS and waits for the ACK.
 // The secret is the one of the nas row covering the session's NAS IP.
 func Disconnect(ctx context.Context, q *db.Queries, key []byte, port string, s db.RadiusSession) error {
+	return request(ctx, q, key, port, s, radius.CodeDisconnectRequest, nil)
+}
+
+// CoA sends a CoA-Request (RFC 5176) that sets the session's Mikrotik-Rate-Limit and Session-Timeout
+// from the customer's active plan, as Access-Accept would now. plan != "": only when the active plan
+// has that name (nil, nothing sent, otherwise). No active plan: nothing sent.
+func CoA(ctx context.Context, q *db.Queries, key []byte, port string, s db.RadiusSession, plan string, now time.Time) error {
+	lr, err := q.GetRadiusLogin(ctx, s.Username)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	if plan != "" && lr.PlanName != plan {
+		return nil
+	}
+	rate := rateLimit(lr.RateUp, lr.RateDown, lr.RateUpUnit, lr.RateDownUnit, lr.Burst)
+	timeout := lr.ExpiresAt - now.Unix()
+	// ponytail: a time-limited plan keeps the NAS's current Session-Timeout (the remaining quota needs
+	// the usage sum of authorize); it is recomputed at the next login.
+	if lr.Limited == 1 && (lr.LimitType.String == "Time_Limit" || lr.LimitType.String == "Both_Limit") {
+		timeout = 0
+	}
+	return request(ctx, q, key, port, s, radius.CodeCoARequest, func(p *radius.Packet) {
+		if rate != "" {
+			mikrotik.MikrotikRateLimit_SetString(p, rate)
+		}
+		if timeout > 0 {
+			rfc2865.SessionTimeout_Set(p, rfc2865.SessionTimeout(min(timeout, 1<<32-1)))
+		}
+	})
+}
+
+// request sends a Disconnect- or CoA-Request for s, set adds the request's own attributes.
+func request(ctx context.Context, q *db.Queries, key []byte, port string, s db.RadiusSession, code radius.Code, set func(*radius.Packet)) error {
+	what, ack := "disconnect", radius.CodeDisconnectACK
+	if code == radius.CodeCoARequest {
+		what, ack = "CoA", radius.CodeCoAACK
+	}
 	if port == "" {
 		port = CoAPort
 	}
@@ -56,7 +98,7 @@ func Disconnect(ctx context.Context, q *db.Queries, key []byte, port string, s d
 		if err != nil {
 			return err
 		}
-		p := radius.New(radius.CodeDisconnectRequest, sec)
+		p := radius.New(code, sec)
 		rfc2865.UserName_SetString(p, s.Username)
 		rfc2866.AcctSessionID_SetString(p, s.SessionID)
 		// Identify the session to the NAS as it knows itself (RFC 5176 §3): the NAS-IP-Address
@@ -70,6 +112,9 @@ func Disconnect(ctx context.Context, q *db.Queries, key []byte, port string, s d
 		if ip := net.ParseIP(s.FramedIp); ip != nil && ip.To4() != nil {
 			rfc2865.FramedIPAddress_Set(p, ip.To4())
 		}
+		if set != nil {
+			set(p)
+		}
 		addMA(p)
 		ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
@@ -77,11 +122,11 @@ func Disconnect(ctx context.Context, q *db.Queries, key []byte, port string, s d
 		if err != nil {
 			return err
 		}
-		if resp.Code != radius.CodeDisconnectACK {
+		if resp.Code != ack {
 			if ec, err := rfc5176ErrorCause(resp); err == nil {
-				return fmt.Errorf("NAS %s refused disconnect: %v (Error-Cause %d %s)", s.NasIp, resp.Code, ec, errorCauses[ec])
+				return fmt.Errorf("NAS %s refused %s: %v (Error-Cause %d %s)", s.NasIp, what, resp.Code, ec, errorCauses[ec])
 			}
-			return fmt.Errorf("NAS %s refused disconnect: %v", s.NasIp, resp.Code)
+			return fmt.Errorf("NAS %s refused %s: %v", s.NasIp, what, resp.Code)
 		}
 		return nil
 	}
