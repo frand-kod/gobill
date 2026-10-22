@@ -35,7 +35,9 @@ Lalu sinkronkan paket ke profil router.
     /radius add service=hotspot,ppp address=192.168.88.10 secret=<SECRET> authentication-port=1812 accounting-port=1813 timeout=2s
     /radius incoming set accept=yes port=3799
 
-`/radius incoming` membuka CoA di port 3799. gobill memakai CoA untuk memutus sesi atau mengubah paket, tanpa menunggu pelanggan reconnect.
+`/radius incoming` membuka CoA di port 3799. gobill memakai CoA untuk memutus sesi atau mengubah paket, tanpa menunggu pelanggan reconnect. Saat paket Radius pelanggan berubah (isi ulang, ganti paket, atau admin mengedit paket/bandwidth), gobill mengirim CoA-Request berisi `Mikrotik-Rate-Limit` dan `Session-Timeout` baru ke sesi yang online. Jika NAS menolak (NAK) atau tidak menjawab, gobill memutus sesi dengan Disconnect-Request dan pelanggan mendapat paket baru saat login ulang.
+
+Atur interval interim di router (contoh di bawah memakai `1m`). gobill menghitung batas sesi basi per NAS dari jarak Interim-Update yang teramati (sekitar 2x interval + 1 menit). `GOBILL_STALE_AFTER` tetap menjadi batas bawah. Tanpa interim, sesi dianggap basi setelah `GOBILL_STALE_AFTER`.
 
 ### Hotspot
 

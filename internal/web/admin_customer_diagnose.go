@@ -131,7 +131,7 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 				x = o
 			}
 		}
-		if age := now - x.UpdatedAt; age > radius.StaleAfter {
+		if age := now - x.UpdatedAt; age > radius.StaleFor(x.NasIp) {
 			add("Connection", "warn", t("Silent"), t("A session is open but silent for %s (the device may be off)", humanDur(age)))
 			tip("Device is silent: check the customer's modem or ONT is on and the cable is connected")
 		} else {
