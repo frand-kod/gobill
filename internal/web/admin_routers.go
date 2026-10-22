@@ -27,6 +27,13 @@ func routerFields(v, e map[string]string, editing bool) []field {
 		text("port", "Port", v, e).as("number").req(),
 	}, "Connection", "")
 	out = append(out, section([]field{text("username", "Username", v, e).req(), pw}, "Login", "")...)
+	if editing {
+		rp := text("reset_pin", "Reset certificate pin", v, e).as("checkbox").hint("Not pinned yet. The certificate is pinned on the first TLS connection (port 8729). Tick to forget the pin after the router certificate was changed.")
+		if v["cert_pin"] != "" {
+			rp.Hint = v["cert_pin"] // SHA-256 hex, needs no translation
+		}
+		out = append(out, section([]field{rp}, "Certificate", "")...)
+	}
 	return append(out, section([]field{
 		text("coordinates", "Coordinates", v, e).as("coords").hint("lat,lng, e.g. -6.2,106.8. Optional; shown on the router map."),
 		text("coverage", "Coverage (m)", v, e).as("number").hint("Radius of the wireless coverage in meters. Optional."),
@@ -83,13 +90,13 @@ func (s *Server) routerEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := map[string]string{"name": x.Name, "host": x.Host, "port": fmt.Sprint(x.Port), "username": x.Username,
-		"description": x.Description, "enabled": fmt.Sprint(x.Enabled), "coordinates": x.Coordinates, "coverage": fmt.Sprint(x.Coverage)}
+		"description": x.Description, "enabled": fmt.Sprint(x.Enabled), "coordinates": x.Coordinates, "coverage": fmt.Sprint(x.Coverage), "cert_pin": x.CertPin}
 	s.renderForm(w, r, 200, formPage{"Edit Router", fmt.Sprint("/admin/routers/", id), "/admin/routers", routerFields(v, nil, true)})
 }
 
 func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
-	v := formVals(r, "name", "host", "port", "username", "description", "enabled", "coordinates", "coverage")
+	v := formVals(r, "name", "host", "port", "username", "description", "enabled", "coordinates", "coverage", "reset_pin")
 	pass := r.PostFormValue("password")
 	e := map[string]string{}
 	for _, k := range []string{"name", "host", "username"} {
@@ -110,6 +117,7 @@ func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 		e["coverage"] = "Enter meters, 0 or more"
 	}
 	var current []byte
+	var pin string
 	if id != 0 {
 		x, err := s.queries.GetRouter(r.Context(), id)
 		if err == sql.ErrNoRows {
@@ -120,6 +128,10 @@ func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		current = x.PasswordEnc
+		v["cert_pin"] = x.CertPin
+		if v["reset_pin"] != "1" {
+			pin = x.CertPin
+		}
 	}
 	if pass == "" && id == 0 {
 		e["password"] = "This field is required"
@@ -143,7 +155,7 @@ func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 				Username: v["username"], PasswordEnc: enc, Description: v["description"], Enabled: enabled, Coordinates: coords, Coverage: coverage})
 		} else {
 			err = s.queries.UpdateRouter(r.Context(), db.UpdateRouterParams{Name: v["name"], Host: v["host"], Port: port,
-				Username: v["username"], PasswordEnc: enc, Description: v["description"], Enabled: enabled, Coordinates: coords, Coverage: coverage, ID: id})
+				Username: v["username"], PasswordEnc: enc, Description: v["description"], Enabled: enabled, Coordinates: coords, Coverage: coverage, CertPin: pin, ID: id})
 		}
 		switch {
 		case isUnique(err):

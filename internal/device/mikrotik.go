@@ -2,7 +2,11 @@ package device
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -18,7 +22,11 @@ type Router struct {
 	User string
 	Pass string
 	TLS  bool
-	Exec execFunc // test seam; nil means dial the router
+	// Pin is the stored SHA-256 fingerprint (hex) of the router's leaf certificate. Empty means
+	// trust on first use: the first fingerprint seen is passed to OnPin and stored.
+	Pin   string
+	OnPin func(fp string)
+	Exec  execFunc // test seam; nil means dial the router
 }
 
 // execFunc is the test seam: send one sentence, get the !re replies back.
@@ -34,8 +42,9 @@ func (r Router) exec(ctx context.Context, sentence []string) ([]map[string]strin
 	var c *routeros.Client
 	var err error
 	if r.TLS {
-		// ponytail: RouterOS certs are usually self-signed, so no verification.
-		c, err = routeros.DialTLSContext(ctx, r.Addr, r.User, r.Pass, &tls.Config{InsecureSkipVerify: true})
+		// RouterOS certs are self-signed, so the chain is not verified; the leaf is pinned instead.
+		c, err = routeros.DialTLSContext(ctx, r.Addr, r.User, r.Pass,
+			&tls.Config{InsecureSkipVerify: true, VerifyConnection: r.verifyPin})
 	} else {
 		c, err = routeros.DialContext(ctx, r.Addr, r.User, r.Pass)
 	}
@@ -52,6 +61,31 @@ func (r Router) exec(ctx context.Context, sentence []string) ([]map[string]strin
 		out = append(out, s.Map)
 	}
 	return out, nil
+}
+
+// CertFingerprint is the SHA-256 of the whole DER leaf certificate, lower-case hex.
+func CertFingerprint(cert *x509.Certificate) string {
+	sum := sha256.Sum256(cert.Raw)
+	return hex.EncodeToString(sum[:])
+}
+
+// verifyPin is the tls.Config.VerifyConnection of API-SSL: it runs before the login is sent, so
+// a mismatching (possibly man-in-the-middle) router never sees the password.
+func (r Router) verifyPin(cs tls.ConnectionState) error {
+	if len(cs.PeerCertificates) == 0 {
+		return errors.New("router sent no certificate")
+	}
+	got := CertFingerprint(cs.PeerCertificates[0])
+	if r.Pin == "" {
+		if r.OnPin != nil {
+			r.OnPin(got)
+		}
+		return nil
+	}
+	if got != r.Pin {
+		return fmt.Errorf("router certificate does not match the pinned one (expected %s, got %s); reset the certificate pin on the router page if the certificate was changed on purpose", r.Pin, got)
+	}
+	return nil
 }
 
 // firstID returns the .id of the first row of `path`/print matching key=val, or "".

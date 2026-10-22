@@ -2496,5 +2496,8 @@
     "Packages": "Paket",
     "At least %s characters": "Minimal %s karakter",
     "Change it with the verification form below": "Ubah lewat formulir verifikasi di bawah",
-    "Resend code": "Kirim ulang kode"
+    "Resend code": "Kirim ulang kode",
+    "Reset certificate pin": "Reset pin sertifikat",
+    "Certificate": "Sertifikat",
+    "Not pinned yet. The certificate is pinned on the first TLS connection (port 8729). Tick to forget the pin after the router certificate was changed.": "Belum dipin. Sertifikat dipin pada koneksi TLS pertama (port 8729). Centang untuk melupakan pin setelah sertifikat router diganti."
 }
