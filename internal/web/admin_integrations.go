@@ -184,15 +184,18 @@ func (s *Server) tripayTest(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case err != nil:
 	case g == nil:
-		err = errors.New(s.catalog.T(s.language(), "Choose Tripay as the Payment Gateway and save first"))
+		err = errors.New(s.catalog.T(s.language(), "Choose Tripay or Duitku as the Payment Gateway and save first"))
 	default:
 		var chans []payment.Channel
 		if chans, err = g.Channels(ctx); err == nil {
-			mode := st["tripay_mode"]
+			name, mode := "Tripay", st["tripay_mode"]
+			if st["payment_gateway"] == "duitku" {
+				name, mode = "Duitku", st["duitku_mode"]
+			}
 			if mode != "production" {
 				mode = "sandbox"
 			}
-			ok = fmt.Sprintf(s.catalog.T(s.language(), "Tripay connection OK (%s mode, %d payment channels)"), mode, len(chans))
+			ok = fmt.Sprintf(s.catalog.T(s.language(), name+" connection OK (%s mode, %d payment channels)"), mode, len(chans))
 		}
 	}
 	s.testResult(w, r, "tripay", ok, err)

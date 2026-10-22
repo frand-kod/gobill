@@ -85,6 +85,7 @@ func (s *Server) paymentRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /portal/payments/{id}", s.requireCustomer(s.pPayView))
 	mux.Handle("POST /portal/payments/{id}/check", s.requireCustomer(s.pPayCheck))
 	mux.HandleFunc("POST /callback/tripay", s.tripayCallback)
+	mux.HandleFunc("POST /callback/duitku", s.tripayCallback) // same handler: the configured gateway verifies it
 	mux.HandleFunc("GET /qris/{id}/{token}", s.qrisPage)
 }
 
@@ -357,6 +358,7 @@ func (s *Server) Handler() http.Handler {
 	// the Tripay server posts the callback without our origin; its HMAC signature authenticates it
 	cop := http.NewCrossOriginProtection()
 	cop.AddInsecureBypassPattern("POST /callback/tripay")
+	cop.AddInsecureBypassPattern("POST /callback/duitku")
 	cop.AddInsecureBypassPattern("POST /isolir/voucher")
 	cop.AddInsecureBypassPattern("POST /radius.php")
 	cop.AddInsecureBypassPattern("POST /radius/rest")
