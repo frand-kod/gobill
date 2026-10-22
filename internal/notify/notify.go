@@ -244,6 +244,7 @@ func Load(ctx context.Context, q *db.Queries) (*Notifier, error) {
 	for _, r := range rows {
 		n.Settings[r.Key] = r.Value
 	}
+	n.Log = LogTo(q)
 	return n, nil
 }
 
@@ -359,7 +360,7 @@ func (n *Notifier) WhatsApp(ctx context.Context, phone, text string) error {
 	if n.get("wa_url") == "" {
 		return nil
 	}
-	return n.logged("wa", phone, "", text, n.getURL(ctx, gateway(n.get("wa_url"), n.phoneFormat(phone), text)))
+	return n.logged("wa", phone, "", text, n.getURL(ctx, gateway(n.get("wa_url"), n.phoneFormat(nonDigit.ReplaceAllString(phone, "")), text)))
 }
 
 // AltWA POSTs {phone: "<digits>@s.whatsapp.net", message} to <alt_wga_server_url>/send/message,
@@ -556,6 +557,16 @@ func (n *Notifier) fill(tpl string, v map[string]string) string {
 	return msg
 }
 
+// Fill is fill for a message to customer c: the customer's name, username and user_name, then vars.
+func (n *Notifier) Fill(tpl string, c db.Customer, vars map[string]string) string {
+	return n.fill(tpl, custVars(c, vars))
+}
+
+// EmailSubject is the subject of a customer email: the company name in brackets, then subject.
+func (n *Notifier) EmailSubject(subject string) string {
+	return "[" + n.get("company_name") + "] " + subject
+}
+
 // template is the stored text of name, or the built-in one when the stored text is blank: a message is
 // never sent empty.
 func (n *Notifier) template(name string) string {
@@ -584,7 +595,7 @@ func (n *Notifier) send(ctx context.Context, c db.Customer, via, subject, msg st
 		}
 		return n.WhatsApp(ctx, c.Phone, msg)
 	case "email":
-		return n.Email(ctx, c.Email, "["+n.get("company_name")+"] "+subject, msg)
+		return n.Email(ctx, c.Email, n.EmailSubject(subject), msg)
 	}
 	return nil
 }

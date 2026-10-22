@@ -83,7 +83,7 @@ func (s *Server) runBulk(st map[string]string, cs []db.Customer, channel, from, 
 		if i > 0 && delay > 0 {
 			time.Sleep(delay)
 		}
-		err := s.deliver(context.Background(), n, st, channel, from, subject, messageFor(c, st["company_name"], tpl), c)
+		err := s.deliver(context.Background(), n, st, channel, from, subject, messageFor(n, c, st, tpl), c)
 		bulk.record(c, err)
 	}
 }

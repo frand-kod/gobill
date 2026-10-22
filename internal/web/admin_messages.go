@@ -25,9 +25,10 @@ func channelField(v, e map[string]string) field {
 		Options: []option{{"sms", "SMS"}, {"wa", "WhatsApp"}, {"email", "Email"}, {"inbox", "Inbox"}}}
 }
 
-// messageFor fills the old placeholders (str_replace in message.php).
-func messageFor(c db.Customer, company, tpl string) string {
-	return notify.Render(tpl, map[string]string{"name": c.Fullname, "user_name": c.Username, "phone": c.Phone, "company_name": company})
+// messageFor fills a message the way the automated ones are filled (notify.Fill): the customer's
+// fields plus company, company_name, url and payment_link. Package and price placeholders stay empty.
+func messageFor(n *notify.Notifier, c db.Customer, st map[string]string, tpl string) string {
+	return n.Fill(tpl, c, map[string]string{"phone": c.Phone, "company": st["company_name"], "company_name": st["company_name"], "url": customerLoginURL(st)})
 }
 
 // deliver sends one message on one channel. Gateways that are not configured are an error, not a silent no-op.
@@ -61,7 +62,7 @@ func (s *Server) deliver(ctx context.Context, n *notify.Notifier, st map[string]
 		if c.Email == "" {
 			return errors.New("no email address")
 		}
-		return n.Email(ctx, c.Email, subject, text)
+		return n.Email(ctx, c.Email, n.EmailSubject(subject), text)
 	}
 	return errors.New("unknown channel")
 }
@@ -132,7 +133,7 @@ func (s *Server) msgSend(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "message notifier", err)
 		return
 	}
-	err = s.deliver(r.Context(), n, st, v["channel"], adminFrom(r).Username, v["subject"], messageFor(c, st["company_name"], v["message"]), c)
+	err = s.deliver(r.Context(), n, st, v["channel"], adminFrom(r).Username, v["subject"], messageFor(n, c, st, v["message"]), c)
 	s.logActivity(r, "message.send", v["channel"]+" to "+c.Username)
 	if err != nil {
 		s.msgSendPage(w, r, 200, v, nil, "", "Failed to send message: "+err.Error())

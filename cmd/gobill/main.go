@@ -155,7 +155,6 @@ func run() error {
 			slog.Error("reload settings", "err", err)
 			return
 		}
-		n.Log = notify.LogTo(svc.Q)
 		loc := loadZone("Asia/Jakarta", time.FixedZone("WIB", 7*3600))
 		svc.Reload(n, loadZone(n.Settings["timezone"], loc))
 	}
