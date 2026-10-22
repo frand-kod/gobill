@@ -45,19 +45,28 @@ func (r Radius) UpdatePlan(ctx context.Context, _ string, p Plan) error {
 	return nil
 }
 
-// coa sends a CoA-Request per session. A NAK or timeout falls back to Disconnect-Request: the
-// user reconnects and Access-Accept carries the new plan.
-func (r Radius) coa(ctx context.Context, ss []db.RadiusSession, plan string) {
-	for _, s := range ss {
-		err := radius.CoA(ctx, r.Q, r.Key, r.Port, s, plan, time.Now())
-		if err == nil {
-			continue
-		}
-		slog.Warn("radius: CoA failed, disconnecting", "user", s.Username, "nas", s.NasIp, "err", err)
-		if err := radius.Disconnect(ctx, r.Q, r.Key, r.Port, s); err != nil {
-			slog.Warn("radius: disconnect after CoA failed", "user", s.Username, "nas", s.NasIp, "err", err)
-		}
+// coa sends a CoA-Request per session in the background, so the HTTP request that triggered it is
+// not held by NAS timeouts. A NAK or timeout falls back to Disconnect-Request: the user reconnects
+// and Access-Accept carries the new plan.
+func (r Radius) coa(_ context.Context, ss []db.RadiusSession, plan string) {
+	if len(ss) == 0 {
+		return
 	}
+	go func() {
+		// ponytail: sessions go one by one in one goroutine; fan out if a plan edit hits hundreds of dead NAS.
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(len(ss))*7*time.Second)
+		defer cancel()
+		for _, s := range ss {
+			err := radius.CoA(ctx, r.Q, r.Key, r.Port, s, plan, time.Now())
+			if err == nil {
+				continue
+			}
+			slog.Warn("radius: CoA failed, disconnecting", "user", s.Username, "nas", s.NasIp, "err", err)
+			if err := radius.Disconnect(ctx, r.Q, r.Key, r.Port, s); err != nil {
+				slog.Warn("radius: disconnect after CoA failed", "user", s.Username, "nas", s.NasIp, "err", err)
+			}
+		}
+	}()
 }
 
 func (r Radius) IsOnline(ctx context.Context, c Customer, _ string) (bool, error) {
