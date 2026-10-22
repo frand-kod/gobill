@@ -16,6 +16,8 @@ This setup was tested on RouterOS 6.49.22. Hardening is described in [security](
 
 gobill calls the RouterOS API to create hotspot users, create PPPoE secrets, create queues, and disconnect sessions. The port is TCP 8728, or 8729 if TLS is used.
 
+On port 8729 gobill pins the router certificate (trust on first use). The first TLS connection stores the SHA-256 fingerprint of the router's certificate; later connections are refused, before the password is sent, if the fingerprint differs. The error names the expected and received fingerprints. After you deliberately replace the certificate on the router, open the router in **Routers > Edit**, tick **Reset certificate pin**, and save; the next connection pins the new certificate.
+
 Create a dedicated user on MikroTik:
 
     /user group add name=gobill policy=read,write,api,test

@@ -65,7 +65,13 @@ func (s *Service) routerConn(r db.Router) (device.Router, error) {
 	if err != nil {
 		return device.Router{}, fmt.Errorf("decrypt router password: %w", err)
 	}
-	return device.Router{Addr: net.JoinHostPort(r.Host, strconv.FormatInt(r.Port, 10)), User: r.Username, Pass: string(pw), TLS: r.Port == 8729}, nil
+	return device.Router{Addr: net.JoinHostPort(r.Host, strconv.FormatInt(r.Port, 10)), User: r.Username, Pass: string(pw), TLS: r.Port == 8729,
+		Pin: r.CertPin, OnPin: func(fp string) {
+			// only fills an empty pin, so concurrent first connects keep the first one
+			if err := s.Q.PinRouterCert(context.Background(), db.PinRouterCertParams{CertPin: fp, ID: r.ID}); err != nil {
+				slog.Error("pin router certificate", "router", r.Name, "err", err)
+			}
+		}}, nil
 }
 
 // Ping connects to the router and returns its identity.

@@ -16,6 +16,8 @@ Setup ini diuji di RouterOS 6.49.22. Pengerasan ada di [keamanan](security.md).
 
 gobill memanggil RouterOS API untuk membuat user hotspot, membuat secret PPPoE, membuat queue, dan memutus sesi. Port-nya TCP 8728, atau 8729 jika memakai TLS.
 
+Pada port 8729 gobill mem-pin sertifikat router (trust on first use). Koneksi TLS pertama menyimpan sidik jari SHA-256 sertifikat router; koneksi berikutnya ditolak, sebelum sandi dikirim, jika sidik jarinya berbeda. Pesan error menyebut sidik jari yang diharapkan dan yang diterima. Setelah Anda sengaja mengganti sertifikat di router, buka **Router > Ubah**, centang **Reset pin sertifikat**, lalu simpan; koneksi berikutnya mem-pin sertifikat baru.
+
 Buat user khusus di MikroTik:
 
     /user group add name=gobill policy=read,write,api,test

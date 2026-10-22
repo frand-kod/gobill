@@ -254,6 +254,7 @@ type Router struct {
 	Coverage    int64
 	LastSeenAt  sql.NullInt64
 	Online      sql.NullInt64
+	CertPin     string
 }
 
 type Session struct {

@@ -18,8 +18,11 @@ WHERE name LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR host LIKE '%' || CAST
 ORDER BY name LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 -- name: UpdateRouter :exec
-UPDATE routers SET name = ?, host = ?, port = ?, username = ?, password_enc = ?, description = ?, enabled = ?, coordinates = ?, coverage = ?
+UPDATE routers SET name = ?, host = ?, port = ?, username = ?, password_enc = ?, description = ?, enabled = ?, coordinates = ?, coverage = ?, cert_pin = ?
 WHERE id = ?;
+
+-- name: PinRouterCert :exec
+UPDATE routers SET cert_pin = ? WHERE id = ? AND cert_pin = '';
 
 -- name: DeleteRouter :exec
 DELETE FROM routers WHERE id = ?;
