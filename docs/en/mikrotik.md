@@ -35,7 +35,7 @@ Then sync the plans to the router profiles.
     /radius add service=hotspot,ppp address=192.168.88.10 secret=<SECRET> authentication-port=1812 accounting-port=1813 timeout=2s
     /radius incoming set accept=yes port=3799
 
-`/radius incoming` opens CoA on port 3799. gobill uses CoA to disconnect sessions or change plans, without waiting for the customer to reconnect.
+`/radius incoming` opens CoA on port 3799. gobill uses CoA to disconnect sessions. Plan change via CoA for Radius plans is coming; until then, speed changes apply when the customer reconnects.
 
 ### Hotspot
 
@@ -72,6 +72,8 @@ Voucher login on the hotspot page uses the code as the username. This login goes
    Versions before 6.49.18 and 7.15 may not send Message-Authenticator in requests. For them, set the NAS to **Not required (legacy NAS)** in gobill (see [security](security.md#radius-hardening)).
 
 3. **NAS-IP-Address and source IP for CoA.** The router matches CoA against its own NAS-IP-Address. CoA with the wrong identity is rejected (NAK). gobill sends the NAS-IP-Address that the NAS reports itself, and decodes Error-Cause in the log. Make sure the NAS IP in gobill matches the IP the router uses as the source of RADIUS packets. If the router has several IPs, set `src-address` on `/radius`.
+
+   **A router behind NAT or CGNAT cannot receive CoA.** gobill sends CoA to the source IP of the RADIUS packets, on port 3799. If the router goes out through NAT, for example an ISP modem or CGNAT, the packet never arrives. Login and accounting still work, but Disconnect and forced isolation fail. The session only ends when the customer reconnects. The fix is a tunnel between the router and gobill, see [remote link](security.md#remote-link-vps).
 
 4. **Safe testing on a production router.** Do not change the profiles that customers use. Create a separate `/radius` entry and a test profile that uses `domain=` with `split-user-domain=yes`:
 

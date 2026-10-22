@@ -810,6 +810,9 @@ func (s *Server) NoteNAS(nas string) {
 	metrics.Set("radius_nas_last_packet_timestamp", float64(s.now().Unix()), "nas", nas)
 }
 
+// acctOnWindow is how many seconds before an Accounting-On/Off a session update must be to be closed by it.
+const acctOnWindow = 5
+
 // Account applies Start, Interim-Update, Stop and Accounting-On/Off to radius_sessions.
 func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 	now := s.now().Unix()
@@ -817,8 +820,10 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 	metrics.Set("radius_nas_last_packet_timestamp", float64(now), "nas", a.NAS)
 	switch a.Type {
 	case rfc2866.AcctStatusType_Value_AccountingOn, rfc2866.AcctStatusType_Value_AccountingOff:
-		// NAS rebooted: its open sessions are gone.
-		arg := db.CloseRadiusSessionsByNASParams{StoppedAt: sql.NullInt64{Int64: now, Valid: true}, NasIp: a.NAS}
+		// NAS rebooted: its open sessions are gone. A session updated in the last few seconds is the Start
+		// that raced this packet (both are sent together), so it stays open.
+		// ponytail: fixed window; a pre-reboot interim inside it is left to CloseStaleRadiusSessions.
+		arg := db.CloseRadiusSessionsByNASParams{StoppedAt: sql.NullInt64{Int64: now, Valid: true}, NasIp: a.NAS, UpdatedAt: now - acctOnWindow}
 		return s.commit(ctx, func(q *db.Queries) error { return q.CloseRadiusSessionsByNAS(ctx, arg) })
 	case rfc2866.AcctStatusType_Value_Start, rfc2866.AcctStatusType_Value_InterimUpdate, rfc2866.AcctStatusType_Value_Stop:
 		// gigawords << 32 goes negative from 2^31 GB up, and a REST value can be negative. Clamp, do not

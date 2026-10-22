@@ -1,0 +1,34 @@
+name: lab
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [direct, nat]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install podman
+        run: sudo apt-get update && sudo apt-get install -y podman
+      - uses: actions/cache@v4
+        with:
+          path: lab/.cache
+          key: chr-7.24.5
+      - run: LAB_MODE=${{ matrix.mode }} lab/run.sh up
+      - run: LAB_MODE=${{ matrix.mode }} lab/run.sh test
+      - if: always()
+        run: lab/run.sh down

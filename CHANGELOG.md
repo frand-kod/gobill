@@ -8,6 +8,14 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Perbaikan
+
+- **Sesi pertama setelah router menyala tidak lagi tertutup sendiri**: router mengirim Accounting-On dan Start pertama bersamaan. Jika Start tercatat lebih dulu, Accounting-On menutup sesi yang baru dibuka, sehingga sesi itu hilang dari daftar online dan tidak bisa di-Disconnect atau diisolir. Kini Accounting-On hanya menutup sesi yang tidak diperbarui dalam 5 detik terakhir.
+
+### Dokumentasi
+
+- Panduan MikroTik menjelaskan bahwa router di belakang NAT atau CGNAT tidak bisa menerima CoA, sehingga Disconnect dan isolir paksa gagal, beserta solusinya lewat tunnel.
+
 ## [0.1.18] - 2026-10-17
 
 ### Keamanan

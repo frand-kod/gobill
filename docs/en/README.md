@@ -44,6 +44,13 @@ The search box in the top bar finds customers, subscriptions, invoices, vouchers
 
 The add customer form has an optional **Langsung aktifkan paket** card. Pick a plan there to activate it right after the customer is created, paid in Cash. Only plans that fit the service type are listed, and Balance plans are left out. If activation fails, the customer is still created, and the customer page shows the reason. Leave the plan empty to choose one later from the customer page.
 
+## Not supported yet
+
+- Plan change via CoA for Radius plans: in progress. Until then, speed changes apply when the customer reconnects. CoA for disconnecting sessions already works.
+- Native RadSec: use radsecproxy or WireGuard. See [security](security.md).
+- WireGuard on RouterOS 6: that version does not have it. Use L2TP/IPsec or upgrade RouterOS.
+- PHPNuxBill import: coupons, ODP, inbox, and the `email_invoice` template are not imported. The `frrest_interim_update` setting is not read. See [migration](migration-phpnuxbill.md).
+
 ## See also
 
 - [Project README](../../README.md): project overview. Written in Indonesian.

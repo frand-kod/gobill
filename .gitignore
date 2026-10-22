@@ -16,3 +16,4 @@ docs/phpnuxbill_*.json
 
 # Release signing key: never commit (see SECURITY.md)
 release.key
+lab/.cache/

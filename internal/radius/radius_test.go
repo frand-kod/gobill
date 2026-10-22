@@ -363,9 +363,36 @@ func TestAccountingOnClosesSessions(t *testing.T) {
 	e := setup(t)
 	e.sendAcct(t, rfc2866.AcctStatusType_Value_Start, "s1", "172.16.0.5", "AA")
 	e.sendAcct(t, rfc2866.AcctStatusType_Value_Start, "s2", "172.16.0.6", "BB")
+	e.now = e.now.Add(time.Minute)
 	e.sendAcct(t, rfc2866.AcctStatusType_Value_AccountingOn, "", "", "")
 	if n, _ := e.openSessions(); n != 0 {
 		t.Fatalf("open %d", n)
+	}
+}
+
+// A NAS sends Accounting-On and its first Start together. If the Start commits first, the Accounting-On
+// must not close it: interims never reopen a stopped session.
+func TestAccountingOnKeepsRacingStart(t *testing.T) {
+	e := setup(t)
+	e.sendAcct(t, rfc2866.AcctStatusType_Value_Start, "old", "172.16.0.5", "AA")
+	e.now = e.now.Add(time.Minute)
+	e.sendAcct(t, rfc2866.AcctStatusType_Value_Start, "new", "172.16.0.6", "BB")
+	e.sendAcct(t, rfc2866.AcctStatusType_Value_AccountingOn, "", "", "")
+	var open []string
+	rows, err := e.conn.Query("SELECT session_id FROM radius_sessions WHERE stopped_at IS NULL")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		open = append(open, id)
+	}
+	if len(open) != 1 || open[0] != "new" {
+		t.Fatalf("open sessions %v, want [new]", open)
 	}
 }
 
