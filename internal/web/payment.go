@@ -159,7 +159,7 @@ func (s *Server) tripayCallback(w http.ResponseWriter, r *http.Request) {
 	pr, err := s.queries.GetPaymentRequestByRef(r.Context(), ref)
 	if err != nil {
 		slog.Warn("tripay callback: unknown reference", "ref", ref, "err", err)
-	} else if amount != 0 && amount != pr.Amount {
+	} else if (amount != 0 || status == payment.Paid) && amount != pr.Amount { // paid without an amount is refused too
 		metrics.Inc("payment_callbacks_total", "result", "amount_mismatch")
 		slog.Warn("tripay callback: amount mismatch", "ref", ref, "got", amount, "want", pr.Amount)
 		http.Error(w, "bad request", http.StatusBadRequest)

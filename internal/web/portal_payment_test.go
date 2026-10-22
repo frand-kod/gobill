@@ -98,7 +98,7 @@ func TestTripayCallbackStatusTransitions(t *testing.T) {
 	e.order(t, url.Values{"channel": {"QRIS"}})
 	pr := e.pending(t)
 	send := func(status string) {
-		b := fmt.Sprintf(`{"merchant_ref":%q,"status":%q}`, pr.Ref, status)
+		b := fmt.Sprintf(`{"merchant_ref":%q,"status":%q,"total_amount":%d}`, pr.Ref, status, pr.Amount)
 		postCallback(e.h, b, signed(b))
 	}
 	for _, st := range []string{"UNPAID", "FAILED", "EXPIRED"} {
