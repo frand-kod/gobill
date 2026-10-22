@@ -22,12 +22,12 @@ MCowBQYDK2VwAyEALHIK3Gd13BFfHN2yvRRhOQYlBAOuRZpiqY5Q4ihg7Bw=
 # verify_sums SUMS SIG: SIG berisi tanda tangan ed25519 base64 atas byte mentah SUMS. Gagal = tolak.
 verify_sums() {
 	command -v openssl >/dev/null 2>&1 || die "openssl tidak ada, tanda tangan tidak bisa diperiksa (pasang openssl, atau GOBILL_INSECURE=1 dengan risiko sendiri)"
+	# OpenSSL 1.1.1 tidak bisa memeriksa ed25519 dari baris perintah (-rawin baru ada di OpenSSL 3).
+	case $(openssl version) in "OpenSSL 1."* | "OpenSSL 0."*) die "perlu OpenSSL 3 untuk memeriksa tanda tangan ($(openssl version)); periksa manual dengan 'gobill verify-release', atau GOBILL_INSECURE=1 dengan risiko sendiri" ;; esac
 	_k=$1.key; _b=$2.bin
 	printf '%s\n' "$PUBPEM" > "$_k"
 	openssl base64 -d -A -in "$2" -out "$_b" 2>/dev/null || { rm -f "$_k" "$_b"; return 1; }
-	# -rawin ada di OpenSSL 3; OpenSSL 1.1.1 memeriksa ed25519 tanpa -rawin.
-	{ openssl pkeyutl -verify -pubin -inkey "$_k" -rawin -in "$1" -sigfile "$_b" ||
-	  openssl pkeyutl -verify -pubin -inkey "$_k" -in "$1" -sigfile "$_b"; } >/dev/null 2>&1
+	openssl pkeyutl -verify -pubin -inkey "$_k" -rawin -in "$1" -sigfile "$_b" >/dev/null 2>&1
 	_r=$?
 	rm -f "$_k" "$_b"
 	return $_r
