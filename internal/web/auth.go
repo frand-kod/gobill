@@ -31,7 +31,7 @@ type loginData struct{ Username string }
 func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.PostFormValue("username"))
 	ip, uk := clientIP(r), "u:"+strings.ToLower(username)
-	if s.tooManyFailures(ip) {
+	if s.loginLocked(ip, username) {
 		s.render(w, r, http.StatusTooManyRequests, "login", Page{
 			Title: "Sign in",
 			Error: "Too many failed attempts. Try again in 15 minutes.",
@@ -51,7 +51,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	passOK = passOK || (err == nil && s.legacyLogin(r.Context(), admin.ID, password))
 	if err != nil || !passOK || admin.Status != "Active" {
 		metrics.Inc("login_failures_total", "scope", "admin")
-		s.recordFailure(ip)
+		s.loginFailed(ip, username)
 		s.recordFailure(uk)
 		s.render(w, r, http.StatusOK, "login", Page{
 			Title: "Sign in",
@@ -73,7 +73,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/login/2fa", http.StatusSeeOther)
 		return
 	}
-	s.clearFailures(ip)
+	s.clearFailures(loginKey(ip, username))
 	s.clearFailures(uk)
 	s.finishLogin(w, r, admin)
 }
@@ -153,6 +153,24 @@ func (s *Server) tooManyFailures(ip string) bool {
 	return len(s.recent(ip)) >= maxFailedLogins
 }
 
+// Lock key is ip|username so customers sharing one CGNAT IP don't lock each other out; a loose
+// per-IP cap ("~"+ip, never cleared by a success) still stops one IP spraying many usernames.
+func loginKey(ip, user string) string { return ip + "|" + strings.ToLower(strings.TrimSpace(user)) }
+
+func (s *Server) loginLocked(ip, user string) bool {
+	if s.tooManyFailures(loginKey(ip, user)) {
+		return true
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.recent("~"+ip)) >= maxFailedPerIP
+}
+
+func (s *Server) loginFailed(ip, user string) {
+	s.recordFailure(loginKey(ip, user))
+	s.recordFailure("~" + ip)
+}
+
 // userDelay slows guessing against one username, whatever the client IP, by loginDelayStep per recent
 // failure up to loginDelayMax. It never locks: a hard per-username lock would let anyone lock admin out.
 // ponytail: the delay applies to 2FA accounts too; exempt them if the wait annoys real admins.
@@ -180,7 +198,7 @@ func (s *Server) lockedCount() int {
 	defer s.mu.Unlock()
 	n := 0
 	for k := range s.failed {
-		if !strings.HasPrefix(k, "u:") && !strings.HasPrefix(k, "cu:") && len(s.recent(k)) >= maxFailedLogins {
+		if !strings.HasPrefix(k, "u:") && !strings.HasPrefix(k, "~") && !strings.HasPrefix(k, "cu:") && len(s.recent(k)) >= maxFailedLogins {
 			n++
 		}
 	}

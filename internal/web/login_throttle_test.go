@@ -1,9 +1,12 @@
 package web
 
 import (
+	"github.com/frand-kod/gobill/internal/db"
+	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -83,5 +86,66 @@ func TestProxyHeadersWarnWhenTrustOff(t *testing.T) {
 	s.trust.Store(true)
 	if s.proxyWarning(nil) != "" {
 		t.Fatal("warning with trust_proxy=yes")
+	}
+}
+
+// portalCGNAT returns a handler with customers ann and bob (password "pw123456").
+func portalCGNAT(t *testing.T) (http.Handler, *Server) {
+	s, q := newTestApp(t)
+	hash, _ := bcrypt.GenerateFromPassword([]byte("pw123456"), bcrypt.MinCost)
+	for _, u := range []string{"ann", "bob"} {
+		if _, err := q.CreateCustomer(t.Context(), db.CreateCustomerParams{Username: u, PasswordHash: string(hash), Fullname: u, ServiceType: "Others", Status: "Active"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	oldStep := loginDelayStep
+	loginDelayStep = 0
+	t.Cleanup(func() { loginDelayStep = oldStep })
+	return s.Handler(), s
+}
+
+func plogin(h http.Handler, peer, user, pw string) int {
+	return postFrom(h, peer, "/login", url.Values{"username": {user}, "password": {pw}}).Code
+}
+
+func TestPortalLockIsPerUserBehindCGNAT(t *testing.T) {
+	h, s := portalCGNAT(t)
+	const nat = "198.51.100.9:1"
+	for i := 0; i < maxFailedLogins; i++ {
+		plogin(h, nat, " ANN ", "wrong")
+	}
+	// correct password still refused while the window runs (username is normalized)
+	if c := plogin(h, nat, "ann", "pw123456"); c != http.StatusTooManyRequests {
+		t.Fatalf("locked user got %d", c)
+	}
+	// bob on the same IP is unaffected
+	if c := plogin(h, nat, "bob", "pw123456"); c != http.StatusSeeOther {
+		t.Fatalf("innocent user on shared IP got %d", c)
+	}
+	// once the window passes, ann can log in again
+	s.mu.Lock()
+	for k, v := range s.failed {
+		for i := range v {
+			v[i] = v[i].Add(-loginWindow - time.Second)
+		}
+		s.failed[k] = v
+	}
+	s.mu.Unlock()
+	if c := plogin(h, nat, "ann", "pw123456"); c != http.StatusSeeOther {
+		t.Fatalf("still locked after window: %d", c)
+	}
+}
+
+func TestPortalPerIPCapStopsSpraying(t *testing.T) {
+	h, _ := portalCGNAT(t)
+	const nat = "198.51.100.9:1"
+	for i := 0; i < maxFailedPerIP; i++ {
+		plogin(h, nat, "ghost"+strconv.Itoa(i), "wrong")
+	}
+	if c := plogin(h, nat, "bob", "pw123456"); c != http.StatusTooManyRequests {
+		t.Fatalf("sprayer IP not capped: %d", c)
+	}
+	if c := plogin(h, "203.0.113.5:1", "bob", "pw123456"); c != http.StatusSeeOther {
+		t.Fatalf("other IP got %d", c)
 	}
 }

@@ -28,6 +28,7 @@ import (
 
 const (
 	maxFailedLogins = 10
+	maxFailedPerIP  = 100 // loose per-IP cap across usernames
 	loginWindow     = 15 * time.Minute
 )
 
