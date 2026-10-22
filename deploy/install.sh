@@ -40,12 +40,35 @@ trap 'rm -f "$TMP"' EXIT
 case "$SRC" in
 	http://*|https://*)
 		URL=$(printf '%s' "$SRC" | sed "s/{arch}/$ARCH/g")
+		fetch() {
+			if command -v curl >/dev/null 2>&1; then
+				curl -fsSL -o "$2" "$1"
+			else
+				wget -qO "$2" "$1"
+			fi
+		}
 		log "mengunduh $URL"
-		if command -v curl >/dev/null 2>&1; then
-			curl -fsSL -o "$TMP" "$URL" || die "unduhan gagal"
-		else
-			wget -qO "$TMP" "$URL" || die "unduhan gagal"
-		fi
+		fetch "$URL" "$TMP" || die "unduhan gagal"
+		# Rilis GitHub: cocokkan hash dengan SHA256SUMS, lalu periksa tanda tangannya dengan kunci di binary itu sendiri.
+		case "$URL" in
+			https://github.com/*/releases/*download/*)
+				BASE=${URL%/*}
+				SUMS=$TMP.sums
+				trap 'rm -f "$TMP" "$SUMS" "$SUMS.sig"' EXIT
+				log "memverifikasi SHA256SUMS"
+				fetch "$BASE/SHA256SUMS" "$SUMS" || die "SHA256SUMS tidak bisa diunduh"
+				WANT=$(awk -v f="${URL##*/}" '$2 == f || $2 == "*" f {print $1; exit}' "$SUMS")
+				[ -n "$WANT" ] || die "${URL##*/} tidak ada di SHA256SUMS"
+				[ "$(sha256sum "$TMP" | cut -d' ' -f1)" = "$WANT" ] || die "checksum tidak cocok; unduhan ditolak"
+				if [ "${GOBILL_SKIP_SIGNATURE:-}" = 1 ]; then
+					echo "peringatan: tanda tangan tidak diperiksa (GOBILL_SKIP_SIGNATURE=1)" >&2
+				else
+					fetch "$BASE/SHA256SUMS.sig" "$SUMS.sig" || die "SHA256SUMS.sig tidak bisa diunduh"
+					chmod +x "$TMP"
+					"$TMP" verify-release "$SUMS" "$SUMS.sig" || die "tanda tangan tidak valid, atau binary terlalu lama untuk perintah verify-release (sebelum v0.1.19). Periksa manual (docs/id/installation.md) lalu ulangi dengan GOBILL_SKIP_SIGNATURE=1"
+				fi
+				;;
+		esac
 		;;
 	*)
 		[ -f "$SRC" ] || die "file tidak ditemukan: $SRC"

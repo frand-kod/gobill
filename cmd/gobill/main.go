@@ -58,6 +58,9 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "update" {
 		run = func() error { return runUpdate(os.Args[2:]) }
 	}
+	if len(os.Args) > 1 && os.Args[1] == "verify-release" {
+		run = func() error { return runVerifyRelease(os.Args[2:]) }
+	}
 	if len(os.Args) > 1 && os.Args[1] == "rollback" {
 		run = func() error { return runRollback(os.Args[2:]) }
 	}

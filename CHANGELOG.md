@@ -8,6 +8,11 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Keamanan
+
+- **`make sign` memeriksa hasil CI**: sebelum menandatangani, `tools/reproduce.sh` membangun ulang biner rilis secara lokal (versi Go dan flag sama dengan CI, dua kali untuk memastikan hasilnya reproduksibel) dan hanya lanjut jika semua hash sama dengan `SHA256SUMS` dari CI. Versi Go lokal harus sama dengan `go.mod`.
+- **`install.sh` memverifikasi unduhan**: untuk URL rilis GitHub, `install.sh` memeriksa SHA-256 terhadap `SHA256SUMS` dan tanda tangannya dengan perintah baru `gobill verify-release <SHA256SUMS> <SHA256SUMS.sig>` sebelum memasang sebagai root. Rilis lama tanpa perintah itu bisa dipasang dengan `GOBILL_SKIP_SIGNATURE=1` setelah diperiksa manual.
+
 ## [0.1.18] - 2026-10-17
 
 ### Keamanan
