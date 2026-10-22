@@ -8,6 +8,10 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Perubahan perilaku
+
+- **Rollback ke v0.1.18 butuh backup pra-update**: secret di pengaturan dienkripsi saat start pertama. v0.1.18 tidak bisa membacanya, jadi pulihkan backup yang ditawarkan `gobill rollback`. Lihat [upgrade](docs/id/upgrade.md#catatan-versi).
+
 ### Keamanan
 
 - **Pengaturan rahasia dienkripsi**: token Telegram, password SMTP, secret webhook, password GOWA, kunci Tripay dan Duitku, dan token metrics kini disimpan terenkripsi (AES-GCM, kunci yang sama dengan secret NAS, awalan `enc1:`) dan didekripsi saat dibaca. Nilai lama yang masih teks biasa tetap terbaca dan dienkripsi saat start. Impor PHPNuxBill menyimpannya terenkripsi. Restore dari backup dengan kunci lain ditolak.

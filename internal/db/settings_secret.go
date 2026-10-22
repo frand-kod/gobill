@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
+	"log/slog"
 	"strings"
 
 	"github.com/frand-kod/gobill/internal/secret"
@@ -81,6 +82,9 @@ func EncryptSettings(ctx context.Context, conn *sql.DB) error {
 		return err
 	}
 	for _, r := range rows {
+		if strings.HasPrefix(r.Value, encPrefix) && OpenSetting(r.Value) == "" {
+			slog.Warn("setting cannot be decrypted with this key; it reads as empty until re-entered", "key", r.Key)
+		}
 		if sealed := SealSetting(r.Key, r.Value); sealed != r.Value {
 			if err := q.UpsertSettingRaw(ctx, UpsertSettingRawParams{Key: r.Key, Value: sealed}); err != nil {
 				return err

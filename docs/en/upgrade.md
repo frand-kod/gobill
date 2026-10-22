@@ -88,6 +88,12 @@ When it is on, gobill checks the latest release on GitHub a few minutes after st
 
 Before you upgrade, read the behaviour changes section ("Perubahan perilaku") of the [CHANGELOG](../../CHANGELOG.md) for the target version. The CHANGELOG is written in Indonesian. Its behaviour changes list what the operator must act on.
 
+**Upgrade to v0.1.19:**
+
+1. Secrets in the settings (Tripay and Duitku API keys, SMTP password, Telegram bot token, webhook secret, metrics token) are encrypted at the first start, with the same key as the NAS secrets.
+2. Migration 0020 adds router certificate pinning. The first API-SSL connection to each router records its certificate fingerprint.
+3. To go back to v0.1.18, restore the pre-update backup that `gobill rollback` offers. Without it, v0.1.18 reads the encrypted secrets as they are, so payments, email and Telegram stop working until the secrets are entered again.
+
 **Upgrade to v0.1.18:**
 
 1. v0.1.18 is the first release that checks release signatures. The update from v0.1.17 works as before. After that, `gobill update` refuses releases without a valid `SHA256SUMS.sig`.

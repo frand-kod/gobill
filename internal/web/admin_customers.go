@@ -523,6 +523,13 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 			renew = 1
 		}
 		ctx := r.Context()
+		var hash []byte // hashed before the tx: BeginTx takes the write lock (_txlock=immediate)
+		if id == 0 || pass != "" {
+			if hash, err = bcrypt.GenerateFromPassword([]byte(pass), bcryptCost); err != nil {
+				s.fail(w, "hash password", err)
+				return
+			}
+		}
 		tx, err := s.conn.BeginTx(ctx, nil) // customer row and custom field values commit together
 		if err != nil {
 			s.fail(w, "begin save customer", err)
@@ -533,11 +540,6 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 		cid := id
 		var created db.Customer
 		if id == 0 {
-			var hash []byte
-			if hash, err = bcrypt.GenerateFromPassword([]byte(pass), bcryptCost); err != nil {
-				s.fail(w, "hash password", err)
-				return
-			}
 			var c db.Customer
 			c, err = q.CreateCustomer(ctx, db.CreateCustomerParams{Username: v["username"], PasswordHash: string(hash),
 				Fullname: v["fullname"], Address: v["address"], Phone: v["phone"], Email: v["email"], ServiceType: v["service_type"],
@@ -554,10 +556,7 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 					PppoeIp: v["pppoe_ip"], SecretEnc: enc, AutoRenewal: renew, Status: v["status"], BillingDay: bday, Coordinates: coords, ID: id})
 			}
 			if err == nil && pass != "" {
-				var hash []byte
-				if hash, err = bcrypt.GenerateFromPassword([]byte(pass), bcryptCost); err == nil {
-					err = q.SetCustomerPassword(ctx, db.SetCustomerPasswordParams{PasswordHash: string(hash), ID: id})
-				}
+				err = q.SetCustomerPassword(ctx, db.SetCustomerPasswordParams{PasswordHash: string(hash), ID: id})
 			}
 		}
 		if err == nil {
