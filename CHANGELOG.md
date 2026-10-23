@@ -8,6 +8,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.1.19] - 2026-10-23
+
 ### Perubahan perilaku
 
 - **Rollback ke v0.1.18 butuh backup pra-update**: secret di pengaturan dienkripsi saat start pertama. v0.1.18 tidak bisa membacanya, jadi pulihkan backup yang ditawarkan `gobill rollback`. Lihat [upgrade](docs/id/upgrade.md#catatan-versi).
