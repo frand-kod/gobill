@@ -16,6 +16,7 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ### Keamanan
 
+- **Go 1.26.10**: memperbaiki GO-2026-6809 (`crypto/x509` kini menolak intermediate certificate yang bocor), yang terjangkau lewat `gobill update` saat mengunduh rilis.
 - **Pengaturan rahasia dienkripsi**: token Telegram, password SMTP, secret webhook, password GOWA, kunci Tripay dan Duitku, dan token metrics kini disimpan terenkripsi (AES-GCM, kunci yang sama dengan secret NAS, awalan `enc1:`) dan didekripsi saat dibaca. Nilai lama yang masih teks biasa tetap terbaca dan dienkripsi saat start. Impor PHPNuxBill menyimpannya terenkripsi. Restore dari backup dengan kunci lain ditolak.
 
 - **Sertifikat router API-SSL di-pin**: sebelumnya koneksi TLS ke router (port 8729) tidak memverifikasi sertifikat sama sekali, sehingga penyerang di jalur jaringan bisa mencuri sandi API. Kini koneksi TLS pertama menyimpan sidik jari SHA-256 sertifikat router (trust on first use, kolom baru `routers.cert_pin`), dan koneksi berikutnya ditolak sebelum sandi dikirim jika sidik jarinya berbeda. Jika sertifikat diganti sengaja, centang **Reset pin sertifikat** di halaman ubah router.
