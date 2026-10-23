@@ -76,6 +76,7 @@ Data awal di CHR: profil PPP `chr-5m`, `chr-10m`, `chr-weird` (rate-limit dengan
 | 6 Isolasi NAT | nat | Host di `lab-wan` tidak bisa menjangkau API CHR. CHR bisa memanggil gobill (`/tool fetch`) |
 | 7 gobill sebagai service | keduanya | Healthcheck sehat. Setelah `kill -9`, gobill dijalankan ulang (restart count 1), sehat lagi, dan data tetap ada |
 | 8 Ganti paket saat online | direct | Edit paket RADIUS mengirim CoA-Request (Mikrotik-Rate-Limit) ke sesi online. RouterOS 7.24.5 menerapkan rate baru tanpa memutus sesi (uptime tidak reset). Jika CoA gagal, gobill memutus sesi dengan Disconnect-Request dan tes memeriksa login ulang mendapat rate baru |
+| 9 Pin sertifikat API-SSL | direct | Sertifikat self-signed di CHR, router diubah ke port 8729. Koneksi pertama mencatat sidik jari; setelah sertifikat diganti koneksi ditolak; setelah "Reset certificate pin" tersambung lagi dengan sidik jari baru. Router dikembalikan ke port 8728 |
 
 Hasil terakhir: `direct` 18/18 dan `nat` 16/16.
 

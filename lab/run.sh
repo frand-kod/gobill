@@ -227,6 +227,20 @@ rad01_uptime() { FIELD=uptime chr_field /ppp/active/print ?name=rad01; }
 rad01_limit() { chr run /queue/simple/print ?name='<pppoe-rad01>' | grep -o 'max-limit=[^ ]*' | head -1; }
 rate_is_5m() { rad01_limit | grep -q 'max-limit=5000000/5000000'; }
 rate_or_dropped() { rate_is_5m || podman exec lab-client-1 test -s /tmp/pppoe.rc; }
+router_form() { # port [reset]: re-save router 1 as the admin form would (direct mode host)
+	gb_post /admin/routers/1 -d name=lab-chr -d host=10.89.77.11 -d "port=$1" -d username=gobill-api -d enabled=1 \
+		-d coverage=0 ${2:+-d reset_pin=1}
+}
+router_pin() { gb_get /admin/routers/1/edit | grep -oE '[0-9a-f]{64}' | head -1; }
+cert_ready() { chr run /certificate/print "?name=$1" | grep -q 'private-key=true'; }
+pin_changed() { local p; p=$(router_pin) && [ -n "$p" ] && [ "$p" != "$1" ]; }
+chr_new_cert() { # name: self-signed cert served on api-ssl
+	chr run /certificate/add "=name=$1" =common-name=lab-chr >/dev/null
+	chr run /certificate/sign "=number=$1" >/dev/null 2>&1 || true
+	wait_for 30 cert_ready "$1"
+	chr run /ip/service/set =numbers=api-ssl "=certificate=$1" =disabled=no >/dev/null
+}
+
 radplan_bw() { # bandwidth id: re-save RADIUS plan 3 (lab-rad) with that bandwidth; gobill sends CoA to its online users
 	gb_post /admin/plans/3 -d name=lab-rad -d bandwidth_id="$1" -d price=200000 -d type=PPPoE -d billing=prepaid -d validity=30 \
 		-d validity_unit=Days -d device=Radius -d enabled=1
@@ -333,6 +347,24 @@ test_lab() {
 		podman logs lab-gobill 2>&1 | grep -i 'CoA' | tail -3 | sed 's/^/     gobill: /' || true
 		radplan_bw 3 >/dev/null
 		podman exec lab-client-1 pkill pppoe >/dev/null 2>&1 || true
+	else
+		echo "skip (direct mode only)"
+	fi
+
+	echo "-- 9 API-SSL certificate pin"
+	if [ "$LAB_MODE" = direct ]; then
+		local pin1
+		chr_new_cert lab-api1
+		router_form 8729 >/dev/null
+		check "first TLS connect succeeds" post_grep 'Connection successful: lab-chr (lab-chr)' /admin/routers/1/test
+		pin1=$(router_pin || true)
+		check "fingerprint pinned" [ -n "$pin1" ]
+		chr_new_cert lab-api2
+		check "changed certificate refused" post_grep 'does not match the pinned one' /admin/routers/1/test
+		router_form 8729 reset >/dev/null
+		check "after reset: connects and re-pins" post_grep 'Connection successful' /admin/routers/1/test
+		check "new fingerprint differs" pin_changed "$pin1"
+		router_form 8728 >/dev/null
 	else
 		echo "skip (direct mode only)"
 	fi
