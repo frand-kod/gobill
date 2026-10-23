@@ -23,6 +23,10 @@ SELECT * FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND ex
 -- Marks the period's expired message as sent before it goes out. 0 rows = already claimed, or the period was renewed.
 UPDATE subscriptions SET expired_notified_at = CAST(sqlc.arg(now) AS INTEGER) WHERE id = sqlc.arg(id) AND expires_at = sqlc.arg(expires_at) AND expired_notified_at IS NULL;
 
+-- name: ReleaseExpiryNotice :exec
+-- Undoes ClaimExpiryNotice after the send failed, so the next run retries it.
+UPDATE subscriptions SET expired_notified_at = NULL WHERE id = sqlc.arg(id) AND expires_at = sqlc.arg(expires_at);
+
 -- name: ExpireSubscription :execrows
 UPDATE subscriptions SET status = 'expired' WHERE id = sqlc.arg(id) AND status = 'active' AND pending_start = 0 AND expires_at <= sqlc.arg(now);
 

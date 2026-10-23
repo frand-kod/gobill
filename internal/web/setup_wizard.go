@@ -276,7 +276,7 @@ func (s *Server) setupShow(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "setup "+st.Slug, err)
 		return
 	}
-	s.render(w, r, http.StatusOK, "setup", Page{Title: "Quick setup", Data: view})
+	s.render(w, r, http.StatusOK, "setup", Page{Title: "Quick setup", Data: view, Warn: s.proxyWarning(r)})
 }
 
 // setupStart answers the first-run dialog. to is "new" (Mulai baru), "import" or "" (Mulai setup cepat).

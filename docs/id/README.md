@@ -44,6 +44,13 @@ Kotak cari di bilah atas mencari pelanggan, langganan, invoice, voucher, paket, 
 
 Form tambah pelanggan punya kartu opsional **Langsung aktifkan paket**. Pilih paket di sana untuk mengaktifkannya tepat setelah pelanggan dibuat, dibayar tunai. Hanya paket yang sesuai jenis layanan yang muncul, dan paket saldo tidak ditampilkan. Jika aktivasi gagal, pelanggan tetap dibuat dan halaman pelanggan menampilkan alasannya. Kosongkan paket untuk memilihnya nanti dari halaman pelanggan.
 
+## Belum didukung
+
+- Ganti paket lewat CoA untuk paket Radius: sedang dikerjakan. Sampai selesai, perubahan kecepatan berlaku saat pelanggan reconnect. CoA untuk memutus sesi sudah jalan.
+- RadSec native: gunakan radsecproxy atau WireGuard. Lihat [keamanan](security.md#link-jarak-jauh-vps).
+- WireGuard di RouterOS 6: tidak ada di versi itu. Pakai L2TP/IPsec atau upgrade RouterOS.
+- Impor dari PHPNuxBill: kupon, ODP, inbox, dan template `email_invoice` tidak diimpor. Pengaturan `frrest_interim_update` tidak dibaca. Lihat [migrasi](migration-phpnuxbill.md#yang-dikonversi).
+
 ## Lihat juga
 
 - [Panduan developer dan arsitektur](../internal/pengembangan.md): hanya untuk tim, tidak ada di aplikasi.

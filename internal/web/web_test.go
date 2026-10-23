@@ -20,7 +20,7 @@ func newTestServer(t *testing.T) (http.Handler, *db.Queries) {
 	return s.Handler(), q
 }
 
-func newTestApp(t *testing.T) (*Server, *db.Queries) {
+func newTestApp(t testing.TB) (*Server, *db.Queries) {
 	t.Helper()
 	conn, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {

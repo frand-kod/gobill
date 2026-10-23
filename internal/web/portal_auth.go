@@ -65,10 +65,11 @@ func (s *Server) pLoginForm(w http.ResponseWriter, r *http.Request) {
 func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.PostFormValue("username"))
 	ip, uk := "c:"+clientIP(r), "cu:"+strings.ToLower(username)
-	if s.tooManyFailures(ip) || s.tooManyFailures(uk) {
+	if s.loginLocked(ip, username) {
 		s.prender(w, r, http.StatusTooManyRequests, "p_login", Page{Title: "Sign in", Error: "Too many failed attempts. Try again in 15 minutes."})
 		return
 	}
+	s.userDelay(uk)
 	c, err := s.queries.GetCustomerByUsername(r.Context(), username)
 	hash := s.dummyHash
 	if err == nil {
@@ -77,12 +78,12 @@ func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
 	ok := bcrypt.CompareHashAndPassword(hash, []byte(r.PostFormValue("password"))) == nil
 	if err != nil || !ok || c.Status == "Banned" || c.Status == "Disabled" {
 		metrics.Inc("login_failures_total", "scope", "portal")
-		s.recordFailure(ip)
+		s.loginFailed(ip, username)
 		s.recordFailure(uk)
 		s.prender(w, r, 200, "p_login", Page{Title: "Sign in", Error: "Invalid Username or Password", Data: username})
 		return
 	}
-	s.clearFailures(ip)
+	s.clearFailures(loginKey(ip, username))
 	s.clearFailures(uk)
 	if err := s.portalSignIn(r, c); err != nil {
 		s.fail(w, "renew session", err)

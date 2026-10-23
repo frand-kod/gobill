@@ -134,12 +134,12 @@ Jika `connect_uri` memakai `https`, pastikan `check_cert = yes` di blok `tls` pa
 ## Keamanan aplikasi
 
 - **Password.** Password admin dan pelanggan memakai bcrypt. Hash sha1 lama ditandai `legacy_sha1` dan diganti saat login pertama.
-- **Secret terenkripsi.** Secret router, pelanggan PPPoE dan hotspot, dan NAS memakai AES-GCM. Kuncinya berasal dari `GOBILL_SECRET_KEY` atau file `.key`. Simpan backup kunci bersama database. Lihat [backup dan restore](backup-restore.md#backup-kunci-bersama-database).
+- **Secret terenkripsi.** Secret router, pelanggan PPPoE dan hotspot, dan NAS, serta pengaturan rahasia (token Telegram, password SMTP, secret webhook, password GOWA, kunci Tripay dan Duitku, token metrics), memakai AES-GCM. Pengaturan dari versi lama dienkripsi saat start berikutnya. Kuncinya berasal dari `GOBILL_SECRET_KEY` atau file `.key`. Simpan backup kunci bersama database. Lihat [backup dan restore](backup-restore.md#backup-kunci-bersama-database).
 - **Catatan.** Secret integrasi, yaitu SMTP, Telegram, Tripay, dan token metrics, tersimpan dalam teks biasa di tabel `settings`. Ini sama seperti aplikasi lama. Lindungi file database dan backup-nya.
 - **CSRF.** Dilindungi lewat `http.CrossOriginProtection` dari stdlib. Pengecualiannya hanya callback Tripay, yang diverifikasi tanda tangannya, dan `/radius.php`, yang memakai allow-list.
 - **Header keamanan.** Setiap respons mengirim `X-Frame-Options: DENY` untuk mencegah clickjacking, `X-Content-Type-Options: nosniff`, dan `Referrer-Policy: same-origin`, sehingga link pembayaran QRIS beserta tokennya tidak pernah terkirim ke situs lain.
 - **Pembatas percobaan.** Pembatas brute-force tersimpan di memori dan di-reset saat restart.
-  - Login admin dan portal: 10 kegagalan dalam 15 menit, dihitung per IP dan per username. Login 2FA memakai pembatas yang sama.
+  - Login admin dan portal: 10 kegagalan dalam 15 menit mengunci IP itu. Satu username hanya diperlambat (tambah 0,25 detik per kegagalan, maksimal 3 detik), tidak dikunci, sehingga orang lain tidak bisa mengunci akun admin. Login 2FA memakai pembatas yang sama.
   - Voucher RADIUS: 10 kegagalan dalam 15 menit per NAS dan MAC, dan 100 per NAS.
   - Auth RADIUS per username: pembatas terpisah untuk password yang salah.
   - Kirim OTP: per IP 5 kali dalam 15 menit. Per nomor, jeda 60 detik dan maksimal 5 kali per jam. Jika `notify_otp` = `no`, OTP tidak dikirim sama sekali.
@@ -192,7 +192,7 @@ Admin itu bisa masuk dengan password saja. 2FA harus diaktifkan lagi. Tindakan i
 
 ### Batasan
 
-- Percobaan kode salah dihitung bersama pembatas login: 10 kali gagal dalam 15 menit per IP dan per nama pengguna.
+- Percobaan kode salah dihitung bersama pembatas login: 10 kali gagal dalam 15 menit mengunci IP, dan nama pengguna diperlambat.
 - Kode yang sudah dipakai tidak bisa dipakai ulang. Riwayat kode yang sudah dipakai disimpan di memori. Setelah restart, kode yang sama bisa diterima lagi selama sisa langkah waktu, maksimal sekitar 90 detik.
 - Login pelanggan dan API tidak memakai 2FA admin. Sesi admin hanya dibuka lewat halaman login.
 

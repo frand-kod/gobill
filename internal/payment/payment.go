@@ -29,8 +29,10 @@ type Transaction struct {
 	Email     string
 	Phone     string
 	ReturnURL string
-	Channel   string // overrides gateway default channel when set
-	Expiry    time.Time
+	// CallbackURL is the public address the gateway notifies (used by gateways that take it per transaction).
+	CallbackURL string
+	Channel     string // overrides gateway default channel when set
+	Expiry      time.Time
 }
 
 type Channel struct {
@@ -54,7 +56,8 @@ type PaymentGateway interface {
 	CreateTransaction(ctx context.Context, trx Transaction) (Created, error)
 	Status(ctx context.Context, trx Transaction) (Status, error)
 	// HandleCallback must verify the signature; error means the caller answers 4xx.
-	HandleCallback(r *http.Request) (trxID string, st Status, err error)
+	// amount is the order amount in rupiah the gateway reports; 0 means not reported (not checked).
+	HandleCallback(r *http.Request) (trxID string, st Status, amount int64, err error)
 }
 
 // Registry maps gateway name to instance; filled in main.go.

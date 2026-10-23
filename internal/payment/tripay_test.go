@@ -92,20 +92,20 @@ func TestCallback(t *testing.T) {
 		r.Header.Set("X-Callback-Event", ev)
 		return r
 	}
-	id, st, err := g.HandleCallback(req(body, g.sign(body), "payment_status"))
+	id, st, _, err := g.HandleCallback(req(body, g.sign(body), "payment_status"))
 	if err != nil || id != "INV1" || st != Paid {
 		t.Fatal(id, st, err)
 	}
-	if _, _, err := g.HandleCallback(req(strings.Replace(body, "PAID", "FAILED", 1), g.sign(body), "payment_status")); err == nil {
+	if _, _, _, err := g.HandleCallback(req(strings.Replace(body, "PAID", "FAILED", 1), g.sign(body), "payment_status")); err == nil {
 		t.Error("tampered body accepted")
 	}
-	if _, _, err := g.HandleCallback(req(body, "deadbeef", "payment_status")); err == nil {
+	if _, _, _, err := g.HandleCallback(req(body, "deadbeef", "payment_status")); err == nil {
 		t.Error("bad sig accepted")
 	}
-	if _, _, err := g.HandleCallback(req(body, "", "payment_status")); err == nil {
+	if _, _, _, err := g.HandleCallback(req(body, "", "payment_status")); err == nil {
 		t.Error("empty sig accepted")
 	}
-	if _, _, err := g.HandleCallback(req(body, g.sign(body), "other")); err == nil {
+	if _, _, _, err := g.HandleCallback(req(body, g.sign(body), "other")); err == nil {
 		t.Error("wrong event accepted")
 	}
 }

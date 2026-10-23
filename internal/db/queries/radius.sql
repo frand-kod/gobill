@@ -74,7 +74,9 @@ ON CONFLICT (nas_ip, session_id) DO UPDATE SET
     input_octets = MAX(radius_sessions.input_octets, excluded.input_octets), output_octets = MAX(radius_sessions.output_octets, excluded.output_octets);
 
 -- name: CloseRadiusSessionsByNAS :exec
-UPDATE radius_sessions SET stopped_at = ? WHERE nas_ip = ? AND stopped_at IS NULL;
+-- Accounting-On/Off: close what the NAS lost, but not sessions it updated after the cutoff. The NAS sends
+-- Accounting-On and the first Start together, and packets are handled concurrently.
+UPDATE radius_sessions SET stopped_at = ? WHERE nas_ip = ? AND stopped_at IS NULL AND updated_at < ?;
 
 -- name: CloseStaleRadiusSessions :execrows
 -- Open sessions whose last update is older than the cutoff: the NAS lost them. Stop them at their last update.

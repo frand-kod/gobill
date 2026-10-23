@@ -197,7 +197,7 @@ func (m *imp) table(name string) *Table {
 func (m *imp) settings() error {
 	t := m.table("settings")
 	return m.each(t, "SELECT setting, COALESCE(value,'') FROM tbl_appconfig ORDER BY id", 2, func(r row) {
-		m.put(t, r[0], "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", r[0], r[1])
+		m.put(t, r[0], "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", r[0], db.SealSettingWith(m.o.Key, r[0], r[1]))
 	})
 }
 

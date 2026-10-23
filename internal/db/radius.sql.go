@@ -24,16 +24,19 @@ func (q *Queries) ActivePlanNameByLogin(ctx context.Context, name string) (strin
 }
 
 const closeRadiusSessionsByNAS = `-- name: CloseRadiusSessionsByNAS :exec
-UPDATE radius_sessions SET stopped_at = ? WHERE nas_ip = ? AND stopped_at IS NULL
+UPDATE radius_sessions SET stopped_at = ? WHERE nas_ip = ? AND stopped_at IS NULL AND updated_at < ?
 `
 
 type CloseRadiusSessionsByNASParams struct {
 	StoppedAt sql.NullInt64
 	NasIp     string
+	UpdatedAt int64
 }
 
+// Accounting-On/Off: close what the NAS lost, but not sessions it updated after the cutoff. The NAS sends
+// Accounting-On and the first Start together, and packets are handled concurrently.
 func (q *Queries) CloseRadiusSessionsByNAS(ctx context.Context, arg CloseRadiusSessionsByNASParams) error {
-	_, err := q.db.ExecContext(ctx, closeRadiusSessionsByNAS, arg.StoppedAt, arg.NasIp)
+	_, err := q.db.ExecContext(ctx, closeRadiusSessionsByNAS, arg.StoppedAt, arg.NasIp, arg.UpdatedAt)
 	return err
 }
 

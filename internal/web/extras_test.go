@@ -380,7 +380,7 @@ func TestCustomBalanceTopUp(t *testing.T) {
 	if pr.PlanID != 0 || pr.Amount != 25000 {
 		t.Fatalf("row: %+v", pr)
 	}
-	body := fmt.Sprintf(`{"merchant_ref":%q,"status":"PAID"}`, pr.Ref)
+	body := fmt.Sprintf(`{"merchant_ref":%q,"status":"PAID","total_amount":%d}`, pr.Ref, pr.Amount)
 	for range 2 {
 		postCallback(e.h, body, signed(body))
 	}

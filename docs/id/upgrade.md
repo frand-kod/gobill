@@ -88,6 +88,12 @@ Jika aktif, gobill memeriksa rilis terbaru di GitHub beberapa menit setelah star
 
 Sebelum upgrade, baca bagian "Perubahan perilaku" di [CHANGELOG](../../CHANGELOG.md) untuk versi tujuan. Bagian itu mencatat perubahan yang butuh tindakan operator.
 
+**Upgrade ke v0.1.19:**
+
+1. Secret di pengaturan (API key Tripay dan Duitku, password SMTP, token bot Telegram, secret webhook, token metrics) dienkripsi saat start pertama, dengan kunci yang sama dengan secret NAS.
+2. Migrasi 0020 menambah pin sertifikat router. Koneksi API-SSL pertama ke tiap router mencatat sidik jari sertifikatnya.
+3. Untuk kembali ke v0.1.18, pulihkan backup pra-update yang ditawarkan `gobill rollback`. Tanpa backup itu, v0.1.18 membaca secret yang sudah terenkripsi apa adanya, sehingga pembayaran, email, dan Telegram berhenti bekerja sampai secret diisi ulang.
+
 **Upgrade ke v0.1.18:**
 
 1. v0.1.18 adalah rilis pertama yang memeriksa tanda tangan rilis. Update dari v0.1.17 berjalan seperti biasa. Setelah itu, `gobill update` menolak rilis tanpa `SHA256SUMS.sig` yang valid.

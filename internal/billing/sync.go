@@ -12,12 +12,16 @@ import (
 // SyncPlan pushes an admin plan change to the plan's router. op is "add", "update" or
 // "remove"; oldName is the plan's name before an update. Balance plans have no device.
 func (s *Service) SyncPlan(ctx context.Context, op string, p db.Plan, oldName string) error {
-	if p.Type == "Balance" || !p.RouterID.Valid {
+	// a RADIUS plan needs no router: its online users get the CoA through the NAS table
+	if p.Type == "Balance" || (!p.RouterID.Valid && p.Device != "Radius") {
 		return nil
 	}
-	router, err := s.Q.GetRouter(ctx, p.RouterID.Int64)
-	if err != nil {
-		return err
+	var router db.Router
+	if p.RouterID.Valid {
+		var err error
+		if router, err = s.Q.GetRouter(ctx, p.RouterID.Int64); err != nil {
+			return err
+		}
 	}
 	mk := s.DeviceFor
 	if mk == nil {

@@ -35,7 +35,8 @@ import (
 
 // StaleAfter is how long (seconds) an open session may go without an update before it no longer
 // counts toward shared_users and shows as stale. The default is 2x a 5-minute interim update;
-// GOBILL_STALE_AFTER overrides it at startup (see cmd/gobill).
+// GOBILL_STALE_AFTER overrides it at startup (see cmd/gobill). It is the floor: StaleFor widens it
+// per NAS to the observed interim interval.
 var StaleAfter int64 = 600
 
 type Server struct {
@@ -494,7 +495,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 	// or the oldest ones are dropped so that this login fits (kick_oldest, the default).
 	if pl.PlanType == "Hotspot" && pl.SharedUsers.Valid {
 		others, err := s.Q.ListOtherOpenRadiusSessions(ctx, db.ListOtherOpenRadiusSessionsParams{
-			Username: user, UpdatedAt: s.now().Unix() - StaleAfter, FramedIp: rq.FramedIP, Column4: rq.FramedIP, Mac: rq.MAC, Column6: rq.MAC})
+			Username: user, UpdatedAt: s.now().Unix() - StaleFor(rq.NAS), FramedIp: rq.FramedIP, Column4: rq.FramedIP, Mac: rq.MAC, Column6: rq.MAC})
 		if err != nil { // fail closed: unknown sessions must not count as zero
 			slog.Error("radius: list open sessions", "user", user, "err", err)
 			return Decision{Reject: "Login invalid......"}
@@ -510,12 +511,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 	if left > 0 {
 		d.Timeout = left
 	}
-	if pl.RateUp.Valid && pl.RateDown.Valid {
-		d.Rate = fmt.Sprintf("%d%s/%d%s", pl.RateUp.Int64, unit(pl.RateUpUnit.String), pl.RateDown.Int64, unit(pl.RateDownUnit.String))
-		if b := strings.TrimSpace(pl.Burst.String); b != "" {
-			d.Rate += " " + b
-		}
-	}
+	d.Rate = rateLimit(pl.RateUp, pl.RateDown, pl.RateUpUnit, pl.RateDownUnit, pl.Burst)
 	if pl.Limited == 1 {
 		lt := pl.LimitType.String
 		if (lt == "Time_Limit" || lt == "Both_Limit") && pl.TimeLimit.Valid {
@@ -747,6 +743,18 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 	send(w, p)
 }
 
+// rateLimit is the Mikrotik-Rate-Limit value of a plan's bandwidth, "" without one.
+func rateLimit(up, down sql.NullInt64, upUnit, downUnit, burst sql.NullString) string {
+	if !up.Valid || !down.Valid {
+		return ""
+	}
+	r := fmt.Sprintf("%d%s/%d%s", up.Int64, unit(upUnit.String), down.Int64, unit(downUnit.String))
+	if b := strings.TrimSpace(burst.String); b != "" {
+		r += " " + b
+	}
+	return r
+}
+
 func unit(u string) string {
 	if u == "Kbps" {
 		return "K"
@@ -810,6 +818,9 @@ func (s *Server) NoteNAS(nas string) {
 	metrics.Set("radius_nas_last_packet_timestamp", float64(s.now().Unix()), "nas", nas)
 }
 
+// acctOnWindow is how many seconds before an Accounting-On/Off a session update must be to be closed by it.
+const acctOnWindow = 5
+
 // Account applies Start, Interim-Update, Stop and Accounting-On/Off to radius_sessions.
 func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 	now := s.now().Unix()
@@ -817,8 +828,10 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 	metrics.Set("radius_nas_last_packet_timestamp", float64(now), "nas", a.NAS)
 	switch a.Type {
 	case rfc2866.AcctStatusType_Value_AccountingOn, rfc2866.AcctStatusType_Value_AccountingOff:
-		// NAS rebooted: its open sessions are gone.
-		arg := db.CloseRadiusSessionsByNASParams{StoppedAt: sql.NullInt64{Int64: now, Valid: true}, NasIp: a.NAS}
+		// NAS rebooted: its open sessions are gone. A session updated in the last few seconds is the Start
+		// that raced this packet (both are sent together), so it stays open.
+		// ponytail: fixed window; a pre-reboot interim inside it is left to CloseStaleRadiusSessions.
+		arg := db.CloseRadiusSessionsByNASParams{StoppedAt: sql.NullInt64{Int64: now, Valid: true}, NasIp: a.NAS, UpdatedAt: now - acctOnWindow}
 		return s.commit(ctx, func(q *db.Queries) error { return q.CloseRadiusSessionsByNAS(ctx, arg) })
 	case rfc2866.AcctStatusType_Value_Start, rfc2866.AcctStatusType_Value_InterimUpdate, rfc2866.AcctStatusType_Value_Stop:
 		// gigawords << 32 goes negative from 2^31 GB up, and a REST value can be negative. Clamp, do not
@@ -829,6 +842,7 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 		}
 		arg := db.UpsertRadiusSessionParams{SessionID: a.SessionID, Username: a.User, NasIp: a.NAS, NasIpAttr: a.NASIPAttr, NasIdentifier: a.NASID, FramedIp: a.FramedIP,
 			Mac: a.MAC, StartedAt: now - a.SessionTime, UpdatedAt: now, InputOctets: a.InOctets, OutputOctets: a.OutOctets}
+		noteInterim(a.NAS, a.SessionID, a.Type, now)
 		if a.Type == rfc2866.AcctStatusType_Value_Stop {
 			arg.StoppedAt = sql.NullInt64{Int64: now, Valid: true}
 		}

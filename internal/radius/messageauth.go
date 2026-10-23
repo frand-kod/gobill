@@ -10,10 +10,10 @@ import (
 
 // maSum is the RFC 3579 section 3.2 HMAC-MD5 of p with the Message-Authenticator zeroed. The
 // authenticator field is the Request Authenticator for responses (what Response() copies in)
-// and all zeros for Disconnect-Request. The Message-Authenticator is taken from p as it is.
+// and all zeros for Disconnect- and CoA-Request (RFC 5176 §3.5). The Message-Authenticator is taken from p as it is.
 func maSum(p *radius.Packet) []byte {
 	var saved [16]byte
-	if p.Code == radius.CodeDisconnectRequest {
+	if p.Code == radius.CodeDisconnectRequest || p.Code == radius.CodeCoARequest {
 		saved, p.Authenticator = p.Authenticator, [16]byte{}
 		defer func() { p.Authenticator = saved }()
 	}

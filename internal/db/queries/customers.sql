@@ -129,3 +129,6 @@ LIMIT sqlc.arg(limit);
 
 -- name: ListCustomerPhones :many
 SELECT id, username, phone FROM customers WHERE phone <> '';
+
+-- name: ListOtherCustomerIDsByEmail :many
+SELECT id FROM customers WHERE email <> '' AND lower(email) = lower(CAST(sqlc.arg(email) AS TEXT)) AND id <> sqlc.arg(self) LIMIT 1;

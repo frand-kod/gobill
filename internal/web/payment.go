@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"context"
 	"errors"
@@ -38,15 +39,32 @@ const (
 
 // gateway builds the configured gateway from the tripay_* settings; nil when none is selected.
 func (s *Server) gateway(st map[string]string) (Gateway, error) {
-	if st["payment_gateway"] != "tripay" {
+	var cfg map[string]string
+	switch st["payment_gateway"] {
+	case "duitku":
+		cfg = map[string]string{"api_key": st["duitku_api_key"], "merchant_code": st["duitku_merchant_code"],
+			"mode": st["duitku_mode"], "channel": st["duitku_channel"]}
+		if s.NewGateway != nil {
+			return s.NewGateway(cfg)
+		}
+		return payment.NewDuitku(cfg)
+	case "tripay":
+	default:
 		return nil, nil
 	}
-	cfg := map[string]string{"api_key": st["tripay_api_key"], "private_key": st["tripay_private_key"],
+	cfg = map[string]string{"api_key": st["tripay_api_key"], "private_key": st["tripay_private_key"],
 		"merchant_code": st["tripay_merchant_code"], "mode": st["tripay_mode"], "channel": st["tripay_channel"]}
 	if s.NewGateway != nil {
 		return s.NewGateway(cfg)
 	}
 	return payment.NewTripay(cfg)
+}
+
+func gatewayLabel(name string) string {
+	if name == "" {
+		return ""
+	}
+	return strings.ToUpper(name[:1]) + name[1:]
 }
 
 // activeChannels returns the usable channels, cached.
@@ -106,9 +124,9 @@ func (s *Server) settlePayment(ctx context.Context, pr db.PaymentRequest, st pay
 			return n > 0, err
 		}
 		if pr.PlanID == 0 { // custom balance top-up
-			return s.Billing.TopUpPaid(ctx, claim, pr.CustomerID.Int64, pr.Amount, "Tripay - "+pr.Channel)
+			return s.Billing.TopUpPaid(ctx, claim, pr.CustomerID.Int64, pr.Amount, gatewayLabel(pr.Gateway)+" - "+pr.Channel)
 		}
-		return s.Billing.RechargePaid(ctx, claim, pr.CustomerID.Int64, pr.PlanID, "Tripay - "+pr.Channel, pr.Coupon, pr.Amount)
+		return s.Billing.RechargePaid(ctx, claim, pr.CustomerID.Int64, pr.PlanID, gatewayLabel(pr.Gateway)+" - "+pr.Channel, pr.Coupon, pr.Amount)
 	case payment.Failed, payment.Expired:
 		_, err := s.queries.ClosePaymentRequest(ctx, db.ClosePaymentRequestParams{Status: string(st), Ref: pr.Ref})
 		return err
@@ -130,7 +148,7 @@ func (s *Server) tripayCallback(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	ref, status, err := g.HandleCallback(r)
+	ref, status, amount, err := g.HandleCallback(r)
 	metrics.Set("payment_callback_last_timestamp", float64(time.Now().Unix()))
 	if err != nil {
 		metrics.Inc("payment_callbacks_total", "result", "failed")
@@ -141,6 +159,11 @@ func (s *Server) tripayCallback(w http.ResponseWriter, r *http.Request) {
 	pr, err := s.queries.GetPaymentRequestByRef(r.Context(), ref)
 	if err != nil {
 		slog.Warn("tripay callback: unknown reference", "ref", ref, "err", err)
+	} else if (amount != 0 || status == payment.Paid) && amount != pr.Amount { // paid without an amount is refused too
+		metrics.Inc("payment_callbacks_total", "result", "amount_mismatch")
+		slog.Warn("tripay callback: amount mismatch", "ref", ref, "got", amount, "want", pr.Amount)
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
 	} else if err := s.settlePayment(r.Context(), pr, status); err != nil {
 		metrics.Inc("payment_callbacks_total", "result", "failed")
 		s.fail(w, "tripay callback settle "+ref, err) // 500 makes Tripay retry

@@ -28,6 +28,13 @@ Directly from the release URL. `{arch}` is replaced automatically with `arm64`, 
 
     sudo sh install.sh https://github.com/frand-kod/gobill/releases/latest/download/gobill-linux-{arch}
 
+For a GitHub release URL the script also downloads `SHA256SUMS` and `SHA256SUMS.sig`, checks the signature with `openssl` (the public key is built into the script), then checks the binary's SHA-256, all before the binary is installed or run. It needs OpenSSL 3 (OpenSSL 1.1.1 cannot check ed25519 signatures) and aborts if `openssl` is missing, too old, or the signature is bad; `GOBILL_INSECURE=1` skips the signature check (the checksum is still checked).
+
+To check a release by hand before installing (the same files as above, from the release page):
+
+    sha256sum --check --ignore-missing SHA256SUMS
+    chmod +x gobill-linux-arm64 && ./gobill-linux-arm64 verify-release SHA256SUMS SHA256SUMS.sig
+
 The script:
 
 - detects the architecture and installs the binary to `/usr/local/bin/gobill`;
@@ -91,7 +98,7 @@ The steps are the same as for the STB, with the `amd64` binary. There are three 
 
 - The VPS clock is already synced, so the clock guard rarely matters.
 - Do not send RADIUS UDP or CoA over the open internet. Use WireGuard or RadSec. See [security](security.md#remote-link-vps).
-- Put a reverse proxy with HTTPS in front of `:8080`. Leave `GOBILL_HTTPS` unset so the cookie stays `Secure`. Set the setting `trust_proxy` = `yes`. If the proxy does not run on the same host, set `trusted_proxies` to the proxy IP. See [configuration](configuration.md#network-and-proxy).
+- Put a reverse proxy with HTTPS in front of `:8080`. Leave `GOBILL_HTTPS` unset so the cookie stays `Secure`. Set the setting `trust_proxy` = `yes`. If the proxy does not run on the same host, set `trusted_proxies` to the proxy IP. See [configuration](configuration.md#network-and-proxy). If you forget, System Status and Quick Setup show a warning once a loopback request carries proxy headers.
 - gobill sets its own cache headers (`/static/` and HTML are revalidated, versioned assets are immutable). Behind Cloudflare, keep "Respect existing headers" (Browser Cache TTL) enabled so these headers are honoured.
 
 ## Docker

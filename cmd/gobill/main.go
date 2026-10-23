@@ -58,6 +58,9 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "update" {
 		run = func() error { return runUpdate(os.Args[2:]) }
 	}
+	if len(os.Args) > 1 && os.Args[1] == "verify-release" {
+		run = func() error { return runVerifyRelease(os.Args[2:]) }
+	}
 	if len(os.Args) > 1 && os.Args[1] == "rollback" {
 		run = func() error { return runRollback(os.Args[2:]) }
 	}
@@ -120,6 +123,10 @@ func run() error {
 		slog.Warn("generated a new secret key; back it up with the database", "path", dbPath+".key")
 	}
 
+	db.SettingsKey = key
+	if err := db.EncryptSettings(context.Background(), conn); err != nil {
+		return fmt.Errorf("encrypt settings: %w", err)
+	}
 	app, err := web.New(conn, secure)
 	if err != nil {
 		return err
@@ -155,7 +162,6 @@ func run() error {
 			slog.Error("reload settings", "err", err)
 			return
 		}
-		n.Log = notify.LogTo(svc.Q)
 		loc := loadZone("Asia/Jakarta", time.FixedZone("WIB", 7*3600))
 		svc.Reload(n, loadZone(n.Settings["timezone"], loc))
 	}

@@ -1,5 +1,6 @@
 # Setup MikroTik
 
+   **Router di belakang NAT atau CGNAT tidak bisa menerima CoA.** gobill mengirim CoA ke IP sumber paket RADIUS di port 3799. Jika router keluar lewat NAT, misalnya modem ISP atau CGNAT, paket itu tidak sampai. Login dan accounting tetap jalan, tetapi Disconnect dan isolir paksa gagal. Sesi baru berakhir saat pelanggan reconnect. Solusinya, sambungkan router dan gobill lewat tunnel, lihat [link jarak jauh](security.md#link-jarak-jauh-vps).
 Dokumen ini menjelaskan cara menghubungkan router MikroTik ke gobill. Ada dua mode, dan keduanya bisa dipakai bersamaan:
 
 - **Mode API.** gobill mengatur router lewat RouterOS API.
@@ -14,6 +15,8 @@ Setup ini diuji di RouterOS 6.49.22. Pengerasan ada di [keamanan](security.md).
 ## Mode API
 
 gobill memanggil RouterOS API untuk membuat user hotspot, membuat secret PPPoE, membuat queue, dan memutus sesi. Port-nya TCP 8728, atau 8729 jika memakai TLS.
+
+Pada port 8729 gobill mem-pin sertifikat router (trust on first use). Koneksi TLS pertama menyimpan sidik jari SHA-256 sertifikat router; koneksi berikutnya ditolak, sebelum sandi dikirim, jika sidik jarinya berbeda. Pesan error menyebut sidik jari yang diharapkan dan yang diterima. Setelah Anda sengaja mengganti sertifikat di router, buka **Router > Ubah**, centang **Reset pin sertifikat**, lalu simpan; koneksi berikutnya mem-pin sertifikat baru.
 
 Buat user khusus di MikroTik:
 
@@ -35,7 +38,9 @@ Lalu sinkronkan paket ke profil router.
     /radius add service=hotspot,ppp address=192.168.88.10 secret=<SECRET> authentication-port=1812 accounting-port=1813 timeout=2s
     /radius incoming set accept=yes port=3799
 
-`/radius incoming` membuka CoA di port 3799. gobill memakai CoA untuk memutus sesi atau mengubah paket, tanpa menunggu pelanggan reconnect.
+`/radius incoming` membuka CoA di port 3799. gobill memakai CoA untuk memutus sesi atau mengubah paket, tanpa menunggu pelanggan reconnect. Saat paket Radius pelanggan berubah (isi ulang, ganti paket, atau admin mengedit paket/bandwidth), gobill mengirim CoA-Request berisi `Mikrotik-Rate-Limit` dan `Session-Timeout` baru ke sesi yang online. Jika NAS menolak (NAK) atau tidak menjawab, gobill memutus sesi dengan Disconnect-Request dan pelanggan mendapat paket baru saat login ulang.
+
+Atur interval interim di router (contoh di bawah memakai `1m`). gobill menghitung batas sesi basi per NAS dari jarak Interim-Update yang teramati (sekitar 2x interval + 1 menit). `GOBILL_STALE_AFTER` tetap menjadi batas bawah. Tanpa interim, sesi dianggap basi setelah `GOBILL_STALE_AFTER`.
 
 ### Hotspot
 

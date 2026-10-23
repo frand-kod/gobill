@@ -8,9 +8,54 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.1.19] - 2026-10-23
+
+### Perubahan perilaku
+
+- **Rollback ke v0.1.18 butuh backup pra-update**: secret di pengaturan dienkripsi saat start pertama. v0.1.18 tidak bisa membacanya, jadi pulihkan backup yang ditawarkan `gobill rollback`. Lihat [upgrade](docs/id/upgrade.md#catatan-versi).
+
+### Keamanan
+
+- **Pengaturan rahasia dienkripsi**: token Telegram, password SMTP, secret webhook, password GOWA, kunci Tripay dan Duitku, dan token metrics kini disimpan terenkripsi (AES-GCM, kunci yang sama dengan secret NAS, awalan `enc1:`) dan didekripsi saat dibaca. Nilai lama yang masih teks biasa tetap terbaca dan dienkripsi saat start. Impor PHPNuxBill menyimpannya terenkripsi. Restore dari backup dengan kunci lain ditolak.
+
+- **Sertifikat router API-SSL di-pin**: sebelumnya koneksi TLS ke router (port 8729) tidak memverifikasi sertifikat sama sekali, sehingga penyerang di jalur jaringan bisa mencuri sandi API. Kini koneksi TLS pertama menyimpan sidik jari SHA-256 sertifikat router (trust on first use, kolom baru `routers.cert_pin`), dan koneksi berikutnya ditolak sebelum sandi dikirim jika sidik jarinya berbeda. Jika sertifikat diganti sengaja, centang **Reset pin sertifikat** di halaman ubah router.
+- **Callback pembayaran memeriksa jumlah**: Tripay (`total_amount` dikurangi `fee_customer`) dan Duitku harus sama dengan jumlah pesanan. Callback PAID tanpa jumlah juga ditolak. Jika tidak cocok, callback ditolak (400), dicatat, dan dihitung di `payment_callbacks_total{result="amount_mismatch"}`.
+- **`make sign` memeriksa hasil CI**: sebelum menandatangani, `tools/reproduce.sh` membangun ulang biner rilis secara lokal (versi Go dan flag sama dengan CI, dua kali untuk memastikan hasilnya reproduksibel) dan hanya lanjut jika semua hash sama dengan `SHA256SUMS` dari CI. Versi Go lokal harus sama dengan `go.mod`.
+- **`install.sh` memverifikasi unduhan**: untuk URL rilis GitHub, `install.sh` memeriksa tanda tangan ed25519 `SHA256SUMS.sig` dengan `openssl` (kunci publik tertanam di skrip), lalu SHA-256 binary terhadap `SHA256SUMS`, sebelum memasang sebagai root. Binary tidak pernah dijalankan sebelum lolos. Tanpa `openssl` atau tanda tangan valid, pemasangan dibatalkan; `GOBILL_INSECURE=1` melewati pemeriksaan tanda tangan (checksum tetap diperiksa).
+- **Login tidak bisa dikunci orang lain, aman untuk CGNAT**: kunci setelah 10 kegagalan kini per pasangan IP dan username, ditambah batas longgar 100 kegagalan per IP per 15 menit. Pelanggan di balik satu IP CGNAT tidak saling mengunci. Satu username hanya diperlambat (0,25 detik per kegagalan, maksimal 3 detik). Berlaku untuk login admin, langkah 2FA, dan login portal.
+
+### Ditambahkan
+
+- **Gateway pembayaran Duitku** (#15): pilih Duitku di **Pengaturan > Pembayaran** (merchant code, API key, mode sandbox/production, metode bawaan). Mendukung pembuatan transaksi, cek status, daftar metode pembayaran, dan callback `POST /callback/duitku` yang diverifikasi dengan tanda tangan HMAC-SHA256. `callbackUrl` dibangun dari `app_url`. Belum diuji terhadap sandbox Duitku sungguhan.
+- **CoA saat paket Radius berubah**: isi ulang, ganti paket, atau edit paket/bandwidth oleh admin mengirim CoA-Request (RFC 5176) dengan `Mikrotik-Rate-Limit` dan `Session-Timeout` baru ke sesi online, di background. Diuji di RouterOS 7.24.5: kecepatan berubah tanpa memutus sesi. Jika NAS menolak atau tidak menjawab, sesi diputus dengan Disconnect-Request.
+- **Peringatan `trust_proxy`**: jika permintaan dari loopback membawa `CF-Connecting-IP`, `X-Forwarded-For`, `X-Real-IP` atau `Forwarded` saat `trust_proxy` = `no`, Status Sistem dan Setup cepat menampilkan peringatan, dan satu baris dicatat di log.
+- **Lab uji CHR** (`lab/`): RouterOS CHR di podman untuk menguji sinkronisasi, PPPoE lewat RADIUS, Disconnect, CoA, dan gobill sebagai service.
+- **Fuzz test** (`make fuzz`) untuk paket RADIUS, Message-Authenticator, dan endpoint REST.
+
+### Diperbaiki
+
+- **Sesi pertama setelah router menyala tidak lagi tertutup sendiri**: Accounting-On kini hanya menutup sesi yang tidak diperbarui dalam 5 detik terakhir, sehingga Start yang datang bersamaan tidak ikut tertutup.
+- **Pelanggan auto-renew tidak lagi menerima pesan "paket habis"** (dan webhook `recharge.expired`) saat perpanjangan berhasil, juga tidak menerima pemberitahuan sebelum habis bila saldonya cukup.
+- **Pengiriman pesan**: panggilan ke gateway WhatsApp/SMS punya timeout 20 detik; satu pelanggan yang error tidak lagi menghentikan pengingat hari itu; pengingat dikirim berurutan dengan jeda `message_delay`; pemberitahuan habis yang gagal dicoba ulang; channel kosong dicatat sebagai peringatan.
+- **Log pesan lengkap**: pesan admin, pesan massal, OTP, dan pesan selamat datang kini tercatat di halaman Logs.
+- **Isi pesan**: saldo pada pesan transfer memakai format `Rp`; nomor WhatsApp dibersihkan dari karakter non-angka; pesan admin mengisi `[[username]]`, `[[company]]`, `[[url]]`, `[[payment_link]]` (placeholder tak dikenal dikosongkan); OTP mode "both" mencoba SMS bila WhatsApp gagal; subjek email admin memakai prefix `[company]`.
+- **Email ganda di portal**: pemeriksaan "email sudah dipakai pelanggan lain" saat verifikasi kontak tidak pernah cocok. Kini memakai query khusus yang tidak peka huruf besar/kecil.
+- **Cek status pembayaran di portal** dibatasi sekali per 30 detik per transaksi, agar merchant tidak diblokir gateway.
+- **Edit paket Radius tanpa router** kini tetap mengirim CoA ke sesi online.
+
+### Diubah
+
+- **Batas sesi basi per NAS**: dihitung dari jarak Interim-Update yang teramati (sekitar 2x interval + 1 menit); `GOBILL_STALE_AFTER` menjadi batas bawah.
+
+### Dokumentasi
+
+- Panduan MikroTik menjelaskan bahwa router di belakang NAT atau CGNAT tidak bisa menerima CoA, sehingga Disconnect dan isolir paksa gagal, beserta solusinya lewat tunnel.
+
 ## [0.1.18] - 2026-10-17
 
 ### Keamanan
+
+- **Pengaturan rahasia dienkripsi**: token Telegram, password SMTP, secret webhook, password GOWA, kunci Tripay dan Duitku, dan token metrics kini disimpan terenkripsi (AES-GCM, kunci yang sama dengan secret NAS, awalan `enc1:`) dan didekripsi saat dibaca. Nilai lama yang masih teks biasa tetap terbaca dan dienkripsi saat start. Impor PHPNuxBill menyimpannya terenkripsi. Restore dari backup dengan kunci lain ditolak.
 
 - **Rilis ditandatangani**: `gobill update` kini memeriksa tanda tangan ed25519 `SHA256SUMS.sig` dengan kunci publik yang tertanam di binary, sebelum memeriksa checksum. Rilis tanpa tanda tangan yang valid ditolak. Token GitHub yang bocor tidak lagi cukup untuk memasang binary palsu.
 - **`SECURITY.md`**: jalur privat untuk melaporkan celah keamanan.
@@ -48,6 +93,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ### Keamanan
 
+- **Pengaturan rahasia dienkripsi**: token Telegram, password SMTP, secret webhook, password GOWA, kunci Tripay dan Duitku, dan token metrics kini disimpan terenkripsi (AES-GCM, kunci yang sama dengan secret NAS, awalan `enc1:`) dan didekripsi saat dibaca. Nilai lama yang masih teks biasa tetap terbaca dan dienkripsi saat start. Impor PHPNuxBill menyimpannya terenkripsi. Restore dari backup dengan kunci lain ditolak.
+
 - **Batas `shared_users` tidak lagi terlewati saat query gagal**: jika daftar sesi aktif tidak bisa dibaca, login ditolak, sama seperti batas waktu dan kuota. Sebelumnya error diabaikan dan login dianggap tanpa sesi lain.
 
 ### Diperbaiki
@@ -57,6 +104,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 ## [0.1.15] - 2026-10-14
 
 ### Keamanan
+
+- **Pengaturan rahasia dienkripsi**: token Telegram, password SMTP, secret webhook, password GOWA, kunci Tripay dan Duitku, dan token metrics kini disimpan terenkripsi (AES-GCM, kunci yang sama dengan secret NAS, awalan `enc1:`) dan didekripsi saat dibaca. Nilai lama yang masih teks biasa tetap terbaca dan dienkripsi saat start. Impor PHPNuxBill menyimpannya terenkripsi. Restore dari backup dengan kunci lain ditolak.
 
 - **`/radius.php` tidak lagi terbuka lewat reverse proxy di host yang sama**: dengan `radius_rest_allow` kosong, request yang membawa header proxy (`X-Forwarded-For`, `X-Real-IP`, `Forwarded`, `CF-Connecting-IP`) ditolak. Sebelumnya, di belakang Nginx atau cloudflared lokal, semua klien internet terlihat datang dari loopback.
 - **Header keamanan di semua respons**: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, dan `Referrer-Policy: same-origin`.
@@ -260,6 +309,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 ## [0.1.4] - 2026-10-10
 
 ### Keamanan
+
+- **Pengaturan rahasia dienkripsi**: token Telegram, password SMTP, secret webhook, password GOWA, kunci Tripay dan Duitku, dan token metrics kini disimpan terenkripsi (AES-GCM, kunci yang sama dengan secret NAS, awalan `enc1:`) dan didekripsi saat dibaca. Nilai lama yang masih teks biasa tetap terbaca dan dienkripsi saat start. Impor PHPNuxBill menyimpannya terenkripsi. Restore dari backup dengan kunci lain ditolak.
 
 - `/radius.php`: `radius_rest_allow` kosong sekarang berarti hanya loopback (sebelumnya semua IP boleh).
 - `GOBILL_HTTPS` aktif secara default: cookie sesi selalu diberi flag `Secure`. `GOBILL_HTTPS=0` untuk opt-out.

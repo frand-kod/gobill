@@ -49,8 +49,7 @@ var settingsTabs = []struct {
 }
 
 // settingsSecret are write-only: never rendered, and an empty post keeps the stored value.
-// ponytail: stored plaintext in settings, as the old app did; move to internal/secret if needed.
-var settingsSecret = map[string]bool{"telegram_bot": true, "smtp_pass": true, "webhook_secret": true, "alt_wga_password": true, "tripay_api_key": true, "tripay_private_key": true, "metrics_token": true}
+var settingsSecret = db.SecretSettings
 
 // settingsFile are image uploads. The setting holds the stored filename; an empty post keeps it.
 var settingsFile = map[string]bool{"logo": true, "logo_dark": true, "login_page_logo": true, "login_page_logo_dark": true, "login_page_favicon": true, "login_page_wallpaper": true}
@@ -267,7 +266,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 				Hint: "Clears the token: /metrics returns 404"},
 		}, "Prometheus /metrics", "")...)
 	case "payment":
-		f := sel("payment_gateway", "Payment Gateway", option{"", "Disabled"}, option{"tripay", "Tripay"})
+		f := sel("payment_gateway", "Payment Gateway", option{"", "Disabled"}, option{"tripay", "Tripay"}, option{"duitku", "Duitku"})
 		out := section([]field{f,
 			sec("tripay_api_key", "Tripay API Key"),
 			sec("tripay_private_key", "Tripay Private Key"),
@@ -277,6 +276,14 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			{Name: "tripay_test", Label: "Test connection", Type: "test", Value: "/admin/settings/payment/tripay-test", Btn: "Check connection",
 				Hint: "Save first. Checks the saved keys and merchant code with Tripay's channel list"},
 		}, "Tripay", "")
+		out = append(out, section([]field{
+			sec("duitku_api_key", "Duitku API Key"),
+			text("duitku_merchant_code", "Duitku Merchant Code", v, e),
+			sel("duitku_mode", "Duitku Mode", option{"sandbox", "Sandbox"}, option{"production", "Production"}),
+			text("duitku_channel", "Default Channel", v, e).hint("Optional payment method code, e.g. VC"),
+			{Name: "duitku_test", Label: "Test connection", Type: "test", Value: "/admin/settings/payment/tripay-test", Btn: "Check connection",
+				Hint: "Save first. Checks the saved key and merchant code with Duitku's payment method list"},
+		}, "Duitku", "")...)
 		qris := field{Name: "qris_payload", Label: "Static QRIS", Type: "qris", Value: v["qris_payload"], Error: e["qris_payload"],
 			Hint: "Upload the merchant's static QRIS photo (PNG/JPG). The system only stores its text"}
 		if m, n := payment.QRISInfo(v["qris_payload"]); m != "" {
@@ -557,7 +564,7 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	if x := v["wa_url"]; x != "" && v["alt_wga_server_url"] == "" && !(strings.Contains(x, "[number]") && strings.Contains(x, "[text]")) {
 		e["wa_url"] = "URL must contain [number] and [text]"
 	}
-	if x := v["payment_gateway"]; x != "" && x != "tripay" {
+	if x := v["payment_gateway"]; x != "" && x != "tripay" && x != "duitku" {
 		e["payment_gateway"] = "Choose one of the listed gateways"
 	}
 	if x := v["qris_payload"]; x != "" && payment.QRISValid(x) != nil {
@@ -565,6 +572,9 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	}
 	if x := v["tripay_mode"]; x != "" && !oneOf(x, "sandbox", "production") {
 		e["tripay_mode"] = "Choose sandbox or production"
+	}
+	if x := v["duitku_mode"]; x != "" && !oneOf(x, "sandbox", "production") {
+		e["duitku_mode"] = "Choose sandbox or production"
 	}
 	if x := v["webhook_url"]; x != "" {
 		if u, err := url.Parse(x); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
@@ -679,7 +689,7 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 		fp.Fields = append(fp.Fields, s.isolirSetupFields(st)...)
 	}
 	if tab == "payment" { // the URL to paste into the Tripay merchant dashboard
-		fp.Fields[0].Hint = "Callback URL for Tripay: " + baseURL(r) + "/callback/tripay"
+		fp.Fields[0].Hint = "Callback URL for Tripay: " + baseURL(r) + "/callback/tripay" + ", Duitku: " + baseURL(r) + "/callback/duitku"
 	}
 	if tok := s.sessions.PopString(r.Context(), "metrics_token_once"); tok != "" && tab == "integrations" {
 		snippet := "scrape_configs:\n  - job_name: gobill\n    metrics_path: /metrics\n    authorization:\n      type: Bearer\n      credentials: " + tok +

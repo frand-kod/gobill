@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"context"
+	"errors"
 	"github.com/frand-kod/gobill/internal/notify"
 	"strconv"
 	"time"
@@ -73,14 +74,21 @@ func (s *Server) sendOTP(ctx context.Context, st map[string]string, phone, label
 		return err
 	}
 	msg := st["company_name"] + "\n\n" + s.catalog.T(s.language(), label) + "\n" + otp
-	typ := st["phone_otp_type"]
+	return deliverOTP(ctx, n, st["phone_otp_type"], phone, msg)
+}
+
+// deliverOTP sends msg on the channels typ names. "both" tries WhatsApp and SMS and succeeds when
+// either works; the error joins both failures.
+func deliverOTP(ctx context.Context, n *notify.Notifier, typ, phone, msg string) error {
+	var waErr, smsErr error
 	if typ == "whatsapp" || typ == "both" {
-		if err := n.WhatsApp(ctx, phone, msg); err != nil {
-			return err
-		}
+		waErr = n.WhatsApp(ctx, phone, msg)
 	}
 	if typ != "whatsapp" {
-		return n.SMS(ctx, phone, msg)
+		smsErr = n.SMS(ctx, phone, msg)
 	}
-	return nil
+	if typ == "both" && (waErr == nil || smsErr == nil) {
+		return nil
+	}
+	return errors.Join(waErr, smsErr)
 }

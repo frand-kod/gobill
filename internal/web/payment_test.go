@@ -141,7 +141,7 @@ func TestPayCouponDiscountsAmount(t *testing.T) {
 	if pr.Amount != 90000 || pr.Coupon != "TEN" {
 		t.Fatalf("row: %+v", pr)
 	}
-	body := fmt.Sprintf(`{"merchant_ref":%q,"status":"PAID"}`, pr.Ref)
+	body := fmt.Sprintf(`{"merchant_ref":%q,"status":"PAID","total_amount":%d}`, pr.Ref, pr.Amount)
 	postCallback(e.h, body, signed(body))
 	l, _ := e.q.ListTransactions(t.Context(), db.ListTransactionsParams{Limit: 5})
 	if len(l) != 1 || l[0].Price != 90000 || l[0].Method != "Tripay - QRIS" {
@@ -153,7 +153,7 @@ func TestTripayCallbackPaidOnce(t *testing.T) {
 	e := payApp(t)
 	e.order(t, url.Values{"channel": {"QRIS"}})
 	pr := e.pending(t)
-	body := fmt.Sprintf(`{"merchant_ref":%q,"status":"PAID"}`, pr.Ref)
+	body := fmt.Sprintf(`{"merchant_ref":%q,"status":"PAID","total_amount":%d}`, pr.Ref, pr.Amount)
 
 	// bad signature: rejected, nothing changes
 	if w := postCallback(e.h, body, "deadbeef"); w.Code != 400 {
@@ -294,7 +294,7 @@ func TestTripayPaidForDeletedCustomerAlerts(t *testing.T) {
 	if _, err := e.s.conn.Exec("UPDATE payment_requests SET customer_id = NULL WHERE id = ?", pr.ID); err != nil {
 		t.Fatal(err)
 	}
-	body := fmt.Sprintf(`{"merchant_ref":%q,"status":"PAID"}`, pr.Ref)
+	body := fmt.Sprintf(`{"merchant_ref":%q,"status":"PAID","total_amount":%d}`, pr.Ref, pr.Amount)
 	postCallback(e.h, body, signed(body))
 	postCallback(e.h, body, signed(body))
 	if e.pending(t).Status != "paid" || e.trxCount(t) != 0 {
@@ -323,11 +323,51 @@ func TestTripayPaidAfterClosed(t *testing.T) {
 		if _, err := e.s.conn.Exec("UPDATE payment_requests SET status = ? WHERE id = ?", closed, pr.ID); err != nil {
 			t.Fatal(err)
 		}
-		body := fmt.Sprintf(`{"merchant_ref":%q,"status":"PAID"}`, pr.Ref)
+		body := fmt.Sprintf(`{"merchant_ref":%q,"status":"PAID","total_amount":%d}`, pr.Ref, pr.Amount)
 		postCallback(e.h, body, signed(body))
 		postCallback(e.h, body, signed(body))
 		if e.pending(t).Status != "paid" || e.trxCount(t) != 1 {
 			t.Fatalf("%s: status=%s trx=%d", closed, e.pending(t).Status, e.trxCount(t))
 		}
+	}
+}
+
+// The status check calls the gateway at most once per payCheckGap per payment.
+func TestPortalPayCheckRateLimited(t *testing.T) {
+	e := payApp(t)
+	e.order(t, url.Values{"channel": {"QRIS"}})
+	pr := e.pending(t)
+	check := func() { do(e.h, "POST", "/portal/payments/"+itoa(pr.ID)+"/check", url.Values{}, e.cookie) }
+	check() // UNPAID: stays pending
+	e.status = "PAID"
+	check() // too soon: the gateway is not asked
+	if e.pending(t).Status != "pending" || e.trxCount(t) != 0 {
+		t.Fatal("second check within the gap reached the gateway")
+	}
+	e.s.payCheckMu.Lock()
+	e.s.payCheckAt[pr.ID] = time.Now().Add(-payCheckGap)
+	e.s.payCheckMu.Unlock()
+	check()
+	if e.pending(t).Status != "paid" || e.trxCount(t) != 1 {
+		t.Fatal("check after the gap did not settle")
+	}
+}
+
+// A signed callback whose amount differs from the order is rejected and credits nothing.
+func TestCallbackAmountMismatch(t *testing.T) {
+	e := payApp(t)
+	e.order(t, url.Values{"channel": {"QRIS"}})
+	pr := e.pending(t)
+	b := fmt.Sprintf(`{"merchant_ref":%q,"status":"PAID","total_amount":1000,"fee_customer":0}`, pr.Ref)
+	if w := postCallback(e.h, b, signed(b)); w.Code != 400 || e.trxCount(t) != 0 || e.pending(t).Status != "pending" {
+		t.Fatalf("mismatch: %d trx=%d", w.Code, e.trxCount(t))
+	}
+	b = fmt.Sprintf(`{"merchant_ref":%q,"status":"PAID"}`, pr.Ref)
+	if w := postCallback(e.h, b, signed(b)); w.Code != 400 || e.trxCount(t) != 0 {
+		t.Fatalf("paid without amount: %d trx=%d", w.Code, e.trxCount(t))
+	}
+	b = fmt.Sprintf(`{"merchant_ref":%q,"status":"PAID","total_amount":%d,"fee_customer":0}`, pr.Ref, pr.Amount)
+	if w := postCallback(e.h, b, signed(b)); w.Code != 200 || e.trxCount(t) != 1 {
+		t.Fatalf("match: %d trx=%d", w.Code, e.trxCount(t))
 	}
 }

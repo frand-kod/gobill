@@ -156,6 +156,16 @@ func inspectBackup(ctx context.Context, path string, key []byte, loc *time.Locat
 		}
 		break
 	}
+	// secret settings carry the same key; an empty result for a non-empty value means it did not open
+	if srows, err := ro.QueryContext(ctx, "SELECT value FROM settings WHERE value LIKE 'enc1:%'"); err == nil {
+		defer srows.Close()
+		for srows.Next() {
+			var v string
+			if srows.Scan(&v) == nil && db.OpenSettingWith(key, v) == "" {
+				return importCounts{}, "", &refusal{msg: "Different encryption key: this backup was made with another GOBILL_SECRET_KEY"}
+			}
+		}
+	}
 	var newest int64
 	if err := ro.QueryRowContext(ctx, "SELECT coalesce(max(created_at), 0) FROM transactions").Scan(&newest); err != nil {
 		return importCounts{}, "", notBackup(err)

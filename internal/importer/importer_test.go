@@ -88,7 +88,7 @@ func TestImportFromMySQL(t *testing.T) {
 		t.Fatal(err)
 	}
 	seed := `DELETE FROM tbl_users; DELETE FROM tbl_appconfig;
-INSERT INTO tbl_appconfig (setting, value) VALUES ('timezone', 'Asia/Jakarta'), ('CompanyName', 'ACME');
+INSERT INTO tbl_appconfig (setting, value) VALUES ('timezone', 'Asia/Jakarta'), ('CompanyName', 'ACME'), ('smtp_pass', 'hunter2');
 INSERT INTO tbl_users (id, username, fullname, password, user_type, status, creationdate) VALUES
  (1, 'root', 'Root', SHA1('adminpw'), 'SuperAdmin', 'Active', '2023-01-01 00:00:00'), (2, 'bad', 'Bad', 'plain', 'Admin', 'Active', '2023-01-01 00:00:00');
 INSERT INTO tbl_routers (id, name, ip_address, username, password, description) VALUES (1, 'r1', '10.0.0.1:8729', 'api', 'rpw', '');
@@ -136,15 +136,16 @@ INSERT INTO tbl_transactions (id, invoice, username, user_id, plan_name, price, 
 		"SELECT count(*) FROM admins":       1, // 'bad' has no sha1
 		"SELECT count(*) FROM plans":        1, // 'Broken' has an unparsable price
 		"SELECT count(*) FROM transactions": 2,
-		"SELECT count(*) FROM transactions WHERE customer_id IS NULL AND username = 'gone'":  1,
-		"SELECT count(*) FROM subscriptions":                                                 1,
-		"SELECT count(*) FROM pools":                                                         1,
-		"SELECT balance FROM customers":                                                      2500,
-		"SELECT price FROM plans":                                                            10000,
-		"SELECT port FROM routers":                                                           8729,
-		"SELECT count(*) FROM settings WHERE key = 'CompanyName' AND value = 'ACME'":         1,
-		"SELECT count(*) FROM admins WHERE password_hash = '!' AND length(legacy_sha1) = 40": 1,
-		"SELECT expires_at - started_at FROM subscriptions":                                  31*24*3600 + 15*3600 + 59*60,
+		"SELECT count(*) FROM transactions WHERE customer_id IS NULL AND username = 'gone'": 1,
+		"SELECT count(*) FROM subscriptions":                                                1,
+		"SELECT count(*) FROM pools":                                                        1,
+		"SELECT balance FROM customers":                                                     2500,
+		"SELECT price FROM plans":                                                           10000,
+		"SELECT port FROM routers":                                                          8729,
+		"SELECT count(*) FROM settings WHERE key = 'CompanyName' AND value = 'ACME'":        1,
+		"SELECT count(*) FROM settings WHERE key = 'smtp_pass' AND value LIKE 'enc1:%' AND value NOT LIKE '%hunter2%'": 1,
+		"SELECT count(*) FROM admins WHERE password_hash = '!' AND length(legacy_sha1) = 40":                           1,
+		"SELECT expires_at - started_at FROM subscriptions":                                                            31*24*3600 + 15*3600 + 59*60,
 	} {
 		if got := count(q); got != want {
 			t.Errorf("%s = %d, want %d", q, got, want)

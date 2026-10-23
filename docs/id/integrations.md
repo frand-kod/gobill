@@ -1,6 +1,6 @@
 # Integrasi
 
-Dokumen ini menjelaskan cara menghubungkan gobill ke WhatsApp, SMS, Telegram, email, webhook, dan pembayaran online. Pembayaran online memakai Tripay atau QRIS statis.
+Dokumen ini menjelaskan cara menghubungkan gobill ke WhatsApp, SMS, Telegram, email, webhook, dan pembayaran online. Pembayaran online memakai Tripay, Duitku, atau QRIS statis.
 
 **Untuk:** operator
 
@@ -99,19 +99,20 @@ Tiap bagian punya tombol uji di **Pengaturan > Integrasi**. Hanya SuperAdmin yan
 | Kirim gateway uji | Mengirim SMS ke nomor yang Anda ketik lewat URL gateway `wa_url`. |
 | Kirim email uji | Mengirim email ke alamat yang Anda ketik lewat SMTP tersimpan. |
 | Kirim webhook uji | Mengirim event `test` yang ditandatangani ke `webhook_url`, lalu menampilkan status HTTP. |
-| Cek koneksi | Di **Pengaturan > Pembayaran**, untuk Tripay. Memanggil daftar channel pembayaran Tripay untuk memastikan kunci dan merchant code benar. |
+| Cek koneksi | Di **Pengaturan > Pembayaran**, untuk Tripay. Memanggil daftar channel pembayaran gateway (Tripay atau Duitku) untuk memastikan kunci dan merchant code benar. |
 
 ## Pembayaran online
 
-Pengaturan `payment_gateway` menentukan gateway: `""` untuk mati, atau `tripay`. Pengaturan ada di **Pengaturan > Pembayaran**.
+Pengaturan `payment_gateway` menentukan gateway: `""` untuk mati, `tripay`, atau `duitku`. Pengaturan ada di **Pengaturan > Pembayaran**.
 
 | Pengaturan | Fungsi |
 |---|---|
-| `payment_gateway` | `""` untuk mati, atau `tripay`. |
+| `payment_gateway` | `""` untuk mati, `tripay`, atau `duitku`. |
 | `tripay_mode`, `tripay_merchant_code`, `tripay_api_key`, `tripay_private_key`, `tripay_channel` | Pengaturan gateway Tripay. Kunci API dan private key tersimpan dalam teks biasa di tabel `settings`. Lihat [keamanan](security.md#keamanan-aplikasi). |
+| `duitku_mode`, `duitku_merchant_code`, `duitku_api_key`, `duitku_channel` | Pengaturan gateway Duitku. `duitku_channel` adalah kode metode pembayaran bawaan (opsional). API key tersimpan dalam teks biasa di tabel `settings`. |
 | `qris_payload` | Teks QRIS statis merchant. Diisi lewat unggah foto QRIS. Gambarnya tidak disimpan. |
 
-Callback Tripay masuk ke `POST /callback/tripay`. Callback diverifikasi dengan tanda tangan.
+Callback Tripay masuk ke `POST /callback/tripay`, callback Duitku ke `POST /callback/duitku`. Keduanya diverifikasi dengan tanda tangan. Untuk Duitku, URL callback dikirim otomatis pada setiap transaksi, dan memakai domain yang sama dengan halaman portal.
 
 ## QRIS statis
 

@@ -126,8 +126,12 @@ func (s *Server) payOrder(w http.ResponseWriter, r *http.Request, g Gateway, c *
 		s.fail(w, "portal pay", err)
 		return
 	}
+	base := baseURL(r)
+	if st, err := s.loadSettings(r.Context()); err == nil && st["app_url"] != "" {
+		base = strings.TrimRight(st["app_url"], "/")
+	}
 	cr, err := g.CreateTransaction(r.Context(), payment.Transaction{ID: pr.Ref, Amount: amount, PlanName: planName, Name: c.Fullname,
-		Email: c.Email, Phone: c.Phone, ReturnURL: baseURL(r) + "/portal/payments/" + strconv.FormatInt(pr.ID, 10), Channel: channel, Expiry: exp})
+		Email: c.Email, Phone: c.Phone, ReturnURL: baseURL(r) + "/portal/payments/" + strconv.FormatInt(pr.ID, 10), CallbackURL: base + "/callback/" + g.Name(), Channel: channel, Expiry: exp})
 	if err != nil {
 		slog.Error("pay: create transaction", "ref", pr.Ref, "err", err)
 		s.queries.ClosePaymentRequest(r.Context(), db.ClosePaymentRequestParams{Status: "failed", Ref: pr.Ref})
@@ -187,6 +191,10 @@ func (s *Server) pPayCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	back := "/portal/payments/" + strconv.FormatInt(pr.ID, 10)
 	if pr.Status == "pending" && pr.GatewayRef != "" {
+		if !s.payCheckAllowed(pr.ID) {
+			s.flashTo(w, r, back, "Please wait a moment before checking again, try again later")
+			return
+		}
 		got, err := g.Status(r.Context(), payment.Transaction{ID: pr.Ref, Reference: pr.GatewayRef})
 		if err != nil {
 			slog.Error("pay: status", "ref", pr.Ref, "err", err)
@@ -199,4 +207,29 @@ func (s *Server) pPayCheck(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+// payCheckGap is the minimum time between gateway status calls for one payment (Duitku blocks the
+// merchant for about an hour on excess status calls).
+const payCheckGap = 30 * time.Second
+
+// payCheckAllowed records a status call for payment id, or reports that one was made within payCheckGap.
+// ponytail: in memory and per process; entries are dropped as they age out. Use a DB column if several instances ever run.
+func (s *Server) payCheckAllowed(id int64) bool {
+	s.payCheckMu.Lock()
+	defer s.payCheckMu.Unlock()
+	now := time.Now()
+	for k, t := range s.payCheckAt {
+		if now.Sub(t) >= payCheckGap {
+			delete(s.payCheckAt, k)
+		}
+	}
+	if _, busy := s.payCheckAt[id]; busy {
+		return false
+	}
+	if s.payCheckAt == nil {
+		s.payCheckAt = map[int64]time.Time{}
+	}
+	s.payCheckAt[id] = now
+	return true
 }

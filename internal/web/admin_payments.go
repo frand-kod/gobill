@@ -15,12 +15,14 @@ func (s *Server) pgList(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "payment gateways", err)
 		return
 	}
-	state := "Disabled"
-	if st["payment_gateway"] == "tripay" {
-		state = "Enabled"
+	rows := []listRow{{1, []string{"Tripay", "Disabled"}}, {2, []string{"Duitku", "Disabled"}}}
+	for i, g := range []string{"tripay", "duitku"} {
+		if st["payment_gateway"] == g {
+			rows[i].Cells[1] = "Enabled"
+		}
 	}
 	lp := listPage{Heading: "Online payments", Base: "/admin/payment-gateway", Cols: []string{"Gateway", "Status"},
-		Rows:  []listRow{{1, []string{"Tripay", state}}},
+		Rows:  rows,
 		Links: []option{{"/admin/settings/payment", "Settings"}, {"/admin/payment-gateway/audit", "Payment Audit"}}}
 	s.renderList(w, r, lp)
 }

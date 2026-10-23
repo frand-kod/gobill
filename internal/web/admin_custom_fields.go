@@ -193,7 +193,6 @@ type cfVal struct {
 
 // cfCheck is the custom-field save hook: it reads and validates the posted values
 // into v and e, and returns what to store. Nothing is written here.
-// ponytail: saved after the customer row, not in one transaction; a crash between the two leaves the customer without new values.
 func (s *Server) cfCheck(ctx context.Context, r *http.Request, v, e map[string]string) ([]cfVal, error) {
 	defs, err := s.queries.ListCustomFields(ctx)
 	if err != nil {
@@ -229,10 +228,10 @@ func (s *Server) cfCheck(ctx context.Context, r *http.Request, v, e map[string]s
 	return out, nil
 }
 
-// cfStore writes the values of a saved customer.
-func (s *Server) cfStore(ctx context.Context, custID int64, vals []cfVal) error {
+// cfStore writes the values of a saved customer, on q (the caller's transaction).
+func (s *Server) cfStore(ctx context.Context, q *db.Queries, custID int64, vals []cfVal) error {
 	for _, x := range vals {
-		if err := s.queries.UpsertCustomerFieldValue(ctx, db.UpsertCustomerFieldValueParams{CustomerID: custID, FieldID: x.FieldID, Value: x.Value}); err != nil {
+		if err := q.UpsertCustomerFieldValue(ctx, db.UpsertCustomerFieldValueParams{CustomerID: custID, FieldID: x.FieldID, Value: x.Value}); err != nil {
 			return err
 		}
 	}

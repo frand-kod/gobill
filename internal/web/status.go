@@ -108,7 +108,7 @@ func (s *Server) statusPage(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "status", err)
 		return
 	}
-	s.render(w, r, http.StatusOK, "status", Page{Title: "System Status", Data: d})
+	s.render(w, r, http.StatusOK, "status", Page{Title: "System Status", Data: d, Warn: s.proxyWarning(r)})
 }
 
 func (s *Server) statusJSON(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +155,7 @@ func (s *Server) statusData(r *http.Request) (statusData, error) {
 		d.PayLast = time.Unix(int64(t), 0).In(loc).Format(backupLayout)
 	}
 	if err := s.conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM radius_sessions WHERE stopped_at IS NULL AND updated_at >= ?",
-		now.Unix()-radius.StaleAfter).Scan(&d.Open); err != nil {
+		now.Unix()-radius.StaleMax()).Scan(&d.Open); err != nil {
 		return d, err
 	}
 

@@ -76,11 +76,11 @@ func (s *Server) computedFamilies(r *http.Request) []metrics.Family {
 	return fams
 }
 
-// openRadiusSessions counts sessions that are open and were updated within radius.StaleAfter.
+// openRadiusSessions counts sessions that are open and were updated within radius.StaleMax().
 func (s *Server) openRadiusSessions(r *http.Request) (int64, error) {
 	var n int64
 	err := s.conn.QueryRowContext(r.Context(), "SELECT COUNT(*) FROM radius_sessions WHERE stopped_at IS NULL AND updated_at >= ?",
-		time.Now().Unix()-radius.StaleAfter).Scan(&n)
+		time.Now().Unix()-radius.StaleMax()).Scan(&n)
 	return n, err
 }
 

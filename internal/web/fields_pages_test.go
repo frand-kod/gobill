@@ -71,6 +71,13 @@ func TestCustomFieldRequiredAndSave(t *testing.T) {
 	if err != nil || len(vals) != 2 {
 		t.Fatalf("stored values: %v %d", err, len(vals))
 	}
+	got := map[int64]string{}
+	for _, x := range vals {
+		got[x.FieldID] = x.Value
+	}
+	if got[shoe.ID] != "42" || got[tier.ID] != "Silver" {
+		t.Fatalf("stored values: %v", got)
+	}
 	w := do(e.h, "GET", fmt.Sprint("/admin/customers/", e.cust.ID), nil, c)
 	if !strings.Contains(w.Body.String(), "Shoe Size") || !strings.Contains(w.Body.String(), "Silver") {
 		t.Fatal("detail page misses custom values")

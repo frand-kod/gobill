@@ -321,14 +321,24 @@ func (s *Service) noticeBeforeExpiry(ctx context.Context, minutes int) error {
 	if err != nil {
 		return err
 	}
+	autoRenew := setting(ctx, s.Q, "enable_balance") != "no"
+	isolirID := isolir.PlanID(setting(ctx, s.Q, "isolir_plan_id"))
 	for _, sub := range subs {
 		c, err := s.Q.GetCustomer(ctx, sub.CustomerID)
 		if err != nil {
-			return err
+			slog.Error("early expired notice: customer", "subscription", sub.ID, "err", err)
+			continue
 		}
 		plan, err := s.Q.GetPlan(ctx, sub.PlanID)
 		if err != nil {
-			return err
+			slog.Error("early expired notice: plan", "subscription", sub.ID, "err", err)
+			continue
+		}
+		// a customer whose balance will renew the plan is not told it expired
+		if renewable(plan, c, autoRenew, isolirID) {
+			if price, err := s.OrderPrice(ctx, c.ID, plan.Price); err == nil && c.Balance >= price {
+				continue
+			}
 		}
 		if err := s.sendExpiredNotice(ctx, sub, c, plan); err != nil {
 			slog.Error("early expired notice", "subscription", sub.ID, "err", err)
@@ -350,8 +360,23 @@ func (s *Service) sendExpiredNotice(ctx context.Context, sub db.Subscription, c 
 	}
 	v := s.packageVars(ctx, c.ID, plan.Price)
 	v["expired_date"] = time.Unix(sub.ExpiresAt, 0).In(s.now().Location()).Format("2006-01-02 15:04:05")
-	nf.Go("expired", func(ctx context.Context) error { return nf.Expired(ctx, c, plan.Name, v) })
+	nf.Go("expired", func(ctx context.Context) error {
+		err := nf.Expired(ctx, c, plan.Name, v)
+		if err != nil { // release the claim so the next run retries; the window (or expiry) bounds the retries
+			if e := s.Q.ReleaseExpiryNotice(context.Background(), db.ReleaseExpiryNoticeParams{ID: sub.ID, ExpiresAt: sub.ExpiresAt}); e != nil {
+				slog.Error("release expiry notice", "subscription", sub.ID, "err", e)
+			}
+		}
+		return err
+	})
 	return nil
+}
+
+// renewable is the static part of the auto-renew rule (the balance check comes on top).
+func renewable(plan db.Plan, c db.Customer, autoRenew bool, isolirID int64) bool {
+	// an ended isolation is never renewed: the isolir plan is free and the isolation is over
+	// a public Rp 0 plan never renews; an admin-audience plan does (the admin gave it on purpose)
+	return autoRenew && plan.ID != isolirID && (SellablePlan(plan) || plan.Audience == "admin") && c.AutoRenewal == 1 && c.Status == "Active"
 }
 
 func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew bool) error {
@@ -381,20 +406,9 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 	if err != nil || n == 0 {
 		return err
 	}
-	nf := s.notifier()
-	if nf != nil {
-		if err := s.sendExpiredNotice(ctx, sub, c, plan); err != nil { // skipped when the early notice already went out
-			slog.Error("expired notice", "subscription", sub.ID, "err", err)
-		}
-		nf.Go("webhook", func(ctx context.Context) error {
-			return nf.Webhook(ctx, "recharge.expired", map[string]any{"username": c.Username, "plan": plan.Name, "expires_at": sub.ExpiresAt})
-		})
-	}
 	var renewErr error
-	// an ended isolation is never renewed: the isolir plan is free and the isolation is over
-	isIsolir := plan.ID == isolir.PlanID(setting(ctx, s.Q, "isolir_plan_id"))
-	// a public Rp 0 plan never renews; an admin-audience plan does (the admin gave it on purpose)
-	if autoRenew && !isIsolir && (SellablePlan(plan) || plan.Audience == "admin") && c.AutoRenewal == 1 && c.Status == "Active" {
+	nf := s.notifier()
+	if renewable(plan, c, autoRenew, isolir.PlanID(setting(ctx, s.Q, "isolir_plan_id"))) {
 		price, err := s.OrderPrice(ctx, c.ID, plan.Price)
 		if err == nil && c.Balance >= price {
 			if err = s.rechargeWithBalance(ctx, c.ID, plan.ID, 0, true); err == nil {
@@ -408,6 +422,14 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 		if err != nil { // the price could not be read, or the recharge failed
 			renewErr = fmt.Errorf("auto renewal: %w", err)
 		}
+	}
+	if nf != nil {
+		if err := s.sendExpiredNotice(ctx, sub, c, plan); err != nil { // skipped when the early notice already went out
+			slog.Error("expired notice", "subscription", sub.ID, "err", err)
+		}
+		nf.Go("webhook", func(ctx context.Context) error {
+			return nf.Webhook(ctx, "recharge.expired", map[string]any{"username": c.Username, "plan": plan.Name, "expires_at": sub.ExpiresAt})
+		})
 	}
 	// Not renewed: isolir (when enabled) keeps the customer online on the restricted plan.
 	if err := s.isolate(ctx, plan, c); err != nil {

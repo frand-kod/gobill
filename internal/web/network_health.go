@@ -14,6 +14,7 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/device"
+	"github.com/frand-kod/gobill/internal/radius"
 	"github.com/frand-kod/gobill/internal/secret"
 )
 
@@ -141,7 +142,7 @@ func (s *Server) nasRow(n db.Na, stats map[string]netStat, now time.Time) netRow
 		}
 		row.Metric = fmt.Sprintf(s.catalog.T(lang, key), st.Active, s.ts(st.LastSeen))
 		row.Status = "Offline"
-		if now.Sub(time.Unix(st.LastSeen, 0)) <= NASFreshFor {
+		if now.Sub(time.Unix(st.LastSeen, 0)) <= max(NASFreshFor, time.Duration(radius.StaleFor(n.Ip))*time.Second) {
 			row.Status = "Online"
 		}
 	}

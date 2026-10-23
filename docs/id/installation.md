@@ -28,6 +28,13 @@ Langsung dari URL rilis. `{arch}` diganti otomatis menjadi `arm64`, `armv7`, ata
 
     sudo sh install.sh https://github.com/frand-kod/gobill/releases/latest/download/gobill-linux-{arch}
 
+Untuk URL rilis GitHub, script juga mengunduh `SHA256SUMS` dan `SHA256SUMS.sig`, memeriksa tanda tangan dengan `openssl` (kunci publik tertanam di script), lalu SHA-256 binary, semuanya sebelum binary dipasang atau dijalankan. Script memerlukan OpenSSL 3 (OpenSSL 1.1.1 tidak bisa memeriksa tanda tangan ed25519) dan berhenti jika `openssl` tidak ada, terlalu lama, atau tanda tangan salah; `GOBILL_INSECURE=1` melewati pemeriksaan tanda tangan (checksum tetap diperiksa).
+
+Untuk memeriksa rilis secara manual sebelum memasang (file yang sama, dari halaman rilis):
+
+    sha256sum --check --ignore-missing SHA256SUMS
+    chmod +x gobill-linux-arm64 && ./gobill-linux-arm64 verify-release SHA256SUMS SHA256SUMS.sig
+
 Script ini:
 
 - mendeteksi arsitektur dan memasang binary ke `/usr/local/bin/gobill`;
@@ -91,7 +98,7 @@ Langkahnya sama seperti di STB, dengan binary `amd64`. Ada tiga perbedaan pentin
 
 - Jam VPS sudah sinkron, jadi guard jam jarang berpengaruh.
 - Jangan kirim UDP RADIUS atau CoA lewat internet terbuka. Gunakan WireGuard atau RadSec. Lihat [keamanan](security.md#link-jarak-jauh-vps).
-- Pasang reverse proxy dengan HTTPS di depan `:8080`. Biarkan `GOBILL_HTTPS` tidak diset agar cookie tetap `Secure`. Set pengaturan `trust_proxy` = `yes`. Jika proxy tidak berjalan di host yang sama, isi `trusted_proxies` dengan IP proxy. Lihat [konfigurasi](configuration.md#jaringan-dan-proxy).
+- Pasang reverse proxy dengan HTTPS di depan `:8080`. Biarkan `GOBILL_HTTPS` tidak diset agar cookie tetap `Secure`. Set pengaturan `trust_proxy` = `yes`. Jika proxy tidak berjalan di host yang sama, isi `trusted_proxies` dengan IP proxy. Lihat [konfigurasi](configuration.md#jaringan-dan-proxy). Jika lupa, halaman Status Sistem dan Setup cepat menampilkan peringatan begitu ada permintaan dari loopback yang membawa header proxy.
 - gobill mengirim header cache sendiri (`/static/` dan HTML diperiksa ulang, aset berversi tidak berubah). Di belakang Cloudflare, biarkan "Respect existing headers" (Browser Cache TTL) aktif agar header ini dipakai.
 
 ## Docker

@@ -323,7 +323,7 @@ func (s *Server) pSession(x db.RadiusSession, now int64, w pWords) pSess {
 		end = x.StoppedAt.Int64
 	}
 	return pSess{Start: s.ts(x.StartedAt), For: w.span(end - x.StartedAt), Up: humanBytes(x.InputOctets), Down: humanBytes(x.OutputOctets),
-		MAC: maskMAC(x.Mac), Open: !x.StoppedAt.Valid && now-x.UpdatedAt <= radius.StaleAfter}
+		MAC: maskMAC(x.Mac), Open: !x.StoppedAt.Valid && now-x.UpdatedAt <= radius.StaleFor(x.NasIp)}
 }
 
 // pOrders lists the customer's own transactions, perPage at a time.

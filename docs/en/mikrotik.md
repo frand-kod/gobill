@@ -1,5 +1,6 @@
 # MikroTik setup
 
+   **A router behind NAT or CGNAT cannot receive CoA.** gobill sends CoA to the source IP of the RADIUS packets, on port 3799. If the router goes out through NAT, for example an ISP modem or CGNAT, the packet never arrives. Login and accounting still work, but Disconnect and forced isolation fail. The session only ends when the customer reconnects. The fix is a tunnel between the router and gobill, see [remote link](security.md#remote-link-vps).
 This document explains how to connect a MikroTik router to gobill. There are two modes, and both can be used together:
 
 - **API mode.** gobill manages the router through the RouterOS API.
@@ -14,6 +15,8 @@ This setup was tested on RouterOS 6.49.22. Hardening is described in [security](
 ## API mode
 
 gobill calls the RouterOS API to create hotspot users, create PPPoE secrets, create queues, and disconnect sessions. The port is TCP 8728, or 8729 if TLS is used.
+
+On port 8729 gobill pins the router certificate (trust on first use). The first TLS connection stores the SHA-256 fingerprint of the router's certificate; later connections are refused, before the password is sent, if the fingerprint differs. The error names the expected and received fingerprints. After you deliberately replace the certificate on the router, open the router in **Routers > Edit**, tick **Reset certificate pin**, and save; the next connection pins the new certificate.
 
 Create a dedicated user on MikroTik:
 
@@ -35,7 +38,9 @@ Then sync the plans to the router profiles.
     /radius add service=hotspot,ppp address=192.168.88.10 secret=<SECRET> authentication-port=1812 accounting-port=1813 timeout=2s
     /radius incoming set accept=yes port=3799
 
-`/radius incoming` opens CoA on port 3799. gobill uses CoA to disconnect sessions or change plans, without waiting for the customer to reconnect.
+`/radius incoming` opens CoA on port 3799. gobill uses CoA to disconnect sessions or change plans, without waiting for the customer to reconnect. When a customer's Radius plan changes (recharge, plan change, or an admin edits the plan or bandwidth), gobill sends a CoA-Request with the new `Mikrotik-Rate-Limit` and `Session-Timeout` to the online sessions. If the NAS refuses (NAK) or does not answer, gobill disconnects the session with a Disconnect-Request and the customer gets the new plan at the next login.
+
+Set the interim interval on the router (the examples below use `1m`). gobill derives the stale-session limit per NAS from the observed Interim-Update spacing (about 2x the interval + 1 minute). `GOBILL_STALE_AFTER` stays the lower bound. Without interim updates, a session is stale after `GOBILL_STALE_AFTER`.
 
 ### Hotspot
 

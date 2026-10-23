@@ -35,7 +35,7 @@ func (s *Server) sessRows(ss []db.RadiusSession, now int64) []sessRow {
 		if x.StoppedAt.Valid {
 			end = x.StoppedAt.Int64
 		} else {
-			stale = now-x.UpdatedAt > radius.StaleAfter
+			stale = now-x.UpdatedAt > radius.StaleFor(x.NasIp)
 		}
 		// Input is what the NAS received from the user = upload.
 		out = append(out, sessRow{ID: x.ID, User: x.Username, NAS: x.NasIp, IP: x.FramedIp, MAC: x.Mac,
