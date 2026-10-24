@@ -14,6 +14,9 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 ### Ditambahkan
 
 - **Pengingat menyimpan kunci enkripsi** (#39): mirror backup tidak menyalin `gobill.db.key`, dan sebelumnya aplikasi tidak mengingatkan. Pengaturan > Sistem dan Status Sistem kini menampilkan peringatan untuk SuperAdmin sampai kunci ditandai sudah disimpan (muncul lagi bila kunci berganti), lengkap dengan sidik jari kunci. Halaman baru **Kunci enkripsi** mengunduh kunci setelah konfirmasi password (dan 2FA), tercatat di log aktivitas. Penolakan restore karena kunci berbeda menyebut sidik jari kunci aplikasi.
+### Ditambahkan
+
+- **Alert gangguan massal per NAS** (#30, mode RADIUS): jika `alert_mass_drop_min` (bawaan 5, `0` = mati) pelanggan atau lebih di satu NAS kehilangan sesi dalam `alert_mass_drop_window` menit (bawaan 30) dan belum kembali, operator menerima satu alert berisi daftar username. NAS yang diam total tetap ditangani alert NAS diam. Tanpa migrasi.
 
 ## [0.1.19] - 2026-10-23
 

@@ -181,6 +181,8 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			sel("alert_channel", "Operator alert channel", option{"telegram", "Telegram"}, option{"wa", "WhatsApp"}, option{"both", "Telegram and WhatsApp"}).hint("Where alerts about this box go: disk, NAS silent, failing jobs or channels, login attempts, backups. Telegram uses the Telegram ID in Integrations"),
 			text("alert_wa_to", "Operator alert WhatsApp number", v, e).hint("Empty = the daily summary number. Needs GOWA or the message gateway URL in Integrations"),
 			text("alert_nas_silent_minutes", "NAS silent alert (minutes)", v, e).as("number").hint("Alert when a NAS that sent RADIUS packets before sends none for this many minutes. Default 15"),
+			text("alert_mass_drop_min", "Mass drop alert (customers)", v, e).as("number").hint("Alert when at least this many customers of one NAS lose their session within the window below, while the NAS itself is not silent. 0 turns it off. Default 5. RADIUS mode only"),
+			text("alert_mass_drop_window", "Mass drop window (minutes)", v, e).as("number").hint("Default 30. Customers whose router stopped reporting are counted after the stale timeout (10 minutes or more), so keep this well above that"),
 		}, "Operator alerts", "")...)
 		out = append(out, section([]field{
 			notif("notif_expired", "Expired Notification Message"),
@@ -526,6 +528,12 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	}
 	if x := v["alert_nas_silent_minutes"]; x != "" && !inRange(x, 1, 1440) {
 		e["alert_nas_silent_minutes"] = "Enter whole minutes, 1 to 1440"
+	}
+	if x := v["alert_mass_drop_min"]; x != "" && !inRange(x, 0, 100000) {
+		e["alert_mass_drop_min"] = "Enter a whole number, 0 or more. 0 turns it off"
+	}
+	if x := v["alert_mass_drop_window"]; x != "" && !inRange(x, 1, 1440) {
+		e["alert_mass_drop_window"] = "Enter whole minutes, 1 to 1440"
 	}
 	if x := v["expired_notify_minutes_before"]; x != "" && !inRange(x, 0, 1440) {
 		e["expired_notify_minutes_before"] = "Enter whole minutes, 0 to 1440"

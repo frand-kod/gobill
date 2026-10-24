@@ -118,6 +118,7 @@ gobill memeriksa aturan berikut setiap menit. Tiap aturan mengirim satu alert sa
 |---|---|---|
 | Disk hampir penuh | Disk kosong di folder database di bawah 200 MB | Disk kosong 200 MB atau lebih |
 | NAS diam | NAS di menu NAS pernah mengirim paket RADIUS, lalu diam selama `alert_nas_silent_minutes` menit. Bawaannya 15 | Paket datang lagi |
+| Gangguan massal | Mode RADIUS: `alert_mass_drop_min` pelanggan atau lebih di satu NAS kehilangan sesi (Stop, atau dianggap basi) dalam `alert_mass_drop_window` menit dan belum kembali. Alert memuat daftar username (maksimal 10). Tidak berlaku jika NAS itu sedang diam total (aturan NAS diam) | Jumlah turun di bawah batas |
 | Job gagal | Satu job gagal 3 kali berturut-turut | Satu kali jalan berhasil |
 | Kanal notifikasi gagal | Satu kanal gagal 5 kali berturut-turut | Satu kirim berhasil |
 | Brute force | Lebih dari 30 kegagalan login, admin, portal, dan 2FA, dalam 10 menit | Kegagalan turun di bawah batas |
@@ -137,6 +138,8 @@ Pengaturan ini ada di **Pengaturan > Notifikasi**, bagian **Alert operator**.
 | `alert_channel` | `telegram` (bawaan), `wa`, atau `both`. Telegram memakai `telegram_target_id`. WhatsApp memakai server GOWA atau `wa_url`. |
 | `alert_wa_to` | Nomor WhatsApp untuk alert. Kosong berarti memakai `daily_summary_wa_to`. |
 | `alert_nas_silent_minutes` | NAS yang diam selama N menit memicu alert. Bawaan 15, rentang 1 sampai 1440. |
+| `alert_mass_drop_min` | Jumlah pelanggan satu NAS yang putus bersamaan untuk memicu alert gangguan massal. Bawaan 5. `0` mematikan aturan ini. |
+| `alert_mass_drop_window` | Jendela waktu (menit) untuk menghitung pelanggan yang putus. Bawaan 30, rentang 1 sampai 1440. Sesi dari router yang berhenti melapor baru dianggap putus setelah batas basi (10 menit atau lebih), jadi jangan terlalu kecil. |
 
 Alert tentang router offline dan perangkat yang restart juga memakai kanal ini.
 
