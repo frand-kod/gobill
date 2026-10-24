@@ -132,7 +132,6 @@ Fitur PHPNuxBill berikut belum ada di gobill. Pastikan Anda tidak membutuhkannya
 
 - Impor kupon, ODP, inbox, dan template `email_invoice`. Pengaturan `enable_coupons` dan `frrest_interim_update` tidak dibaca.
 - Sync massal semua pelanggan ke router. Sync hanya ada per pelanggan dan per langganan.
-- Ganti paket lewat CoA untuk paket Radius. Sedang dikerjakan. Sampai selesai, perubahan kecepatan berlaku saat pelanggan reconnect.
 - Plugin runtime dan theme engine, termasuk `ui_custom`. Branding cukup lewat logo dan nama usaha.
 - Driver VPN MikroTik dan halaman Port. Ditunda sampai ada permintaan nyata.
 - Face detection dan foto saat registrasi. Ditunda.
