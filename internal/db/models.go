@@ -281,6 +281,7 @@ type Subscription struct {
 	AdminID           sql.NullInt64
 	PendingStart      int64
 	ExpiredNotifiedAt sql.NullInt64
+	QuotaCarryBytes   int64
 }
 
 type Transaction struct {

@@ -10,7 +10,7 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ### Ditambahkan
 
-- **Kuota data untuk paket PPPoE** (#26): paket PPPoE dengan device RADIUS (gobill) bisa diberi `Data_Limit`; RADIUS sudah menghitung pemakaian per paket. Paket PPPoE di MikroTik API menolak kuota dengan pesan di form, karena PPPoE secret tidak punya padanan `limit-bytes-total`. Perpanjangan dini paket berkuota kini memulai kuota baru (sebelumnya pemakaian lama ikut terhitung).
+- **Kuota data untuk paket PPPoE** (#26): paket PPPoE dengan device RADIUS (gobill) bisa diberi `Data_Limit`; RADIUS sudah menghitung pemakaian per paket. Paket PPPoE di MikroTik API menolak kuota dengan pesan di form, karena PPPoE secret tidak punya padanan `limit-bytes-total`. Perpanjangan dini paket berkuota (paket sama, masih aktif) memulai jendela pemakaian baru dan memindahkan sisa kuota data ke periode baru (rollover): total = batas paket + sisa. Perpanjangan setelah paket habis, ganti paket, dan nonaktifkan memulai dari kuota penuh. Batas waktu tidak di-rollover. Migrasi `0021_quota_carry.sql` menambah `subscriptions.quota_carry_bytes`.
 
 ## [0.1.19] - 2026-10-23
 

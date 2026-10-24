@@ -22,7 +22,7 @@ WHERE (username = sqlc.arg(name) OR (pppoe_username <> '' AND pppoe_username = s
 LIMIT 1;
 
 -- name: GetRadiusPlan :one
-SELECT s.started_at, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
+SELECT s.started_at, s.quota_carry_bytes, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        pl.name AS pool_name
@@ -36,7 +36,7 @@ ORDER BY s.expires_at DESC LIMIT 1;
 -- name: GetRadiusLogin :one
 -- GetCustomerForRadius and GetRadiusPlan in one statement for the common case, an active customer with
 -- an active plan: one read transaction per login instead of two. No row: use the two queries.
-SELECT sqlc.embed(c), s.started_at, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
+SELECT sqlc.embed(c), s.started_at, s.quota_carry_bytes, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        pl.name AS pool_name

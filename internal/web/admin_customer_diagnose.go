@@ -247,7 +247,7 @@ func (s *Server) planQuota(ctx context.Context, names []string, sub db.Subscript
 		}
 	}
 	if (lt == "Data_Limit" || lt == "Both_Limit") && plan.DataLimit.Valid {
-		q.HasData, q.DataLim = true, radius.LimitBytes(plan.DataLimit.Int64, plan.DataUnit.String)
+		q.HasData, q.DataLim = true, db.QuotaBytes(plan.DataLimit.Int64, plan.DataUnit.String, sub.QuotaCarryBytes)
 		for _, n := range names {
 			u, _ := s.queries.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: n, StartedAt: sub.StartedAt})
 			q.Data += u

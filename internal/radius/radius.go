@@ -417,11 +417,7 @@ func LimitSeconds(n int64, unit string) int64 {
 
 // LimitBytes converts a plan data limit (MB or GB) to bytes.
 func LimitBytes(n int64, unit string) int64 {
-	b := n * 1048576
-	if unit == "GB" {
-		b *= 1024
-	}
-	return b
+	return db.QuotaBytes(n, unit, 0)
 }
 
 func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decision {
@@ -432,7 +428,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 	lr, err := s.Q.GetRadiusLogin(ctx, user)
 	havePlan := err == nil
 	if havePlan {
-		c, pl = lr.Customer, db.GetRadiusPlanRow{StartedAt: lr.StartedAt, ExpiresAt: lr.ExpiresAt, PendingStart: lr.PendingStart,
+		c, pl = lr.Customer, db.GetRadiusPlanRow{StartedAt: lr.StartedAt, QuotaCarryBytes: lr.QuotaCarryBytes, ExpiresAt: lr.ExpiresAt, PendingStart: lr.PendingStart,
 			PlanID: lr.PlanID, PlanName: lr.PlanName, PlanType: lr.PlanType, Limited: lr.Limited, LimitType: lr.LimitType,
 			TimeLimit: lr.TimeLimit, TimeUnit: lr.TimeUnit, DataLimit: lr.DataLimit, DataUnit: lr.DataUnit, SharedUsers: lr.SharedUsers,
 			RateDown: lr.RateDown, RateDownUnit: lr.RateDownUnit, RateUp: lr.RateUp, RateUpUnit: lr.RateUpUnit, Burst: lr.Burst, PoolName: lr.PoolName}
@@ -530,7 +526,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 			}
 		}
 		if (lt == "Data_Limit" || lt == "Both_Limit") && pl.DataLimit.Valid {
-			total := LimitBytes(pl.DataLimit.Int64, pl.DataUnit.String)
+			total := db.QuotaBytes(pl.DataLimit.Int64, pl.DataUnit.String, pl.QuotaCarryBytes)
 			used, err := s.Q.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: user, StartedAt: pl.StartedAt})
 			if err != nil { // fail closed: an unknown usage must not count as zero
 				slog.Error("radius: sum data usage", "user", user, "err", err)
