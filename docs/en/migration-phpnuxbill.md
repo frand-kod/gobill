@@ -126,6 +126,21 @@ If gobill is installed on an STB that already runs PHPNuxBill, FreeRADIUS, and t
 
 Change the `connect_uri` or the `/radius` address back to the old entry. The old system's data does not change. However, transactions that happened in gobill after the cutover do not come back. Record them, and enter them by hand if needed.
 
+## Not supported yet
+
+These PHPNuxBill features are not in gobill yet. Make sure you do not need them before cutover.
+
+- Import of coupons, ODP, inbox, and the `email_invoice` template. The `enable_coupons` and `frrest_interim_update` settings are not read.
+- Mass sync of all customers to the router. Sync exists only per customer and per subscription.
+- Plan change via CoA for Radius plans. In progress. Until then, speed changes apply when the customer reconnects.
+- Plugin runtime and theme engine, including `ui_custom`. Branding uses the logo and business name.
+- MikroTik VPN driver and Port pages. Postponed until there is a real request.
+- Face detection and photo at registration. Postponed.
+- PostgreSQL. gobill uses SQLite.
+- Old API access token `system/api.php`, Tawk.to, HTTP proxy, and NuxPrint printing. Not available.
+- Tax rate on the **Settings** screen. Tax is calculated, but the rate can only be set by import or the `settings` table.
+- Windows and shared hosting. Not supported.
+
 ## See also
 
 - [Installation](installation.md): installing gobill.

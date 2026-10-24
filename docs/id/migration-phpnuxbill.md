@@ -126,6 +126,21 @@ Jika gobill dipasang di STB yang sudah menjalankan PHPNuxBill, FreeRADIUS, dan s
 
 Kembalikan `connect_uri` atau `address` pada `/radius` ke entri lama. Data sistem lama tidak berubah. Namun transaksi yang terjadi di gobill setelah cutover tidak ikut kembali. Catat transaksi itu, dan masukkan manual jika perlu.
 
+## Belum didukung
+
+Fitur PHPNuxBill berikut belum ada di gobill. Pastikan Anda tidak membutuhkannya sebelum cutover.
+
+- Impor kupon, ODP, inbox, dan template `email_invoice`. Pengaturan `enable_coupons` dan `frrest_interim_update` tidak dibaca.
+- Sync massal semua pelanggan ke router. Sync hanya ada per pelanggan dan per langganan.
+- Ganti paket lewat CoA untuk paket Radius. Sedang dikerjakan. Sampai selesai, perubahan kecepatan berlaku saat pelanggan reconnect.
+- Plugin runtime dan theme engine, termasuk `ui_custom`. Branding cukup lewat logo dan nama usaha.
+- Driver VPN MikroTik dan halaman Port. Ditunda sampai ada permintaan nyata.
+- Face detection dan foto saat registrasi. Ditunda.
+- PostgreSQL. gobill memakai SQLite.
+- Token akses API lama `system/api.php`, Tawk.to, proxy HTTP, dan cetak NuxPrint. Tidak ada.
+- Tarif pajak dari layar **Pengaturan**. Pajak tetap dihitung, tetapi tarifnya hanya bisa diisi lewat impor atau tabel `settings`.
+- Windows dan shared hosting. Tidak didukung.
+
 ## Lihat juga
 
 - [Instalasi](installation.md): pemasangan gobill.
