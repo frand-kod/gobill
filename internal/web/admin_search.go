@@ -244,7 +244,7 @@ func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searc
 	out = s.addGroup(out, "Transactions", items)
 
 	if allowed(roleStaff, a.Role) {
-		vs, err := s.queries.SearchVouchersPrefix(ctx, db.SearchVouchersPrefixParams{Q: q, Limit: n})
+		vs, err := s.queries.SearchVouchersPrefix(ctx, db.SearchVouchersPrefixParams{Q: q, Viewer: voucherViewer(a), Limit: n})
 		if err != nil {
 			return nil, err
 		}

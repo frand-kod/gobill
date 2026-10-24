@@ -27,6 +27,9 @@ SELECT * FROM vouchers WHERE code LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
   AND (CAST(sqlc.arg(status) AS TEXT) = '' OR status = sqlc.arg(status))
   AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR plan_id = sqlc.arg(plan_id))
   AND NOT EXISTS (SELECT 1 FROM agent_ledger l WHERE l.voucher_id = vouchers.id)
+  AND (CAST(sqlc.arg(viewer) AS INTEGER) = 0 OR vouchers.generated_by = sqlc.arg(viewer)
+    OR vouchers.generated_by IN (SELECT a.id FROM admins a WHERE a.root_id = sqlc.arg(viewer))
+    OR EXISTS (SELECT 1 FROM agent_batch_vouchers bv JOIN agent_batches b ON b.id = bv.batch_id WHERE bv.voucher_id = vouchers.id AND b.agent_id = sqlc.arg(viewer)))
 ORDER BY id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 -- name: UseVoucher :execrows
@@ -47,3 +50,10 @@ DELETE FROM vouchers WHERE id IN (sqlc.slice('ids'));
 DELETE FROM vouchers WHERE status = 'used' AND used_at < sqlc.arg(cutoff)
   AND NOT EXISTS (SELECT 1 FROM agent_batch_vouchers bv WHERE bv.voucher_id = vouchers.id)
   AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.method = 'Voucher - ' || vouchers.code);
+
+-- name: VoucherVisibleByCode :one
+-- The voucher with this code when viewer may see it (viewer 0 = everyone): own, own Sales' or own batch.
+SELECT id FROM vouchers WHERE code = sqlc.arg(code)
+  AND (CAST(sqlc.arg(viewer) AS INTEGER) = 0 OR vouchers.generated_by = sqlc.arg(viewer)
+    OR vouchers.generated_by IN (SELECT a.id FROM admins a WHERE a.root_id = sqlc.arg(viewer))
+    OR EXISTS (SELECT 1 FROM agent_batch_vouchers bv JOIN agent_batches b ON b.id = bv.batch_id WHERE bv.voucher_id = vouchers.id AND b.agent_id = sqlc.arg(viewer)));

@@ -8,6 +8,10 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Keamanan
+
+- **Agen dan Sales hanya melihat voucher miliknya**: sebelumnya peran Agent dan Sales bisa melihat dan menukarkan voucher belum dipakai milik semua orang lewat daftar voucher, pencarian, cetak, tampilan kode, dan tukar voucher. Kini Agent hanya melihat voucher yang ia buat, yang dibuat Sales miliknya, dan kode batch titip jualnya. Sales hanya melihat voucher yang ia buat. Kode di luar itu dijawab seperti kode yang tidak ada. SuperAdmin, Admin, dan Report tidak berubah.
+
 ### Ditambahkan
 
 - **Voucher titip jual agen** (#36): menu **Batch agen**. SuperAdmin dan Admin membuat batch untuk satu agen (paket, voucher berbayar, voucher bonus, harga per voucher berbayar). Semua kode dibuat sekaligus dan utang (berbayar x harga) tercatat dalam satu transaksi. Setoran dicatat dengan nominal dan catatan, dan tidak boleh melebihi utang. Kode yang belum terpakai bisa diretur: kode itu dibatalkan (tidak bisa dipakai lewat portal, halaman admin, atau login RADIUS) dan mengurangi utang sebesar harga per voucher, maksimal sebanyak voucher berbayar. Utang dihitung dari buku besar yang hanya bertambah (`agent_ledger`), bukan saldo. Agen hanya bisa melihat batch, pemakaian, dan utangnya sendiri. Migration `0021_agent_batches.sql`. Lihat [voucher titip jual agen](docs/id/agent-batches.md).

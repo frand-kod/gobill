@@ -295,12 +295,17 @@ func (q *Queries) SearchTransactionsPrefix(ctx context.Context, arg SearchTransa
 const searchVouchersPrefix = `-- name: SearchVouchersPrefix :many
 SELECT v.id, v.code, v.status, p.name AS plan_name FROM vouchers v JOIN plans p ON p.id = v.plan_id
 WHERE lower(substr(v.code, 1, length(?1))) = lower(?1)
-ORDER BY v.id DESC LIMIT ?2
+  AND NOT EXISTS (SELECT 1 FROM agent_ledger l WHERE l.voucher_id = v.id)
+  AND (CAST(?2 AS INTEGER) = 0 OR v.generated_by = ?2
+    OR v.generated_by IN (SELECT a.id FROM admins a WHERE a.root_id = ?2)
+    OR EXISTS (SELECT 1 FROM agent_batch_vouchers bv JOIN agent_batches b ON b.id = bv.batch_id WHERE bv.voucher_id = v.id AND b.agent_id = ?2))
+ORDER BY v.id DESC LIMIT ?3
 `
 
 type SearchVouchersPrefixParams struct {
-	Q     interface{}
-	Limit int64
+	Q      interface{}
+	Viewer int64
+	Limit  int64
 }
 
 type SearchVouchersPrefixRow struct {
@@ -311,7 +316,7 @@ type SearchVouchersPrefixRow struct {
 }
 
 func (q *Queries) SearchVouchersPrefix(ctx context.Context, arg SearchVouchersPrefixParams) ([]SearchVouchersPrefixRow, error) {
-	rows, err := q.db.QueryContext(ctx, searchVouchersPrefix, arg.Q, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, searchVouchersPrefix, arg.Q, arg.Viewer, arg.Limit)
 	if err != nil {
 		return nil, err
 	}

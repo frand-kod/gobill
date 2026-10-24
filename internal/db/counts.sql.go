@@ -308,16 +308,25 @@ SELECT COUNT(*) FROM vouchers WHERE code LIKE '%' || CAST(?1 AS TEXT) || '%'
   AND (CAST(?2 AS TEXT) = '' OR status = ?2)
   AND (CAST(?3 AS INTEGER) = 0 OR plan_id = ?3)
   AND NOT EXISTS (SELECT 1 FROM agent_ledger l WHERE l.voucher_id = vouchers.id)
+  AND (CAST(?4 AS INTEGER) = 0 OR vouchers.generated_by = ?4
+    OR vouchers.generated_by IN (SELECT a.id FROM admins a WHERE a.root_id = ?4)
+    OR EXISTS (SELECT 1 FROM agent_batch_vouchers bv JOIN agent_batches b ON b.id = bv.batch_id WHERE bv.voucher_id = vouchers.id AND b.agent_id = ?4))
 `
 
 type CountVouchersParams struct {
 	Q      string
 	Status string
 	PlanID int64
+	Viewer int64
 }
 
 func (q *Queries) CountVouchers(ctx context.Context, arg CountVouchersParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countVouchers, arg.Q, arg.Status, arg.PlanID)
+	row := q.db.QueryRowContext(ctx, countVouchers,
+		arg.Q,
+		arg.Status,
+		arg.PlanID,
+		arg.Viewer,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
