@@ -35,7 +35,8 @@ SELECT COUNT(*) FROM odps WHERE name LIKE '%' || CAST(sqlc.arg(term) AS TEXT) ||
 -- name: CountVouchers :one
 SELECT COUNT(*) FROM vouchers WHERE code LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
   AND (CAST(sqlc.arg(status) AS TEXT) = '' OR status = sqlc.arg(status))
-  AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR plan_id = sqlc.arg(plan_id));
+  AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR plan_id = sqlc.arg(plan_id))
+  AND NOT EXISTS (SELECT 1 FROM agent_ledger l WHERE l.voucher_id = vouchers.id);
 
 -- name: CountFilteredAdmins :one
 SELECT COUNT(*) FROM admins

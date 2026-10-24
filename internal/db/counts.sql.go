@@ -307,6 +307,7 @@ const countVouchers = `-- name: CountVouchers :one
 SELECT COUNT(*) FROM vouchers WHERE code LIKE '%' || CAST(?1 AS TEXT) || '%'
   AND (CAST(?2 AS TEXT) = '' OR status = ?2)
   AND (CAST(?3 AS INTEGER) = 0 OR plan_id = ?3)
+  AND NOT EXISTS (SELECT 1 FROM agent_ledger l WHERE l.voucher_id = vouchers.id)
 `
 
 type CountVouchersParams struct {

@@ -95,6 +95,45 @@ func TestVoucherConcurrent(t *testing.T) {
 	}
 }
 
+// A code returned by an agent (cancelled) is rejected as unknown and no customer is made for it.
+func TestVoucherReturnedByAgent(t *testing.T) {
+	e, n := voucherEnv(t)
+	ctx := context.Background()
+	ag, err := e.q.CreateAdmin(ctx, db.CreateAdminParams{Username: "ag", PasswordHash: "x", Role: "Agent"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := e.q.GetVoucherByCode(ctx, "V2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := e.q.CreateAgentBatch(ctx, db.CreateAgentBatchParams{AgentID: ag.ID, PlanID: v.PlanID, PaidCount: 1, UnitPrice: 1000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.q.AddBatchVoucher(ctx, db.AddBatchVoucherParams{VoucherID: v.ID, BatchID: b.ID}); err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range []db.AddAgentLedgerParams{{BatchID: b.ID, Kind: "debt", Amount: 1000},
+		{BatchID: b.ID, Kind: "return", Amount: 1000, VoucherID: sql.NullInt64{Int64: v.ID, Valid: true}}} {
+		if err := e.q.AddAgentLedger(ctx, l); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if r := e.auth(t, papMAC("V2", "V2", "m2")); r.Code != radius.CodeAccessReject || rfc2865.ReplyMessage_GetString(r) != "Invalid Voucher.." {
+		t.Fatalf("returned code: %v %s", r.Code, rfc2865.ReplyMessage_GetString(r))
+	}
+	if _, err := e.q.GetCustomerByUsername(ctx, "V2"); err == nil {
+		t.Fatal("customer created for a returned code")
+	}
+	if *n != 0 {
+		t.Fatalf("activations %d", *n)
+	}
+	if r := e.auth(t, papMAC("V1", "V1", "m1")); r.Code != radius.CodeAccessAccept {
+		t.Fatal("other codes must still work")
+	}
+}
+
 func TestVoucherUsedExpired(t *testing.T) {
 	e, _ := voucherEnv(t)
 	e.auth(t, papMAC("V3", "V3", "m3"))

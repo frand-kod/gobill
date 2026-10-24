@@ -10,7 +10,9 @@ SELECT id FROM vouchers WHERE lower(code) = lower(sqlc.arg(code)) LIMIT 1;
 SELECT * FROM vouchers WHERE id = ?;
 
 -- name: GetVoucherByCode :one
-SELECT * FROM vouchers WHERE code = ?;
+-- A code the operator cancelled (agent return) no longer exists for redemption.
+SELECT * FROM vouchers WHERE code = ?
+  AND NOT EXISTS (SELECT 1 FROM agent_ledger l WHERE l.voucher_id = vouchers.id);
 
 -- name: LastVoucherUsedBy :one
 -- The voucher a customer redeemed last; a voucher account is one that redeemed a voucher.
@@ -24,12 +26,14 @@ SELECT * FROM vouchers ORDER BY id DESC LIMIT ? OFFSET ?;
 SELECT * FROM vouchers WHERE code LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%'
   AND (CAST(sqlc.arg(status) AS TEXT) = '' OR status = sqlc.arg(status))
   AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR plan_id = sqlc.arg(plan_id))
+  AND NOT EXISTS (SELECT 1 FROM agent_ledger l WHERE l.voucher_id = vouchers.id)
 ORDER BY id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 -- name: UseVoucher :execrows
 -- Returns 1 if claimed, 0 if already used or missing.
 UPDATE vouchers SET status = 'used', used_by = ?, used_at = unixepoch()
-WHERE id = ? AND status = 'unused';
+WHERE id = ? AND status = 'unused'
+  AND NOT EXISTS (SELECT 1 FROM agent_ledger l WHERE l.voucher_id = vouchers.id);
 
 -- name: DeleteVoucher :exec
 DELETE FROM vouchers WHERE id = ? AND status = 'unused';
@@ -41,4 +45,5 @@ DELETE FROM vouchers WHERE id IN (sqlc.slice('ids'));
 -- name: DeleteOldUsedVouchers :execrows
 -- Old PHP remove-voucher: used before the cutoff, unless a subscription still shows "Voucher - CODE" as its method.
 DELETE FROM vouchers WHERE status = 'used' AND used_at < sqlc.arg(cutoff)
+  AND NOT EXISTS (SELECT 1 FROM agent_batch_vouchers bv WHERE bv.voucher_id = vouchers.id)
   AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.method = 'Voucher - ' || vouchers.code);

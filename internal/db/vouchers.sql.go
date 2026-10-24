@@ -40,6 +40,7 @@ func (q *Queries) CreateVoucher(ctx context.Context, arg CreateVoucherParams) (V
 
 const deleteOldUsedVouchers = `-- name: DeleteOldUsedVouchers :execrows
 DELETE FROM vouchers WHERE status = 'used' AND used_at < ?1
+  AND NOT EXISTS (SELECT 1 FROM agent_batch_vouchers bv WHERE bv.voucher_id = vouchers.id)
   AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.method = 'Voucher - ' || vouchers.code)
 `
 
@@ -118,8 +119,10 @@ func (q *Queries) GetVoucher(ctx context.Context, id int64) (Voucher, error) {
 
 const getVoucherByCode = `-- name: GetVoucherByCode :one
 SELECT id, code, plan_id, status, used_by, used_at, generated_by, created_at FROM vouchers WHERE code = ?
+  AND NOT EXISTS (SELECT 1 FROM agent_ledger l WHERE l.voucher_id = vouchers.id)
 `
 
+// A code the operator cancelled (agent return) no longer exists for redemption.
 func (q *Queries) GetVoucherByCode(ctx context.Context, code string) (Voucher, error) {
 	row := q.db.QueryRowContext(ctx, getVoucherByCode, code)
 	var i Voucher
@@ -199,6 +202,7 @@ const searchVouchers = `-- name: SearchVouchers :many
 SELECT id, code, plan_id, status, used_by, used_at, generated_by, created_at FROM vouchers WHERE code LIKE '%' || CAST(?1 AS TEXT) || '%'
   AND (CAST(?2 AS TEXT) = '' OR status = ?2)
   AND (CAST(?3 AS INTEGER) = 0 OR plan_id = ?3)
+  AND NOT EXISTS (SELECT 1 FROM agent_ledger l WHERE l.voucher_id = vouchers.id)
 ORDER BY id DESC LIMIT ?5 OFFSET ?4
 `
 
@@ -251,6 +255,7 @@ func (q *Queries) SearchVouchers(ctx context.Context, arg SearchVouchersParams) 
 const useVoucher = `-- name: UseVoucher :execrows
 UPDATE vouchers SET status = 'used', used_by = ?, used_at = unixepoch()
 WHERE id = ? AND status = 'unused'
+  AND NOT EXISTS (SELECT 1 FROM agent_ledger l WHERE l.voucher_id = vouchers.id)
 `
 
 type UseVoucherParams struct {
