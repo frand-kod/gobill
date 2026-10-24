@@ -485,6 +485,42 @@ func (q *Queries) ListOtherOpenRadiusSessions(ctx context.Context, arg ListOther
 	return items, nil
 }
 
+const listRadiusDropsSince = `-- name: ListRadiusDropsSince :many
+SELECT DISTINCT nas_ip, username FROM radius_sessions s
+WHERE stopped_at >= CAST(?1 AS INTEGER)
+  AND NOT EXISTS (SELECT 1 FROM radius_sessions o WHERE o.username = s.username AND o.stopped_at IS NULL)
+ORDER BY nas_ip, username
+`
+
+type ListRadiusDropsSinceRow struct {
+	NasIp    string
+	Username string
+}
+
+// Users whose session on a NAS ended at or after the cutoff and who have no open session now (mass-drop alert).
+func (q *Queries) ListRadiusDropsSince(ctx context.Context, since int64) ([]ListRadiusDropsSinceRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRadiusDropsSince, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRadiusDropsSinceRow
+	for rows.Next() {
+		var i ListRadiusDropsSinceRow
+		if err := rows.Scan(&i.NasIp, &i.Username); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRadiusSessionsByUsers = `-- name: ListRadiusSessionsByUsers :many
 SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions
 WHERE username = ?1 OR username = ?2

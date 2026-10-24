@@ -1,8 +1,14 @@
 package billing
 
 import (
+	"database/sql"
+	"fmt"
+	"time"
+
 	"context"
 	"errors"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/metrics"
 	"os"
 	"path/filepath"
 	"testing"
@@ -65,4 +71,45 @@ func TestStartMarkerAlertsOnStale(t *testing.T) {
 	if n := count(drain(got), "sendMessage"); n != 0 {
 		t.Fatalf("clean start: %d alerts, want 0", n)
 	}
+}
+
+func TestMassDropAlert(t *testing.T) {
+	e := setup(t)
+	got := withNotify(t, e)
+	ctx := context.Background()
+	now := e.now.Unix()
+	stop := func(ip, user string, ago int64) {
+		t.Helper()
+		if err := e.q.UpsertRadiusSession(ctx, db.UpsertRadiusSessionParams{SessionID: user, Username: user, NasIp: ip,
+			StartedAt: now - 7200, UpdatedAt: now - ago, StoppedAt: sql.NullInt64{Int64: now - ago, Valid: true}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	job := &AlertJob{S: e.s, Free: func() (int64, error) { return 500, nil }, Now: func() time.Time { return e.now }}
+	run := func(want int, what string) {
+		t.Helper()
+		if err := job.Run(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if n := count(drain(got), "massal"); n != want {
+			t.Fatalf("%s: %d alerts, want %d", what, n, want)
+		}
+	}
+	for i := 0; i < 4; i++ {
+		stop("10.0.0.1", fmt.Sprintf("u%d", i), 60)
+	}
+	stop("10.0.0.1", "old", 3*3600) // outside the window
+	run(0, "below threshold")
+	stop("10.0.0.1", "u4", 60)
+	run(1, "threshold met")
+	run(0, "same outage, next tick")
+
+	for i := 0; i < 5; i++ { // whole NAS silent: left to the NAS-silent rule
+		stop("10.0.0.2", fmt.Sprintf("s%d", i), 60)
+	}
+	old := metrics.Now
+	metrics.Now = func() time.Time { return e.now }
+	defer func() { metrics.Now = old }()
+	metrics.Set("radius_nas_last_packet_timestamp", float64(e.now.Add(-time.Hour).Unix()), "nas", "10.0.0.2")
+	run(0, "silent NAS")
 }

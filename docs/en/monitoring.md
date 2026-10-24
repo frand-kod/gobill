@@ -116,6 +116,7 @@ gobill checks the following rules every minute. Each rule sends one alert when a
 |---|---|---|
 | Disk almost full | Free disk space in the database folder is below 200 MB | Free disk space is 200 MB or more |
 | NAS silent | A NAS in the NAS menu has sent RADIUS packets, then is silent for `alert_nas_silent_minutes` minutes. Default 15 | A packet arrives again |
+| Mass drop | RADIUS mode: `alert_mass_drop_min` or more customers of one NAS lost their session (Stop, or treated as stale) within `alert_mass_drop_window` minutes and have not come back. The alert lists the usernames (at most 10). Not applied while that NAS is fully silent (the NAS silent rule covers it) | The count falls below the limit |
 | Job failed | A job fails 3 times in a row | One run succeeds |
 | Notification channel failed | A channel fails 5 times in a row | One send succeeds |
 | Brute force | More than 30 login failures, admin, portal, and 2FA, in 10 minutes | Failures drop below the limit |
@@ -135,6 +136,8 @@ These settings are in **Settings > Notifications**, section **Operator alerts**.
 | `alert_channel` | `telegram` (default), `wa`, or `both`. Telegram uses `telegram_target_id`. WhatsApp uses the GOWA server or `wa_url`. |
 | `alert_wa_to` | WhatsApp number for alerts. If empty, `daily_summary_wa_to` is used. |
 | `alert_nas_silent_minutes` | A NAS that is silent for N minutes triggers an alert. Default 15, range 1 to 1440. |
+| `alert_mass_drop_min` | How many customers of one NAS must drop together to trigger the mass drop alert. Default 5. `0` turns the rule off. |
+| `alert_mass_drop_window` | Time window (minutes) for counting dropped customers. Default 30, range 1 to 1440. Sessions of a router that stopped reporting only count as dropped after the stale timeout (10 minutes or more), so do not set it too small. |
 
 Alerts about routers going offline and devices restarting also use this channel.
 
