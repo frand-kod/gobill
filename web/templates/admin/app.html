@@ -53,7 +53,7 @@ function gbNav(id) {
     </div>
   </div>
   {{end}}{{end}}
-  {{$act := navActive .Path "/admin" "/admin/docs" "/admin/customers" "/admin/recharge" "/admin/vouchers/redeem" "/admin/deposit" "/admin/vouchers" "/admin/subscriptions" "/admin/radius" "/admin/message" "/admin/reports" "/admin/reports/period" "/admin/transactions" "/admin/plans" "/admin/bandwidth" "/admin/pool" "/admin/coupons" "/admin/routers" "/admin/nas" "/admin/maps/customers" "/admin/maps/routers" "/admin/maps/odp" "/admin/odp" "/admin/payment-gateway" "/admin/logs" "/admin/users" "/admin/pages" "/admin/fields" "/admin/settings"}}
+  {{$act := navActive .Path "/admin" "/admin/docs" "/admin/customers" "/admin/recharge" "/admin/vouchers/redeem" "/admin/deposit" "/admin/vouchers" "/admin/agent-batches" "/admin/subscriptions" "/admin/radius" "/admin/message" "/admin/reports" "/admin/reports/period" "/admin/transactions" "/admin/plans" "/admin/bandwidth" "/admin/pool" "/admin/coupons" "/admin/routers" "/admin/nas" "/admin/maps/customers" "/admin/maps/routers" "/admin/maps/odp" "/admin/odp" "/admin/payment-gateway" "/admin/logs" "/admin/users" "/admin/pages" "/admin/fields" "/admin/settings"}}
   <div x-show="drawer" x-cloak @click="drawer=false" class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
   <aside id="gb-sidebar" :class="[drawer ? '' : 'max-lg:hidden', rail ? 'lg:w-16 sidebar-rail' : 'lg:w-64']" @pointerover="tip($event)" @focusin="tip($event)" class="sb-scroll flex w-64 shrink-0 flex-col overflow-y-auto bg-surface text-ink max-lg:fixed max-lg:inset-y-0 max-lg:start-0 max-lg:z-40 lg:sticky lg:top-0 lg:z-30 lg:h-screen">
     <div class="fiber-stripe" aria-hidden="true"></div>
@@ -70,6 +70,7 @@ function gbNav(id) {
       <a class="nav-item" href="/admin/vouchers/redeem" data-tip="{{T "Redeem Voucher"}}"{{if eq $act "/admin/vouchers/redeem"}} aria-current="page"{{end}}>{{icon "ticket"}}<span>{{T "Redeem Voucher"}}</span></a>
       <a class="nav-item" href="/admin/deposit" data-tip="{{T "Add balance"}}"{{if eq $act "/admin/deposit"}} aria-current="page"{{end}}>{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>{{end}}
       <a class="nav-item" href="/admin/vouchers" data-tip="{{T "Voucher"}}"{{if eq $act "/admin/vouchers"}} aria-current="page"{{end}}>{{icon "ticket"}}<span>{{T "Voucher"}}</span></a>
+      {{if or $mgr (eq .Admin.Role "Agent")}}<a class="nav-item" href="/admin/agent-batches" data-tip="{{T "Agent batches"}}"{{if eq $act "/admin/agent-batches"}} aria-current="page"{{end}}>{{icon "package"}}<span>{{T "Agent batches"}}</span></a>{{end}}
       <a class="nav-item" href="/admin/subscriptions" data-tip="{{T "Subscriptions"}}"{{if eq $act "/admin/subscriptions"}} aria-current="page"{{end}}>{{icon "circle-check"}}<span>{{T "Subscriptions"}}</span></a>
       {{if $mgr}}<a class="nav-item" href="/admin/radius/sessions" data-tip="{{T "Online Sessions"}}"{{if eq $act "/admin/radius"}} aria-current="page"{{end}}>{{icon "activity"}}<span>{{T "Online Sessions"}}</span></a>{{end}}
       {{if $staff}}<a class="nav-item" href="/admin/message/send" data-tip="{{T "Send Message"}}"{{if eq $act "/admin/message"}} aria-current="page"{{end}}>{{icon "pencil"}}<span>{{T "Send Message"}}</span></a>{{end}}
