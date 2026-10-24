@@ -30,6 +30,7 @@ type statusData struct {
 	SysMB      float64 `json:"sys_mb"`
 	Goroutines int     `json:"goroutines"`
 	MetricsOn  bool    `json:"metrics_enabled"`
+	KeyFP      string  `json:"-"`
 
 	DBMB       float64 `json:"db_mb"`
 	WALMB      float64 `json:"wal_mb"`
@@ -108,7 +109,7 @@ func (s *Server) statusPage(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "status", err)
 		return
 	}
-	s.render(w, r, http.StatusOK, "status", Page{Title: "System Status", Data: d, Warn: s.proxyWarning(r)})
+	s.render(w, r, http.StatusOK, "status", Page{Title: "System Status", Data: d, Warn: strings.TrimSpace(s.proxyWarning(r) + " " + s.keyWarning(r))})
 }
 
 func (s *Server) statusJSON(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +139,7 @@ func (s *Server) statusData(r *http.Request) (statusData, error) {
 		Version: s.Version, Started: metrics.Started().In(loc).Format(backupLayout),
 		Uptime: fmt.Sprintf("%dd %02dh %02dm", int(up.Hours())/24, int(up.Hours())%24, int(up.Minutes())%60),
 		HeapMB: float64(ms.HeapAlloc) / (1 << 20), SysMB: float64(ms.Sys) / (1 << 20), Goroutines: runtime.NumGoroutine(),
-		MetricsOn: st["metrics_token"] != "", DaysToFull: -1,
+		MetricsOn: st["metrics_token"] != "", KeyFP: keyFingerprint(s.SecretKey), DaysToFull: -1,
 		Accepted24h: metrics.Recent("radius_auth_accepted_total", 1440),
 		Rejected24h: metrics.Recent("radius_auth_rejected_total", 1440),
 		PayOK:       metrics.Value("payment_callbacks_total", "result", "ok"),
