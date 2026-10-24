@@ -29,6 +29,7 @@ Dokumen ini adalah indeks panduan operator dalam Bahasa Indonesia. Panduan ini j
 
 - [Monitoring](monitoring.md): Status Sistem, `/health`, `/metrics`, dan alert operator.
 - [Backup dan restore](backup-restore.md): backup harian, mirror, dan pemulihan database.
+- [Voucher titip jual agen](agent-batches.md): batch voucher untuk agen, setoran, dan retur.
 
 ## Pelanggan
 

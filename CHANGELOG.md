@@ -8,6 +8,10 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Ditambahkan
+
+- **Voucher titip jual agen** (#36): menu **Batch agen**. SuperAdmin dan Admin membuat batch untuk satu agen (paket, voucher berbayar, voucher bonus, harga per voucher berbayar). Semua kode dibuat sekaligus dan utang (berbayar x harga) tercatat dalam satu transaksi. Setoran dicatat dengan nominal dan catatan, dan tidak boleh melebihi utang. Kode yang belum terpakai bisa diretur: kode itu dibatalkan (tidak bisa dipakai lewat portal, halaman admin, atau login RADIUS) dan mengurangi utang sebesar harga per voucher, maksimal sebanyak voucher berbayar. Utang dihitung dari buku besar yang hanya bertambah (`agent_ledger`), bukan saldo. Agen hanya bisa melihat batch, pemakaian, dan utangnya sendiri. Migration `0021_agent_batches.sql`. Lihat [voucher titip jual agen](docs/id/agent-batches.md).
+
 ## [0.1.19] - 2026-10-23
 
 ### Perubahan perilaku

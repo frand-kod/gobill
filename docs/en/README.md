@@ -29,6 +29,7 @@ This document is the index of the operator guide in English. The guide is also a
 
 - [Monitoring](monitoring.md): System Status, `/health`, `/metrics`, and operator alerts.
 - [Backup and restore](backup-restore.md): daily backups, mirrors, and database recovery.
+- [Agent consignment vouchers](agent-batches.md): voucher batches for agents, payments, and returns.
 
 ## Customers
 
