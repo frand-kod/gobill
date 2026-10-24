@@ -310,6 +310,7 @@ type Subscription struct {
 	PendingStart      int64
 	ExpiredNotifiedAt sql.NullInt64
 	QuotaCarryBytes   int64
+	QuotaCarrySeconds int64
 }
 
 type Transaction struct {

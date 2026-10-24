@@ -32,7 +32,7 @@ func (q *Queries) ClaimExpiryNotice(ctx context.Context, arg ClaimExpiryNoticePa
 const createSubscription = `-- name: CreateSubscription :one
 INSERT INTO subscriptions (customer_id, plan_id, router_id, type, started_at, expires_at, method, admin_id, pending_start)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes
+RETURNING id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds
 `
 
 type CreateSubscriptionParams struct {
@@ -74,12 +74,13 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		&i.PendingStart,
 		&i.ExpiredNotifiedAt,
 		&i.QuotaCarryBytes,
+		&i.QuotaCarrySeconds,
 	)
 	return i, err
 }
 
 const deactivateSubscription = `-- name: DeactivateSubscription :execrows
-UPDATE subscriptions SET status = 'expired', quota_carry_bytes = 0, expires_at = MAX(started_at, ?1) WHERE id = ?2 AND status = 'active'
+UPDATE subscriptions SET status = 'expired', quota_carry_bytes = 0, quota_carry_seconds = 0, expires_at = MAX(started_at, ?1) WHERE id = ?2 AND status = 'active'
 `
 
 type DeactivateSubscriptionParams struct {
@@ -206,7 +207,7 @@ func (q *Queries) FilterSubscriptions(ctx context.Context, arg FilterSubscriptio
 }
 
 const getSubscription = `-- name: GetSubscription :one
-SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes FROM subscriptions WHERE id = ?
+SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds FROM subscriptions WHERE id = ?
 `
 
 func (q *Queries) GetSubscription(ctx context.Context, id int64) (Subscription, error) {
@@ -226,12 +227,13 @@ func (q *Queries) GetSubscription(ctx context.Context, id int64) (Subscription, 
 		&i.PendingStart,
 		&i.ExpiredNotifiedAt,
 		&i.QuotaCarryBytes,
+		&i.QuotaCarrySeconds,
 	)
 	return i, err
 }
 
 const listActiveExpiringBetween = `-- name: ListActiveExpiringBetween :many
-SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expires_at >= ?1 AND expires_at < ?2 ORDER BY expires_at
+SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expires_at >= ?1 AND expires_at < ?2 ORDER BY expires_at
 `
 
 type ListActiveExpiringBetweenParams struct {
@@ -262,6 +264,7 @@ func (q *Queries) ListActiveExpiringBetween(ctx context.Context, arg ListActiveE
 			&i.PendingStart,
 			&i.ExpiredNotifiedAt,
 			&i.QuotaCarryBytes,
+			&i.QuotaCarrySeconds,
 		); err != nil {
 			return nil, err
 		}
@@ -325,7 +328,7 @@ func (q *Queries) ListActiveSubscriptionsWithPlan(ctx context.Context, customerI
 }
 
 const listExpiredActiveSubscriptions = `-- name: ListExpiredActiveSubscriptions :many
-SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expires_at <= ?1 ORDER BY expires_at
+SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expires_at <= ?1 ORDER BY expires_at
 `
 
 func (q *Queries) ListExpiredActiveSubscriptions(ctx context.Context, now int64) ([]Subscription, error) {
@@ -351,6 +354,7 @@ func (q *Queries) ListExpiredActiveSubscriptions(ctx context.Context, now int64)
 			&i.PendingStart,
 			&i.ExpiredNotifiedAt,
 			&i.QuotaCarryBytes,
+			&i.QuotaCarrySeconds,
 		); err != nil {
 			return nil, err
 		}
@@ -366,7 +370,7 @@ func (q *Queries) ListExpiredActiveSubscriptions(ctx context.Context, now int64)
 }
 
 const listSubscriptionsByCustomer = `-- name: ListSubscriptionsByCustomer :many
-SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes FROM subscriptions WHERE customer_id = ? ORDER BY id DESC LIMIT ? OFFSET ?
+SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds FROM subscriptions WHERE customer_id = ? ORDER BY id DESC LIMIT ? OFFSET ?
 `
 
 type ListSubscriptionsByCustomerParams struct {
@@ -398,6 +402,7 @@ func (q *Queries) ListSubscriptionsByCustomer(ctx context.Context, arg ListSubsc
 			&i.PendingStart,
 			&i.ExpiredNotifiedAt,
 			&i.QuotaCarryBytes,
+			&i.QuotaCarrySeconds,
 		); err != nil {
 			return nil, err
 		}
@@ -413,7 +418,7 @@ func (q *Queries) ListSubscriptionsByCustomer(ctx context.Context, arg ListSubsc
 }
 
 const listSubscriptionsExpiringUnnotified = `-- name: ListSubscriptionsExpiringUnnotified :many
-SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expired_notified_at IS NULL AND expires_at > ?1 AND expires_at <= ?2 ORDER BY expires_at
+SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expired_notified_at IS NULL AND expires_at > ?1 AND expires_at <= ?2 ORDER BY expires_at
 `
 
 type ListSubscriptionsExpiringUnnotifiedParams struct {
@@ -445,6 +450,7 @@ func (q *Queries) ListSubscriptionsExpiringUnnotified(ctx context.Context, arg L
 			&i.PendingStart,
 			&i.ExpiredNotifiedAt,
 			&i.QuotaCarryBytes,
+			&i.QuotaCarrySeconds,
 		); err != nil {
 			return nil, err
 		}
@@ -476,21 +482,22 @@ func (q *Queries) ReleaseExpiryNotice(ctx context.Context, arg ReleaseExpiryNoti
 
 const renewSubscription = `-- name: RenewSubscription :exec
 UPDATE subscriptions SET plan_id = ?, router_id = ?, type = ?, started_at = ?, expires_at = ?,
-    status = 'active', method = ?, admin_id = ?, pending_start = ?, expired_notified_at = NULL, quota_carry_bytes = ?
+    status = 'active', method = ?, admin_id = ?, pending_start = ?, expired_notified_at = NULL, quota_carry_bytes = ?, quota_carry_seconds = ?
 WHERE id = ?
 `
 
 type RenewSubscriptionParams struct {
-	PlanID          int64
-	RouterID        sql.NullInt64
-	Type            string
-	StartedAt       int64
-	ExpiresAt       int64
-	Method          string
-	AdminID         sql.NullInt64
-	PendingStart    int64
-	QuotaCarryBytes int64
-	ID              int64
+	PlanID            int64
+	RouterID          sql.NullInt64
+	Type              string
+	StartedAt         int64
+	ExpiresAt         int64
+	Method            string
+	AdminID           sql.NullInt64
+	PendingStart      int64
+	QuotaCarryBytes   int64
+	QuotaCarrySeconds int64
+	ID                int64
 }
 
 func (q *Queries) RenewSubscription(ctx context.Context, arg RenewSubscriptionParams) error {
@@ -504,13 +511,14 @@ func (q *Queries) RenewSubscription(ctx context.Context, arg RenewSubscriptionPa
 		arg.AdminID,
 		arg.PendingStart,
 		arg.QuotaCarryBytes,
+		arg.QuotaCarrySeconds,
 		arg.ID,
 	)
 	return err
 }
 
 const restartSubscription = `-- name: RestartSubscription :exec
-UPDATE subscriptions SET started_at = ?, quota_carry_bytes = 0, expired_notified_at = NULL WHERE id = ?
+UPDATE subscriptions SET started_at = ?, quota_carry_bytes = 0, quota_carry_seconds = 0, expired_notified_at = NULL WHERE id = ?
 `
 
 type RestartSubscriptionParams struct {
@@ -546,7 +554,8 @@ func (q *Queries) StartPendingSubscription(ctx context.Context, arg StartPending
 const updateSubscription = `-- name: UpdateSubscription :exec
 UPDATE subscriptions SET plan_id = ?1, router_id = ?2, type = ?3, expires_at = ?4, status = ?5, admin_id = ?6,
     expired_notified_at = CASE WHEN expires_at = ?4 THEN expired_notified_at END,
-    quota_carry_bytes = CASE WHEN plan_id = ?1 THEN quota_carry_bytes ELSE 0 END
+    quota_carry_bytes = CASE WHEN plan_id = ?1 THEN quota_carry_bytes ELSE 0 END,
+    quota_carry_seconds = CASE WHEN plan_id = ?1 THEN quota_carry_seconds ELSE 0 END
 WHERE id = ?7
 `
 

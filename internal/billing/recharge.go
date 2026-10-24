@@ -178,15 +178,14 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		extend := found && active.PlanID == plan.ID && active.PendingStart == 0 && setting(ctx, q, "extend_expiry") != "no"
 		pendStart := plan.Device == "Radius" && settingOn(setting(ctx, q, "start_on_first_login")) && (!found || active.PendingStart == 1)
 		from, start := now, now.Unix()
-		var carry int64
+		var carry, carrySec int64
 		if extend {
 			from, start = time.Unix(active.ExpiresAt, 0).In(now.Location()), active.StartedAt
-			if plan.Limited == 1 { // quota usage is summed since started_at: an early renewal restarts the window...
-				start = now.Unix()
-				if carry, err = unusedQuota(ctx, q, c, plan, active); err != nil {
+			// The usage window (started_at) is kept, so a session still online keeps counting.
+			if plan.Limited == 1 {
+				if carry, carrySec, err = rolloverQuota(ctx, q, c, plan, active); err != nil {
 					return nil, err
 				}
-				// ...and rolls the unused data over (time limits do not roll over)
 			}
 		}
 		exp := NewExpiry(from, int(plan.Validity), Unit(plan.ValidityUnit), Options{Extend: extend, BillingDay: billingDay(c, plan)})
@@ -206,7 +205,7 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 
 		if found {
 			err = q.RenewSubscription(ctx, db.RenewSubscriptionParams{PlanID: plan.ID, RouterID: rid, Type: plan.Type,
-				StartedAt: start, ExpiresAt: exp.Unix(), Method: method, AdminID: nullID(adminID), PendingStart: b2i(pendStart), QuotaCarryBytes: carry, ID: active.ID})
+				StartedAt: start, ExpiresAt: exp.Unix(), Method: method, AdminID: nullID(adminID), PendingStart: b2i(pendStart), QuotaCarryBytes: carry, QuotaCarrySeconds: carrySec, ID: active.ID})
 		} else {
 			_, err = q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: customerID, PlanID: plan.ID, RouterID: rid,
 				Type: plan.Type, StartedAt: start, ExpiresAt: exp.Unix(), Method: method, AdminID: nullID(adminID), PendingStart: b2i(pendStart)})
@@ -388,23 +387,22 @@ func (s *Service) Preview(ctx context.Context, customerID, planID int64) (Rechar
 	return pv, nil
 }
 
-// unusedQuota is the data left of the active subscription's quota (plan limit plus its carry, minus the
-// bytes used since started_at, over both login names), never below 0. 0 for a plan without a data limit.
-func unusedQuota(ctx context.Context, q *db.Queries, c db.Customer, plan db.Plan, sub db.Subscription) (int64, error) {
-	if lt := plan.LimitType.String; !plan.DataLimit.Valid || (lt != "Data_Limit" && lt != "Both_Limit") {
-		return 0, nil
+// rolloverQuota is the quota carry of an early renewal of the active limited subscription. Data rolls
+// over: one more full limit is added, and an overspend is forgiven, so the remaining data becomes
+// max(0, old remaining) + limit. Time does not: the time already used is carried, so exactly the full
+// time limit is left (like a usage-limit reset).
+func rolloverQuota(ctx context.Context, q *db.Queries, c db.Customer, plan db.Plan, sub db.Subscription) (carryBytes, carrySeconds int64, err error) {
+	used, secs, err := db.LoginUsage(ctx, q, c, sub.StartedAt)
+	if err != nil {
+		return 0, 0, err
 	}
-	names := []string{c.Username}
-	if c.PppoeUsername != "" && c.PppoeUsername != c.Username {
-		names = append(names, c.PppoeUsername)
+	lt := plan.LimitType.String
+	if plan.DataLimit.Valid && (lt == "Data_Limit" || lt == "Both_Limit") {
+		limit := db.QuotaBytes(plan.DataLimit.Int64, plan.DataUnit.String, 0)
+		carryBytes = sub.QuotaCarryBytes + limit + max(0, used-(limit+sub.QuotaCarryBytes))
 	}
-	var used int64
-	for _, n := range names {
-		u, err := q.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: n, StartedAt: sub.StartedAt})
-		if err != nil {
-			return 0, err
-		}
-		used += u
+	if plan.TimeLimit.Valid && (lt == "Time_Limit" || lt == "Both_Limit") {
+		carrySeconds = secs
 	}
-	return max(0, db.QuotaBytes(plan.DataLimit.Int64, plan.DataUnit.String, sub.QuotaCarryBytes)-used), nil
+	return carryBytes, carrySeconds, nil
 }

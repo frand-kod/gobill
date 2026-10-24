@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/netip"
 
+	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/metrics"
 	"github.com/frand-kod/gobill/internal/radius"
 	"layeh.com/radius/rfc2866"
@@ -193,10 +194,7 @@ func (s *Server) acceptBody(d radius.Decision) kv {
 		b["reply:Mikrotik-Total-Limit-Gigawords"] = d.TotalLeft >> 32
 	}
 	if pl.Limited == 1 && (pl.LimitType.String == "Time_Limit" || pl.LimitType.String == "Both_Limit") && pl.TimeLimit.Valid {
-		tl := pl.TimeLimit.Int64 * 60
-		if pl.TimeUnit.String == "Hrs" {
-			tl *= 60
-		}
+		tl := db.QuotaSeconds(pl.TimeLimit.Int64, pl.TimeUnit.String, pl.QuotaCarrySeconds)
 		b["reply:Max-All-Session"] = tl
 		if pl.LimitType.String == "Time_Limit" {
 			b["reply:Expire-After"] = tl

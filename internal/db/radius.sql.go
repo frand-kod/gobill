@@ -197,7 +197,7 @@ func (q *Queries) GetOpenRadiusSessionByFramedIP(ctx context.Context, framedIp s
 }
 
 const getRadiusLogin = `-- name: GetRadiusLogin :one
-SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, c.session_version, c.coordinates, s.started_at, s.quota_carry_bytes, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
+SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, c.session_version, c.coordinates, s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        pl.name AS pool_name
@@ -211,27 +211,28 @@ LIMIT 1
 `
 
 type GetRadiusLoginRow struct {
-	Customer        Customer
-	StartedAt       int64
-	QuotaCarryBytes int64
-	ExpiresAt       int64
-	PendingStart    int64
-	PlanID          int64
-	PlanName        string
-	PlanType        string
-	Limited         int64
-	LimitType       sql.NullString
-	TimeLimit       sql.NullInt64
-	TimeUnit        sql.NullString
-	DataLimit       sql.NullInt64
-	DataUnit        sql.NullString
-	SharedUsers     sql.NullInt64
-	RateDown        sql.NullInt64
-	RateDownUnit    sql.NullString
-	RateUp          sql.NullInt64
-	RateUpUnit      sql.NullString
-	Burst           sql.NullString
-	PoolName        sql.NullString
+	Customer          Customer
+	StartedAt         int64
+	QuotaCarryBytes   int64
+	QuotaCarrySeconds int64
+	ExpiresAt         int64
+	PendingStart      int64
+	PlanID            int64
+	PlanName          string
+	PlanType          string
+	Limited           int64
+	LimitType         sql.NullString
+	TimeLimit         sql.NullInt64
+	TimeUnit          sql.NullString
+	DataLimit         sql.NullInt64
+	DataUnit          sql.NullString
+	SharedUsers       sql.NullInt64
+	RateDown          sql.NullInt64
+	RateDownUnit      sql.NullString
+	RateUp            sql.NullInt64
+	RateUpUnit        sql.NullString
+	Burst             sql.NullString
+	PoolName          sql.NullString
 }
 
 // GetCustomerForRadius and GetRadiusPlan in one statement for the common case, an active customer with
@@ -262,6 +263,7 @@ func (q *Queries) GetRadiusLogin(ctx context.Context, name string) (GetRadiusLog
 		&i.Customer.Coordinates,
 		&i.StartedAt,
 		&i.QuotaCarryBytes,
+		&i.QuotaCarrySeconds,
 		&i.ExpiresAt,
 		&i.PendingStart,
 		&i.PlanID,
@@ -285,7 +287,7 @@ func (q *Queries) GetRadiusLogin(ctx context.Context, name string) (GetRadiusLog
 }
 
 const getRadiusPlan = `-- name: GetRadiusPlan :one
-SELECT s.started_at, s.quota_carry_bytes, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
+SELECT s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        pl.name AS pool_name
@@ -298,26 +300,27 @@ ORDER BY s.expires_at DESC LIMIT 1
 `
 
 type GetRadiusPlanRow struct {
-	StartedAt       int64
-	QuotaCarryBytes int64
-	ExpiresAt       int64
-	PendingStart    int64
-	PlanID          int64
-	PlanName        string
-	PlanType        string
-	Limited         int64
-	LimitType       sql.NullString
-	TimeLimit       sql.NullInt64
-	TimeUnit        sql.NullString
-	DataLimit       sql.NullInt64
-	DataUnit        sql.NullString
-	SharedUsers     sql.NullInt64
-	RateDown        sql.NullInt64
-	RateDownUnit    sql.NullString
-	RateUp          sql.NullInt64
-	RateUpUnit      sql.NullString
-	Burst           sql.NullString
-	PoolName        sql.NullString
+	StartedAt         int64
+	QuotaCarryBytes   int64
+	QuotaCarrySeconds int64
+	ExpiresAt         int64
+	PendingStart      int64
+	PlanID            int64
+	PlanName          string
+	PlanType          string
+	Limited           int64
+	LimitType         sql.NullString
+	TimeLimit         sql.NullInt64
+	TimeUnit          sql.NullString
+	DataLimit         sql.NullInt64
+	DataUnit          sql.NullString
+	SharedUsers       sql.NullInt64
+	RateDown          sql.NullInt64
+	RateDownUnit      sql.NullString
+	RateUp            sql.NullInt64
+	RateUpUnit        sql.NullString
+	Burst             sql.NullString
+	PoolName          sql.NullString
 }
 
 func (q *Queries) GetRadiusPlan(ctx context.Context, customerID int64) (GetRadiusPlanRow, error) {
@@ -326,6 +329,7 @@ func (q *Queries) GetRadiusPlan(ctx context.Context, customerID int64) (GetRadiu
 	err := row.Scan(
 		&i.StartedAt,
 		&i.QuotaCarryBytes,
+		&i.QuotaCarrySeconds,
 		&i.ExpiresAt,
 		&i.PendingStart,
 		&i.PlanID,

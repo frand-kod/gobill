@@ -407,13 +407,7 @@ func (s *Server) kickOldest(ctx context.Context, user string, sessions []db.Radi
 }
 
 // LimitSeconds converts a plan time limit (Mins or Hrs) to seconds.
-func LimitSeconds(n int64, unit string) int64 {
-	t := n * 60
-	if unit == "Hrs" {
-		t *= 60
-	}
-	return t
-}
+func LimitSeconds(n int64, unit string) int64 { return db.QuotaSeconds(n, unit, 0) }
 
 // LimitBytes converts a plan data limit (MB or GB) to bytes.
 func LimitBytes(n int64, unit string) int64 {
@@ -428,7 +422,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 	lr, err := s.Q.GetRadiusLogin(ctx, user)
 	havePlan := err == nil
 	if havePlan {
-		c, pl = lr.Customer, db.GetRadiusPlanRow{StartedAt: lr.StartedAt, QuotaCarryBytes: lr.QuotaCarryBytes, ExpiresAt: lr.ExpiresAt, PendingStart: lr.PendingStart,
+		c, pl = lr.Customer, db.GetRadiusPlanRow{StartedAt: lr.StartedAt, QuotaCarryBytes: lr.QuotaCarryBytes, QuotaCarrySeconds: lr.QuotaCarrySeconds, ExpiresAt: lr.ExpiresAt, PendingStart: lr.PendingStart,
 			PlanID: lr.PlanID, PlanName: lr.PlanName, PlanType: lr.PlanType, Limited: lr.Limited, LimitType: lr.LimitType,
 			TimeLimit: lr.TimeLimit, TimeUnit: lr.TimeUnit, DataLimit: lr.DataLimit, DataUnit: lr.DataUnit, SharedUsers: lr.SharedUsers,
 			RateDown: lr.RateDown, RateDownUnit: lr.RateDownUnit, RateUp: lr.RateUp, RateUpUnit: lr.RateUpUnit, Burst: lr.Burst, PoolName: lr.PoolName}
@@ -510,32 +504,32 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 	d.Rate = rateLimit(pl.RateUp, pl.RateDown, pl.RateUpUnit, pl.RateDownUnit, pl.Burst)
 	if pl.Limited == 1 {
 		lt := pl.LimitType.String
-		if (lt == "Time_Limit" || lt == "Both_Limit") && pl.TimeLimit.Valid {
-			t := LimitSeconds(pl.TimeLimit.Int64, pl.TimeUnit.String)
-			// Max-All-Session: the limit is the total online time since activation, not per login.
-			used, err := s.Q.SumRadiusSessionTime(ctx, db.SumRadiusSessionTimeParams{Username: user, StartedAt: pl.StartedAt})
-			if err != nil { // fail closed, as for the data limit
-				slog.Error("radius: sum time usage", "user", user, "err", err)
-				return Decision{Reject: "Login invalid......"}
-			}
-			if t -= used; t <= 0 {
-				return Decision{Reject: "You have exceeded your time limit."}
-			}
-			if d.Timeout == 0 || t < d.Timeout {
-				d.Timeout = t
-			}
-		}
-		if (lt == "Data_Limit" || lt == "Both_Limit") && pl.DataLimit.Valid {
-			total := db.QuotaBytes(pl.DataLimit.Int64, pl.DataUnit.String, pl.QuotaCarryBytes)
-			used, err := s.Q.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: user, StartedAt: pl.StartedAt})
+		hasTime := (lt == "Time_Limit" || lt == "Both_Limit") && pl.TimeLimit.Valid
+		hasData := (lt == "Data_Limit" || lt == "Both_Limit") && pl.DataLimit.Valid
+		if hasTime || hasData {
+			// both login names count, from started_at: a session open across a renewal keeps counting
+			bytes, secs, err := db.LoginUsage(ctx, s.Q, c, pl.StartedAt)
 			if err != nil { // fail closed: an unknown usage must not count as zero
-				slog.Error("radius: sum data usage", "user", user, "err", err)
+				slog.Error("radius: sum usage", "user", user, "err", err)
 				return Decision{Reject: "Login invalid......"}
 			}
-			if total-used <= 0 {
-				return Decision{Reject: "You have exceeded your data limit."}
+			if hasTime {
+				// Max-All-Session: the limit is the total online time since activation, not per login.
+				t := db.QuotaSeconds(pl.TimeLimit.Int64, pl.TimeUnit.String, pl.QuotaCarrySeconds) - secs
+				if t <= 0 {
+					return Decision{Reject: "You have exceeded your time limit."}
+				}
+				if d.Timeout == 0 || t < d.Timeout {
+					d.Timeout = t
+				}
 			}
-			d.TotalLeft, d.HasTotal = total-used, true
+			if hasData {
+				left := db.QuotaBytes(pl.DataLimit.Int64, pl.DataUnit.String, pl.QuotaCarryBytes) - bytes
+				if left <= 0 {
+					return Decision{Reject: "You have exceeded your data limit."}
+				}
+				d.TotalLeft, d.HasTotal = left, true
+			}
 		}
 	}
 	if d.Timeout > 1<<32-1 {
