@@ -168,7 +168,7 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 
 	// quota: same arithmetic as the RADIUS login check
 	if sub != nil && plan.Device == "Radius" {
-		q, quotaOut := s.planQuota(ctx, names, *sub, plan), false
+		q, quotaOut := s.planQuota(ctx, c, *sub, plan), false
 		if q.HasTime {
 			quotaOut = quotaOut || q.Time >= q.TimeLim
 			add("Quota", quotaLevel(q.Time, q.TimeLim), pct(q.Time, q.TimeLim), t("Online time used %s of %s", humanDur(q.Time), humanDur(q.TimeLim)))
@@ -233,25 +233,22 @@ type quotaUse struct {
 }
 
 // planQuota: the same sums the RADIUS login check (radius.authorize) uses to reject or cut off a session.
-func (s *Server) planQuota(ctx context.Context, names []string, sub db.Subscription, plan db.Plan) quotaUse {
+func (s *Server) planQuota(ctx context.Context, c db.Customer, sub db.Subscription, plan db.Plan) quotaUse {
 	var q quotaUse
 	if plan.Limited != 1 || plan.Device != "Radius" {
 		return q
 	}
 	lt := plan.LimitType.String
-	if (lt == "Time_Limit" || lt == "Both_Limit") && plan.TimeLimit.Valid {
-		q.HasTime, q.TimeLim = true, radius.LimitSeconds(plan.TimeLimit.Int64, plan.TimeUnit.String)
-		for _, n := range names {
-			u, _ := s.queries.SumRadiusSessionTime(ctx, db.SumRadiusSessionTimeParams{Username: n, StartedAt: sub.StartedAt})
-			q.Time += u
-		}
+	q.HasTime = (lt == "Time_Limit" || lt == "Both_Limit") && plan.TimeLimit.Valid
+	q.HasData = (lt == "Data_Limit" || lt == "Both_Limit") && plan.DataLimit.Valid
+	if q.HasTime || q.HasData {
+		q.Data, q.Time, _ = db.LoginUsage(ctx, s.queries, c, sub.StartedAt)
 	}
-	if (lt == "Data_Limit" || lt == "Both_Limit") && plan.DataLimit.Valid {
-		q.HasData, q.DataLim = true, radius.LimitBytes(plan.DataLimit.Int64, plan.DataUnit.String)
-		for _, n := range names {
-			u, _ := s.queries.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: n, StartedAt: sub.StartedAt})
-			q.Data += u
-		}
+	if q.HasTime {
+		q.TimeLim = db.QuotaSeconds(plan.TimeLimit.Int64, plan.TimeUnit.String, sub.QuotaCarrySeconds)
+	}
+	if q.HasData {
+		q.DataLim = db.QuotaBytes(plan.DataLimit.Int64, plan.DataUnit.String, sub.QuotaCarryBytes)
 	}
 	return q
 }

@@ -33,6 +33,9 @@ const (
 	alertTimeout     = 20 * time.Second
 	defaultNASSilent = 15 // minutes, alert_nas_silent_minutes
 	badSecretMax     = 10 // bad-secret RADIUS packets in a row from one NAS
+	defaultMassDrop  = 5  // customers, alert_mass_drop_min; 0 turns the rule off
+	defaultMassWin   = 30 // minutes, alert_mass_drop_window: covers the stale-close delay of customers who just vanished
+	massDropListMax  = 10 // usernames named in one alert
 )
 
 // DBSample is one daily reading of the database file size.
@@ -78,6 +81,7 @@ func (a *AlertJob) Run(ctx context.Context) error {
 
 	a.checkNAS(ctx, st, now)
 	a.checkBadSecret(ctx)
+	a.checkMassDrop(ctx, st, now)
 
 	for _, j := range job.Stats() {
 		a.edge(ctx, "job:"+j.Name, j.Failures >= jobFailMax,
@@ -155,6 +159,45 @@ func (a *AlertJob) checkNAS(ctx context.Context, st map[string]string, now time.
 		if strings.HasPrefix(k, "nas:") && !live[k] {
 			delete(a.active, k)
 		}
+	}
+}
+
+// checkMassDrop alerts when at least alert_mass_drop_min customers of one NAS lost their session (Stop, or
+// closed as stale) within alert_mass_drop_window minutes and have not come back. A NAS that is silent as a whole
+// is left to the NAS-silent rule. Same edge rule as the others: one alert per episode, one when it eases.
+func (a *AlertJob) checkMassDrop(ctx context.Context, st map[string]string, now time.Time) {
+	minN, err := strconv.Atoi(st["alert_mass_drop_min"])
+	if err != nil || minN < 0 {
+		minN = defaultMassDrop
+	}
+	win, err := strconv.Atoi(st["alert_mass_drop_window"])
+	if err != nil || win < 1 {
+		win = defaultMassWin
+	}
+	byNAS := map[string][]string{}
+	if minN > 0 {
+		rows, err := a.S.Q.ListRadiusDropsSince(ctx, now.Add(-time.Duration(win)*time.Minute).Unix())
+		if err != nil {
+			slog.Error("alert: list radius drops", "err", err)
+			return
+		}
+		for _, r := range rows {
+			byNAS[r.NasIp] = append(byNAS[r.NasIp], r.Username)
+		}
+	}
+	for k := range a.active { // an episode whose NAS has no drops left must still recover
+		if ip, ok := strings.CutPrefix(k, "massdrop:"); ok && byNAS[ip] == nil {
+			byNAS[ip] = nil
+		}
+	}
+	for ip, users := range byNAS {
+		list := strings.Join(users[:min(len(users), massDropListMax)], ", ")
+		if len(users) > massDropListMax {
+			list += fmt.Sprintf(" (+%d lagi)", len(users)-massDropListMax)
+		}
+		a.edge(ctx, "massdrop:"+ip, minN > 0 && len(users) >= minN && !a.active["nas:"+ip],
+			fmt.Sprintf("%d pelanggan di NAS %s kehilangan sesi dalam %d menit terakhir (gangguan massal?): %s", len(users), ip, win, list),
+			fmt.Sprintf("Gangguan massal di NAS %s mereda", ip))
 	}
 }
 

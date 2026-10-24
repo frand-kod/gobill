@@ -234,7 +234,7 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 			return
 		}
 		d.Period = pTotal{Down: humanBytes(oct.Output), Up: humanBytes(oct.Input)}
-		d.Usage = s.pUsage(ctx, names, *sub, p, d.Words, oct.Input+oct.Output)
+		d.Usage = s.pUsage(ctx, *c, *sub, p, d.Words, oct.Input+oct.Output)
 	} else {
 		d.Usage.Note = s.catalog.T(s.language(), "No active plan")
 		if len(subs) > 0 { // only finished plans: say which one ended
@@ -294,11 +294,11 @@ func validityPct(start, end, now int64) int {
 
 // pUsage: data and time used since the subscription started, the same sums the RADIUS login check uses.
 // used is the data octets of the same period; it is shown when the plan has no data limit.
-func (s *Server) pUsage(ctx context.Context, names []string, sub db.Subscription, p db.Plan, w pWords, used int64) pUsage {
+func (s *Server) pUsage(ctx context.Context, c db.Customer, sub db.Subscription, p db.Plan, w pWords, used int64) pUsage {
 	if p.Limited == 1 && p.Device != "Radius" {
 		return pUsage{Note: s.catalog.T(s.language(), "Usage is not recorded for this plan")}
 	}
-	q := s.planQuota(ctx, names, sub, p)
+	q := s.planQuota(ctx, c, sub, p)
 	u := pUsage{Data: pMeter{Text: s.catalog.T(s.language(), "No limit") + " · " + humanBytes(used)}}
 	if q.HasData {
 		u.Data = meter(q.Data, q.DataLim, humanBytes)

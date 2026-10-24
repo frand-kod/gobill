@@ -53,6 +53,28 @@ func (q *Queries) CloseStaleRadiusSessions(ctx context.Context, updatedAt int64)
 	return result.RowsAffected()
 }
 
+const countRadiusDisconnectsSince = `-- name: CountRadiusDisconnectsSince :one
+SELECT COUNT(*) FROM radius_sessions WHERE stopped_at >= ?
+`
+
+func (q *Queries) CountRadiusDisconnectsSince(ctx context.Context, stoppedAt sql.NullInt64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRadiusDisconnectsSince, stoppedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countRadiusLoginsSince = `-- name: CountRadiusLoginsSince :one
+SELECT COUNT(*) FROM radius_sessions WHERE started_at >= ?
+`
+
+func (q *Queries) CountRadiusLoginsSince(ctx context.Context, startedAt int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRadiusLoginsSince, startedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createNAS = `-- name: CreateNAS :one
 INSERT INTO nas (name, ip, secret_enc, description, require_message_auth) VALUES (?, ?, ?, ?, ?) RETURNING id, name, ip, secret_enc, description, require_message_auth, ma_seen
 `
@@ -175,7 +197,7 @@ func (q *Queries) GetOpenRadiusSessionByFramedIP(ctx context.Context, framedIp s
 }
 
 const getRadiusLogin = `-- name: GetRadiusLogin :one
-SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, c.session_version, c.coordinates, s.started_at, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
+SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, c.session_version, c.coordinates, s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        pl.name AS pool_name
@@ -189,26 +211,28 @@ LIMIT 1
 `
 
 type GetRadiusLoginRow struct {
-	Customer     Customer
-	StartedAt    int64
-	ExpiresAt    int64
-	PendingStart int64
-	PlanID       int64
-	PlanName     string
-	PlanType     string
-	Limited      int64
-	LimitType    sql.NullString
-	TimeLimit    sql.NullInt64
-	TimeUnit     sql.NullString
-	DataLimit    sql.NullInt64
-	DataUnit     sql.NullString
-	SharedUsers  sql.NullInt64
-	RateDown     sql.NullInt64
-	RateDownUnit sql.NullString
-	RateUp       sql.NullInt64
-	RateUpUnit   sql.NullString
-	Burst        sql.NullString
-	PoolName     sql.NullString
+	Customer          Customer
+	StartedAt         int64
+	QuotaCarryBytes   int64
+	QuotaCarrySeconds int64
+	ExpiresAt         int64
+	PendingStart      int64
+	PlanID            int64
+	PlanName          string
+	PlanType          string
+	Limited           int64
+	LimitType         sql.NullString
+	TimeLimit         sql.NullInt64
+	TimeUnit          sql.NullString
+	DataLimit         sql.NullInt64
+	DataUnit          sql.NullString
+	SharedUsers       sql.NullInt64
+	RateDown          sql.NullInt64
+	RateDownUnit      sql.NullString
+	RateUp            sql.NullInt64
+	RateUpUnit        sql.NullString
+	Burst             sql.NullString
+	PoolName          sql.NullString
 }
 
 // GetCustomerForRadius and GetRadiusPlan in one statement for the common case, an active customer with
@@ -238,6 +262,8 @@ func (q *Queries) GetRadiusLogin(ctx context.Context, name string) (GetRadiusLog
 		&i.Customer.SessionVersion,
 		&i.Customer.Coordinates,
 		&i.StartedAt,
+		&i.QuotaCarryBytes,
+		&i.QuotaCarrySeconds,
 		&i.ExpiresAt,
 		&i.PendingStart,
 		&i.PlanID,
@@ -261,7 +287,7 @@ func (q *Queries) GetRadiusLogin(ctx context.Context, name string) (GetRadiusLog
 }
 
 const getRadiusPlan = `-- name: GetRadiusPlan :one
-SELECT s.started_at, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
+SELECT s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        pl.name AS pool_name
@@ -274,25 +300,27 @@ ORDER BY s.expires_at DESC LIMIT 1
 `
 
 type GetRadiusPlanRow struct {
-	StartedAt    int64
-	ExpiresAt    int64
-	PendingStart int64
-	PlanID       int64
-	PlanName     string
-	PlanType     string
-	Limited      int64
-	LimitType    sql.NullString
-	TimeLimit    sql.NullInt64
-	TimeUnit     sql.NullString
-	DataLimit    sql.NullInt64
-	DataUnit     sql.NullString
-	SharedUsers  sql.NullInt64
-	RateDown     sql.NullInt64
-	RateDownUnit sql.NullString
-	RateUp       sql.NullInt64
-	RateUpUnit   sql.NullString
-	Burst        sql.NullString
-	PoolName     sql.NullString
+	StartedAt         int64
+	QuotaCarryBytes   int64
+	QuotaCarrySeconds int64
+	ExpiresAt         int64
+	PendingStart      int64
+	PlanID            int64
+	PlanName          string
+	PlanType          string
+	Limited           int64
+	LimitType         sql.NullString
+	TimeLimit         sql.NullInt64
+	TimeUnit          sql.NullString
+	DataLimit         sql.NullInt64
+	DataUnit          sql.NullString
+	SharedUsers       sql.NullInt64
+	RateDown          sql.NullInt64
+	RateDownUnit      sql.NullString
+	RateUp            sql.NullInt64
+	RateUpUnit        sql.NullString
+	Burst             sql.NullString
+	PoolName          sql.NullString
 }
 
 func (q *Queries) GetRadiusPlan(ctx context.Context, customerID int64) (GetRadiusPlanRow, error) {
@@ -300,6 +328,8 @@ func (q *Queries) GetRadiusPlan(ctx context.Context, customerID int64) (GetRadiu
 	var i GetRadiusPlanRow
 	err := row.Scan(
 		&i.StartedAt,
+		&i.QuotaCarryBytes,
+		&i.QuotaCarrySeconds,
 		&i.ExpiresAt,
 		&i.PendingStart,
 		&i.PlanID,
@@ -345,6 +375,58 @@ func (q *Queries) GetRadiusSession(ctx context.Context, id int64) (RadiusSession
 		&i.OutputOctets,
 	)
 	return i, err
+}
+
+const listActivePlanRates = `-- name: ListActivePlanRates :many
+SELECT c.username, c.pppoe_username, p.name AS plan_name,
+       COALESCE(b.rate_down, 0) AS rate_down, COALESCE(b.rate_down_unit, '') AS rate_down_unit,
+       COALESCE(b.rate_up, 0) AS rate_up, COALESCE(b.rate_up_unit, '') AS rate_up_unit
+FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id
+LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
+WHERE s.status = 'active'
+ORDER BY s.expires_at DESC
+`
+
+type ListActivePlanRatesRow struct {
+	Username      string
+	PppoeUsername string
+	PlanName      string
+	RateDown      int64
+	RateDownUnit  string
+	RateUp        int64
+	RateUpUnit    string
+}
+
+// Active plan and its bandwidth per customer, for the live sessions view. Newest expiry first: the first row for a login is the plan that counts.
+func (q *Queries) ListActivePlanRates(ctx context.Context) ([]ListActivePlanRatesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listActivePlanRates)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActivePlanRatesRow
+	for rows.Next() {
+		var i ListActivePlanRatesRow
+		if err := rows.Scan(
+			&i.Username,
+			&i.PppoeUsername,
+			&i.PlanName,
+			&i.RateDown,
+			&i.RateDownUnit,
+			&i.RateUp,
+			&i.RateUpUnit,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listNAS = `-- name: ListNAS :many
@@ -485,6 +567,42 @@ func (q *Queries) ListOtherOpenRadiusSessions(ctx context.Context, arg ListOther
 	return items, nil
 }
 
+const listRadiusDropsSince = `-- name: ListRadiusDropsSince :many
+SELECT DISTINCT nas_ip, username FROM radius_sessions s
+WHERE stopped_at >= CAST(?1 AS INTEGER)
+  AND NOT EXISTS (SELECT 1 FROM radius_sessions o WHERE o.username = s.username AND o.stopped_at IS NULL)
+ORDER BY nas_ip, username
+`
+
+type ListRadiusDropsSinceRow struct {
+	NasIp    string
+	Username string
+}
+
+// Users whose session on a NAS ended at or after the cutoff and who have no open session now (mass-drop alert).
+func (q *Queries) ListRadiusDropsSince(ctx context.Context, since int64) ([]ListRadiusDropsSinceRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRadiusDropsSince, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRadiusDropsSinceRow
+	for rows.Next() {
+		var i ListRadiusDropsSinceRow
+		if err := rows.Scan(&i.NasIp, &i.Username); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRadiusSessionsByUsers = `-- name: ListRadiusSessionsByUsers :many
 SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions
 WHERE username = ?1 OR username = ?2
@@ -528,6 +646,47 @@ func (q *Queries) ListRadiusSessionsByUsers(ctx context.Context, arg ListRadiusS
 			&i.InputOctets,
 			&i.OutputOctets,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRadiusUsageSince = `-- name: ListRadiusUsageSince :many
+SELECT updated_at, input_octets, output_octets FROM radius_sessions
+WHERE (username = ?1 OR username = ?2) AND updated_at >= ?3
+`
+
+type ListRadiusUsageSinceParams struct {
+	Name1 string
+	Name2 string
+	Since int64
+}
+
+type ListRadiusUsageSinceRow struct {
+	UpdatedAt    int64
+	InputOctets  int64
+	OutputOctets int64
+}
+
+// Octets of the customer's two login names by the time each session was last updated, for the daily usage chart.
+func (q *Queries) ListRadiusUsageSince(ctx context.Context, arg ListRadiusUsageSinceParams) ([]ListRadiusUsageSinceRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRadiusUsageSince, arg.Name1, arg.Name2, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRadiusUsageSinceRow
+	for rows.Next() {
+		var i ListRadiusUsageSinceRow
+		if err := rows.Scan(&i.UpdatedAt, &i.InputOctets, &i.OutputOctets); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -715,6 +874,30 @@ func (q *Queries) StopRadiusSession(ctx context.Context, arg StopRadiusSessionPa
 	return err
 }
 
+const sumRadiusOctetsByUsers = `-- name: SumRadiusOctetsByUsers :one
+SELECT CAST(COALESCE(SUM(input_octets), 0) AS INTEGER) AS input, CAST(COALESCE(SUM(output_octets), 0) AS INTEGER) AS output FROM radius_sessions
+WHERE (username = ?1 OR username = ?2) AND started_at >= ?3
+`
+
+type SumRadiusOctetsByUsersParams struct {
+	Name1     string
+	Name2     string
+	StartedAt int64
+}
+
+type SumRadiusOctetsByUsersRow struct {
+	Input  int64
+	Output int64
+}
+
+// Upload (input) and download (output) octets of the customer's login names since started_at.
+func (q *Queries) SumRadiusOctetsByUsers(ctx context.Context, arg SumRadiusOctetsByUsersParams) (SumRadiusOctetsByUsersRow, error) {
+	row := q.db.QueryRowContext(ctx, sumRadiusOctetsByUsers, arg.Name1, arg.Name2, arg.StartedAt)
+	var i SumRadiusOctetsByUsersRow
+	err := row.Scan(&i.Input, &i.Output)
+	return i, err
+}
+
 const sumRadiusSessionTime = `-- name: SumRadiusSessionTime :one
 SELECT CAST(COALESCE(SUM(COALESCE(stopped_at, updated_at) - started_at), 0) AS INTEGER) FROM radius_sessions
 WHERE username = ? AND started_at >= ?
@@ -817,143 +1000,4 @@ func (q *Queries) UpsertRadiusSession(ctx context.Context, arg UpsertRadiusSessi
 		arg.OutputOctets,
 	)
 	return err
-}
-
-const countRadiusDisconnectsSince = `-- name: CountRadiusDisconnectsSince :one
-SELECT COUNT(*) FROM radius_sessions WHERE stopped_at >= ?1
-`
-
-func (q *Queries) CountRadiusDisconnectsSince(ctx context.Context, stoppedAt int64) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countRadiusDisconnectsSince, stoppedAt)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countRadiusLoginsSince = `-- name: CountRadiusLoginsSince :one
-SELECT COUNT(*) FROM radius_sessions WHERE started_at >= ?1
-`
-
-func (q *Queries) CountRadiusLoginsSince(ctx context.Context, startedAt int64) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countRadiusLoginsSince, startedAt)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const listActivePlanRates = `-- name: ListActivePlanRates :many
-SELECT c.username, c.pppoe_username, p.name AS plan_name,
-       COALESCE(b.rate_down, 0) AS rate_down, COALESCE(b.rate_down_unit, '') AS rate_down_unit,
-       COALESCE(b.rate_up, 0) AS rate_up, COALESCE(b.rate_up_unit, '') AS rate_up_unit
-FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id
-LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
-WHERE s.status = 'active'
-ORDER BY s.expires_at DESC
-`
-
-type ListActivePlanRatesRow struct {
-	Username      string
-	PppoeUsername string
-	PlanName      string
-	RateDown      int64
-	RateDownUnit  string
-	RateUp        int64
-	RateUpUnit    string
-}
-
-// Active plan and its bandwidth per customer, for the live sessions view. Newest expiry first: the first row for a login is the plan that counts.
-func (q *Queries) ListActivePlanRates(ctx context.Context) ([]ListActivePlanRatesRow, error) {
-	rows, err := q.db.QueryContext(ctx, listActivePlanRates)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListActivePlanRatesRow
-	for rows.Next() {
-		var i ListActivePlanRatesRow
-		if err := rows.Scan(
-			&i.Username,
-			&i.PppoeUsername,
-			&i.PlanName,
-			&i.RateDown,
-			&i.RateDownUnit,
-			&i.RateUp,
-			&i.RateUpUnit,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listRadiusUsageSince = `-- name: ListRadiusUsageSince :many
-SELECT updated_at, input_octets, output_octets FROM radius_sessions
-WHERE (username = ?1 OR username = ?2) AND updated_at >= ?3
-`
-
-type ListRadiusUsageSinceParams struct {
-	Name1 string
-	Name2 string
-	Since int64
-}
-
-type ListRadiusUsageSinceRow struct {
-	UpdatedAt    int64
-	InputOctets  int64
-	OutputOctets int64
-}
-
-// Octets of the customer's two login names by the time each session was last updated, for the daily usage chart.
-func (q *Queries) ListRadiusUsageSince(ctx context.Context, arg ListRadiusUsageSinceParams) ([]ListRadiusUsageSinceRow, error) {
-	rows, err := q.db.QueryContext(ctx, listRadiusUsageSince, arg.Name1, arg.Name2, arg.Since)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListRadiusUsageSinceRow
-	for rows.Next() {
-		var i ListRadiusUsageSinceRow
-		if err := rows.Scan(&i.UpdatedAt, &i.InputOctets, &i.OutputOctets); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const sumRadiusOctetsByUsers = `-- name: SumRadiusOctetsByUsers :one
-SELECT CAST(COALESCE(SUM(input_octets), 0) AS INTEGER) AS input, CAST(COALESCE(SUM(output_octets), 0) AS INTEGER) AS output FROM radius_sessions
-WHERE (username = ?1 OR username = ?2) AND started_at >= ?3
-`
-
-type SumRadiusOctetsByUsersParams struct {
-	Name1     string
-	Name2     string
-	StartedAt int64
-}
-
-type SumRadiusOctetsByUsersRow struct {
-	Input  int64
-	Output int64
-}
-
-// Upload (input) and download (output) octets of the customer's login names since started_at.
-func (q *Queries) SumRadiusOctetsByUsers(ctx context.Context, arg SumRadiusOctetsByUsersParams) (SumRadiusOctetsByUsersRow, error) {
-	row := q.db.QueryRowContext(ctx, sumRadiusOctetsByUsers, arg.Name1, arg.Name2, arg.StartedAt)
-	var i SumRadiusOctetsByUsersRow
-	err := row.Scan(&i.Input, &i.Output)
-	return i, err
 }

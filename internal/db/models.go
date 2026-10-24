@@ -44,6 +44,34 @@ type AdminRecoveryCode struct {
 	UsedAt   sql.NullInt64
 }
 
+type AgentBatch struct {
+	ID         int64
+	AgentID    int64
+	PlanID     int64
+	PaidCount  int64
+	BonusCount int64
+	UnitPrice  int64
+	Note       string
+	CreatedBy  sql.NullInt64
+	CreatedAt  int64
+}
+
+type AgentBatchVoucher struct {
+	VoucherID int64
+	BatchID   int64
+}
+
+type AgentLedger struct {
+	ID        int64
+	BatchID   int64
+	Kind      string
+	Amount    int64
+	VoucherID sql.NullInt64
+	Note      string
+	AdminID   sql.NullInt64
+	CreatedAt int64
+}
+
 type Bandwidth struct {
 	ID           int64
 	Name         string
@@ -281,6 +309,8 @@ type Subscription struct {
 	AdminID           sql.NullInt64
 	PendingStart      int64
 	ExpiredNotifiedAt sql.NullInt64
+	QuotaCarryBytes   int64
+	QuotaCarrySeconds int64
 }
 
 type Transaction struct {

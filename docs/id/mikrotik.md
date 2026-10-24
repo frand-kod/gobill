@@ -62,6 +62,24 @@ Di menu NAS, isi:
 
 Login voucher di halaman hotspot memakai kode sebagai username. Login ini langsung lewat RADIUS. Percobaan yang gagal dibatasi 10 kali per 15 menit per NAS dan MAC, dan 100 kali per 15 menit per NAS.
 
+## Access point di belakang router
+
+Access point (AP) di belakang MikroTik wajib memakai mode **bridge** atau **access point**. Di mode ini AP hanya memancarkan Wi-Fi. Router tetap memberi IP, menjalankan hotspot, dan melihat setiap perangkat satu per satu.
+
+Nama mode ini berbeda di tiap merek. Cari pengaturan yang biasanya disebut **Access Point mode** atau **Bridge mode**.
+
+Jika AP berjalan dalam mode router, AP melakukan NAT dan DHCP sendiri. Router hanya melihat satu klien, yaitu AP itu. Akibatnya:
+
+- Semua perangkat di belakang AP terlihat sebagai satu klien.
+- Satu login membuka akses untuk semua perangkat di belakang AP itu.
+- `shared_users` tidak berarti, karena gobill hanya melihat satu sesi untuk seluruh AP.
+
+Cek setelah mengubah mode:
+
+1. Sambungkan dua perangkat ke AP yang sama.
+2. Login dengan perangkat pertama.
+3. Perangkat kedua harus diminta login sendiri. Jika tidak diminta, AP masih dalam mode router.
+
 ## Pelajaran dari uji lapangan
 
 1. **Host gobill tidak boleh menjadi klien hotspot.** NAT universal hotspot membuat router menjangkau host itu lewat `to-address`, bukan IP aslinya. Akibatnya RADIUS dan CoA gagal. Solusinya, bypass host itu:

@@ -253,6 +253,16 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/vouchers/delete-many", managers(http.HandlerFunc(s.vchDeleteMany)))
 	mux.Handle("POST /admin/vouchers/remove-old", managers(http.HandlerFunc(s.vchRemoveOld)))
 	mux.Handle("POST /admin/vouchers/{id}/delete", managers(http.HandlerFunc(s.vchDelete)))
+
+	// agent consignment batches: managers write, an Agent reads its own
+	agentRead := s.requireAdmin("SuperAdmin", "Admin", "Agent")
+	mux.Handle("GET /admin/agent-batches", agentRead(http.HandlerFunc(s.abList)))
+	mux.Handle("GET /admin/agent-batches/new", managers(http.HandlerFunc(s.abNew)))
+	mux.Handle("POST /admin/agent-batches", managers(http.HandlerFunc(s.abCreate)))
+	mux.Handle("GET /admin/agent-batches/{id}", agentRead(http.HandlerFunc(s.abView)))
+	mux.Handle("GET /admin/agent-batches/{id}/payment", managers(http.HandlerFunc(s.abPayment)))
+	mux.Handle("POST /admin/agent-batches/{id}/payment", managers(http.HandlerFunc(s.abPay)))
+	mux.Handle("POST /admin/agent-batches/{id}/return", managers(http.HandlerFunc(s.abReturn)))
 	// Old PHP coupons.php: every action is SuperAdmin/Admin/Sales only.
 	cpn := s.requireAdmin("SuperAdmin", "Admin", "Sales")
 	mux.Handle("GET /admin/coupons", cpn(http.HandlerFunc(s.cpnList)))
@@ -323,6 +333,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/settings/system/import", superAdmin(http.HandlerFunc(s.importPreview)))
 	mux.Handle("POST /admin/settings/system/import/confirm", superAdmin(http.HandlerFunc(s.importConfirm)))
 	mux.Handle("POST /admin/settings/system/import/cancel", superAdmin(http.HandlerFunc(s.importCancel)))
+	mux.Handle("GET "+keyPage, superAdmin(http.HandlerFunc(s.keyForm)))
+	mux.Handle("POST "+keyPage+"/saved", superAdmin(http.HandlerFunc(s.keySaved)))
+	mux.Handle("POST "+keyPage+"/download", superAdmin(http.HandlerFunc(s.keyDownload)))
 	mux.Handle("GET /admin/settings/system/restore", superAdmin(http.HandlerFunc(s.restoreForm)))
 	mux.Handle("POST /admin/settings/system/restore", superAdmin(http.HandlerFunc(s.restorePreview)))
 	mux.Handle("POST /admin/settings/system/restore/confirm", superAdmin(http.HandlerFunc(s.restoreConfirm)))

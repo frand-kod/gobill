@@ -76,13 +76,22 @@ func (s *Server) planOptions(r *http.Request, enabledOnly bool) ([]option, map[i
 	return opts, byID, nil
 }
 
+// voucherViewer is the admin whose vouchers a role may see: 0 = all. Agent and Sales see the vouchers they
+// generated, those of their own Sales, and (Agent) the codes of their consignment batches. Report is not limited.
+func voucherViewer(a *db.Admin) int64 {
+	if oneOf(a.Role, "Agent", "Sales") {
+		return a.ID
+	}
+	return 0
+}
+
 func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 	q, pg := paging(r)
 	status := r.URL.Query().Get("status")
 	if status != "unused" && status != "used" {
 		status = ""
 	}
-	rows, err := s.queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Q: q, Status: status, PageLimit: pg.limit(), PageOffset: pg.offset()})
+	rows, err := s.queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Q: q, Status: status, Viewer: voucherViewer(adminFrom(r)), PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
 		s.fail(w, "list vouchers", err)
 		return
@@ -110,7 +119,7 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 		}
 		lp.Rows = append(lp.Rows, listRow{v.ID, []string{v.Code, plans[v.PlanID].Name, v.Status, s.ts(v.CreatedAt), used}})
 	}
-	total, err := s.queries.CountVouchers(r.Context(), db.CountVouchersParams{Q: q, Status: status})
+	total, err := s.queries.CountVouchers(r.Context(), db.CountVouchersParams{Q: q, Status: status, Viewer: voucherViewer(adminFrom(r))})
 	if err != nil {
 		s.fail(w, "count vouchers", err)
 		return
@@ -248,7 +257,14 @@ type printItem struct {
 
 type printPage struct {
 	Company string
+	Layout  string // a4, 58 or 80
+	Layouts []printLayout
 	Items   []printItem
+}
+
+type printLayout struct {
+	Name, Href string
+	On         bool
 }
 
 // vchPrint lays out the newest unused vouchers (optionally of one plan) for printing.
@@ -258,7 +274,7 @@ func (s *Server) vchPrint(w http.ResponseWriter, r *http.Request) {
 	if !ok || limit > maxVouchers {
 		limit = 36
 	}
-	rows, err := s.queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Status: "unused", PlanID: planID, PageLimit: limit})
+	rows, err := s.queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Status: "unused", PlanID: planID, Viewer: voucherViewer(adminFrom(r)), PageLimit: limit})
 	if err != nil {
 		s.fail(w, "print vouchers", err)
 		return
@@ -273,7 +289,16 @@ func (s *Server) vchPrint(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "settings", err)
 		return
 	}
-	pp := printPage{Company: settings["company_name"]}
+	layout := "a4"
+	if l := r.URL.Query().Get("layout"); l == "58" || l == "80" {
+		layout = l
+	}
+	q := r.URL.Query()
+	pp := printPage{Company: settings["company_name"], Layout: layout}
+	for _, o := range []struct{ key, name string }{{"a4", "A4"}, {"58", "Thermal 58 mm"}, {"80", "Thermal 80 mm"}} {
+		q.Set("layout", o.key)
+		pp.Layouts = append(pp.Layouts, printLayout{o.name, "?" + q.Encode(), o.key == layout})
+	}
 	for _, v := range rows {
 		png, err := qrcode.Encode(v.Code, qrcode.Medium, 160)
 		if err != nil {
@@ -299,7 +324,7 @@ func (s *Server) vchView(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	rows, err := s.queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Status: "unused", PlanID: planID, PageLimit: limit})
+	rows, err := s.queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Status: "unused", PlanID: planID, Viewer: voucherViewer(adminFrom(r)), PageLimit: limit})
 	if err != nil {
 		s.fail(w, "view vouchers", err)
 		return
@@ -336,6 +361,12 @@ func (s *Server) vchRedeem(w http.ResponseWriter, r *http.Request) {
 	}
 	if v["code"] == "" {
 		e["code"] = "This field is required"
+	}
+	if len(e) == 0 && voucherViewer(adminFrom(r)) != 0 {
+		// a code outside the admin's own vouchers answers like a code that does not exist
+		if _, err := s.queries.VoucherVisibleByCode(r.Context(), db.VoucherVisibleByCodeParams{Code: v["code"], Viewer: voucherViewer(adminFrom(r))}); err != nil {
+			e["code"] = "Voucher not valid or already used"
+		}
 	}
 	if len(e) == 0 {
 		if s.Billing == nil {

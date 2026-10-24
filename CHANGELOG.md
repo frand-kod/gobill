@@ -8,6 +8,26 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Fitur
+
+- **Cetak voucher untuk struk thermal**: halaman cetak voucher kini punya tata letak 58 mm dan 80 mm (`?layout=58` atau `?layout=80`), selain A4 (bawaan). Satu voucher per blok dengan QR kecil.
+### Ditambahkan
+
+- **Pengingat menyimpan kunci enkripsi** (#39): mirror backup tidak menyalin `gobill.db.key`, dan sebelumnya aplikasi tidak mengingatkan. Pengaturan > Sistem dan Status Sistem kini menampilkan peringatan untuk SuperAdmin sampai kunci ditandai sudah disimpan (muncul lagi bila kunci berganti), lengkap dengan sidik jari kunci. Halaman baru **Kunci enkripsi** mengunduh kunci setelah konfirmasi password (dan 2FA), tercatat di log aktivitas. Penolakan restore karena kunci berbeda menyebut sidik jari kunci aplikasi.
+### Ditambahkan
+
+- **Alert gangguan massal per NAS** (#30, mode RADIUS): jika `alert_mass_drop_min` (bawaan 5, `0` = mati) pelanggan atau lebih di satu NAS kehilangan sesi dalam `alert_mass_drop_window` menit (bawaan 30) dan belum kembali, operator menerima satu alert berisi daftar username. NAS yang diam total tetap ditangani alert NAS diam. Tanpa migrasi.
+### Ditambahkan
+
+- **Kuota data untuk paket PPPoE** (#26): paket PPPoE dengan device RADIUS (gobill) bisa diberi `Data_Limit`; RADIUS sudah menghitung pemakaian per paket. Paket PPPoE di MikroTik API menolak kuota dengan pesan di form, karena PPPoE secret tidak punya padanan `limit-bytes-total`. Perpanjangan dini paket berkuota (paket sama, masih aktif) tidak mengatur ulang jendela pemakaian, jadi sesi yang masih online tetap terhitung. Kuota data di-rollover: sisa kuota lama (minimal 0, kelebihan pemakaian dihapus) ditambah satu batas penuh paket; rollover menumpuk di setiap perpanjangan dini. Batas waktu tidak di-rollover: setelah perpanjangan dini waktu kembali penuh dan sisa lama hilang. Perpanjangan setelah paket habis, ganti paket, dan nonaktifkan memulai dari kuota penuh dan jendela baru. Pemakaian dihitung dari username dan pppoe_username sekaligus, di RADIUS, perpanjangan, dan tampilan kuota. Migrasi `0021_quota_carry.sql` menambah `subscriptions.quota_carry_bytes` dan `quota_carry_seconds`.
+### Keamanan
+
+- **Agen dan Sales hanya melihat voucher miliknya**: sebelumnya peran Agent dan Sales bisa melihat dan menukarkan voucher belum dipakai milik semua orang lewat daftar voucher, pencarian, cetak, tampilan kode, dan tukar voucher. Kini Agent hanya melihat voucher yang ia buat, yang dibuat Sales miliknya, dan kode batch titip jualnya. Sales hanya melihat voucher yang ia buat. Kode di luar itu dijawab seperti kode yang tidak ada. SuperAdmin, Admin, dan Report tidak berubah.
+
+### Ditambahkan
+
+- **Voucher titip jual agen** (#36): menu **Batch agen**. SuperAdmin dan Admin membuat batch untuk satu agen (paket, voucher berbayar, voucher bonus, harga per voucher berbayar). Semua kode dibuat sekaligus dan utang (berbayar x harga) tercatat dalam satu transaksi. Setoran dicatat dengan nominal dan catatan, dan tidak boleh melebihi utang. Kode yang belum terpakai bisa diretur: kode itu dibatalkan (tidak bisa dipakai lewat portal, halaman admin, atau login RADIUS) dan mengurangi utang sebesar harga per voucher, maksimal sebanyak voucher berbayar. Utang dihitung dari buku besar yang hanya bertambah (`agent_ledger`), bukan saldo. Agen hanya bisa melihat batch, pemakaian, dan utangnya sendiri. Migration `0022_agent_batches.sql`. Lihat [voucher titip jual agen](docs/id/agent-batches.md).
+
 ## [0.1.19] - 2026-10-23
 
 ### Perubahan perilaku

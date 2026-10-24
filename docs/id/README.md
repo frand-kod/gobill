@@ -22,13 +22,14 @@ Dokumen ini adalah indeks panduan operator dalam Bahasa Indonesia. Panduan ini j
 
 ## Jaringan
 
-- [Setup MikroTik](mikrotik.md): mode API dan RADIUS bawaan, serta pelajaran dari uji lapangan.
+- [Setup MikroTik](mikrotik.md): mode API dan RADIUS bawaan, AP di belakang router, serta pelajaran dari uji lapangan.
 - [FreeRADIUS lewat REST](freeradius-rest.md): tetap memakai FreeRADIUS yang sudah ada.
 
 ## Operasional
 
 - [Monitoring](monitoring.md): Status Sistem, `/health`, `/metrics`, dan alert operator.
 - [Backup dan restore](backup-restore.md): backup harian, mirror, dan pemulihan database.
+- [Voucher titip jual agen](agent-batches.md): batch voucher untuk agen, setoran, dan retur.
 
 ## Pelanggan
 
@@ -37,6 +38,20 @@ Di daftar pelanggan, centang beberapa pelanggan lalu pilih **Isi ulang paket yan
 Daftar pelanggan punya kolom **Tanggal habis**, yaitu tanggal berakhir paket aktif yang paling dekat. Kolom ini bisa diurutkan. Tulisan **Hari ini** berarti paket berakhir hari ini.
 
 Strip diagnosa di halaman pelanggan memberi satu langkah untuk setiap pemeriksaan yang bermasalah: akun, paket (habis, diisolir, atau belum mulai sampai pelanggan login pertama), koneksi (online dengan NAS, IP, dan lama tersambung, atau offline dengan waktu sesi terakhir), kuota, dan router.
+
+## Pola kos
+
+Pola ini memakai fitur yang sudah ada. Tidak ada fitur baru yang perlu diaktifkan.
+
+Contoh: satu kos dengan banyak kamar. Setiap kamar punya satu akun.
+
+1. Buat satu akun pelanggan per kamar. Pakai username yang tetap, misalnya `kamar05`. Username tidak berubah saat penghuni berganti.
+2. Reset password setiap kali penghuni berganti, supaya penghuni lama tidak bisa login.
+3. Pasang paket dengan limit kecepatan yang Anda mau. Limit berlaku untuk akun kamar itu.
+4. Atur `shared_users` di paket untuk penghuni yang punya lebih dari satu perangkat.
+5. Pakai paket postpaid untuk sewa. Aktifkan paket dari halaman pelanggan saat sewa sudah dibayar. Sebelum itu, paket belum aktif.
+
+Jika router di kos berada di belakang AP, pastikan AP dalam mode bridge. Lihat [AP di belakang router](mikrotik.md#access-point-di-belakang-router).
 
 ## Pencarian cepat
 

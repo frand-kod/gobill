@@ -152,7 +152,7 @@ func inspectBackup(ctx context.Context, path string, key []byte, loc *time.Locat
 			return importCounts{}, "", notBackup(err)
 		}
 		if _, err := secret.Open(key, sealed); err != nil {
-			return importCounts{}, "", &refusal{msg: "Different encryption key: this backup was made with another GOBILL_SECRET_KEY"}
+			return importCounts{}, "", &refusal{msg: "Different encryption key: this backup was made with another GOBILL_SECRET_KEY", detail: "key fingerprint of this app: " + keyFingerprint(key)}
 		}
 		break
 	}
@@ -162,7 +162,7 @@ func inspectBackup(ctx context.Context, path string, key []byte, loc *time.Locat
 		for srows.Next() {
 			var v string
 			if srows.Scan(&v) == nil && db.OpenSettingWith(key, v) == "" {
-				return importCounts{}, "", &refusal{msg: "Different encryption key: this backup was made with another GOBILL_SECRET_KEY"}
+				return importCounts{}, "", &refusal{msg: "Different encryption key: this backup was made with another GOBILL_SECRET_KEY", detail: "key fingerprint of this app: " + keyFingerprint(key)}
 			}
 		}
 	}

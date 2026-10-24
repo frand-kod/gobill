@@ -22,13 +22,14 @@ This document is the index of the operator guide in English. The guide is also a
 
 ## Network
 
-- [MikroTik setup](mikrotik.md): API mode and built-in RADIUS mode, and lessons from field testing.
+- [MikroTik setup](mikrotik.md): API mode and built-in RADIUS mode, access points behind the router, and lessons from field testing.
 - [FreeRADIUS over REST](freeradius-rest.md): keep using an existing FreeRADIUS.
 
 ## Operations
 
 - [Monitoring](monitoring.md): System Status, `/health`, `/metrics`, and operator alerts.
 - [Backup and restore](backup-restore.md): daily backups, mirrors, and database recovery.
+- [Agent consignment vouchers](agent-batches.md): voucher batches for agents, payments, and returns.
 
 ## Customers
 
@@ -37,6 +38,20 @@ On the customer list, tick several customers and choose **Recharge same plan**. 
 The customer list has an **Ends On** column: the end date of the nearest active plan. The column can be sorted. The label **Today** means the plan ends today.
 
 The diagnosis strip on the customer page gives one next step for each failing check: account, plan (ended, isolated, or not started until the first login), connection (online with NAS, IP and how long it has been connected, or offline with the end of the last session), quota, and router.
+
+## Boarding house pattern
+
+This pattern uses features that already exist. No new feature needs to be turned on.
+
+Example: one boarding house with many rooms. Each room has one account.
+
+1. Create one customer account per room. Use a fixed username, for example `kamar05`. The username does not change when the tenant changes.
+2. Reset the password each time a tenant moves out, so the old tenant cannot log in.
+3. Set up a plan with the speed limit you want. The limit applies to the account of that room.
+4. Set `shared_users` on the plan for tenants who have more than one device.
+5. Use a postpaid plan for rent. Activate the plan from the customer page when the rent is paid. Until then, the plan is not active.
+
+If the router in the boarding house sits behind an AP, make sure the AP is in bridge mode. See [access points behind the router](mikrotik.md#access-points-behind-the-router).
 
 ## Quick search
 

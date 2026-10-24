@@ -11,6 +11,7 @@
       <dt class="text-ink-2">{{T "Uptime"}}</dt><dd>{{.Uptime}}</dd>
       <dt class="text-ink-2">{{T "Memory in use"}}</dt><dd>{{printf "%.1f" .HeapMB}} MB ({{T "system"}} {{printf "%.1f" .SysMB}} MB)</dd>
       <dt class="text-ink-2">{{T "Goroutines"}}</dt><dd>{{.Goroutines}}</dd>
+      <dt class="text-ink-2">{{T "Encryption key"}}</dt><dd><code>{{.KeyFP}}</code></dd>
       <dt class="text-ink-2">/metrics</dt><dd>{{if .MetricsOn}}<span class="badge badge-ok">{{T "On"}}</span>{{else}}<span class="badge">{{T "Off"}}</span>{{end}}</dd>
     </dl>
   </section>

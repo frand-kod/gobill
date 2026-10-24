@@ -109,6 +109,8 @@ Back up `gobill.db.key` together with the database. Without this file, encrypted
 
 If you use `GOBILL_SECRET_KEY`, store its value safely. That value replaces the `.key` file.
 
+The backup mirror does not copy the key, on purpose, so a leaked mirror cannot open the secrets. **Settings > System & Security > Encryption key** (SuperAdmin) shows the key fingerprint (8 hex characters) and a key download button, which asks for the password (and the 2FA code when enabled) and is written to the activity log. Keep the download in a password manager or print it, not on the mirror, then click **I have saved the key**. Until then Settings > System and System Status show a warning; it returns when the key changes. When a restore is refused for a different key, the message gives this app's key fingerprint to compare with your copy.
+
 Manual copy:
 
     sudo cp /var/lib/gobill/gobill.db /var/lib/gobill/gobill.db.key /mnt/usb/manual-backup/

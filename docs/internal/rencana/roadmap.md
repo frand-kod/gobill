@@ -101,10 +101,10 @@ Selesai jika:
 |---|---|---|
 | Plugin manager runtime | Tidak di-port | Diganti dengan interface yang dikompilasi dan webhook |
 | Theme engine / `ui_custom` | Tidak di-port | Satu tema. Branding cukup lewat logo dan nama usaha |
-| Online updater | Tidak di-port | Update dilakukan dengan mengganti binary |
+| Online updater | Diubah: dikerjakan | `gobill update` mengunduh rilis, memeriksa tanda tangan ed25519 dan checksum, lalu mengganti binary. Ada `gobill rollback`. Tidak lewat UI web |
 | Face detection | Tunda | Dipakai sedikit dan butuh library berat |
 | Driver MikroTik VPN | Tunda | Menunggu permintaan pengguna |
-| Endpoint `rlm_rest` kompatibel FreeRADIUS | Tunda | RADIUS built-in sudah cukup |
+| Endpoint `rlm_rest` kompatibel FreeRADIUS | Diubah: dikerjakan | `/radius.php` agar konfigurasi FreeRADIUS lama tetap jalan saat migrasi. Lihat `docs/id/freeradius-rest.md` |
 | PostgreSQL | Tunda | SQLite cukup. Lihat ADR |
 | Windows / shared hosting | Tidak didukung | Non-goal |
 

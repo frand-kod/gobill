@@ -32,7 +32,7 @@ UPDATE subscriptions SET status = 'expired' WHERE id = sqlc.arg(id) AND status =
 
 -- name: RenewSubscription :exec
 UPDATE subscriptions SET plan_id = ?, router_id = ?, type = ?, started_at = ?, expires_at = ?,
-    status = 'active', method = ?, admin_id = ?, pending_start = ?, expired_notified_at = NULL
+    status = 'active', method = ?, admin_id = ?, pending_start = ?, expired_notified_at = NULL, quota_carry_bytes = ?, quota_carry_seconds = ?
 WHERE id = ?;
 
 -- name: FilterSubscriptions :many
@@ -66,16 +66,18 @@ WHERE s.customer_id = ? AND s.status = 'active' ORDER BY s.expires_at;
 -- name: UpdateSubscription :exec
 -- The expired notice is kept only while the expiry does not change, so an edit that keeps the date does not notify again.
 UPDATE subscriptions SET plan_id = sqlc.arg(plan_id), router_id = sqlc.arg(router_id), type = sqlc.arg(type), expires_at = sqlc.arg(expires_at), status = sqlc.arg(status), admin_id = sqlc.arg(admin_id),
-    expired_notified_at = CASE WHEN expires_at = sqlc.arg(expires_at) THEN expired_notified_at END
+    expired_notified_at = CASE WHEN expires_at = sqlc.arg(expires_at) THEN expired_notified_at END,
+    quota_carry_bytes = CASE WHEN plan_id = sqlc.arg(plan_id) THEN quota_carry_bytes ELSE 0 END,
+    quota_carry_seconds = CASE WHEN plan_id = sqlc.arg(plan_id) THEN quota_carry_seconds ELSE 0 END
 WHERE id = sqlc.arg(id);
 
 -- name: DeactivateSubscription :execrows
 -- Expires the subscription now (never before it started); 0 rows = already inactive.
-UPDATE subscriptions SET status = 'expired', expires_at = MAX(started_at, sqlc.arg(now)) WHERE id = sqlc.arg(id) AND status = 'active';
+UPDATE subscriptions SET status = 'expired', quota_carry_bytes = 0, quota_carry_seconds = 0, expires_at = MAX(started_at, sqlc.arg(now)) WHERE id = sqlc.arg(id) AND status = 'active';
 
 -- name: RestartSubscription :exec
 -- A dead subscription brought back to life starts a new usage window (data limit counts from started_at).
-UPDATE subscriptions SET started_at = ?, expired_notified_at = NULL WHERE id = ?;
+UPDATE subscriptions SET started_at = ?, quota_carry_bytes = 0, quota_carry_seconds = 0, expired_notified_at = NULL WHERE id = ?;
 
 -- name: StartPendingSubscription :execrows
 -- First RADIUS login of a start_on_first_login subscription: the usage window and expiry start now. 0 rows = already started.
