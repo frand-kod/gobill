@@ -52,6 +52,7 @@ var searchPages = []searchEntry{
 	{Title: "Redeem Voucher", URL: "/admin/vouchers/redeem", Syn: "tukar voucher redeem aktivasi kode", Roles: roleStaff},
 	{Title: "Add balance", URL: "/admin/deposit", Syn: "deposit saldo isi saldo tambah saldo", Roles: roleStaff},
 	{Title: "Voucher", URL: "/admin/vouchers", Syn: "kode voucher daftar", Roles: nil},
+	{Title: "Agent batches", URL: "/admin/agent-batches", Syn: "agen titip jual batch setoran utang retur konsinyasi", Roles: roleUsers},
 	{Title: "Subscriptions", URL: "/admin/subscriptions", Syn: "langganan paket aktif kedaluwarsa", Roles: nil},
 	{Title: "Online Sessions", URL: "/admin/radius/sessions", Syn: "sesi online radius koneksi aktif session", Roles: roleMgr},
 	{Title: "Send Message", URL: "/admin/message/send", Syn: "kirim pesan whatsapp sms notifikasi message", Roles: roleStaff},
@@ -243,7 +244,7 @@ func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searc
 	out = s.addGroup(out, "Transactions", items)
 
 	if allowed(roleStaff, a.Role) {
-		vs, err := s.queries.SearchVouchersPrefix(ctx, db.SearchVouchersPrefixParams{Q: q, Limit: n})
+		vs, err := s.queries.SearchVouchersPrefix(ctx, db.SearchVouchersPrefixParams{Q: q, Viewer: voucherViewer(a), Limit: n})
 		if err != nil {
 			return nil, err
 		}

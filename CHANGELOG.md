@@ -20,6 +20,13 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 ### Ditambahkan
 
 - **Kuota data untuk paket PPPoE** (#26): paket PPPoE dengan device RADIUS (gobill) bisa diberi `Data_Limit`; RADIUS sudah menghitung pemakaian per paket. Paket PPPoE di MikroTik API menolak kuota dengan pesan di form, karena PPPoE secret tidak punya padanan `limit-bytes-total`. Perpanjangan dini paket berkuota (paket sama, masih aktif) memulai jendela pemakaian baru dan memindahkan sisa kuota data ke periode baru (rollover): total = batas paket + sisa. Perpanjangan setelah paket habis, ganti paket, dan nonaktifkan memulai dari kuota penuh. Batas waktu tidak di-rollover. Migrasi `0021_quota_carry.sql` menambah `subscriptions.quota_carry_bytes`.
+### Keamanan
+
+- **Agen dan Sales hanya melihat voucher miliknya**: sebelumnya peran Agent dan Sales bisa melihat dan menukarkan voucher belum dipakai milik semua orang lewat daftar voucher, pencarian, cetak, tampilan kode, dan tukar voucher. Kini Agent hanya melihat voucher yang ia buat, yang dibuat Sales miliknya, dan kode batch titip jualnya. Sales hanya melihat voucher yang ia buat. Kode di luar itu dijawab seperti kode yang tidak ada. SuperAdmin, Admin, dan Report tidak berubah.
+
+### Ditambahkan
+
+- **Voucher titip jual agen** (#36): menu **Batch agen**. SuperAdmin dan Admin membuat batch untuk satu agen (paket, voucher berbayar, voucher bonus, harga per voucher berbayar). Semua kode dibuat sekaligus dan utang (berbayar x harga) tercatat dalam satu transaksi. Setoran dicatat dengan nominal dan catatan, dan tidak boleh melebihi utang. Kode yang belum terpakai bisa diretur: kode itu dibatalkan (tidak bisa dipakai lewat portal, halaman admin, atau login RADIUS) dan mengurangi utang sebesar harga per voucher, maksimal sebanyak voucher berbayar. Utang dihitung dari buku besar yang hanya bertambah (`agent_ledger`), bukan saldo. Agen hanya bisa melihat batch, pemakaian, dan utangnya sendiri. Migration `0022_agent_batches.sql`. Lihat [voucher titip jual agen](docs/id/agent-batches.md).
 
 ## [0.1.19] - 2026-10-23
 

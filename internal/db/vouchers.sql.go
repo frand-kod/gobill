@@ -40,6 +40,7 @@ func (q *Queries) CreateVoucher(ctx context.Context, arg CreateVoucherParams) (V
 
 const deleteOldUsedVouchers = `-- name: DeleteOldUsedVouchers :execrows
 DELETE FROM vouchers WHERE status = 'used' AND used_at < ?1
+  AND NOT EXISTS (SELECT 1 FROM agent_batch_vouchers bv WHERE bv.voucher_id = vouchers.id)
   AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.method = 'Voucher - ' || vouchers.code)
 `
 
@@ -118,8 +119,10 @@ func (q *Queries) GetVoucher(ctx context.Context, id int64) (Voucher, error) {
 
 const getVoucherByCode = `-- name: GetVoucherByCode :one
 SELECT id, code, plan_id, status, used_by, used_at, generated_by, created_at FROM vouchers WHERE code = ?
+  AND NOT EXISTS (SELECT 1 FROM agent_ledger l WHERE l.voucher_id = vouchers.id)
 `
 
+// A code the operator cancelled (agent return) no longer exists for redemption.
 func (q *Queries) GetVoucherByCode(ctx context.Context, code string) (Voucher, error) {
 	row := q.db.QueryRowContext(ctx, getVoucherByCode, code)
 	var i Voucher
@@ -199,13 +202,18 @@ const searchVouchers = `-- name: SearchVouchers :many
 SELECT id, code, plan_id, status, used_by, used_at, generated_by, created_at FROM vouchers WHERE code LIKE '%' || CAST(?1 AS TEXT) || '%'
   AND (CAST(?2 AS TEXT) = '' OR status = ?2)
   AND (CAST(?3 AS INTEGER) = 0 OR plan_id = ?3)
-ORDER BY id DESC LIMIT ?5 OFFSET ?4
+  AND NOT EXISTS (SELECT 1 FROM agent_ledger l WHERE l.voucher_id = vouchers.id)
+  AND (CAST(?4 AS INTEGER) = 0 OR vouchers.generated_by = ?4
+    OR vouchers.generated_by IN (SELECT a.id FROM admins a WHERE a.root_id = ?4)
+    OR EXISTS (SELECT 1 FROM agent_batch_vouchers bv JOIN agent_batches b ON b.id = bv.batch_id WHERE bv.voucher_id = vouchers.id AND b.agent_id = ?4))
+ORDER BY id DESC LIMIT ?6 OFFSET ?5
 `
 
 type SearchVouchersParams struct {
 	Q          string
 	Status     string
 	PlanID     int64
+	Viewer     int64
 	PageOffset int64
 	PageLimit  int64
 }
@@ -215,6 +223,7 @@ func (q *Queries) SearchVouchers(ctx context.Context, arg SearchVouchersParams) 
 		arg.Q,
 		arg.Status,
 		arg.PlanID,
+		arg.Viewer,
 		arg.PageOffset,
 		arg.PageLimit,
 	)
@@ -251,6 +260,7 @@ func (q *Queries) SearchVouchers(ctx context.Context, arg SearchVouchersParams) 
 const useVoucher = `-- name: UseVoucher :execrows
 UPDATE vouchers SET status = 'used', used_by = ?, used_at = unixepoch()
 WHERE id = ? AND status = 'unused'
+  AND NOT EXISTS (SELECT 1 FROM agent_ledger l WHERE l.voucher_id = vouchers.id)
 `
 
 type UseVoucherParams struct {
@@ -265,4 +275,24 @@ func (q *Queries) UseVoucher(ctx context.Context, arg UseVoucherParams) (int64, 
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const voucherVisibleByCode = `-- name: VoucherVisibleByCode :one
+SELECT id FROM vouchers WHERE code = ?1
+  AND (CAST(?2 AS INTEGER) = 0 OR vouchers.generated_by = ?2
+    OR vouchers.generated_by IN (SELECT a.id FROM admins a WHERE a.root_id = ?2)
+    OR EXISTS (SELECT 1 FROM agent_batch_vouchers bv JOIN agent_batches b ON b.id = bv.batch_id WHERE bv.voucher_id = vouchers.id AND b.agent_id = ?2))
+`
+
+type VoucherVisibleByCodeParams struct {
+	Code   string
+	Viewer int64
+}
+
+// The voucher with this code when viewer may see it (viewer 0 = everyone): own, own Sales' or own batch.
+func (q *Queries) VoucherVisibleByCode(ctx context.Context, arg VoucherVisibleByCodeParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, voucherVisibleByCode, arg.Code, arg.Viewer)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }

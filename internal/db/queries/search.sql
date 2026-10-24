@@ -24,6 +24,10 @@ ORDER BY name LIMIT sqlc.arg(limit);
 -- name: SearchVouchersPrefix :many
 SELECT v.id, v.code, v.status, p.name AS plan_name FROM vouchers v JOIN plans p ON p.id = v.plan_id
 WHERE lower(substr(v.code, 1, length(sqlc.arg(q)))) = lower(sqlc.arg(q))
+  AND NOT EXISTS (SELECT 1 FROM agent_ledger l WHERE l.voucher_id = v.id)
+  AND (CAST(sqlc.arg(viewer) AS INTEGER) = 0 OR v.generated_by = sqlc.arg(viewer)
+    OR v.generated_by IN (SELECT a.id FROM admins a WHERE a.root_id = sqlc.arg(viewer))
+    OR EXISTS (SELECT 1 FROM agent_batch_vouchers bv JOIN agent_batches b ON b.id = bv.batch_id WHERE bv.voucher_id = v.id AND b.agent_id = sqlc.arg(viewer)))
 ORDER BY v.id DESC LIMIT sqlc.arg(limit);
 
 -- name: SearchTransactionsPrefix :many
