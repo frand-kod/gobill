@@ -698,8 +698,11 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 			Section: "New token", Hint: "Copy it now. It is not shown again"}
 		fp.Fields = append([]field{once}, fp.Fields...)
 	}
+	var warn string
 	if tab == "system" && adminFrom(r).Role == "SuperAdmin" { // backup is SuperAdmin only, as in the old dbstatus page
 		links := []field{{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/system/backup", Section: "System", Hint: s.backupStatus(st)},
+			{Name: "key", Label: "Encryption key", Type: "link", Value: keyPage, Btn: "Open key page",
+				Hint: fmt.Sprintf(s.catalog.T(s.language(), "Fingerprint: %s. Keep a copy outside the backup mirror."), keyFingerprint(s.SecretKey)), Section: "System"},
 			{Name: "import", Label: "Import PHPNuxBill", Type: "link", Value: importPage, Btn: "Open import page",
 				Hint: "Replaces the data in this app. A backup is made first.", Section: "System"},
 			{Name: "restore", Label: "Restore database", Type: "link", Value: restorePage, Btn: "Open restore page",
@@ -712,8 +715,9 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 			}
 		}
 		fp.Fields = slices.Insert(fp.Fields, at, links...)
+		warn = s.keyWarning(r)
 	}
-	s.render(w, r, status, "form", Page{Title: "Settings", Flash: s.sessions.PopString(r.Context(), "flash"), Error: s.sessions.PopString(r.Context(), "error"), Tabs: nav, Data: fp})
+	s.render(w, r, status, "form", Page{Title: "Settings", Flash: s.sessions.PopString(r.Context(), "flash"), Error: s.sessions.PopString(r.Context(), "error"), Tabs: nav, Data: fp, Warn: warn})
 }
 
 // backupStatus is the one-line status under "Download backup", written by job.Backup. The mirror path is SuperAdmin only.

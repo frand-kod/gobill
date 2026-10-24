@@ -2499,5 +2499,18 @@
     "Resend code": "Kirim ulang kode",
     "Reset certificate pin": "Reset pin sertifikat",
     "Certificate": "Sertifikat",
-    "Not pinned yet. The certificate is pinned on the first TLS connection (port 8729). Tick to forget the pin after the router certificate was changed.": "Belum dipin. Sertifikat dipin pada koneksi TLS pertama (port 8729). Centang untuk melupakan pin setelah sertifikat router diganti."
+    "Not pinned yet. The certificate is pinned on the first TLS connection (port 8729). Tick to forget the pin after the router certificate was changed.": "Belum dipin. Sertifikat dipin pada koneksi TLS pertama (port 8729). Centang untuk melupakan pin setelah sertifikat router diganti.",
+    "The encryption key is not saved outside this server and the backup mirror does not copy it. Without it a restored backup cannot open router passwords and API keys. Open Settings > System & Security > Encryption key. Fingerprint: ": "Kunci enkripsi belum disimpan di luar server ini dan mirror backup tidak menyalinnya. Tanpa kunci, backup yang dipulihkan tidak bisa membuka password router dan kunci API. Buka Pengaturan > Sistem & keamanan > Kunci enkripsi. Sidik jari: ",
+    "Encryption key": "Kunci enkripsi",
+    "Open key page": "Buka halaman kunci",
+    "Fingerprint: %s. Keep a copy outside the backup mirror.": "Sidik jari: %s. Simpan salinan di luar mirror backup.",
+    "Marked as saved": "Ditandai sudah disimpan",
+    "Not marked as saved": "Belum ditandai disimpan",
+    "The key encrypts router passwords, API keys and tokens in the database and in every backup. The backup mirror does not copy it. Keep a copy somewhere other than the mirror, such as a password manager or a printout.": "Kunci ini mengenkripsi password router, kunci API, dan token di database dan di setiap backup. Mirror backup tidak menyalinnya. Simpan salinan di tempat selain mirror, misalnya password manager atau dicetak.",
+    "Fingerprint": "Sidik jari",
+    "I have saved the key": "Kunci sudah saya simpan",
+    "Download the key": "Unduh kunci",
+    "Current password": "Kata sandi saat ini",
+    "Authenticator or recovery code": "Kode autentikator atau kode pemulihan",
+    "Download key": "Unduh kunci"
 }

@@ -8,6 +8,10 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Ditambahkan
+
+- **Pengingat menyimpan kunci enkripsi** (#39): mirror backup tidak menyalin `gobill.db.key`, dan sebelumnya aplikasi tidak mengingatkan. Pengaturan > Sistem dan Status Sistem kini menampilkan peringatan untuk SuperAdmin sampai kunci ditandai sudah disimpan (muncul lagi bila kunci berganti), lengkap dengan sidik jari kunci. Halaman baru **Kunci enkripsi** mengunduh kunci setelah konfirmasi password (dan 2FA), tercatat di log aktivitas. Penolakan restore karena kunci berbeda menyebut sidik jari kunci aplikasi.
+
 ## [0.1.19] - 2026-10-23
 
 ### Perubahan perilaku

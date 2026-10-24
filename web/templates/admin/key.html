@@ -1,0 +1,24 @@
+{{define "content"}}
+{{with .Data}}
+<div class="page-head"><h1 class="page-title">{{T "Encryption key"}}</h1></div>
+<section class="card mb-4"><div class="card-body space-y-4">
+  <p class="text-sm">{{T "The key encrypts router passwords, API keys and tokens in the database and in every backup. The backup mirror does not copy it. Keep a copy somewhere other than the mirror, such as a password manager or a printout."}}</p>
+  <p class="text-sm">{{T "Fingerprint"}}: <code>{{.Fingerprint}}</code> {{if .Saved}}<span class="badge badge-ok">{{T "Marked as saved"}}</span>{{else}}<span class="badge badge-bad">{{T "Not marked as saved"}}</span>{{end}}</p>
+  {{if not .Saved}}<form method="post" action="/admin/settings/system/key/saved"><button class="btn btn-primary" type="submit">{{T "I have saved the key"}}</button></form>{{end}}
+</div></section>
+<form class="card" method="post" action="/admin/settings/system/key/download">
+  <div class="card-body space-y-4">
+    <h2 class="card-title">{{T "Download the key"}}</h2>
+    <div>
+      <label class="label" for="current">{{T "Current password"}}</label>
+      <input class="input" id="current" name="current" type="password" autocomplete="current-password" required>
+    </div>
+    {{if .TOTP}}<div>
+      <label class="label" for="code">{{T "Authenticator or recovery code"}}</label>
+      <input class="input" id="code" name="code" autocomplete="one-time-code" required>
+    </div>{{end}}
+    <div class="flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">{{T "Download key"}}</button></div>
+  </div>
+</form>
+{{end}}
+{{end}}

@@ -109,6 +109,8 @@ Backup `gobill.db.key` bersama database. Tanpa file ini, data terenkripsi, yaitu
 
 Jika memakai `GOBILL_SECRET_KEY`, simpan nilainya di tempat aman. Nilai itu menggantikan file `.key`.
 
+Mirror backup tidak menyalin kunci, sengaja, supaya mirror yang bocor tidak membuka secret. Di **Pengaturan > Sistem & keamanan > Kunci enkripsi** (SuperAdmin) ada sidik jari kunci (8 karakter hex) dan tombol unduh kunci, yang meminta password (dan kode 2FA bila aktif) dan dicatat di log aktivitas. Simpan unduhan di password manager atau cetak, bukan di mirror, lalu klik **Kunci sudah saya simpan**. Sampai itu dilakukan, halaman Pengaturan > Sistem dan Status Sistem menampilkan peringatan; peringatan muncul lagi bila kunci berganti. Jika restore ditolak karena kunci berbeda, pesannya menyebut sidik jari kunci aplikasi ini untuk dicocokkan dengan salinan Anda.
+
 Salinan manual:
 
     sudo cp /var/lib/gobill/gobill.db /var/lib/gobill/gobill.db.key /mnt/usb/manual-backup/
