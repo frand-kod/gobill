@@ -2499,5 +2499,8 @@
     "Resend code": "Kirim ulang kode",
     "Reset certificate pin": "Reset pin sertifikat",
     "Certificate": "Sertifikat",
-    "Not pinned yet. The certificate is pinned on the first TLS connection (port 8729). Tick to forget the pin after the router certificate was changed.": "Belum dipin. Sertifikat dipin pada koneksi TLS pertama (port 8729). Centang untuk melupakan pin setelah sertifikat router diganti."
+    "Not pinned yet. The certificate is pinned on the first TLS connection (port 8729). Tick to forget the pin after the router certificate was changed.": "Belum dipin. Sertifikat dipin pada koneksi TLS pertama (port 8729). Centang untuk melupakan pin setelah sertifikat router diganti.",
+    "Layout": "Tata letak",
+    "Thermal 58 mm": "Termal 58 mm",
+    "Thermal 80 mm": "Termal 80 mm"
 }

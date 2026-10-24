@@ -8,6 +8,10 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Fitur
+
+- **Cetak voucher untuk struk thermal**: halaman cetak voucher kini punya tata letak 58 mm dan 80 mm (`?layout=58` atau `?layout=80`), selain A4 (bawaan). Satu voucher per blok dengan QR kecil.
+
 ## [0.1.19] - 2026-10-23
 
 ### Perubahan perilaku
