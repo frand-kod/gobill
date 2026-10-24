@@ -146,3 +146,20 @@ func TestPlanSaveMikrotikNeedsRouter(t *testing.T) {
 	form := planPost("", url.Values{"bandwidth_id": {itoa(e.bw)}, "name": {"NoRouter"}, "device": {"MikrotikHotspot"}})
 	wantCode(t, do(e.h, "POST", "/admin/plans", form, e.c), http.StatusUnprocessableEntity, "mikrotik without router")
 }
+
+// A PPPoE data quota is accepted on RADIUS only; the MikroTik API cannot enforce it, and RADIUS
+// takes bytes only.
+func TestPlanSavePppoeQuota(t *testing.T) {
+	e := billApp(t)
+	q := func(name, dev, lt string) url.Values {
+		return planPost("", url.Values{"bandwidth_id": {itoa(e.bw)}, "name": {name}, "type": {"PPPoE"}, "device": {dev},
+			"router_id": {itoa(e.rt)}, "limited": {"1"}, "limit_type": {lt}, "data_limit": {"5"}, "data_unit": {"GB"}, "time_limit": {"1"}})
+	}
+	p := savedPlan(t, e, q("PQ", "Radius", "Data_Limit"))
+	if p.Limited != 1 || p.LimitType.String != "Data_Limit" || p.DataLimit.Int64 != 5 {
+		t.Fatalf("PPPoE RADIUS quota stored as %+v", p)
+	}
+	for _, c := range [][2]string{{"MikrotikPppoe", "Data_Limit"}, {"", "Data_Limit"}, {"Radius", "Time_Limit"}, {"Radius", "Both_Limit"}} {
+		wantCode(t, do(e.h, "POST", "/admin/plans", q("Bad", c[0], c[1]), e.c), http.StatusUnprocessableEntity, "PPPoE quota "+c[0]+" "+c[1])
+	}
+}

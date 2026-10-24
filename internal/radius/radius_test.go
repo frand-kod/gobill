@@ -481,6 +481,16 @@ func TestDataLimitGigawords(t *testing.T) {
 		e.s.HandleAcct(&rec{}, &radius.Request{Packet: p, RemoteAddr: &net.UDPAddr{IP: net.ParseIP("10.0.0.1")}})
 	}
 	acct(1, 0) // 4 GiB in, limit 5 GiB: 1 GiB left
+	if _, err := e.conn.Exec("UPDATE subscriptions SET quota_carry_bytes = ?", 2<<30); err != nil {
+		t.Fatal(err)
+	}
+	r0 := e.auth(t, pap("alice", "pw")) // 5 GiB + 2 GiB carried - 4 GiB used = 3 GiB left
+	if got, _ := mikrotik.MikrotikTotalLimit_Lookup(r0); got != 3<<30 {
+		t.Fatalf("total limit with carry %d, want 3 GiB", got)
+	}
+	if _, err := e.conn.Exec("UPDATE subscriptions SET quota_carry_bytes = 0"); err != nil {
+		t.Fatal(err)
+	}
 	r := e.auth(t, pap("alice", "pw"))
 	if r.Code != radius.CodeAccessAccept {
 		t.Fatal("4 GiB of 5 GiB must accept")

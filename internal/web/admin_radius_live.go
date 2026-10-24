@@ -6,6 +6,7 @@ package web
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -321,7 +322,7 @@ func (s *Server) liveTilesOf(ctx context.Context, open []db.RadiusSession, plans
 	if t.Logins, err = s.queries.CountRadiusLoginsSince(ctx, now-3600); err != nil {
 		return t, err
 	}
-	if t.Disconnects, err = s.queries.CountRadiusDisconnectsSince(ctx, now-3600); err != nil {
+	if t.Disconnects, err = s.queries.CountRadiusDisconnectsSince(ctx, sql.NullInt64{Int64: now - 3600, Valid: true}); err != nil {
 		return t, err
 	}
 	nas, byPlan := map[string]int{}, map[string]int{}

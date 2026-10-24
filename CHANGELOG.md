@@ -17,6 +17,9 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 ### Ditambahkan
 
 - **Alert gangguan massal per NAS** (#30, mode RADIUS): jika `alert_mass_drop_min` (bawaan 5, `0` = mati) pelanggan atau lebih di satu NAS kehilangan sesi dalam `alert_mass_drop_window` menit (bawaan 30) dan belum kembali, operator menerima satu alert berisi daftar username. NAS yang diam total tetap ditangani alert NAS diam. Tanpa migrasi.
+### Ditambahkan
+
+- **Kuota data untuk paket PPPoE** (#26): paket PPPoE dengan device RADIUS (gobill) bisa diberi `Data_Limit`; RADIUS sudah menghitung pemakaian per paket. Paket PPPoE di MikroTik API menolak kuota dengan pesan di form, karena PPPoE secret tidak punya padanan `limit-bytes-total`. Perpanjangan dini paket berkuota (paket sama, masih aktif) memulai jendela pemakaian baru dan memindahkan sisa kuota data ke periode baru (rollover): total = batas paket + sisa. Perpanjangan setelah paket habis, ganti paket, dan nonaktifkan memulai dari kuota penuh. Batas waktu tidak di-rollover. Migrasi `0021_quota_carry.sql` menambah `subscriptions.quota_carry_bytes`.
 
 ## [0.1.19] - 2026-10-23
 
