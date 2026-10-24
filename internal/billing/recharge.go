@@ -180,6 +180,9 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		from, start := now, now.Unix()
 		if extend {
 			from, start = time.Unix(active.ExpiresAt, 0).In(now.Location()), active.StartedAt
+			if plan.Limited == 1 {
+				start = now.Unix() // quota usage is summed since started_at: an early renewal starts a fresh quota
+			}
 		}
 		exp := NewExpiry(from, int(plan.Validity), Unit(plan.ValidityUnit), Options{Extend: extend, BillingDay: billingDay(c, plan)})
 		trx.PeriodStart, trx.PeriodEnd = start, exp.Unix()

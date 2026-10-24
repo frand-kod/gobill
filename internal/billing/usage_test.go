@@ -47,3 +47,27 @@ func TestReviveRestartsUsageWindow(t *testing.T) {
 		t.Fatalf("revive: usage %d started %d", used(), e.sub(t).StartedAt)
 	}
 }
+
+// A limited plan restarts its quota window on an early renewal, so a monthly renewal never
+// inherits last month's bytes.
+func TestLimitedRenewalStartsFreshQuota(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	if _, err := e.conn.Exec("UPDATE plans SET limited = 1, limit_type = 'Data_Limit', data_limit = 1, data_unit = 'MB' WHERE id = ?", e.day.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.q.UpsertRadiusSession(ctx, db.UpsertRadiusSessionParams{SessionID: "s1", Username: e.cust.Username, NasIp: "1.1.1.1",
+		StartedAt: e.now.Unix(), UpdatedAt: e.now.Unix(), InputOctets: 700, OutputOctets: 300}); err != nil {
+		t.Fatal(err)
+	}
+	e.now = e.now.Add(time.Hour)
+	if err := e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0); err != nil {
+		t.Fatal(err)
+	}
+	n, _ := e.q.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: e.cust.Username, StartedAt: e.sub(t).StartedAt})
+	if n != 0 {
+		t.Fatalf("renewed subscription starts with %d bytes used", n)
+	}
+}

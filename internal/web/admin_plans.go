@@ -102,14 +102,15 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 	}, "When the plan ends", notBalance)...)
 	out = append(out, section([]field{
 		check("limited", "Limited").bind(),
-		text("limit_type", "Limit Type", v, e).opts("", "Time_Limit", "Data_Limit", "Both_Limit").bind().show("limited"),
+		text("limit_type", "Limit Type", v, e).opts("", "Time_Limit", "Data_Limit", "Both_Limit").bind().show("limited").
+			hint("PPPoE plans on RADIUS can only use Data_Limit."),
 		text("time_limit", "Time Limit", v, e).as("number").show("limited && limit_type !== 'Data_Limit'"),
 		text("time_unit", "Time Unit", v, e).opts("Mins", "Hrs").show("limited && limit_type !== 'Data_Limit'"),
 		text("data_limit", "Data Limit", v, e).as("number").show("limited && limit_type !== 'Time_Limit'"),
 		text("data_unit", "Data Unit", v, e).opts("MB", "GB").show("limited && limit_type !== 'Time_Limit'"),
-		text("shared_users", "Device limit", v, e).as("number").bind().
+		text("shared_users", "Device limit", v, e).as("number").bind().show(hotspot).
 			hint("How many devices can be online with this plan at once. When the limit is full, Settings > Customers & Billing decides: kick the oldest device or reject the new login."),
-	}, "Limits", hotspot)...)
+	}, "Limits", hotspot+" || "+pppoe+" && device === 'Radius'")...)
 	out = append(out, section([]field{
 		dev.show(notBalance),
 		rt.show(radius),
@@ -335,10 +336,14 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 		if p.Device == "" {
 			p.Device = defaultDevices[p.Type]
 		}
-		if v["type"] == "Hotspot" && v["limited"] == "1" {
+		pppoeQuota := v["type"] == "PPPoE" && p.Device == "Radius" // only RADIUS enforces a PPPoE quota, and only bytes (Session-Timeout would cut the line)
+		if v["type"] == "PPPoE" && v["limited"] == "1" && !pppoeQuota {
+			e["limit_type"] = "A PPPoE data limit needs the RADIUS (gobill) device; the MikroTik API cannot enforce it"
+		}
+		if (v["type"] == "Hotspot" || pppoeQuota) && v["limited"] == "1" {
 			p.Limited = 1
 			p.LimitType = optStr(v["limit_type"])
-			if !oneOf(v["limit_type"], "Time_Limit", "Data_Limit", "Both_Limit") {
+			if !oneOf(v["limit_type"], "Time_Limit", "Data_Limit", "Both_Limit") || pppoeQuota && v["limit_type"] != "Data_Limit" {
 				e["limit_type"] = "Invalid value"
 			}
 			if v["limit_type"] != "Data_Limit" {
