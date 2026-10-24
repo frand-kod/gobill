@@ -248,7 +248,14 @@ type printItem struct {
 
 type printPage struct {
 	Company string
+	Layout  string // a4, 58 or 80
+	Layouts []printLayout
 	Items   []printItem
+}
+
+type printLayout struct {
+	Name, Href string
+	On         bool
 }
 
 // vchPrint lays out the newest unused vouchers (optionally of one plan) for printing.
@@ -273,7 +280,16 @@ func (s *Server) vchPrint(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "settings", err)
 		return
 	}
-	pp := printPage{Company: settings["company_name"]}
+	layout := "a4"
+	if l := r.URL.Query().Get("layout"); l == "58" || l == "80" {
+		layout = l
+	}
+	q := r.URL.Query()
+	pp := printPage{Company: settings["company_name"], Layout: layout}
+	for _, o := range []struct{ key, name string }{{"a4", "A4"}, {"58", "Thermal 58 mm"}, {"80", "Thermal 80 mm"}} {
+		q.Set("layout", o.key)
+		pp.Layouts = append(pp.Layouts, printLayout{o.name, "?" + q.Encode(), o.key == layout})
+	}
 	for _, v := range rows {
 		png, err := qrcode.Encode(v.Code, qrcode.Medium, 160)
 		if err != nil {
