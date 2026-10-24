@@ -62,6 +62,24 @@ The `address` on `/radius` must match the gobill host IP that the router can rea
 
 Voucher login on the hotspot page uses the code as the username. This login goes directly through RADIUS. Failed attempts are limited to 10 per 15 minutes per NAS and MAC, and 100 per 15 minutes per NAS.
 
+## Access points behind the router
+
+An access point (AP) behind a MikroTik must use **bridge** or **access point** mode. In this mode the AP only sends Wi-Fi. The router still gives out IP addresses, runs the hotspot, and sees each device one by one.
+
+The name of this mode differs by brand. Look for the setting that is usually called **Access Point mode** or **Bridge mode**.
+
+If the AP runs in router mode, it does NAT and DHCP by itself. The router sees only one client, which is the AP. As a result:
+
+- Every device behind the AP appears as one client.
+- One login opens access for every device behind that AP.
+- `shared_users` has no effect, because gobill sees only one session for the whole AP.
+
+Check after you change the mode:
+
+1. Connect two devices to the same AP.
+2. Log in with the first device.
+3. The second device must ask for login by itself. If it does not, the AP is still in router mode.
+
 ## Lessons from field testing
 
 1. **The gobill host must not be a hotspot client.** Universal NAT on the hotspot makes the router reach that host through `to-address`, not its real IP. As a result, RADIUS and CoA fail. The fix is to bypass the host:

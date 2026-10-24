@@ -188,9 +188,24 @@ Panduan operator tersedia dalam [bahasa Indonesia](docs/id/README.md) dan [Engli
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Mulai        | [Instalasi](docs/id/installation.md), [upgrade](docs/id/upgrade.md), [migrasi dari PHPNuxBill](docs/id/migration-phpnuxbill.md)                                                                                                                 |
 | Konfigurasi  | [Konfigurasi](docs/id/configuration.md), [integrasi](docs/id/integrations.md), [keamanan](docs/id/security.md)                                                                                                                                  |
-| Jaringan     | [Setup MikroTik](docs/id/mikrotik.md), [FreeRADIUS lewat REST](docs/id/freeradius-rest.md)                                                                                                                                                      |
+| Jaringan     | [Setup MikroTik](docs/id/mikrotik.md), [FreeRADIUS lewat REST](docs/id/freeradius-rest.md), [AP di belakang router](docs/id/mikrotik.md#access-point-di-belakang-router)                                                                        |
+| Pelanggan    | [Pola kos](docs/id/README.md#pola-kos)                                                                                                                                                                                                          |
 | Operasional  | [Monitoring](docs/id/monitoring.md), [backup dan restore](docs/id/backup-restore.md)                                                                                                                                                            |
 | Pengembangan | [Arsitektur](docs/internal/arsitektur.md), [pengembangan](docs/internal/pengembangan.md), [progres](docs/internal/progres.md), [rencana](docs/internal/rencana/README.md), [panduan menulis dokumentasi](docs/internal/panduan-menulis-docs.md) |
+
+## Belum didukung
+
+Fitur PHPNuxBill berikut belum ada di gobill. Pastikan Anda tidak membutuhkannya sebelum cutover.
+
+- Impor kupon, ODP, inbox, dan template `email_invoice`. Pengaturan `enable_coupons` dan `frrest_interim_update` tidak dibaca.
+- Sync massal semua pelanggan ke router. Sync hanya ada per pelanggan dan per langganan.
+- Plugin runtime dan theme engine, termasuk `ui_custom`. Branding cukup lewat logo dan nama usaha.
+- Driver VPN MikroTik dan halaman Port. Ditunda sampai ada permintaan nyata.
+- Face detection dan foto saat registrasi. Ditunda.
+- PostgreSQL. gobill memakai SQLite.
+- Token akses API lama `system/api.php`, Tawk.to, proxy HTTP, dan cetak NuxPrint. Tidak ada.
+- Tarif pajak dari layar **Pengaturan**. Pajak tetap dihitung, tetapi tarifnya hanya bisa diisi lewat impor atau tabel `settings`.
+- Windows dan shared hosting. Tidak didukung.
 
 ## Berkontribusi
 
