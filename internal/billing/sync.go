@@ -132,27 +132,11 @@ func (s *Service) SyncSubscription(ctx context.Context, id, adminID int64) error
 // ErrRadiusRouter: a router whose plans all use RADIUS has nothing to push.
 var ErrRadiusRouter = errors.New("router is in RADIUS mode, nothing to push")
 
-// SyncReport is the result of SyncRouter: counts and one "item: reason" line per failure.
-type SyncReport struct {
-	OK, Failed int
-	Failures   []string
-}
-
-// SyncRouter ("Dorong semua") pushes every enabled plan and then every active subscription of an
-// API-mode router, for a new, reset or replacement router. It is safe to run twice: plans go as
-// "update" (which adds a missing profile) and AddCustomer updates an existing account. A router
-// that does not answer a ping stops the run before any item is tried; item failures are
-// collected and the loop continues. Runs inline: one API session per item, no job queue.
-// ponytail: synchronous in the request, move to a background job if routers hold thousands of accounts.
-func (s *Service) SyncRouter(ctx context.Context, routerID, adminID int64) (SyncReport, error) {
-	var rep SyncReport
-	r, err := s.Q.GetRouter(ctx, routerID)
-	if err != nil {
-		return rep, err
-	}
+// pushPlans lists the enabled API-mode plans of a router; a router with only RADIUS plans is refused.
+func (s *Service) pushPlans(ctx context.Context, routerID int64) ([]db.Plan, error) {
 	plans, err := s.Q.ListPlansByRouter(ctx, sql.NullInt64{Int64: routerID, Valid: true})
 	if err != nil {
-		return rep, err
+		return nil, err
 	}
 	api := plans[:0]
 	for _, p := range plans {
@@ -161,28 +145,47 @@ func (s *Service) SyncRouter(ctx context.Context, routerID, adminID int64) (Sync
 		}
 	}
 	if len(plans) > 0 && len(api) == 0 {
-		return rep, ErrRadiusRouter
+		return nil, ErrRadiusRouter
+	}
+	return api, nil
+}
+
+// CheckRouterPush returns ErrRadiusRouter when SyncRouter would have nothing to push, so the
+// caller can refuse before it starts a run.
+func (s *Service) CheckRouterPush(ctx context.Context, routerID int64) error {
+	_, err := s.pushPlans(ctx, routerID)
+	return err
+}
+
+// SyncRouter ("Dorong semua") pushes every enabled plan and then every active subscription of an
+// API-mode router, for a new, reset or replacement router. It is safe to run twice: plans go as
+// "update" (which adds a missing profile) and AddCustomer updates an existing account. A router
+// that does not answer a ping stops the run before any item is tried. total is called once with
+// the item count, then note once per item with its error or nil; item failures do not stop the
+// loop. Runs item by item with one API session each, no job queue; the web layer runs it in the
+// background.
+func (s *Service) SyncRouter(ctx context.Context, routerID, adminID int64, total func(int), note func(what string, err error)) error {
+	r, err := s.Q.GetRouter(ctx, routerID)
+	if err != nil {
+		return err
+	}
+	api, err := s.pushPlans(ctx, routerID)
+	if err != nil {
+		return err
 	}
 	pctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	_, err = s.Ping(pctx, r)
 	cancel()
 	if err != nil {
-		return rep, fmt.Errorf("router offline: %w", err)
-	}
-	note := func(what string, err error) {
-		if err != nil {
-			rep.Failed++
-			rep.Failures = append(rep.Failures, what+": "+err.Error())
-		} else {
-			rep.OK++
-		}
-	}
-	for _, p := range api {
-		note("plan "+p.Name, s.SyncPlan(ctx, "update", p, p.Name))
+		return fmt.Errorf("router offline: %w", err)
 	}
 	ids, err := s.Q.ListActiveSubscriptionIDsByRouter(ctx, sql.NullInt64{Int64: routerID, Valid: true})
 	if err != nil {
-		return rep, err
+		return err
+	}
+	total(len(api) + len(ids))
+	for _, p := range api {
+		note("plan "+p.Name, s.SyncPlan(ctx, "update", p, p.Name))
 	}
 	for _, id := range ids {
 		what := fmt.Sprint("subscription ", id)
@@ -193,5 +196,5 @@ func (s *Service) SyncRouter(ctx context.Context, routerID, adminID int64) (Sync
 		}
 		note(what, s.SyncSubscription(ctx, id, adminID))
 	}
-	return rep, nil
+	return nil
 }

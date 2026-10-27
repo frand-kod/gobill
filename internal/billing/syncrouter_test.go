@@ -27,6 +27,12 @@ func (d upDev) UpdatePlan(_ context.Context, old string, p device.Plan) error {
 	return nil
 }
 
+// SyncReport is the test's tally of what SyncRouter reported.
+type SyncReport struct {
+	OK, Failed int
+	Failures   []string
+}
+
 func routerUp(e *env, err *error) {
 	e.s.RouterFor = func(db.Router) (device.Router, error) {
 		return device.Router{Exec: func(context.Context, []string) ([]map[string]string, error) {
@@ -46,7 +52,15 @@ func TestSyncRouter(t *testing.T) {
 	rid := e.day.RouterID.Int64
 	run := func() SyncReport {
 		*e.calls = nil
-		rep, err := e.s.SyncRouter(ctx, rid, 0)
+		var rep SyncReport
+		err := e.s.SyncRouter(ctx, rid, 0, func(int) {}, func(what string, err error) {
+			if err != nil {
+				rep.Failed++
+				rep.Failures = append(rep.Failures, what+": "+err.Error())
+			} else {
+				rep.OK++
+			}
+		})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -74,7 +88,7 @@ func TestSyncRouter(t *testing.T) {
 	// offline: stops before any item
 	down = errors.New("dial tcp: i/o timeout")
 	*e.calls = nil
-	if _, err := e.s.SyncRouter(ctx, rid, 0); err == nil || !strings.Contains(err.Error(), "router offline") || len(*e.calls) != 0 {
+	if err := e.s.SyncRouter(ctx, rid, 0, func(int) {}, func(string, error) {}); err == nil || !strings.Contains(err.Error(), "router offline") || len(*e.calls) != 0 {
 		t.Fatalf("offline: %v calls %v", err, *e.calls)
 	}
 }
@@ -84,7 +98,7 @@ func TestSyncRouterRadiusRefused(t *testing.T) {
 	var down error
 	routerUp(e, &down)
 	e.conn.Exec(`UPDATE plans SET device = 'Radius'`)
-	if _, err := e.s.SyncRouter(ctx, e.day.RouterID.Int64, 0); !errors.Is(err, ErrRadiusRouter) {
+	if err := e.s.CheckRouterPush(ctx, e.day.RouterID.Int64); !errors.Is(err, ErrRadiusRouter) {
 		t.Fatalf("err = %v", err)
 	}
 }

@@ -3,10 +3,11 @@ package web
 // Router CRUD and connection test.
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net/http"
-	"strings"
+	"sync"
 
 	"fmt"
 	"github.com/frand-kod/gobill/internal/billing"
@@ -203,9 +204,65 @@ func (s *Server) routerTest(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/admin/routers", http.StatusSeeOther)
 }
 
-// routerSync ("Push all") sends every plan and active subscription of an API-mode router to it,
-// then flashes the counts; failures go in the technical details. A RADIUS router is refused and an
-// offline router stops the run before any item.
+// syncJobs holds the "Push all" run of each router, one at a time per router, like bulk for messages.
+// ponytail: in-memory, a restart forgets the runs; store them in a table if they must survive.
+type syncJobs struct {
+	mu   sync.Mutex
+	runs map[int64]*syncRun
+}
+
+type syncRun struct {
+	active                bool
+	total, done, ok, fail int
+	stopped               string // why the run ended early, e.g. "router offline: ..."
+	failures              []string
+}
+
+var syncs = syncJobs{runs: map[int64]*syncRun{}}
+
+func (j *syncJobs) start(id int64) bool {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	if r := j.runs[id]; r != nil && r.active {
+		return false
+	}
+	j.runs[id] = &syncRun{active: true}
+	return true
+}
+
+// update changes the run of router id under the lock.
+func (j *syncJobs) update(id int64, f func(*syncRun)) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	f(j.runs[id])
+}
+
+// runSync pushes in its own goroutine with a background context: closing the page must not cancel it.
+func (s *Server) runSync(id, adminID int64) {
+	err := s.Billing.SyncRouter(context.Background(), id, adminID,
+		func(n int) { syncs.update(id, func(r *syncRun) { r.total = n }) },
+		func(what string, err error) {
+			syncs.update(id, func(r *syncRun) {
+				r.done++
+				if err != nil {
+					r.fail++
+					r.failures = append(r.failures, what+": "+err.Error())
+				} else {
+					r.ok++
+				}
+			})
+		})
+	syncs.update(id, func(r *syncRun) {
+		r.active = false
+		if err != nil {
+			r.stopped = err.Error()
+		}
+	})
+}
+
+// routerSync ("Push all") starts the background push of every plan and active subscription of an
+// API-mode router, then shows its status page. A RADIUS router is refused before a run exists, a
+// second click during a run is refused; the offline check happens inside the run.
 func (s *Server) routerSync(w http.ResponseWriter, r *http.Request) {
 	x, err := s.queries.GetRouter(r.Context(), pathID(r))
 	if err == sql.ErrNoRows {
@@ -216,30 +273,69 @@ func (s *Server) routerSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lang := s.language()
-	defer http.Redirect(w, r, "/admin/routers", http.StatusSeeOther)
 	if s.Billing == nil {
 		s.sessions.Put(r.Context(), "error", s.catalog.T(lang, "Router connection is not configured"))
+		http.Redirect(w, r, "/admin/routers", http.StatusSeeOther)
 		return
 	}
-	rep, err := s.Billing.SyncRouter(r.Context(), x.ID, adminFrom(r).ID)
-	switch {
-	case errors.Is(err, billing.ErrRadiusRouter):
+	if err := s.Billing.CheckRouterPush(r.Context(), x.ID); errors.Is(err, billing.ErrRadiusRouter) {
 		s.sessions.Put(r.Context(), "error", s.catalog.T(lang, "Router is in RADIUS mode, nothing to push")+": "+x.Name)
-	case err != nil:
-		s.putFailure(r, s.catalog.T(lang, "Push all failed")+": "+x.Name+". "+s.catalog.T(lang, routerErr(err, msgRouterOther)), err)
-	default:
-		s.logActivity(r, "router.sync", x.Name)
-		sum := fmt.Sprintf("%s: %s, %d %s, %d %s", x.Name, s.catalog.T(lang, "Push all finished"), rep.OK, s.catalog.T(lang, "succeeded"), rep.Failed, s.catalog.T(lang, "failed"))
-		if rep.Failed == 0 {
-			s.sessions.Put(r.Context(), "flash", sum)
-		}
-		d := strings.Join(rep.Failures, "; ")
-		if len(d) > 2000 {
-			d = d[:2000] + "..."
-		}
-		s.sessions.Put(r.Context(), "error", sum)
-		s.sessions.Put(r.Context(), "detail", d)
+		http.Redirect(w, r, "/admin/routers", http.StatusSeeOther)
+		return
+	} else if err != nil {
+		s.fail(w, "push check", err)
+		return
 	}
+	if !syncs.start(x.ID) {
+		s.sessions.Put(r.Context(), "error", s.catalog.T(lang, "A push is already running for this router")+": "+x.Name)
+	} else {
+		go s.runSync(x.ID, adminFrom(r).ID)
+		s.logActivity(r, "router.sync", x.Name)
+	}
+	http.Redirect(w, r, fmt.Sprintf("/admin/routers/%d/sync", x.ID), http.StatusSeeOther)
+}
+
+// routerSyncStatus shows the latest "Push all" run of a router and reloads itself while it runs.
+func (s *Server) routerSyncStatus(w http.ResponseWriter, r *http.Request) {
+	x, err := s.queries.GetRouter(r.Context(), pathID(r))
+	if err == sql.ErrNoRows {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.fail(w, "get router", err)
+		return
+	}
+	base := fmt.Sprintf("/admin/routers/%d/sync", x.ID)
+	lp := listPage{Heading: "Push all", Note: x.Name, Base: base, Cols: []string{"Item", "Result"},
+		Links: []option{{base, "Refresh"}, {"/admin/routers", "Routers"}}}
+	t := func(k string) string { return s.catalog.T(s.language(), k) }
+	row := func(k, v string) { lp.Rows = append(lp.Rows, listRow{0, []string{t(k), v}}) }
+	syncs.mu.Lock()
+	run := syncs.runs[x.ID]
+	if run == nil {
+		row("Progress", t("No push has run yet"))
+	} else {
+		state := "Finished"
+		switch {
+		case run.active:
+			state = "Running"
+			w.Header().Set("Refresh", "3")
+		case run.stopped != "":
+			state = "Stopped"
+		}
+		row("Push state", t(state))
+		row("Progress", fmt.Sprintf("%d / %d", run.done, run.total))
+		row("Succeeded", strconv.Itoa(run.ok))
+		row("Failed", strconv.Itoa(run.fail))
+		if run.stopped != "" {
+			row("Stopped", run.stopped)
+		}
+		for _, f := range run.failures {
+			row("Failed", f)
+		}
+	}
+	syncs.mu.Unlock()
+	s.renderList(w, r, lp)
 }
 
 func (s *Server) routerDelete(w http.ResponseWriter, r *http.Request) {
