@@ -126,3 +126,23 @@ func TestRouterPushAllRadiusRefused(t *testing.T) {
 		t.Fatalf("router was contacted: %v", sent())
 	}
 }
+
+func TestRouterListLastPushLink(t *testing.T) {
+	h, c, q, rid, _ := pushApp(t, func([]string) ([]map[string]string, error) { return nil, nil })
+	// rid (r1) has no run; r2 gets one
+	r2, err := q.CreateRouter(t.Context(), db.CreateRouterParams{Name: "r2", Host: "h", Port: 8728, Username: "u", PasswordEnc: []byte("x"), Enabled: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	syncs.mu.Lock()
+	syncs.runs[r2.ID] = &syncRun{}
+	syncs.mu.Unlock()
+	body := do(h, "GET", "/admin/routers", nil, c).Body.String()
+	// the default language is Indonesian, so the label is "Dorongan terakhir" (Last push)
+	if !strings.Contains(body, `href="/admin/routers/`+itoa(r2.ID)+`/sync">Dorongan terakhir: r2</a>`) {
+		t.Fatalf("router with a run has no link: %s", body)
+	}
+	if strings.Contains(body, `href="/admin/routers/`+rid+`/sync"`) || strings.Contains(body, "Dorongan terakhir: r1") {
+		t.Fatalf("router without a run has a link: %s", body)
+	}
+}

@@ -1093,6 +1093,7 @@
     "Connection failed": "Koneksi gagal",
     "Router connection is not configured": "Koneksi router belum dikonfigurasi",
     "Push all": "Dorong semua",
+    "Last push": "Dorongan terakhir",
     "Item": "Item",
     "Progress": "Progres",
     "Push state": "Status dorong",

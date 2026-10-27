@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"slices"
+	"strings"
 	"sync"
 
 	"fmt"
@@ -69,6 +71,19 @@ func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
 		}
 		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Name, fmt.Sprint(x.Host, ":", x.Port), x.Username, on, status, seen}})
 	}
+	// a toolbar link to the latest "Push all" run of each router on this page; only the keys are copied under the lock
+	syncs.mu.Lock()
+	ran := make(map[int64]bool, len(syncs.runs))
+	for id := range syncs.runs {
+		ran[id] = true
+	}
+	syncs.mu.Unlock()
+	for _, x := range rows {
+		if ran[x.ID] {
+			lp.Links = append(lp.Links, option{fmt.Sprintf("/admin/routers/%d/sync", x.ID), s.catalog.T(s.language(), "Last push") + ": " + x.Name})
+		}
+	}
+	slices.SortFunc(lp.Links, func(a, b option) int { return strings.Compare(a.Label, b.Label) })
 	total, err := s.queries.CountRouters(r.Context(), q)
 	if err != nil {
 		s.fail(w, "count routers", err)
