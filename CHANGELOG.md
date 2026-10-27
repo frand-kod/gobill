@@ -17,13 +17,13 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 - Teks lisensi ikut di dalam binary: `LICENSE`, `NOTICE`, dan `THIRD_PARTY_LICENSES.txt` (lisensi semua modul Go yang ter-link dan aset web), bisa dibaca di `/licenses` tanpa login. `tools/third-party.sh` menulis ulang berkas ketiga, dan CI memeriksa berkas itu tetap sesuai `go.mod`.
 - `NOTICE` mencantumkan semua dependensi yang ter-link, termasuk gozxing (Apache-2.0 dari ZXing), goldmark, dan modernc, serta kewajiban MPL-2.0 untuk radius dan go-sql-driver.
 - Banner MIT ditambahkan ke Alpine.js. Komentar lisensi Lucide tidak lagi dibuang saat ikon dirender.
-
 ### Ditambahkan
 
 - **Pengingat menyimpan kunci enkripsi** (#39): mirror backup tidak menyalin `gobill.db.key`, dan sebelumnya aplikasi tidak mengingatkan. Pengaturan > Sistem dan Status Sistem kini menampilkan peringatan untuk SuperAdmin sampai kunci ditandai sudah disimpan (muncul lagi bila kunci berganti), lengkap dengan sidik jari kunci. Halaman baru **Kunci enkripsi** mengunduh kunci setelah konfirmasi password (dan 2FA), tercatat di log aktivitas. Penolakan restore karena kunci berbeda menyebut sidik jari kunci aplikasi.
 ### Ditambahkan
 
 - **Alert gangguan massal per NAS** (#30, mode RADIUS): jika `alert_mass_drop_min` (bawaan 5, `0` = mati) pelanggan atau lebih di satu NAS kehilangan sesi dalam `alert_mass_drop_window` menit (bawaan 30) dan belum kembali, operator menerima satu alert berisi daftar username. NAS yang diam total tetap ditangani alert NAS diam. Tanpa migrasi.
+- **Banner gangguan di portal** (#38): pelanggan yang termasuk gangguan massal melihat "Ada gangguan di area Anda, sedang ditangani" di dashboard portal selama masih offline. Dihitung dari aturan alert yang sama, tanpa tabel baru. Belum tampil di halaman login hotspot, karena di sana pelanggan belum dikenali.
 ### Ditambahkan
 
 - **Kuota data untuk paket PPPoE** (#26): paket PPPoE dengan device RADIUS (gobill) bisa diberi `Data_Limit`; RADIUS sudah menghitung pemakaian per paket. Paket PPPoE di MikroTik API menolak kuota dengan pesan di form, karena PPPoE secret tidak punya padanan `limit-bytes-total`. Perpanjangan dini paket berkuota (paket sama, masih aktif) tidak mengatur ulang jendela pemakaian, jadi sesi yang masih online tetap terhitung. Kuota data di-rollover: sisa kuota lama (minimal 0, kelebihan pemakaian dihapus) ditambah satu batas penuh paket; rollover menumpuk di setiap perpanjangan dini. Batas waktu tidak di-rollover: setelah perpanjangan dini waktu kembali penuh dan sisa lama hilang. Perpanjangan setelah paket habis, ganti paket, dan nonaktifkan memulai dari kuota penuh dan jendela baru. Pemakaian dihitung dari username dan pppoe_username sekaligus, di RADIUS, perpanjangan, dan tampilan kuota. Migrasi `0021_quota_carry.sql` menambah `subscriptions.quota_carry_bytes` dan `quota_carry_seconds`.

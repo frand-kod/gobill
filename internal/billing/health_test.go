@@ -113,3 +113,50 @@ func TestMassDropAlert(t *testing.T) {
 	metrics.Set("radius_nas_last_packet_timestamp", float64(e.now.Add(-time.Hour).Unix()), "nas", "10.0.0.2")
 	run(0, "silent NAS")
 }
+
+// The portal banner: only customers of a mass drop that has reached the threshold, and only while offline.
+func TestMassDropNow(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	now := e.now.Unix()
+	stop := func(ip, user string, ago int64) {
+		t.Helper()
+		if err := e.q.UpsertRadiusSession(ctx, db.UpsertRadiusSessionParams{SessionID: user, Username: user, NasIp: ip,
+			StartedAt: now - 7200, UpdatedAt: now - ago, StoppedAt: sql.NullInt64{Int64: now - ago, Valid: true}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := 0; i < 5; i++ {
+		stop("10.0.0.1", fmt.Sprintf("u%d", i), 60)
+	}
+	stop("10.0.0.1", "old", 3*3600) // outside the window
+	st := map[string]string{"alert_mass_drop_min": "5", "alert_mass_drop_window": "30"}
+	covered := func(st map[string]string, user string) bool {
+		t.Helper()
+		got, err := MassDropNow(ctx, e.q, st, user, e.now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	if !covered(st, "u0") {
+		t.Fatal("u0 is one of 5 dropped customers: want the banner")
+	}
+	if covered(st, "old") {
+		t.Fatal("old dropped outside the window: no banner")
+	}
+	if covered(map[string]string{"alert_mass_drop_min": "6", "alert_mass_drop_window": "30"}, "u0") {
+		t.Fatal("below the threshold: no banner")
+	}
+	if covered(map[string]string{"alert_mass_drop_min": "0"}, "u0") {
+		t.Fatal("rule off: no banner")
+	}
+	// u0 is back online: an open session ends the drop for that customer
+	if err := e.q.UpsertRadiusSession(ctx, db.UpsertRadiusSessionParams{SessionID: "u0-new", Username: "u0", NasIp: "10.0.0.1",
+		StartedAt: now - 30, UpdatedAt: now - 30}); err != nil {
+		t.Fatal(err)
+	}
+	if covered(st, "u0") {
+		t.Fatal("u0 came back online: no banner")
+	}
+}

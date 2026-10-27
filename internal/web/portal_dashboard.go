@@ -108,6 +108,7 @@ type pDashData struct {
 	Now       int64
 	LastLogin string
 	Notice    string       // the announcement page, plain text
+	Outage    bool         // a mass drop covers this customer: the banner "outage in your area"
 	Promo     *portalPromo // the Promosi card at the bottom, nil when no live portal promo
 	Transfer  bool         // allow_balance_transfer
 	Minimum   string
@@ -277,6 +278,10 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		return
 	}
 	d.Notice = ann.Body
+	if d.Outage, err = billing.MassDropNow(ctx, s.queries, st, c.Username, time.Unix(now, 0)); err != nil {
+		s.fail(w, "portal outage", err)
+		return
+	}
 	if d.Promo, err = s.promoPortal(ctx); err != nil {
 		s.fail(w, "portal promo", err)
 		return

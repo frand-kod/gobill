@@ -7,6 +7,7 @@
   <div class="self-end"><button class="btn" type="submit">{{T "Send Balance"}}</button></div>
 </div></form>{{end}}
 {{with .Data.Notice}}<div class="card mb-4"><h2 class="card-title">{{T "Announcement"}}</h2><div class="card-body whitespace-pre-line text-sm">{{.}}</div></div>{{end}}
+{{if .Data.Outage}}<div class="card mb-4 bg-warn-bg text-warn-fg" role="status"><div class="card-body text-sm font-medium">{{T "There is an outage in your area, being handled"}}</div></div>{{end}}
 {{with .Data.Promo}}{{template "promo_portal" .}}{{end}}
 {{end}}
 {{define "pmeter"}}{{if .Bar}}<div class="h-3 w-full overflow-hidden rounded-full border border-line bg-surface-2" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Pct}}" aria-label="{{.Text}}"><div class="h-full {{if .Warn}}bg-warn-fg{{else}}bg-brand-500{{end}}" style="width: {{.Pct}}%"></div></div>{{end}}{{end}}

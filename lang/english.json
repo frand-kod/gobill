@@ -1434,5 +1434,6 @@
     "Resend code": "Resend code",
     "Reset certificate pin": "Reset certificate pin",
     "Certificate": "Certificate",
-    "Not pinned yet. The certificate is pinned on the first TLS connection (port 8729). Tick to forget the pin after the router certificate was changed.": "Not pinned yet. The certificate is pinned on the first TLS connection (port 8729). Tick to forget the pin after the router certificate was changed."
+    "Not pinned yet. The certificate is pinned on the first TLS connection (port 8729). Tick to forget the pin after the router certificate was changed.": "Not pinned yet. The certificate is pinned on the first TLS connection (port 8729). Tick to forget the pin after the router certificate was changed.",
+    "There is an outage in your area, being handled": "There is an outage in your area, being handled"
 }

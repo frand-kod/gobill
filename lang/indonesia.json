@@ -2540,5 +2540,6 @@
     "Payment is more than the debt": "Setoran melebihi utang",
     "Returns are more than the paid vouchers of the batch": "Retur melebihi jumlah voucher berbayar di batch",
     "Only unused codes of this batch can be returned": "Hanya kode batch ini yang belum terpakai yang bisa dikembalikan",
-    "Used is the least the agent has sold; the real sales are not known to the system.": "Terpakai adalah jumlah minimal yang pasti terjual; penjualan sebenarnya tidak diketahui sistem."
+    "Used is the least the agent has sold; the real sales are not known to the system.": "Terpakai adalah jumlah minimal yang pasti terjual; penjualan sebenarnya tidak diketahui sistem.",
+    "There is an outage in your area, being handled": "Ada gangguan di area Anda, sedang ditangani"
 }

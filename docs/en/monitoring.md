@@ -116,7 +116,7 @@ gobill checks the following rules every minute. Each rule sends one alert when a
 |---|---|---|
 | Disk almost full | Free disk space in the database folder is below 200 MB | Free disk space is 200 MB or more |
 | NAS silent | A NAS in the NAS menu has sent RADIUS packets, then is silent for `alert_nas_silent_minutes` minutes. Default 15 | A packet arrives again |
-| Mass drop | RADIUS mode: `alert_mass_drop_min` or more customers of one NAS lost their session (Stop, or treated as stale) within `alert_mass_drop_window` minutes and have not come back. The alert lists the usernames (at most 10). Not applied while that NAS is fully silent (the NAS silent rule covers it) | The count falls below the limit |
+| Mass drop | RADIUS mode: `alert_mass_drop_min` or more customers of one NAS lost their session (Stop, or treated as stale) within `alert_mass_drop_window` minutes and have not come back. The alert lists the usernames (at most 10). Not applied while that NAS is fully silent (the NAS silent rule covers it). Customers in the drop see the banner "There is an outage in your area, being handled" on the portal dashboard while they stay offline. The banner still shows when the NAS is fully silent | The count falls below the limit |
 | Job failed | A job fails 3 times in a row | One run succeeds |
 | Notification channel failed | A channel fails 5 times in a row | One send succeeds |
 | Brute force | More than 30 login failures, admin, portal, and 2FA, in 10 minutes | Failures drop below the limit |

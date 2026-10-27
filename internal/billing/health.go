@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -166,23 +167,13 @@ func (a *AlertJob) checkNAS(ctx context.Context, st map[string]string, now time.
 // closed as stale) within alert_mass_drop_window minutes and have not come back. A NAS that is silent as a whole
 // is left to the NAS-silent rule. Same edge rule as the others: one alert per episode, one when it eases.
 func (a *AlertJob) checkMassDrop(ctx context.Context, st map[string]string, now time.Time) {
-	minN, err := strconv.Atoi(st["alert_mass_drop_min"])
-	if err != nil || minN < 0 {
-		minN = defaultMassDrop
-	}
-	win, err := strconv.Atoi(st["alert_mass_drop_window"])
-	if err != nil || win < 1 {
-		win = defaultMassWin
-	}
+	minN, win := massDropRule(st)
 	byNAS := map[string][]string{}
 	if minN > 0 {
-		rows, err := a.S.Q.ListRadiusDropsSince(ctx, now.Add(-time.Duration(win)*time.Minute).Unix())
-		if err != nil {
+		var err error
+		if byNAS, err = massDropByNAS(ctx, a.S.Q, win, now); err != nil {
 			slog.Error("alert: list radius drops", "err", err)
 			return
-		}
-		for _, r := range rows {
-			byNAS[r.NasIp] = append(byNAS[r.NasIp], r.Username)
 		}
 	}
 	for k := range a.active { // an episode whose NAS has no drops left must still recover
@@ -199,6 +190,53 @@ func (a *AlertJob) checkMassDrop(ctx context.Context, st map[string]string, now 
 			fmt.Sprintf("%d pelanggan di NAS %s kehilangan sesi dalam %d menit terakhir (gangguan massal?): %s", len(users), ip, win, list),
 			fmt.Sprintf("Gangguan massal di NAS %s mereda", ip))
 	}
+}
+
+// massDropRule reads alert_mass_drop_min (customers; 0 turns the rule off) and alert_mass_drop_window (minutes).
+func massDropRule(st map[string]string) (minN, win int) {
+	minN, err := strconv.Atoi(st["alert_mass_drop_min"])
+	if err != nil || minN < 0 {
+		minN = defaultMassDrop
+	}
+	win, err = strconv.Atoi(st["alert_mass_drop_window"])
+	if err != nil || win < 1 {
+		win = defaultMassWin
+	}
+	return minN, win
+}
+
+// massDropByNAS groups by NAS the customers who lost their session within win minutes and have not come back.
+func massDropByNAS(ctx context.Context, q *db.Queries, win int, now time.Time) (map[string][]string, error) {
+	rows, err := q.ListRadiusDropsSince(ctx, now.Add(-time.Duration(win)*time.Minute).Unix())
+	if err != nil {
+		return nil, err
+	}
+	byNAS := map[string][]string{}
+	for _, r := range rows {
+		byNAS[r.NasIp] = append(byNAS[r.NasIp], r.Username)
+	}
+	return byNAS, nil
+}
+
+// MassDropNow reports whether username is one of the customers of a mass drop that checkMassDrop alerts on.
+// The portal banner uses it, so a customer sees the outage while the operator alert is open. A NAS that is
+// silent as a whole counts too: its customers are down as well.
+// ponytail: one query per portal dashboard load, same rule as the alert job. Cache it if it shows in profiles.
+func MassDropNow(ctx context.Context, q *db.Queries, st map[string]string, username string, now time.Time) (bool, error) {
+	minN, win := massDropRule(st)
+	if minN == 0 {
+		return false, nil
+	}
+	byNAS, err := massDropByNAS(ctx, q, win, now)
+	if err != nil {
+		return false, err
+	}
+	for _, users := range byNAS {
+		if len(users) >= minN && slices.Contains(users, username) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // checkBadSecret alerts when a NAS sends badSecretMax bad-secret RADIUS packets in a row, meaning its

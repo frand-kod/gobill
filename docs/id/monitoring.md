@@ -118,7 +118,7 @@ gobill memeriksa aturan berikut setiap menit. Tiap aturan mengirim satu alert sa
 |---|---|---|
 | Disk hampir penuh | Disk kosong di folder database di bawah 200 MB | Disk kosong 200 MB atau lebih |
 | NAS diam | NAS di menu NAS pernah mengirim paket RADIUS, lalu diam selama `alert_nas_silent_minutes` menit. Bawaannya 15 | Paket datang lagi |
-| Gangguan massal | Mode RADIUS: `alert_mass_drop_min` pelanggan atau lebih di satu NAS kehilangan sesi (Stop, atau dianggap basi) dalam `alert_mass_drop_window` menit dan belum kembali. Alert memuat daftar username (maksimal 10). Tidak berlaku jika NAS itu sedang diam total (aturan NAS diam) | Jumlah turun di bawah batas |
+| Gangguan massal | Mode RADIUS: `alert_mass_drop_min` pelanggan atau lebih di satu NAS kehilangan sesi (Stop, atau dianggap basi) dalam `alert_mass_drop_window` menit dan belum kembali. Alert memuat daftar username (maksimal 10). Tidak berlaku jika NAS itu sedang diam total (aturan NAS diam). Pelanggan yang termasuk gangguan ini melihat banner "Ada gangguan di area Anda, sedang ditangani" di dashboard portal selama masih offline. Banner tetap muncul saat NAS diam total | Jumlah turun di bawah batas |
 | Job gagal | Satu job gagal 3 kali berturut-turut | Satu kali jalan berhasil |
 | Kanal notifikasi gagal | Satu kanal gagal 5 kali berturut-turut | Satu kirim berhasil |
 | Brute force | Lebih dari 30 kegagalan login, admin, portal, dan 2FA, dalam 10 menit | Kegagalan turun di bawah batas |
