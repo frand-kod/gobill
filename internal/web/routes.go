@@ -381,6 +381,7 @@ func (s *Server) Handler() http.Handler {
 	top := http.NewServeMux()
 	top.HandleFunc("GET /health", s.health)
 	top.HandleFunc("GET /metrics", s.metricsHandler)
+	top.HandleFunc("GET /licenses", licenses)
 	top.Handle("/", app)
 	return cacheDefaults(top)
 }

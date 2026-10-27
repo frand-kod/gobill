@@ -11,6 +11,13 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 ### Fitur
 
 - **Cetak voucher untuk struk thermal**: halaman cetak voucher kini punya tata letak 58 mm dan 80 mm (`?layout=58` atau `?layout=80`), selain A4 (bawaan). Satu voucher per blok dengan QR kecil.
+
+### Lisensi
+
+- Teks lisensi ikut di dalam binary: `LICENSE`, `NOTICE`, dan `THIRD_PARTY_LICENSES.txt` (lisensi semua modul Go yang ter-link dan aset web), bisa dibaca di `/licenses` tanpa login. `tools/third-party.sh` menulis ulang berkas ketiga, dan CI memeriksa berkas itu tetap sesuai `go.mod`.
+- `NOTICE` mencantumkan semua dependensi yang ter-link, termasuk gozxing (Apache-2.0 dari ZXing), goldmark, dan modernc, serta kewajiban MPL-2.0 untuk radius dan go-sql-driver.
+- Banner MIT ditambahkan ke Alpine.js. Komentar lisensi Lucide tidak lagi dibuang saat ikon dirender.
+
 ### Ditambahkan
 
 - **Pengingat menyimpan kunci enkripsi** (#39): mirror backup tidak menyalin `gobill.db.key`, dan sebelumnya aplikasi tidak mengingatkan. Pengaturan > Sistem dan Status Sistem kini menampilkan peringatan untuk SuperAdmin sampai kunci ditandai sudah disimpan (muncul lagi bila kunci berganti), lengkap dengan sidik jari kunci. Halaman baru **Kunci enkripsi** mengunduh kunci setelah konfirmasi password (dan 2FA), tercatat di log aktivitas. Penolakan restore karena kunci berbeda menyebut sidik jari kunci aplikasi.

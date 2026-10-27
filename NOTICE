@@ -2,32 +2,49 @@ gobill (gobill)
 Copyright (C) 2026 frand-kod and contributors
 
 Licensed under GPL-3.0-or-later. See LICENSE.
+Source code: https://github.com/frand-kod/gobill (the tag of the release you run).
 
-Derived from PHPNuxBill (https://github.com/hotspotbilling/phpnuxbill),
-GPL-2.0-or-later. Translation files in lang/ originate from PHPNuxBill.
+Derived from PHPNuxBill (https://github.com/hotspotbilling/phpnuxbill), GPL-2.0-or-later
+("GNU General Public License version 2 or later", per the upstream README).
+The "or later" wording lets gobill be distributed under GPL-3.0-or-later.
+
+Changes from PHPNuxBill: gobill is a rewrite of PHPNuxBill in Go, started 2026-10-08. Every
+file ported from PHP names the PHP source it follows, and the git history records each change.
+The translation files in lang/ (english, indonesia, spanish, turkish, arabic) originate from
+PHPNuxBill (system/lan/*.json, and arabic.json from the upstream history). gobill adds keys to them.
 
 Third-party components
 ----------------------
 
-Go modules (direct, from go.mod; license texts in the module cache):
+The full text of every third-party license is in THIRD_PARTY_LICENSES.txt. The binary embeds that
+file, NOTICE and LICENSE, and serves them at /licenses. Each license in that file comes from the
+module's own source.
+
+Go modules linked into cmd/gobill (direct and indirect, from go.mod):
 - github.com/alexedwards/scs/v2, scs/sqlite3store: MIT
 - github.com/go-routeros/routeros/v3: MIT
 - github.com/wneessen/go-mail: MIT
 - github.com/skip2/go-qrcode: MIT
-- golang.org/x/crypto, golang.org/x/sys: BSD-3-Clause
-- modernc.org/sqlite (and its modernc.org/* support modules): BSD-3-Clause
+- github.com/yuin/goldmark: MIT
+- github.com/makiuchi-d/gozxing: MIT. The package is a port of ZXing, which is Apache-2.0, and its
+  LICENSE file contains both texts. Unmodified.
+- golang.org/x/crypto, golang.org/x/sys, golang.org/x/text, golang.org/x/xerrors: BSD-3-Clause
+- modernc.org/sqlite: BSD-3-Clause, with sqlite-vec under MIT and SQLite in the public domain
+  (LICENSE-SQLITE_VEC and LICENSE-SQLITE in the module)
+- modernc.org/libc (includes LICENSE-3RD-PARTY.md), modernc.org/mathutil, modernc.org/memory: BSD-3-Clause
+- filippo.io/edwards25519, github.com/google/uuid, github.com/remyoudompheng/bigfft: BSD-3-Clause
+- github.com/dustin/go-humanize: MIT
 - layeh.com/radius: MPL-2.0
 - github.com/go-sql-driver/mysql (used by the PHPNuxBill importer): MPL-2.0
-- Indirect: filippo.io/edwards25519, github.com/google/uuid, golang.org/x/text
-  (BSD-3-Clause), github.com/dustin/go-humanize (MIT),
-  github.com/mattn/go-isatty (MIT), github.com/ncruces/go-strftime (MIT),
-  github.com/remyoudompheng/bigfft (BSD-3-Clause)
+
+Source of the MPL-2.0 components: they are not modified. Their Source Code Form is the module
+version pinned in go.sum, available from https://proxy.golang.org and from the repository above.
 
 Web assets (web/static/vendor, web/static/icons, web/static/app.css):
 - Alpine.js 3.14.9: MIT
 - Chart.js 4.4.9: MIT
 - Leaflet 1.9.4: BSD-2-Clause
-- Lucide icons (lucide-static 0.460.0): ISC
+- Lucide icons (lucide-static 0.460.0): ISC. The icon files keep the license comment, and
+  web/static/icons/LICENSE holds the text.
 - Tailwind CSS 4.1.11 output in app.css: MIT (the output carries the MIT notice)
-
-Full license texts are in each upstream project. This file summarizes them.
+- OpenStreetMap tiles (web/static/maps.js): ODbL, credit "© OpenStreetMap contributors" shown on the map.

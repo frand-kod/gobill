@@ -139,8 +139,8 @@ func (s *Server) parseTemplates() error {
 	return nil
 }
 
-// loadIcons reads web/static/icons/*.svg, drops the license comment and
-// marks each icon decorative.
+// loadIcons reads web/static/icons/*.svg and marks each icon decorative. The license comment
+// stays in the markup: the ISC license needs its notice in every copy of the icon.
 func loadIcons() (map[string]template.HTML, error) {
 	files, err := fs.Glob(gobill.FS, "web/static/icons/*.svg")
 	if err != nil {
@@ -156,7 +156,7 @@ func loadIcons() (map[string]template.HTML, error) {
 		if i < 0 {
 			return nil, fmt.Errorf("%s: no <svg element", f)
 		}
-		svg := bytes.Replace(b[i:], []byte("<svg"), []byte(`<svg aria-hidden="true"`), 1)
+		svg := bytes.Replace(b, []byte("<svg"), []byte(`<svg aria-hidden="true"`), 1)
 		icons[strings.TrimSuffix(path.Base(f), ".svg")] = template.HTML(svg)
 	}
 	return icons, nil

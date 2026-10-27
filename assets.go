@@ -18,6 +18,12 @@ var FS embed.FS
 //go:embed docs/en/README.md docs/en/installation.md docs/en/quick-setup.md docs/en/upgrade.md docs/en/migration-phpnuxbill.md docs/en/configuration.md docs/en/integrations.md docs/en/security.md docs/en/mikrotik.md docs/en/freeradius-rest.md docs/en/monitoring.md docs/en/backup-restore.md docs/en/promotions.md docs/en/isolation.md docs/en/agent-batches.md
 var Docs embed.FS
 
+// Legal holds the license texts that ship with every binary. GPL-3.0 and the third-party licenses
+// require them with each copy. THIRD_PARTY_LICENSES.txt is written by tools/third-party.sh.
+//
+//go:embed LICENSE NOTICE THIRD_PARTY_LICENSES.txt
+var Legal embed.FS
+
 // ConfigExample is the documented config.env template that `gobill config-example` prints and
 // deploy/install.sh writes to /etc/gobill/config.env on a new install.
 //
