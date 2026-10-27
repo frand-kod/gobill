@@ -29,7 +29,7 @@ Di UI gobill, tambah router dengan:
 - user `gobill`;
 - password tadi.
 
-Lalu sinkronkan paket ke profil router.
+Lalu sinkronkan paket ke profil router. Untuk router baru, hasil reset, atau pengganti, pakai "Dorong semua" di daftar router: semua paket dan langganan aktif dikirim, dan yang gagal ditampilkan.
 
 ## Mode RADIUS bawaan
 

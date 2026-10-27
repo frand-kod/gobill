@@ -279,6 +279,34 @@ func (q *Queries) ListActiveExpiringBetween(ctx context.Context, arg ListActiveE
 	return items, nil
 }
 
+const listActiveSubscriptionIDsByRouter = `-- name: ListActiveSubscriptionIDsByRouter :many
+SELECT id FROM subscriptions WHERE router_id = ? AND status = 'active' ORDER BY id
+`
+
+// Bulk push to a router: every active subscription held on it.
+func (q *Queries) ListActiveSubscriptionIDsByRouter(ctx context.Context, routerID sql.NullInt64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listActiveSubscriptionIDsByRouter, routerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listActiveSubscriptionsWithPlan = `-- name: ListActiveSubscriptionsWithPlan :many
 SELECT s.id, s.plan_id, s.router_id, s.type, s.expires_at, s.pending_start, p.name AS plan_name
 FROM subscriptions s JOIN plans p ON p.id = s.plan_id

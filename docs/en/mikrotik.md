@@ -29,7 +29,7 @@ In the gobill UI, add the router with:
 - the user `gobill`;
 - the password from above.
 
-Then sync the plans to the router profiles.
+Then sync the plans to the router profiles. For a new, reset or replacement router, use "Push all" in the router list: it sends every plan and active subscription and lists what failed.
 
 ## Built-in RADIUS mode
 

@@ -4,9 +4,12 @@ package web
 
 import (
 	"database/sql"
+	"errors"
 	"net/http"
+	"strings"
 
 	"fmt"
+	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/secret"
 	"strconv"
@@ -50,7 +53,7 @@ func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
 	}
 	lp := listPage{Heading: "Routers", Base: "/admin/routers", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
 		Cols:    []string{"Name", "Host", "Username", "Enabled", "Status", "Last Seen"},
-		Actions: []rowAction{{"test", "Test connection", "", false}}}
+		Actions: []rowAction{{"test", "Test connection", "", false}, {"sync", "Push all", "", true}}}
 	for _, x := range rows {
 		on := "No"
 		if x.Enabled == 1 {
@@ -198,6 +201,45 @@ func (s *Server) routerTest(w http.ResponseWriter, r *http.Request) {
 		s.sessions.Put(r.Context(), "flash", s.catalog.T(lang, "Connection successful")+": "+x.Name+" ("+id+")")
 	}
 	http.Redirect(w, r, "/admin/routers", http.StatusSeeOther)
+}
+
+// routerSync ("Push all") sends every plan and active subscription of an API-mode router to it,
+// then flashes the counts; failures go in the technical details. A RADIUS router is refused and an
+// offline router stops the run before any item.
+func (s *Server) routerSync(w http.ResponseWriter, r *http.Request) {
+	x, err := s.queries.GetRouter(r.Context(), pathID(r))
+	if err == sql.ErrNoRows {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.fail(w, "get router", err)
+		return
+	}
+	lang := s.language()
+	defer http.Redirect(w, r, "/admin/routers", http.StatusSeeOther)
+	if s.Billing == nil {
+		s.sessions.Put(r.Context(), "error", s.catalog.T(lang, "Router connection is not configured"))
+		return
+	}
+	rep, err := s.Billing.SyncRouter(r.Context(), x.ID, adminFrom(r).ID)
+	switch {
+	case errors.Is(err, billing.ErrRadiusRouter):
+		s.sessions.Put(r.Context(), "error", s.catalog.T(lang, "Router is in RADIUS mode, nothing to push")+": "+x.Name)
+	case err != nil:
+		s.putFailure(r, s.catalog.T(lang, "Push all failed")+": "+x.Name+". "+s.catalog.T(lang, routerErr(err, msgRouterOther)), err)
+	default:
+		s.logActivity(r, "router.sync", x.Name)
+		sum := fmt.Sprintf("%s: %s, %d %s, %d %s", x.Name, s.catalog.T(lang, "Push all finished"), rep.OK, s.catalog.T(lang, "succeeded"), rep.Failed, s.catalog.T(lang, "failed"))
+		if rep.Failed == 0 {
+			s.sessions.Put(r.Context(), "flash", sum)
+		}
+		d := strings.Join(rep.Failures, "; ")
+		if len(d) > 2000 {
+			d = d[:2000] + "..."
+		}
+		s.sessions.Put(r.Context(), "error", sum)
+		s.sessions.Put(r.Context(), "detail", d)
+	}
 }
 
 func (s *Server) routerDelete(w http.ResponseWriter, r *http.Request) {

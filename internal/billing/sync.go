@@ -4,9 +4,11 @@ package billing
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
+	"time"
 )
 
 // SyncPlan pushes an admin plan change to the plan's router. op is "add", "update" or
@@ -125,4 +127,71 @@ func (s *Service) SyncSubscription(ctx context.Context, id, adminID int64) error
 		return err
 	}
 	return s.logAdmin(ctx, s.Q, adminID, "subscription.sync", fmt.Sprintf("%s %s", c.Username, p.Name))
+}
+
+// ErrRadiusRouter: a router whose plans all use RADIUS has nothing to push.
+var ErrRadiusRouter = errors.New("router is in RADIUS mode, nothing to push")
+
+// SyncReport is the result of SyncRouter: counts and one "item: reason" line per failure.
+type SyncReport struct {
+	OK, Failed int
+	Failures   []string
+}
+
+// SyncRouter ("Dorong semua") pushes every enabled plan and then every active subscription of an
+// API-mode router, for a new, reset or replacement router. It is safe to run twice: plans go as
+// "update" (which adds a missing profile) and AddCustomer updates an existing account. A router
+// that does not answer a ping stops the run before any item is tried; item failures are
+// collected and the loop continues. Runs inline: one API session per item, no job queue.
+// ponytail: synchronous in the request, move to a background job if routers hold thousands of accounts.
+func (s *Service) SyncRouter(ctx context.Context, routerID, adminID int64) (SyncReport, error) {
+	var rep SyncReport
+	r, err := s.Q.GetRouter(ctx, routerID)
+	if err != nil {
+		return rep, err
+	}
+	plans, err := s.Q.ListPlansByRouter(ctx, sql.NullInt64{Int64: routerID, Valid: true})
+	if err != nil {
+		return rep, err
+	}
+	api := plans[:0]
+	for _, p := range plans {
+		if p.Device != "Radius" {
+			api = append(api, p)
+		}
+	}
+	if len(plans) > 0 && len(api) == 0 {
+		return rep, ErrRadiusRouter
+	}
+	pctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	_, err = s.Ping(pctx, r)
+	cancel()
+	if err != nil {
+		return rep, fmt.Errorf("router offline: %w", err)
+	}
+	note := func(what string, err error) {
+		if err != nil {
+			rep.Failed++
+			rep.Failures = append(rep.Failures, what+": "+err.Error())
+		} else {
+			rep.OK++
+		}
+	}
+	for _, p := range api {
+		note("plan "+p.Name, s.SyncPlan(ctx, "update", p, p.Name))
+	}
+	ids, err := s.Q.ListActiveSubscriptionIDsByRouter(ctx, sql.NullInt64{Int64: routerID, Valid: true})
+	if err != nil {
+		return rep, err
+	}
+	for _, id := range ids {
+		what := fmt.Sprint("subscription ", id)
+		if sub, err := s.Q.GetSubscription(ctx, id); err == nil {
+			if c, err := s.Q.GetCustomer(ctx, sub.CustomerID); err == nil {
+				what = "customer " + c.Username
+			}
+		}
+		note(what, s.SyncSubscription(ctx, id, adminID))
+	}
+	return rep, nil
 }

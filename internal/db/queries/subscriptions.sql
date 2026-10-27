@@ -82,3 +82,7 @@ UPDATE subscriptions SET started_at = ?, quota_carry_bytes = 0, quota_carry_seco
 -- name: StartPendingSubscription :execrows
 -- First RADIUS login of a start_on_first_login subscription: the usage window and expiry start now. 0 rows = already started.
 UPDATE subscriptions SET pending_start = 0, started_at = sqlc.arg(started_at), expires_at = sqlc.arg(expires_at), expired_notified_at = NULL WHERE id = sqlc.arg(id) AND pending_start = 1;
+
+-- name: ListActiveSubscriptionIDsByRouter :many
+-- Bulk push to a router: every active subscription held on it.
+SELECT id FROM subscriptions WHERE router_id = ? AND status = 'active' ORDER BY id;

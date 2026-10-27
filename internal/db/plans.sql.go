@@ -261,6 +261,59 @@ func (q *Queries) ListPlans(ctx context.Context, arg ListPlansParams) ([]Plan, e
 	return items, nil
 }
 
+const listPlansByRouter = `-- name: ListPlansByRouter :many
+SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience FROM plans WHERE router_id = ? AND enabled = 1 AND type <> 'Balance' ORDER BY id
+`
+
+// Plans a router serves, for the bulk push to that router.
+func (q *Queries) ListPlansByRouter(ctx context.Context, routerID sql.NullInt64) ([]Plan, error) {
+	rows, err := q.db.QueryContext(ctx, listPlansByRouter, routerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Plan
+	for rows.Next() {
+		var i Plan
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Type,
+			&i.Billing,
+			&i.Price,
+			&i.Validity,
+			&i.ValidityUnit,
+			&i.Limited,
+			&i.LimitType,
+			&i.TimeLimit,
+			&i.TimeUnit,
+			&i.DataLimit,
+			&i.DataUnit,
+			&i.SharedUsers,
+			&i.BandwidthID,
+			&i.RouterID,
+			&i.PoolID,
+			&i.ExpiredPlanID,
+			&i.BillingDay,
+			&i.OnLogin,
+			&i.OnLogout,
+			&i.Device,
+			&i.Enabled,
+			&i.Audience,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchPlans = `-- name: SearchPlans :many
 SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience, fup_bandwidth_id FROM plans WHERE name LIKE '%' || CAST(?1 AS TEXT) || '%' AND id <> ?2 ORDER BY name LIMIT ?4 OFFSET ?3
 `

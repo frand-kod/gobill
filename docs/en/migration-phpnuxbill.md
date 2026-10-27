@@ -131,7 +131,6 @@ Change the `connect_uri` or the `/radius` address back to the old entry. The old
 These PHPNuxBill features are not in gobill yet. Make sure you do not need them before cutover.
 
 - Import of coupons, ODP, inbox, and the `email_invoice` template. The `enable_coupons` and `frrest_interim_update` settings are not read.
-- Mass sync of all customers to the router. Sync exists only per customer and per subscription.
 - Plugin runtime and theme engine, including `ui_custom`. Branding uses the logo and business name.
 - MikroTik VPN driver and Port pages. Postponed until there is a real request.
 - Face detection and photo at registration. Postponed.
