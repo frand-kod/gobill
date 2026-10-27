@@ -134,7 +134,7 @@ Aturan ini bekerja sebagai berikut, berurutan:
 
 Nama list diambil dari pengaturan **Nama address-list MikroTik** (bawaan `isolir`). Daftar izin adalah nama itu ditambah `-allow`. Daftar izin diatur di **Diizinkan saat diisolir**, satu host per baris. Wildcard seperti `*.whatsapp.net` diperbolehkan. Setelah diubah, tempel lagi bloknya.
 
-Isolir berlaku untuk setiap pelanggan yang login lewat RADIUS gobill, termasuk PPPoE dengan paket perangkat **Radius**. Saat isolir, gobill mengirim `Mikrotik-Address-List` dengan nama list di atas, sehingga IP pelanggan masuk ke address-list `isolir` di router. Hasil uji di lab (RouterOS 7.24.5, PPPoE): pelanggan yang diisolir login ulang dan IP-nya tercatat di `/ip/firewall/address-list` dengan list `isolir`.
+Isolir berlaku untuk setiap pelanggan yang login lewat RADIUS gobill, termasuk PPPoE dengan paket perangkat **Radius**. Saat isolir, gobill mengirim `Mikrotik-Address-List` dengan nama list di atas, sehingga IP pelanggan masuk ke address-list `isolir` di router. Hasil uji di lab (RouterOS 7.24.5): untuk PPPoE dan hotspot, pelanggan yang diisolir login ulang dan IP-nya tercatat di `/ip/firewall/address-list` dengan list `isolir`. Pada hotspot, klien terisolir yang sudah login diblokir oleh aturan drop `src-address-list=isolir`, sedangkan tanpa aturan itu ia masih bisa mencapai server.
 
 ### Batasan RouterOS 6
 
