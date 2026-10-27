@@ -1,4 +1,12 @@
 {
+    "Isolations": "Aislamientos",
+    "Started On": "Iniciado el",
+    "Ended On": "Finalizado el",
+    "Reason": "Motivo",
+    "running": "en curso",
+    "ended": "finalizado",
+    "due": "vencido",
+    "Isolation running until": "Aislamiento en curso hasta",
     "Log_in": "Entrar",
     "Register": "Registro",
     "Announcement": "Anuncio",

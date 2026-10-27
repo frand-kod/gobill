@@ -1,4 +1,12 @@
 {
+    "Isolations": "Isolations",
+    "Started On": "Started On",
+    "Ended On": "Ended On",
+    "Reason": "Reason",
+    "running": "running",
+    "ended": "ended",
+    "due": "due",
+    "Isolation running until": "Isolation running until",
     "Settings": "Settings",
     "Search_Users": "Search Users",
     "Cancel": "Cancel",
