@@ -77,13 +77,42 @@ Save it to `/etc/nftables.conf`. Check it with `sudo nft list ruleset`, then app
 
 Do not send RADIUS UDP or CoA over the open internet.
 
-**WireGuard (recommended, RouterOS 7).** Create keys with `wg genkey | tee privat.key | wg pubkey`. Then on MikroTik:
+**Built-in WireGuard (recommended, RouterOS 7).** gobill carries a userspace WireGuard server inside the binary: no root, no `/dev/net/tun`, no host package, and it works in Docker. The router opens the connection to gobill, so a router behind NAT or CGNAT can be reached. RADIUS (1812 and 1813) is served inside the tunnel, and CoA and the RouterOS API are sent through it.
+
+It is off by default.
+
+1. Open **Settings → WireGuard** (SuperAdmin only). Turn it on, set the UDP port (default 51820), the public endpoint (a domain or public IP that points straight at this server, without a port) and the tunnel subnet (default `10.99.0.0/24`). The Status card shows the public address and UDP check.
+2. Open the router page (**Routers → Edit**), section **WireGuard tunnel**, and click **Provision**. gobill makes a keypair for the router (the private key is stored encrypted through `internal/secret`, never as plain text in the database), takes one IP from the subnet, and creates a NAS row with its own RADIUS secret for that router.
+3. Paste the RouterOS command block into the router terminal. It is shown once, because it holds the private key and the secret. It contains the WireGuard interface and peer, an NTP client, `/radius` with `src-address` set to the tunnel address, and firewall rules for CoA and the API from gobill's tunnel address only.
+4. Set the router **Host** to the tunnel address shown, so the RouterOS API goes through the tunnel. Click **Check tunnel** to test API login and CoA. The stage status shows the handshake and the last RADIUS packet; "the handshake never happened" is told apart from "the API failed".
+
+Buttons on the router page: **Provision again** (always makes a new key and the old one stops working at once), **Reset peer session**, and **Revoke** (the peer and its NAS row are removed at once). Deleting a router revokes its peer too. One-line provisioning with a token (`/tool fetch`) does not exist yet.
+
+Safeguards:
+
+- `GOBILL_WG=off` in the environment is the kill-switch and beats the setting in the UI. A build with the `nowg` tag (`go build -tags nowg ./cmd/gobill`) removes the feature from the binary. Releases are one variant, with WireGuard.
+- Each peer has a single `AllowedIPs` entry (its tunnel address), there is no routing between peers, and on the tunnel side gobill listens on 1812 and 1813 only. The admin HTTP is not opened to the tunnel.
+- The RADIUS secret is per router. A stolen router or a leaked config is dealt with by revoking it.
+- After a restart gobill starts the handshake itself, to the last address of each router (it is stored), so the tunnel does not stay down for about 2 minutes waiting for the router to try again.
+
+Changing the port, endpoint or subnet cuts every router that is provisioned. The settings page shows how many routers are affected and asks for confirmation. After saving, those routers are marked "needs provisioning again" and their command block must be pasted again. Switching WireGuard off (or `GOBILL_WG=off` while routers still use it) cuts them too; gobill logs the count at start.
+
+Risks to know:
+
+- **When gobill is down, every new login fails.** Running sessions stay up, but reconnects and new vouchers are refused until gobill is back. If that is not acceptable, leave the local secrets and users on the router active as a fallback. Isolation control becomes weaker, and the choice is the admin's. The "NAS silent" alert in Settings → Notifications tells you when a router that is normally active stops sending RADIUS requests.
+- **The router clock goes back after a reboot.** WireGuard refuses a handshake whose timestamp is older than the last one. A MikroTik without an RTC (hAP series and similar) returns to its initial clock after a power cut. The command block sets an NTP client. If the tunnel still does not come back, click **Reset peer session**.
+- **gobill cannot test UDP from inside.** The Status card can only confirm that UDP is open once a router completes a handshake. Cloudflare Tunnel (cloudflared) and proxied Cloudflare records do not forward UDP: use a DNS-only record that points at the server's public IP. A server with no public IP at all (CGNAT) cannot be used. If the operator blocks 51820, change the port (for example 443/udp).
+- The server's WireGuard key is in the settings (`wg_private`, encrypted) and goes into `gobill backup`. The encryption key `gobill.db.key` must still be kept separately, see [backup and restore](backup-restore.md).
+- Cost: the binary is about 4.6 MB larger (23.9 MB to 28.5 MB on amd64, +19%). Idle RAM is about 3.5 MB higher with WireGuard off, and about 3 MB more when the tunnel is on (200 peers: about 5 MB more than off). Measured without traffic.
+- RouterOS 6 has no WireGuard. Use L2TP/IPsec or SSTP, or upgrade.
+
+**Manual WireGuard (alternative).** If the built-in WireGuard is off, or gobill uses a tunnel on the host. Create keys with `wg genkey | tee privat.key | wg pubkey`. Then on MikroTik:
 
     /interface wireguard add name=wg-gobill listen-port=13231 private-key="<MIKROTIK-PRIVATE-KEY>"
     /ip address add address=10.10.10.2/24 interface=wg-gobill
     /interface wireguard peers add interface=wg-gobill public-key="<KUNCI-PUBLIK-VPS>" endpoint-address=<IP-VPS> endpoint-port=51820 allowed-address=10.10.10.1/32 persistent-keepalive=25s
 
-gobill on the VPS uses `10.10.10.1`. Register that address as the RADIUS or NAS address, and use it as the `src-address` of the CoA rule. RouterOS 6 has no WireGuard. Use L2TP/IPsec, or upgrade.
+gobill on the VPS uses `10.10.10.1`. Register that address as the RADIUS or NAS address, and use it as the `src-address` of the CoA rule and of `/radius` on the router.
 
 **RadSec.** On RouterOS 7:
 

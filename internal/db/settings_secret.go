@@ -15,7 +15,7 @@ import (
 var SettingsKey []byte
 
 // SecretSettings are the settings stored encrypted.
-var SecretSettings = map[string]bool{"telegram_bot": true, "smtp_pass": true, "webhook_secret": true, "alt_wga_password": true, "tripay_api_key": true, "tripay_private_key": true, "duitku_api_key": true, "metrics_token": true}
+var SecretSettings = map[string]bool{"telegram_bot": true, "smtp_pass": true, "webhook_secret": true, "alt_wga_password": true, "tripay_api_key": true, "tripay_private_key": true, "duitku_api_key": true, "metrics_token": true, "wg_private": true}
 
 const encPrefix = "enc1:"
 

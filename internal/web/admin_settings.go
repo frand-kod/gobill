@@ -20,6 +20,7 @@ import (
 	"github.com/frand-kod/gobill/internal/job"
 	"github.com/frand-kod/gobill/internal/notify"
 	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/wg"
 	"github.com/skip2/go-qrcode"
 	"io"
 	"os"
@@ -43,6 +44,7 @@ var settingsTabs = []struct {
 	{"integrations", "Integrations", true},
 	{"notifications", "Notifications", false},
 	{"isolir", "Isolation", true},
+	{"wireguard", "WireGuard", true},
 	{"promo", "Promotions", true},
 	{"appearance", "Appearance", false},
 	{"system", "System & Security", false},
@@ -338,6 +340,14 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 				Hint: "Default mode (custom HTML is not deleted)"},
 		}, "Display mode", "")...)
 		return out
+	case "wireguard":
+		return section([]field{
+			sel("wg_enabled", "WireGuard enabled", settingsYesNo...).hint("Routers behind NAT connect to gobill through an encrypted tunnel built into gobill: RADIUS, CoA and the RouterOS API all go through it. No root and no host package needed. GOBILL_WG=off in the environment overrides this setting"),
+			text("wg_port", "Listen port (UDP)", v, e).as("number").hint("Default 51820. If the provider blocks it, use another port such as 443"),
+			text("wg_endpoint", "Public endpoint (domain)", v, e).hint("The domain or public IP routers connect to, without a port. It must point straight at this server: Cloudflare Tunnel and proxied Cloudflare records do not carry UDP"),
+			text("wg_subnet", "Tunnel subnet", v, e).hint("Private range for the tunnel, default 10.99.0.0/24. gobill takes the first address, each router one more"),
+			chk("wg_confirm", "I understand that routers with a tunnel must be provisioned again"),
+		}, "WireGuard", "")
 	case "billing":
 		out := section([]field{
 			sel("extend_expiry", "Extend Package Expiry", settingsYesNo...),
@@ -460,6 +470,9 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 		if n, err := strconv.Atoi(x); err != nil || n < 0 || n > 3650 {
 			e["isolir_days"] = "Masukkan 0 sampai 3650"
 		}
+	}
+	if _, ok := v["wg_port"]; ok {
+		wgErrors(v, e)
 	}
 	if x, ok := v["isolir_mode"]; ok && x != "default" && x != "custom" {
 		e["isolir_mode"] = "Choose one"
@@ -612,6 +625,9 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 func settingsTab(w http.ResponseWriter, r *http.Request) (string, bool) {
 	tab := r.PathValue("tab")
 	for _, t := range settingsTabs {
+		if t.Slug == "wireguard" && !wg.Built {
+			continue // the nowg build has no such tab
+		}
 		if t.Slug == tab {
 			if t.SuperOnly && adminFrom(r).Role != "SuperAdmin" {
 				http.Error(w, "Forbidden", http.StatusForbidden)
@@ -648,7 +664,7 @@ func (s *Server) settingsForm(w http.ResponseWriter, r *http.Request) {
 func settingsNav(r *http.Request) []option {
 	var nav []option
 	for _, t := range settingsTabs {
-		if !t.SuperOnly || adminFrom(r).Role == "SuperAdmin" {
+		if (!t.SuperOnly || adminFrom(r).Role == "SuperAdmin") && (t.Slug != "wireguard" || wg.Built) {
 			nav = append(nav, option{"/admin/settings/" + t.Slug, t.Label})
 		}
 	}
@@ -692,9 +708,25 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 			v["isolir_rate_down"], v["isolir_rate_up"] = down, up
 		}
 	}
+	if tab == "wireguard" { // never saved = the default shown
+		for k, x := range wgDefaults(st) {
+			if v[k] == "" && k != "wg_endpoint" {
+				v[k] = x
+			}
+		}
+	}
 	fp := formPage{Heading: "Settings", Action: "/admin/settings/" + tab, Cancel: "/admin", Fields: forRole(s.settingsFields(tab, v, e, st), r)}
 	if tab == "isolir" {
 		fp.Fields = append(fp.Fields, s.isolirSetupFields(st)...)
+	}
+	if tab == "wireguard" {
+		n, _ := s.queries.CountWgPeers(r.Context())
+		for i, f := range fp.Fields {
+			if f.Name == "wg_confirm" {
+				fp.Fields[i].Hint = fmt.Sprintf(s.catalog.T(s.language(), "%d routers have a tunnel. Changing the port, endpoint or subnet cuts them until they are provisioned again, and switching WireGuard off cuts them too"), n)
+			}
+		}
+		fp.Fields = append(fp.Fields, s.wgStatusFields(r.Context(), st)...)
 	}
 	if tab == "payment" { // the URL to paste into the Tripay merchant dashboard
 		fp.Fields[0].Hint = "Callback URL for Tripay: " + baseURL(r) + "/callback/tripay" + ", Duitku: " + baseURL(r) + "/callback/duitku"
@@ -801,6 +833,18 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 		s.renderSettings(w, r, http.StatusUnprocessableEntity, tab, v, errs)
 		return
 	}
+	if tab == "wireguard" {
+		n, rewrite, off, err := s.wgImpact(r.Context(), st, v)
+		if err != nil {
+			s.fail(w, "count wireguard peers", err)
+			return
+		}
+		if n > 0 && (rewrite || off) && v["wg_confirm"] != "yes" {
+			msg := s.catalog.T(s.language(), "%d routers have a tunnel and will be cut. Tick the box to confirm")
+			s.renderSettings(w, r, http.StatusUnprocessableEntity, tab, v, map[string]string{"wg_confirm": fmt.Sprintf(msg, n)})
+			return
+		}
+	}
 	e := map[string]string{}
 	for _, k := range keys {
 		if !settingsFile[k] || r.MultipartForm == nil || len(r.MultipartForm.File[k]) == 0 {
@@ -845,7 +889,21 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if tab == "wireguard" {
+		if _, rewrite, _, err := s.wgImpact(r.Context(), st, v); err != nil {
+			s.fail(w, "count wireguard peers", err)
+			return
+		} else if rewrite {
+			if _, err := q.MarkWgPeersStale(r.Context()); err != nil {
+				s.fail(w, "mark wireguard peers", err)
+				return
+			}
+		}
+	}
 	for _, k := range keys {
+		if k == "wg_confirm" {
+			continue // a confirmation, not a setting
+		}
 		if settingsSecret[k] && v[k] == "" {
 			continue // empty secret keeps the stored value
 		}
@@ -874,6 +932,9 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 		if err := s.Billing.EndIsolations(r.Context()); err != nil {
 			slog.Error("isolir: end isolations after switching off", "err", err)
 		}
+	}
+	if tab == "wireguard" && s.WG != nil {
+		s.WG.Reload(r.Context()) // an error shows in the tab's status
 	}
 	if l, ok := v["language"]; ok {
 		s.lang.Store(l)

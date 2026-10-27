@@ -17,7 +17,7 @@ func TestSettingsTabOrder(t *testing.T) {
 		got = append(got, tab.Slug+"="+tab.Label)
 	}
 	want := "app=General localisation=Localisation billing=Customers & Billing payment=Payments integrations=Integrations " +
-		"notifications=Notifications isolir=Isolation promo=Promotions appearance=Appearance system=System & Security"
+		"notifications=Notifications isolir=Isolation wireguard=WireGuard promo=Promotions appearance=Appearance system=System & Security"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("tabs:\n got %s\nwant %s", strings.Join(got, " "), want)
 	}

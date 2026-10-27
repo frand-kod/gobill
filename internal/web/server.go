@@ -18,6 +18,7 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/i18n"
 	"github.com/frand-kod/gobill/internal/radius"
+	"github.com/frand-kod/gobill/internal/wg"
 	"golang.org/x/crypto/bcrypt"
 	"log/slog"
 	"net"
@@ -77,6 +78,8 @@ type Server struct {
 	Restart func()
 	// BackupMirror is the optional off-site backup folder (GOBILL_BACKUP_MIRROR), shown to SuperAdmin.
 	BackupMirror string
+	// WG is the built-in WireGuard tunnel; nil = none.
+	WG *wg.Manager
 	// Billing recharges customers and syncs plans to routers; nil disables both.
 	Billing *billing.Service
 	// CoAPort is the NAS Disconnect-Request port; empty = 3799.

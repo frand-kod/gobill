@@ -77,13 +77,42 @@ Simpan di `/etc/nftables.conf`. Periksa dengan `sudo nft list ruleset`, lalu ter
 
 Jangan kirim UDP RADIUS atau CoA lewat internet terbuka.
 
-**WireGuard (disarankan, RouterOS 7).** Buat kunci dengan `wg genkey | tee privat.key | wg pubkey`. Lalu di MikroTik:
+**WireGuard bawaan (disarankan, RouterOS 7).** gobill membawa server WireGuard userspace di dalam binary: tanpa root, tanpa `/dev/net/tun`, tanpa paket di host, dan jalan juga di Docker. Router yang membuka koneksi ke gobill, jadi router di belakang NAT atau CGNAT bisa dijangkau. RADIUS (1812 dan 1813) dilayani di dalam tunnel, sedangkan CoA dan API RouterOS dikirim lewat tunnel.
+
+Fitur ini mati secara default.
+
+1. Buka **Pengaturan → WireGuard** (hanya SuperAdmin). Pilih aktif, isi port UDP (bawaan 51820), endpoint publik (domain atau IP publik yang langsung menuju server ini, tanpa port), dan subnet tunnel (bawaan `10.99.0.0/24`). Kartu Status menampilkan hasil pemeriksaan alamat publik dan UDP.
+2. Buka halaman router (**Router → Ubah**), bagian **Tunnel WireGuard**, lalu klik **Provision**. gobill membuat keypair untuk router (kunci privat disimpan terenkripsi lewat `internal/secret`, tidak pernah teks biasa di database), mengambil satu IP dari subnet, dan membuat baris NAS dengan secret RADIUS sendiri untuk router itu.
+3. Tempel blok perintah RouterOS yang tampil ke terminal router. Blok ini hanya muncul sekali karena memuat kunci privat dan secret. Isinya antarmuka dan peer WireGuard, klien NTP, `/radius` dengan `src-address` alamat tunnel, dan rule firewall untuk CoA dan API dari alamat tunnel gobill saja.
+4. Ubah **Host** router menjadi alamat tunnel yang tertera supaya API RouterOS lewat tunnel. Klik **Cek tunnel** untuk menguji login API dan CoA. Status per tahap menampilkan handshake dan paket RADIUS terakhir; "handshake tidak pernah terjadi" dibedakan dari "API gagal".
+
+Tombol di halaman router: **Provision ulang** (selalu membuat kunci baru dan kunci lama langsung tidak berlaku), **Reset sesi peer**, dan **Cabut** (peer dan baris NAS-nya langsung dihapus). Menghapus router mencabut peernya juga. Provisioning satu baris lewat token (`/tool fetch`) belum ada.
+
+Kunci keamanan yang berlaku:
+
+- `GOBILL_WG=off` di environment adalah kill-switch dan mengalahkan pengaturan di UI. Build dengan tag `nowg` (`go build -tags nowg ./cmd/gobill`) membuang fitur ini dari binary. Rilis resmi hanya satu varian, lengkap dengan WireGuard.
+- Tiap peer hanya punya satu `AllowedIPs` (alamat tunnel-nya), tidak ada routing antar peer, dan di sisi tunnel gobill hanya mendengarkan 1812 dan 1813. HTTP admin tidak dibuka ke tunnel.
+- RADIUS secret dibuat per router. Router yang dicuri atau konfigurasinya bocor cukup dicabut.
+- Setelah restart, gobill memulai handshake sendiri ke alamat terakhir tiap router (alamat itu disimpan), sehingga tunnel tidak putus sekitar 2 menit menunggu router mencoba lagi.
+
+Mengubah port, endpoint, atau subnet memutus semua router yang sudah di-provision. Pengaturan menampilkan berapa router yang terdampak dan meminta konfirmasi. Setelah disimpan, router itu ditandai "perlu provision ulang" dan blok perintahnya harus ditempel lagi. Mematikan WireGuard (atau `GOBILL_WG=off` padahal ada router yang memakainya) juga memutus mereka; gobill mencatat jumlahnya di log saat start.
+
+Risiko yang perlu diketahui:
+
+- **gobill mati berarti semua login baru gagal.** Sesi yang sedang berjalan tetap hidup, tetapi reconnect dan voucher baru ditolak sampai gobill hidup lagi. Jika itu tidak bisa diterima, biarkan secret dan user lokal di router tetap aktif sebagai cadangan. Kontrol isolir menjadi lebih lemah, dan keputusannya ada pada admin. Peringatan "NAS diam" di Pengaturan → Notifikasi memberi tahu jika router yang biasanya aktif berhenti mengirim request RADIUS.
+- **Jam router mundur setelah reboot.** WireGuard menolak handshake yang timestamp-nya lebih lama dari handshake terakhir. MikroTik tanpa RTC (seri hAP dan sejenisnya) kembali ke jam awal setelah mati listrik. Blok perintah memasang klien NTP. Jika tunnel tetap tidak tersambung, klik **Reset sesi peer**.
+- **UDP gobill tidak bisa menguji dirinya dari dalam.** Kartu Status hanya bisa memastikan UDP terbuka setelah satu router menyelesaikan handshake. Cloudflare Tunnel (cloudflared) dan record Cloudflare yang diproksi tidak meneruskan UDP: pakai record DNS-only yang menunjuk ke IP publik server. Server tanpa IP publik sama sekali (CGNAT) tidak bisa dipakai. Jika operator memblokir 51820, ganti port (misalnya 443/udp).
+- Kunci WireGuard server ada di pengaturan (`wg_private`, terenkripsi) dan ikut di `gobill backup`. Kunci enkripsi `gobill.db.key` tetap harus disimpan terpisah, lihat [backup dan restore](backup-restore.md).
+- Biaya: binary sekitar 4,6 MB lebih besar (23,9 MB menjadi 28,5 MB di amd64, +19%). RAM idle sekitar 3,5 MB lebih tinggi saat WireGuard mati, dan sekitar 3 MB lagi saat tunnel menyala (200 peer: sekitar 5 MB lagi dari keadaan mati). Angka ini diukur tanpa trafik.
+- RouterOS 6 tidak punya WireGuard. Gunakan L2TP/IPsec atau SSTP, atau upgrade RouterOS.
+
+**WireGuard manual (alternatif).** Jika WireGuard bawaan dimatikan atau gobill memakai tunnel di host. Buat kunci dengan `wg genkey | tee privat.key | wg pubkey`. Lalu di MikroTik:
 
     /interface wireguard add name=wg-gobill listen-port=13231 private-key="<KUNCI-PRIVAT-MIKROTIK>"
     /ip address add address=10.10.10.2/24 interface=wg-gobill
     /interface wireguard peers add interface=wg-gobill public-key="<KUNCI-PUBLIK-VPS>" endpoint-address=<IP-VPS> endpoint-port=51820 allowed-address=10.10.10.1/32 persistent-keepalive=25s
 
-gobill di VPS memakai `10.10.10.1`. Daftarkan alamat itu sebagai alamat RADIUS atau NAS, dan pakai sebagai `src-address` untuk rule CoA. RouterOS 6 tidak punya WireGuard. Gunakan L2TP/IPsec, atau upgrade RouterOS.
+gobill di VPS memakai `10.10.10.1`. Daftarkan alamat itu sebagai alamat RADIUS atau NAS, dan pakai sebagai `src-address` untuk rule CoA dan untuk `/radius` di router.
 
 **RadSec.** Di RouterOS 7:
 

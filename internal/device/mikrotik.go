@@ -8,12 +8,16 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-routeros/routeros/v3"
 )
+
+// DialTCP, when set, carries the plain API connection (internal/wg dials routers inside the tunnel through it).
+var DialTCP func(ctx context.Context, addr string) (net.Conn, error)
 
 // Router is the connection info of one MikroTik. A driver is bound to one router,
 // so the `router` argument of the Device methods is ignored.
@@ -41,7 +45,16 @@ func (r Router) exec(ctx context.Context, sentence []string) ([]map[string]strin
 	defer cancel()
 	var c *routeros.Client
 	var err error
-	if r.TLS {
+	if DialTCP != nil && !r.TLS {
+		var nc net.Conn
+		if nc, err = DialTCP(ctx, r.Addr); err == nil {
+			if c, err = routeros.NewClient(nc); err == nil {
+				if err = c.LoginContext(ctx, r.User, r.Pass); err != nil {
+					c.Close()
+				}
+			}
+		}
+	} else if r.TLS {
 		// RouterOS certs are self-signed, so the chain is not verified; the leaf is pinned instead.
 		c, err = routeros.DialTLSContext(ctx, r.Addr, r.User, r.Pass,
 			&tls.Config{InsecureSkipVerify: true, VerifyConnection: r.verifyPin})

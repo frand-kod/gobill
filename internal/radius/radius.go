@@ -256,6 +256,26 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	return err
 }
 
+// ServeConn serves auth (or acct) requests on a socket the caller made, such as one inside the WireGuard
+// tunnel, until ctx is done. It closes pc.
+func (s *Server) ServeConn(ctx context.Context, pc net.PacketConn, acct bool) error {
+	h := radius.HandlerFunc(s.HandleAuth)
+	if acct {
+		h = s.HandleAcct
+	}
+	ps := &radius.PacketServer{SecretSource: s, Handler: h}
+	go func() {
+		<-ctx.Done()
+		sh, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		ps.Shutdown(sh)
+	}()
+	if err := ps.Serve(&nasConn{PacketConn: pc, s: s}); !errors.Is(err, radius.ErrServerShutdown) {
+		return err
+	}
+	return nil
+}
+
 func reject(w radius.ResponseWriter, r *radius.Request, msg string) {
 	p := r.Response(radius.CodeAccessReject)
 	rfc2865.ReplyMessage_SetString(p, msg)

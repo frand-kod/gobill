@@ -350,3 +350,13 @@ type Voucher struct {
 	GeneratedBy sql.NullInt64
 	CreatedAt   int64
 }
+
+type WgPeer struct {
+	RouterID      int64
+	Ip            string
+	PublicKey     string
+	PrivateEnc    []byte
+	Endpoint      string
+	Stale         int64
+	ProvisionedAt int64
+}

@@ -118,7 +118,7 @@ func request(ctx context.Context, q *db.Queries, key []byte, port string, s db.R
 		addMA(p)
 		ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
-		resp, err := radius.Exchange(ctx, p, net.JoinHostPort(s.NasIp, port))
+		resp, err := exchange(ctx, p, net.JoinHostPort(s.NasIp, port))
 		if err != nil {
 			return err
 		}
@@ -131,4 +131,69 @@ func request(ctx context.Context, q *db.Queries, key []byte, port string, s db.R
 		return nil
 	}
 	return fmt.Errorf("no NAS configured for %s", s.NasIp)
+}
+
+// ProbeCoA sends a Disconnect-Request for a session that does not exist to the NAS at ip and reports
+// whether the NAS answered at all. An ACK or a NAK both prove the path, the CoA port and the secret.
+func ProbeCoA(ctx context.Context, q *db.Queries, key []byte, ip string) error {
+	nasIP := net.ParseIP(ip)
+	rows, err := q.ListNAS(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range rows {
+		if nasIP == nil || !matchIP(n.Ip, nasIP) {
+			continue
+		}
+		sec, err := secret.Open(key, n.SecretEnc)
+		if err != nil {
+			return err
+		}
+		p := radius.New(radius.CodeDisconnectRequest, sec)
+		rfc2865.UserName_SetString(p, "gobill-probe")
+		rfc2866.AcctSessionID_SetString(p, "gobill-probe")
+		addMA(p)
+		ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		defer cancel()
+		resp, err := exchange(ctx, p, net.JoinHostPort(ip, CoAPort))
+		if err != nil {
+			return err
+		}
+		if resp.Code != radius.CodeDisconnectACK && resp.Code != radius.CodeDisconnectNAK {
+			return fmt.Errorf("unexpected reply %v", resp.Code)
+		}
+		return nil
+	}
+	return fmt.Errorf("no NAS configured for %s", ip)
+}
+
+// DialUDP, when set, carries CoA and Disconnect requests (internal/wg dials routers inside the tunnel through it).
+var DialUDP func(ctx context.Context, addr string) (net.Conn, error)
+
+// exchange is radius.Exchange, over DialUDP when a tunnel is set.
+func exchange(ctx context.Context, p *radius.Packet, addr string) (*radius.Packet, error) {
+	if DialUDP == nil {
+		return radius.Exchange(ctx, p, addr)
+	}
+	wire, err := p.Encode()
+	if err != nil {
+		return nil, err
+	}
+	c, err := DialUDP(ctx, addr)
+	if err != nil {
+		return nil, err
+	}
+	defer c.Close()
+	if dl, ok := ctx.Deadline(); ok {
+		c.SetDeadline(dl)
+	}
+	if _, err := c.Write(wire); err != nil {
+		return nil, err
+	}
+	buf := make([]byte, radius.MaxPacketLength)
+	n, err := c.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+	return radius.Parse(buf[:n], p.Secret)
 }

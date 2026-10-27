@@ -276,7 +276,13 @@ func (s *Server) setupShow(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "setup "+st.Slug, err)
 		return
 	}
-	s.render(w, r, http.StatusOK, "setup", Page{Title: "Quick setup", Data: view, Warn: s.proxyWarning(r)})
+	warn := s.proxyWarning(r)
+	if st.Slug == "router" { // a tunnel the routers cannot reach is worth a word before they are set up
+		if wgw := s.wgWarning(r.Context()); wgw != "" {
+			warn = strings.TrimSpace(warn + " " + wgw)
+		}
+	}
+	s.render(w, r, http.StatusOK, "setup", Page{Title: "Quick setup", Data: view, Warn: warn})
 }
 
 // setupStart answers the first-run dialog. to is "new" (Mulai baru), "import" or "" (Mulai setup cepat).
