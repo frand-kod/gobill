@@ -225,8 +225,21 @@ func newPlanDevice(setting, typ string) string {
 	return setting
 }
 
+// isolirManaged flashes an error and reports true when id is the isolir plan, which is edited only in Settings > Isolir.
+func (s *Server) isolirManaged(w http.ResponseWriter, r *http.Request, id int64) bool {
+	if iso, _ := s.isolirIDs(r.Context()); iso == 0 || iso != id {
+		return false
+	}
+	s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "The Isolir plan is managed in Settings > Isolir"))
+	http.Redirect(w, r, "/admin/plans", http.StatusSeeOther)
+	return true
+}
+
 func (s *Server) planEdit(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
+	if s.isolirManaged(w, r, id) {
+		return
+	}
 	p, err := s.queries.GetPlan(r.Context(), id)
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
@@ -260,6 +273,9 @@ func optStr(v string) sql.NullString { return sql.NullString{String: v, Valid: v
 // planSave serves both create (no {id} in the path) and update.
 func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
+	if s.isolirManaged(w, r, id) {
+		return
+	}
 	ctx := r.Context()
 	v := formVals(r, planNames...)
 	e := map[string]string{}
@@ -427,6 +443,9 @@ func (s *Server) syncPlan(r *http.Request, op string, p db.Plan, oldName string)
 }
 
 func (s *Server) planDelete(w http.ResponseWriter, r *http.Request) {
+	if s.isolirManaged(w, r, pathID(r)) {
+		return
+	}
 	p, _ := s.queries.GetPlan(r.Context(), pathID(r))
 	s.remove(w, r, "/admin/plans", "plan", "Plan is in use and cannot be deleted", p.Name, func(id int64) error {
 		if err := s.queries.DeletePlan(r.Context(), id); err != nil {

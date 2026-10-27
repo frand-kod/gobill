@@ -17,10 +17,11 @@ import (
 
 // isolate starts the isolation of an expired subscription. It runs after the expiry is committed
 // and no auto-renewal happened. It does nothing when isolir_enabled is not "yes", the plan has its
-// own expired_plan_id (explicit wins), the plan is the isolir plan itself, or the customer still has
-// another active subscription.
+// own expired_plan_id (explicit wins), the plan is the isolir plan itself, the plan is not on the
+// Radius device (the isolir plan is Radius, a router plan cannot be isolated), the customer is not
+// Active, or the customer still has another active subscription.
 func (s *Service) isolate(ctx context.Context, plan db.Plan, c db.Customer) error {
-	if setting(ctx, s.Q, "isolir_enabled") != "yes" || plan.ExpiredPlanID.Valid {
+	if setting(ctx, s.Q, "isolir_enabled") != "yes" || plan.ExpiredPlanID.Valid || plan.Device != "Radius" || c.Status != "Active" {
 		return nil
 	}
 	planID, err := isolir.EnsurePlan(ctx, s.Q)
@@ -95,4 +96,32 @@ func (s *Service) disconnectIsolated(ctx context.Context, c db.Customer) {
 	if err := dev.Disconnect(ctx, device.Customer{Username: c.Username}, ""); err != nil {
 		slog.Error("isolir: disconnect after recharge", "customer", c.Username, "err", err)
 	}
+}
+
+// EndIsolations ends every running isolation, for when isolir_enabled is switched off. Each affected
+// customer's open sessions are dropped, so the next Access-Request gets the normal plan.
+func (s *Service) EndIsolations(ctx context.Context) error {
+	iso := isolir.PlanID(setting(ctx, s.Q, "isolir_plan_id"))
+	if iso == 0 {
+		return nil
+	}
+	subs, err := s.Q.ListActiveSubscriptionsByPlan(ctx, iso)
+	if err != nil {
+		return err
+	}
+	for _, sub := range subs {
+		n, err := s.Q.DeactivateSubscription(ctx, db.DeactivateSubscriptionParams{Now: s.now().Unix(), ID: sub.ID})
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			continue
+		}
+		c, err := s.Q.GetCustomer(ctx, sub.CustomerID)
+		if err != nil {
+			return err
+		}
+		s.disconnectIsolated(ctx, c)
+	}
+	return nil
 }

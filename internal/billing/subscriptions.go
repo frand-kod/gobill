@@ -334,6 +334,9 @@ func (s *Service) noticeBeforeExpiry(ctx context.Context, minutes int) error {
 			slog.Error("early expired notice: plan", "subscription", sub.ID, "err", err)
 			continue
 		}
+		if plan.ID == isolirID { // the end of an isolation is not an expiry the customer is told about
+			continue
+		}
 		// a customer whose balance will renew the plan is not told it expired
 		if renewable(plan, c, autoRenew, isolirID) {
 			if price, err := s.OrderPrice(ctx, c.ID, plan.Price); err == nil && c.Balance >= price {
@@ -423,7 +426,7 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 			renewErr = fmt.Errorf("auto renewal: %w", err)
 		}
 	}
-	if nf != nil {
+	if nf != nil && !isolirPlan(ctx, s.Q, plan.ID) { // ending an isolation sends no expired notice or webhook
 		if err := s.sendExpiredNotice(ctx, sub, c, plan); err != nil { // skipped when the early notice already went out
 			slog.Error("expired notice", "subscription", sub.ID, "err", err)
 		}

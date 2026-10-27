@@ -869,6 +869,12 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 	}
 	s.removeUnused(r.Context(), replaced)
 
+	if tab == "isolir" && st["isolir_enabled"] == "yes" && v["isolir_enabled"] != "yes" && s.Billing != nil {
+		// switching isolation off ends the running ones; the settings stay saved if this fails
+		if err := s.Billing.EndIsolations(r.Context()); err != nil {
+			slog.Error("isolir: end isolations after switching off", "err", err)
+		}
+	}
 	if l, ok := v["language"]; ok {
 		s.lang.Store(l)
 	}

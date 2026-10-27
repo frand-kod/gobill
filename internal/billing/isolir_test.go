@@ -3,6 +3,7 @@ package billing
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/isolir"
@@ -15,6 +16,14 @@ func enableIsolir(t *testing.T, e *env, days string) {
 		if err := e.q.UpsertSetting(ctx, db.UpsertSettingParams{Key: k, Value: v}); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+// radiusPlans puts the test plans on the Radius device: only those can be isolated.
+func radiusPlans(t *testing.T, e *env) {
+	t.Helper()
+	if _, err := e.conn.Exec(`UPDATE plans SET device = 'Radius' WHERE type != 'Balance'`); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -36,6 +45,7 @@ func activeOf(t *testing.T, e *env) db.Subscription {
 func TestIsolirExpiryMovesToIsolirPlan(t *testing.T) {
 	ctx, e := context.Background(), setup(t)
 	enableIsolir(t, e, "5")
+	radiusPlans(t, e)
 	e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0)
 	e.now = e.now.AddDate(0, 0, 2) // the day plan ended one day after the recharge
 	if err := e.s.ExpireDue(ctx); err != nil {
@@ -58,6 +68,7 @@ func TestIsolirExpiryMovesToIsolirPlan(t *testing.T) {
 func TestIsolirEndsAfterDaysThenExpired(t *testing.T) {
 	ctx, e := context.Background(), setup(t)
 	enableIsolir(t, e, "5")
+	radiusPlans(t, e)
 	e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0)
 	e.now = e.now.AddDate(0, 0, 2)
 	e.s.ExpireDue(ctx)
@@ -78,6 +89,7 @@ func TestIsolirEndsAfterDaysThenExpired(t *testing.T) {
 func TestIsolirZeroDaysUntilPaid(t *testing.T) {
 	ctx, e := context.Background(), setup(t)
 	enableIsolir(t, e, "0")
+	radiusPlans(t, e)
 	e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0)
 	e.now = e.now.AddDate(0, 0, 2)
 	e.s.ExpireDue(ctx)
@@ -119,6 +131,7 @@ func TestIsolirOffKeepsExpiry(t *testing.T) {
 func TestRechargeEndsIsolation(t *testing.T) {
 	ctx, e := context.Background(), setup(t)
 	enableIsolir(t, e, "5")
+	radiusPlans(t, e)
 	e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0)
 	e.now = e.now.AddDate(0, 0, 2)
 	e.s.ExpireDue(ctx)
@@ -128,5 +141,85 @@ func TestRechargeEndsIsolation(t *testing.T) {
 	s := activeOf(t, e)
 	if s.PlanID != e.day2.ID {
 		t.Fatalf("active plan %d after recharge, want %d", s.PlanID, e.day2.ID)
+	}
+}
+
+// Switching isolation off ends the running isolation, so the customer is not left on the isolir plan.
+func TestEndIsolationsWhenSwitchedOff(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	enableIsolir(t, e, "5")
+	radiusPlans(t, e)
+	e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0)
+	e.now = e.now.AddDate(0, 0, 2)
+	e.s.ExpireDue(ctx)
+	if s := activeOf(t, e); s.PlanID == e.day.ID {
+		t.Fatalf("no isolation to end: %+v", s)
+	}
+	if err := e.s.EndIsolations(ctx); err != nil {
+		t.Fatal(err)
+	}
+	noIsolation(t, e)
+}
+
+func noIsolation(t *testing.T, e *env) {
+	t.Helper()
+	for _, s := range e.subs(t) {
+		if s.Status == "active" {
+			t.Fatalf("must not be isolated: %+v", s)
+		}
+	}
+}
+
+func TestIsolirSkipsNonRadiusPlan(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	enableIsolir(t, e, "5")
+	for _, dev := range []string{"MikrotikPppoe", "MikrotikHotspot", "Dummy", ""} {
+		if _, err := e.conn.Exec(`UPDATE plans SET device = ? WHERE id = ?`, dev, e.day.ID); err != nil {
+			t.Fatal(err)
+		}
+		e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0)
+		e.now = e.now.AddDate(0, 0, 2)
+		e.s.ExpireDue(ctx)
+		noIsolation(t, e)
+	}
+}
+
+func TestIsolirSkipsInactiveCustomer(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	enableIsolir(t, e, "5")
+	radiusPlans(t, e)
+	e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0)
+	if _, err := e.conn.Exec(`UPDATE customers SET status = 'Banned' WHERE id = ?`, e.cust.ID); err != nil {
+		t.Fatal(err)
+	}
+	e.now = e.now.AddDate(0, 0, 2)
+	e.s.ExpireDue(ctx)
+	noIsolation(t, e)
+}
+
+// Ending an isolation is not an expiry the customer is told about: no early notice, no WhatsApp, no webhook.
+func TestIsolirExpirySendsNoNotice(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	enableIsolir(t, e, "5")
+	radiusPlans(t, e)
+	e.conn.Exec(`UPDATE customers SET phone = "08123456789"`)
+	e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0)
+	e.now = e.now.AddDate(0, 0, 2)
+	e.s.ExpireDue(ctx) // the plan ends, isolation starts
+	iso := activeOf(t, e)
+	got := withNotify(t, e)
+	e.now = time.Unix(iso.ExpiresAt-5*60, 0) // inside the early notice window
+	e.s.ExpireDue(ctx)
+	e.now = time.Unix(iso.ExpiresAt+60, 0) // isolation over
+	if err := e.s.ExpireDue(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range e.subs(t) {
+		if s.Status == "active" {
+			t.Fatalf("isolation still active: %+v", s)
+		}
+	}
+	if reqs := drain(got); len(reqs) != 0 {
+		t.Fatalf("isolir expiry notified: %v", reqs)
 	}
 }

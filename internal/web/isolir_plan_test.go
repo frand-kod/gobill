@@ -124,3 +124,26 @@ func TestIsolirSpeedSavesBandwidth(t *testing.T) {
 		t.Fatalf("bad rate: %d", w.Code)
 	}
 }
+
+// The isolir plan is a system row: its edit page, save and delete refuse it even by direct URL.
+func TestIsolirPlanNotEditableOrDeletable(t *testing.T) {
+	h, c, q, _, isoID, _, _ := isolirPlanSetup(t)
+	before, _ := q.GetPlan(t.Context(), isoID)
+	for _, req := range []struct{ method, path string }{
+		{"GET", fmt.Sprintf("/admin/plans/%d/edit", isoID)},
+		{"POST", fmt.Sprintf("/admin/plans/%d", isoID)},
+		{"POST", fmt.Sprintf("/admin/plans/%d/delete", isoID)},
+	} {
+		w := do(h, req.method, req.path, url.Values{"name": {"hacked"}}, c)
+		if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/admin/plans" {
+			t.Errorf("%s %s: %d %s", req.method, req.path, w.Code, w.Header().Get("Location"))
+		}
+	}
+	after, err := q.GetPlan(t.Context(), isoID)
+	if err != nil || after.Name != before.Name {
+		t.Fatalf("isolir plan changed or deleted: %+v %v", after, err)
+	}
+	if !strings.Contains(getBody(t, h, c, "/admin/plans"), "Isolir plan is managed in Settings") {
+		t.Error("no error flash after the refused edit")
+	}
+}
