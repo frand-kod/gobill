@@ -23,7 +23,7 @@ func routerFields(v, e map[string]string, editing bool) []field {
 	en.Checked = v["enabled"] == "1"
 	out := section([]field{
 		text("name", "Router Name", v, e).req(),
-		text("host", "Host", v, e).req().hint("IP address or hostname"),
+		text("host", "Host", v, e).req(),
 		text("port", "Port", v, e).as("number").req(),
 	}, "Connection", "")
 	out = append(out, section([]field{text("username", "Username", v, e).req(), pw}, "Login", "")...)
@@ -36,7 +36,7 @@ func routerFields(v, e map[string]string, editing bool) []field {
 	}
 	return append(out, section([]field{
 		text("coordinates", "Coordinates", v, e).as("coords").hint("lat,lng, e.g. -6.2,106.8. Optional; shown on the router map."),
-		text("coverage", "Coverage (m)", v, e).as("number").hint("Radius of the wireless coverage in meters. Optional."),
+		text("coverage", "Coverage (m)", v, e).as("number"),
 		text("description", "Description", v, e), en,
 	}, "Other", "")...)
 }

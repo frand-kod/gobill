@@ -133,23 +133,23 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			text("app_url", "App URL", v, e).hint("Public address of this app, e.g. https://billing.example.com. Fills itself from the address used at the first admin login; change it here if needed. Used for links in WhatsApp messages (QRIS, invoice)."),
 			upl("logo", "Company Logo").hint("Logo in the menu bar. Transparent PNG works best, 2 MB max."),
 			upl("logo_dark", "Company Logo (dark mode)").hint("Shown in dark mode. Empty = use the light logo."),
-			upl("login_page_favicon", "Favicon").hint("Browser tab icon. Empty = default icon."),
+			upl("login_page_favicon", "Favicon"),
 		}, "Business identity", "")
 		out = append(out, section([]field{
 			text("phone", "Phone Number", v, e).hint("Operator phone or WhatsApp. Shown to customers on the portal."),
-			area("address", "Address").hint("Printed at the top of invoices."),
-			area("note", "Invoice Footer").hint("Printed at the bottom of invoices, e.g. your bank account."),
+			area("address", "Address"),
+			area("note", "Invoice Footer"),
 		}, "Contact & invoice", "")...)
 		return out
 	case "appearance":
 		out := section([]field{
-			area("login_page_description", "Page Description").hint("Short line under the title on the login page."),
-			upl("login_page_wallpaper", "Login Page Wallpaper").hint("Background image of the left panel on the login page."),
+			area("login_page_description", "Page Description"),
+			upl("login_page_wallpaper", "Login Page Wallpaper"),
 		}, "Login page appearance", "")
 		// the overrides fall back to the main name and logo when empty
 		override := section([]field{
-			text("login_page_head", "Login page title (empty = business name)", v, e).hint("Leave empty to use the company name."),
-			upl("login_page_logo", "Login page logo (empty = main logo)").hint("Leave empty to use the company logo."),
+			text("login_page_head", "Login page title (empty = business name)", v, e),
+			upl("login_page_logo", "Login page logo (empty = main logo)"),
 			upl("login_page_logo_dark", "Login page logo (dark mode)").hint("Only used together with the login page logo above."),
 		}, "Login page title & logo", "")
 		for i := range override {
@@ -163,7 +163,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		}
 		out := section([]field{
 			text("language", "Language", v, e).opts(s.catalog.Languages()...),
-			text("timezone", "Timezone", v, e).opts(zones...).req().hint("Use a name like Asia/Jakarta."),
+			text("timezone", "Timezone", v, e).opts(zones...).req(),
 			text("date_format", "Date Format", v, e).opts("Y-m-d", "d-m-Y", "d/m/Y", "d M Y"),
 			text("country_code_phone", "Country Code Phone", v, e).hint("Country code for numbers that start with 0, e.g. 62"),
 		}, "Regional", "")
@@ -238,7 +238,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			{Name: "other_wa_info", Label: "Other WhatsApp gateways (Fonnte, Wablas, WAHA, …): coming soon. For now, use the message gateway URL above if the gateway supports GET with [number] and [text].", Type: "note"},
 			text("alt_wga_server_url", "GOWA URL", v, e).hint("Address of the GOWA server, e.g. http://127.0.0.1:3030. When filled, WhatsApp is sent straight to this server and the message gateway URL above is ignored"),
 			text("alt_wga_device_id", "WA device ID", v, e).hint("Optional. Sent as the X-Device-Id header. Leave empty if the server has only one device"),
-			text("alt_wga_username", "GOWA username", v, e).hint("Basic auth username of GOWA, if it has one"),
+			text("alt_wga_username", "GOWA username", v, e),
 			sec("alt_wga_password", "GOWA password"),
 			{Name: "wa_test_phone", Label: "Send test message", Type: "watest", Error: e["wa_test_phone"], Value: v["wa_test_phone"],
 				Hint: "Type a phone number and press the button. Uses the values typed above, even if not saved yet. Devices and QR login are managed in the WA server's own page, not here"},
@@ -301,7 +301,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		return append(out, section([]field{qris}, "QRIS", "")...)
 	case "isolir":
 		out := section([]field{
-			sel("isolir_enabled", "Isolation enabled", settingsYesNo...).hint("Customers whose plan has expired are moved to the Isolation plan. The router needs setup, see the MikroTik router setup section below"),
+			sel("isolir_enabled", "Isolation enabled", settingsYesNo...).hint("A RADIUS customer whose plan expires is isolated instead of disconnected, unless the plan has its own expired plan. The router needs setup, see the MikroTik router setup section below"),
 			{Name: "isolir_plan_name", Label: "Plan name", Type: "pre", Value: v["isolir_plan_name"],
 				Hint: "System plan: not sold on the portal and cannot be given manually. Created the first time Isolation is enabled"},
 			text("isolir_rate_down", "Download speed", v, e).hint("Example 64k or 2M. Saved to the bandwidth profile of the Isolation plan"),
@@ -312,7 +312,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		}, "Package", "")
 		out = append(out, section([]field{
 			text("isolir_title", "Title", v, e),
-			area("isolir_message", "Message").hint("Empty is fine; the default message is used when it was never filled in"),
+			area("isolir_message", "Message"),
 			text("isolir_wa", "Admin WhatsApp number", v, e).hint("Empty = business phone number (General settings)"),
 			sel("isolir_show_voucher", "Show voucher form", settingsYesNo...),
 			text("isolir_address_list", "MikroTik address-list name", v, e).hint("Letters, digits, dots, dashes or underscores. Sent by RADIUS as Mikrotik-Address-List"),
@@ -366,17 +366,17 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		out = append(out, section([]field{
 			sel("disable_voucher", "Disable Voucher", settingsYesNo...),
 			text("voucher_redirect", "Redirect URL after Activation", v, e).hint("Optional. http or https, e.g. https://192.168.88.1/status"),
-			sel("show_bandwidth_plan", "Show Bandwidth Plan", settingsYesNo...).hint("Displays the bandwidth plan to the customer"),
+			sel("show_bandwidth_plan", "Show Bandwidth Plan", settingsYesNo...),
 		}, "Portal", "")...)
 		out = append(out, section([]field{
-			sel("extend_expired", "Allow Extend", option{"0", "No"}, option{"1", "Yes"}).hint("Customer can request to extend expiry"),
-			text("extend_days", "Extend Days", v, e).as("number").hint("Days added per extend, 0 or more"),
+			sel("extend_expired", "Allow Extend", option{"0", "No"}, option{"1", "Yes"}),
+			text("extend_days", "Extend Days", v, e).as("number"),
 			area("extend_confirmation", "Confirmation Message"),
 		}, "Extend", "")...)
 		out = append(out, section([]field{
-			sel("allow_balance_transfer", "Allow Transfer", settingsYesNo...).hint("Allow balance transfer between customers"),
-			text("minimum_transfer", "Minimum Balance Transfer", v, e).as("number").hint("0 or more"),
-			sel("allow_balance_custom", "Allow Balance Custom Amount", settingsYesNo...).hint("Customer can buy balance with any amount"),
+			sel("allow_balance_transfer", "Allow Transfer", settingsYesNo...),
+			text("minimum_transfer", "Minimum Balance Transfer", v, e).as("number"),
+			sel("allow_balance_custom", "Allow Balance Custom Amount", settingsYesNo...),
 		}, "Balance", "")...)
 		out = append(out, section([]field{
 			sel("allow_phone_otp", "Phone OTP Required", settingsYesNo...),
@@ -395,11 +395,11 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			chk("maintenance_mode", "Maintenance Mode"),
 			chk("maintenance_mode_logout", "Log Out Customers During Maintenance"),
 			text("maintenance_date", "Maintenance Date", v, e).as("date"),
-			sel("clock_guard", "Clock Guard", settingsOnOff...).hint("Off disables the clock check"),
+			sel("clock_guard", "Clock Guard", settingsOnOff...),
 			sel("trust_proxy", "Trust Proxy", settingsYesNo...).hint("Honour X-Forwarded-For only from loopback or Trusted Proxies"),
 			text("trusted_proxies", "Trusted Proxies", v, e).hint("Comma-separated IPs or CIDRs of your reverse proxies, e.g. 172.16.0.0/16"),
 			sel("router_check", "Router Check", settingsYesNo...).hint("Pings enabled routers every 5 minutes and alerts when one goes down"),
-			sel("check_customer_online", "Check Customer Online", option{"no", "No"}, option{"yes", "Yes"}).hint("Shows on the customer page whether the customer is connected"),
+			sel("check_customer_online", "Check Customer Online", option{"no", "No"}, option{"yes", "Yes"}),
 			sel("update_check", "Check for updates", settingsYesNo...).hint("Once a day, asks GitHub for a newer gobill release. SuperAdmin sees a badge when one exists"),
 		}, "System", "")...)
 		out = append(out, section([]field{

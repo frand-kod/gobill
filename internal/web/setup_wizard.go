@@ -1027,7 +1027,7 @@ func (s *Server) wizPage(r *http.Request, st wizStep, ws wizState, v, e map[stri
 		view.Form.Fields = wizTripayFields(v, e, ws.st)
 	case "isolir":
 		view.Form.Fields = append([]field{{Name: "isolir_on", Label: "Turn on Isolir", Type: "checkbox", Checked: v["isolir_on"] == "1",
-			Section: "Isolir", Hint: "Customers whose plan has expired are sent to the isolir page."}}, s.isolirSetupFields(ws.st)...)
+			Section: "Isolir", Hint: "RADIUS customers whose plan has expired are isolated and see the isolir page."}}, s.isolirSetupFields(ws.st)...)
 	case "customer":
 		plans, err := s.queries.ListPlans(ctx, db.ListPlansParams{Limit: 1000})
 		if err != nil {
@@ -1106,7 +1106,7 @@ func wizRouterFields(v, e map[string]string) []field {
 	pw.Value = ""
 	out = append(out, section([]field{
 		text("router_name", "Router Name", v, e).req(),
-		text("router_host", "Host", v, e).req().hint("IP address or hostname of the MikroTik."),
+		text("router_host", "Host", v, e).req(),
 		text("router_port", "Port", v, e).as("number").req(),
 		text("router_username", "Username", v, e).req(),
 		pw,

@@ -233,6 +233,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/deposit", staff(http.HandlerFunc(s.depositSave)))
 	mux.Handle("GET /admin/subscriptions", all(http.HandlerFunc(s.subList)))
 	mux.Handle("GET /admin/subscriptions/export", all(http.HandlerFunc(s.subExport)))
+	mux.Handle("GET /admin/isolations", all(http.HandlerFunc(s.isoList)))
+	mux.Handle("GET /admin/isolations/export", all(http.HandlerFunc(s.isoExport)))
 	mux.Handle("GET /admin/subscriptions/{id}/edit", managers(http.HandlerFunc(s.subEdit)))
 	mux.Handle("POST /admin/subscriptions/{id}", managers(http.HandlerFunc(s.subSave)))
 	mux.Handle("POST /admin/subscriptions/{id}/extend", staff(http.HandlerFunc(s.subExtend)))

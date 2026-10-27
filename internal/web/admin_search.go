@@ -54,6 +54,7 @@ var searchPages = []searchEntry{
 	{Title: "Voucher", URL: "/admin/vouchers", Syn: "kode voucher daftar", Roles: nil},
 	{Title: "Agent batches", URL: "/admin/agent-batches", Syn: "agen titip jual batch setoran utang retur konsinyasi", Roles: roleUsers},
 	{Title: "Subscriptions", URL: "/admin/subscriptions", Syn: "langganan paket aktif kedaluwarsa", Roles: nil},
+	{Title: "Isolations", URL: "/admin/isolations", Syn: "isolir isolasi terisolir paket habis", Roles: nil},
 	{Title: "Online Sessions", URL: "/admin/radius/sessions", Syn: "sesi online radius koneksi aktif session", Roles: roleMgr},
 	{Title: "Send Message", URL: "/admin/message/send", Syn: "kirim pesan whatsapp sms notifikasi message", Roles: roleStaff},
 	{Title: "Daily Report", URL: "/admin/reports", Syn: "laporan harian pendapatan report", Roles: nil},

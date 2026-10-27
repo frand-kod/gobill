@@ -98,7 +98,7 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 		text("billing_day", "Billing Day", v, e).as("number").hint("Postpaid: day of month, 1-31").show("billing === 'postpaid'"),
 	}, "Price & validity", "")...)
 	out = append(out, section([]field{
-		exp.show(notBalance).hint("Default: the customer goes to the Isolation plan when isolation is enabled, otherwise they are disconnected. Pick a plan to move them there instead."),
+		exp.show(notBalance).hint("Default: a RADIUS customer is isolated when isolation is enabled, otherwise disconnected. Pick a plan to send them there instead."),
 	}, "When the plan ends", notBalance)...)
 	out = append(out, section([]field{
 		check("limited", "Limited").bind(),
@@ -117,8 +117,8 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 		pool.show(pppoe),
 	}, "Network & device", notBalance)...)
 	scripts := section([]field{
-		text("on_login", "On Login", v, e).as("textarea").hint("Script run on the router when the customer logs in"),
-		text("on_logout", "On Logout", v, e).as("textarea").hint("Script run on the router when the customer logs out")}, "Router scripts", notBalance)
+		text("on_login", "On Login", v, e).as("textarea"),
+		text("on_logout", "On Logout", v, e).as("textarea")}, "Router scripts", notBalance)
 	for i := range scripts {
 		scripts[i].Fold = true
 	}

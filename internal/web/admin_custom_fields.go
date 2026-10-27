@@ -42,7 +42,7 @@ func cfFields(v, e map[string]string) []field {
 		text("type", "Type", v, e).opts(cfTypes...).req(),
 		text("options", "Options", v, e).hint("For Select type: comma separated, e.g. Gold, Silver"),
 		req,
-		text("sort_order", "Order", v, e).as("number").hint("Lower numbers show first."),
+		text("sort_order", "Order", v, e).as("number"),
 	}, "Custom Field", "")
 }
 

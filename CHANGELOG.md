@@ -24,6 +24,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ### Ditambahkan
 
+- **Daftar isolasi** di `/admin/isolations`: satu baris per isolasi (pelanggan, mulai, berakhir, selesai, alasan, status), dengan filter status dan ekspor CSV. Menu Isolasi ada di bawah Langganan.
+- Pelanggan yang sedang diisolir menampilkan baris "Isolir berjalan sampai" di kartu Paket Layanan, dengan tautan ke daftar isolasi.
 - **Pengingat menyimpan kunci enkripsi** (#39): mirror backup tidak menyalin `gobill.db.key`, dan sebelumnya aplikasi tidak mengingatkan. Pengaturan > Sistem dan Status Sistem kini menampilkan peringatan untuk SuperAdmin sampai kunci ditandai sudah disimpan (muncul lagi bila kunci berganti), lengkap dengan sidik jari kunci. Halaman baru **Kunci enkripsi** mengunduh kunci setelah konfirmasi password (dan 2FA), tercatat di log aktivitas. Penolakan restore karena kunci berbeda menyebut sidik jari kunci aplikasi.
 ### Ditambahkan
 

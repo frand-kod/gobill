@@ -98,7 +98,7 @@ func (s *Server) adminFields(r *http.Request, target *db.Admin, v, e map[string]
 				ro = append(ro, option{strconv.FormatInt(a.ID, 10), a.Username})
 			}
 			acc = append(acc, field{Name: "root", Label: "Agent", Type: "select", Value: v["root"], Error: e["root"],
-				Options: ro, Show: "role=='Sales'", Hint: "Agent that owns this Sales user"})
+				Options: ro, Show: "role=='Sales'"})
 		}
 		if target != nil {
 			acc = append(acc, field{Name: "status", Label: "Status", Type: "select", Value: v["status"],
@@ -336,7 +336,7 @@ func (s *Server) adminDelete(w http.ResponseWriter, r *http.Request) {
 func pwFields(e map[string]string) []field {
 	return append(section([]field{
 		text("current", "Current Password", nil, e).as("password").req(),
-		text("password", "New Password", nil, e).as("password").req().hint("6 to 72 characters"),
+		text("password", "New Password", nil, e).as("password").req(),
 		text("cpassword", "Confirm New Password", nil, e).as("password").req(),
 	}, "", ""), section([]field{
 		{Name: "2fa", Label: "Two-factor login", Type: "link", Value: "/admin/2fa", Btn: "Manage 2FA"},

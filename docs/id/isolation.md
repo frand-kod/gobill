@@ -37,6 +37,10 @@ Isolir tidak diperpanjang otomatis. Pelanggan yang saldonya cukup tetap diperpan
 
 Mematikan **Isolir Aktif** di pengaturan langsung mengakhiri semua isolir yang sedang berjalan. Sesi pelanggan di router diputus, dan pelanggan login ulang untuk mendapat paket normal. Akhir isolir ini tidak mengirim pemberitahuan habis paket.
 
+## Daftar isolasi
+
+Menu **Isolasi** di bagian admin (bawah Langganan) menampilkan setiap isolasi: pelanggan, tanggal mulai, tanggal berakhir, tanggal selesai, alasan selesai, dan status. Status **berjalan** berarti isolasi masih aktif. **Lewat masa** berarti sudah lewat tanggal berakhir, tetapi job expiry belum menutupnya. **Selesai** berarti sudah ditutup, dengan alasan `expired` (masa habis), `paid` (sudah bayar), atau `disabled` (Isolir dimatikan). Filter status dan kotak cari berlaku juga untuk **Ekspor CSV**. Di halaman pelanggan, isolasi yang sedang berjalan ditampilkan di kartu Paket Layanan.
+
 ## Setup router MikroTik
 
 Tab **Isolir** menampilkan aturan RouterOS di bagian **Setup router** sebagai satu blok yang bisa disalin, sudah terisi alamat dan port LAN gobill, nama address-list, dan daftar izin. Tempel seluruh blok sekaligus, sesuai urutan. Aturan harus berada di atas aturan accept umum di chain forward. Bypass hotspot dan tes curl ada sebagai item terpisah di bawahnya. Detail, batasan RouterOS 6, dan cara menambah aplikasi bank ada di [Setup MikroTik](mikrotik.md#isolir).

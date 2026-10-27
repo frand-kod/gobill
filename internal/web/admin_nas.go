@@ -32,7 +32,7 @@ func nasFields(v, e map[string]string, editing bool) []field {
 	ma.Hint = "Auto: once this NAS has sent a valid Message-Authenticator, requests without one are dropped. RouterOS 6.49.18+ and 7.15+ send it; add /radius set require-message-auth=yes-for-request-resp on the router too"
 	out := section([]field{
 		text("name", "NAS Name", v, e).req(),
-		text("ip", "IP / CIDR", v, e).req().hint("e.g. 10.0.0.1 or 10.0.0.0/24"),
+		text("ip", "IP / CIDR", v, e).req(),
 		text("description", "Description", v, e), ma,
 	}, "NAS", "")
 	return append(out, section([]field{pw}, "RADIUS secret", "")...)

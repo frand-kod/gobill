@@ -9,6 +9,26 @@ import (
 	"context"
 )
 
+const countFilteredIsolations = `-- name: CountFilteredIsolations :one
+SELECT COUNT(*) FROM isolations i JOIN customers c ON c.id = i.customer_id
+WHERE (c.username LIKE '%' || CAST(?1 AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(?1 AS TEXT) || '%')
+  AND (CAST(?2 AS TEXT) = ''
+       OR (CAST(?2 AS TEXT) = 'running' AND i.ended_at = 0)
+       OR (CAST(?2 AS TEXT) = 'ended' AND i.ended_at > 0))
+`
+
+type CountFilteredIsolationsParams struct {
+	Q      string
+	Status string
+}
+
+func (q *Queries) CountFilteredIsolations(ctx context.Context, arg CountFilteredIsolationsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countFilteredIsolations, arg.Q, arg.Status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createIsolation = `-- name: CreateIsolation :one
 INSERT INTO isolations (customer_id, started_at, ends_at)
 VALUES (?, ?, ?)
@@ -72,6 +92,70 @@ func (q *Queries) EndIsolation(ctx context.Context, arg EndIsolationParams) (int
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const filterIsolations = `-- name: FilterIsolations :many
+SELECT i.id, i.started_at, i.ends_at, i.ended_at, i.end_reason, c.username, c.fullname
+FROM isolations i JOIN customers c ON c.id = i.customer_id
+WHERE (c.username LIKE '%' || CAST(?1 AS TEXT) || '%' OR c.fullname LIKE '%' || CAST(?1 AS TEXT) || '%')
+  AND (CAST(?2 AS TEXT) = ''
+       OR (CAST(?2 AS TEXT) = 'running' AND i.ended_at = 0)
+       OR (CAST(?2 AS TEXT) = 'ended' AND i.ended_at > 0))
+ORDER BY i.id DESC LIMIT ?4 OFFSET ?3
+`
+
+type FilterIsolationsParams struct {
+	Q          string
+	Status     string
+	PageOffset int64
+	PageLimit  int64
+}
+
+type FilterIsolationsRow struct {
+	ID        int64
+	StartedAt int64
+	EndsAt    int64
+	EndedAt   int64
+	EndReason string
+	Username  string
+	Fullname  string
+}
+
+// Empty status = any; "running" = ended_at 0, "ended" = already ended. Newest first.
+func (q *Queries) FilterIsolations(ctx context.Context, arg FilterIsolationsParams) ([]FilterIsolationsRow, error) {
+	rows, err := q.db.QueryContext(ctx, filterIsolations,
+		arg.Q,
+		arg.Status,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FilterIsolationsRow
+	for rows.Next() {
+		var i FilterIsolationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.StartedAt,
+			&i.EndsAt,
+			&i.EndedAt,
+			&i.EndReason,
+			&i.Username,
+			&i.Fullname,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getRunningIsolation = `-- name: GetRunningIsolation :one

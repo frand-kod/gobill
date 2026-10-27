@@ -24,7 +24,7 @@ func poolFields(v, e map[string]string, routers []db.Router) []field {
 	}
 	return append(section([]field{
 		text("name", "Pool Name", v, e).req(),
-		text("local_ip", "Local IP", v, e).hint("Optional"),
+		text("local_ip", "Local IP", v, e),
 		text("range_ip", "IP Range", v, e).req().hint("e.g. 10.10.10.2-10.10.10.254"),
 	}, "Pool", ""), section([]field{sel}, "Router", "")...)
 }

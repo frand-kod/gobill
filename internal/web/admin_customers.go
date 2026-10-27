@@ -99,7 +99,7 @@ func (s *Server) addCustomerForm(r *http.Request, v, e map[string]string) ([]fie
 	if err != nil || !canRecharge(adminFrom(r).Role) {
 		return fs, err
 	}
-	plan := text("plan", "Plan", v, e).as("select").hint("Leave empty to choose a plan later from the customer page.")
+	plan := text("plan", "Plan", v, e).as("select")
 	plan.Options = append([]option{{"", "-"}}, opts...)
 	pay := field{Name: "payment_text", Label: "Payment method: Cash", Type: "note"}
 	return append(fs, section([]field{plan, pay}, "Activate the plan now", "")...), nil
@@ -322,6 +322,7 @@ type custDetail struct {
 	Trx       []db.Transaction
 	Custom    []field // custom fields with this customer's values
 	Online    string  // "" unless check_customer_online is yes; else Online, Offline or Error
+	Iso       string  // end of the running isolation, "" when none
 	Diag      diagnosis
 }
 
@@ -357,6 +358,9 @@ func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
 	if d.Custom, err = s.cfFormFields(ctx, c.ID, map[string]string{}, nil); err != nil {
 		s.fail(w, "custom fields", err)
 		return
+	}
+	if iso, err := s.queries.GetRunningIsolation(ctx, db.GetRunningIsolationParams{CustomerID: c.ID, Now: time.Now().Unix()}); err == nil {
+		d.Iso = s.ts(iso.EndsAt)
 	}
 	d.Online = s.customerOnline(ctx, c, subs)
 	d.Diag = s.diagnose(ctx, c, subs, d.Online)

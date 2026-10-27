@@ -18,7 +18,7 @@ func bwFields(v, e map[string]string) []field {
 		text("rate_down_unit", "Unit", v, e).opts("Kbps", "Mbps"),
 		text("rate_up", "Rate Upload", v, e).as("number").req(),
 		text("rate_up_unit", "Unit", v, e).opts("Kbps", "Mbps"),
-		text("burst", "Burst", v, e).hint("MikroTik burst limit, optional"),
+		text("burst", "Burst", v, e),
 	}, "Speed", "")...)
 }
 

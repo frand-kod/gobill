@@ -37,6 +37,10 @@ Isolation is not renewed automatically. A customer with enough balance is still 
 
 Switching **Isolation enabled** off ends all running isolations at once. The customer's sessions on the router are dropped, and the customer logs in again to get the normal package. Ending an isolation sends no expired-package notice.
 
+## Isolation list
+
+The **Isolations** menu in the admin area (below Subscriptions) lists every isolation: customer, start, end, ended on, end reason and status. Status **running** means the isolation is still active. **Due** means it is past its end date but the expiry job has not closed it yet. **Ended** means it is closed, with reason `expired` (package ran out), `paid` (customer paid) or `disabled` (Isolation was switched off). The status filter and the search box also apply to **Export CSV**. On the customer page, a running isolation shows in the Service Plan card.
+
 ## MikroTik router setup
 
 The **Isolation** tab shows the RouterOS rules in the **Setup router** section as one copyable block, filled in with gobill's LAN address, port, address-list name and allow-list. Paste the whole block at once, in order. The rules must sit above any general accept rule in the forward chain. The hotspot bypass and the curl test are separate items below it. Details, the RouterOS 6 limits and how to add a bank app are in [MikroTik setup](mikrotik.md#isolir).
