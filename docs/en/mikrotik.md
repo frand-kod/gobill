@@ -134,7 +134,7 @@ The rules do this, in order:
 
 The list name is the **MikroTik address-list name** setting (default `isolir`). The allow-list is that name with `-allow` added. The allow-list is set in **Allowed while isolated**, one host per line. Wildcards such as `*.whatsapp.net` are allowed. After you change it, paste the block again.
 
-Isolation applies to every customer who logs in through gobill's RADIUS, including PPPoE on a **Radius** device plan. On isolation, gobill sends `Mikrotik-Address-List` with the list name above, so the customer's IP appears in the `isolir` address-list on the router. Lab test (RouterOS 7.24.5): for PPPoE and hotspot, an isolated customer who logs in again gets an address-list entry `isolir` for their IP at `/ip/firewall/address-list`. On hotspot, an isolated client that is already logged in is blocked by the drop rule `src-address-list=isolir`, and without that rule it still reaches the server.
+Isolation applies to every customer who logs in through gobill's RADIUS, including PPPoE on a **Radius** device plan. On isolation, gobill sends `Mikrotik-Address-List` with the list name above, so the customer's IP appears in the `isolir` address-list on the router. Lab test (RouterOS 7.24.5): for PPPoE and hotspot, an isolated customer who logs in again gets an address-list entry `isolir` for their IP at `/ip/firewall/address-list`. On hotspot, an isolated client that is already logged in is blocked by the drop rule `src-address-list=isolir`, and without that rule it still reaches the server. The `dst-nat` rule to gobill (port 80, `dst-address-type=!local`) makes an isolated hotspot client see the isolir page, and without that rule the page does not appear.
 
 ### RouterOS 6 limitation
 
