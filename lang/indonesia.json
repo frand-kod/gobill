@@ -2520,5 +2520,8 @@
     "ended": "selesai",
     "due": "lewat masa",
     "Quick setup walks you through the business details, the MikroTik connection, speeds, plans, WhatsApp and QRIS.": "Setup cepat memandu Anda mengisi data usaha, koneksi MikroTik, kecepatan, paket, WhatsApp dan QRIS. Setiap langkah bisa dilewati.",
-    "Isolation running until": "Isolir berjalan sampai"
+    "Isolation running until": "Isolir berjalan sampai",
+    "Speed after the data limit": "Kecepatan setelah kuota data habis",
+    "No FUP: reject at the limit": "Tanpa FUP: tolak saat kuota habis",
+    "FUP (fair usage): past the data limit the customer stays online at this speed until the plan ends, instead of being rejected. RADIUS (gobill) only.": "FUP (pemakaian wajar): setelah kuota data habis, pelanggan tetap online dengan kecepatan ini sampai paket berakhir, tidak ditolak. Hanya untuk RADIUS (gobill)."
 }

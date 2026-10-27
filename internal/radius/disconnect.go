@@ -60,6 +60,11 @@ func CoA(ctx context.Context, q *db.Queries, key []byte, port string, s db.Radiu
 		return nil
 	}
 	rate := rateLimit(lr.RateUp, lr.RateDown, lr.RateUpUnit, lr.RateDownUnit, lr.Burst)
+	if fup, err := fupRate(ctx, q, lr); err != nil {
+		return err
+	} else if fup != "" {
+		rate = fup
+	}
 	timeout := lr.ExpiresAt - now.Unix()
 	// ponytail: a time-limited plan keeps the NAS's current Session-Timeout (the remaining quota needs
 	// the usage sum of authorize); it is recomputed at the next login.

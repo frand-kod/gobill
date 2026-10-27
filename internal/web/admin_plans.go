@@ -16,7 +16,7 @@ import (
 var (
 	planNames = []string{"name", "type", "billing", "price", "validity", "validity_unit", "limited", "limit_type",
 		"time_limit", "time_unit", "data_limit", "data_unit", "shared_users", "bandwidth_id", "router_id", "pool_id",
-		"expired_plan_id", "billing_day", "device", "enabled", "on_login", "on_logout", "audience"}
+		"expired_plan_id", "billing_day", "device", "fup_bandwidth_id", "enabled", "on_login", "on_logout", "audience"}
 	// the device driver an empty "device" field falls back to, by plan type
 	defaultDevices = map[string]string{"Hotspot": "MikrotikHotspot", "PPPoE": "MikrotikPppoe"}
 )
@@ -53,9 +53,14 @@ func (s *Server) planRefs(r *http.Request) (x planRefs, err error) {
 func planFields(v, e map[string]string, x planRefs, self int64) []field {
 	sel := func(name, label string) field { return text(name, label, v, e).as("select") }
 	bw, rt, pool, exp := sel("bandwidth_id", "Bandwidth Name").bind(), sel("router_id", "Router"), sel("pool_id", "Pool Name"), sel("expired_plan_id", "Expired Plan")
+	fup := sel("fup_bandwidth_id", "Speed after the data limit")
+	fup.Options = []option{{"", "No FUP: reject at the limit"}}
 	rt.Options, pool.Options, exp.Options = []option{{"", "Choose a router"}}, []option{{"", "No pool"}}, []option{{"", "Default: Isolation, or disconnect"}}
 	for _, b := range x.bw {
 		bw.Options = append(bw.Options, option{fmt.Sprint(b.ID), b.Name})
+	}
+	for _, b := range x.bw {
+		fup.Options = append(fup.Options, option{fmt.Sprint(b.ID), b.Name})
 	}
 	for _, o := range x.rt {
 		rt.Options = append(rt.Options, option{fmt.Sprint(o.ID), o.Name})
@@ -108,6 +113,8 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 		text("time_unit", "Time Unit", v, e).opts("Mins", "Hrs").show("limited && limit_type !== 'Data_Limit'"),
 		text("data_limit", "Data Limit", v, e).as("number").show("limited && limit_type !== 'Time_Limit'"),
 		text("data_unit", "Data Unit", v, e).opts("MB", "GB").show("limited && limit_type !== 'Time_Limit'"),
+		fup.show("limited && limit_type !== 'Time_Limit' && device === 'Radius'").
+			hint("FUP (fair usage): past the data limit the customer stays online at this speed until the plan ends, instead of being rejected. RADIUS (gobill) only."),
 		text("shared_users", "Device limit", v, e).as("number").bind().show(hotspot).
 			hint("How many devices can be online with this plan at once. When the limit is full, Settings > Customers & Billing decides: kick the oldest device or reject the new login."),
 	}, "Limits", hotspot+" || "+pppoe+" && device === 'Radius'")...)
@@ -154,7 +161,7 @@ func planFormValues(p db.Plan) map[string]string {
 		"limit_type": p.LimitType.String, "time_limit": n(p.TimeLimit), "time_unit": p.TimeUnit.String,
 		"data_limit": n(p.DataLimit), "data_unit": p.DataUnit.String, "shared_users": n(p.SharedUsers),
 		"bandwidth_id": n(p.BandwidthID), "router_id": n(p.RouterID), "pool_id": n(p.PoolID),
-		"expired_plan_id": n(p.ExpiredPlanID), "billing_day": n(p.BillingDay), "device": p.Device, "enabled": fmt.Sprint(p.Enabled), "on_login": p.OnLogin, "on_logout": p.OnLogout, "audience": p.Audience}
+		"expired_plan_id": n(p.ExpiredPlanID), "billing_day": n(p.BillingDay), "device": p.Device, "fup_bandwidth_id": n(p.FupBandwidthID), "enabled": fmt.Sprint(p.Enabled), "on_login": p.OnLogin, "on_logout": p.OnLogout, "audience": p.Audience}
 }
 
 func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
@@ -379,6 +386,9 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 				if !oneOf(v["data_unit"], "MB", "GB") {
 					e["data_unit"] = "Invalid value"
 				}
+				if p.Device == "Radius" { // FUP is enforced by the RADIUS server only
+					p.FupBandwidthID = optInt(v["fup_bandwidth_id"], e, "fup_bandwidth_id")
+				}
 			}
 		}
 	} else {
@@ -394,7 +404,7 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 				DataLimit: p.DataLimit, DataUnit: p.DataUnit, SharedUsers: p.SharedUsers, BandwidthID: p.BandwidthID,
 				RouterID: p.RouterID, PoolID: p.PoolID, Enabled: p.Enabled, Limited: p.Limited, LimitType: p.LimitType,
 				ExpiredPlanID: p.ExpiredPlanID, BillingDay: p.BillingDay, OnLogin: p.OnLogin, OnLogout: p.OnLogout,
-				Device: p.Device, Audience: p.Audience, ID: id})
+				Device: p.Device, FupBandwidthID: p.FupBandwidthID, Audience: p.Audience, ID: id})
 			if err == nil {
 				saved, err = s.queries.GetPlan(ctx, id)
 			}

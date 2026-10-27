@@ -40,6 +40,8 @@ Lalu sinkronkan paket ke profil router.
 
 `/radius incoming` membuka CoA di port 3799. gobill memakai CoA untuk memutus sesi atau mengubah paket, tanpa menunggu pelanggan reconnect. Saat paket Radius pelanggan berubah (isi ulang, ganti paket, atau admin mengedit paket/bandwidth), gobill mengirim CoA-Request berisi `Mikrotik-Rate-Limit` dan `Session-Timeout` baru ke sesi yang online. Jika NAS menolak (NAK) atau tidak menjawab, gobill memutus sesi dengan Disconnect-Request dan pelanggan mendapat paket baru saat login ulang.
 
+**FUP (fair usage).** Paket Radius dengan kuota data bisa diberi bandwidth FUP di form paket ("Kecepatan setelah kuota data habis"). Setelah kuota habis, pelanggan tidak ditolak: login tetap diterima dengan `Mikrotik-Rate-Limit` dari bandwidth FUP (tanpa `Mikrotik-Total-Limit`) sampai paket berakhir. Pelanggan yang sedang online diperlambat oleh job `fup` (tiap menit) lewat CoA-Request, dengan Disconnect-Request jika NAS menolak. Tanpa bandwidth FUP, perilakunya seperti biasa: login ditolak.
+
 Atur interval interim di router (contoh di bawah memakai `1m`). gobill menghitung batas sesi basi per NAS dari jarak Interim-Update yang teramati (sekitar 2x interval + 1 menit). `GOBILL_STALE_AFTER` tetap menjadi batas bawah. Tanpa interim, sesi dianggap basi setelah `GOBILL_STALE_AFTER`.
 
 ### Hotspot

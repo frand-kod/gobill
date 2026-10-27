@@ -448,7 +448,8 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 		c, pl = lr.Customer, db.GetRadiusPlanRow{StartedAt: lr.StartedAt, QuotaCarryBytes: lr.QuotaCarryBytes, QuotaCarrySeconds: lr.QuotaCarrySeconds, ExpiresAt: lr.ExpiresAt, PendingStart: lr.PendingStart,
 			PlanID: lr.PlanID, PlanName: lr.PlanName, PlanType: lr.PlanType, Limited: lr.Limited, LimitType: lr.LimitType,
 			TimeLimit: lr.TimeLimit, TimeUnit: lr.TimeUnit, DataLimit: lr.DataLimit, DataUnit: lr.DataUnit, SharedUsers: lr.SharedUsers,
-			RateDown: lr.RateDown, RateDownUnit: lr.RateDownUnit, RateUp: lr.RateUp, RateUpUnit: lr.RateUpUnit, Burst: lr.Burst, PoolName: lr.PoolName}
+			RateDown: lr.RateDown, RateDownUnit: lr.RateDownUnit, RateUp: lr.RateUp, RateUpUnit: lr.RateUpUnit, Burst: lr.Burst, PoolName: lr.PoolName,
+			FupRateDown: lr.FupRateDown, FupRateDownUnit: lr.FupRateDownUnit, FupRateUp: lr.FupRateUp, FupRateUpUnit: lr.FupRateUpUnit, FupBurst: lr.FupBurst}
 	} else {
 		c, err = s.Q.GetCustomerForRadius(ctx, user)
 	}
@@ -552,10 +553,13 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 			}
 			if hasData {
 				left := db.QuotaBytes(pl.DataLimit.Int64, pl.DataUnit.String, pl.QuotaCarryBytes) - bytes
-				if left <= 0 {
+				if left > 0 {
+					d.TotalLeft, d.HasTotal = left, true
+				} else if fup := rateLimit(pl.FupRateUp, pl.FupRateDown, pl.FupRateUpUnit, pl.FupRateDownUnit, pl.FupBurst); fup != "" {
+					d.Rate = fup // FUP: slowed down for the rest of the period, no Total-Limit
+				} else {
 					return Decision{Reject: "You have exceeded your data limit."}
 				}
-				d.TotalLeft, d.HasTotal = left, true
 			}
 		}
 	}

@@ -40,6 +40,8 @@ Then sync the plans to the router profiles.
 
 `/radius incoming` opens CoA on port 3799. gobill uses CoA to disconnect sessions or change plans, without waiting for the customer to reconnect. When a customer's Radius plan changes (recharge, plan change, or an admin edits the plan or bandwidth), gobill sends a CoA-Request with the new `Mikrotik-Rate-Limit` and `Session-Timeout` to the online sessions. If the NAS refuses (NAK) or does not answer, gobill disconnects the session with a Disconnect-Request and the customer gets the new plan at the next login.
 
+**FUP (fair usage).** A Radius plan with a data limit can have a FUP bandwidth in the plan form ("Speed after the data limit"). Past the limit the customer is not rejected: the login is accepted with the `Mikrotik-Rate-Limit` of the FUP bandwidth (no `Mikrotik-Total-Limit`) until the plan ends. Customers already online are slowed down by the `fup` job (every minute) with a CoA-Request, or a Disconnect-Request if the NAS refuses it. Without a FUP bandwidth the login is rejected as before.
+
 Set the interim interval on the router (the examples below use `1m`). gobill derives the stale-session limit per NAS from the observed Interim-Update spacing (about 2x the interval + 1 minute). `GOBILL_STALE_AFTER` stays the lower bound. Without interim updates, a session is stale after `GOBILL_STALE_AFTER`.
 
 ### Hotspot

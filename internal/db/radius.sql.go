@@ -255,11 +255,13 @@ const getRadiusLogin = `-- name: GetRadiusLogin :one
 SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, c.session_version, c.coordinates, s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
+       fb.rate_down AS fup_rate_down, fb.rate_down_unit AS fup_rate_down_unit, fb.rate_up AS fup_rate_up, fb.rate_up_unit AS fup_rate_up_unit, fb.burst AS fup_burst,
        pl.name AS pool_name
 FROM customers c
 JOIN subscriptions s ON s.id = (SELECT id FROM subscriptions WHERE customer_id = c.id AND status = 'active' ORDER BY expires_at DESC LIMIT 1)
 JOIN plans p ON p.id = s.plan_id
 LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
+LEFT JOIN bandwidths fb ON fb.id = p.fup_bandwidth_id AND p.device = 'Radius'
 LEFT JOIN pools pl ON pl.id = p.pool_id
 WHERE (c.username = ?1 OR (c.pppoe_username <> '' AND c.pppoe_username = ?1)) AND c.status = 'Active'
 LIMIT 1
@@ -287,6 +289,11 @@ type GetRadiusLoginRow struct {
 	RateUp            sql.NullInt64
 	RateUpUnit        sql.NullString
 	Burst             sql.NullString
+	FupRateDown       sql.NullInt64
+	FupRateDownUnit   sql.NullString
+	FupRateUp         sql.NullInt64
+	FupRateUpUnit     sql.NullString
+	FupBurst          sql.NullString
 	PoolName          sql.NullString
 }
 
@@ -336,6 +343,11 @@ func (q *Queries) GetRadiusLogin(ctx context.Context, name string) (GetRadiusLog
 		&i.RateUp,
 		&i.RateUpUnit,
 		&i.Burst,
+		&i.FupRateDown,
+		&i.FupRateDownUnit,
+		&i.FupRateUp,
+		&i.FupRateUpUnit,
+		&i.FupBurst,
 		&i.PoolName,
 	)
 	return i, err
@@ -345,10 +357,12 @@ const getRadiusPlan = `-- name: GetRadiusPlan :one
 SELECT s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
+       fb.rate_down AS fup_rate_down, fb.rate_down_unit AS fup_rate_down_unit, fb.rate_up AS fup_rate_up, fb.rate_up_unit AS fup_rate_up_unit, fb.burst AS fup_burst,
        pl.name AS pool_name
 FROM subscriptions s
 JOIN plans p ON p.id = s.plan_id
 LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
+LEFT JOIN bandwidths fb ON fb.id = p.fup_bandwidth_id AND p.device = 'Radius'
 LEFT JOIN pools pl ON pl.id = p.pool_id
 WHERE s.customer_id = ? AND s.status = 'active'
 ORDER BY s.expires_at DESC LIMIT 1
@@ -375,6 +389,11 @@ type GetRadiusPlanRow struct {
 	RateUp            sql.NullInt64
 	RateUpUnit        sql.NullString
 	Burst             sql.NullString
+	FupRateDown       sql.NullInt64
+	FupRateDownUnit   sql.NullString
+	FupRateUp         sql.NullInt64
+	FupRateUpUnit     sql.NullString
+	FupBurst          sql.NullString
 	PoolName          sql.NullString
 }
 
@@ -402,6 +421,11 @@ func (q *Queries) GetRadiusPlan(ctx context.Context, customerID int64) (GetRadiu
 		&i.RateUp,
 		&i.RateUpUnit,
 		&i.Burst,
+		&i.FupRateDown,
+		&i.FupRateDownUnit,
+		&i.FupRateUp,
+		&i.FupRateUpUnit,
+		&i.FupBurst,
 		&i.PoolName,
 	)
 	return i, err
@@ -470,6 +494,52 @@ func (q *Queries) ListActivePlanRates(ctx context.Context) ([]ListActivePlanRate
 			&i.RateDownUnit,
 			&i.RateUp,
 			&i.RateUpUnit,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFUPSessions = `-- name: ListFUPSessions :many
+SELECT rs.id, rs.session_id, rs.username, rs.nas_ip, rs.nas_ip_attr, rs.nas_identifier, rs.framed_ip, rs.mac, rs.started_at, rs.updated_at, rs.stopped_at, rs.input_octets, rs.output_octets FROM radius_sessions rs
+JOIN customers c ON c.status = 'Active' AND (c.username = rs.username OR (c.pppoe_username <> '' AND c.pppoe_username = rs.username))
+JOIN subscriptions s ON s.id = (SELECT id FROM subscriptions WHERE customer_id = c.id AND status = 'active' ORDER BY expires_at DESC LIMIT 1)
+JOIN plans p ON p.id = s.plan_id
+WHERE rs.stopped_at IS NULL AND p.fup_bandwidth_id IS NOT NULL AND p.device = 'Radius' AND p.limited = 1
+`
+
+// Open sessions of customers whose active plan has a FUP (RADIUS, data limit): the FUP job checks these.
+func (q *Queries) ListFUPSessions(ctx context.Context) ([]RadiusSession, error) {
+	rows, err := q.db.QueryContext(ctx, listFUPSessions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RadiusSession
+	for rows.Next() {
+		var i RadiusSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Username,
+			&i.NasIp,
+			&i.NasIpAttr,
+			&i.NasIdentifier,
+			&i.FramedIp,
+			&i.Mac,
+			&i.StartedAt,
+			&i.UpdatedAt,
+			&i.StoppedAt,
+			&i.InputOctets,
+			&i.OutputOctets,
 		); err != nil {
 			return nil, err
 		}

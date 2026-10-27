@@ -78,3 +78,25 @@ func TestPlanAudienceAdminForm(t *testing.T) {
 		"validity_unit": {"Days"}, "bandwidth_id": {itoa(e.bw)}, "router_id": {itoa(e.rt)}, "audience": {"vip"}}
 	wantCode(t, do(e.h, "POST", "/admin/plans", bad, e.c), 422, "invalid audience")
 }
+
+// FUP bandwidth: saved only for a RADIUS plan with a data limit, dropped otherwise.
+func TestPlanFUPSave(t *testing.T) {
+	e := billApp(t)
+	save := func(name, device, limitType string) db.Plan {
+		form := url.Values{"name": {name}, "type": {"Hotspot"}, "billing": {"prepaid"}, "price": {"1000"}, "validity": {"1"},
+			"validity_unit": {"Days"}, "bandwidth_id": {itoa(e.bw)}, "fup_bandwidth_id": {itoa(e.bw)}, "router_id": {itoa(e.rt)},
+			"device": {device}, "enabled": {"1"}, "limited": {"1"}, "limit_type": {limitType}, "data_limit": {"5"}, "data_unit": {"GB"}}
+		wantCode(t, do(e.h, "POST", "/admin/plans", form, e.c), 303, "create "+name)
+		p, err := e.q.SearchPlans(t.Context(), db.SearchPlansParams{Q: name, PageLimit: 1})
+		if err != nil || len(p) != 1 {
+			t.Fatalf("%s: %v", name, err)
+		}
+		return p[0]
+	}
+	if p := save("FupOn", "Radius", "Data_Limit"); !p.FupBandwidthID.Valid || p.FupBandwidthID.Int64 != e.bw {
+		t.Fatalf("RADIUS data plan: fup %+v", p.FupBandwidthID)
+	}
+	if p := save("FupDummy", "Dummy", "Data_Limit"); p.FupBandwidthID.Valid {
+		t.Fatal("non-RADIUS plan must not keep a FUP")
+	}
+}
