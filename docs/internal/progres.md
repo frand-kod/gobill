@@ -28,7 +28,7 @@ Jurnal ini dijaga di bawah 1000 kata. Rencana awal: [rencana/](rencana/README.md
 
 ## Menunggu pengguna
 
-1. **Uji isolir langsung.** Login hotspot dengan akun `test` (terisolir), buka `http://example.com`: halaman isolir harus tampil, dan akun masuk address-list `isolir`.
+1. **Uji isolir langsung.** PPPoE di lab sudah lolos (RouterOS 7.24.5): paket Radius habis, isolir terbentuk, rad01 login ulang dan IP-nya masuk address-list `isolir`. Yang belum: login hotspot dengan akun `test` (terisolir), buka `http://example.com`: halaman isolir harus tampil, dan akun masuk address-list `isolir`. Hotspot belum ada di topologi lab.
 2. **Drill restore.** Uji pemulihan dari file mirror dan dari UI restore di instance uji. Catat hasilnya di sini.
 3. **Bersihkan akses uji.** Hapus user `claude-test` di MikroTik dan ganti password akun SSH STB. Lebih baik pasang SSH key lalu matikan login password.
 4. **Issue uji seminggu.** Kumpulkan di GitHub untuk evaluasi akhir pekan.

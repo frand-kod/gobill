@@ -28,12 +28,14 @@ Open **Settings > Isolation**. This tab is for SuperAdmin only. Each field shows
 ## Behaviour
 
 1. The package runs out. The expiry notice is still sent as usual.
-2. If isolation is on and the package has no explicit **expired plan** (the plan setting `expired_plan_id`), the customer moves to the Isolir plan for **Isolation Days**. If the plan has an explicit expired plan, that setting is used.
+2. If isolation is on, the package is on the **Radius** device, the customer is Active, and the package has no explicit **expired plan** (the plan setting `expired_plan_id`), the customer moves to the Isolir plan for **Isolation Days**. If the plan has an explicit expired plan, that setting is used.
 3. A customer who opens the internet is redirected to `/isolir`. The page recognises the customer by the client IP of their open RADIUS session.
-4. A paid recharge or a voucher ends the isolation. The customer's sessions are dropped on the router, and they log in again to get their normal package.
+4. Buying a package (from admin, the portal, a payment gateway, or balance) and a successful voucher end the isolation. A balance top-up alone does not end it: the balance is used when a package is bought. The customer's sessions are dropped on the router, and they log in again to get their normal package.
 5. When the isolation days run out, the customer is inactive, as before.
 
 Isolation does not renew the Isolir plan automatically. A customer with enough balance is still renewed from their original plan, and no isolation starts.
+
+Switching **Isolation enabled** off ends all running isolations at once. The customer's sessions on the router are dropped, and the customer logs in again to get the normal package. Ending an isolation sends no expired-package notice.
 
 ## MikroTik router setup
 

@@ -28,12 +28,14 @@ Buka **Pengaturan > Isolir**. Tab ini hanya bisa dibuka SuperAdmin. Setiap kolom
 ## Perilaku
 
 1. Paket pelanggan habis. Pesan pemberitahuan habis tetap dikirim seperti biasa.
-2. Jika isolir aktif dan paket itu tidak punya **Paket kedaluwarsa** sendiri (pengaturan paket `expired_plan_id`), pelanggan pindah ke paket Isolir selama **Lama Isolir**. Jika paket punya paket kedaluwarsa sendiri, pengaturan itu yang dipakai.
+2. Jika isolir aktif, paket itu perangkatnya **Radius**, pelanggan berstatus Aktif, dan paket itu tidak punya **Paket kedaluwarsa** sendiri (pengaturan paket `expired_plan_id`), pelanggan pindah ke paket Isolir selama **Lama Isolir**. Jika paket punya paket kedaluwarsa sendiri, pengaturan itu yang dipakai.
 3. Pelanggan yang membuka internet dialihkan ke halaman `/isolir`. Halaman ini mengenali pelanggan dari alamat IP klien pada sesi RADIUS yang masih terbuka.
-4. Pembayaran atau voucher yang diterima mengakhiri isolir. Sesi pelanggan di router diputus, lalu pelanggan login ulang dan mendapat paket normal.
+4. Pembelian paket (dari admin, portal, pembayaran gateway, atau saldo) dan voucher yang berhasil mengakhiri isolir. Top-up saldo saja tidak mengakhiri isolir: saldo baru dipakai saat paket dibeli. Sesi pelanggan di router diputus, lalu pelanggan login ulang dan mendapat paket normal.
 5. Jika masa isolir habis, pelanggan nonaktif seperti biasa.
 
 Isolir tidak memperpanjang otomatis paket Isolir. Pelanggan yang saldonya cukup tetap diperpanjang otomatis dari paket asalnya, dan isolir tidak dimulai.
+
+Mematikan **Isolir Aktif** di pengaturan langsung mengakhiri semua isolir yang sedang berjalan. Sesi pelanggan di router diputus, dan pelanggan login ulang untuk mendapat paket normal. Akhir isolir ini tidak mengirim pemberitahuan habis paket.
 
 ## Setup router MikroTik
 
