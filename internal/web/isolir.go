@@ -144,25 +144,10 @@ func (s *Server) isolirCustomer(ctx context.Context, ip string) (c db.Customer, 
 	return c, err == nil
 }
 
-// isolirIsolated reports whether the customer has an active subscription on the isolir plan that has
-// not ended yet.
+// isolirIsolated reports whether the customer has an isolation that is running now.
 func (s *Server) isolirIsolated(ctx context.Context, customerID int64) bool {
-	id, err := s.queries.GetSetting(ctx, "isolir_plan_id")
-	isoID := isolir.PlanID(id)
-	if err != nil || isoID == 0 {
-		return false
-	}
-	subs, err := s.queries.ListActiveSubscriptionsWithPlan(ctx, customerID)
-	if err != nil {
-		return false
-	}
-	now := time.Now().Unix()
-	for _, sub := range subs {
-		if sub.PlanID == isoID && sub.ExpiresAt > now {
-			return true
-		}
-	}
-	return false
+	_, err := s.queries.GetRunningIsolation(ctx, db.GetRunningIsolationParams{CustomerID: customerID, Now: time.Now().Unix()})
+	return err == nil
 }
 
 // isolirGate serves the isolir page to an isolated client for GET and HEAD requests, whatever Host

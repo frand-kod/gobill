@@ -1,6 +1,6 @@
 # Isolir pelanggan yang paketnya habis
 
-Isolir membuat pelanggan yang paketnya habis tidak langsung diputus. Mereka masuk ke paket **Isolir** (64 kbps) selama beberapa hari. Di paket ini pelanggan mendapat isolasi penuh kecuali daftar izin host. WhatsApp diizinkan secara bawaan agar pelanggan bisa menghubungi Anda, dan Anda bisa menambah aplikasi bank. Halaman web dialihkan ke halaman isolir, sementara aplikasi dan situs lain diblokir. Halaman ini menampilkan nama paket, tombol **Hubungi admin**, tombol logout (bila diatur) dan form voucher. Halaman isolir tidak menawarkan pembayaran: pelanggan membayar lewat admin atau portal.
+Isolir membuat pelanggan yang paketnya habis tidak langsung diputus. Mereka masuk status isolir (kecepatan 64 kbps) selama beberapa hari. Di paket ini pelanggan mendapat isolasi penuh kecuali daftar izin host. WhatsApp diizinkan secara bawaan agar pelanggan bisa menghubungi Anda, dan Anda bisa menambah aplikasi bank. Halaman web dialihkan ke halaman isolir, sementara aplikasi dan situs lain diblokir. Halaman ini menampilkan nama paket, tombol **Hubungi admin**, tombol logout (bila diatur) dan form voucher. Halaman isolir tidak menawarkan pembayaran: pelanggan membayar lewat admin atau portal.
 
 Isolir hanya bekerja untuk pelanggan yang login lewat RADIUS gobill (paket dengan perangkat **Radius**). Pelanggan yang akunnya disimpan langsung di MikroTik (hotspot atau PPPoE lokal) tetap diputus seperti biasa.
 
@@ -28,12 +28,12 @@ Buka **Pengaturan > Isolir**. Tab ini hanya bisa dibuka SuperAdmin. Setiap kolom
 ## Perilaku
 
 1. Paket pelanggan habis. Pesan pemberitahuan habis tetap dikirim seperti biasa.
-2. Jika isolir aktif, paket itu perangkatnya **Radius**, pelanggan berstatus Aktif, dan paket itu tidak punya **Paket kedaluwarsa** sendiri (pengaturan paket `expired_plan_id`), pelanggan pindah ke paket Isolir selama **Lama Isolir**. Jika paket punya paket kedaluwarsa sendiri, pengaturan itu yang dipakai.
+2. Jika isolir aktif, paket itu perangkatnya **Radius**, pelanggan berstatus Aktif, dan paket itu tidak punya **Paket kedaluwarsa** sendiri (pengaturan paket `expired_plan_id`), pelanggan masuk status isolir selama **Lama Isolir**. Isolir bukan paket: tidak ada langganan baru, dan isolir tidak muncul di daftar paket atau langganan. Jika paket punya paket kedaluwarsa sendiri, pengaturan itu yang dipakai.
 3. Pelanggan yang membuka internet dialihkan ke halaman `/isolir`. Halaman ini mengenali pelanggan dari alamat IP klien pada sesi RADIUS yang masih terbuka.
 4. Pembelian paket (dari admin, portal, pembayaran gateway, atau saldo) dan voucher yang berhasil mengakhiri isolir. Top-up saldo saja tidak mengakhiri isolir: saldo baru dipakai saat paket dibeli. Sesi pelanggan di router diputus, lalu pelanggan login ulang dan mendapat paket normal.
 5. Jika masa isolir habis, pelanggan nonaktif seperti biasa.
 
-Isolir tidak memperpanjang otomatis paket Isolir. Pelanggan yang saldonya cukup tetap diperpanjang otomatis dari paket asalnya, dan isolir tidak dimulai.
+Isolir tidak diperpanjang otomatis. Pelanggan yang saldonya cukup tetap diperpanjang otomatis dari paket asalnya, dan isolir tidak dimulai.
 
 Mematikan **Isolir Aktif** di pengaturan langsung mengakhiri semua isolir yang sedang berjalan. Sesi pelanggan di router diputus, dan pelanggan login ulang untuk mendapat paket normal. Akhir isolir ini tidak mengirim pemberitahuan habis paket.
 

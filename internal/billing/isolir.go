@@ -1,12 +1,11 @@
 package billing
 
-// ISOLIR: an expired customer is moved into the isolir plan for isolir_days (0 = until paid).
-// The isolation is an ordinary subscription on the isolir plan, so its start and end are the
-// subscription's started_at and expires_at. A recharge or voucher ends it.
+// ISOLIR: an expired customer is isolated for isolir_days (0 = until paid). The isolation is a row in
+// isolations, not a subscription: it holds the customer's access state while the plan list and the
+// subscriptions stay as they are. A purchase or a voucher ends it, and so does the end of its days.
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 
@@ -17,23 +16,15 @@ import (
 
 // isolate starts the isolation of an expired subscription. It runs after the expiry is committed
 // and no auto-renewal happened. It does nothing when isolir_enabled is not "yes", the plan has its
-// own expired_plan_id (explicit wins), the plan is the isolir plan itself, the plan is not on the
-// Radius device (the isolir plan is Radius, a router plan cannot be isolated), the customer is not
-// Active, or the customer still has another active subscription.
+// own expired_plan_id (explicit wins), the plan is not on the Radius device (a router plan cannot be
+// isolated), the customer is not Active, the customer already has a running isolation, or the customer
+// still has another active subscription.
 func (s *Service) isolate(ctx context.Context, plan db.Plan, c db.Customer) error {
 	if setting(ctx, s.Q, "isolir_enabled") != "yes" || plan.ExpiredPlanID.Valid || plan.Device != "Radius" || c.Status != "Active" {
 		return nil
 	}
-	planID, err := isolir.EnsurePlan(ctx, s.Q)
-	if err != nil {
+	if _, err := isolir.EnsurePlan(ctx, s.Q); err != nil {
 		return fmt.Errorf("isolir plan: %w", err)
-	}
-	if plan.ID == planID {
-		return nil
-	}
-	iso, err := s.Q.GetPlan(ctx, planID)
-	if err != nil {
-		return err
 	}
 	days := isolir.Days(setting(ctx, s.Q, "isolir_days"))
 	now := s.now()
@@ -47,10 +38,10 @@ func (s *Service) isolate(ctx context.Context, plan db.Plan, c db.Customer) erro
 				return nil
 			}
 		}
-		_, err = q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: c.ID, PlanID: iso.ID, RouterID: iso.RouterID,
-			Type: iso.Type, StartedAt: now.Unix(), ExpiresAt: isolir.Until(now, days).Unix(), Method: "Isolir",
-			AdminID: sql.NullInt64{}, PendingStart: 0})
-		if err != nil {
+		if _, err := q.GetRunningIsolation(ctx, db.GetRunningIsolationParams{CustomerID: c.ID, Now: now.Unix()}); err == nil {
+			return nil
+		}
+		if _, err := q.CreateIsolation(ctx, db.CreateIsolationParams{CustomerID: c.ID, StartedAt: now.Unix(), EndsAt: isolir.Until(now, days).Unix()}); err != nil {
 			return err
 		}
 		return q.CreateActivityLog(ctx, db.CreateActivityLogParams{ActorType: "system", ActorID: 0, Action: "isolir",
@@ -59,34 +50,46 @@ func (s *Service) isolate(ctx context.Context, plan db.Plan, c db.Customer) erro
 }
 
 // isolirPlan reports whether planID is the isolir plan. The isolir plan is a system plan: it is never
-// recharged or assigned by hand, only the isolation above puts a customer on it.
+// recharged or assigned by hand, and no subscription uses it.
 func isolirPlan(ctx context.Context, q *db.Queries, planID int64) bool {
 	v, err := q.GetSetting(ctx, "isolir_plan_id")
 	return err == nil && planID != 0 && isolir.PlanID(v) == planID
 }
 
-// endIsolation expires the customer's active isolir subscription so a recharge to keepPlanID can
-// take over. It reports whether an isolation was ended. Runs inside the caller's transaction.
-func endIsolation(ctx context.Context, q *db.Queries, now int64, customerID, keepPlanID int64) (bool, error) {
-	iso := isolir.PlanID(setting(ctx, q, "isolir_plan_id"))
-	if iso == 0 || iso == keepPlanID {
-		return false, nil
+// endIsolation ends the customer's running isolation because a plan was bought (reason "paid"). It
+// reports whether one ended. Runs inside the caller's transaction.
+func endIsolation(ctx context.Context, q *db.Queries, now int64, customerID int64, reason string) (bool, error) {
+	n, err := q.EndCustomerIsolations(ctx, db.EndCustomerIsolationsParams{CustomerID: customerID, Now: now, Reason: reason})
+	return n > 0, err
+}
+
+// closeIsolation ends one running isolation and drops the customer's open RADIUS sessions, so the next
+// Access-Request gets the normal answer. A row that already ended is left alone.
+func (s *Service) closeIsolation(ctx context.Context, iso db.Isolation, reason string) error {
+	n, err := s.Q.EndIsolation(ctx, db.EndIsolationParams{ID: iso.ID, Now: s.now().Unix(), Reason: reason})
+	if err != nil || n == 0 {
+		return err
 	}
-	subs, err := q.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: customerID, Limit: 1000})
+	c, err := s.Q.GetCustomer(ctx, iso.CustomerID)
 	if err != nil {
-		return false, err
+		return err
 	}
-	ended := false
-	for _, sub := range subs {
-		if sub.Status == "active" && sub.PlanID == iso {
-			n, err := q.DeactivateSubscription(ctx, db.DeactivateSubscriptionParams{Now: now, ID: sub.ID})
-			if err != nil {
-				return false, err
-			}
-			ended = ended || n > 0
+	s.disconnectIsolated(ctx, c)
+	return nil
+}
+
+// endDueIsolations ends the isolations whose days ran out. The expiry job calls it every run.
+func (s *Service) endDueIsolations(ctx context.Context) error {
+	dues, err := s.Q.ListDueIsolations(ctx, s.now().Unix())
+	if err != nil {
+		return err
+	}
+	for _, iso := range dues {
+		if err := s.closeIsolation(ctx, iso, "expired"); err != nil {
+			slog.Error("isolir: end expired isolation", "isolation", iso.ID, "err", err)
 		}
 	}
-	return ended, nil
+	return nil
 }
 
 // disconnectIsolated drops the customer's open RADIUS sessions after an isolation ended, so the next
@@ -94,34 +97,21 @@ func endIsolation(ctx context.Context, q *db.Queries, now int64, customerID, kee
 func (s *Service) disconnectIsolated(ctx context.Context, c db.Customer) {
 	dev := device.Radius{Q: s.Q, Key: s.Key}
 	if err := dev.Disconnect(ctx, device.Customer{Username: c.Username}, ""); err != nil {
-		slog.Error("isolir: disconnect after recharge", "customer", c.Username, "err", err)
+		slog.Error("isolir: disconnect after isolation ended", "customer", c.Username, "err", err)
 	}
 }
 
 // EndIsolations ends every running isolation, for when isolir_enabled is switched off. Each affected
 // customer's open sessions are dropped, so the next Access-Request gets the normal plan.
 func (s *Service) EndIsolations(ctx context.Context) error {
-	iso := isolir.PlanID(setting(ctx, s.Q, "isolir_plan_id"))
-	if iso == 0 {
-		return nil
-	}
-	subs, err := s.Q.ListActiveSubscriptionsByPlan(ctx, iso)
+	running, err := s.Q.ListRunningIsolations(ctx)
 	if err != nil {
 		return err
 	}
-	for _, sub := range subs {
-		n, err := s.Q.DeactivateSubscription(ctx, db.DeactivateSubscriptionParams{Now: s.now().Unix(), ID: sub.ID})
-		if err != nil {
+	for _, iso := range running {
+		if err := s.closeIsolation(ctx, iso, "disabled"); err != nil {
 			return err
 		}
-		if n == 0 {
-			continue
-		}
-		c, err := s.Q.GetCustomer(ctx, sub.CustomerID)
-		if err != nil {
-			return err
-		}
-		s.disconnectIsolated(ctx, c)
 	}
 	return nil
 }

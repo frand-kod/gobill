@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/isolir"
 	"strconv"
 	"time"
 )
@@ -306,7 +305,7 @@ func (s *Service) ExpireDue(ctx context.Context) error {
 			slog.Error("expiry failed", "subscription", sub.ID, "err", err)
 		}
 	}
-	return nil
+	return s.endDueIsolations(ctx)
 }
 
 // noticeBeforeExpiry sends the expired message minutes ahead of each plan end in the window, once per
@@ -322,7 +321,6 @@ func (s *Service) noticeBeforeExpiry(ctx context.Context, minutes int) error {
 		return err
 	}
 	autoRenew := setting(ctx, s.Q, "enable_balance") != "no"
-	isolirID := isolir.PlanID(setting(ctx, s.Q, "isolir_plan_id"))
 	for _, sub := range subs {
 		c, err := s.Q.GetCustomer(ctx, sub.CustomerID)
 		if err != nil {
@@ -334,11 +332,8 @@ func (s *Service) noticeBeforeExpiry(ctx context.Context, minutes int) error {
 			slog.Error("early expired notice: plan", "subscription", sub.ID, "err", err)
 			continue
 		}
-		if plan.ID == isolirID { // the end of an isolation is not an expiry the customer is told about
-			continue
-		}
 		// a customer whose balance will renew the plan is not told it expired
-		if renewable(plan, c, autoRenew, isolirID) {
+		if renewable(plan, c, autoRenew) {
 			if price, err := s.OrderPrice(ctx, c.ID, plan.Price); err == nil && c.Balance >= price {
 				continue
 			}
@@ -376,10 +371,9 @@ func (s *Service) sendExpiredNotice(ctx context.Context, sub db.Subscription, c 
 }
 
 // renewable is the static part of the auto-renew rule (the balance check comes on top).
-func renewable(plan db.Plan, c db.Customer, autoRenew bool, isolirID int64) bool {
-	// an ended isolation is never renewed: the isolir plan is free and the isolation is over
+func renewable(plan db.Plan, c db.Customer, autoRenew bool) bool {
 	// a public Rp 0 plan never renews; an admin-audience plan does (the admin gave it on purpose)
-	return autoRenew && plan.ID != isolirID && (SellablePlan(plan) || plan.Audience == "admin") && c.AutoRenewal == 1 && c.Status == "Active"
+	return autoRenew && (SellablePlan(plan) || plan.Audience == "admin") && c.AutoRenewal == 1 && c.Status == "Active"
 }
 
 func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew bool) error {
@@ -411,7 +405,7 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 	}
 	var renewErr error
 	nf := s.notifier()
-	if renewable(plan, c, autoRenew, isolir.PlanID(setting(ctx, s.Q, "isolir_plan_id"))) {
+	if renewable(plan, c, autoRenew) {
 		price, err := s.OrderPrice(ctx, c.ID, plan.Price)
 		if err == nil && c.Balance >= price {
 			if err = s.rechargeWithBalance(ctx, c.ID, plan.ID, 0, true); err == nil {
@@ -426,7 +420,7 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 			renewErr = fmt.Errorf("auto renewal: %w", err)
 		}
 	}
-	if nf != nil && !isolirPlan(ctx, s.Q, plan.ID) { // ending an isolation sends no expired notice or webhook
+	if nf != nil {
 		if err := s.sendExpiredNotice(ctx, sub, c, plan); err != nil { // skipped when the early notice already went out
 			slog.Error("expired notice", "subscription", sub.ID, "err", err)
 		}

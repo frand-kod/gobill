@@ -80,12 +80,10 @@ func isoCustomer(t *testing.T, s *Server, q *db.Queries, ip string, isolated boo
 		t.Fatal(err)
 	}
 	if isolated {
-		isoID, err := isolir.EnsurePlan(ctx, q)
-		if err != nil {
+		if _, err := isolir.EnsurePlan(ctx, q); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: c.ID, PlanID: isoID, Type: "Hotspot",
-			StartedAt: now.Unix(), ExpiresAt: now.AddDate(0, 0, 30).Unix(), Method: "Isolir"}); err != nil {
+		if _, err := q.CreateIsolation(ctx, db.CreateIsolationParams{CustomerID: c.ID, StartedAt: now.Unix(), EndsAt: now.AddDate(0, 0, 30).Unix()}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -279,6 +277,7 @@ func TestIsolirResetDefaults(t *testing.T) {
 func TestRadiusRestIsolirAcceptCarriesAddressList(t *testing.T) {
 	s, h, q := isoSetup(t)
 	isoCustomer(t, s, q, "203.0.113.7", true)
+	isoEnable(t, s, q)
 	w := post(h, "/radius.php?action=authorize", url.Values{"username": {"budi"}, "password": {"pw"}}, "")
 	if w.Code != 200 {
 		t.Fatalf("code %d %s", w.Code, w.Body)

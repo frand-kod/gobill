@@ -25,6 +25,7 @@ Jurnal ini dijaga di bawah 1000 kata. Rencana awal: [rencana/](rencana/README.md
 - **Database:** migrasi 0011 sampai 0014 (`start_on_first_login`, indeks, snapshot pelanggan di `payment_requests`, 2FA admin); pragma SQLite; retensi log bawaan 90 hari; sesi RADIUS basi ditutup otomatis.
 - **Operasional:** `/health` minimal; backup mirror (`GOBILL_BACKUP_MIRROR`) dengan percobaan ulang tiap jam; halaman Status Sistem dan JSON-nya; `/metrics` dengan bearer token; alert operator (disk, NAS diam, job dan kanal gagal, brute force, backup, restart tidak normal, callback pembayaran untuk pelanggan yang sudah dihapus) lewat Telegram dan/atau WhatsApp.
 - **Temuan audit bisnis** P1 (recharge pelanggan non-Active ditolak), C2 (template notifikasi ikut impor), dan IM1 (atribut pelanggan ikut impor) sudah dikerjakan.
+- **Isolir sebagai tabel** (migrasi `0023_isolations.sql`): isolasi tidak lagi subscription pada paket Isolir. RADIUS, halaman isolir, job expiry, dan pembelian paket membaca tabel `isolations`. Lab PPPoE dan hotspot lolos ulang setelah perubahan ini.
 
 ## Menunggu pengguna
 

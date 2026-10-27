@@ -167,7 +167,7 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		}
 
 		// a paid recharge ends an isolation first, so the plan below starts from a clean slate
-		ended, err := endIsolation(ctx, q, now.Unix(), customerID, plan.ID)
+		ended, err := endIsolation(ctx, q, now.Unix(), customerID, "paid")
 		if err != nil {
 			return nil, err
 		}

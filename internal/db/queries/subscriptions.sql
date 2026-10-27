@@ -12,9 +12,6 @@ SELECT * FROM subscriptions WHERE customer_id = ? ORDER BY id DESC LIMIT ? OFFSE
 -- name: ListExpiredActiveSubscriptions :many
 SELECT * FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expires_at <= sqlc.arg(now) ORDER BY expires_at;
 
--- name: ListActiveSubscriptionsByPlan :many
-SELECT * FROM subscriptions WHERE status = 'active' AND plan_id = sqlc.arg(plan_id) ORDER BY expires_at;
-
 -- name: ListActiveExpiringBetween :many
 SELECT * FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expires_at >= sqlc.arg(from_ts) AND expires_at < sqlc.arg(to_ts) ORDER BY expires_at;
 

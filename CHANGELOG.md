@@ -17,6 +17,11 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 - Teks lisensi ikut di dalam binary: `LICENSE`, `NOTICE`, dan `THIRD_PARTY_LICENSES.txt` (lisensi semua modul Go yang ter-link dan aset web), bisa dibaca di `/licenses` tanpa login. `tools/third-party.sh` menulis ulang berkas ketiga, dan CI memeriksa berkas itu tetap sesuai `go.mod`.
 - `NOTICE` mencantumkan semua dependensi yang ter-link, termasuk gozxing (Apache-2.0 dari ZXing), goldmark, dan modernc, serta kewajiban MPL-2.0 untuk radius dan go-sql-driver.
 - Banner MIT ditambahkan ke Alpine.js. Komentar lisensi Lucide tidak lagi dibuang saat ikon dirender.
+### Diubah
+
+- **Isolir bukan lagi paket** (migrasi `0023_isolations.sql`): isolasi disimpan di tabel `isolations`, tidak lagi sebagai langganan pada paket Isolir, sehingga tidak tampil di daftar paket maupun langganan. RADIUS, halaman isolir, dan job expiry membaca tabel itu. Isolasi yang sedang berjalan dipindahkan saat migrasi, dan langganan lamanya ditutup.
+- Isolir hanya untuk paket perangkat Radius dengan pelanggan berstatus Aktif. Mematikan Isolir mengakhiri semua isolasi yang berjalan.
+
 ### Ditambahkan
 
 - **Pengingat menyimpan kunci enkripsi** (#39): mirror backup tidak menyalin `gobill.db.key`, dan sebelumnya aplikasi tidak mengingatkan. Pengaturan > Sistem dan Status Sistem kini menampilkan peringatan untuk SuperAdmin sampai kunci ditandai sudah disimpan (muncul lagi bila kunci berganti), lengkap dengan sidik jari kunci. Halaman baru **Kunci enkripsi** mengunduh kunci setelah konfirmasi password (dan 2FA), tercatat di log aktivitas. Penolakan restore karena kunci berbeda menyebut sidik jari kunci aplikasi.

@@ -414,6 +414,29 @@ func LimitBytes(n int64, unit string) int64 {
 	return db.QuotaBytes(n, unit, 0)
 }
 
+// isolirPlanFor is the RADIUS plan of a running isolation: the isolir profile and pool, for the window
+// of the isolation. ok is false when the customer is not isolated, or isolir is off.
+func (s *Server) isolirPlanFor(ctx context.Context, customerID int64) (pl db.GetRadiusPlanRow, ok bool) {
+	st := s.settings(ctx)
+	planID := isolir.PlanID(st["isolir_plan_id"])
+	if planID == 0 || st["isolir_enabled"] != "yes" {
+		return pl, false
+	}
+	iso, err := s.Q.GetRunningIsolation(ctx, db.GetRunningIsolationParams{CustomerID: customerID, Now: s.now().Unix()})
+	if err != nil {
+		return pl, false
+	}
+	p, err := s.Q.GetIsolirPlan(ctx, planID)
+	if err != nil {
+		slog.Error("radius: isolir plan", "plan", planID, "err", err)
+		return pl, false
+	}
+	return db.GetRadiusPlanRow{StartedAt: iso.StartedAt, ExpiresAt: iso.EndsAt,
+		PlanID: p.PlanID, PlanName: p.PlanName, PlanType: p.PlanType, Limited: p.Limited, LimitType: p.LimitType,
+		TimeLimit: p.TimeLimit, TimeUnit: p.TimeUnit, DataLimit: p.DataLimit, DataUnit: p.DataUnit, SharedUsers: p.SharedUsers,
+		RateDown: p.RateDown, RateDownUnit: p.RateDownUnit, RateUp: p.RateUp, RateUpUnit: p.RateUpUnit, Burst: p.Burst, PoolName: p.PoolName}, true
+}
+
 func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decision {
 	user := rq.User
 	// one query for an active customer with an active plan; the other cases fall back to two
@@ -460,10 +483,14 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 	}
 	if !havePlan {
 		if pl, err = s.Q.GetRadiusPlan(ctx, c.ID); err != nil {
-			if vl {
-				return Decision{Reject: "Voucher Expired..."}
+			iso, isolated := s.isolirPlanFor(ctx, c.ID)
+			if !isolated {
+				if vl {
+					return Decision{Reject: "Voucher Expired..."}
+				}
+				return Decision{Reject: "Internet Plan Expired.."}
 			}
-			return Decision{Reject: "Internet Plan Expired.."}
+			pl = iso
 		}
 	}
 	if pl.PendingStart == 1 && s.Start != nil { // before the expiry check: a pending row's provisional expiry is not the real one

@@ -369,46 +369,6 @@ func (q *Queries) ListExpiredActiveSubscriptions(ctx context.Context, now int64)
 	return items, nil
 }
 
-const listActiveSubscriptionsByPlan = `-- name: ListActiveSubscriptionsByPlan :many
-SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at FROM subscriptions WHERE status = 'active' AND plan_id = ?1 ORDER BY expires_at
-`
-
-func (q *Queries) ListActiveSubscriptionsByPlan(ctx context.Context, planID int64) ([]Subscription, error) {
-	rows, err := q.db.QueryContext(ctx, listActiveSubscriptionsByPlan, planID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Subscription
-	for rows.Next() {
-		var i Subscription
-		if err := rows.Scan(
-			&i.ID,
-			&i.CustomerID,
-			&i.PlanID,
-			&i.RouterID,
-			&i.Type,
-			&i.StartedAt,
-			&i.ExpiresAt,
-			&i.Status,
-			&i.Method,
-			&i.AdminID,
-			&i.PendingStart,
-			&i.ExpiredNotifiedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listSubscriptionsByCustomer = `-- name: ListSubscriptionsByCustomer :many
 SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds FROM subscriptions WHERE customer_id = ? ORDER BY id DESC LIMIT ? OFFSET ?
 `

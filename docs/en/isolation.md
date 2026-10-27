@@ -1,6 +1,6 @@
 # Isolation of expired customers
 
-Isolation keeps customers whose package has run out online at a restricted speed instead of cutting them off at once. They move to the **Isolir** plan (64 kbps) for a set number of days. On this plan the customer has full isolation except an allow-list of hosts. WhatsApp is allowed by default, so they can contact you, and you can add a bank app. Web pages are redirected to the isolation page, and other apps and sites are blocked. It shows the package, a **Contact admin** button, an optional logout button and a voucher form. The isolation page offers no payment: the customer pays through the admin or the portal.
+Isolation keeps customers whose package has run out online at a restricted speed instead of cutting them off at once. They enter isolation at 64 kbps for a set number of days. On this plan the customer has full isolation except an allow-list of hosts. WhatsApp is allowed by default, so they can contact you, and you can add a bank app. Web pages are redirected to the isolation page, and other apps and sites are blocked. It shows the package, a **Contact admin** button, an optional logout button and a voucher form. The isolation page offers no payment: the customer pays through the admin or the portal.
 
 Isolation only works for customers who log in through gobill's RADIUS (plans on the **Radius** device). Customers whose accounts live directly on a MikroTik (local hotspot or PPPoE users) are cut off as before.
 
@@ -28,12 +28,12 @@ Open **Settings > Isolation**. This tab is for SuperAdmin only. Each field shows
 ## Behaviour
 
 1. The package runs out. The expiry notice is still sent as usual.
-2. If isolation is on, the package is on the **Radius** device, the customer is Active, and the package has no explicit **expired plan** (the plan setting `expired_plan_id`), the customer moves to the Isolir plan for **Isolation Days**. If the plan has an explicit expired plan, that setting is used.
+2. If isolation is on, the package is on the **Radius** device, the customer is Active, and the package has no explicit **expired plan** (the plan setting `expired_plan_id`), the customer enters isolation for **Isolation Days**. Isolation is not a package: no new subscription is created, and it does not appear in the plan or subscription lists. If the plan has an explicit expired plan, that setting is used.
 3. A customer who opens the internet is redirected to `/isolir`. The page recognises the customer by the client IP of their open RADIUS session.
 4. Buying a package (from admin, the portal, a payment gateway, or balance) and a successful voucher end the isolation. A balance top-up alone does not end it: the balance is used when a package is bought. The customer's sessions are dropped on the router, and they log in again to get their normal package.
 5. When the isolation days run out, the customer is inactive, as before.
 
-Isolation does not renew the Isolir plan automatically. A customer with enough balance is still renewed from their original plan, and no isolation starts.
+Isolation is not renewed automatically. A customer with enough balance is still renewed from their original plan, and no isolation starts.
 
 Switching **Isolation enabled** off ends all running isolations at once. The customer's sessions on the router are dropped, and the customer logs in again to get the normal package. Ending an isolation sends no expired-package notice.
 

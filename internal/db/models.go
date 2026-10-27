@@ -146,6 +146,15 @@ type CustomersInbox struct {
 	CreatedAt  int64
 }
 
+type Isolation struct {
+	ID         int64
+	CustomerID int64
+	StartedAt  int64
+	EndsAt     int64
+	EndedAt    int64
+	EndReason  string
+}
+
 type MessageLog struct {
 	ID        int64
 	Channel   string

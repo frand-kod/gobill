@@ -151,6 +151,61 @@ func (q *Queries) GetCustomerForRadius(ctx context.Context, name string) (Custom
 	return i, err
 }
 
+const getIsolirPlan = `-- name: GetIsolirPlan :one
+SELECT p.id AS plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
+       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
+       b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
+       pl.name AS pool_name
+FROM plans p
+LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
+LEFT JOIN pools pl ON pl.id = p.pool_id
+WHERE p.id = ?1
+`
+
+type GetIsolirPlanRow struct {
+	PlanID       int64
+	PlanName     string
+	PlanType     string
+	Limited      int64
+	LimitType    sql.NullString
+	TimeLimit    sql.NullInt64
+	TimeUnit     sql.NullString
+	DataLimit    sql.NullInt64
+	DataUnit     sql.NullString
+	SharedUsers  sql.NullInt64
+	RateDown     sql.NullInt64
+	RateDownUnit sql.NullString
+	RateUp       sql.NullInt64
+	RateUpUnit   sql.NullString
+	Burst        sql.NullString
+	PoolName     sql.NullString
+}
+
+// The isolir plan as a RADIUS plan (its profile and pool). The isolation window comes from isolations.
+func (q *Queries) GetIsolirPlan(ctx context.Context, planID int64) (GetIsolirPlanRow, error) {
+	row := q.db.QueryRowContext(ctx, getIsolirPlan, planID)
+	var i GetIsolirPlanRow
+	err := row.Scan(
+		&i.PlanID,
+		&i.PlanName,
+		&i.PlanType,
+		&i.Limited,
+		&i.LimitType,
+		&i.TimeLimit,
+		&i.TimeUnit,
+		&i.DataLimit,
+		&i.DataUnit,
+		&i.SharedUsers,
+		&i.RateDown,
+		&i.RateDownUnit,
+		&i.RateUp,
+		&i.RateUpUnit,
+		&i.Burst,
+		&i.PoolName,
+	)
+	return i, err
+}
+
 const getNAS = `-- name: GetNAS :one
 SELECT id, name, ip, secret_enc, description, require_message_auth, ma_seen FROM nas WHERE id = ?
 `

@@ -158,3 +158,14 @@ WHERE (username = sqlc.arg(name1) OR username = sqlc.arg(name2)) AND updated_at 
 -- Upload (input) and download (output) octets of the customer's login names since started_at.
 SELECT CAST(COALESCE(SUM(input_octets), 0) AS INTEGER) AS input, CAST(COALESCE(SUM(output_octets), 0) AS INTEGER) AS output FROM radius_sessions
 WHERE (username = sqlc.arg(name1) OR username = sqlc.arg(name2)) AND started_at >= sqlc.arg(started_at);
+
+-- name: GetIsolirPlan :one
+-- The isolir plan as a RADIUS plan (its profile and pool). The isolation window comes from isolations.
+SELECT p.id AS plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
+       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
+       b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
+       pl.name AS pool_name
+FROM plans p
+LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
+LEFT JOIN pools pl ON pl.id = p.pool_id
+WHERE p.id = sqlc.arg(plan_id);
