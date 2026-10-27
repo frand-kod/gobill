@@ -23,6 +23,7 @@ func main() {
 	rPass := flag.String("router-pass", "", "CHR API password")
 	nasIP := flag.String("nas-ip", "", "source IP of the CHR as gobill sees it")
 	nasSecret := flag.String("nas-secret", "", "RADIUS shared secret")
+	sqlStmt := flag.String("sql", "", "run this one statement on the database and exit (lab test helper)")
 	flag.Parse()
 
 	conn, err := db.Open(*path)
@@ -30,6 +31,12 @@ func main() {
 		log.Fatal(err)
 	}
 	defer conn.Close()
+	if *sqlStmt != "" {
+		if _, err := conn.Exec(*sqlStmt); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	if err := db.Migrate(conn); err != nil {
 		log.Fatal(err)
 	}

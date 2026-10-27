@@ -246,6 +246,23 @@ radplan_bw() { # bandwidth id: re-save RADIUS plan 3 (lab-rad) with that bandwid
 		-d validity_unit=Days -d device=Radius -d enabled=1
 }
 
+fup_plan() { # re-save RADIUS plan 3 with a 1 MB data limit and FUP bandwidth 1 (5M), or with no limit (arg: off)
+	local lim=(-d limited=1 -d limit_type=Data_Limit -d data_limit=1 -d data_unit=MB -d fup_bandwidth_id=1)
+	[ "${1:-}" = off ] && lim=()
+	gb_post /admin/plans/3 -d name=lab-rad -d bandwidth_id=3 -d price=200000 -d type=PPPoE -d billing=prepaid -d validity=30 \
+		-d validity_unit=Days -d device=Radius -d enabled=1 "${lim[@]}"
+}
+# gobill_sql STMT: run one statement on the gobill database (lab-seed -sql, same binary as the seeder)
+gobill_sql() { podman exec lab-gobill lab-seed -db /data/gobill.db -sql "$1"; }
+rate_is() { rad01_limit | grep -q "max-limit=$1"; }
+client_alive() { ! podman exec "lab-client-$1" test -s /tmp/pppoe.rc; }
+snap() { chr run /ppp/profile/print; chr run /ppp/secret/print; }
+push_finished() { gb_get /admin/routers/1/sync | grep -q Finished; }
+push_cell() { # label: value of that row on the push status page
+	gb_get /admin/routers/1/sync | tr -d ' \t\n' | grep -oE "$1</td><td>[^<]*" | head -1 | sed 's/.*<td>//'
+}
+chr_both_missing() { chr_lacks name=lab-g10 /ppp/profile/print && chr_lacks name=cust13 /ppp/secret/print; }
+
 test_lab() {
 	local t0; t0=$(date +%s)
 	gb_login || die "cannot log in to gobill at $GOBILL"
@@ -365,6 +382,60 @@ test_lab() {
 		check "after reset: connects and re-pins" post_grep 'Connection successful' /admin/routers/1/test
 		check "new fingerprint differs" pin_changed "$pin1"
 		router_form 8728 >/dev/null
+	else
+		echo "skip (direct mode only)"
+	fi
+
+	echo "-- 10 FUP: plan speed drops past the data limit, session stays up"
+	if [ "$LAB_MODE" = direct ]; then
+		fup_plan >/dev/null   # 1 MB limit, FUP 5M; normal 20M
+		client_start 1 rad01 pw-rad01
+		check "rad01 session up" wait_for 40 log_has 1 'session up'
+		check "rad01 at the plan rate (20M) within the limit" wait_for 20 rate_is 20000000/20000000
+		sleep 3
+		local fup0 fup1
+		fup0=$(rad01_uptime || true)
+		# no data flows in the lab, so the used volume is injected as an earlier closed session of rad01
+		gobill_sql "INSERT INTO radius_sessions(session_id,username,nas_ip,started_at,updated_at,stopped_at,input_octets,output_octets) VALUES ('lab-old','rad01','$NAS_IP',strftime('%s','now'),strftime('%s','now'),strftime('%s','now'),1000000,4000000)"
+		echo "     5 MB used of 1 MB; waiting for the FUP job (runs every minute)"
+		wait_for 100 rate_is 5000000/5000000 || true
+		fup1=$(rad01_uptime || true)
+		echo "     uptime $fup0 -> $fup1, $(rad01_limit || true)"
+		check "rate became the FUP rate (5M)" rate_is 5000000/5000000
+		check "session still on the CHR" chr_grep 'name=rad01' /ppp/active/print
+		check "client not disconnected" client_alive 1
+		check "uptime did not reset (CoA, no redial)" [ -n "$fup1" ] && [ "$(secs "$fup1")" -ge "$(secs "$fup0")" ]
+		podman logs lab-gobill 2>&1 | grep -i 'FUP' | tail -3 | sed 's/^/     gobill: /' || true
+		podman exec lab-client-1 pkill pppoe >/dev/null 2>&1 || true
+		wait_for 10 rc_is 1 0 || true
+		client_start 1 rad01 pw-rad01
+		check "redial over the limit gets the FUP rate (Access-Accept)" wait_for 40 rate_is 5000000/5000000
+		podman exec lab-client-1 pkill pppoe >/dev/null 2>&1 || true
+		fup_plan off >/dev/null
+		gobill_sql "DELETE FROM radius_sessions WHERE session_id='lab-old'"
+	else
+		echo "skip (direct mode only)"
+	fi
+
+	echo "-- 11 bulk push (Push all) to an API-mode router"
+	if [ "$LAB_MODE" = direct ]; then
+		# take a plan profile and a customer secret away from the CHR, then let the push restore them
+		chr run /ppp/secret/remove =numbers=cust13 >/dev/null 2>&1 || true
+		chr run /ppp/profile/remove =numbers=lab-g10 >/dev/null 2>&1 || true
+		check "precondition: lab-g10 and cust13 missing on CHR" chr_both_missing
+		check "push starts" gb_post /admin/routers/1/sync
+		check "push finished" wait_for 120 push_finished
+		echo "     succeeded=$(push_cell Succeeded) failed=$(push_cell Failed) progress=$(push_cell Progress)"
+		check "plan lab-g10 pushed (with burst)" chr_grep 'rate-limit=10M/10M 20M/20M 15M/15M 8' /ppp/profile/print ?name=lab-g10
+		check "active customer cust13 pushed" chr_grep 'password=pw-cust13' /ppp/secret/print ?name=cust13
+		check "no failures in the push" [ "$(push_cell Failed)" = 0 ]
+		check "push did work (succeeded > 0)" [ "$(push_cell Succeeded)" -gt 0 ]
+		local s1 s2; s1=$(snap)
+		gb_post /admin/routers/1/sync >/dev/null
+		sleep 2; check "second push finished" wait_for 120 push_finished
+		s2=$(snap)
+		check "second push changed nothing on the CHR" [ "$s1" = "$s2" ]
+		check "second push has no failures" [ "$(push_cell Failed)" = 0 ]
 	else
 		echo "skip (direct mode only)"
 	fi

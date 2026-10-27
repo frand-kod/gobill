@@ -77,8 +77,10 @@ Data awal di CHR: profil PPP `chr-5m`, `chr-10m`, `chr-weird` (rate-limit dengan
 | 7 gobill sebagai service | keduanya | Healthcheck sehat. Setelah `kill -9`, gobill dijalankan ulang (restart count 1), sehat lagi, dan data tetap ada |
 | 8 Ganti paket saat online | direct | Edit paket RADIUS mengirim CoA-Request (Mikrotik-Rate-Limit) ke sesi online. RouterOS 7.24.5 menerapkan rate baru tanpa memutus sesi (uptime tidak reset). Jika CoA gagal, gobill memutus sesi dengan Disconnect-Request dan tes memeriksa login ulang mendapat rate baru |
 | 9 Pin sertifikat API-SSL | direct | Sertifikat self-signed di CHR, router diubah ke port 8729. Koneksi pertama mencatat sidik jari; setelah sertifikat diganti koneksi ditolak; setelah "Reset certificate pin" tersambung lagi dengan sidik jari baru. Router dikembalikan ke port 8728 |
+| 10 FUP | direct | Paket RADIUS dengan batas data 1 MB dan bandwidth FUP 5M. Pemakaian lebih dari batas disisipkan lewat `lab-seed -sql` (tanpa lalu lintas data di lab). Dalam 1 menit CoA menurunkan rate sesi online ke 5M, sesi tetap hidup dan uptime tidak reset; login ulang langsung mendapat rate FUP |
+| 11 Dorong semua | direct | `POST /admin/routers/1/sync` setelah profil dan secret dihapus dari CHR: status selesai, 15/15 berhasil, profil dan pelanggan aktif kembali ada, dorongan kedua tidak mengubah apa pun |
 
-Hasil terakhir: `direct` 18/18 dan `nat` 16/16.
+Hasil terakhir: `direct` 43/43 dan `nat` 16/16.
 
 ## Batasan
 
