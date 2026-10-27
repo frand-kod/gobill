@@ -48,6 +48,23 @@ func (q *Queries) GetWgPeer(ctx context.Context, routerID int64) (WgPeer, error)
 	return i, err
 }
 
+const getWgToken = `-- name: GetWgToken :one
+SELECT router_id, token_hash, expires_at, used_at, used_ip FROM wg_tokens WHERE router_id = ?
+`
+
+func (q *Queries) GetWgToken(ctx context.Context, routerID int64) (WgToken, error) {
+	row := q.db.QueryRowContext(ctx, getWgToken, routerID)
+	var i WgToken
+	err := row.Scan(
+		&i.RouterID,
+		&i.TokenHash,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.UsedIp,
+	)
+	return i, err
+}
+
 const listWgPeers = `-- name: ListWgPeers :many
 SELECT router_id, ip, public_key, private_enc, endpoint, stale, provisioned_at FROM wg_peers ORDER BY router_id
 `
@@ -109,6 +126,22 @@ func (q *Queries) SetWgPeerEndpoint(ctx context.Context, arg SetWgPeerEndpointPa
 	return err
 }
 
+const setWgToken = `-- name: SetWgToken :exec
+INSERT INTO wg_tokens (router_id, token_hash, expires_at, used_at, used_ip) VALUES (?, ?, ?, 0, '')
+ON CONFLICT (router_id) DO UPDATE SET token_hash = excluded.token_hash, expires_at = excluded.expires_at, used_at = 0, used_ip = ''
+`
+
+type SetWgTokenParams struct {
+	RouterID  int64
+	TokenHash string
+	ExpiresAt int64
+}
+
+func (q *Queries) SetWgToken(ctx context.Context, arg SetWgTokenParams) error {
+	_, err := q.db.ExecContext(ctx, setWgToken, arg.RouterID, arg.TokenHash, arg.ExpiresAt)
+	return err
+}
+
 const upsertWgPeer = `-- name: UpsertWgPeer :exec
 INSERT INTO wg_peers (router_id, ip, public_key, private_enc, endpoint, stale, provisioned_at)
 VALUES (?, ?, ?, ?, '', 0, ?)
@@ -133,4 +166,28 @@ func (q *Queries) UpsertWgPeer(ctx context.Context, arg UpsertWgPeerParams) erro
 		arg.ProvisionedAt,
 	)
 	return err
+}
+
+const useWgToken = `-- name: UseWgToken :execrows
+UPDATE wg_tokens SET used_at = ?, used_ip = ? WHERE router_id = ? AND used_at = 0 AND expires_at > ?
+`
+
+type UseWgTokenParams struct {
+	UsedAt    int64
+	UsedIp    string
+	RouterID  int64
+	ExpiresAt int64
+}
+
+func (q *Queries) UseWgToken(ctx context.Context, arg UseWgTokenParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, useWgToken,
+		arg.UsedAt,
+		arg.UsedIp,
+		arg.RouterID,
+		arg.ExpiresAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }

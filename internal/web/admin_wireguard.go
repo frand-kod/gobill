@@ -5,6 +5,7 @@ package web
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -175,31 +176,57 @@ func (s *Server) wgWarning(ctx context.Context) string {
 	return s.catalog.T(s.language(), "WireGuard: ") + s.catalog.T(s.language(), msg)
 }
 
-// wgBlock holds what the RouterOS commands of one peer name.
+// wgBlock holds what the RouterOS script of one peer names.
 type wgBlock struct {
-	Private, ServerPub, Endpoint, Secret string
-	Port                                 int
-	Self, Peer                           netip.Addr
-	Bits                                 int
+	Private, ServerPub, Endpoint, Secret, APIPass string
+	Port                                          int
+	Self, Peer                                    netip.Addr
+	Bits                                          int
 }
 
-// routerBlock is the RouterOS 7 commands for one router: the tunnel, NTP (a router whose clock restarts
-// at its factory date is refused by WireGuard), RADIUS from the tunnel address, and the firewall holes
-// for CoA and the API from gobill's tunnel address only.
-func (b wgBlock) routerBlock() string {
+// Names the script owns on the router: it removes them before adding them again, so running it twice
+// leaves one copy.
+const (
+	provIface = "wg-gobill"
+	provUser  = "gobill"
+	provGroup = "gobill-api"
+	provTag   = "gobill"
+)
+
+// script is the RouterOS 7 script of one router, served once through /provision/<token>. It stops on
+// RouterOS 6, removes what an earlier run made, then adds the tunnel, NTP (a router whose clock restarts
+// at its factory date is refused by WireGuard), RADIUS from the tunnel address, the firewall holes for
+// CoA and the API from gobill's tunnel address only, and the API user in a group of its own. The text
+// depends only on the router and its stored keys.
+func (b wgBlock) script() string {
 	ep := b.Endpoint
 	if ep == "" {
 		ep = "<DOMAIN-OR-IP-GOBILL>"
 	}
 	var w strings.Builder
-	fmt.Fprintf(&w, "/interface wireguard add name=wg-gobill private-key=%q mtu=1420\n", b.Private)
-	fmt.Fprintf(&w, "/interface wireguard peers add interface=wg-gobill public-key=%q endpoint-address=%s endpoint-port=%d allowed-address=%s/32 persistent-keepalive=25s\n", b.ServerPub, ep, b.Port, b.Self)
-	fmt.Fprintf(&w, "/ip address add address=%s/%d interface=wg-gobill\n", b.Peer, b.Bits)
+	w.WriteString("# gobill router provisioning. Safe to run again.\n")
+	w.WriteString(":local v [/system resource get version]\n")
+	w.WriteString(":if ([:tonum [:pick $v 0 [:find $v \".\"]]] < 7) do={ :error \"gobill: RouterOS 7 is required, this router runs $v. RouterOS 6 has no WireGuard: use L2TP/IPsec or SSTP, see the gobill docs\" }\n")
+	fmt.Fprintf(&w, "/user remove [find name=%s]\n", provUser)
+	fmt.Fprintf(&w, "/user group remove [find name=%s]\n", provGroup)
+	fmt.Fprintf(&w, "/radius remove [find comment=%s]\n", provTag)
+	fmt.Fprintf(&w, "/radius remove [find address=%s]\n", b.Self)
+	fmt.Fprintf(&w, "/ip firewall filter remove [find comment=%s]\n", provTag)
+	fmt.Fprintf(&w, "/ip address remove [find interface=%s]\n", provIface)
+	fmt.Fprintf(&w, "/interface wireguard peers remove [find interface=%s]\n", provIface)
+	fmt.Fprintf(&w, "/interface wireguard remove [find name=%s]\n", provIface)
+	fmt.Fprintf(&w, "/interface wireguard add name=%s private-key=%q mtu=1420\n", provIface, b.Private)
+	fmt.Fprintf(&w, "/interface wireguard peers add interface=%s public-key=%q endpoint-address=%s endpoint-port=%d allowed-address=%s/32 persistent-keepalive=25s\n", provIface, b.ServerPub, ep, b.Port, b.Self)
+	fmt.Fprintf(&w, "/ip address add address=%s/%d interface=%s\n", b.Peer, b.Bits, provIface)
 	w.WriteString("/system ntp client set enabled=yes servers=pool.ntp.org\n")
-	fmt.Fprintf(&w, "/radius add service=hotspot,ppp address=%s secret=%s authentication-port=1812 accounting-port=1813 timeout=1s src-address=%s\n", b.Self, b.Secret, b.Peer)
+	fmt.Fprintf(&w, "/radius add service=hotspot,ppp address=%s secret=%q authentication-port=1812 accounting-port=1813 timeout=1s src-address=%s comment=%s\n", b.Self, b.Secret, b.Peer, provTag)
 	w.WriteString("/radius incoming set accept=yes\n")
-	fmt.Fprintf(&w, "/ip firewall filter add chain=input in-interface=wg-gobill src-address=%s protocol=udp dst-port=3799 action=accept place-before=0\n", b.Self)
-	fmt.Fprintf(&w, "/ip firewall filter add chain=input in-interface=wg-gobill src-address=%s protocol=tcp dst-port=8728 action=accept place-before=0", b.Self)
+	fmt.Fprintf(&w, "/ip firewall filter add chain=input in-interface=%s src-address=%s protocol=udp dst-port=3799 action=accept place-before=0 comment=%s\n", provIface, b.Self, provTag)
+	fmt.Fprintf(&w, "/ip firewall filter add chain=input in-interface=%s src-address=%s protocol=tcp dst-port=8728 action=accept place-before=0 comment=%s\n", provIface, b.Self, provTag)
+	fmt.Fprintf(&w, "/user group add name=%s policy=api,read,write,test\n", provGroup)
+	fmt.Fprintf(&w, "/user add name=%s group=%s password=%q address=%s/32\n", provUser, provGroup, b.APIPass, b.Self)
+	fmt.Fprintf(&w, "/ip service set api address=%s/32 disabled=no\n", b.Self)
+	w.WriteString("/file remove [find name=gobill.rsc]\n")
 	return w.String()
 }
 
@@ -238,7 +265,7 @@ func (s *Server) routerWGProvision(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "get router", err)
 		return
 	}
-	cfg, st, err := s.wgUsable(r.Context())
+	cfg, _, err := s.wgUsable(r.Context())
 	if err != nil {
 		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), err.Error()))
 		http.Redirect(w, r, back, http.StatusSeeOther)
@@ -248,11 +275,6 @@ func (s *Server) routerWGProvision(w http.ResponseWriter, r *http.Request) {
 	sealed, err := secret.Seal(s.SecretKey, []byte(priv))
 	if err != nil {
 		s.fail(w, "seal wireguard key", err)
-		return
-	}
-	serverPub, err := wg.PublicKey(cfg.Private)
-	if err != nil {
-		s.fail(w, "wireguard server key", err)
 		return
 	}
 	tx, err := s.conn.BeginTx(r.Context(), nil)
@@ -295,13 +317,30 @@ func (s *Server) routerWGProvision(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	secretText, err := s.wgNAS(r.Context(), q, rt, ip.String())
-	if err != nil {
+	if _, err := s.wgNAS(r.Context(), q, rt, ip.String()); err != nil {
 		s.fail(w, "wireguard nas", err)
 		return
 	}
 	if err := q.UpsertWgPeer(r.Context(), db.UpsertWgPeerParams{RouterID: id, Ip: ip.String(), PublicKey: pub, PrivateEnc: sealed, ProvisionedAt: time.Now().Unix()}); err != nil {
 		s.fail(w, "save wireguard peer", err)
+		return
+	}
+	// the router is reached through the tunnel as the API user the script creates, with a new password
+	apiEnc, err := secret.Seal(s.SecretKey, []byte(secret.RandomPassword(24)))
+	if err != nil {
+		s.fail(w, "seal api password", err)
+		return
+	}
+	if err := q.UpdateRouter(r.Context(), db.UpdateRouterParams{Name: rt.Name, Host: ip.String(), Port: 8728, Username: provUser, PasswordEnc: apiEnc,
+		Description: rt.Description, Enabled: rt.Enabled, Coordinates: rt.Coordinates, Coverage: rt.Coverage, CertPin: rt.CertPin, ID: id}); err != nil {
+		s.fail(w, "save router api user", err)
+		return
+	}
+	rnd := make([]byte, 32)
+	rand.Read(rnd) // never returns an error in Go 1.24+
+	token := fmt.Sprintf("%d-%x", id, rnd)
+	if err := q.SetWgToken(r.Context(), db.SetWgTokenParams{RouterID: id, TokenHash: tokenHash(token), ExpiresAt: time.Now().Add(provisionTTL).Unix()}); err != nil {
+		s.fail(w, "save provision token", err)
 		return
 	}
 	if err := tx.Commit(); err != nil {
@@ -323,10 +362,8 @@ func (s *Server) routerWGProvision(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "wireguard add peer", err)
 		return
 	}
-	d := wgDefaults(st)
-	s.sessions.Put(r.Context(), "wg_once", wgBlock{Private: priv, ServerPub: serverPub, Endpoint: d["wg_endpoint"], Secret: secretText,
-		Port: cfg.Port, Self: cfg.Self(), Peer: ip, Bits: cfg.Subnet.Bits()}.routerBlock())
-	s.done(w, r, back, "WireGuard peer is ready. Paste the commands into the router", "router.wg.provision", rt.Name)
+	s.sessions.Put(r.Context(), "wg_once", fmt.Sprintf("/tool fetch url=%q dst-path=gobill.rsc; /import gobill.rsc", baseURL(r)+"/provision/"+token))
+	s.done(w, r, back, "WireGuard peer is ready. Paste the line into the router", "router.wg.provision", rt.Name)
 }
 
 // wgNAS makes sure a NAS row covers the tunnel address of a router and returns its RADIUS secret.
@@ -368,6 +405,18 @@ func (s *Server) wgRevoke(ctx context.Context, id int64) error {
 	}
 	if err := s.wgRelease(ctx, p); err != nil {
 		return err
+	}
+	// The API user on the router is only reachable from the tunnel address, which is now cut. The stored
+	// password is replaced as well, so what gobill holds no longer matches the router.
+	if rt, err := s.queries.GetRouter(ctx, id); err == nil {
+		enc, err := secret.Seal(s.SecretKey, []byte(secret.RandomPassword(24)))
+		if err != nil {
+			return err
+		}
+		if err := s.queries.UpdateRouter(ctx, db.UpdateRouterParams{Name: rt.Name, Host: rt.Host, Port: rt.Port, Username: rt.Username, PasswordEnc: enc,
+			Description: rt.Description, Enabled: rt.Enabled, Coordinates: rt.Coordinates, Coverage: rt.Coverage, CertPin: rt.CertPin, ID: id}); err != nil {
+			return err
+		}
 	}
 	return s.queries.DeleteWgPeer(ctx, id)
 }
@@ -426,10 +475,73 @@ func (s *Server) routerWGReset(w http.ResponseWriter, r *http.Request) {
 	s.done(w, r, back, "Peer session reset", "router.wg.reset", fmt.Sprint(id))
 }
 
-// routerWGCheck is POST /admin/routers/{id}/wg/check: the stages that need a connection to the router.
+// wgStage is one step of getting a router online. Each has its own message, so a failed step says what
+// failed: a handshake that never happened is not the same as an API login that was refused.
+type wgStage struct {
+	OK  bool
+	Msg string
+}
+
+func (st wgStage) String() string {
+	if st.OK {
+		return "✓ " + st.Msg
+	}
+	return "✗ " + st.Msg
+}
+
+// wgHandshake and wgRadius are the stages that can be read without calling the router.
+func (s *Server) wgHandshake(p db.WgPeer, port string) wgStage {
+	t := func(x string) string { return s.catalog.T(s.language(), x) }
+	var hs time.Time
+	if s.WG != nil {
+		hs = s.WG.Stats()[p.PublicKey].Handshake
+	}
+	switch {
+	case hs.IsZero() && p.Endpoint != "":
+		return wgStage{false, fmt.Sprintf(t("Handshake: none since gobill started. Last seen at %s"), p.Endpoint)}
+	case hs.IsZero():
+		return wgStage{false, fmt.Sprintf(t("Handshake: never. Check that UDP port %s reaches this server, and the router clock"), port)}
+	case time.Since(hs) > 3*time.Minute:
+		return wgStage{false, fmt.Sprintf(t("Handshake: last %s ago, the tunnel looks down"), ago(hs))}
+	}
+	return wgStage{true, fmt.Sprintf(t("Handshake: OK, %s ago"), ago(hs))}
+}
+
+func (s *Server) wgRadius(p db.WgPeer) wgStage {
+	t := func(x string) string { return s.catalog.T(s.language(), x) }
+	if s.WG == nil || s.WG.RadiusSeen(p.Ip).IsZero() {
+		return wgStage{false, t("RADIUS: no packet from this router yet")}
+	}
+	return wgStage{true, fmt.Sprintf(t("RADIUS: last packet %s ago"), ago(s.WG.RadiusSeen(p.Ip)))}
+}
+
+// wgAPI and wgCoA call the router.
+func (s *Server) wgAPI(ctx context.Context, rt db.Router, p db.WgPeer) wgStage {
+	t := func(x string) string { return s.catalog.T(s.language(), x) }
+	if rt.Host != p.Ip {
+		return wgStage{false, fmt.Sprintf(t("The router Host is %s, not the tunnel address %s: the API does not use the tunnel"), rt.Host, p.Ip)}
+	}
+	if s.Billing == nil {
+		return wgStage{false, t("API login failed") + ": " + t("Router connection is not configured")}
+	}
+	ident, err := s.Billing.Ping(ctx, rt)
+	if err != nil {
+		return wgStage{false, t("API login failed") + ": " + t(routerErr(err, msgRouterOther))}
+	}
+	return wgStage{true, t("API login OK") + " (" + ident + ")"}
+}
+
+func (s *Server) wgCoA(ctx context.Context, p db.WgPeer) wgStage {
+	t := func(x string) string { return s.catalog.T(s.language(), x) }
+	if err := radius.ProbeCoA(ctx, s.queries, s.SecretKey, p.Ip); err != nil {
+		return wgStage{false, t("CoA failed") + ": " + err.Error()}
+	}
+	return wgStage{true, t("CoA reply received")}
+}
+
+// routerWGCheck is POST /admin/routers/{id}/wg/check: all four stages, shown on the router page.
 func (s *Server) routerWGCheck(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
-	t := func(x string) string { return s.catalog.T(s.language(), x) }
 	back := fmt.Sprint("/admin/routers/", id, "/edit")
 	rt, err := s.queries.GetRouter(r.Context(), id)
 	if err != nil {
@@ -437,37 +549,16 @@ func (s *Server) routerWGCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, err := s.queries.GetWgPeer(r.Context(), id)
-	if err != nil || s.WG == nil || s.Billing == nil {
+	if err != nil || s.WG == nil {
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
-	var parts []string
-	bad := false
-	if st := s.WG.Stats()[p.PublicKey]; st.Handshake.IsZero() {
-		parts = append(parts, t("Handshake: none yet, the tunnel is not up. The API and CoA tests below cannot work until it is"))
-		bad = true
+	st, _ := s.loadSettings(r.Context())
+	var lines []string
+	for _, x := range []wgStage{s.wgHandshake(p, wgDefaults(st)["wg_port"]), s.wgAPI(r.Context(), rt, p), s.wgRadius(p), s.wgCoA(r.Context(), p)} {
+		lines = append(lines, x.String())
 	}
-	if rt.Host != p.Ip {
-		parts = append(parts, fmt.Sprintf(t("The router Host is %s, not the tunnel address %s: the API does not use the tunnel"), rt.Host, p.Ip))
-		bad = true
-	}
-	if ident, err := s.Billing.Ping(r.Context(), rt); err != nil {
-		parts = append(parts, t("API login failed")+": "+t(routerErr(err, msgRouterOther)))
-		bad = true
-	} else {
-		parts = append(parts, t("API login OK")+" ("+ident+")")
-	}
-	if err := radius.ProbeCoA(r.Context(), s.queries, s.SecretKey, p.Ip); err != nil {
-		parts = append(parts, t("CoA failed")+": "+err.Error())
-		bad = true
-	} else {
-		parts = append(parts, t("CoA reply received"))
-	}
-	if bad {
-		s.sessions.Put(r.Context(), "error", strings.Join(parts, ". "))
-	} else {
-		s.sessions.Put(r.Context(), "flash", strings.Join(parts, ". "))
-	}
+	s.sessions.Put(r.Context(), "wg_stages", strings.Join(lines, "\n"))
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
@@ -483,15 +574,35 @@ func ago(t time.Time) string {
 	return fmt.Sprintf("%d h", int(d.Hours()))
 }
 
+// wgToken says what happened to the provisioning link of a router: waiting, used (from where, when) or expired.
+func (s *Server) wgToken(ctx context.Context, id int64, hs time.Time) string {
+	t := func(x string) string { return s.catalog.T(s.language(), x) }
+	k, err := s.queries.GetWgToken(ctx, id)
+	if err != nil {
+		return ""
+	}
+	switch {
+	case k.UsedAt != 0:
+		out := fmt.Sprintf(t("Script fetched from %s at %s"), k.UsedIp, s.ts(k.UsedAt))
+		if time.Since(time.Unix(k.UsedAt, 0)) > 3*time.Minute && hs.Unix() < k.UsedAt {
+			out += "\n" + t("Warning: no handshake since the script was fetched. If you did not run it, provision again: this makes a new key and cancels the old one")
+		}
+		return out
+	case time.Now().Unix() > k.ExpiresAt:
+		return t("The provisioning line expired without being used. Provision again to get a new one")
+	}
+	return fmt.Sprintf(t("The provisioning line is valid until %s and has not been used"), s.ts(k.ExpiresAt))
+}
+
 // routerWGFields is the WireGuard card of the router page: the stages that can be read without calling
-// the router, the buttons, and, right after provisioning, the commands to paste. port is the tunnel port.
+// the router, the last full check, the buttons, and, right after provisioning, the line to paste. port is the tunnel port.
 func (s *Server) routerWGFields(ctx context.Context, rt db.Router, once, port string) []field {
 	t := func(x string) string { return s.catalog.T(s.language(), x) }
 	sec := t("WireGuard tunnel")
 	var out []field
 	if once != "" {
-		out = append(out, field{Name: "wg_cmd", Label: t("Paste into the router terminal (RouterOS 7). The private key and the RADIUS secret are shown only now"), Type: "pre", Section: sec, Value: once,
-			Hint: t("Then set the Host of this router to the tunnel address. Provision again to get a new block")})
+		out = append(out, field{Name: "wg_cmd", Label: t("Paste this one line into the router terminal (RouterOS 7). It works once and expires in 15 minutes"), Type: "pre", Section: sec, Value: once,
+			Hint: t("The key and the RADIUS secret are not in the line: the router fetches them. Provision again to get a new line")})
 	}
 	if off := wgOff(); off != "" {
 		return append(out, field{Name: "wg_status", Label: t("Status"), Type: "pre", Section: sec, Value: t(off)})
@@ -508,32 +619,22 @@ func (s *Server) routerWGFields(ctx context.Context, rt db.Router, once, port st
 	if p.Stale != 0 {
 		lines = append(lines, t("Needs provisioning again: the port, endpoint or subnet changed"))
 	}
-	var hs time.Time
+	hs := s.wgHandshake(p, port)
+	lines = append(lines, hs.String(), s.wgRadius(p).String(), t("API login and CoA: use Check tunnel"))
+	var hsTime time.Time
 	if s.WG != nil {
-		hs = s.WG.Stats()[p.PublicKey].Handshake
+		hsTime = s.WG.Stats()[p.PublicKey].Handshake
 	}
-	switch {
-	case hs.IsZero() && p.Endpoint != "":
-		lines = append(lines, fmt.Sprintf(t("Handshake: none since gobill started. Last seen at %s"), p.Endpoint))
-	case hs.IsZero():
-		lines = append(lines, fmt.Sprintf(t("Handshake: never. Check that UDP port %s reaches this server, and the router clock"), port))
-	case time.Since(hs) > 3*time.Minute:
-		lines = append(lines, fmt.Sprintf(t("Handshake: last %s ago, the tunnel looks down"), ago(hs)))
-	default:
-		lines = append(lines, fmt.Sprintf(t("Handshake: OK, %s ago"), ago(hs)))
+	if tok := s.wgToken(ctx, rt.ID, hsTime); tok != "" {
+		lines = append(lines, tok)
 	}
-	if s.WG != nil {
-		if seen := s.WG.RadiusSeen(p.Ip); seen.IsZero() {
-			lines = append(lines, t("RADIUS: no packet from this router yet"))
-		} else {
-			lines = append(lines, fmt.Sprintf(t("RADIUS: last packet %s ago"), ago(seen)))
-		}
+	out = append(out, field{Name: "wg_status", Label: t("Status"), Type: "pre", Section: sec, Value: strings.Join(lines, "\n")})
+	if stages := s.sessions.PopString(ctx, "wg_stages"); stages != "" {
+		out = append(out, field{Name: "wg_stages", Label: t("Check result"), Type: "pre", Section: sec, Value: stages})
 	}
-	lines = append(lines, t("API login and CoA: use Check tunnel"))
 	return append(out,
-		field{Name: "wg_status", Label: t("Status"), Type: "pre", Section: sec, Value: strings.Join(lines, "\n")},
 		btn("wg_check", "Check tunnel", "check", ""),
-		btn("wg_provision", "Provision again", "provision", "A new key is made and the old one stops working. The router must be given the new commands"),
+		btn("wg_provision", "Provision again", "provision", "A new key is made and the old one stops working. The router must be given the new line"),
 		btn("wg_reset", "Reset peer session", "reset", ""),
 		btn("wg_revoke", "Revoke", "revoke", "Revoke the tunnel? The router is cut off from gobill at once"))
 }

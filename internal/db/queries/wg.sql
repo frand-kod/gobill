@@ -21,3 +21,13 @@ UPDATE wg_peers SET stale = 1;
 
 -- name: CountWgPeers :one
 SELECT COUNT(*) FROM wg_peers;
+
+-- name: SetWgToken :exec
+INSERT INTO wg_tokens (router_id, token_hash, expires_at, used_at, used_ip) VALUES (?, ?, ?, 0, '')
+ON CONFLICT (router_id) DO UPDATE SET token_hash = excluded.token_hash, expires_at = excluded.expires_at, used_at = 0, used_ip = '';
+
+-- name: GetWgToken :one
+SELECT * FROM wg_tokens WHERE router_id = ?;
+
+-- name: UseWgToken :execrows
+UPDATE wg_tokens SET used_at = ?, used_ip = ? WHERE router_id = ? AND used_at = 0 AND expires_at > ?;
