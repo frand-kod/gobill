@@ -126,6 +126,22 @@ Jika gobill dipasang di STB yang sudah menjalankan PHPNuxBill, FreeRADIUS, dan s
 
 Kembalikan `connect_uri` atau `address` pada `/radius` ke entri lama. Data sistem lama tidak berubah. Namun transaksi yang terjadi di gobill setelah cutover tidak ikut kembali. Catat transaksi itu, dan masukkan manual jika perlu.
 
+## Rekonsiliasi dengan router yang sudah berisi akun
+
+Jika akun Anda hanya ada di MikroTik, tambahkan router di gobill (mode API), buka **Router**, ubah router itu, lalu tekan **Rekonsiliasi dengan router**. gobill membaca secret PPPoE dan user hotspot (hanya baca) lalu mencocokkannya dengan gobill menurut username. Tidak ada yang berubah sebelum Anda mengonfirmasi ringkasan jumlah.
+
+| Kondisi | Bawaan | Pilihan |
+|---|---|---|
+| Ada di kedua sisi, sama | Tidak ada tindakan | |
+| Ada di kedua sisi, profil atau sandi beda | Ikut gobill (dorong) | Ikut router (hanya menyalin sandi), lewati |
+| Hanya di gobill (langganan aktif) | Dorong ke router | Lewati |
+| Hanya di router | Biarkan di router | Impor ke gobill |
+
+- Akun yang diimpor menjadi pelanggan dengan sandi dari router (disegel seperti secret lain). Pelanggan itu belum punya langganan, karena harga dan masa aktif tidak ada di router. Aktifkan paket untuknya setelah impor.
+- Tidak ada yang dihapus di kedua sisi.
+- Router RADIUS ditolak. Router yang mati menghentikan seluruh proses dengan pesan dan tanpa perubahan.
+- Profil hotspot dan PPPoE dicocokkan dengan paket menurut nama. Rate limit dan `/queue/simple` tidak dibaca.
+
 ## Belum didukung
 
 Fitur PHPNuxBill berikut belum ada di gobill. Pastikan Anda tidak membutuhkannya sebelum cutover.

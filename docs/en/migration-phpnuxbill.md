@@ -126,6 +126,22 @@ If gobill is installed on an STB that already runs PHPNuxBill, FreeRADIUS, and t
 
 Change the `connect_uri` or the `/radius` address back to the old entry. The old system's data does not change. However, transactions that happened in gobill after the cutover do not come back. Record them, and enter them by hand if needed.
 
+## Reconcile with a router that already has accounts
+
+If your accounts exist only on a MikroTik, add the router in gobill (API mode), then open **Routers**, edit the router, and press **Reconcile with router**. gobill reads the PPPoE secrets and hotspot users (read-only) and compares them with gobill by username. Nothing changes until you confirm a count summary.
+
+| Case | Default | Choices |
+|---|---|---|
+| On both sides, the same | No action | |
+| On both sides, profile or password differs | Follow gobill (push) | Follow router (copies the password only), skip |
+| Only in gobill (active subscription) | Push to router | Skip |
+| Only on the router | Leave on router | Import into gobill |
+
+- An imported account becomes a customer with the router password (sealed, like other secrets). It has no subscription, because price and validity are not on the router. Activate a plan for the customer afterwards.
+- Nothing is ever deleted on either side.
+- A RADIUS router is refused. An offline router stops the whole run with a message and no change.
+- Hotspot and PPPoE profiles are matched to plans by name. Rate limits and `/queue/simple` are not read.
+
 ## Not supported yet
 
 These PHPNuxBill features are not in gobill yet. Make sure you do not need them before cutover.

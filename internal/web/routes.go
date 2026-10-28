@@ -284,6 +284,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/routers/{id}/test", managers(http.HandlerFunc(s.routerTest)))
 	mux.Handle("POST /admin/routers/{id}/sync", managers(http.HandlerFunc(s.routerSync)))
 	mux.Handle("GET /admin/routers/{id}/sync", managers(http.HandlerFunc(s.routerSyncStatus)))
+	mux.Handle("GET /admin/routers/{id}/reconcile", managers(http.HandlerFunc(s.routerReconcile)))
+	mux.Handle("POST /admin/routers/{id}/reconcile", managers(http.HandlerFunc(s.routerReconcile)))
 	mux.Handle("POST /admin/routers/{id}/wg/provision", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.routerWGProvision)))
 	mux.Handle("POST /admin/routers/{id}/wg/revoke", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.routerWGRevoke)))
 	mux.Handle("POST /admin/routers/{id}/wg/reset", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.routerWGReset)))

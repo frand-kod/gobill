@@ -18,6 +18,24 @@ func (r Router) Ping(ctx context.Context) (string, error) {
 	return rows[0]["name"], nil
 }
 
+// Account is a PPPoE secret or hotspot user as the router holds it. Type is "PPPoE" or "Hotspot".
+type Account struct{ Type, Name, Password, Profile string }
+
+// Accounts reads every /ppp/secret and /ip/hotspot/user row. It changes nothing on the router.
+func (r Router) Accounts(ctx context.Context) ([]Account, error) {
+	var out []Account
+	for _, src := range []struct{ typ, path string }{{"PPPoE", "/ppp/secret"}, {"Hotspot", "/ip/hotspot/user"}} {
+		rows, err := r.exec(ctx, []string{src.path + "/print", "=.proplist=name,password,profile"})
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range rows {
+			out = append(out, Account{src.typ, m["name"], m["password"], m["profile"]})
+		}
+	}
+	return out, nil
+}
+
 // Pool is an /ip/pool entry; Ranges is e.g. "10.10.10.2-10.10.10.254".
 type Pool struct{ Name, Ranges string }
 

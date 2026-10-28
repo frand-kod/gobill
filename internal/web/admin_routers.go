@@ -40,6 +40,8 @@ func routerFields(v, e map[string]string, editing bool) []field {
 			rp.Hint = v["cert_pin"] // SHA-256 hex, needs no translation
 		}
 		out = append(out, section([]field{rp}, "Certificate", "")...)
+		out = append(out, field{Name: "reconcile", Label: "Router accounts", Type: "link", Value: fmt.Sprint("/admin/routers/", v["id"], "/reconcile"), Btn: "Reconcile with router", Section: "Accounts",
+			Hint: "Read the PPPoE and hotspot accounts on the router and compare them with gobill. Nothing changes until you confirm."})
 	}
 	return append(out, section([]field{
 		text("coordinates", "Coordinates", v, e).as("coords").hint("lat,lng, e.g. -6.2,106.8. Optional; shown on the router map."),
@@ -110,7 +112,7 @@ func (s *Server) routerEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := map[string]string{"name": x.Name, "host": x.Host, "port": fmt.Sprint(x.Port), "username": x.Username,
-		"description": x.Description, "enabled": fmt.Sprint(x.Enabled), "coordinates": x.Coordinates, "coverage": fmt.Sprint(x.Coverage), "cert_pin": x.CertPin}
+		"id": fmt.Sprint(x.ID), "description": x.Description, "enabled": fmt.Sprint(x.Enabled), "coordinates": x.Coordinates, "coverage": fmt.Sprint(x.Coverage), "cert_pin": x.CertPin}
 	fields := routerFields(v, nil, true)
 	if wg.Built && s.WG != nil && adminFrom(r).Role == "SuperAdmin" {
 		st, _ := s.loadSettings(r.Context())
