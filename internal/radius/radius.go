@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
 	"net/netip"
 	"strings"
@@ -289,6 +290,7 @@ type AuthRequest struct {
 	FramedIP string
 	MAC      string
 	NAS      string // NAS address, for the voucher-guess limiter
+	DryRun   bool   // read-only decision (router migration test): no pending start, no session kick
 }
 
 // Decision is the outcome of Authorize. Reject != "" means Access-Reject with that message.
@@ -514,7 +516,9 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 			pl = iso
 		}
 	}
-	if pl.PendingStart == 1 && s.Start != nil { // before the expiry check: a pending row's provisional expiry is not the real one
+	if pl.PendingStart == 1 && rq.DryRun {
+		pl.ExpiresAt = math.MaxInt32 // not started, not touched: the provisional expiry says nothing
+	} else if pl.PendingStart == 1 && s.Start != nil { // before the expiry check: a pending row's provisional expiry is not the real one
 		if err := s.Start(ctx, c.ID); err != nil {
 			slog.Error("radius: start pending subscription", "user", user, "err", err)
 		} else if p, err := s.Q.GetRadiusPlan(ctx, c.ID); err == nil {
@@ -542,7 +546,9 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 			if s.sharedPolicy(ctx) == "reject" {
 				return Decision{Reject: SharedUsersFullMsg}
 			}
-			s.kickOldest(ctx, user, others[:min(n, max(0, n-pl.SharedUsers.Int64+1))])
+			if !rq.DryRun {
+				s.kickOldest(ctx, user, others[:min(n, max(0, n-pl.SharedUsers.Int64+1))])
+			}
 		}
 	}
 	d := Decision{Success: success, Cust: c, Plan: pl, Expires: pl.ExpiresAt, AddressList: isolir.AddressListFor(s.settings(ctx), pl.PlanID)}

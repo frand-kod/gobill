@@ -320,6 +320,39 @@ func TestSharedUsersKickOldest(t *testing.T) {
 	}
 }
 
+// A DryRun decision (router migration login test) changes nothing: no kick, no pending start.
+func TestAuthorizeDryRunReadOnly(t *testing.T) {
+	e := setup(t)
+	e.setShared(t, 1)
+	e.sendAcct(t, rfc2866.AcctStatusType_Value_Start, "s1", "172.16.0.5", "AA:AA")
+	started := 0
+	e.s.Start = func(context.Context, int64) error { started++; return nil }
+	rq := AuthRequest{User: "alice", DryRun: true, FramedIP: "172.16.0.9", MAC: "BB:BB",
+		Check: func(pw []byte) (bool, string) { return string(pw) == "pw", "" }}
+	if d := e.s.Authorize(context.Background(), rq); d.Reject != "" {
+		t.Fatal(d.Reject)
+	}
+	select {
+	case got := <-e.kicks:
+		t.Fatalf("dry run kicked %q", got)
+	case <-time.After(50 * time.Millisecond):
+	}
+	if n, _ := e.openSessions(); n != 1 {
+		t.Fatalf("dry run stopped a session, open=%d", n)
+	}
+	if _, err := e.conn.Exec("UPDATE subscriptions SET pending_start = 1, expires_at = ?", e.now.Unix()-1); err != nil {
+		t.Fatal(err)
+	}
+	if d := e.s.Authorize(context.Background(), rq); d.Reject != "" || started != 0 {
+		t.Fatalf("pending: reject %q, started %d", d.Reject, started)
+	}
+	rq.DryRun = false
+	e.s.Authorize(context.Background(), rq)
+	if started != 1 {
+		t.Fatalf("normal login must start the pending subscription, started %d", started)
+	}
+}
+
 // limit 2 with 3 open sessions: the 2 oldest go, count becomes limit-1 = 1, the newest stays.
 func TestSharedUsersKickOldestTwo(t *testing.T) {
 	e := setup(t)

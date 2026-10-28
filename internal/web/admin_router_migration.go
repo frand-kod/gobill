@@ -131,7 +131,7 @@ func (s *Server) routerMigrationAct(w http.ResponseWriter, r *http.Request) {
 			if pw == "" || pw == user { // a voucher-style login would redeem a voucher
 				return t("This account uses its username as password (voucher style), test another one")
 			}
-			d = rs.Authorize(ctx, radius.AuthRequest{User: user,
+			d = rs.Authorize(ctx, radius.AuthRequest{User: user, DryRun: true,
 				Check: func(stored []byte) (bool, string) { return subtle.ConstantTimeCompare([]byte(pw), stored) == 1, "" }})
 			return d.Reject
 		})
