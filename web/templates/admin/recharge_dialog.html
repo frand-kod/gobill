@@ -1,7 +1,7 @@
 {{define "recharge_card"}}
 <form class="card max-w-xl" method="post" action="/admin/customers/{{.C.ID}}/recharge">
+  {{if .Fragment}}<h2 class="card-title" id="recharge-dlg-title">{{T "Recharge Account"}}: {{.C.Username}}</h2>{{end}}
   <div class="card-body space-y-4">
-    {{if .Fragment}}<h2 class="card-title" id="recharge-dlg-title">{{T "Recharge Account"}}: {{.C.Username}}</h2>{{end}}
     <input type="hidden" name="plan" value="{{.PlanID}}">
     <input type="hidden" name="method" value="{{.Method}}">
     <dl class="grid grid-cols-2 gap-2 text-sm">

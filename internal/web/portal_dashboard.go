@@ -81,8 +81,8 @@ type pMeter struct {
 
 type pUsage struct {
 	Note    string // why there are no meters: no plan, or the plan's usage is not tracked here
-	Total   string // data used this period, the big number
-	Left    string // data left before the limit, "" without a data limit
+	TotalNum, TotalUnit string // data used this period, the big number: "112.61", "GB"
+	LeftNum, LeftUnit string // data left before the limit, "" without a data limit
 	Limit   string // the data limit, "" without one
 	Data    pMeter
 	HasTime bool // the plan has a time limit
@@ -307,10 +307,12 @@ func (s *Server) pUsage(ctx context.Context, c db.Customer, sub db.Subscription,
 		return pUsage{Note: s.catalog.T(s.language(), "Usage is not recorded for this plan")}
 	}
 	q := s.planQuota(ctx, c, sub, p)
-	u := pUsage{Total: humanBytes(used)}
+	u := pUsage{}
+	u.TotalNum, u.TotalUnit = humanBytesParts(used)
 	if q.HasData {
 		u.Data = meter(q.Data, q.DataLim, humanBytes)
-		u.Left, u.Limit = humanBytes(max(q.DataLim-q.Data, 0)), humanBytes(q.DataLim)
+		u.LeftNum, u.LeftUnit = humanBytesParts(max(q.DataLim-q.Data, 0))
+		u.Limit = humanBytes(q.DataLim)
 	}
 	if q.HasTime {
 		u.HasTime = true

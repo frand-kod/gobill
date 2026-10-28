@@ -182,6 +182,9 @@
   a.stat:hover { box-shadow: inset 3px 0 0 var(--accent); }
   .stat-num { font-size: var(--fs-title); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; line-height: 1.25; }
   .stat-label { font-size: var(--fs-small); @apply text-ink-2; }
+  /* big number: a headline total, the unit half size beside it: <p class="big-num">112.61<span class="unit">GB</span></p> */
+  .big-num { font-size: 2.25rem; font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; line-height: 1.25; }
+  .big-num .unit { font-size: 0.5em; font-weight: var(--fw-medium); margin-left: var(--sp-1); @apply text-ink-2; }
   /* one tile, two parts (Active / Expired, Customer). Side by side when the tile is 15rem or wider, else stacked */
   .stat-split { display: block; padding: 0; overflow: hidden; container-type: inline-size; }
   .stat-split-in { display: flex; flex-direction: column; }

@@ -32,6 +32,7 @@ type usageCard struct {
 // usageWin is one window of the Usage card. Empty means no RADIUS usage in the window at all.
 type usageWin struct {
 	Total, Down, Up string
+	TotalNum, TotalUnit string // Total split for the big number
 	Bars            []dayBar
 	Top             []usageTop
 	Empty           bool
@@ -151,7 +152,8 @@ func (s *Server) usageWindow(ctx context.Context, now time.Time, loc *time.Locat
 		down += x.Output
 		up += x.Input
 	}
-	w := usageWin{Total: humanBytes(down + up), Down: humanBytes(down), Up: humanBytes(up),
+	num, unit := humanBytesParts(down + up)
+	w := usageWin{Total: num + " " + unit, TotalNum: num, TotalUnit: unit, Down: humanBytes(down), Up: humanBytes(up),
 		Bars: chartBars(dailyUsage(totals, n, now.Unix(), loc))}
 	top, err := s.queries.TopRadiusUsageDaily(ctx, db.TopRadiusUsageDailyParams{Since: since, RowLimit: usageTopN})
 	if err != nil {

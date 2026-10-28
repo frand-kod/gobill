@@ -147,48 +147,34 @@ func dailyUsage(rows []dayTotal, n int, now int64, loc *time.Location) []dayUse 
 	return days
 }
 
-// Chart geometry: a 280 x 120 box, bars stand on y = chartBase and labels sit below it.
-const (
-	chartW    = 280
-	chartBar  = 28
-	chartBase = 100
-	chartH    = 100
-)
-
-// dayBar is one stacked bar: the upload on top of the download. Slot and Step are the bar's column,
-// the hover target; X and W the bar itself.
+// dayBar is one column of the usage chart: the upload stacked on the download. DownPct and UpPct are
+// percentages (0..100) of the busiest day's total, so the busiest day fills the chart.
 type dayBar struct {
-	Label                  string
-	Tick                   string // x-axis label, "" where the axis has none
-	Down, Up               string // the day's totals, shown on hover or tap
-	X, W, Mid              int    // bar left edge, width and centre
-	Slot, Step             int
-	UpY, UpH, DownY, DownH int
-	Today                  bool
+	Label    string
+	Tick     string // axis label, "" where the axis has none
+	Down, Up string // the day's totals, shown on hover or tap
+	DownPct  int
+	UpPct    int
+	Today    bool
 }
 
-// chartBars scales the days to the chart: the busiest day fills it. 7 days get 28-wide bars; more days
-// narrow the bars to fit and label only every fifth day.
+// chartBars scales the days to the chart: the busiest day is 100%. Up to 10 days label every bar; more
+// days label every fifth day and the last one.
 func chartBars(days []dayUse) []dayBar {
 	var top int64 = 1
 	for _, d := range days {
 		top = max(top, d.Down+d.Up)
 	}
-	step := chartW / len(days)
-	w := min(chartBar, step*7/10)
 	out := make([]dayBar, len(days))
 	for i, d := range days {
-		// the stack is rounded as a whole, so the busiest day fills the chart exactly
-		downH := int(d.Down * chartH / top)
-		upH := int((d.Down+d.Up)*chartH/top) - downH
+		// the stack is rounded as a whole, so the busiest day comes to exactly 100
+		downPct := int(d.Down * 100 / top)
 		tick := d.Label
-		if len(days) > 7 && i%5 != 0 && i != len(days)-1 {
+		if len(days) > 10 && i%5 != 0 && i != len(days)-1 {
 			tick = ""
 		}
-		slot := i * step
-		x := slot + (step-w)/2
-		out[i] = dayBar{Label: d.Label, Tick: tick, Down: humanBytes(d.Down), Up: humanBytes(d.Up), X: x, W: w, Mid: x + w/2,
-			Slot: slot, Step: step, DownH: downH, DownY: chartBase - downH, UpH: upH, UpY: chartBase - downH - upH, Today: d.Today}
+		out[i] = dayBar{Label: d.Label, Tick: tick, Down: humanBytes(d.Down), Up: humanBytes(d.Up),
+			DownPct: downPct, UpPct: int((d.Down+d.Up)*100/top) - downPct, Today: d.Today}
 	}
 	return out
 }

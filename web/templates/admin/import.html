@@ -19,8 +19,7 @@
 
 {{if .Token}}
 <div x-data>
-<section class="card mb-4"><div class="card-body space-y-4">
-  <h2 class="card-title">{{T "Preview"}}</h2>
+<section class="card mb-4"><h2 class="card-title">{{T "Preview"}}</h2><div class="card-body space-y-4">
   <p class="text-sm">{{T "Current data in this app"}}: {{.Current.Customers}} {{T "Customers"}}, {{.Current.Plans}} {{T "Plans"}}, {{.Current.Subscriptions}} {{T "Subscriptions"}}, {{.Current.Transactions}} {{T "Transactions"}}, {{.Current.Admins}} {{T "Admins"}}</p>
   <div class="overflow-x-auto"><table class="table">
     <thead><tr><th>{{T "Table"}}</th><th>{{T "Read"}}</th><th>{{T "Will import"}}</th><th>{{T "Skipped"}}</th></tr></thead>
@@ -54,8 +53,8 @@
 {{if .Filled}}
 <dialog x-ref="dlg" class="m-auto w-[calc(100%-2rem)] max-w-lg bg-transparent p-0 text-inherit backdrop:bg-black/50" aria-labelledby="import-dlg-title">
   <form class="card" method="post" action="/admin/settings/system/import/confirm">
+    <h2 class="card-title" id="import-dlg-title">{{T "Overwrite existing data?"}}</h2>
     <div class="card-body space-y-4">
-      <h2 class="card-title" id="import-dlg-title">{{T "Overwrite existing data?"}}</h2>
       <p class="text-sm">{{T "Existing data will be OVERWRITTEN:"}} {{.Current.Customers}} {{T "Customers"}}, {{.Current.Plans}} {{T "Plans"}}, {{.Current.Subscriptions}} {{T "Subscriptions"}}, {{.Current.Transactions}} {{T "Transactions"}}, {{.Current.Admins}} {{T "Admins"}}. {{T "A backup is made automatically first."}}</p>
       <input type="hidden" name="token" value="{{.Token}}">
       <label class="flex items-center gap-2 py-2 text-sm font-medium"><input type="checkbox" class="size-4 rounded accent-brand-500" name="understand" value="1" required> {{T "I understand the existing data will be overwritten"}}</label>

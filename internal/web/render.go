@@ -64,6 +64,21 @@ func (s *Server) parseTemplates() error {
 			return s.catalog.T(s.language(), text)
 		},
 		"hasPrefix": strings.HasPrefix,
+		// dict builds the map a sub-template takes several arguments through: {{template "x" dict "A" 1 "B" .Y}}
+		"dict": func(kv ...any) (map[string]any, error) {
+			if len(kv)%2 != 0 {
+				return nil, fmt.Errorf("dict: odd number of arguments")
+			}
+			m := make(map[string]any, len(kv)/2)
+			for i := 0; i < len(kv); i += 2 {
+				k, ok := kv[i].(string)
+				if !ok {
+					return nil, fmt.Errorf("dict: key %v is not a string", kv[i])
+				}
+				m[k] = kv[i+1]
+			}
+			return m, nil
+		},
 		"asset":     s.asset,
 		"spark":     sparkline,
 		"navActive": navActive,
@@ -83,7 +98,7 @@ func (s *Server) parseTemplates() error {
 		"login":            {"base.html", "login.html"},
 		"login_2fa":        {"base.html", "login_2fa.html"},
 		"admin_2fa":        {"base.html", "admin/app.html", "admin/admin_2fa.html"},
-		"dashboard":        {"base.html", "admin/app.html", "admin/dashboard.html"},
+		"dashboard":        {"base.html", "admin/app.html", "admin/dashboard.html", "barchart.html"},
 		"status":           {"base.html", "admin/app.html", "admin/status.html"},
 		"list":             {"base.html", "admin/app.html", "admin/list.html"},
 		"form":             {"base.html", "admin/app.html", "admin/form.html", "admin/formfields.html", "admin/customer_pick.html", "admin/tplvars.html"},
@@ -108,7 +123,7 @@ func (s *Server) parseTemplates() error {
 		"p_login":        {"base.html", "portal/login.html"},
 		"p_qris":         {"base.html", "portal/qris.html"},
 		"p_register":     {"base.html", "portal/register.html"},
-		"p_dashboard":    {"base.html", "portal/layout.html", "portal/dashboard.html", "portal/dash_cards.html", "promo_cards.html"},
+		"p_dashboard":    {"base.html", "portal/layout.html", "portal/dashboard.html", "portal/dash_cards.html", "barchart.html", "promo_cards.html"},
 		"p_connection":   {"base.html", "portal/layout.html", "portal/connection.html"},
 		"p_profile":      {"base.html", "portal/layout.html", "portal/profile.html"},
 		"p_orders":       {"base.html", "portal/layout.html", "portal/orders.html"},

@@ -79,11 +79,10 @@ func TestDailyUsageAggregation(t *testing.T) {
 		}
 	}
 	bars := chartBars(days)
-	top := bars[0]
-	if top.UpY != chartBase-chartH || top.DownY+top.DownH != chartBase || top.UpY+top.UpH != top.DownY {
+	if top := bars[0]; top.DownPct+top.UpPct != 100 || top.DownPct != 66 {
 		t.Fatalf("busiest bar does not fill the chart or does not stack: %+v", top)
 	}
-	if bars[6].DownH >= top.DownH || bars[6].Mid <= bars[6].X {
+	if bars[6].DownPct >= bars[0].DownPct || !bars[6].Today {
 		t.Fatalf("today's bar: %+v", bars[6])
 	}
 }

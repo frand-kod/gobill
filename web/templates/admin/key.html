@@ -7,8 +7,8 @@
   {{if not .Saved}}<form method="post" action="/admin/settings/system/key/saved"><button class="btn btn-primary" type="submit">{{T "I have saved the key"}}</button></form>{{end}}
 </div></section>
 <form class="card" method="post" action="/admin/settings/system/key/download">
+  <h2 class="card-title">{{T "Download the key"}}</h2>
   <div class="card-body space-y-4">
-    <h2 class="card-title">{{T "Download the key"}}</h2>
     <div>
       <label class="label" for="current">{{T "Current password"}}</label>
       <input class="input" id="current" name="current" type="password" autocomplete="current-password" required>

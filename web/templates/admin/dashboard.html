@@ -146,19 +146,8 @@
 {{define "collapse"}}<button type="button" class="btn btn-ghost btn-icon card-toggle hidden" data-collapse-toggle aria-controls="{{.}}-body" aria-expanded="true" aria-label="{{T "Show or hide"}}">{{icon "chevron-down"}}</button>{{end}}
 {{define "usage-win"}}<div class="card-body pt-3">
   {{if .Empty}}<p class="text-sm text-ink-2">{{T "No usage recorded yet"}}</p>{{else}}
-  <p class="flex flex-wrap items-baseline justify-between gap-2"><span class="text-3xl font-semibold tabular-nums">{{.Total}}</span><span class="text-sm tabular-nums text-ink-2">↓ {{.Down}} · ↑ {{.Up}}</span></p>
-  <figure class="mt-4" x-data="{ tip: '' }" @mouseleave="tip = ''">
-    <p class="mb-1 min-h-5 text-sm tabular-nums" aria-live="polite" x-text="tip || $el.dataset.total" data-total="{{.Total}}">{{.Total}}</p>
-    <svg class="h-32 w-full text-brand-500" viewBox="0 0 280 120" role="img" aria-label="{{T "Usage"}}">
-      {{range .Bars}}{{$tip := printf "%s · ↓ %s · ↑ %s" .Label .Down .Up}}<g class="cursor-pointer outline-none" tabindex="0" data-tip="{{$tip}}" @mouseenter="tip = $el.dataset.tip" @focus="tip = $el.dataset.tip" @click="tip = $el.dataset.tip" :opacity="tip && tip !== $el.dataset.tip ? 0.45 : 1"><title>{{$tip}}</title>
-        <rect x="{{.Slot}}" y="0" width="{{.Step}}" height="100" fill="transparent"/>
-        <rect x="{{.X}}" y="{{.DownY}}" width="{{.W}}" height="{{.DownH}}" rx="2" fill="currentColor"/>
-        <rect x="{{.X}}" y="{{.UpY}}" width="{{.W}}" height="{{.UpH}}" rx="2" fill="currentColor" opacity="0.4"/>
-        <text x="{{.Mid}}" y="116" text-anchor="middle" font-size="9" class="fill-ink-2">{{.Tick}}</text>
-      </g>{{end}}
-      <line x1="0" y1="100" x2="280" y2="100" stroke="currentColor" stroke-opacity="0.3"/>
-    </svg>
-  </figure>
+  <p class="flex flex-wrap items-baseline justify-between gap-2"><span class="big-num">{{.TotalNum}}<span class="unit">{{.TotalUnit}}</span></span><span class="text-sm tabular-nums text-ink-2">↓ {{.Down}} · ↑ {{.Up}}</span></p>
+  {{template "barchart" dict "Bars" .Bars "Default" .Total "Label" (T "Usage")}}
   <h3 class="mt-4 text-sm font-medium">{{T "Top users"}}</h3>
   <ul class="mt-1 divide-y divide-line">{{range .Top}}{{$u := .}}<li class="flex items-center gap-3 py-2 text-sm">
     <span class="min-w-0 flex-1 truncate">{{if $u.Href}}<a class="link" href="{{$u.Href}}">{{$u.Name}}</a>{{else}}{{$u.Name}}{{end}}</span>

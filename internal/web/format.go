@@ -12,6 +12,12 @@ import (
 )
 
 func humanBytes(n int64) string {
+	num, unit := humanBytesParts(n)
+	return num + " " + unit
+}
+
+// humanBytesParts is humanBytes split for the big-number style: ("112.61", "GB"), ("512", "B").
+func humanBytesParts(n int64) (string, string) {
 	f, u := float64(n), "B"
 	for _, next := range []string{"KB", "MB", "GB", "TB"} {
 		if f < 1024 {
@@ -20,9 +26,9 @@ func humanBytes(n int64) string {
 		f, u = f/1024, next
 	}
 	if u == "B" {
-		return fmt.Sprintf("%d B", n)
+		return fmt.Sprintf("%d", n), u
 	}
-	return fmt.Sprintf("%.2f %s", f, u)
+	return fmt.Sprintf("%.2f", f), u
 }
 
 func humanDur(sec int64) string {

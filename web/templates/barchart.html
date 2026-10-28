@@ -1,0 +1,16 @@
+{{define "barchart"}}
+{{/* daily usage bars, shared by the portal and the admin Usage card.
+     {{template "barchart" dict "Bars" .Days "Default" $text "Label" (T "Daily usage, last 7 days")}}
+     Bars is []dayBar (DownPct, UpPct: 0..100 of the busiest day), Default is the line shown until a bar is
+     picked, Label is the screen reader name. Hover, focus or tap a bar to show its day; the others dim. */}}
+<div class="mt-4" x-data="{ tip: '' }" @mouseleave="tip = ''">
+  <p class="mb-1 min-h-5 text-sm tabular-nums" aria-live="polite" x-text="tip || $el.dataset.default" data-default="{{.Default}}">{{.Default}}</p>
+  <div class="flex h-32 items-end gap-1 text-brand-500" role="group" aria-label="{{.Label}}">
+    {{range .Bars}}{{$tip := printf "%s · ↓ %s · ↑ %s" .Label .Down .Up}}<div class="flex h-full min-w-0 flex-1 cursor-pointer flex-col justify-end outline-none transition-opacity" tabindex="0" data-tip="{{$tip}}" @mouseenter="tip = $el.dataset.tip" @focus="tip = $el.dataset.tip" @click="tip = $el.dataset.tip" :style="tip && tip !== $el.dataset.tip ? 'opacity: 0.45' : ''">
+      <span class="block w-full rounded-t-sm bg-current opacity-40" style="height: {{.UpPct}}%"></span>
+      <span class="block w-full rounded-sm bg-current" style="height: {{.DownPct}}%"></span>
+    </div>{{end}}
+  </div>
+  <div class="mt-1 flex gap-1 text-xs text-ink-2">{{range .Bars}}<span class="flex min-w-0 flex-1 justify-center whitespace-nowrap">{{.Tick}}</span>{{end}}</div>
+</div>
+{{end}}

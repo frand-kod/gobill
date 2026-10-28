@@ -20,8 +20,7 @@
 
 {{if .Token}}
 <div x-data>
-<section class="card mb-4"><div class="card-body space-y-4">
-  <h2 class="card-title">{{T "Check result"}}</h2>
+<section class="card mb-4"><h2 class="card-title">{{T "Check result"}}</h2><div class="card-body space-y-4">
   <p class="text-sm">{{T "File size"}}: {{.Size}} {{T "bytes"}}</p>
   <div class="overflow-x-auto"><table class="table">
     <thead><tr><th>{{T "Table"}}</th><th>{{T "In backup"}}</th><th>{{T "Current data"}}</th></tr></thead>
@@ -44,8 +43,8 @@
 
 <dialog x-ref="dlg" class="m-auto w-[calc(100%-2rem)] max-w-lg bg-transparent p-0 text-inherit backdrop:bg-black/50" aria-labelledby="restore-dlg-title">
   <form class="card" method="post" action="/admin/settings/system/restore/confirm">
+    <h2 class="card-title" id="restore-dlg-title">{{T "Restore database?"}}</h2>
     <div class="card-body space-y-4">
-      <h2 class="card-title" id="restore-dlg-title">{{T "Restore database?"}}</h2>
       <p class="text-sm">{{T "Current data will be replaced with the backup. A backup of the current data is made first. The app will restart."}}</p>
       <input type="hidden" name="token" value="{{.Token}}">
       <label class="flex items-center gap-2 py-2 text-sm font-medium"><input type="checkbox" class="size-4 rounded accent-brand-500" name="understand" value="1" required> {{T "I understand the current data will be replaced"}}</label>

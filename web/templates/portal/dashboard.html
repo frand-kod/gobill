@@ -4,9 +4,9 @@
 <h1 class="page-title mb-4">{{T "Dashboard"}}{{template "callout" .Intro}}</h1>
 {{template "dash_cards" .}}
 {{with .Data.Promo}}{{template "promo_portal" .}}{{end}}
-{{if or .Data.Phone .Data.WA}}<p class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-  <span>{{T "Need help? Contact"}} {{with .Data.Company}}{{.}}{{else}}{{T "your operator"}}{{end}}</span>
-  {{with .Data.Phone}}<a class="text-accent-fg underline" href="tel:{{.}}">{{.}}</a>{{end}}
-  {{with .Data.WA}}<a class="btn btn-ghost btn-sm" href="{{.}}" target="_blank" rel="noopener">{{icon "message-circle"}}<span>WhatsApp</span></a>{{end}}
-</p>{{end}}
+{{with .Data.WA}}{{$who := T "your operator"}}{{with $.Data.Company}}{{$who = .}}{{end}}
+<div class="card mb-4"><div class="card-body flex flex-wrap items-center justify-between gap-3 text-sm">
+  <span>{{printf (T "Having trouble? Contact %s admin") $who}}</span>
+  <a class="btn btn-ghost btn-sm" href="{{.}}" target="_blank" rel="noopener">{{icon "message-circle"}}<span>WhatsApp</span></a>
+</div></div>{{end}}
 {{end}}
