@@ -1575,5 +1575,10 @@
     "Move to RADIUS": "Move to RADIUS",
     "Migrate to RADIUS": "Migrate to RADIUS",
     "RADIUS migration": "RADIUS migration",
-    "Test a RADIUS login, turn on use-radius, then disable the local accounts. Can be rolled back.": "Test a RADIUS login, turn on use-radius, then disable the local accounts. Can be rolled back."
+    "Test a RADIUS login, turn on use-radius, then disable the local accounts. Can be rolled back.": "Test a RADIUS login, turn on use-radius, then disable the local accounts. Can be rolled back.",
+    "Plan ends soon": "Plan ends soon",
+    "%s ends on %s": "%s ends on %s",
+    "Quota almost used up": "Quota almost used up",
+    "Buy or extend a plan before it runs out": "Buy or extend a plan before it runs out",
+    "Nothing new": "Nothing new"
 }

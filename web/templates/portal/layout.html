@@ -13,7 +13,19 @@
   <div class="fiber-stripe" aria-hidden="true"></div>
   <div class="mx-auto flex max-w-4xl items-center gap-3 px-4 py-2">
     <a href="/portal" class="flex min-w-0 items-center gap-2 font-semibold text-accent-fg">{{template "logoA" .Brand}}</a>
-    <form class="ms-auto" method="post" action="/portal/logout"><button class="btn" type="submit">{{icon "log-out"}}<span>{{T "Logout"}}</span></button></form>
+    <div class="relative ms-auto" x-data="{o:false, seen:{{if .BellUnread}}false{{else}}true{{end}}, toggle(){ this.o=!this.o; if(this.o && !this.seen){ this.seen=true; fetch('/portal/bell/seen',{method:'POST',credentials:'same-origin'}).catch(function(){}) } }}" @click.outside="o=false" @keydown.escape.window="o=false">
+      <button type="button" class="btn relative" @click="toggle()" :aria-expanded="o ? 'true' : 'false'" aria-controls="gb-bell" aria-label="{{T "Notifications"}}">{{icon "bell"}}
+        {{if .BellUnread}}<span x-show="!seen" class="absolute -end-1 -top-1 flex min-w-5 justify-center rounded-full bg-warn-bg px-1.5 text-xs font-semibold leading-5 tabular-nums text-warn-fg ring-1 ring-warn-fg">{{.BellUnread}}</span>{{end}}
+      </button>
+      <div id="gb-bell" x-show="o" x-cloak class="absolute end-0 z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-surface py-1 shadow-lg">
+        <p class="px-4 py-2 text-sm font-semibold">{{T "Notifications"}}</p>
+        {{range .Bell}}<a class="block px-4 py-2 text-sm hover:bg-surface-2 focus-visible:bg-surface-2" href="{{.Href}}"{{if hasPrefix .Href "http"}} target="_blank" rel="noopener"{{end}}>
+          <span class="flex items-center gap-2 font-medium">{{if .Unread}}<span class="size-2 shrink-0 rounded-full bg-warn-fg" aria-hidden="true"></span>{{end}}{{.Title}}</span>
+          <span class="block truncate text-ink-2">{{.Text}}</span>
+        </a>{{else}}<p class="px-4 py-2 text-sm text-ink-2">{{T "Nothing new"}}</p>{{end}}
+      </div>
+    </div>
+    <form method="post" action="/portal/logout"><button class="btn" type="submit">{{icon "log-out"}}<span>{{T "Logout"}}</span></button></form>
   </div>
   {{/* desktop: one row of tabs; phones use the bottom bar below */}}
   <nav class="mx-auto hidden max-w-4xl items-center gap-1 px-4 sm:flex" aria-label="{{T "Main"}}">

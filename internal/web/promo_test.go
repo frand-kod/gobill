@@ -239,29 +239,15 @@ func TestPortalPromoCard(t *testing.T) {
 	portalCust(t, e, 0)
 	c, _ := custLogin(t, e, "u1", "pw12345")
 
-	// an isolir-only promo never shows on the dashboard
+	// an isolir-only promo never shows in the bell
 	insertPromo(t, q, db.CreatePromoParams{Title: "Isolir only", ShowIsolir: 1, Active: 1})
-	if body := portalGet(t, e, c, "/portal"); strings.Contains(body, "Isolir only") || strings.Contains(body, "gb-promo-") {
-		t.Fatal("card shown without a portal promo")
+	if body := portalGet(t, e, c, "/portal"); strings.Contains(body, "Isolir only") {
+		t.Fatal("isolir promo shown in the portal")
 	}
 
 	insertPromo(t, q, db.CreatePromoParams{Title: "Kopi Dadi", Body: "Diantar", ShowPortal: 1, Active: 1, Position: 1})
 	insertPromo(t, q, db.CreatePromoParams{Title: "Laundry Kilat", ShowPortal: 1, Active: 1, Position: 2})
-	body := portalGet(t, e, c, "/portal")
-	i := strings.Index(body, "gb-promo-")
-	if i < 0 || !strings.Contains(body, "Kopi Dadi") || !strings.Contains(body, "Laundry Kilat") || !strings.Contains(body, "Lainnya") {
-		t.Fatal("portal card missing")
-	}
-	key := body[i : i+len("gb-promo-")+16]
-
-	// a changed promo changes the key, so a closed card shows again
-	list, _ := q.ListPromos(t.Context())
-	if err := q.UpdatePromo(t.Context(), db.UpdatePromoParams{Title: "Kopi Dadi", Body: "Diantar", ShowPortal: 1, Active: 1,
-		UpdatedAt: time.Now().Unix() + 60, ID: list[0].ID}); err != nil {
-		t.Fatal(err)
-	}
-	body = portalGet(t, e, c, "/portal")
-	if j := strings.Index(body, "gb-promo-"); j < 0 || body[j:j+len(key)] == key {
-		t.Fatal("key did not change after an edit")
+	if body := portalGet(t, e, c, "/portal"); !strings.Contains(body, "Kopi Dadi") || strings.Contains(body, "gb-promo-") {
+		t.Fatal("first portal promo missing from the bell, or the old card is back")
 	}
 }

@@ -134,7 +134,7 @@ func TestPortalUsageMetersAndIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := portalGet(t, e, c, "/portal")
-	if strings.Contains(body, "bg-warn-fg") || !strings.Contains(body, `aria-valuenow="80"`) {
+	if strings.Contains(body, "h-full bg-warn-fg") || !strings.Contains(body, `aria-valuenow="80"`) {
 		t.Fatal("80% should be a plain bar")
 	}
 	if strings.Contains(body, "10.9.9.9") {
@@ -143,7 +143,7 @@ func TestPortalUsageMetersAndIsolation(t *testing.T) {
 	// 1 h more and 50 MB more: 90% time, 85% data, both warn
 	dashSess(t, e, "u1", "b", "10.1.0.1", "CE:33:AA:BB:2A:AA", now-10*3600, now-9*3600, 25<<20, 25<<20)
 	body = portalGet(t, e, c, "/portal")
-	if strings.Count(body, "bg-warn-fg") != 2 || !strings.Contains(body, `aria-valuenow="90"`) || !strings.Contains(body, `aria-valuenow="85"`) {
+	if strings.Count(body, "h-full bg-warn-fg") != 2 || !strings.Contains(body, `aria-valuenow="90"`) || !strings.Contains(body, `aria-valuenow="85"`) {
 		t.Fatalf("over 80%% should warn on both meters")
 	}
 	if strings.Contains(body, "10.9.9.9") || strings.Contains(body, "DE:AD:BE:EF") {

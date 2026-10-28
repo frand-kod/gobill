@@ -110,9 +110,7 @@ type pDashData struct {
 	Period    pTotal   // usage since the plan started
 	Words     pWords
 	Now       int64
-	Notice    string       // the announcement page, plain text
-	Outage    bool         // a mass drop covers this customer: the banner "outage in your area"
-	Promo     *portalPromo // the Promosi card at the bottom, nil when no live portal promo
+	Outage    bool // a mass drop covers this customer: the banner "outage in your area"
 	Voucher   bool
 	Company   string // operator contact from Settings
 	Phone     string
@@ -275,18 +273,8 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		s.fail(w, "portal dashboard orders", err)
 		return
 	}
-	ann, err := s.queries.GetPage(ctx, "announcement")
-	if err != nil {
-		s.fail(w, "portal announcement", err)
-		return
-	}
-	d.Notice = ann.Body
 	if d.Outage, err = billing.MassDropNow(ctx, s.queries, st, c.Username, time.Unix(now, 0)); err != nil {
 		s.fail(w, "portal outage", err)
-		return
-	}
-	if d.Promo, err = s.promoPortal(ctx); err != nil {
-		s.fail(w, "portal promo", err)
 		return
 	}
 	s.prender(w, r, code, "p_dashboard", Page{Title: "Dashboard", Error: errMsg, Data: d})

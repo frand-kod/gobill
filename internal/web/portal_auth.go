@@ -47,7 +47,16 @@ func (s *Server) requireCustomer(next http.HandlerFunc) http.Handler {
 func (s *Server) prender(w http.ResponseWriter, r *http.Request, status int, name string, p Page) {
 	p.Customer = customerFrom(r)
 	if p.Customer != nil {
+		var err error
 		p.Unread, _ = s.queries.CountUnreadInbox(r.Context(), p.Customer.ID)
+		if p.Bell, err = s.portalBell(r, p.Customer); err != nil {
+			slog.Warn("portal bell", "err", err)
+		}
+		for _, b := range p.Bell {
+			if b.Unread {
+				p.BellUnread++
+			}
+		}
 		p.Impersonating = s.sessions.GetInt64(r.Context(), "impersonator") != 0
 	}
 	if p.Flash == "" {

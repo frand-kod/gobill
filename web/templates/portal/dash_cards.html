@@ -4,8 +4,8 @@
 <script src="{{asset "/static/usage.js"}}"></script>
 
 {{/* one live scope: the plan card shows online/offline, the connection card the details; polled every 15 s while visible.
-     Two columns that stack independently (items-start): plan and transactions on the left, usage and connection on the right. */}}
-<div class="mb-4 grid items-start gap-4 lg:grid-cols-2" x-data="portalLive()" data-state="{{.Data.Live.JSON}}" data-url="/portal/usage.json" data-idle="{{T "Refreshes every 15 seconds"}}" data-updated="{{T "Updated %s"}}" data-failed="{{T "Connection lost, retrying"}}">
+     Two columns that stack independently: plan and transactions on the left, usage and connection on the right. */}}
+<div class="mb-4 grid gap-4 lg:grid-cols-2" x-data="portalLive()" data-state="{{.Data.Live.JSON}}" data-url="/portal/usage.json" data-idle="{{T "Refreshes every 15 seconds"}}" data-updated="{{T "Updated %s"}}" data-failed="{{T "Connection lost, retrying"}}">
 <div class="flex flex-col gap-4">
 
 {{/* a) plan and status: name, time left, validity used, the buy button when the customer can pay here */}}
@@ -32,7 +32,7 @@
 </div></section>
 
 {{/* d) recent transactions: invoice and plan, the date under them, the price on the right */}}
-<section class="card" aria-labelledby="c-trx"><h2 id="c-trx" class="card-title flex items-center justify-between gap-2"><span>{{T "Recent Transactions"}}</span><a class="link text-sm font-normal" href="/portal/orders">{{T "See all"}} ›</a></h2><div class="card-body pt-2">
+<section class="card flex-1" aria-labelledby="c-trx"><h2 id="c-trx" class="card-title flex items-center justify-between gap-2"><span>{{T "Recent Transactions"}}</span><a class="link text-sm font-normal" href="/portal/orders">{{T "See all"}} ›</a></h2><div class="card-body pt-2">
   {{with .Data.Trx}}<ul class="divide-y divide-line">{{range .}}<li class="flex items-start justify-between gap-3 py-3 text-sm">
     <div class="min-w-0">
       <p class="truncate"><a class="underline" href="/portal/orders/{{.ID}}/invoice">{{.Invoice}}</a> <span class="text-ink-2">· {{.PlanName}}</span></p>
@@ -75,7 +75,7 @@
 </div></section>
 
 {{/* c) current connection: a speedometer of the download rate against the plan speed, the session details beside it */}}
-<section class="card" aria-labelledby="c-live"><h2 id="c-live" class="card-title flex flex-wrap items-center justify-between gap-2"><span>{{T "Current connection"}}</span><span class="text-xs font-normal text-ink-2" x-text="status">{{T "Refreshes every 15 seconds"}}</span></h2><div class="card-body">
+<section class="card flex-1" aria-labelledby="c-live"><h2 id="c-live" class="card-title flex flex-wrap items-center justify-between gap-2"><span>{{T "Current connection"}}</span><span class="text-xs font-normal text-ink-2" x-text="status">{{T "Refreshes every 15 seconds"}}</span></h2><div class="card-body">
   <div class="flex flex-wrap items-center gap-x-6 gap-y-3" x-show="live.online"{{if not .Data.Live.Online}} style="display: none"{{end}}>
     <div class="relative w-40 shrink-0" role="img" aria-label="{{.Data.Live.Label}}" :aria-label="live.label" x-show="live.limit"{{if not .Data.Live.Limit}} style="display: none"{{end}}>
       <svg viewBox="0 0 120 66" class="w-full" aria-hidden="true">

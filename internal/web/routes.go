@@ -106,6 +106,7 @@ func (s *Server) portalRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /portal/register", s.pRegisterForm)
 	mux.HandleFunc("POST /portal/register", s.pRegister)
 	mux.Handle("GET /portal", s.requireCustomer(s.pDashboard))
+	mux.Handle("POST /portal/bell/seen", s.requireCustomer(s.pBellSeen))
 	mux.Handle("GET /portal/profile", s.requireCustomer(s.pProfileForm))
 	mux.Handle("POST /portal/profile", s.requireCustomer(s.pProfile))
 	mux.Handle("POST /portal/password", s.requireCustomer(s.pPassword))

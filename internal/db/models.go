@@ -240,6 +240,13 @@ type Plan struct {
 	FupBandwidthID sql.NullInt64
 }
 
+type PortalSeen struct {
+	CustomerID int64
+	Item       string
+	Version    string
+	SeenAt     int64
+}
+
 type Pool struct {
 	ID       int64
 	Name     string

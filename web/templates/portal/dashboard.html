@@ -1,9 +1,7 @@
 {{define "content"}}
-{{if .Data.Outage}}<div class="card mb-4 bg-warn-bg text-warn-fg" role="status"><div class="card-body flex items-center gap-2 text-sm font-medium">{{icon "triangle-alert"}}<span>{{T "There is an outage in your area, being handled"}}</span></div></div>{{end}}
-{{with .Data.Notice}}<details class="card mb-4" open><summary class="card-title flex cursor-pointer items-center gap-2">{{icon "circle-alert"}}<span>{{T "Announcement"}}</span></summary><div class="card-body whitespace-pre-line pt-0 text-sm">{{.}}</div></details>{{end}}
+{{if .Data.Outage}}<div class="mb-3 flex items-center gap-2 rounded-md bg-warn-bg px-3 py-1.5 text-sm font-medium text-warn-fg" role="status">{{icon "triangle-alert"}}<span>{{T "There is an outage in your area, being handled"}}</span></div>{{end}}
 <h1 class="page-title mb-4">{{T "Dashboard"}}{{template "callout" .Intro}}</h1>
 {{template "dash_cards" .}}
-{{with .Data.Promo}}{{template "promo_portal" .}}{{end}}
 {{with .Data.WA}}{{$who := T "your operator"}}{{with $.Data.Company}}{{$who = .}}{{end}}
 <div class="card mb-4"><div class="card-body flex flex-wrap items-center justify-between gap-3 text-sm">
   <span>{{printf (T "Having trouble? Contact %s admin") $who}}</span>

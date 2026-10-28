@@ -116,6 +116,8 @@ type Page struct {
 	Customer      *db.Customer // portal customer, if any
 	Impersonating bool         // portal session opened by an admin (login as customer)
 	Unread        int64        // portal inbox badge
+	Bell          []bellItem   // portal bell items
+	BellUnread    int          // how many of them are unread
 	Flash         string
 	Error         string
 	Warn          string   // yellow alert: the action worked but needs a follow-up
