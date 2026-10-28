@@ -31,11 +31,11 @@ type usageCard struct {
 
 // usageWin is one window of the Usage card. Empty means no RADIUS usage in the window at all.
 type usageWin struct {
-	Total, Down, Up string
+	Total, Down, Up     string
 	TotalNum, TotalUnit string // Total split for the big number
-	Bars            []dayBar
-	Top             []usageTop
-	Empty           bool
+	Bars                []dayBar
+	Top                 []usageTop
+	Empty               bool
 }
 
 // usageTop is one of the heaviest users; Href is "" when no customer has that username.

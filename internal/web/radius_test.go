@@ -113,7 +113,7 @@ func TestCustomerRadiusUsage(t *testing.T) {
 	sess("old", now-9000, 100<<20, 0) // before the subscription: not counted
 
 	body := do(h, "GET", "/admin/customers/"+itoa(cu.ID), nil, c).Body.String()
-	if !strings.Contains(body, "Pemakaian RADIUS") || !strings.Contains(body, "5.00 MB") {
+	if !strings.Contains(body, "Pemakaian RADIUS") || !strings.Contains(body, `5.00<span class="unit">MB</span>`) {
 		t.Fatalf("usage card missing or wrong total:\n%s", body)
 	}
 }

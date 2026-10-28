@@ -6,7 +6,7 @@
       <button type="button" class="btn btn-sm" :aria-pressed="win === 30 ? 'true' : 'false'" @click="win = 30">{{T "30 days"}}</button>
     </span>{{end}}</h2>
   <div class="card-body space-y-3">
-    <p class="flex flex-wrap items-baseline justify-between gap-2"><span class="big-num">{{.Total}}</span><span class="text-sm text-ink-2">{{T "Total since plan start"}}</span></p>
+    <p class="flex flex-wrap items-baseline justify-between gap-2"><span class="big-num">{{.Total}}<span class="unit">{{.Unit}}</span></span><span class="text-sm text-ink-2">{{T "Total since plan start"}}</span></p>
     {{if .Empty}}<p class="text-sm text-ink-2">{{T "No usage recorded yet"}}</p>{{else}}
     <div x-show="win === 7" x-cloak>{{template "barchart" dict "Bars" .Week.Bars "Default" .Week.Total "Label" (T "Daily usage, last 7 days")}}</div>
     <div x-show="win === 30" x-cloak>{{template "barchart" dict "Bars" .Month.Bars "Default" .Month.Total "Label" (T "Daily usage, last 30 days")}}</div>

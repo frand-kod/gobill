@@ -80,13 +80,13 @@ type pMeter struct {
 }
 
 type pUsage struct {
-	Note    string // why there are no meters: no plan, or the plan's usage is not tracked here
+	Note                string // why there are no meters: no plan, or the plan's usage is not tracked here
 	TotalNum, TotalUnit string // data used this period, the big number: "112.61", "GB"
-	LeftNum, LeftUnit string // data left before the limit, "" without a data limit
-	Limit   string // the data limit, "" without one
-	Data    pMeter
-	HasTime bool // the plan has a time limit
-	Time    pMeter
+	LeftNum, LeftUnit   string // data left before the limit, "" without a data limit
+	Limit               string // the data limit, "" without one
+	Data                pMeter
+	HasTime             bool // the plan has a time limit
+	Time                pMeter
 }
 
 // pTotal is an upload and download sum, as text.
@@ -374,7 +374,7 @@ type useWin struct {
 type useLast struct{ Start, For, Total string }
 
 type radiusUsage struct {
-	Total       string    // data since the plan started, the big number
+	Total, Unit string    // data since the plan started, the big number and its unit
 	Empty       bool      // no daily usage and no session recorded
 	Week, Month useWin    // the 7 and 30 day charts, built from one query
 	Last        *useLast  // nil when there is no session
@@ -389,7 +389,7 @@ func (s *Server) radiusUsage(ctx context.Context, c db.Customer) (*radiusUsage, 
 	if p, err := s.queries.GetRadiusPlan(ctx, c.ID); err == nil {
 		total, _ = s.queries.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: c.Username, StartedAt: p.StartedAt})
 	}
-	u.Total = humanBytes(total)
+	u.Total, u.Unit = humanBytesParts(total)
 	now, loc := time.Now().Unix(), s.location()
 	n1, n2 := names2(loginNames(c))
 	rows, err := s.queries.ListRadiusUsageDaily(ctx, db.ListRadiusUsageDailyParams{Name1: n1, Name2: n2, Since: dayStart(now, loc).AddDate(0, 0, -29).Format("2006-01-02")})
