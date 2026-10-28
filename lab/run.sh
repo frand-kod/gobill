@@ -567,10 +567,70 @@ test_provision() {
 	[ "$FAIL" = 0 ]
 }
 
+# ---- recon: reconcile (#22) and RADIUS migration (#23) on router 1 (direct mode, fresh lab) ----
+chr_disabled() { chr run /ppp/secret/print "?name=$1" | grep -qE 'disabled=(true|yes)'; }
+chr_enabled() { ! chr_disabled "$1"; }
+mig_step() { gb_get /admin/routers/1/migration | grep -q "$1"; }
+
+test_recon() {
+	[ "$LAB_MODE" = direct ] || die "recon test runs in direct mode"
+	local t0; t0=$(date +%s)
+	gb_login || die "cannot log in to gobill at $GOBILL"
+
+	echo "-- R1 reconcile shows the three kinds (fresh lab: cust01..12 on both sides, cust13 only in gobill, legacy01 only on the CHR)"
+	check "reconcile page lists the router-only account legacy01" get_grep 'legacy01 (PPPoE)' /admin/routers/1/reconcile
+	check "reconcile page lists the gobill-only customer cust13" get_grep 'cust13 (PPPoE)' /admin/routers/1/reconcile
+	check "reconcile page lists cust04 (other password on the CHR)" get_grep 'cust04 (PPPoE)' /admin/routers/1/reconcile
+	check "cust13 is not on the CHR yet" chr_lacks name=cust13 /ppp/secret/print
+
+	echo "-- R2 apply: import legacy01, push cust13, skip cust04"
+	check "summary asks for confirmation before applying" post_grep 'Import into gobill 1' /admin/routers/1/reconcile -d a:PPPoE:legacy01=import -d a:PPPoE:cust13=push -d a:PPPoE:cust04=skip
+	# the lab's CHR profiles (chr-5m...) differ from the plan names (lab-g5...), so cust01..12 are "differs" rows
+	# and take the default push (Follow gobill): 11 of them plus cust13 = 12 pushes
+	check "apply with confirm=1 pushes 12 and imports 1" post_grep 'Pushed 12, Imported 1' /admin/routers/1/reconcile -d confirm=1 -d a:PPPoE:legacy01=import -d a:PPPoE:cust13=push -d a:PPPoE:cust04=skip
+	check "cust13 pushed to the CHR" chr_grep 'password=pw-cust13' /ppp/secret/print "?name=cust13"
+	check "cust04 kept its CHR password (skip)" chr_grep 'password=other-pw' /ppp/secret/print "?name=cust04"
+	check "legacy01 still on the CHR (import never changes the router)" chr_grep 'name=legacy01' /ppp/secret/print "?name=legacy01"
+	check "legacy01 is now a gobill customer" get_grep '>legacy01<' "/admin/customers?q=legacy01"
+	# every row sent: a row left out takes its default (push for a differing customer), which is what the page does too
+	check "import again is refused: the customer exists" post_grep 'a customer with this username already exists' /admin/routers/1/reconcile -d confirm=1 -d a:PPPoE:legacy01=import -d a:PPPoE:cust13=push -d a:PPPoE:cust04=skip
+
+	echo "-- M1 migration step 1: a login test must fail on a wrong password and pass on the right one"
+	chr run /ppp/aaa/set =use-radius=no >/dev/null
+	check "migration page starts at not started" mig_step 'Not started'
+	check "wrong password (cust04) fails the test" post_grep 'Login test failed' /admin/routers/1/migration/test -d account=PPPoE:cust04
+	check "right password (cust01) passes the test" post_grep 'Login test passed' /admin/routers/1/migration/test -d account=PPPoE:cust01
+	check "step 1 is recorded" mig_step 'Step 1 done'
+	check "the test left use-radius off on the CHR" chr_grep 'use-radius=false' /ppp/aaa/print
+
+	echo "-- M2 migration step 2: use-radius on, after a preview and a confirm"
+	check "switch shows the preview first" post_grep 'use-radius' /admin/routers/1/migration/switch
+	check "switch with confirm=1 turns use-radius on" post_grep 'Step 2 done' /admin/routers/1/migration/switch -d confirm=1
+	check "CHR now uses RADIUS for PPP" chr_grep 'use-radius=true' /ppp/aaa/print
+	check "switch keeps the CHR local accounts enabled until step 3" chr_enabled cust01
+
+	echo "-- M3 migration step 3: local accounts disabled, never deleted"
+	check "disable with confirm=1 runs" post_grep 'Step 3 done' /admin/routers/1/migration/disable -d confirm=1
+	check "cust01 disabled on the CHR" chr_disabled cust01
+	check "cust04 disabled on the CHR" chr_disabled cust04
+	check "router-only legacy01 left enabled" chr_enabled legacy01
+	check "cust01 still exists (not deleted)" chr_grep 'name=cust01' /ppp/secret/print "?name=cust01"
+
+	echo "-- M4 rollback: local accounts back on, use-radius off"
+	check "rollback with confirm=1 runs" post_grep 'Not started' /admin/routers/1/migration/rollback -d confirm=1
+	check "cust01 enabled again" chr_enabled cust01
+	check "CHR uses local accounts again" chr_grep 'use-radius=false' /ppp/aaa/print
+
+	echo
+	echo "$PASS passed, $FAIL failed ($(($(date +%s) - t0))s)"
+	[ "$FAIL" = 0 ]
+}
+
 case "${1:-}" in
 up) up ;;
 test) test_lab ;;
 provision) test_provision ;;
+recon) test_recon ;;
 shell)
 	podman exec -it lab-chr sh -c 'SSHPASS="$1" sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -tt "admin@$(cat /tmp/chr.ip)"' sh "$CHR_PASS" ;;
 down) down ;;
