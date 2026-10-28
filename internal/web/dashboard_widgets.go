@@ -13,14 +13,11 @@ import (
 
 // dashWidgets holds the cards below the dashboard tiles and charts (old PHP widgets W4, W5, W6, W7, W8/W9).
 type dashWidgets struct {
-	Expiring    []expiringRow // active, ending in the next 7 days
-	Recent      []expiringRow // ended in the last 3 days and not renewed
-	Vouchers    []db.VoucherStockByPlanRow
-	Logs        []db.ActivityLog
-	ExpiryRun   string
-	ReminderRun string
-	Insight     string // JSON labels for the active/expired pie
-	InsightVals string // JSON values for the active/expired pie
+	Expiring  []expiringRow // active, ending in the next 7 days
+	Recent    []expiringRow // ended in the last 3 days and not renewed
+	Vouchers  []db.VoucherStockByPlanRow
+	Logs      []db.ActivityLog
+	ExpiryRun string // expiry_last_run, read by the "Needs a look" strip
 }
 
 // waLink is the wa.me chat link for a phone number; numbers starting with 0 get the country code.
@@ -51,8 +48,8 @@ type expiringRow struct {
 	Today      bool   // ends before midnight tonight (app time zone)
 }
 
-// widgetData gathers the dashboard cards; active and expired are the subscription counts already on the page.
-func (s *Server) widgetData(ctx context.Context, now time.Time, active, expired int64) (w dashWidgets, err error) {
+// widgetData gathers the dashboard cards.
+func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, err error) {
 	settings, err := s.loadSettings(ctx)
 	if err != nil {
 		return
@@ -84,9 +81,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time, active, expired 
 	if w.Logs, err = s.queries.ListActivityLogs(ctx, db.ListActivityLogsParams{Limit: 10}); err != nil {
 		return
 	}
-	w.ExpiryRun, w.ReminderRun = settings["expiry_last_run"], settings["reminder_last_run"]
-	w.Insight = jsonStr([]string{s.catalog.T(s.language(), "Active"), s.catalog.T(s.language(), "Expired")})
-	w.InsightVals = jsonStr([]int64{active, expired})
+	w.ExpiryRun = settings["expiry_last_run"]
 	return
 }
 

@@ -44,7 +44,7 @@ func TestExpiringSoonWindow(t *testing.T) {
 	mk(now.AddDate(0, 0, -5), "expired")   // ended 5 days ago: neither card
 	mk(now.Add(-24*time.Hour), "active")   // past due, not yet marked expired: recently expired
 	mk(now.Add(-time.Minute*10), "active") // ended 10 minutes ago: recently expired
-	w, err := e.srv.widgetData(ctx, now, 0, 0)
+	w, err := e.srv.widgetData(ctx, now)
 	if err != nil {
 		t.Fatal(err)
 	}

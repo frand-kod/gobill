@@ -2666,5 +2666,11 @@
     "%s left": "Sisa %s",
     "of %s": "dari %s",
     "Current connection": "Koneksi saat ini",
-    "Usage this period": "Pemakaian periode ini"
+    "Usage this period": "Pemakaian periode ini",
+    "Needs a look": "Perlu dicek",
+    "%d router/NAS offline": "%d router/NAS offline",
+    "%d plans end today": "%d pelanggan habis hari ini",
+    "%d expired in the last 3 days, not renewed": "%d expired 3 hari terakhir, belum diperpanjang",
+    "Voucher stock low": "Stok voucher menipis",
+    "Expiry job has not run since %s": "Job expiry tidak jalan sejak %s"
 }
