@@ -16,10 +16,10 @@ import (
 
 // dashWidgets holds the cards below the dashboard tiles and charts (old PHP widgets W4, W5, W6, W7, W8/W9).
 type dashWidgets struct {
-	Expiring  []expiringRow // active, ending in the next 7 days, soonest first
-	Recent    []expiringRow // ended in the last 7 days and not renewed, newest first
-	Usage     usageCard
-	Logs      []db.ActivityLog // the newest dashLogLimit entries
+	Expiring []expiringRow // active, ending in the next 7 days, soonest first
+	Recent   []expiringRow // ended in the last 7 days and not renewed, newest first
+	Usage    usageCard
+	Logs     []db.ActivityLog // the newest dashLogLimit entries
 }
 
 // usageCard is the Usage card: the same data over the last 7 and the last 30 days.

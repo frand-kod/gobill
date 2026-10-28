@@ -101,7 +101,7 @@ type Server struct {
 	noticeAt    time.Time
 	noticeItems []attnItem
 
-	idle     atomic.Int64 // admin idle timeout in ns, see ReloadSessionSettings
+	idle      atomic.Int64 // admin idle timeout in ns, see ReloadSessionSettings
 	single    atomic.Bool  // single_session
 	isolir    atomic.Bool  // isolir_enabled, see isolirGate
 	trust     atomic.Bool  // trust_proxy, see realIP
