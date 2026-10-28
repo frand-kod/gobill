@@ -23,15 +23,26 @@ jobs:
       - run: go vet ./...
       - run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
+  # internal/web runs its tests one after another and takes most of the time, so its tests
+  # are split over four shards by name; shard 0 also runs every other package.
   test:
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: go test -race -timeout 30m ./...
+      - name: Other packages
+        if: matrix.shard == 0
+        run: go test -race -timeout 30m $(go list ./... | grep -v '/internal/web$')
+      - name: internal/web shard ${{ matrix.shard }}
+        run: |
+          tests=$(go test -list '^(Test|Fuzz)' ./internal/web | grep -E '^(Test|Fuzz)' | awk -v n=4 -v k=${{ matrix.shard }} 'NR % n == k' | paste -sd '|')
+          go test -race -timeout 30m -run "^($tests)\$" ./internal/web
 
   build:
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
