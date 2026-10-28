@@ -279,6 +279,13 @@ type RadiusSession struct {
 	OutputOctets  int64
 }
 
+type RadiusUsageDaily struct {
+	Username     string
+	Day          string
+	InputOctets  int64
+	OutputOctets int64
+}
+
 type Router struct {
 	ID          int64
 	Name        string

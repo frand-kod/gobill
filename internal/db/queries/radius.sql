@@ -153,10 +153,36 @@ SELECT COUNT(*) FROM radius_sessions WHERE started_at >= ?;
 -- name: CountRadiusDisconnectsSince :one
 SELECT COUNT(*) FROM radius_sessions WHERE stopped_at >= ?;
 
--- name: ListRadiusUsageSince :many
--- Octets of the customer's two login names by the time each session was last updated, for the daily usage chart.
-SELECT updated_at, input_octets, output_octets FROM radius_sessions
-WHERE (username = sqlc.arg(name1) OR username = sqlc.arg(name2)) AND updated_at >= sqlc.arg(since);
+-- name: GetRadiusSessionOctets :one
+SELECT input_octets, output_octets FROM radius_sessions WHERE nas_ip = ? AND session_id = ?;
+
+-- name: AddRadiusUsageDaily :exec
+-- Adds the growth of a session's counters to its user's day (YYYY-MM-DD in the app time zone).
+INSERT INTO radius_usage_daily (username, day, input_octets, output_octets) VALUES (?, ?, ?, ?)
+ON CONFLICT (username, day) DO UPDATE SET
+    input_octets = radius_usage_daily.input_octets + excluded.input_octets,
+    output_octets = radius_usage_daily.output_octets + excluded.output_octets;
+
+-- name: ListRadiusUsageDaily :many
+-- Octets of the customer's two login names per day since day, for the daily usage chart.
+SELECT day, CAST(SUM(input_octets) AS INTEGER) AS input, CAST(SUM(output_octets) AS INTEGER) AS output FROM radius_usage_daily
+WHERE (username = sqlc.arg(name1) OR username = sqlc.arg(name2)) AND day >= sqlc.arg(since)
+GROUP BY day;
+
+-- name: SumRadiusUsageDailyByDay :many
+-- All users' octets per day since day.
+SELECT day, CAST(SUM(input_octets) AS INTEGER) AS input, CAST(SUM(output_octets) AS INTEGER) AS output FROM radius_usage_daily
+WHERE day >= sqlc.arg(since)
+GROUP BY day ORDER BY day;
+
+-- name: TopRadiusUsageDaily :many
+-- The users with the most octets (up + down) since day.
+SELECT username, CAST(SUM(input_octets) AS INTEGER) AS input, CAST(SUM(output_octets) AS INTEGER) AS output FROM radius_usage_daily
+WHERE day >= sqlc.arg(since)
+GROUP BY username ORDER BY SUM(input_octets + output_octets) DESC LIMIT sqlc.arg(row_limit);
+
+-- name: DeleteRadiusUsageDailyBefore :execrows
+DELETE FROM radius_usage_daily WHERE day < ?;
 
 -- name: SumRadiusOctetsByUsers :one
 -- Upload (input) and download (output) octets of the customer's login names since started_at.

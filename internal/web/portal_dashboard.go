@@ -257,7 +257,7 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		return
 	}
 	// the chart: the last 7 days; today is the last bar
-	rows, err := s.queries.ListRadiusUsageSince(ctx, db.ListRadiusUsageSinceParams{Name1: n1, Name2: n2, Since: weekSince(now, s.location())})
+	rows, err := s.queries.ListRadiusUsageDaily(ctx, db.ListRadiusUsageDailyParams{Name1: n1, Name2: n2, Since: weekSince(now, s.location())})
 	if err != nil {
 		s.fail(w, "portal usage chart", err)
 		return

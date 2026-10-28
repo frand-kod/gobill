@@ -44,10 +44,11 @@ type Server struct {
 	Q        *db.Queries
 	DB       *sql.DB // set: accounting writes are group-committed (acctbatch.go); nil: written one by one
 	Key      []byte
-	Trusted  func() bool      // clock guard; false = do not reject for expiry
-	AuthAddr string           // e.g. ":1812"
-	AcctAddr string           // e.g. ":1813"
-	Now      func() time.Time // default time.Now
+	Trusted  func() bool           // clock guard; false = do not reject for expiry
+	AuthAddr string                // e.g. ":1812"
+	AcctAddr string                // e.g. ":1813"
+	Now      func() time.Time      // default time.Now
+	Loc      func() *time.Location // the app time zone for daily usage; nil = UTC
 	// Redeem activates an unused voucher for a customer (billing.Service.RedeemVoucher).
 	// nil disables hotspot voucher login.
 	Redeem func(ctx context.Context, code string, customerID int64) error
@@ -78,6 +79,13 @@ func (s *Server) now() time.Time {
 		return s.Now()
 	}
 	return time.Now()
+}
+
+func (s *Server) loc() *time.Location {
+	if s.Loc != nil {
+		return s.Loc()
+	}
+	return time.UTC
 }
 
 // RADIUSSecret finds the NAS by source IP (exact or CIDR) and returns its secret.
@@ -893,7 +901,23 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 		if a.Type == rfc2866.AcctStatusType_Value_Stop {
 			arg.StoppedAt = sql.NullInt64{Int64: now, Valid: true}
 		}
-		return s.commit(ctx, func(q *db.Queries) error { return q.UpsertRadiusSession(ctx, arg) })
+		day := s.now().In(s.loc()).Format("2006-01-02")
+		return s.commit(ctx, func(q *db.Queries) error {
+			// The counters only grow (MAX in the upsert), so the growth since the last packet is what
+			// moved today. A session the NAS restarted has a new session_id and counts from 0.
+			old, err := q.GetRadiusSessionOctets(ctx, db.GetRadiusSessionOctetsParams{NasIp: arg.NasIp, SessionID: arg.SessionID})
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return err
+			}
+			if err := q.UpsertRadiusSession(ctx, arg); err != nil {
+				return err
+			}
+			in, out := max(arg.InputOctets-old.InputOctets, 0), max(arg.OutputOctets-old.OutputOctets, 0)
+			if in == 0 && out == 0 {
+				return nil
+			}
+			return q.AddRadiusUsageDaily(ctx, db.AddRadiusUsageDailyParams{Username: arg.Username, Day: day, InputOctets: in, OutputOctets: out})
+		})
 	}
 	return nil
 }

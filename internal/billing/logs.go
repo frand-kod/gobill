@@ -34,6 +34,9 @@ func (s *Service) CleanLog(ctx context.Context, kind string, days int) (int64, e
 	case "activity":
 		return s.Q.DeleteActivityLogsBefore(ctx, cut)
 	case "radius":
+		if _, err := s.Q.DeleteRadiusUsageDailyBefore(ctx, time.Unix(cut, 0).In(s.Location()).Format("2006-01-02")); err != nil {
+			return 0, err
+		}
 		return s.Q.DeleteRadiusSessionsClosedBefore(ctx, sql.NullInt64{Int64: cut, Valid: true})
 	case "messages":
 		return s.Q.DeleteMessageLogsBefore(ctx, cut)

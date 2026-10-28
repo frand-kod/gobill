@@ -23,6 +23,31 @@ func (q *Queries) ActivePlanNameByLogin(ctx context.Context, name string) (strin
 	return name, err
 }
 
+const addRadiusUsageDaily = `-- name: AddRadiusUsageDaily :exec
+INSERT INTO radius_usage_daily (username, day, input_octets, output_octets) VALUES (?, ?, ?, ?)
+ON CONFLICT (username, day) DO UPDATE SET
+    input_octets = radius_usage_daily.input_octets + excluded.input_octets,
+    output_octets = radius_usage_daily.output_octets + excluded.output_octets
+`
+
+type AddRadiusUsageDailyParams struct {
+	Username     string
+	Day          string
+	InputOctets  int64
+	OutputOctets int64
+}
+
+// Adds the growth of a session's counters to its user's day (YYYY-MM-DD in the app time zone).
+func (q *Queries) AddRadiusUsageDaily(ctx context.Context, arg AddRadiusUsageDailyParams) error {
+	_, err := q.db.ExecContext(ctx, addRadiusUsageDaily,
+		arg.Username,
+		arg.Day,
+		arg.InputOctets,
+		arg.OutputOctets,
+	)
+	return err
+}
+
 const closeRadiusSessionsByNAS = `-- name: CloseRadiusSessionsByNAS :exec
 UPDATE radius_sessions SET stopped_at = ? WHERE nas_ip = ? AND stopped_at IS NULL AND updated_at < ?
 `
@@ -115,6 +140,18 @@ DELETE FROM nas WHERE id = ?
 func (q *Queries) DeleteNAS(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, deleteNAS, id)
 	return err
+}
+
+const deleteRadiusUsageDailyBefore = `-- name: DeleteRadiusUsageDailyBefore :execrows
+DELETE FROM radius_usage_daily WHERE day < ?
+`
+
+func (q *Queries) DeleteRadiusUsageDailyBefore(ctx context.Context, day string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteRadiusUsageDailyBefore, day)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const getCustomerForRadius = `-- name: GetCustomerForRadius :one
@@ -456,6 +493,27 @@ func (q *Queries) GetRadiusSession(ctx context.Context, id int64) (RadiusSession
 	return i, err
 }
 
+const getRadiusSessionOctets = `-- name: GetRadiusSessionOctets :one
+SELECT input_octets, output_octets FROM radius_sessions WHERE nas_ip = ? AND session_id = ?
+`
+
+type GetRadiusSessionOctetsParams struct {
+	NasIp     string
+	SessionID string
+}
+
+type GetRadiusSessionOctetsRow struct {
+	InputOctets  int64
+	OutputOctets int64
+}
+
+func (q *Queries) GetRadiusSessionOctets(ctx context.Context, arg GetRadiusSessionOctetsParams) (GetRadiusSessionOctetsRow, error) {
+	row := q.db.QueryRowContext(ctx, getRadiusSessionOctets, arg.NasIp, arg.SessionID)
+	var i GetRadiusSessionOctetsRow
+	err := row.Scan(&i.InputOctets, &i.OutputOctets)
+	return i, err
+}
+
 const listActivePlanRates = `-- name: ListActivePlanRates :many
 SELECT c.username, c.pppoe_username, p.name AS plan_name,
        COALESCE(b.rate_down, 0) AS rate_down, COALESCE(b.rate_down_unit, '') AS rate_down_unit,
@@ -784,34 +842,35 @@ func (q *Queries) ListRadiusSessionsByUsers(ctx context.Context, arg ListRadiusS
 	return items, nil
 }
 
-const listRadiusUsageSince = `-- name: ListRadiusUsageSince :many
-SELECT updated_at, input_octets, output_octets FROM radius_sessions
-WHERE (username = ?1 OR username = ?2) AND updated_at >= ?3
+const listRadiusUsageDaily = `-- name: ListRadiusUsageDaily :many
+SELECT day, CAST(SUM(input_octets) AS INTEGER) AS input, CAST(SUM(output_octets) AS INTEGER) AS output FROM radius_usage_daily
+WHERE (username = ?1 OR username = ?2) AND day >= ?3
+GROUP BY day
 `
 
-type ListRadiusUsageSinceParams struct {
+type ListRadiusUsageDailyParams struct {
 	Name1 string
 	Name2 string
-	Since int64
+	Since string
 }
 
-type ListRadiusUsageSinceRow struct {
-	UpdatedAt    int64
-	InputOctets  int64
-	OutputOctets int64
+type ListRadiusUsageDailyRow struct {
+	Day    string
+	Input  int64
+	Output int64
 }
 
-// Octets of the customer's two login names by the time each session was last updated, for the daily usage chart.
-func (q *Queries) ListRadiusUsageSince(ctx context.Context, arg ListRadiusUsageSinceParams) ([]ListRadiusUsageSinceRow, error) {
-	rows, err := q.db.QueryContext(ctx, listRadiusUsageSince, arg.Name1, arg.Name2, arg.Since)
+// Octets of the customer's two login names per day since day, for the daily usage chart.
+func (q *Queries) ListRadiusUsageDaily(ctx context.Context, arg ListRadiusUsageDailyParams) ([]ListRadiusUsageDailyRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRadiusUsageDaily, arg.Name1, arg.Name2, arg.Since)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListRadiusUsageSinceRow
+	var items []ListRadiusUsageDailyRow
 	for rows.Next() {
-		var i ListRadiusUsageSinceRow
-		if err := rows.Scan(&i.UpdatedAt, &i.InputOctets, &i.OutputOctets); err != nil {
+		var i ListRadiusUsageDailyRow
+		if err := rows.Scan(&i.Day, &i.Input, &i.Output); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1056,6 +1115,83 @@ func (q *Queries) SumRadiusUsage(ctx context.Context, arg SumRadiusUsageParams) 
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const sumRadiusUsageDailyByDay = `-- name: SumRadiusUsageDailyByDay :many
+SELECT day, CAST(SUM(input_octets) AS INTEGER) AS input, CAST(SUM(output_octets) AS INTEGER) AS output FROM radius_usage_daily
+WHERE day >= ?1
+GROUP BY day ORDER BY day
+`
+
+type SumRadiusUsageDailyByDayRow struct {
+	Day    string
+	Input  int64
+	Output int64
+}
+
+// All users' octets per day since day.
+func (q *Queries) SumRadiusUsageDailyByDay(ctx context.Context, since string) ([]SumRadiusUsageDailyByDayRow, error) {
+	rows, err := q.db.QueryContext(ctx, sumRadiusUsageDailyByDay, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SumRadiusUsageDailyByDayRow
+	for rows.Next() {
+		var i SumRadiusUsageDailyByDayRow
+		if err := rows.Scan(&i.Day, &i.Input, &i.Output); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const topRadiusUsageDaily = `-- name: TopRadiusUsageDaily :many
+SELECT username, CAST(SUM(input_octets) AS INTEGER) AS input, CAST(SUM(output_octets) AS INTEGER) AS output FROM radius_usage_daily
+WHERE day >= ?1
+GROUP BY username ORDER BY SUM(input_octets + output_octets) DESC LIMIT ?2
+`
+
+type TopRadiusUsageDailyParams struct {
+	Since    string
+	RowLimit int64
+}
+
+type TopRadiusUsageDailyRow struct {
+	Username string
+	Input    int64
+	Output   int64
+}
+
+// The users with the most octets (up + down) since day.
+func (q *Queries) TopRadiusUsageDaily(ctx context.Context, arg TopRadiusUsageDailyParams) ([]TopRadiusUsageDailyRow, error) {
+	rows, err := q.db.QueryContext(ctx, topRadiusUsageDaily, arg.Since, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TopRadiusUsageDailyRow
+	for rows.Next() {
+		var i TopRadiusUsageDailyRow
+		if err := rows.Scan(&i.Username, &i.Input, &i.Output); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateNAS = `-- name: UpdateNAS :exec

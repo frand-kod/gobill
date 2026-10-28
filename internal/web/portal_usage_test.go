@@ -56,19 +56,17 @@ func TestPortalUsageJSONIsolationAndRate(t *testing.T) {
 	}
 }
 
-// The daily chart counts a session's octets on the day it was last updated, the last 7 days only.
+// The daily chart shows the per-day rows of the last 7 days only.
 func TestDailyUsageAggregation(t *testing.T) {
 	loc := time.UTC
 	now := time.Date(2026, 10, 12, 10, 0, 0, 0, loc).Unix()
-	at := func(day, hour int) int64 { return time.Date(2026, 10, 12+day, hour, 0, 0, 0, loc).Unix() }
-	rows := []db.ListRadiusUsageSinceRow{
-		{UpdatedAt: at(0, 8), InputOctets: 1, OutputOctets: 2},
-		{UpdatedAt: at(0, 9), InputOctets: 10, OutputOctets: 20},
-		{UpdatedAt: at(-6, 23), InputOctets: 100, OutputOctets: 200},   // first day of the chart
-		{UpdatedAt: at(-7, 23), InputOctets: 1000, OutputOctets: 2000}, // before the chart: dropped
+	rows := []db.ListRadiusUsageDailyRow{
+		{Day: "2026-10-12", Input: 11, Output: 22},
+		{Day: "2026-10-06", Input: 100, Output: 200},   // first day of the chart
+		{Day: "2026-10-05", Input: 1000, Output: 2000}, // before the chart: dropped
 	}
-	if got := weekSince(now, loc); got != at(-6, 0) {
-		t.Fatalf("weekSince = %d, want midnight six days back", got)
+	if got := weekSince(now, loc); got != "2026-10-06" {
+		t.Fatalf("weekSince = %s, want six days back", got)
 	}
 	days := dailyUsage(rows, now, loc)
 	if len(days) != 7 || !days[6].Today || days[6].Down != 22 || days[6].Up != 11 {

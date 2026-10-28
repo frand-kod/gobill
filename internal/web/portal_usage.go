@@ -110,22 +110,20 @@ func dayStart(now int64, loc *time.Location) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
 }
 
-// weekSince is the first second of the chart: midnight six days before today.
-func weekSince(now int64, loc *time.Location) int64 {
-	return dayStart(now, loc).AddDate(0, 0, -6).Unix()
+// weekSince is the first day of the chart: six days before today.
+func weekSince(now int64, loc *time.Location) string {
+	return dayStart(now, loc).AddDate(0, 0, -6).Format("2006-01-02")
 }
 
-// dayUse is one day of the chart: the octets of the sessions that were last updated that day.
+// dayUse is one day of the chart: the octets moved that day (radius_usage_daily).
 type dayUse struct {
 	Label    string
 	Down, Up int64 // Down: octets sent to the customer; Up: octets the customer sent
 	Today    bool
 }
 
-// dailyUsage sums the last 7 days, today last.
-// ponytail: a session has no per-day counters, so all its octets count on the day it was last updated;
-// a session that runs past midnight lands on its last day. Add per-interim daily rows when that matters.
-func dailyUsage(rows []db.ListRadiusUsageSinceRow, now int64, loc *time.Location) []dayUse {
+// dailyUsage lays the rows out as the last 7 days, today last.
+func dailyUsage(rows []db.ListRadiusUsageDailyRow, now int64, loc *time.Location) []dayUse {
 	first := dayStart(now, loc)
 	days := make([]dayUse, 7)
 	idx := make(map[string]int, 7)
@@ -135,9 +133,9 @@ func dailyUsage(rows []db.ListRadiusUsageSinceRow, now int64, loc *time.Location
 		idx[d.Format("2006-01-02")] = i
 	}
 	for _, x := range rows {
-		if i, ok := idx[time.Unix(x.UpdatedAt, 0).In(loc).Format("2006-01-02")]; ok {
-			days[i].Down += x.OutputOctets
-			days[i].Up += x.InputOctets
+		if i, ok := idx[x.Day]; ok {
+			days[i].Down += x.Output
+			days[i].Up += x.Input
 		}
 	}
 	return days

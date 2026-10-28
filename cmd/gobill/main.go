@@ -167,6 +167,9 @@ func run() error {
 		svc.Reload(n, loadZone(n.Settings["timezone"], loc))
 	}
 	reload(ctx)
+	if err := db.BackfillUsageDaily(ctx, conn, svc.Location()); err != nil {
+		return fmt.Errorf("backfill daily usage: %w", err)
+	}
 	marker := filepath.Join(filepath.Dir(dbPath), ".running") // stays only after a crash or kill
 	if err := svc.StartMarker(marker); err != nil {
 		slog.Error("running marker", "err", err)
@@ -197,7 +200,7 @@ func run() error {
 	}
 
 	errCh := make(chan error, 2)
-	rs := &radius.Server{Q: db.NewCached(conn), DB: conn, Key: key, Trusted: guard.Trusted, Redeem: svc.RedeemVoucher, Start: svc.StartPending}
+	rs := &radius.Server{Q: db.NewCached(conn), DB: conn, Key: key, Loc: svc.Location, Trusted: guard.Trusted, Redeem: svc.RedeemVoucher, Start: svc.StartPending}
 	go job.Run(ctx, "fup", time.Minute, radius.FUPJob(db.New(conn), key, ""))
 	app.Radius = rs // shared with /radius.php so throttles and dedup state are common
 	if ra, on := radiusAddr(); on {
