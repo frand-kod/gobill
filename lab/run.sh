@@ -147,8 +147,9 @@ seed_chr() {
 	local i
 	{
 		echo "/system/identity/set =name=lab-chr"
-		echo "+/user/group/add =name=gobill-api =policy=api,read,write,sensitive"
-		echo "+/user/add =name=gobill-api =group=gobill-api =password=$API_PASS"
+		# group is not "gobill-api": the provisioning script owns that name and removes it
+		echo "+/user/group/add =name=lab-api =policy=api,read,write,sensitive"
+		echo "+/user/add =name=gobill-api =group=lab-api =password=$API_PASS"
 		echo "+/ip/pool/add =name=gb-pool =ranges=10.99.0.10-10.99.0.250"
 		echo "+/ppp/profile/add =name=chr-5m =local-address=10.99.0.1 =remote-address=gb-pool =rate-limit=5M/5M"
 		echo "+/ppp/profile/add =name=chr-10m =local-address=10.99.0.1 =remote-address=gb-pool =rate-limit=10M/10M"
@@ -374,9 +375,131 @@ test_lab() {
 	[ "$FAIL" = 0 ]
 }
 
+# ---- provision test: built-in WireGuard + one-line router provisioning (direct mode, fresh lab) ----
+# ros CMD: RouterOS CLI over ssh. After provisioning the API service only answers the tunnel address,
+# so chrctl (API) cannot be used any more.
+# RouterOS ssh sometimes refuses a correct password when logins come fast (sshpass exit 5): retry, the command never ran.
+ros() { local rc i; for i in 1 2 3 4 5 6 7 8 9 10; do
+	podman exec lab-chr sh -c 'SSHPASS="$1" sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "admin@$(cat /tmp/chr.ip)" "$2"' sh "$CHR_PASS" "$1" && return 0
+	rc=$?; [ $rc = 5 ] || return $rc; sleep 1; done; return $rc; }
+ros_put() { local rc i; for i in 1 2 3 4 5 6 7 8 9 10; do # FILE: copy /tmp/FILE of lab-chr to the CHR as gobill.rsc
+	podman exec lab-chr sh -c 'SSHPASS="$1" sshpass -e scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "/tmp/$2" "admin@$(cat /tmp/chr.ip):gobill.rsc"' sh "$CHR_PASS" "$1" && return 0
+	rc=$?; [ $rc = 5 ] || return $rc; sleep 1; done; return $rc; }
+ros_grep() { local pat=$1; shift; ros "$*" | grep -- "$pat" >/dev/null; }
+ros_count() { ros "$2" | grep -c -- "$1"; } # PATTERN CMD
+# the router config the script owns, without counters, ids and timestamps
+prov_snap() {
+	local p
+	for p in "/interface wireguard print terse" "/interface wireguard peers print terse" "/radius print terse" "/user print terse" \
+		"/user group print terse" "/ip firewall filter print terse" "/ip service print terse" "/ip address print terse"; do
+		echo "## $p"
+		ros "$p" | tr -d '\r' | grep -v 'remote=\|wireguard-wg-gobill' | sed -E 's/^ *[0-9]+ +//; s/ name=peer[0-9]+/ name=peer/; s/ listen-port=[0-9]+//; s/ (last-[a-z-]+|current-endpoint-[a-z]+|rx|tx)=([0-9]{4}-[0-9-]+ [0-9:]+|[^ ]*)//g'
+	done
+}
+not() { ! "$@"; }
+counts_ok() { [ "$(ros_count wg-gobill '/interface wireguard print terse')" = 1 ] && [ "$(ros_count 'name=gobill ' '/user print terse')" = 1 ] && [ "$(ros_count comment=gobill '/ip firewall filter print terse')" = 2 ]; }
+stages_ok() { local o; o=$(gb_post /admin/routers/2/wg/check); grep -q '✓ Handshake: OK' <<<"$o" && grep -q '✓ API login OK' <<<"$o"; }
+log_refused() { podman logs lab-gobill 2>&1 | grep "provision link refused" | grep -q "why=$1"; }
+http_code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+prov_line() { # router id: POST provision, print the one-line command with a base URL the CHR can reach
+	gb_post "/admin/routers/$1/wg/provision" | grep -o '/tool fetch[^<]*' | head -1 | sed "s#&\#34;#\"#g; s#&quot;#\"#g; s#http://127.0.0.1:$GOBILL_PORT#http://$GOBILL_IP:8080#"
+}
+
+test_provision() {
+	[ "$LAB_MODE" = direct ] || die "provision test runs in direct mode (the CHR is reached over ssh and the lab WAN)"
+	local t0; t0=$(date +%s)
+	gb_login || die "cannot log in to gobill at $GOBILL"
+	local tun_self=10.98.0.1 tun_peer=10.98.0.2 line fetch imp out token
+
+	echo "-- P1 WireGuard on, router added, provisioned"
+	# the lab PPP pool is 10.99.0.0/24, so the tunnel gets another subnet
+	gb_post /admin/settings/wireguard -d wg_enabled=yes -d wg_port=51820 -d wg_endpoint=$GOBILL_IP -d wg_subnet=10.98.0.0/24 >/dev/null
+	check "tunnel running in gobill" wait_for 10 get_grep 'Running, listening on UDP 51820' /admin/settings/wireguard
+	gb_post /admin/routers -d name=prov-chr -d host=10.89.77.11 -d port=8728 -d username=gobill-api -d password="$API_PASS" -d enabled=1 -d coverage=0 >/dev/null
+	check "router 2 added" get_grep 'routers/2/edit' /admin/routers
+	line=$(prov_line 2)
+	echo "     $line" | sed -E 's#(provision/[0-9]+-)[0-9a-f]+#\1<token>#'
+	check "router page shows /tool fetch ... ; /import gobill.rsc" [ -n "$line" ]
+	fetch=${line%%;*} imp=${line#*; }
+	token=$(sed -E 's#.*provision/([0-9]+-[0-9a-f]+).*#\1#' <<<"$line")
+
+	echo "-- P2 run the line on the CHR"
+	# A fresh CHR has no firewall rules; the script's place-before=0 needs one. PROV_FW_RULE=1 adds a plain rule first.
+	[ -z "${PROV_FW_RULE:-}" ] || ros '/ip firewall filter add chain=forward action=passthrough comment=lab-existing' >/dev/null
+	out=$(ros "$fetch" 2>&1 || true)
+	check "/tool fetch finished" grep -q 'status: finished' <<<"$out"
+	ros ':put [/file get gobill.rsc contents]' | tr -d '\r' | podman exec -i lab-chr sh -c 'cat >/tmp/prov.rsc' # kept to run the script a second time
+	out=$(ros "$imp" 2>&1 || true)
+	check "/import ran without a script error" not grep -q "Script Error" <<<"$out"
+	[ -z "$out" ] || echo "     import: $out"
+	check "script removed gobill.rsc from the CHR" not ros_grep 'name=gobill.rsc' /file print terse
+	check "wg-gobill interface" ros_grep 'name=wg-gobill' /interface wireguard print terse
+	check "wg-gobill address $tun_peer" ros_grep "address=$tun_peer/24" /ip address print terse
+	check "user gobill in group gobill-api" ros_grep 'name=gobill group=gobill-api' /user print terse
+	check "group gobill-api has api and no ssh" ros_grep 'name=gobill-api policy=.*api.*!ssh' /user group print terse
+	check "/radius entry with comment gobill, address $tun_self" ros_grep "comment=gobill .*address=$tun_self " /radius print terse
+	check "/radius src-address is the tunnel address" ros_grep "src-address=$tun_peer" /radius print terse
+	check "2 firewall rules tagged gobill (CoA, API)" [ "$(ros_count 'comment=gobill' '/ip firewall filter print terse')" = 2 ]
+	check "api service restricted to $tun_self/32" ros_grep "name=api .*available-from=$tun_self/32" /ip service print terse
+	# the seeded RADIUS entry goes, so RADIUS can only reach gobill through the tunnel
+	ros "/radius remove [find address=$GOBILL_IP]" >/dev/null 2>&1 || true
+	check "only the tunnel RADIUS entry is left" [ "$(ros_count 'address=' '/radius print terse')" = 1 ]
+
+	echo "-- P3 PPPoE login, stage page, Disconnect through the tunnel"
+	check "gobill Host of router 2 is the tunnel address" get_grep "value=\"$tun_peer\"" /admin/routers/2/edit
+	client_start 1 rad01 pw-rad01
+	check "lab-client-1 session up (RADIUS over the tunnel)" wait_for 40 log_has 1 'session up'
+	check "CHR /ppp/active has rad01" ros_grep 'name=rad01' /ppp/active print terse
+	check "gobill recorded accounting (session rad01)" wait_for 30 get_grep '"user":"rad01"' /admin/radius/sessions.json
+	out=$(gb_post /admin/routers/2/wg/check)
+	echo "$out" | grep -E '^ *(✓|✗)' | sed 's/^ */     /'
+	check "stage: handshake OK" grep -q '✓ Handshake: OK' <<<"$out"
+	check "stage: API login OK" grep -q '✓ API login OK' <<<"$out"
+	check "stage: RADIUS packet seen" grep -q '✓ RADIUS: last packet' <<<"$out"
+	check "stage: CoA reply received" grep -q '✓ CoA reply received' <<<"$out"
+	check "gobill Ping to router 2 over the tunnel" post_grep 'Connection successful' /admin/routers/2/test
+	local sid
+	sid_of_rad01() { gb_get /admin/radius/sessions.json | grep -o '"id":[0-9]*,"user":"rad01"' | sed 's/^"id":\([0-9]*\),.*/\1/' | head -1 | grep .; }
+	wait_for 20 sid_of_rad01 || true
+	sid=$(sid_of_rad01 || true)
+	gb_post "/admin/radius/sessions/${sid:-0}/disconnect" >/dev/null || true
+	check "Disconnect over the tunnel: client dropped (PADT)" wait_for 20 rc_is 1 10
+	check "rad01 gone from CHR /ppp/active" not ros_grep 'name=rad01' /ppp/active print terse
+	podman exec lab-client-1 pkill pppoe >/dev/null 2>&1 || true
+
+	echo "-- P4 the script is safe to run again"
+	prov_snap >"$BUILD/prov-a.txt"
+	ros_put prov.rsc
+	out=$(ros "$imp" 2>&1 || true)
+	check "second /import ran without a script error" not grep -q "Script Error" <<<"$out"
+	[ -z "$out" ] || echo "     import: $out"
+	prov_snap >"$BUILD/prov-b.txt"
+	check "config identical before and after (wireguard, radius, user, firewall, services, addresses)" diff "$BUILD/prov-a.txt" "$BUILD/prov-b.txt"
+	diff "$BUILD/prov-a.txt" "$BUILD/prov-b.txt" | sed 's/^/     /' || true
+	check "still 1 interface, 1 gobill user, 2 rules" counts_ok
+	gb_post /admin/routers/2/wg/reset >/dev/null || true
+	check "tunnel back up after the second run (handshake, API login)" wait_for 60 stages_ok
+
+	echo "-- P5 token is single use and expires"
+	check "second fetch of the used URL is refused (410)" [ "$(http_code "$GOBILL/provision/$token")" = 410 ]
+	check "gobill logged why=used" log_refused used
+	check "a made-up token is refused (410)" [ "$(http_code "$GOBILL/provision/2-$(printf '0%.0s' $(seq 64))")" = 410 ]
+	gb_post /admin/routers -d name=prov-exp -d host=10.89.77.250 -d port=8728 -d username=x -d password=x -d enabled=1 -d coverage=0 >/dev/null
+	line=$(prov_line 3)
+	token=$(sed -E 's#.*provision/([0-9]+-[0-9a-f]+).*#\1#' <<<"$line")
+	podman run --rm --user 0 --network none -v lab-gobill-data:/data --entrypoint /usr/local/bin/lab-seed lab-gobill -db /data/gobill.db -expire-token 3 >/dev/null
+	check "an expired token is refused (410)" [ "$(http_code "$GOBILL/provision/$token")" = 410 ]
+	check "gobill logged why=expired" log_refused expired
+
+	echo
+	echo "$PASS passed, $FAIL failed ($(($(date +%s) - t0))s)"
+	[ "$FAIL" = 0 ]
+}
+
 case "${1:-}" in
 up) up ;;
 test) test_lab ;;
+provision) test_provision ;;
 shell)
 	podman exec -it lab-chr sh -c 'SSHPASS="$1" sshpass -e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -tt "admin@$(cat /tmp/chr.ip)"' sh "$CHR_PASS" ;;
 down) down ;;
