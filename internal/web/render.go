@@ -101,7 +101,7 @@ func (s *Server) parseTemplates() error {
 		"status":           {"base.html", "admin/app.html", "admin/status.html", "sparkline.html"},
 		"list":             {"base.html", "admin/app.html", "admin/list.html"},
 		"form":             {"base.html", "admin/app.html", "admin/form.html", "admin/formfields.html", "admin/customer_pick.html", "admin/tplvars.html"},
-		"customer":         {"base.html", "admin/app.html", "admin/customer.html", "admin/radius_usage.html", "admin/recharge_dialog.html"},
+		"customer":         {"base.html", "admin/app.html", "admin/customer.html", "admin/radius_usage.html", "admin/recharge_dialog.html", "barchart.html"},
 		"radius_sessions":  {"base.html", "admin/app.html", "admin/radius_sessions.html"},
 		"print":            {"admin/print.html"},
 		"voucher_view":     {"base.html", "admin/app.html", "admin/voucher_view.html"},

@@ -2,81 +2,89 @@
 {{with .Data}}
 <div class="page-head">
   <h1 class="page-title">{{.C.Username}} <span class="badge {{badge .C.Status}} align-middle">{{T .C.Status}}</span></h1>
-  <div class="flex flex-wrap gap-2">
+  <div class="flex flex-wrap items-center gap-2">
     {{if .CanSell}}<a class="btn btn-primary" href="#recharge">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
     <a class="btn" href="/admin/deposit?customer={{.C.Username}}">{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>
-    <a class="btn btn-ghost" href="/admin/message/send?customer={{.C.ID}}">{{icon "scroll-text"}}<span>{{T "Send Message"}}</span></a>{{end}}
-    {{if .Manage}}
-    <form method="post" action="/admin/customers/{{.C.ID}}/sync"><button class="btn btn-ghost" type="submit">{{icon "network"}}<span>{{T "Sync"}}</span></button></form>
-    <form method="post" action="/admin/customers/{{.C.ID}}/deactivate" data-confirm="{{T "Deactivate"}} {{.C.Username}}?" data-confirm-danger><button class="btn btn-danger" type="submit">{{icon "x"}}<span>{{T "Deactivate"}}</span></button></form>
-    <form method="post" action="/admin/customers/{{.C.ID}}/login" data-confirm="{{T "Login as Customer"}} {{.C.Username}}?"><button class="btn btn-ghost" type="submit">{{icon "user-round"}}<span>{{T "Login as Customer"}}</span></button></form>
-    {{end}}
-    {{if .CanEdit}}<a class="btn btn-ghost" href="/admin/customers/{{.C.ID}}/edit">{{icon "pencil"}}<span>{{T "Edit"}}</span></a>{{end}}
-    <a class="btn btn-ghost" href="/admin/customers">{{icon "users"}}<span>{{T "Customer"}}</span></a>
+    <a class="btn" href="/admin/message/send?customer={{.C.ID}}">{{icon "scroll-text"}}<span>{{T "Send Message"}}</span></a>{{end}}
+    <div class="relative" x-data="{o:false}" @click.outside="o=false" @keydown.escape.stop="o=false;$refs.more.focus()">
+      <button type="button" class="btn btn-ghost" x-ref="more" @click="o=!o" :aria-expanded="o ? 'true' : 'false'" aria-haspopup="menu">{{icon "ellipsis"}}<span>{{T "More"}}</span></button>
+      <div x-show="o" x-cloak role="menu" class="absolute end-0 top-full z-30 mt-1 w-56 max-w-[85vw] rounded-lg border border-line bg-surface py-1 shadow-lg">
+        {{if .CanEdit}}<a class="menu-item" role="menuitem" href="/admin/customers/{{.C.ID}}/edit">{{icon "pencil"}}<span>{{T "Edit"}}</span></a>{{end}}
+        {{if .Manage}}
+        <form method="post" action="/admin/customers/{{.C.ID}}/sync"><button class="menu-item" role="menuitem" type="submit">{{icon "network"}}<span>{{T "Sync"}}</span></button></form>
+        <form method="post" action="/admin/customers/{{.C.ID}}/login" data-confirm="{{T "Login as Customer"}} {{.C.Username}}?"><button class="menu-item" role="menuitem" type="submit">{{icon "user-round"}}<span>{{T "Login as Customer"}}</span></button></form>
+        <form method="post" action="/admin/customers/{{.C.ID}}/deactivate" data-confirm="{{T "Deactivate"}} {{.C.Username}}?" data-confirm-danger><button class="menu-item text-err-fg" role="menuitem" type="submit">{{icon "x"}}<span>{{T "Deactivate"}}</span></button></form>
+        {{end}}
+        <div class="my-1 border-t border-line" role="separator"></div>
+        <a class="menu-item" role="menuitem" href="/admin/customers">{{icon "users"}}<span>{{T "Customer"}}</span></a>
+      </div>
+    </div>
   </div>
 </div>
 <section class="mb-3 flex flex-wrap items-center gap-2" aria-label="{{T "Diagnosis"}}">
   {{range .Diag.Items}}<span class="badge {{.Cls}}">{{T .Label}}{{with .Short}}: {{.}}{{end}}<span class="sr-only">: {{T .State}}</span></span>{{end}}
 </section>
-{{if .Diag.NeedsAction}}<div class="callout !py-2"><span class="callout-title">{{T "Advice"}}:</span>{{range .Diag.Advice}} <span class="block">{{.}}</span>{{end}}</div>{{end}}
-<div class="grid gap-4 xl:grid-cols-3">
-  {{if .CanSell}}
-  <form id="recharge" class="card scroll-mt-20 xl:col-start-3 xl:row-start-1" method="post" action="/admin/customers/{{.C.ID}}/recharge/confirm" data-recharge>
-    <h2 class="card-title">{{T "Recharge Account"}}</h2>
-    <div class="card-body space-y-4">
-      <div><label class="label" for="plan">{{T "Service Plan"}}</label>
-        <select class="input" id="plan" name="plan">{{range .Plans}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</select></div>
-      <div><label class="label" for="method">{{T "Payment Method"}}</label>
-        <select class="input" id="method" name="method">{{range .Methods}}<option value="{{.Value}}">{{T .Label}}</option>{{end}}</select></div>
-      <div class="flex flex-wrap gap-2">
-        <button class="btn btn-primary" type="submit">{{icon "wallet"}}<span>{{T "Recharge"}}</span></button>
-        <a class="btn btn-ghost" href="/admin/vouchers/redeem?customer={{.C.Username}}">{{icon "ticket"}}<span>{{T "Redeem Voucher"}}</span></a>
+{{if .Diag.NeedsAction}}<p class="mb-3 flex items-start gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm" role="status">{{icon "triangle-alert"}}<span><span class="font-semibold">{{T "Advice"}}:</span>{{range .Diag.Advice}} {{.}}{{end}}</span></p>{{end}}
+<div class="grid items-start gap-4 lg:grid-cols-2">
+  <div class="min-w-0 space-y-4">
+    <section class="card">
+      <h2 class="card-title">{{T "Customer"}}</h2>
+      <div class="card-body py-3">
+        <dl class="grid gap-x-6 sm:grid-cols-2">
+          {{with .C.Fullname}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Full Name"}}</dt><dd class="text-sm font-medium break-words">{{.}}</dd></div>{{end}}
+          {{with .C.Phone}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Phone Number"}}</dt><dd class="text-sm font-medium break-words">{{.}}</dd></div>{{end}}
+          {{with .C.Email}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Email"}}</dt><dd class="text-sm font-medium break-words">{{.}}</dd></div>{{end}}
+          {{with .C.Address}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Address"}}</dt><dd class="text-sm font-medium break-words">{{.}}</dd></div>{{end}}
+          {{with .C.ServiceType}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Service Type"}}</dt><dd class="text-sm font-medium break-words">{{.}}</dd></div>{{end}}
+          {{with .C.PppoeUsername}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "PPPoE Username"}}</dt><dd class="text-sm font-medium break-words">{{.}}</dd></div>{{end}}
+          {{with .C.PppoeIp}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "PPPoE IP"}}</dt><dd class="text-sm font-medium break-words">{{.}}</dd></div>{{end}}
+          <div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Router Secret"}}</dt><dd class="text-sm font-medium">{{if .SecretSet}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd></div>
+          <div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Balance"}}</dt><dd class="text-sm font-medium tabular-nums">{{money .C.Balance}}</dd></div>
+          {{if .C.BillingDay.Valid}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Billing Day"}}</dt><dd class="text-sm font-medium">{{.C.BillingDay.Int64}}</dd></div>{{end}}
+          <div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Auto Renewal"}}</dt><dd class="text-sm font-medium">{{if eq .C.AutoRenewal 1}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd></div>
+          {{with .Online}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Connection"}}</dt><dd class="text-sm"><span class="badge {{badge .}}">{{T .}}</span></dd></div>{{end}}
+          <div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Created"}}</dt><dd class="text-sm font-medium">{{.Created}}</dd></div>
+          {{range .Custom}}{{if .Value}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T .Label}}</dt><dd class="text-sm font-medium break-words">{{.Value}}</dd></div>{{end}}{{end}}
+        </dl>
       </div>
-    </div>
-  </form>
-  {{template "recharge_dialog"}}
-  {{end}}
-  <section class="card xl:col-span-2 xl:col-start-1 xl:row-start-1">
-    <h2 class="card-title">{{T "Customer"}}</h2>
-    <div class="card-body">
-      <dl class="dl">
-        <div><dt>{{T "Full Name"}}</dt><dd>{{with .C.Fullname}}{{.}}{{else}}<span class="text-ink-2">—</span>{{end}}</dd></div>
-        <div><dt>{{T "Phone Number"}}</dt><dd>{{with .C.Phone}}{{.}}{{else}}<span class="text-ink-2">—</span>{{end}}</dd></div>
-        <div><dt>{{T "Email"}}</dt><dd>{{with .C.Email}}{{.}}{{else}}<span class="text-ink-2">—</span>{{end}}</dd></div>
-        <div><dt>{{T "Address"}}</dt><dd>{{with .C.Address}}{{.}}{{else}}<span class="text-ink-2">—</span>{{end}}</dd></div>
-        <div><dt>{{T "Service Type"}}</dt><dd>{{with .C.ServiceType}}{{.}}{{else}}<span class="text-ink-2">—</span>{{end}}</dd></div>
-        <div><dt>{{T "PPPoE Username"}}</dt><dd>{{with .C.PppoeUsername}}{{.}}{{else}}<span class="text-ink-2">—</span>{{end}}</dd></div>
-        <div><dt>{{T "PPPoE IP"}}</dt><dd>{{with .C.PppoeIp}}{{.}}{{else}}<span class="text-ink-2">—</span>{{end}}</dd></div>
-        <div><dt>{{T "Router Secret"}}</dt><dd>{{if .SecretSet}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd></div>
-        <div><dt>{{T "Balance"}}</dt><dd class="tabular-nums">{{money .C.Balance}}</dd></div>
-        <div><dt>{{T "Billing Day"}}</dt><dd>{{if .C.BillingDay.Valid}}{{.C.BillingDay.Int64}}{{else}}<span class="text-ink-2">—</span>{{end}}</dd></div>
-        <div><dt>{{T "Auto Renewal"}}</dt><dd>{{if eq .C.AutoRenewal 1}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd></div>
-        {{with .Online}}<div><dt>{{T "Connection"}}</dt><dd><span class="badge {{badge .}}">{{T .}}</span></dd></div>{{end}}
-        <div><dt>{{T "Created"}}</dt><dd>{{.Created}}</dd></div>
-        {{range .Custom}}<div><dt>{{T .Label}}</dt><dd>{{.Value}}</dd></div>{{end}}
-      </dl>
-    </div>
-  </section>
-  <section class="card overflow-hidden{{if .CanSell}} xl:col-start-3 xl:row-start-2{{end}}">
-    <h2 class="card-title">{{T "Service Plan"}}</h2>
-    <div class="overflow-x-auto"><table class="table">
-      <thead><tr><th>{{T "Plan Name"}}</th><th>{{T "Type"}}</th><th>{{T "Expires"}}</th><th>{{T "Status"}}</th></tr></thead>
-      <tbody>{{range .Subs}}<tr><td>{{.Plan}}</td><td>{{.Router}}</td><td>{{.Expires}}</td><td><span class="badge {{badge .Status}}">{{T .Status}}</span></td></tr>
-      {{else}}<tr><td class="py-8 text-center text-ink-2" colspan="4">{{T "No plan yet. Choose one in the Recharge Account box to switch the internet on."}}</td></tr>{{end}}</tbody>
-    </table></div>
-    {{with .Iso}}<p class="px-4 py-2 text-sm">{{T "Isolation running until"}}: {{.}} · <a class="link" href="/admin/isolations?q={{$.Data.C.Username}}">{{T "Isolations"}}</a></p>{{end}}
-  </section>
+    </section>
+    {{template "radius_usage" .Usage}}
+  </div>
+  <div class="min-w-0 space-y-4">
+    {{if .CanSell}}
+    <form id="recharge" class="card scroll-mt-20" method="post" action="/admin/customers/{{.C.ID}}/recharge/confirm" data-recharge>
+      <h2 class="card-title">{{T "Recharge Account"}}</h2>
+      <div class="card-body space-y-4">
+        <div><label class="label" for="plan">{{T "Service Plan"}}</label>
+          <select class="input" id="plan" name="plan">{{range .Plans}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</select></div>
+        <div><label class="label" for="method">{{T "Payment Method"}}</label>
+          <select class="input" id="method" name="method">{{range .Methods}}<option value="{{.Value}}">{{T .Label}}</option>{{end}}</select></div>
+        <div class="flex flex-wrap gap-2">
+          <button class="btn btn-primary" type="submit">{{icon "wallet"}}<span>{{T "Recharge"}}</span></button>
+          <a class="btn btn-ghost" href="/admin/vouchers/redeem?customer={{.C.Username}}">{{icon "ticket"}}<span>{{T "Redeem Voucher"}}</span></a>
+        </div>
+      </div>
+    </form>
+    {{template "recharge_dialog"}}
+    {{end}}
+    <section class="card overflow-hidden">
+      <h2 class="card-title">{{T "Service Plan"}}</h2>
+      <div class="overflow-x-auto"><table class="table">
+        <thead><tr><th>{{T "Plan Name"}}</th><th>{{T "Type"}}</th><th>{{T "Expires"}}</th><th>{{T "Status"}}</th></tr></thead>
+        <tbody>{{range .Subs}}<tr><td>{{.Plan}}</td><td>{{.Router}}</td><td class="whitespace-nowrap">{{.Expires}}</td><td><span class="badge {{badge .Status}}">{{T .Status}}</span></td></tr>
+        {{else}}<tr><td class="py-8 text-center text-ink-2" colspan="4">{{T "No plan yet. Choose one in the Recharge Account box to switch the internet on."}}</td></tr>{{end}}</tbody>
+      </table></div>
+      {{with .Iso}}<p class="px-4 py-2 text-sm">{{T "Isolation running until"}}: {{.}} · <a class="link" href="/admin/isolations?q={{$.Data.C.Username}}">{{T "Isolations"}}</a></p>{{end}}
+    </section>
+    <section class="card overflow-hidden">
+      <h2 class="card-title">{{T "Transactions"}}</h2>
+      <ul class="divide-y divide-line">{{range .Trx}}<li class="flex items-center justify-between gap-3 px-4 py-2 text-sm">
+        <span class="min-w-0"><a class="text-accent-fg hover:underline" href="/admin/transactions/{{.ID}}/invoice">{{.Invoice}}</a> <span class="block text-xs text-ink-2 whitespace-nowrap">{{ts .CreatedAt}}</span></span>
+        <span class="whitespace-nowrap tabular-nums">{{money .Price}}</span>
+      </li>{{else}}<li class="px-4 py-6 text-center text-sm text-ink-2">{{T "No data"}}</li>{{end}}</ul>
+      <div class="px-4 py-2"><a class="btn btn-ghost btn-sm" href="/admin/transactions?customer={{.C.ID}}">{{T "View all transactions"}}</a></div>
+    </section>
+  </div>
 </div>
-
-<section class="card mt-4 overflow-hidden">
-  <h2 class="card-title">{{T "Transactions"}}</h2>
-  <div class="card-body flex items-center justify-between gap-2 pb-2"><a class="btn btn-ghost" href="/admin/transactions?customer={{.C.ID}}">{{T "View all transactions"}}</a></div>
-  <div class="overflow-x-auto"><table class="table">
-    <thead><tr><th>{{T "Invoice"}}</th><th>{{T "Date"}}</th><th>{{T "Plan Name"}}</th><th>{{T "Method"}}</th><th>{{T "Plan Price"}}</th></tr></thead>
-    <tbody>{{range .Trx}}<tr><td><a class="text-accent-fg hover:underline" href="/admin/transactions/{{.ID}}/invoice">{{.Invoice}}</a></td><td>{{ts .CreatedAt}}</td><td>{{.PlanName}}</td><td>{{.Method}}</td><td>{{money .Price}}</td></tr>
-    {{else}}<tr><td class="py-8 text-center text-ink-2" colspan="5">{{T "No data"}}</td></tr>{{end}}</tbody>
-  </table></div>
-</section>
-{{template "radius_usage" .Usage}}
 {{end}}
 {{end}}

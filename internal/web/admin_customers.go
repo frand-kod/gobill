@@ -354,7 +354,10 @@ func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "list transactions", err)
 		return
 	}
-	d.Usage = s.radiusUsage(ctx, c)
+	if d.Usage, err = s.radiusUsage(ctx, c); err != nil {
+		s.fail(w, "customer usage", err)
+		return
+	}
 	if d.Custom, err = s.cfFormFields(ctx, c.ID, map[string]string{}, nil); err != nil {
 		s.fail(w, "custom fields", err)
 		return

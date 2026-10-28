@@ -2682,5 +2682,8 @@
     "No usage recorded yet": "Belum ada pemakaian tercatat",
     "Nothing here for this filter.": "Tidak ada yang cocok dengan filter ini.",
     "No plans ended in the last 7 days.": "Tidak ada paket yang habis dalam 7 hari terakhir.",
-    "Having trouble? Contact %s admin": "Ada kendala? Hubungi admin %s"
+    "Having trouble? Contact %s admin": "Ada kendala? Hubungi admin %s",
+    "Session history": "Riwayat sesi",
+    "Last session": "Sesi terakhir",
+    "Daily usage, last 30 days": "Pemakaian harian, 30 hari terakhir"
 }

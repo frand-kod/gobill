@@ -364,20 +364,62 @@ func (s *Server) pInvoice(w http.ResponseWriter, r *http.Request) {
 	s.invoice(w, r, t)
 }
 
-type radiusUsage struct {
+// useWin is one window of the customer's daily usage chart: its total and its bars.
+type useWin struct {
 	Total string
-	Rows  []sessRow
+	Bars  []dayBar
 }
 
-// radiusUsage: bytes since the active subscription started plus the last 10 sessions.
-func (s *Server) radiusUsage(ctx context.Context, c db.Customer) *radiusUsage {
+// useLast is the newest session in one line: start, duration and the sum of both directions.
+type useLast struct{ Start, For, Total string }
+
+type radiusUsage struct {
+	Total       string    // data since the plan started, the big number
+	Empty       bool      // no daily usage and no session recorded
+	Week, Month useWin    // the 7 and 30 day charts, built from one query
+	Last        *useLast  // nil when there is no session
+	Rows        []sessRow // the last 10 sessions, under Session history
+}
+
+// radiusUsage: bytes since the active subscription started, the daily chart for 7 and 30 days, and the
+// last 10 sessions.
+func (s *Server) radiusUsage(ctx context.Context, c db.Customer) (*radiusUsage, error) {
 	u := &radiusUsage{}
 	var total int64
 	if p, err := s.queries.GetRadiusPlan(ctx, c.ID); err == nil {
 		total, _ = s.queries.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: c.Username, StartedAt: p.StartedAt})
 	}
 	u.Total = humanBytes(total)
-	ss, _ := s.queries.ListRecentRadiusSessionsByUser(ctx, c.Username)
-	u.Rows = s.sessRows(ss, time.Now().Unix())
-	return u
+	now, loc := time.Now().Unix(), s.location()
+	n1, n2 := names2(loginNames(c))
+	rows, err := s.queries.ListRadiusUsageDaily(ctx, db.ListRadiusUsageDailyParams{Name1: n1, Name2: n2, Since: dayStart(now, loc).AddDate(0, 0, -29).Format("2006-01-02")})
+	if err != nil {
+		return nil, err
+	}
+	ss, err := s.queries.ListRecentRadiusSessionsByUser(ctx, c.Username)
+	if err != nil {
+		return nil, err
+	}
+	u.Empty = len(rows) == 0 && len(ss) == 0
+	totals := make([]dayTotal, len(rows))
+	for i, x := range rows {
+		totals[i] = dayTotal{Day: x.Day, Input: x.Input, Output: x.Output}
+	}
+	u.Week = useWindow(dailyUsage(totals, 7, now, loc))
+	u.Month = useWindow(dailyUsage(totals, 30, now, loc))
+	if len(ss) > 0 {
+		r := s.sessRows(ss[:1], now)[0]
+		u.Last = &useLast{Start: r.Start, For: r.For, Total: humanBytes(ss[0].InputOctets + ss[0].OutputOctets)}
+	}
+	u.Rows = s.sessRows(ss, now)
+	return u, nil
+}
+
+// useWindow sums one window of the daily chart and lays out its bars.
+func useWindow(days []dayUse) useWin {
+	var n int64
+	for _, d := range days {
+		n += d.Down + d.Up
+	}
+	return useWin{Total: humanBytes(n), Bars: chartBars(days)}
 }

@@ -1,10 +1,24 @@
-{{define "radius_usage"}}{{with .}}{{if .Rows}}
-<section class="card mt-4 overflow-hidden">
-  <h2 class="card-title">{{T "RADIUS usage"}}</h2>
-  <p class="px-4 pt-3">{{T "Total since plan start"}}: <strong>{{.Total}}</strong></p>
-  <div class="overflow-x-auto"><table class="table">
-    <thead><tr><th>{{T "Start"}}</th><th>{{T "Duration"}}</th><th>{{T "Upload"}}</th><th>{{T "Download"}}</th></tr></thead>
-    <tbody>{{range .Rows}}<tr><td>{{.Start}}</td><td>{{.For}}</td><td>{{.Up}}</td><td>{{.Down}}</td></tr>{{end}}</tbody>
-  </table></div>
+{{define "radius_usage"}}{{with .}}
+<section class="card overflow-hidden" aria-labelledby="cust-usage-title" x-data="{ win: 7 }">
+  <h2 class="card-title flex flex-wrap items-center justify-between gap-2" id="cust-usage-title"><span>{{T "RADIUS usage"}}</span>
+    {{if not .Empty}}<span class="flex flex-wrap gap-2" role="group" aria-label="{{T "Usage"}}">
+      <button type="button" class="btn btn-sm" :aria-pressed="win === 7 ? 'true' : 'false'" @click="win = 7">{{T "7 days"}}</button>
+      <button type="button" class="btn btn-sm" :aria-pressed="win === 30 ? 'true' : 'false'" @click="win = 30">{{T "30 days"}}</button>
+    </span>{{end}}</h2>
+  <div class="card-body space-y-3">
+    <p class="flex flex-wrap items-baseline justify-between gap-2"><span class="big-num">{{.Total}}</span><span class="text-sm text-ink-2">{{T "Total since plan start"}}</span></p>
+    {{if .Empty}}<p class="text-sm text-ink-2">{{T "No usage recorded yet"}}</p>{{else}}
+    <div x-show="win === 7" x-cloak>{{template "barchart" dict "Bars" .Week.Bars "Default" .Week.Total "Label" (T "Daily usage, last 7 days")}}</div>
+    <div x-show="win === 30" x-cloak>{{template "barchart" dict "Bars" .Month.Bars "Default" .Month.Total "Label" (T "Daily usage, last 30 days")}}</div>
+    {{end}}
+    {{with .Last}}<p class="text-sm tabular-nums">{{T "Last session"}}: {{.Start}} · {{.For}} · {{.Total}}</p>{{end}}
+  </div>
+  {{if .Rows}}<details class="border-t border-line">
+    <summary class="cursor-pointer px-4 py-2 text-sm font-medium">{{T "Session history"}}</summary>
+    <div class="overflow-x-auto"><table class="table">
+      <thead><tr><th>{{T "Start"}}</th><th>{{T "Duration"}}</th><th>{{T "Upload"}}</th><th>{{T "Download"}}</th></tr></thead>
+      <tbody>{{range .Rows}}<tr><td class="whitespace-nowrap">{{.Start}}</td><td>{{.For}}</td><td>{{.Up}}</td><td>{{.Down}}</td></tr>{{end}}</tbody>
+    </table></div>
+  </details>{{end}}
 </section>
-{{end}}{{end}}{{end}}
+{{end}}{{end}}
