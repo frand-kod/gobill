@@ -215,3 +215,36 @@ func TestWGCheckStages(t *testing.T) {
 		t.Error("each failed stage should be marked on its own")
 	}
 }
+
+// A router whose clock went back is refused until its peer session is reset: the button is on the page and works.
+func TestWGResetPeerButton(t *testing.T) {
+	_, h, c, id, _ := provisioned(t)
+	if !strings.Contains(do(h, "GET", "/admin/routers/"+strconv.FormatInt(id, 10)+"/edit", nil, c).Body.String(), "/wg/reset") {
+		t.Fatal("no reset button on the router page")
+	}
+	if w := wgPost(h, c, id, "reset"); w.Code != http.StatusSeeOther {
+		t.Fatalf("reset: %d", w.Code)
+	}
+}
+
+// The router page says where and when the link was used, and warns when no handshake followed.
+func TestProvisionUsedByOtherWarns(t *testing.T) {
+	s, h, c, id, path := provisioned(t)
+	page := func() string {
+		return do(h, "GET", "/admin/routers/"+strconv.FormatInt(id, 10)+"/edit", nil, c).Body.String()
+	}
+	fetchScript(t, h, path, "203.0.113.9:4000", http.StatusOK)
+	p := page()
+	if !strings.Contains(p, "Script fetched from 203.0.113.9") {
+		t.Error("the page does not say where the link was used")
+	}
+	if strings.Contains(p, "no handshake since the script was fetched") {
+		t.Error("warned right after use, before the router had time to connect")
+	}
+	if _, err := s.conn.ExecContext(t.Context(), "UPDATE wg_tokens SET used_at = used_at - 600 WHERE router_id = ?", id); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(page(), "no handshake since the script was fetched") {
+		t.Error("no warning although the router never connected after the link was used")
+	}
+}
