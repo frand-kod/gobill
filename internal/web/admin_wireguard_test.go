@@ -106,14 +106,18 @@ func TestWGProvisionImpactAndRevoke(t *testing.T) {
 		t.Fatalf("peer 1: %+v %v", p1, err)
 	}
 	page := do(h, "GET", "/admin/routers/"+strconv.FormatInt(r1.ID, 10)+"/edit", nil, c).Body.String()
+	if !strings.Contains(page, "/tool fetch url=") || strings.Contains(page, "/interface wireguard add") {
+		t.Fatal("the page should show the one line, not the script")
+	}
+	script := fetchScript(t, h, provisionPath(t, page), "198.51.100.7:4000", http.StatusOK)
 	for _, want := range []string{"/interface wireguard add name=wg-gobill", "allowed-address=10.77.0.1/32", "endpoint-address=vpn.example.com endpoint-port=38212",
-		"src-address=10.77.0.2", "persistent-keepalive=25s", "/system ntp client"} {
-		if !strings.Contains(page, want) {
-			t.Errorf("command block lacks %q", want)
+		"src-address=10.77.0.2", "persistent-keepalive=25s", "/system ntp client", "place-before="} {
+		if !strings.Contains(script, want) {
+			t.Errorf("script lacks %q", want)
 		}
 	}
-	if strings.Contains(do(h, "GET", "/admin/routers/"+strconv.FormatInt(r1.ID, 10)+"/edit", nil, c).Body.String(), "/interface wireguard add") {
-		t.Error("the private key block was shown a second time")
+	if strings.Contains(do(h, "GET", "/admin/routers/"+strconv.FormatInt(r1.ID, 10)+"/edit", nil, c).Body.String(), "/provision/") {
+		t.Error("the one line was shown a second time")
 	}
 	// the private key is stored sealed, not as the base64 text the block printed
 	if strings.Contains(string(p1.PrivateEnc), "=") && len(p1.PrivateEnc) < 48 {

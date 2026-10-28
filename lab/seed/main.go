@@ -24,6 +24,7 @@ func main() {
 	nasIP := flag.String("nas-ip", "", "source IP of the CHR as gobill sees it")
 	nasSecret := flag.String("nas-secret", "", "RADIUS shared secret")
 	sqlStmt := flag.String("sql", "", "run this one statement on the database and exit (lab test helper)")
+	expire := flag.Int64("expire-token", 0, "set the provisioning token of this router id to expired, then exit")
 	flag.Parse()
 
 	conn, err := db.Open(*path)
@@ -39,6 +40,15 @@ func main() {
 	}
 	if err := db.Migrate(conn); err != nil {
 		log.Fatal(err)
+	}
+	if *expire > 0 { // lab-only: age a provisioning token so the expiry check can be tested without waiting 15 minutes
+		must := func(_ any, err error) {
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+		must(conn.Exec(`UPDATE wg_tokens SET expires_at=1 WHERE router_id=?`, *expire))
+		return
 	}
 	key, _, err := secret.LoadKey("", *path+".key")
 	if err != nil {

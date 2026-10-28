@@ -361,3 +361,11 @@ type WgPeer struct {
 	Stale         int64
 	ProvisionedAt int64
 }
+
+type WgToken struct {
+	RouterID  int64
+	TokenHash string
+	ExpiresAt int64
+	UsedAt    int64
+	UsedIp    string
+}

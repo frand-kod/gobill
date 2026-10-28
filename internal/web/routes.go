@@ -371,6 +371,9 @@ func (s *Server) Handler() http.Handler {
 	// RADIUS REST endpoint and payment callbacks (no session; bypass the origin check below)
 	s.radiusRestRoutes(mux)
 
+	// the router fetches its provisioning script here; the one-time token is the credential
+	mux.HandleFunc("GET /provision/{token}", s.provisionScript)
+
 	// ISOLIR page for expired customers: public, identified by client IP; the voucher form posts
 	// from the sandboxed custom page (origin null), so it bypasses the origin check below
 	mux.HandleFunc("GET /isolir", s.isolirPage)
