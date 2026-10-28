@@ -221,8 +221,13 @@ func (b wgBlock) script() string {
 	w.WriteString("/system ntp client set enabled=yes servers=pool.ntp.org\n")
 	fmt.Fprintf(&w, "/radius add service=hotspot,ppp address=%s secret=%q authentication-port=1812 accounting-port=1813 timeout=1s src-address=%s comment=%s\n", b.Self, b.Secret, b.Peer, provTag)
 	w.WriteString("/radius incoming set accept=yes\n")
-	fmt.Fprintf(&w, "/ip firewall filter add chain=input in-interface=%s src-address=%s protocol=udp dst-port=3799 action=accept place-before=0 comment=%s\n", provIface, b.Self, provTag)
-	fmt.Fprintf(&w, "/ip firewall filter add chain=input in-interface=%s src-address=%s protocol=tcp dst-port=8728 action=accept place-before=0 comment=%s\n", provIface, b.Self, provTag)
+	// place-before=0 fails with "no such item" on an empty table and, after the cleanup above, on a stale index;
+	// the first rule is looked up by id, and a plain add is used when the table is empty.
+	const first = "[:pick [/ip firewall filter find] 0]"
+	for _, r := range []string{"protocol=udp dst-port=3799", "protocol=tcp dst-port=8728"} {
+		add := fmt.Sprintf("/ip firewall filter add chain=input in-interface=%s src-address=%s %s action=accept", provIface, b.Self, r)
+		fmt.Fprintf(&w, ":if ([:len [/ip firewall filter find]] = 0) do={ %s comment=%s } else={ %s place-before=%s comment=%s }\n", add, provTag, add, first, provTag)
+	}
 	fmt.Fprintf(&w, "/user group add name=%s policy=api,read,write,test\n", provGroup)
 	fmt.Fprintf(&w, "/user add name=%s group=%s password=%q address=%s/32\n", provUser, provGroup, b.APIPass, b.Self)
 	fmt.Fprintf(&w, "/ip service set api address=%s/32 disabled=no\n", b.Self)

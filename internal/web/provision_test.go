@@ -183,14 +183,20 @@ func TestProvisionScriptShape(t *testing.T) {
 			t.Errorf("%q must come before %q", pair[0], pair[1])
 		}
 	}
-	for _, want := range []string{"place-before=0", "/ip service set api address=10.99.0.1/32", "group=gobill-api", "address=10.99.0.1/32",
+	for _, want := range []string{"place-before=[:pick [/ip firewall filter find] 0]", "/ip service set api address=10.99.0.1/32", "group=gobill-api", "address=10.99.0.1/32",
 		"/file remove [find name=gobill.rsc]"} {
 		if !strings.Contains(sc, want) {
 			t.Errorf("script lacks %q", want)
 		}
 	}
-	if strings.Count(sc, "place-before=0") != 2 {
-		t.Error("both firewall rules go first")
+	if strings.Count(sc, "place-before=") != 2 || strings.Contains(sc, "place-before=0") {
+		t.Error("both firewall rules go first, by id, never by index 0")
+	}
+	// An empty filter table has no first rule: each add with place-before is the else of an emptiness check, a plain add is the then.
+	for _, ln := range strings.Split(sc, "\n") {
+		if strings.Contains(ln, "place-before=") && (!strings.HasPrefix(ln, `:if ([:len [/ip firewall filter find]] = 0) do={ /ip firewall filter add `) || !strings.Contains(ln, "} else={ /ip firewall filter add ")) {
+			t.Errorf("unguarded place-before: %s", ln)
+		}
 	}
 }
 

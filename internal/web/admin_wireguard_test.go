@@ -111,7 +111,7 @@ func TestWGProvisionImpactAndRevoke(t *testing.T) {
 	}
 	script := fetchScript(t, h, provisionPath(t, page), "198.51.100.7:4000", http.StatusOK)
 	for _, want := range []string{"/interface wireguard add name=wg-gobill", "allowed-address=10.77.0.1/32", "endpoint-address=vpn.example.com endpoint-port=38212",
-		"src-address=10.77.0.2", "persistent-keepalive=25s", "/system ntp client", "place-before=0"} {
+		"src-address=10.77.0.2", "persistent-keepalive=25s", "/system ntp client", "place-before="} {
 		if !strings.Contains(script, want) {
 			t.Errorf("script lacks %q", want)
 		}
