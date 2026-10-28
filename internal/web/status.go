@@ -329,9 +329,9 @@ type statusLevels struct {
 const (
 	expiryJob         = "expiry" // runs every minute; a last run older than stalledJobAge means it has stopped
 	stalledJobAge     = 15 * time.Minute
-	radiusRejectRatio = 10 // amber when rejected(24 h) > accepted(24 h) / radiusRejectRatio
-	diskBadDays       = 7  // red when the disk is projected to fill in fewer days
-	diskWarnDays      = 30 // amber when it is projected to fill in fewer days
+	radiusRejectRatio = 10             // amber when rejected(24 h) > accepted(24 h) / radiusRejectRatio
+	diskBadDays       = 7              // red when the disk is projected to fill in fewer days
+	diskWarnDays      = 30             // amber when it is projected to fill in fewer days
 	backupStaleAge    = 36 * time.Hour // same age as the "Older than 36 hours" badge
 )
 
