@@ -8,7 +8,7 @@
   <div class="flex h-32 items-end gap-1 text-brand-500" role="group" aria-label="{{.Label}}">
     {{range .Bars}}{{$tip := printf "%s · ↓ %s · ↑ %s" .Label .Down .Up}}<div class="flex h-full min-w-0 flex-1 cursor-pointer flex-col justify-end outline-none transition-opacity" tabindex="0" data-tip="{{$tip}}" @mouseenter="tip = $el.dataset.tip" @focus="tip = $el.dataset.tip" @click="tip = $el.dataset.tip" :style="tip && tip !== $el.dataset.tip ? 'opacity: 0.45' : ''">
       <span class="block w-full rounded-t-sm bg-current opacity-40" style="height: {{.UpPct}}%"></span>
-      <span class="block w-full rounded-sm bg-current" style="height: {{.DownPct}}%"></span>
+      <span class="block min-h-0.5 w-full rounded-sm bg-current" style="height: {{.DownPct}}%"></span>
     </div>{{end}}
   </div>
   <div class="mt-1 flex gap-1 text-xs text-ink-2">{{range .Bars}}<span class="flex min-w-0 flex-1 justify-center whitespace-nowrap">{{.Tick}}</span>{{end}}</div>

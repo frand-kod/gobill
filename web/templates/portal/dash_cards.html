@@ -4,7 +4,7 @@
 <script src="{{asset "/static/usage.js"}}"></script>
 
 {{/* one live scope: the plan card shows online/offline, the connection card the details; polled every 15 s while visible.
-     Two columns that stack independently (items-start): plan and connection on the left, usage and transactions on the right. */}}
+     Two columns that stack independently (items-start): plan and transactions on the left, usage and connection on the right. */}}
 <div class="mb-4 grid items-start gap-4 lg:grid-cols-2" x-data="portalLive()" data-state="{{.Data.Live.JSON}}" data-url="/portal/usage.json" data-idle="{{T "Refreshes every 15 seconds"}}" data-updated="{{T "Updated %s"}}" data-failed="{{T "Connection lost, retrying"}}">
 <div class="flex flex-col gap-4">
 
@@ -31,32 +31,16 @@
   </p>
 </div></section>
 
-{{/* c) current connection: speed meter and session details, or when it was last seen */}}
-<section class="card" aria-labelledby="c-live"><h2 id="c-live" class="card-title">{{T "Current connection"}}</h2><div class="card-body">
-  <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-    <div class="flex flex-wrap items-center gap-3">
-      <div class="flex items-center gap-2 whitespace-nowrap" role="img" aria-label="{{.Data.Live.Label}}" :aria-label="live.label">
-        <span class="flex items-end gap-0.5" aria-hidden="true"><i class="h-3 w-1.5 rounded-sm" :class="seg(0)"></i><i class="h-3 w-1.5 rounded-sm" :class="seg(1)"></i><i class="h-3 w-1.5 rounded-sm" :class="seg(2)"></i><i class="h-3 w-1.5 rounded-sm" :class="seg(3)"></i><i class="h-3 w-1.5 rounded-sm" :class="seg(4)"></i></span>
-      </div>
-      <p class="text-sm tabular-nums"><span aria-hidden="true">↓</span> <span class="font-medium" x-text="live.down">{{.Data.Live.Down}}</span> <span class="text-ink-2" aria-hidden="true">·</span> <span aria-hidden="true">↑</span> <span class="font-medium" x-text="live.up">{{.Data.Live.Up}}</span></p>
+{{/* d) recent transactions: invoice and plan, the date under them, the price on the right */}}
+<section class="card" aria-labelledby="c-trx"><h2 id="c-trx" class="card-title flex items-center justify-between gap-2"><span>{{T "Recent Transactions"}}</span><a class="link text-sm font-normal" href="/portal/orders">{{T "See all"}} ›</a></h2><div class="card-body pt-2">
+  {{with .Data.Trx}}<ul class="divide-y divide-line">{{range .}}<li class="flex items-start justify-between gap-3 py-3 text-sm">
+    <div class="min-w-0">
+      <p class="truncate"><a class="underline" href="/portal/orders/{{.ID}}/invoice">{{.Invoice}}</a> <span class="text-ink-2">· {{.PlanName}}</span></p>
+      <p class="text-xs text-ink-2">{{ts .CreatedAt}}</p>
     </div>
-    <p class="text-xs text-ink-2" x-text="status">{{T "Refreshes every 15 seconds"}}</p>
-  </div>
-  <div x-show="live.online">
-    <p class="mt-3 text-sm text-ink-2"><span x-show="live.limit"{{if not .Data.Live.Limit}} style="display: none"{{end}}>{{T "Plan speed"}} <span class="font-medium text-ink" x-text="live.limit">{{.Data.Live.Limit}}</span> · </span>{{T "Connected for"}} <span class="font-medium text-ink" x-text="live.for">{{.Data.Live.For}}</span></p>
-    <p class="mt-1 text-sm text-ink-2">{{T "IP"}} <span class="font-mono text-ink" x-text="live.ip">{{.Data.Live.IP}}</span> · {{T "Session data"}} <span class="font-medium text-ink" x-text="live.used">{{.Data.Live.Used}}</span></p>
-    <details class="mt-3 text-sm">
-      <summary class="link cursor-pointer">{{T "More"}}</summary>
-      <dl class="mt-2 grid grid-cols-2 gap-x-4 gap-y-2">
-        <dt class="text-ink-2">{{T "Device"}}</dt><dd class="font-mono" x-text="live.device || '-'">{{if .Data.Live.Device}}{{.Data.Live.Device}}{{else}}-{{end}}</dd>
-        <dt class="text-ink-2">{{T "Connected since"}}</dt><dd x-text="live.since">{{.Data.Live.Since}}</dd>
-      </dl>
-    </details>
-  </div>
-  <div x-show="!live.online">
-    <p class="text-sm" x-show="live.seen">{{T "Last seen"}}: <span x-text="live.seen">{{.Data.Live.Seen}}</span></p>
-    <p class="text-sm text-ink-2" x-show="!live.seen">{{T "No connection record yet"}}</p>
-  </div>
+    <span class="whitespace-nowrap font-medium tabular-nums">{{money .Price}}</span>
+  </li>{{end}}</ul>
+  {{else}}<p class="py-6 text-center text-sm text-ink-2">{{T "No data"}}</p>{{end}}
 </div></section>
 </div>
 
@@ -90,17 +74,35 @@
   </p>
 </div></section>
 
-{{/* d) recent transactions: invoice and plan, the date under them, the price on the right */}}
-<section class="card" aria-labelledby="c-trx"><h2 id="c-trx" class="card-title">{{T "Recent Transactions"}}</h2><div class="card-body pt-2">
-  {{with .Data.Trx}}<ul class="divide-y divide-line">{{range .}}<li class="flex items-start justify-between gap-3 py-3 text-sm">
-    <div class="min-w-0">
-      <p class="truncate"><a class="underline" href="/portal/orders/{{.ID}}/invoice">{{.Invoice}}</a> <span class="text-ink-2">· {{.PlanName}}</span></p>
-      <p class="text-xs text-ink-2">{{ts .CreatedAt}}</p>
+{{/* c) current connection: a speedometer of the download rate against the plan speed, the session details beside it */}}
+<section class="card" aria-labelledby="c-live"><h2 id="c-live" class="card-title flex flex-wrap items-center justify-between gap-2"><span>{{T "Current connection"}}</span><span class="text-xs font-normal text-ink-2" x-text="status">{{T "Refreshes every 15 seconds"}}</span></h2><div class="card-body">
+  <div class="flex flex-wrap items-center gap-x-6 gap-y-3" x-show="live.online"{{if not .Data.Live.Online}} style="display: none"{{end}}>
+    <div class="relative w-40 shrink-0" role="img" aria-label="{{.Data.Live.Label}}" :aria-label="live.label" x-show="live.limit"{{if not .Data.Live.Limit}} style="display: none"{{end}}>
+      <svg viewBox="0 0 120 66" class="w-full" aria-hidden="true">
+        <path d="M10 60 A50 50 0 0 1 110 60" fill="none" stroke="var(--color-line)" stroke-width="10" stroke-linecap="round" pathLength="100"/>
+        <path d="M10 60 A50 50 0 0 1 110 60" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" pathLength="100" class="transition-all duration-700" :class="live.pct > 75 ? 'text-err-fg' : live.pct >= 50 ? 'text-warn-fg' : 'text-brand-500'" stroke-dasharray="{{.Data.Live.Pct}} 100" :stroke-dasharray="gauge()"/>
+      </svg>
+      <p class="absolute inset-x-0 bottom-0 text-center leading-tight"><span class="block text-lg font-semibold tabular-nums">↓ <span x-text="live.down">{{.Data.Live.Down}}</span></span><span class="text-xs text-ink-2">{{printf (T "of %s") ""}}<span x-text="live.limit">{{.Data.Live.Limit}}</span></span></p>
     </div>
-    <span class="whitespace-nowrap font-medium tabular-nums">{{money .Price}}</span>
-  </li>{{end}}</ul>
-  {{else}}<p class="py-6 text-center text-sm text-ink-2">{{T "No data"}}</p>{{end}}
-  <p class="mt-2 text-end"><a class="btn btn-ghost" href="/portal/orders">{{T "See all"}}</a></p>
+    <div class="min-w-0 flex-1 space-y-1 text-sm text-ink-2">
+      <p class="tabular-nums" x-show="!live.limit"{{if .Data.Live.Limit}} style="display: none"{{end}}>↓ <span class="font-medium text-ink" x-text="live.down">{{.Data.Live.Down}}</span></p>
+      <p class="tabular-nums">↑ <span class="font-medium text-ink" x-text="live.up">{{.Data.Live.Up}}</span></p>
+      <p>{{T "Connected for"}} <span class="font-medium text-ink" x-text="live.for">{{.Data.Live.For}}</span></p>
+      <p>{{T "IP"}} <span class="font-mono text-ink" x-text="live.ip">{{.Data.Live.IP}}</span></p>
+      <details>
+        <summary class="link cursor-pointer">{{T "More"}}</summary>
+        <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+          <dt>{{T "Session data"}}</dt><dd class="text-ink" x-text="live.used">{{.Data.Live.Used}}</dd>
+          <dt>{{T "Device"}}</dt><dd class="font-mono text-ink" x-text="live.device || '-'">{{if .Data.Live.Device}}{{.Data.Live.Device}}{{else}}-{{end}}</dd>
+          <dt>{{T "Connected since"}}</dt><dd class="text-ink" x-text="live.since">{{.Data.Live.Since}}</dd>
+        </dl>
+      </details>
+    </div>
+  </div>
+  <div x-show="!live.online"{{if .Data.Live.Online}} style="display: none"{{end}}>
+    <p class="text-sm" x-show="live.seen">{{T "Last seen"}}: <span x-text="live.seen">{{.Data.Live.Seen}}</span></p>
+    <p class="text-sm text-ink-2" x-show="!live.seen">{{T "No connection record yet"}}</p>
+  </div>
 </div></section>
 </div>
 </div>

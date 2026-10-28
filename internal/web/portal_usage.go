@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/url"
 	"time"
@@ -30,6 +31,7 @@ type pLive struct {
 	Limit  string   `json:"limit"` // the plan's download limit as written, "" when none
 	Label  string   `json:"label"` // the meter's text for screen readers
 	Bars   []string `json:"bars"`  // the five meter segments, see speedMeter.bars
+	Pct    int      `json:"pct"`   // download rate as a share of the plan's, 0..100; the gauge's needle
 }
 
 // JSON is the live card for the x-data of the card.
@@ -85,6 +87,9 @@ func (s *Server) pLiveOf(ctx context.Context, c db.Customer, now int64, w pWords
 	l.Bars, l.Limit = m.bars(), plan.DownLabel
 	if ok {
 		l.Down, l.Up = rateText(down), rateText(up)
+		if plan.MaxDown > 0 {
+			l.Pct = min(int(math.Round(down/plan.MaxDown*100)), 100)
+		}
 	}
 	return l, nil
 }

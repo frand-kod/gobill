@@ -51,9 +51,14 @@
           })
           .then(function (v) {
             self.live = v;
-            self.status = self.labels.updated.replace('%s', new Date().toLocaleTimeString());
+            self.status = self.labels.updated.replace('%s', new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }));
           })
           .catch(function () { self.status = self.labels.failed; });
+      },
+
+      // gauge is the dash length of the speedometer arc (pathLength 100).
+      gauge: function () {
+        return (this.live.online ? this.live.pct || 0 : 0) + ' 100';
       },
 
       // seg is the class of meter segment i: lit in the tone's colour, or the line colour.
