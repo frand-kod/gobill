@@ -6,6 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
+## [0.2.3] - 2026-10-29
+
+### Fitur
+
+- **Lonceng notifikasi di portal pelanggan** (migrasi `0028_portal_seen.sql`): pengumuman, promo, paket habis dalam 3 hari, dan kuota hampir habis pindah ke lonceng di topbar. Badge menghitung yang belum dibaca; status dibaca disimpan per akun dan muncul lagi bila isinya berubah. Gangguan di area pelanggan tetap tampil sebagai strip tipis di atas dashboard.
+
+### Diubah
+
+- **Dashboard admin**: grid 60/40 (statistik kiri, status kanan); di layar ≥1280×800 panel memenuhi layar dengan tepi bawah sejajar. Baris pelanggan tinggal username, sisa waktu, dan tombol (WhatsApp hijau); hover atau tap username menampilkan nama, paket, telepon, saldo, dan terakhir online.
+- **Detail pelanggan**: satu baris status (Online/Offline, tipe layanan, router) menggantikan badge dan empat chip; status akun hanya tampil bila bukan Aktif. Kartu Pelanggan tanpa field ganda. Kolom kiri dan kanan sama tinggi.
+- **Dashboard portal**: kolom kiri dan kanan sama tinggi.
+- **Status Sistem**: kartu sejajar per baris. **Daftar paket portal**: tombol beli sejajar di bawah kartu.
+
 ## [0.2.2] - 2026-10-29
 
 ### Diubah
