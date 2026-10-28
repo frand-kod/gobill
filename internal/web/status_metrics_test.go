@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/metrics"
@@ -70,6 +71,24 @@ func TestStatusPageAndJSONRoles(t *testing.T) {
 		}
 	}
 	wantCode(t, do(h, "GET", "/admin/status.json", nil, rita), http.StatusForbidden, "status json for Report")
+}
+
+// A stalled job is red, and a page where everything is in order is green.
+func TestStatusLevels(t *testing.T) {
+	now := time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)
+	green := statusLevels{App: levelOK, Storage: levelOK, Radius: levelOK, Jobs: levelOK,
+		Notify: levelOK, Pay: levelOK, Sec: levelOK, Backup: levelOK}
+	ok := statusData{DaysToFull: -1, Accepted24h: 100, Rejected24h: 5,
+		Jobs:   []jobRow{{Name: expiryJob, at: now.Add(-time.Minute)}},
+		Backup: backupRow{at: now.Add(-time.Hour)}}
+	if got := levelsOf(ok, now); got != green {
+		t.Fatalf("all ok: got %+v, want %+v", got, green)
+	}
+	stalled := ok
+	stalled.Jobs = []jobRow{{Name: expiryJob, at: now.Add(-16 * time.Minute)}}
+	if got := levelsOf(stalled, now).Jobs; got != levelBad {
+		t.Fatalf("expiry job last run 16 min ago: jobs level %q, want bad", got)
+	}
 }
 
 func TestMetricsTokenActions(t *testing.T) {

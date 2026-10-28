@@ -1,0 +1,9 @@
+{{define "sparkline"}}
+<div class="flex items-end gap-3">
+  <div class="min-w-0 flex-1">
+    <p class="mb-1 text-xs text-ink-2">{{.Label}}</p>
+    <div class="flex h-8 items-end gap-px" aria-hidden="true">{{range .Spark.Bars}}<div class="flex-1 rounded-sm bg-info-fg/70" style="height: {{.Pct}}%" title="{{.Title}}"></div>{{end}}</div>
+  </div>
+  <span class="pb-0.5 text-sm font-medium tabular-nums">{{printf "%.0f" .Spark.Total}}</span>
+</div>
+{{end}}

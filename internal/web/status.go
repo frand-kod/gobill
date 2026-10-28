@@ -5,7 +5,6 @@ package web
 import (
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"math"
 	"net/http"
 	"path/filepath"
@@ -39,23 +38,25 @@ type statusData struct {
 	DaysToFull float64 `json:"days_to_full"`      // -1 when unknown or not growing
 	HistDays   int     `json:"history_days"`
 
-	Accepted24h float64     `json:"radius_accepted_24h"`
-	Rejected24h float64     `json:"radius_rejected_24h"`
-	AvgMs       float64     `json:"radius_avg_ms"` // since start
-	Open        int64       `json:"radius_open_sessions"`
-	NAS         []nasRow    `json:"nas"`
-	Jobs        []jobRow    `json:"jobs"`
-	Notify      []notifyRow `json:"notifications"`
-	PayOK       float64     `json:"payment_callbacks_ok"`
-	PayFailed   float64     `json:"payment_callbacks_failed"`
-	PayLast     string      `json:"payment_last_callback"`
-	Sec         secRow      `json:"security"`
-	Backup      backupRow   `json:"backup"`
+	Accepted24h float64      `json:"radius_accepted_24h"`
+	Rejected24h float64      `json:"radius_rejected_24h"`
+	AvgMs       float64      `json:"radius_avg_ms"` // since start
+	Open        int64        `json:"radius_open_sessions"`
+	NAS         []nasRow     `json:"nas"`
+	Jobs        []jobRow     `json:"jobs"`
+	Notify      []notifyRow  `json:"notifications"`
+	PayOK       float64      `json:"payment_callbacks_ok"`
+	PayFailed   float64      `json:"payment_callbacks_failed"`
+	PayLast     string       `json:"payment_last_callback"`
+	Sec         secRow       `json:"security"`
+	Backup      backupRow    `json:"backup"`
+	Levels      statusLevels `json:"levels"`
+	JobsFailing int          `json:"-"` // jobs with a failure in a row, for the summary row
 
-	RadiusAcc []float64 `json:"-"`
-	RadiusRej []float64 `json:"-"`
-	NotifyErr []float64 `json:"-"`
-	LoginFail []float64 `json:"-"`
+	RadiusAcc spark `json:"-"`
+	RadiusRej spark `json:"-"`
+	NotifyErr spark `json:"-"`
+	LoginFail spark `json:"-"`
 }
 
 type nasRow struct {
@@ -75,6 +76,7 @@ type jobRow struct {
 	DurMs    int64  `json:"duration_ms"`
 	LastErr  string `json:"last_error"`
 	Failures int    `json:"failures"`
+	at       time.Time
 }
 
 type notifyRow struct {
@@ -101,6 +103,7 @@ type backupRow struct {
 	Mirror     string `json:"mirror"`
 	MirrorAt   string `json:"mirror_at"`
 	MirrorErr  string `json:"mirror_error"`
+	at         time.Time
 }
 
 func (s *Server) statusPage(w http.ResponseWriter, r *http.Request) {
@@ -144,10 +147,10 @@ func (s *Server) statusData(r *http.Request) (statusData, error) {
 		Rejected24h: metrics.Recent("radius_auth_rejected_total", 1440),
 		PayOK:       metrics.Value("payment_callbacks_total", "result", "ok"),
 		PayFailed:   metrics.Value("payment_callbacks_total", "result", "failed"),
-		RadiusAcc:   bucketSums(metrics.Series("radius_auth_accepted_total")),
-		RadiusRej:   bucketSums(metrics.Series("radius_auth_rejected_total")),
-		NotifyErr:   bucketSums(metrics.Series("notifications_failed_total")),
-		LoginFail:   bucketSums(metrics.Series("login_failures_total")),
+		RadiusAcc:   newSpark(metrics.Series("radius_auth_accepted_total"), now, loc),
+		RadiusRej:   newSpark(metrics.Series("radius_auth_rejected_total"), now, loc),
+		NotifyErr:   newSpark(metrics.Series("notifications_failed_total"), now, loc),
+		LoginFail:   newSpark(metrics.Series("login_failures_total"), now, loc),
 	}
 	if n := metrics.Value("radius_auth_duration_seconds_count"); n > 0 {
 		d.AvgMs = metrics.Value("radius_auth_duration_seconds_sum") / n * 1000
@@ -202,7 +205,10 @@ func (s *Server) statusData(r *http.Request) (statusData, error) {
 
 	for _, j := range job.Stats() {
 		d.Jobs = append(d.Jobs, jobRow{Name: j.Name, LastRun: j.LastRun.In(loc).Format(backupLayout),
-			DurMs: j.Duration.Milliseconds(), LastErr: j.LastErr, Failures: j.Failures})
+			DurMs: j.Duration.Milliseconds(), LastErr: j.LastErr, Failures: j.Failures, at: j.LastRun})
+		if j.Failures > 0 {
+			d.JobsFailing++
+		}
 	}
 
 	byName := map[string]notify.ChannelState{}
@@ -230,7 +236,9 @@ func (s *Server) statusData(r *http.Request) (statusData, error) {
 		MirrorAt: st["backup_mirror_at"], MirrorErr: st["backup_mirror_error"]}
 	if t, err := time.ParseInLocation(backupLayout, d.Backup.LocalAt, loc); d.Backup.LocalAt != "" && err == nil {
 		d.Backup.LocalStale = now.Sub(t) > 36*time.Hour
+		d.Backup.at = t
 	}
+	d.Levels = levelsOf(d, now)
 	return d, nil
 }
 
@@ -251,22 +259,127 @@ func bucketSums(v []float64) []float64 {
 	return out
 }
 
-// sparkline draws values as an inline SVG polyline in currentColor, so the caller sets the colour
-// with a text class and it follows the light and dark theme. The values are numbers only.
-func sparkline(vals []float64) template.HTML {
+// sparkBar is one bar of a sparkline: its height in percent of the tallest bar, and its tooltip.
+type sparkBar struct {
+	Pct   string
+	Title string
+}
+
+// spark is a 24 h series as sparkPoints bars, oldest first, with the total of the series.
+type spark struct {
+	Bars  []sparkBar
+	Total float64
+}
+
+// newSpark folds the per-minute series into bars. Each tooltip names the start of its 15 minutes.
+func newSpark(series []float64, now time.Time, loc *time.Location) spark {
+	vals := bucketSums(series)
 	top := 0.0
 	for _, v := range vals {
 		top = math.Max(top, v)
 	}
-	var pts []string
+	per := len(series) / sparkPoints
+	first := now.Truncate(time.Minute).Add(-time.Duration(len(series)-1) * time.Minute)
+	var sp spark
 	for i, v := range vals {
-		y := 30.0
+		pct := 0.0
 		if top > 0 {
-			y = 30 - v/top*28
+			pct = v / top * 100
 		}
-		pts = append(pts, fmt.Sprintf("%d,%.1f", i, y+1))
+		start := first.Add(time.Duration(i*per) * time.Minute).In(loc)
+		sp.Bars = append(sp.Bars, sparkBar{Pct: fmt.Sprintf("%.1f", pct), Title: fmt.Sprintf("%s: %.0f", start.Format("2006-01-02 15:04"), v)})
+		sp.Total += v
 	}
-	return template.HTML(`<svg class="h-12 w-full text-info-fg" viewBox="0 0 96 32" preserveAspectRatio="none" aria-hidden="true">` +
-		`<polyline fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke" points="` +
-		strings.Join(pts, " ") + `"/></svg>`)
+	return sp
+}
+
+// statusLevel is the colour of a section on the status page: ok (green), warn (amber) or bad (red).
+type statusLevel string
+
+const (
+	levelOK   statusLevel = "ok"
+	levelWarn statusLevel = "warn"
+	levelBad  statusLevel = "bad"
+)
+
+// Dot is the colour class of the status dot for the level.
+func (l statusLevel) Dot() string {
+	switch l {
+	case levelBad:
+		return "bg-err-fg"
+	case levelWarn:
+		return "bg-warn-fg"
+	}
+	return "bg-ok-fg"
+}
+
+// statusLevels has one level per section, in the order of the summary row.
+type statusLevels struct {
+	App     statusLevel `json:"app"`
+	Storage statusLevel `json:"storage"`
+	Radius  statusLevel `json:"radius"`
+	Jobs    statusLevel `json:"jobs"`
+	Notify  statusLevel `json:"notifications"`
+	Pay     statusLevel `json:"payments"`
+	Sec     statusLevel `json:"security"`
+	Backup  statusLevel `json:"backup"`
+}
+
+// Thresholds of the level rules in levelsOf.
+const (
+	expiryJob         = "expiry" // runs every minute; a last run older than stalledJobAge means it has stopped
+	stalledJobAge     = 15 * time.Minute
+	radiusRejectRatio = 10 // amber when rejected(24 h) > accepted(24 h) / radiusRejectRatio
+	diskBadDays       = 7  // red when the disk is projected to fill in fewer days
+	diskWarnDays      = 30 // amber when it is projected to fill in fewer days
+	backupStaleAge    = 48 * time.Hour
+)
+
+// levelsOf sets the level of each section from the data on the status page. Rules that need data the
+// page does not have are left out: backup is never red (the encryption key reminder is not shown here),
+// and a NAS that has not sent a packet since start is not red. Application has no error fields: green.
+func levelsOf(d statusData, now time.Time) statusLevels {
+	l := statusLevels{App: levelOK, Storage: levelOK, Radius: levelOK, Jobs: levelOK,
+		Notify: levelOK, Pay: levelOK, Sec: levelOK, Backup: levelOK}
+	for _, j := range d.Jobs {
+		if j.Failures > 0 || (j.Name == expiryJob && now.Sub(j.at) > stalledJobAge) {
+			l.Jobs = levelBad
+		}
+	}
+	for _, n := range d.NAS {
+		if n.BadSecret || n.Warn {
+			l.Radius = levelBad
+		}
+	}
+	if l.Radius == levelOK && d.Rejected24h > d.Accepted24h/radiusRejectRatio {
+		l.Radius = levelWarn
+	}
+	// Sent and Failed per channel are counts since start, so a channel that never sent is red
+	// only when it has failed; the amber rule uses the 24 h failure series.
+	if d.NotifyErr.Total > 0 {
+		l.Notify = levelWarn
+	}
+	for _, c := range d.Notify {
+		if c.Failed > 0 && c.Sent == 0 {
+			l.Notify = levelBad
+		}
+	}
+	if d.Sec.Fail10m > 0 || d.Sec.Locked > 0 {
+		l.Sec = levelWarn
+	}
+	if d.DaysToFull >= 0 {
+		switch {
+		case d.DaysToFull < diskBadDays:
+			l.Storage = levelBad
+		case d.DaysToFull < diskWarnDays:
+			l.Storage = levelWarn
+		}
+	}
+	if d.Backup.at.IsZero() || now.Sub(d.Backup.at) > backupStaleAge {
+		l.Backup = levelWarn
+	}
+	if d.PayFailed > 0 {
+		l.Pay = levelWarn
+	}
+	return l
 }

@@ -80,7 +80,6 @@ func (s *Server) parseTemplates() error {
 			return m, nil
 		},
 		"asset":     s.asset,
-		"spark":     sparkline,
 		"navActive": navActive,
 		"money":     money,
 		"badge":     badge,
@@ -99,7 +98,7 @@ func (s *Server) parseTemplates() error {
 		"login_2fa":        {"base.html", "login_2fa.html"},
 		"admin_2fa":        {"base.html", "admin/app.html", "admin/admin_2fa.html"},
 		"dashboard":        {"base.html", "admin/app.html", "admin/dashboard.html", "barchart.html"},
-		"status":           {"base.html", "admin/app.html", "admin/status.html"},
+		"status":           {"base.html", "admin/app.html", "admin/status.html", "sparkline.html"},
 		"list":             {"base.html", "admin/app.html", "admin/list.html"},
 		"form":             {"base.html", "admin/app.html", "admin/form.html", "admin/formfields.html", "admin/customer_pick.html", "admin/tplvars.html"},
 		"customer":         {"base.html", "admin/app.html", "admin/customer.html", "admin/radius_usage.html", "admin/recharge_dialog.html"},
