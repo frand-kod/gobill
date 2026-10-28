@@ -2676,6 +2676,10 @@
     "Expiring soon": "Segera berakhir",
     "3 days": "3 hari",
     "7 days": "7 hari",
+    "30 days": "30 hari",
+    "Top users": "Pengguna teratas",
+    "RADIUS sessions only": "Hanya sesi RADIUS",
+    "No usage recorded yet": "Belum ada pemakaian tercatat",
     "Nothing here for this filter.": "Tidak ada yang cocok dengan filter ini.",
     "No plans ended in the last 7 days.": "Tidak ada paket yang habis dalam 7 hari terakhir."
 }

@@ -122,3 +122,45 @@ func TestDashboardCustomersCard(t *testing.T) {
 		t.Error("old expiring and recent cards still rendered")
 	}
 }
+
+// The Usage card: managers see the totals and the heaviest user; a Report role does not see it.
+func TestDashboardUsageCard(t *testing.T) {
+	e := englishApp(t)
+	ctx := t.Context()
+	loc := e.srv.location()
+	if body := do(e.h, "GET", "/admin", nil, e.c).Body.String(); !strings.Contains(body, "No usage recorded yet") {
+		t.Fatal("empty usage should say so")
+	}
+	now := time.Now().In(loc)
+	for _, r := range []struct {
+		user, day string
+		in, out   int64
+	}{
+		{"u1", now.Format("2006-01-02"), 1 << 20, 3 << 20},
+		{"u2", now.Format("2006-01-02"), 1 << 10, 2 << 10},
+		{"u1", now.AddDate(0, 0, -20).Format("2006-01-02"), 1 << 20, 1 << 20}, // in the 30 day window only
+	} {
+		if _, err := e.s.conn.ExecContext(ctx, `INSERT INTO radius_usage_daily (username, day, input_octets, output_octets) VALUES (?, ?, ?, ?)`,
+			r.user, r.day, r.in, r.out); err != nil {
+			t.Fatal(err)
+		}
+	}
+	body := do(e.h, "GET", "/admin", nil, e.c).Body.String()
+	week := humanBytes(4<<20 + 3<<10)
+	month := humanBytes(6<<20 + 3<<10)
+	for _, want := range []string{
+		`id="usage-title"`, "RADIUS sessions only", ">" + week + "<", ">" + month + "<",
+		`href="/admin/customers/` + strconv.FormatInt(e.cust.ID, 10) + `">u1<`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("usage card missing %q", want)
+		}
+	}
+	if strings.Contains(body, "No usage recorded yet") {
+		t.Error("usage with rows still says none recorded")
+	}
+	report := roleLogin(t, e.srv, e.h, "Report")
+	if rep := do(e.h, "GET", "/admin", nil, report).Body.String(); strings.Contains(rep, `id="usage-title"`) {
+		t.Error("report role sees the usage card")
+	}
+}

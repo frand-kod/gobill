@@ -1,10 +1,13 @@
 package web
 
-// Dashboard widgets: expiring-customer rows and the activity cards.
+// Dashboard widgets: expiring-customer rows, the usage card and the activity cards.
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,9 +18,29 @@ import (
 type dashWidgets struct {
 	Expiring  []expiringRow // active, ending in the next 7 days, soonest first
 	Recent    []expiringRow // ended in the last 7 days and not renewed, newest first
+	Usage     usageCard
 	Vouchers  []db.VoucherStockByPlanRow
 	Logs      []db.ActivityLog
 	ExpiryRun string // expiry_last_run, read by the "Needs a look" strip
+}
+
+// usageCard is the Usage card: the same data over the last 7 and the last 30 days.
+type usageCard struct {
+	Week, Month usageWin
+}
+
+// usageWin is one window of the Usage card. Empty means no RADIUS usage in the window at all.
+type usageWin struct {
+	Total, Down, Up string
+	Bars            []dayBar
+	Top             []usageTop
+	Empty           bool
+}
+
+// usageTop is one of the heaviest users; Href is "" when no customer has that username.
+type usageTop struct {
+	Name, Href, Total string
+	Pct               int // share of the heaviest user's total, for the thin bar
 }
 
 // waLink is the wa.me chat link for a phone number; numbers starting with 0 get the country code.
@@ -89,6 +112,12 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 		x.Days = int(today - dayIndex(time.Unix(r.ExpiresAt, 0), loc))
 		w.Recent = append(w.Recent, x)
 	}
+	if w.Usage.Week, err = s.usageWindow(ctx, now, loc, 7); err != nil {
+		return
+	}
+	if w.Usage.Month, err = s.usageWindow(ctx, now, loc, 30); err != nil {
+		return
+	}
 	if w.Vouchers, err = s.queries.VoucherStockByPlan(ctx); err != nil {
 		return
 	}
@@ -101,6 +130,52 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 
 // dashListLimit caps the Expiring and Recent lists; the tab counts are the rows shown.
 const dashListLimit = 50
+
+// usageTopN is how many heaviest users the Usage card lists.
+const usageTopN = 5
+
+// usageWindow reads the RADIUS octets of all users over the last n days (radius_usage_daily).
+func (s *Server) usageWindow(ctx context.Context, now time.Time, loc *time.Location, n int) (usageWin, error) {
+	since := dayStart(now.Unix(), loc).AddDate(0, 0, -(n - 1)).Format("2006-01-02")
+	sums, err := s.queries.SumRadiusUsageDailyByDay(ctx, since)
+	if err != nil {
+		return usageWin{}, err
+	}
+	if len(sums) == 0 {
+		return usageWin{Empty: true}, nil
+	}
+	totals := make([]dayTotal, len(sums))
+	var down, up int64
+	for i, x := range sums {
+		totals[i] = dayTotal{Day: x.Day, Input: x.Input, Output: x.Output}
+		down += x.Output
+		up += x.Input
+	}
+	w := usageWin{Total: humanBytes(down + up), Down: humanBytes(down), Up: humanBytes(up),
+		Bars: chartBars(dailyUsage(totals, n, now.Unix(), loc))}
+	top, err := s.queries.TopRadiusUsageDaily(ctx, db.TopRadiusUsageDailyParams{Since: since, RowLimit: usageTopN})
+	if err != nil {
+		return usageWin{}, err
+	}
+	// the query orders by total, so the first row is the heaviest user and fills the thin bars
+	peak := int64(1)
+	if len(top) > 0 {
+		peak = max(peak, top[0].Input+top[0].Output)
+	}
+	for _, t := range top {
+		sum := t.Input + t.Output
+		u := usageTop{Name: t.Username, Total: humanBytes(sum), Pct: int(sum * 100 / peak)}
+		c, err := s.queries.GetCustomerByUsername(ctx, t.Username)
+		switch {
+		case err == nil:
+			u.Href = "/admin/customers/" + strconv.FormatInt(c.ID, 10)
+		case !errors.Is(err, sql.ErrNoRows):
+			return usageWin{}, err
+		}
+		w.Top = append(w.Top, u)
+	}
+	return w, nil
+}
 
 // expiringRow builds one dashboard row; the WhatsApp reminder link is set only when the phone number allows one.
 func (s *Server) expiringRow(settings map[string]string, customerID int64, username, fullname, phone, plan string, expiresAt int64) expiringRow {

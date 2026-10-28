@@ -74,6 +74,20 @@
   </div>
 </section>
 {{end}}
+{{if $mgr}}
+<section class="card mb-4 overflow-hidden" aria-labelledby="usage-title" data-collapse="usage" x-data="{ win: 7 }">
+  <h2 class="card-title flex flex-wrap items-center justify-between gap-2" id="usage-title"><span>{{T "Usage"}}</span>
+    <span class="flex items-center gap-3"><span class="flex flex-wrap gap-2" role="group" aria-label="{{T "Usage"}}">
+      <button type="button" class="btn btn-sm" :aria-pressed="win === 7 ? 'true' : 'false'" @click="win = 7">{{T "7 days"}}</button>
+      <button type="button" class="btn btn-sm" :aria-pressed="win === 30 ? 'true' : 'false'" @click="win = 30">{{T "30 days"}}</button>
+    </span>{{template "collapse" "usage"}}</span></h2>
+  <div id="usage-body" data-collapse-body>
+  <div x-show="win === 7">{{template "usage-win" .Usage.Week}}</div>
+  <div x-show="win === 30">{{template "usage-win" .Usage.Month}}</div>
+  <p class="card-body pt-0 text-xs text-ink-2">{{T "RADIUS sessions only"}}</p>
+  </div>
+</section>
+{{end}}
 {{/* Customers: new customers per month, then the expiring and the expired lists. The tab and the day filter are
      Alpine state (gbCustomers in dashboard.js); the URL hash #customers-expiring-0 or #customers-expired-3 sets them. */}}
 <section class="card mb-4 overflow-hidden" id="customers" aria-labelledby="customers-title" data-collapse="customers" x-data="gbCustomers()" x-init="read()" @hashchange.window="read()">
@@ -130,6 +144,29 @@
 {{end}}
 {{end}}
 {{define "collapse"}}<button type="button" class="btn btn-ghost btn-icon card-toggle hidden" data-collapse-toggle aria-controls="{{.}}-body" aria-expanded="true" aria-label="{{T "Show or hide"}}">{{icon "chevron-down"}}</button>{{end}}
+{{define "usage-win"}}<div class="card-body pt-3">
+  {{if .Empty}}<p class="text-sm text-ink-2">{{T "No usage recorded yet"}}</p>{{else}}
+  <p class="flex flex-wrap items-baseline justify-between gap-2"><span class="text-3xl font-semibold tabular-nums">{{.Total}}</span><span class="text-sm tabular-nums text-ink-2">↓ {{.Down}} · ↑ {{.Up}}</span></p>
+  <figure class="mt-4" x-data="{ tip: '' }" @mouseleave="tip = ''">
+    <p class="mb-1 min-h-5 text-sm tabular-nums" aria-live="polite" x-text="tip || $el.dataset.total" data-total="{{.Total}}">{{.Total}}</p>
+    <svg class="h-32 w-full text-brand-500" viewBox="0 0 280 120" role="img" aria-label="{{T "Usage"}}">
+      {{range .Bars}}{{$tip := printf "%s · ↓ %s · ↑ %s" .Label .Down .Up}}<g class="cursor-pointer outline-none" tabindex="0" data-tip="{{$tip}}" @mouseenter="tip = $el.dataset.tip" @focus="tip = $el.dataset.tip" @click="tip = $el.dataset.tip" :opacity="tip && tip !== $el.dataset.tip ? 0.45 : 1"><title>{{$tip}}</title>
+        <rect x="{{.Slot}}" y="0" width="{{.Step}}" height="100" fill="transparent"/>
+        <rect x="{{.X}}" y="{{.DownY}}" width="{{.W}}" height="{{.DownH}}" rx="2" fill="currentColor"/>
+        <rect x="{{.X}}" y="{{.UpY}}" width="{{.W}}" height="{{.UpH}}" rx="2" fill="currentColor" opacity="0.4"/>
+        <text x="{{.Mid}}" y="116" text-anchor="middle" font-size="9" class="fill-ink-2">{{.Tick}}</text>
+      </g>{{end}}
+      <line x1="0" y1="100" x2="280" y2="100" stroke="currentColor" stroke-opacity="0.3"/>
+    </svg>
+  </figure>
+  <h3 class="mt-4 text-sm font-medium">{{T "Top users"}}</h3>
+  <ul class="mt-1 divide-y divide-line">{{range .Top}}{{$u := .}}<li class="flex items-center gap-3 py-2 text-sm">
+    <span class="min-w-0 flex-1 truncate">{{if $u.Href}}<a class="link" href="{{$u.Href}}">{{$u.Name}}</a>{{else}}{{$u.Name}}{{end}}</span>
+    <span class="shrink-0 tabular-nums">{{$u.Total}}</span>
+    <span class="block h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-surface-2" aria-hidden="true"><span class="block h-full bg-brand-500" style="width: {{$u.Pct}}%"></span></span>
+  </li>{{end}}</ul>
+  {{end}}
+</div>{{end}}
 {{define "expiry-rows"}}{{range .}}<tr data-days="{{.Days}}" x-show="fits({{.Days}})">
   <td><a class="link" href="/admin/customers/{{.CustomerID}}">{{.Username}}</a></td>
   <td class="max-sm:hidden">{{.Fullname}}</td><td class="max-sm:hidden">{{.Plan}}</td><td class="font-medium">{{.Expires}}{{if .Today}} <span class="badge badge-warn ms-1">{{T "Today"}}</span>{{end}}</td>

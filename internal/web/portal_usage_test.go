@@ -6,8 +6,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/frand-kod/gobill/internal/db"
 )
 
 // /portal/usage.json is the logged-in customer's own live card: another customer's session never shows.
@@ -60,7 +58,7 @@ func TestPortalUsageJSONIsolationAndRate(t *testing.T) {
 func TestDailyUsageAggregation(t *testing.T) {
 	loc := time.UTC
 	now := time.Date(2026, 10, 12, 10, 0, 0, 0, loc).Unix()
-	rows := []db.ListRadiusUsageDailyRow{
+	rows := []dayTotal{
 		{Day: "2026-10-12", Input: 11, Output: 22},
 		{Day: "2026-10-06", Input: 100, Output: 200},   // first day of the chart
 		{Day: "2026-10-05", Input: 1000, Output: 2000}, // before the chart: dropped
@@ -68,7 +66,7 @@ func TestDailyUsageAggregation(t *testing.T) {
 	if got := weekSince(now, loc); got != "2026-10-06" {
 		t.Fatalf("weekSince = %s, want six days back", got)
 	}
-	days := dailyUsage(rows, now, loc)
+	days := dailyUsage(rows, 7, now, loc)
 	if len(days) != 7 || !days[6].Today || days[6].Down != 22 || days[6].Up != 11 {
 		t.Fatalf("today: %+v", days[6])
 	}

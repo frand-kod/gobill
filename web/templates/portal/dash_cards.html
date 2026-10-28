@@ -55,10 +55,10 @@
     <p class="mb-1 min-h-5 text-sm tabular-nums" aria-live="polite" x-text="tip || $el.parentElement.dataset.today">{{$today}}</p>
     <svg class="h-32 w-full text-brand-500" viewBox="0 0 280 120" role="img" aria-label="{{T "Daily usage, last 7 days"}}">
       {{range .Data.Days}}{{$tip := printf "%s · ↓ %s · ↑ %s" .Label .Down .Up}}<g class="cursor-pointer outline-none" tabindex="0" data-tip="{{$tip}}" @mouseenter="tip = $el.dataset.tip" @focus="tip = $el.dataset.tip" @click="tip = $el.dataset.tip" :opacity="tip && tip !== $el.dataset.tip ? 0.45 : 1"><title>{{$tip}}</title>
-        <rect x="{{.X}}" y="0" width="28" height="100" fill="transparent"/>
-        <rect x="{{.X}}" y="{{.DownY}}" width="28" height="{{.DownH}}" rx="2" fill="currentColor"/>
-        <rect x="{{.X}}" y="{{.UpY}}" width="28" height="{{.UpH}}" rx="2" fill="currentColor" opacity="0.4"/>
-        <text x="{{.Mid}}" y="116" text-anchor="middle" font-size="9" class="fill-ink-2">{{.Label}}</text>
+        <rect x="{{.Slot}}" y="0" width="{{.Step}}" height="100" fill="transparent"/>
+        <rect x="{{.X}}" y="{{.DownY}}" width="{{.W}}" height="{{.DownH}}" rx="2" fill="currentColor"/>
+        <rect x="{{.X}}" y="{{.UpY}}" width="{{.W}}" height="{{.UpH}}" rx="2" fill="currentColor" opacity="0.4"/>
+        <text x="{{.Mid}}" y="116" text-anchor="middle" font-size="9" class="fill-ink-2">{{.Tick}}</text>
       </g>{{end}}
       <line x1="0" y1="100" x2="280" y2="100" stroke="currentColor" stroke-opacity="0.3"/>
     </svg>

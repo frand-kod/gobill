@@ -262,7 +262,11 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		s.fail(w, "portal usage chart", err)
 		return
 	}
-	days := dailyUsage(rows, now, s.location())
+	totals := make([]dayTotal, len(rows))
+	for i, x := range rows {
+		totals[i] = dayTotal{Day: x.Day, Input: x.Input, Output: x.Output}
+	}
+	days := dailyUsage(totals, 7, now, s.location())
 	d.Days = chartBars(days)
 	d.Today = pTotal{Down: humanBytes(days[len(days)-1].Down), Up: humanBytes(days[len(days)-1].Up)}
 
