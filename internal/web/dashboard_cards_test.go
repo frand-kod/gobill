@@ -10,8 +10,8 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 )
 
-// Expiring soon lists only active subscriptions ending from now to +7 days; the recently expired card lists the
-// subscriptions that ended in the last 3 days. Anything older, or ending later, is in neither card.
+// Expiring soon lists only active subscriptions ending from now to +7 days; the Expired list (Customers card) lists the
+// subscriptions that ended in the last 7 days. Anything older, or ending later, is in neither list.
 func TestExpiringSoonWindow(t *testing.T) {
 	e := billApp(t)
 	ctx := t.Context()
@@ -41,7 +41,7 @@ func TestExpiringSoonWindow(t *testing.T) {
 	mk(now.AddDate(0, 0, 3), "active")     // expiring soon
 	mk(now.AddDate(0, 0, 10), "active")    // later than 7 days: neither card
 	mk(now.Add(-24*time.Hour), "expired")  // ended yesterday: recently expired
-	mk(now.AddDate(0, 0, -5), "expired")   // ended 5 days ago: neither card
+	mk(now.AddDate(0, 0, -8), "expired")   // ended 8 days ago: neither list
 	mk(now.Add(-24*time.Hour), "active")   // past due, not yet marked expired: recently expired
 	mk(now.Add(-time.Minute*10), "active") // ended 10 minutes ago: recently expired
 	w, err := e.srv.widgetData(ctx, now)
@@ -59,10 +59,15 @@ func TestExpiringSoonWindow(t *testing.T) {
 	if len(w.Recent) != 3 {
 		t.Fatalf("recently expired: want 3 rows, got %d", len(w.Recent))
 	}
+	for _, r := range w.Recent {
+		if r.Days < 0 || r.Days > 1 {
+			t.Fatalf("recently expired row with Days %d, want 0 or 1 (days back from today)", r.Days)
+		}
+	}
 
 	body := do(e.h, "GET", "/admin", nil, e.c).Body.String()
-	if !strings.Contains(body, "Baru habis (3 hari terakhir)") || !strings.Contains(body, `data-collapse="recent"`) {
-		t.Fatal("recently expired card missing")
+	if !strings.Contains(body, `data-collapse="customers"`) || !strings.Contains(body, `data-list="expired"`) || !strings.Contains(body, `count('expired')">3</span>`) {
+		t.Fatal("expired list of the customers card missing")
 	}
 }
 

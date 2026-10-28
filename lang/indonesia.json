@@ -2672,5 +2672,10 @@
     "%d plans end today": "%d pelanggan habis hari ini",
     "%d expired in the last 3 days, not renewed": "%d expired 3 hari terakhir, belum diperpanjang",
     "Voucher stock low": "Stok voucher menipis",
-    "Expiry job has not run since %s": "Job expiry tidak jalan sejak %s"
+    "Expiry job has not run since %s": "Job expiry tidak jalan sejak %s",
+    "Expiring soon": "Segera berakhir",
+    "3 days": "3 hari",
+    "7 days": "7 hari",
+    "Nothing here for this filter.": "Tidak ada yang cocok dengan filter ini.",
+    "No plans ended in the last 7 days.": "Tidak ada paket yang habis dalam 7 hari terakhir."
 }

@@ -22,6 +22,33 @@
   });
 })();
 
+// Customers card: the tab (expiring or expired) and the day filter (0 = today, 3, 7). Rows carry data-days
+// (calendar days from today) and are shown when they are under the filter. The URL hash
+// #customers-expiring-0 or #customers-expired-3 sets both, so the "Needs a look" strip can link here.
+// Defined here, not in an inline script, because it must exist before Alpine (deferred) starts.
+window.gbCustomers = function () {
+  return {
+    tab: 'expiring',
+    f: 3,
+    read: function () {
+      var m = /^#customers-(expiring|expired)-(0|3|7)$/.exec(location.hash);
+      if (!m) return;
+      this.tab = m[1];
+      this.f = +m[2];
+      var card = document.getElementById('customers');
+      if (card) card.scrollIntoView({ block: 'start' });
+    },
+    fits: function (days) { return days < Math.max(this.f, 1); },
+    count: function (list) {
+      var n = 0, self = this;
+      document.querySelectorAll('#customers [data-list="' + list + '"] tr[data-days]').forEach(function (tr) {
+        if (self.fits(+tr.dataset.days)) n++;
+      });
+      return n;
+    }
+  };
+};
+
 // Draws the dashboard bar charts from data-* attributes (see dashboard.html).
 document.querySelectorAll('canvas[data-chart]').forEach(function (el) {
   var css = getComputedStyle(document.documentElement);

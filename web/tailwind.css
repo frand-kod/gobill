@@ -212,7 +212,7 @@
   .btn-sm { min-height: var(--ctl-h-sm); @apply px-2 text-xs; }
   /* icon-only row action: square, tap target = control height (>=40px on phones); icon is 18px via --icon */
   .btn-icon { width: var(--ctl-h-sm); min-height: var(--ctl-h-sm); @apply px-0; }
-  .btn[aria-current="page"] { @apply border-brand-500 bg-brand-50 text-accent-fg; }
+  .btn[aria-current="page"], .btn[aria-pressed="true"], .btn[aria-selected="true"] { @apply border-brand-500 bg-brand-50 text-accent-fg; }
 
   .label { @apply mb-1 block text-sm font-medium text-ink; }
   .input { min-height: var(--ctl-h); @apply block w-full rounded-sm border border-line-strong bg-[var(--field)] px-3 text-sm text-ink placeholder:text-ink-2 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 aria-invalid:border-err-fg; }

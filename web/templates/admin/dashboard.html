@@ -74,37 +74,46 @@
   </div>
 </section>
 {{end}}
-<section class="card mb-4 overflow-hidden" aria-labelledby="expiring-title" data-collapse="expiring">
-  <h2 class="card-title flex flex-wrap items-center justify-between gap-2" id="expiring-title"><span>{{T "Expiring Soon"}} ({{T "next 7 days"}})</span>
-    <span class="flex items-center gap-3"><a class="link" href="/admin/subscriptions?status=active&sort=expires&dir=asc">{{T "See all"}}</a>{{template "collapse" "expiring"}}</span></h2>
-  <div id="expiring-body" data-collapse-body>
+{{/* Customers: new customers per month, then the expiring and the expired lists. The tab and the day filter are
+     Alpine state (gbCustomers in dashboard.js); the URL hash #customers-expiring-0 or #customers-expired-3 sets them. */}}
+<section class="card mb-4 overflow-hidden" id="customers" aria-labelledby="customers-title" data-collapse="customers" x-data="gbCustomers()" x-init="read()" @hashchange.window="read()">
+  <h2 class="card-title flex flex-wrap items-center justify-between gap-2" id="customers-title"><span>{{T "Customers"}}</span>
+    <span class="flex items-center gap-3"><a class="link" href="/admin/subscriptions?status=active&sort=expires&dir=asc" x-show="tab === 'expiring'">{{T "See all"}}</a>{{template "collapse" "customers"}}</span></h2>
+  <div id="customers-body" data-collapse-body>
+  <div class="card-body"><div class="h-44 sm:h-52"><canvas data-chart="bar" data-label="{{T "Customer"}}" data-labels="{{.Labels}}" data-values="{{.Regs}}" role="img" aria-label="{{T "New customers per month"}}"></canvas></div></div>
+  <div class="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3">
+    <div class="flex flex-wrap gap-2" role="tablist" aria-label="{{T "Customers"}}">
+      <button type="button" role="tab" id="customers-tab-expiring" aria-controls="customers-expiring" class="btn btn-sm" :aria-selected="tab === 'expiring' ? 'true' : 'false'" :tabindex="tab === 'expiring' ? 0 : -1" @click="tab = 'expiring'">{{T "Expiring soon"}} (<span x-text="count('expiring')">{{len .Expiring}}</span>)</button>
+      <button type="button" role="tab" id="customers-tab-expired" aria-controls="customers-expired" class="btn btn-sm" :aria-selected="tab === 'expired' ? 'true' : 'false'" :tabindex="tab === 'expired' ? 0 : -1" @click="tab = 'expired'">{{T "Expired"}} (<span x-text="count('expired')">{{len .Recent}}</span>)</button>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button type="button" class="btn btn-sm" :aria-pressed="f === 0 ? 'true' : 'false'" @click="f = 0">{{T "Today"}}</button>
+      <button type="button" class="btn btn-sm" :aria-pressed="f === 3 ? 'true' : 'false'" @click="f = 3">{{T "3 days"}}</button>
+      <button type="button" class="btn btn-sm" :aria-pressed="f === 7 ? 'true' : 'false'" @click="f = 7">{{T "7 days"}}</button>
+    </div>
+  </div>
+  <div role="tabpanel" id="customers-expiring" aria-labelledby="customers-tab-expiring" data-list="expiring" x-show="tab === 'expiring'">
   {{if .Expiring}}<div class="overflow-x-auto"><table class="table">
     <thead><tr><th>{{T "Username"}}</th><th class="max-sm:hidden">{{T "Full Name"}}</th><th class="max-sm:hidden">{{T "Internet Package"}}</th><th class="font-medium">{{T "Expires"}}</th><th></th></tr></thead>
     <tbody>{{template "expiry-rows" .Expiring}}</tbody>
   </table></div>
+  <p class="card-body text-sm text-ink-2" style="display: none" x-show="count('expiring') === 0">{{T "Nothing here for this filter."}}</p>
   {{else}}<p class="card-body text-sm text-ink-2">{{T "No plans end in the next 7 days."}}</p>{{end}}
   </div>
-</section>
-<section class="card mb-4 overflow-hidden" aria-labelledby="recent-title" data-collapse="recent">
-  <h2 class="card-title flex flex-wrap items-center justify-between gap-2" id="recent-title"><span>{{T "Recently expired (last 3 days)"}}</span>{{template "collapse" "recent"}}</h2>
-  <div id="recent-body" data-collapse-body>
+  <div role="tabpanel" id="customers-expired" aria-labelledby="customers-tab-expired" data-list="expired" x-show="tab === 'expired'">
   {{if .Recent}}<div class="overflow-x-auto"><table class="table">
     <thead><tr><th>{{T "Username"}}</th><th class="max-sm:hidden">{{T "Full Name"}}</th><th class="max-sm:hidden">{{T "Internet Package"}}</th><th class="font-medium">{{T "Expires"}}</th><th></th></tr></thead>
     <tbody>{{template "expiry-rows" .Recent}}</tbody>
   </table></div>
-  {{else}}<p class="card-body text-sm text-ink-2">{{T "No plans ended in the last 3 days."}}</p>{{end}}
+  <p class="card-body text-sm text-ink-2" style="display: none" x-show="count('expired') === 0">{{T "Nothing here for this filter."}}</p>
+  {{else}}<p class="card-body text-sm text-ink-2">{{T "No plans ended in the last 7 days."}}</p>{{end}}
+  </div>
   </div>
 </section>
-<div class="mb-4 grid gap-4 md:grid-cols-2">
-  <section class="card" aria-labelledby="chart-regs-title" data-collapse="chart-regs">
-    <h2 class="card-title flex items-center justify-between gap-2" id="chart-regs-title"><span>{{T "New customers per month"}}</span>{{template "collapse" "chart-regs"}}</h2>
-    <div id="chart-regs-body" data-collapse-body><div class="card-body"><div class="h-44 sm:h-52"><canvas data-chart="bar" data-label="{{T "Customer"}}" data-labels="{{.Labels}}" data-values="{{.Regs}}" role="img" aria-label="{{T "New customers per month"}}"></canvas></div></div></div>
-  </section>
-  <section class="card" aria-labelledby="chart-sales-title" data-collapse="chart-sales">
-    <h2 class="card-title flex items-center justify-between gap-2" id="chart-sales-title"><span>{{T "Sales per month"}}</span>{{template "collapse" "chart-sales"}}</h2>
-    <div id="chart-sales-body" data-collapse-body><div class="card-body"><div class="h-44 sm:h-52"><canvas data-chart="bar" data-money="1" data-label="{{T "Sales"}}" data-labels="{{.Labels}}" data-values="{{.Sales}}" role="img" aria-label="{{T "Sales per month"}}"></canvas></div></div></div>
-  </section>
-</div>
+<section class="card mb-4" aria-labelledby="chart-sales-title" data-collapse="chart-sales">
+  <h2 class="card-title flex items-center justify-between gap-2" id="chart-sales-title"><span>{{T "Sales per month"}}</span>{{template "collapse" "chart-sales"}}</h2>
+  <div id="chart-sales-body" data-collapse-body><div class="card-body"><div class="h-44 sm:h-52"><canvas data-chart="bar" data-money="1" data-label="{{T "Sales"}}" data-labels="{{.Labels}}" data-values="{{.Sales}}" role="img" aria-label="{{T "Sales per month"}}"></canvas></div></div></div>
+</section>
 <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
   <section class="card md:col-span-2 xl:col-span-3 overflow-hidden" aria-labelledby="logs-title" data-collapse="logs">
     <h2 class="card-title flex items-center justify-between gap-2" id="logs-title"><span>{{T "Activity Log"}}</span>{{template "collapse" "logs"}}</h2>
@@ -121,7 +130,7 @@
 {{end}}
 {{end}}
 {{define "collapse"}}<button type="button" class="btn btn-ghost btn-icon card-toggle hidden" data-collapse-toggle aria-controls="{{.}}-body" aria-expanded="true" aria-label="{{T "Show or hide"}}">{{icon "chevron-down"}}</button>{{end}}
-{{define "expiry-rows"}}{{range .}}<tr>
+{{define "expiry-rows"}}{{range .}}<tr data-days="{{.Days}}" x-show="fits({{.Days}})">
   <td><a class="link" href="/admin/customers/{{.CustomerID}}">{{.Username}}</a></td>
   <td class="max-sm:hidden">{{.Fullname}}</td><td class="max-sm:hidden">{{.Plan}}</td><td class="font-medium">{{.Expires}}{{if .Today}} <span class="badge badge-warn ms-1">{{T "Today"}}</span>{{end}}</td>
   <td class="whitespace-nowrap text-end">

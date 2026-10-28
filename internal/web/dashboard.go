@@ -126,7 +126,7 @@ func (s *Server) attention(d dashData, now time.Time, loc *time.Location) []attn
 	if d.Network.Offline > 0 {
 		out = append(out, attnItem{Text: fmt.Sprintf(s.catalog.T(s.language(), "%d router/NAS offline"), d.Network.Offline), Href: "#network-title", Err: true, Mgr: true})
 	}
-	// ponytail: Expiring is capped at 20 rows by its query, so this count tops out at 20; a count query is the upgrade.
+	// ponytail: Expiring is capped at dashListLimit rows by its query, so this count tops out there; a count query is the upgrade.
 	today := 0
 	for _, r := range d.Expiring {
 		if r.Today {
@@ -134,10 +134,17 @@ func (s *Server) attention(d dashData, now time.Time, loc *time.Location) []attn
 		}
 	}
 	if today > 0 {
-		out = append(out, attnItem{Text: fmt.Sprintf(s.catalog.T(s.language(), "%d plans end today"), today), Href: "/admin/subscriptions?status=active&sort=expires&dir=asc"})
+		out = append(out, attnItem{Text: fmt.Sprintf(s.catalog.T(s.language(), "%d plans end today"), today), Href: "#customers-expiring-0"})
 	}
-	if len(d.Recent) > 0 {
-		out = append(out, attnItem{Text: fmt.Sprintf(s.catalog.T(s.language(), "%d expired in the last 3 days, not renewed"), len(d.Recent)), Href: "#recent-title"})
+	// the strip counts the last three calendar days (today and two before), the same as the Expired 3 days filter
+	expired3 := 0
+	for _, r := range d.Recent {
+		if r.Days < 3 {
+			expired3++
+		}
+	}
+	if expired3 > 0 {
+		out = append(out, attnItem{Text: fmt.Sprintf(s.catalog.T(s.language(), "%d expired in the last 3 days, not renewed"), expired3), Href: "#customers-expired-3"})
 	}
 	var low []string
 	var lowPlan int64
