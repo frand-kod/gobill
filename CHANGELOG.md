@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
+## [0.2.2] - 2026-10-29
+
+### Diubah
+
+- **Dashboard portal**: gauge kecepatan (download dibanding kecepatan paket, hijau/kuning/merah) menggantikan indikator 5 kotak. Kiri: paket dan transaksi; kanan: pemakaian dan koneksi. Jam pembaruan 24 jam, data sesi pindah ke "Lainnya", hari tanpa pemakaian punya garis dasar di grafik.
+- **Dashboard admin, kartu Pelanggan**: kolom Habis menampilkan sisa waktu ("3 jam lagi") atau lama sejak expired ("2 hari yang lalu"); tanggal lengkap di tooltip. Baris yang habis hari ini berwarna kuning. Nomor HP hanya di layar sangat lebar.
+
+### CI
+
+- Test `internal/web` dibagi ke 4 job paralel, cek dan build berjalan bersamaan; CI di `main` sekitar 2,5 menit. Push tag tidak mengulang test: job `release` menunggu CI `main` lulus untuk commit yang sama.
+
 ## [0.2.1] - 2026-10-29
 
 ### Diubah
