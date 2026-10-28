@@ -39,8 +39,8 @@ func TestDashboardWidgets(t *testing.T) {
 	}
 }
 
-// The "Needs a look" strip lists the flagged items; manager-only items stay hidden from a Report role.
-func TestDashboardNeedsALook(t *testing.T) {
+// The admin bell counts the flagged items on every admin page; manager-only items stay hidden from a Report role.
+func TestAdminBell(t *testing.T) {
 	e := englishApp(t)
 	now := time.Now().Unix()
 	p := e.plan(t, "gold", "PPPoE", 25000)
@@ -53,36 +53,41 @@ func TestDashboardNeedsALook(t *testing.T) {
 	last := time.Now().In(e.srv.location()).Add(-time.Hour).Format(time.DateTime)
 	setting(t, e, "expiry_last_run", last)
 
-	body := do(e.h, "GET", "/admin", nil, e.c).Body.String()
+	// a bell on a non-dashboard page: the router offline, the stalled job and the expired plan (3 items)
+	body := do(e.h, "GET", "/admin/customers", nil, e.c).Body.String()
 	for _, want := range []string{
-		`id="attn-title"`,
-		`href="#network-title"`, "1 router/NAS offline",
-		`href="/admin/status"`, "Expiry job has not run since " + last,
-		`href="#customers-expired-3"`, "1 expired in the last 3 days, not renewed",
+		`id="bell-badge" data-count="3" class="`, "bell-err",
+		`href="/admin/routers"`, "Router/NAS offline",
+		`href="/admin/status"`, "Expiry job stalled",
+		`href="/admin#customers-expired-3"`, "Expired in the last 3 days, not renewed",
 	} {
 		if !strings.Contains(body, want) {
-			t.Errorf("admin dashboard missing %q", want)
+			t.Errorf("admin bell missing %q", want)
 		}
 	}
 
 	report := roleLogin(t, e.srv, e.h, "Report")
 	rep := do(e.h, "GET", "/admin", nil, report).Body.String()
-	if !strings.Contains(rep, `id="attn-title"`) || !strings.Contains(rep, "not renewed") {
-		t.Error("report role does not see the non-manager item")
+	if !strings.Contains(rep, `data-count="1"`) || strings.Contains(rep, "bell-err") || !strings.Contains(rep, "Expired in the last 3 days") {
+		t.Error("report role does not see the non-manager item alone")
 	}
-	for _, hidden := range []string{"router/NAS offline", "Expiry job has not run"} {
+	for _, hidden := range []string{"Router/NAS offline", "Expiry job stalled"} {
 		if strings.Contains(rep, hidden) {
 			t.Errorf("report role sees manager-only item %q", hidden)
 		}
 	}
 }
 
-// Nothing to flag: no strip at all.
-func TestDashboardNeedsALookQuiet(t *testing.T) {
+// Nothing to flag: no badge, and the menu says so.
+func TestAdminBellQuiet(t *testing.T) {
 	e := englishApp(t)
 	setting(t, e, "expiry_last_run", time.Now().In(e.srv.location()).Format(time.DateTime))
-	if body := do(e.h, "GET", "/admin", nil, e.c).Body.String(); strings.Contains(body, `id="attn-title"`) {
-		t.Fatal("attention strip shown with nothing to flag")
+	body := do(e.h, "GET", "/admin/customers", nil, e.c).Body.String()
+	if strings.Contains(body, `id="bell-badge"`) {
+		t.Fatal("bell badge shown with nothing to flag")
+	}
+	if !strings.Contains(body, "Nothing to check") {
+		t.Fatal("bell menu lacks the empty state")
 	}
 }
 
@@ -146,10 +151,13 @@ func TestDashboardUsageCard(t *testing.T) {
 		}
 	}
 	body := do(e.h, "GET", "/admin", nil, e.c).Body.String()
-	week := humanBytes(4<<20 + 3<<10)
-	month := humanBytes(6<<20 + 3<<10)
+	// the big number carries the total once; the 7 day and 30 day windows both render
+	wn, wu := humanBytesParts(4<<20 + 3<<10)
+	mn, mu := humanBytesParts(6<<20 + 3<<10)
 	for _, want := range []string{
-		`id="usage-title"`, "RADIUS sessions only", ">" + week + "<", ">" + month + "<",
+		`id="usage-title"`, "RADIUS sessions only",
+		`class="big-num">` + wn + `<span class="unit">` + wu + `</span>`,
+		`class="big-num">` + mn + `<span class="unit">` + mu + `</span>`,
 		`href="/admin/customers/` + strconv.FormatInt(e.cust.ID, 10) + `">u1<`,
 	} {
 		if !strings.Contains(body, want) {

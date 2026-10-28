@@ -15,6 +15,7 @@ import (
 	"github.com/frand-kod/gobill/internal/update"
 	"path"
 	"strings"
+	"time"
 )
 
 func (s *Server) flashTo(w http.ResponseWriter, r *http.Request, to, msg string) {
@@ -206,6 +207,17 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, name
 			slog.Warn("setup nav", "err", err)
 		} else {
 			p.Setup = n
+		}
+	}
+	if p.Admin != nil {
+		if items, err := s.bellItems(ctx, time.Now()); err != nil {
+			slog.Warn("admin bell", "err", err)
+		} else {
+			p.Notices = attentionFor(items, p.Admin)
+			for _, it := range p.Notices {
+				p.NoticeTotal += it.Count
+				p.NoticeErr = p.NoticeErr || it.Err
+			}
 		}
 	}
 	p.Dir = "ltr"

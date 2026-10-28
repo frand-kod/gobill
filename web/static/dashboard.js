@@ -24,7 +24,7 @@
 
 // Customers card: the tab (expiring or expired) and the day filter (0 = today, 3, 7). Rows carry data-days
 // (calendar days from today) and are shown when they are under the filter. The URL hash
-// #customers-expiring-0 or #customers-expired-3 sets both, so the "Needs a look" strip can link here.
+// #customers-expiring-0 or #customers-expired-3 sets both, so the admin bell can link here.
 // Defined here, not in an inline script, because it must exist before Alpine (deferred) starts.
 window.gbCustomers = function () {
   return {
@@ -49,6 +49,20 @@ window.gbCustomers = function () {
   };
 };
 
+// Sales | New customers card: one chart per tab. A chart drawn while its tab was hidden is resized when the tab opens.
+window.gbSalesTabs = function () {
+  return {
+    t: 'sales',
+    show: function (name) {
+      this.t = name;
+      var root = this.$el;
+      this.$nextTick(function () {
+        root.querySelectorAll('canvas[data-chart]').forEach(function (c) { if (c.gbChart) c.gbChart.resize(); });
+      });
+    }
+  };
+};
+
 // Draws the dashboard bar charts from data-* attributes (see dashboard.html).
 document.querySelectorAll('canvas[data-chart]').forEach(function (el) {
   var css = getComputedStyle(document.documentElement);
@@ -56,7 +70,7 @@ document.querySelectorAll('canvas[data-chart]').forEach(function (el) {
   var grid = css.getPropertyValue('--border').trim() || '#e3e6ea';
   var accent = css.getPropertyValue('--accent').trim() || '#0b7f79';
   var money = !!el.dataset.money;
-  new Chart(el, {
+  el.gbChart = new Chart(el, {
     type: el.dataset.chart,
     data: {
       labels: JSON.parse(el.dataset.labels),

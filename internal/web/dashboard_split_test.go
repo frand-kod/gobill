@@ -17,7 +17,7 @@ func TestDashboardSplitTileHasBothParts(t *testing.T) {
 	if start < 0 {
 		t.Fatal("split tile missing")
 	}
-	end := strings.Index(body[start:], `class="stat"`)
+	end := strings.Index(body[start:], `class="stat py-3"`) // the next tile (Online for a manager)
 	if end < 0 {
 		t.Fatal("no tile after the split tile")
 	}

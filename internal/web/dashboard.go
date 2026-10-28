@@ -1,14 +1,12 @@
 package web
 
-// Admin dashboard page and its data.
+// Admin dashboard page and its data, and the admin bell (notices shown on every admin page).
 
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -24,21 +22,27 @@ type dashData struct {
 	OnlineNow                int64 // open RADIUS sessions, the tile links to the live page
 	Year                     int
 	Labels, Regs, Sales      string // JSON arrays for the charts
+	SalesTotal               int64  // Sales summed over the 12 months
 	Network                  netCard
-	Attention                []attnItem // "Needs a look" strip, built last by dashboardData
 	dashWidgets
 }
 
-// attnItem is one "Needs a look" row. Err marks a service that is affected (red); Mgr hides it below Admin.
+// attnItem is one admin bell row: Kind is its English label (the template translates it), Count how many,
+// Href where it leads. Err marks a service that is down (red); Mgr hides it below Admin.
 type attnItem struct {
-	Text, Href string
-	Err        bool
-	Mgr        bool
+	Kind  string
+	Count int
+	Href  string
+	Err   bool
+	Mgr   bool
 }
 
 const (
 	lowVoucherStock = 5                // plans with fewer unused vouchers than this are flagged
 	expiryJobStale  = 15 * time.Minute // the expiry job writes expiry_last_run every minute
+	// noticeCacheFor: the bell counts are reused this long, so admin pages do not each rerun the lists.
+	// ponytail: one global 30 s cache; a per-admin or pushed count is the upgrade if a 30 s lag matters.
+	noticeCacheFor = 30 * time.Second
 )
 
 func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +54,6 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 	if s.ClockWarning != nil {
 		d.Warn = s.ClockWarning()
 	}
-	d.Attention = attentionFor(d.Attention, adminFrom(r))
 	s.render(w, r, http.StatusOK, "dashboard", Page{
 		Title: "Dashboard",
 		Data:  d,
@@ -108,6 +111,7 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 		if sales[m], err = sum(from, to); err != nil {
 			return
 		}
+		d.SalesTotal += sales[m]
 	}
 	d.Labels, d.Regs, d.Sales = jsonStr(labels), jsonStr(regs), jsonStr(sales)
 	if d.dashWidgets, err = s.widgetData(ctx, now); err != nil {
@@ -116,57 +120,87 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 	if d.Network, err = s.networkCard(ctx, now); err != nil {
 		return
 	}
-	d.Attention = s.attention(d, now, loc)
 	return
 }
 
-// attention lists what needs an admin's eye, in display order. Each item appears only when its condition holds.
-func (s *Server) attention(d dashData, now time.Time, loc *time.Location) []attnItem {
+// bellItems returns the bell notices before the role filter. The counts are cached on the Server for
+// noticeCacheFor, so admin pages do not each rerun the queries.
+func (s *Server) bellItems(ctx context.Context, now time.Time) ([]attnItem, error) {
+	s.noticeMu.Lock()
+	defer s.noticeMu.Unlock()
+	if !s.noticeAt.IsZero() && now.Sub(s.noticeAt) < noticeCacheFor {
+		return s.noticeItems, nil
+	}
+	items, err := s.noticeCounts(ctx, now)
+	if err != nil {
+		return nil, err
+	}
+	s.noticeAt, s.noticeItems = now, items
+	return items, nil
+}
+
+// noticeCounts runs the queries behind the bell. An item appears only when its count is above zero.
+func (s *Server) noticeCounts(ctx context.Context, now time.Time) ([]attnItem, error) {
+	loc := s.location()
+	now = now.In(loc)
+	y, m, d := now.Date()
+	midnight := time.Date(y, m, d, 0, 0, 0, 0, loc)
+	endToday := midnight.AddDate(0, 0, 1).Unix() - 1
+	// "expired in the last 3 days": today and the two calendar days before it
+	threeDaysAgo := midnight.AddDate(0, 0, -2).Unix()
+	settings, err := s.loadSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	net, err := s.networkCard(ctx, now)
+	if err != nil {
+		return nil, err
+	}
+	// ponytail: both lists are capped at dashListLimit rows by their queries, so the counts top out there; a COUNT query is the upgrade.
+	ending, err := s.queries.ListExpiringSubscriptions(ctx, db.ListExpiringSubscriptionsParams{Since: now.Unix(), Until: endToday, PageLimit: dashListLimit})
+	if err != nil {
+		return nil, err
+	}
+	ended, err := s.queries.ListRecentlyExpiredSubscriptions(ctx, db.ListRecentlyExpiredSubscriptionsParams{Since: threeDaysAgo, Until: now.Unix(), PageLimit: dashListLimit})
+	if err != nil {
+		return nil, err
+	}
+	vouchers, err := s.queries.VoucherStockByPlan(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var out []attnItem
-	if d.Network.Offline > 0 {
-		out = append(out, attnItem{Text: fmt.Sprintf(s.catalog.T(s.language(), "%d router/NAS offline"), d.Network.Offline), Href: "#network-title", Err: true, Mgr: true})
+	if net.Offline > 0 {
+		out = append(out, attnItem{Kind: "Router/NAS offline", Count: net.Offline, Href: "/admin/routers", Err: true, Mgr: true})
 	}
-	// ponytail: Expiring is capped at dashListLimit rows by its query, so this count tops out there; a count query is the upgrade.
-	today := 0
-	for _, r := range d.Expiring {
-		if r.Today {
-			today++
+	if last := settings["expiry_last_run"]; last != "" {
+		if t, err := time.ParseInLocation(time.DateTime, last, loc); err == nil && now.Sub(t) > expiryJobStale {
+			out = append(out, attnItem{Kind: "Expiry job stalled", Count: 1, Href: "/admin/status", Err: true, Mgr: true})
 		}
 	}
-	if today > 0 {
-		out = append(out, attnItem{Text: fmt.Sprintf(s.catalog.T(s.language(), "%d plans end today"), today), Href: "#customers-expiring-0"})
+	// the queries return only rows in these windows, so their lengths are the counts
+	if n := len(ending); n > 0 {
+		out = append(out, attnItem{Kind: "Plans ending today", Count: n, Href: "/admin#customers-expiring-0"})
 	}
-	// the strip counts the last three calendar days (today and two before), the same as the Expired 3 days filter
-	expired3 := 0
-	for _, r := range d.Recent {
-		if r.Days < 3 {
-			expired3++
-		}
+	if n := len(ended); n > 0 {
+		out = append(out, attnItem{Kind: "Expired in the last 3 days, not renewed", Count: n, Href: "/admin#customers-expired-3"})
 	}
-	if expired3 > 0 {
-		out = append(out, attnItem{Text: fmt.Sprintf(s.catalog.T(s.language(), "%d expired in the last 3 days, not renewed"), expired3), Href: "#customers-expired-3"})
-	}
-	var low []string
+	var low int
 	var lowPlan int64
-	for _, v := range d.Vouchers {
+	for _, v := range vouchers {
 		if v.Unused < lowVoucherStock && v.Unused+v.Used > 0 {
-			low = append(low, v.Name+" ("+strconv.FormatInt(v.Unused, 10)+")")
+			low++
 			lowPlan = v.ID
 		}
 	}
-	if len(low) > 0 {
+	if low > 0 {
 		href := "/admin/vouchers"
-		if len(low) == 1 {
+		if low == 1 {
 			href = "/admin/vouchers?plan=" + strconv.FormatInt(lowPlan, 10)
 		}
-		out = append(out, attnItem{Text: s.catalog.T(s.language(), "Voucher stock low") + ": " + strings.Join(low, ", "), Href: href})
+		out = append(out, attnItem{Kind: "Voucher stock low", Count: low, Href: href})
 	}
-	if last := d.ExpiryRun; last != "" {
-		if t, err := time.ParseInLocation(time.DateTime, last, loc); err == nil && now.Sub(t) > expiryJobStale {
-			out = append(out, attnItem{Text: fmt.Sprintf(s.catalog.T(s.language(), "Expiry job has not run since %s"), last), Href: "/admin/status", Err: true, Mgr: true})
-		}
-	}
-	return out
+	return out, nil
 }
 
 // attentionFor drops the manager-only items unless the admin is an Admin or SuperAdmin.

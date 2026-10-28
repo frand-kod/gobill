@@ -2685,5 +2685,12 @@
     "Having trouble? Contact %s admin": "Ada kendala? Hubungi admin %s",
     "Session history": "Riwayat sesi",
     "Last session": "Sesi terakhir",
-    "Daily usage, last 30 days": "Pemakaian harian, 30 hari terakhir"
+    "Daily usage, last 30 days": "Pemakaian harian, 30 hari terakhir",
+    "Router/NAS offline": "Router/NAS offline",
+    "Expiry job stalled": "Job expiry macet",
+    "Plans ending today": "Habis hari ini",
+    "Expired in the last 3 days, not renewed": "Expired 3 hari terakhir, belum diperpanjang",
+    "New customers": "Pelanggan baru",
+    "Total 12 months": "Total 12 bulan",
+    "Nothing to check": "Tidak ada yang perlu dicek"
 }

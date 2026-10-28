@@ -1,82 +1,54 @@
 {{define "content"}}
 {{with .Data}}
 {{if .Warn}}<p class="alert alert-warn" role="alert">{{icon "triangle-alert"}}<span>{{.Warn}}</span></p>{{end}}
-<div class="page-head"><h1 class="page-title">{{T "Dashboard"}}{{template "callout" $.Intro}}</h1></div>
 {{$mgr := or (eq $.Admin.Role "SuperAdmin") (eq $.Admin.Role "Admin")}}
-{{if .Attention}}<section class="card mb-4" aria-labelledby="attn-title">
-  <h2 class="card-title flex items-center gap-2" id="attn-title">{{icon "triangle-alert"}}<span>{{T "Needs a look"}}</span></h2>
-  <ul class="divide-y divide-line">
-    {{range .Attention}}<li>
-      <a class="flex items-center gap-3 px-4 py-3 hover:bg-surface-2" href="{{.Href}}">
-        <span class="size-2.5 shrink-0 rounded-full {{if .Err}}bg-err-fg{{else}}bg-warn-fg{{end}}" aria-hidden="true"></span>
-        <span class="min-w-0 flex-1">{{.Text}}</span>
-        <span aria-hidden="true">›</span>
-      </a>
-    </li>{{end}}
-  </ul>
-</section>{{end}}
+<div class="page-head"><h1 class="page-title">{{T "Dashboard"}}{{template "callout" $.Intro}}</h1>
 {{if or $mgr (eq $.Admin.Role "Agent") (eq $.Admin.Role "Sales")}}
-<nav class="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap" aria-label="{{T "Quick actions"}}">
+<nav class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap" aria-label="{{T "Quick actions"}}">
   <a class="btn btn-primary min-w-0 px-2" href="/admin/recharge">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
   <a class="btn min-w-0 px-2" href="/admin/customers/new">{{icon "users"}}<span>{{T "Add Customer"}}</span></a>
   <a class="btn min-w-0 px-2" href="/admin/vouchers/new">{{icon "ticket"}}<span>{{T "Make vouchers"}}</span></a>
   <a class="btn min-w-0 px-2" href="/admin/deposit">{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>
 </nav>
 {{end}}
+</div>
 {{with $.Setup}}{{if .Show}}<p class="mb-4 text-sm"><a class="link" href="/admin/setup">{{T "Quick setup"}}</a></p>{{end}}{{end}}
-<div class="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
-  <a href="/admin/transactions" class="stat">
+<div class="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-5">
+  <a href="/admin/transactions" class="stat py-3">
     <div><p class="stat-label">{{T "Income Today"}}</p><p class="stat-num" id="tile-today">{{money .IncomeToday}}</p></div>
     <span class="text-info-fg">{{icon "banknote"}}</span>
   </a>
-  <a href="/admin/transactions" class="stat">
+  <a href="/admin/transactions" class="stat py-3">
     <div><p class="stat-label">{{T "Income This Month"}}</p><p class="stat-num" id="tile-month">{{money .IncomeMonth}}</p></div>
     <span class="text-ok-fg">{{icon "circle-dollar-sign"}}</span>
   </a>
   <div class="stat stat-split">
     <div class="stat-split-in">
-      <div class="stat-part">
+      <div class="stat-part py-3">
         <div class="min-w-0"><p class="stat-label">{{T "Active"}} / {{T "Expired"}}</p><p class="stat-num" id="tile-subs">{{.ActiveSubs}} / {{.ExpiredSubs}}</p></div>
         <span class="shrink-0 text-warn-fg">{{icon "clock"}}</span>
       </div>
       <span class="stat-sep" aria-hidden="true"></span>
-      <a href="/admin/customers" class="stat-part narrow">
+      <a href="/admin/customers" class="stat-part narrow py-3">
         <div class="min-w-0"><p class="stat-label">{{T "Customer"}}</p><p class="stat-num" id="tile-customers">{{.Customers}}</p></div>
         <span class="shrink-0 text-ink-2">{{icon "users"}}</span>
       </a>
     </div>
   </div>
-  {{if $mgr}}<a href="/admin/radius/sessions" class="stat">
+  {{if $mgr}}<a href="/admin/radius/sessions" class="stat py-3">
     <div><p class="stat-label">{{T "Online"}}</p><p class="stat-num" id="tile-online">{{.OnlineNow}}</p></div>
     <span class="text-ok-fg">{{icon "wifi"}}</span>
+  </a>
+  <a href="/admin/routers" class="stat py-3">
+    <div><p class="stat-label">{{T "Network"}}</p><p class="stat-num{{if .Network.Offline}} text-err-fg{{end}}" id="tile-network">{{.Network.Online}}/{{len .Network.Rows}} {{T "Online"}}</p></div>
+    <span class="{{if .Network.Offline}}text-err-fg{{else}}text-ok-fg{{end}}">{{icon "network"}}</span>
   </a>{{end}}
 </div>
+<div class="grid items-start gap-4 xl:grid-cols-2">
+<div class="min-w-0 space-y-4">
 {{if $mgr}}
-<section class="card mb-4" aria-labelledby="network-title" data-collapse="network">
-  <h2 class="card-title flex flex-wrap items-center justify-between gap-2" id="network-title"><span>{{T "Network"}} <span class="font-normal text-ink-2" id="network-summary">{{.Network.Online}}/{{len .Network.Rows}} {{T "Online"}}{{if .Network.Offline}} · <span class="font-medium text-err-fg">{{printf (T "%d offline") .Network.Offline}}</span>{{end}}</span></span>
-    <span class="flex items-center gap-3"><a class="link" href="/admin/routers">{{T "See all"}}</a>{{template "collapse" "network"}}</span></h2>
-  <div id="network-body" data-collapse-body>
-  {{if .Network.Rows}}
-  <ul class="divide-y divide-line">
-    {{range .Network.Rows}}<li class="{{.Tint}}">
-      <a class="flex items-center gap-3 px-4 py-3 hover:bg-surface-2" href="{{.Href}}">
-        <span class="size-2.5 shrink-0 rounded-full {{.Dot}}" aria-hidden="true"></span>
-        <span class="min-w-0 flex-1"><span class="block truncate font-medium">{{.Name}}</span><span class="block truncate text-xs text-ink-2">{{.Metric}}</span></span>
-        {{if eq .Status "Offline"}}<span class="shrink-0 text-err-fg" aria-hidden="true">{{icon "triangle-alert"}}</span>{{end}}
-        <span class="badge hidden sm:inline-flex">{{T .Type}}</span>
-        <span class="shrink-0 text-sm{{if eq .Status "Offline"}} font-medium text-err-fg{{end}}">{{T .Status}}</span>
-      </a>
-    </li>{{end}}
-  </ul>
-  {{else}}
-  <p class="card-body text-sm text-ink-2">{{T "No routers or NAS yet."}} <a class="link" href="/admin/routers/new">{{T "Add a router"}}</a> · <a class="link" href="/admin/nas/new">{{T "Add a NAS"}}</a></p>
-  {{end}}
-  </div>
-</section>
-{{end}}
-{{if $mgr}}
-<section class="card mb-4 overflow-hidden" aria-labelledby="usage-title" data-collapse="usage" x-data="{ win: 7 }">
-  <h2 class="card-title flex flex-wrap items-center justify-between gap-2" id="usage-title"><span>{{T "Usage"}}</span>
+<section class="card overflow-hidden" aria-labelledby="usage-title" data-collapse="usage" x-data="{ win: 7 }">
+  <h2 class="card-title flex min-h-14 flex-wrap items-center justify-between gap-2" id="usage-title"><span>{{T "Usage"}}</span>
     <span class="flex items-center gap-3"><span class="flex flex-wrap gap-2" role="group" aria-label="{{T "Usage"}}">
       <button type="button" class="btn btn-sm" :aria-pressed="win === 7 ? 'true' : 'false'" @click="win = 7">{{T "7 days"}}</button>
       <button type="button" class="btn btn-sm" :aria-pressed="win === 30 ? 'true' : 'false'" @click="win = 30">{{T "30 days"}}</button>
@@ -88,14 +60,28 @@
   </div>
 </section>
 {{end}}
-{{/* Customers: new customers per month, then the expiring and the expired lists. The tab and the day filter are
-     Alpine state (gbCustomers in dashboard.js); the URL hash #customers-expiring-0 or #customers-expired-3 sets them. */}}
-<section class="card mb-4 overflow-hidden" id="customers" aria-labelledby="customers-title" data-collapse="customers" x-data="gbCustomers()" x-init="read()" @hashchange.window="read()">
-  <h2 class="card-title flex flex-wrap items-center justify-between gap-2" id="customers-title"><span>{{T "Customers"}}</span>
+{{/* Sales | New customers: one card, two tabs, one monthly chart each. gbSalesTabs (dashboard.js) resizes a chart when its tab opens. */}}
+<section class="card overflow-hidden" aria-labelledby="sales-title" data-collapse="sales" x-data="gbSalesTabs()">
+  <h2 class="card-title flex min-h-14 flex-wrap items-center justify-between gap-2" id="sales-title"><span>{{T "Sales"}} | {{T "New customers"}}</span>{{template "collapse" "sales"}}</h2>
+  <div id="sales-body" class="card-body" data-collapse-body>
+    <div class="flex flex-wrap gap-2" role="tablist" aria-label="{{T "Sales"}} | {{T "New customers"}}">
+      <button type="button" role="tab" id="sales-tab-sales" aria-controls="sales-panel-sales" class="btn btn-sm" :aria-selected="t === 'sales' ? 'true' : 'false'" :tabindex="t === 'sales' ? 0 : -1" @click="show('sales')">{{T "Sales"}}</button>
+      <button type="button" role="tab" id="sales-tab-regs" aria-controls="sales-panel-regs" class="btn btn-sm" :aria-selected="t === 'regs' ? 'true' : 'false'" :tabindex="t === 'regs' ? 0 : -1" @click="show('regs')">{{T "New customers"}}</button>
+    </div>
+    <div class="mt-3 h-36" role="tabpanel" id="sales-panel-sales" aria-labelledby="sales-tab-sales" x-show="t === 'sales'"><canvas data-chart="bar" data-money="1" data-label="{{T "Sales"}}" data-labels="{{.Labels}}" data-values="{{.Sales}}" role="img" aria-label="{{T "Sales per month"}}"></canvas></div>
+    <p class="mt-2 text-sm tabular-nums" x-show="t === 'sales'">{{T "Total 12 months"}}: {{money .SalesTotal}}</p>
+    <div class="mt-3 h-36" role="tabpanel" id="sales-panel-regs" aria-labelledby="sales-tab-regs" x-show="t === 'regs'"><canvas data-chart="bar" data-label="{{T "Customer"}}" data-labels="{{.Labels}}" data-values="{{.Regs}}" role="img" aria-label="{{T "New customers per month"}}"></canvas></div>
+  </div>
+</section>
+</div>
+<div class="min-w-0 space-y-4">
+{{/* Customers: the expiring and the expired lists. The tab and the day filter are Alpine state (gbCustomers in dashboard.js);
+     the URL hash #customers-expiring-0 or #customers-expired-3 sets them, and the admin bell links there. */}}
+<section class="card overflow-hidden" id="customers" aria-labelledby="customers-title" data-collapse="customers" x-data="gbCustomers()" x-init="read()" @hashchange.window="read()">
+  <h2 class="card-title flex min-h-14 flex-wrap items-center justify-between gap-2" id="customers-title"><span>{{T "Customers"}}</span>
     <span class="flex items-center gap-3"><a class="link" href="/admin/subscriptions?status=active&sort=expires&dir=asc" x-show="tab === 'expiring'">{{T "See all"}}</a>{{template "collapse" "customers"}}</span></h2>
   <div id="customers-body" data-collapse-body>
-  <div class="card-body"><div class="h-44 sm:h-52"><canvas data-chart="bar" data-label="{{T "Customer"}}" data-labels="{{.Labels}}" data-values="{{.Regs}}" role="img" aria-label="{{T "New customers per month"}}"></canvas></div></div>
-  <div class="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3">
+  <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
     <div class="flex flex-wrap gap-2" role="tablist" aria-label="{{T "Customers"}}">
       <button type="button" role="tab" id="customers-tab-expiring" aria-controls="customers-expiring" class="btn btn-sm" :aria-selected="tab === 'expiring' ? 'true' : 'false'" :tabindex="tab === 'expiring' ? 0 : -1" @click="tab = 'expiring'">{{T "Expiring soon"}} (<span x-text="count('expiring')">{{len .Expiring}}</span>)</button>
       <button type="button" role="tab" id="customers-tab-expired" aria-controls="customers-expired" class="btn btn-sm" :aria-selected="tab === 'expired' ? 'true' : 'false'" :tabindex="tab === 'expired' ? 0 : -1" @click="tab = 'expired'">{{T "Expired"}} (<span x-text="count('expired')">{{len .Recent}}</span>)</button>
@@ -107,7 +93,7 @@
     </div>
   </div>
   <div role="tabpanel" id="customers-expiring" aria-labelledby="customers-tab-expiring" data-list="expiring" x-show="tab === 'expiring'">
-  {{if .Expiring}}<div class="overflow-x-auto"><table class="table">
+  {{if .Expiring}}<div class="max-h-[22rem] overflow-auto"><table class="table">
     <thead><tr><th>{{T "Username"}}</th><th class="max-sm:hidden">{{T "Full Name"}}</th><th class="max-sm:hidden">{{T "Internet Package"}}</th><th class="font-medium">{{T "Expires"}}</th><th></th></tr></thead>
     <tbody>{{template "expiry-rows" .Expiring}}</tbody>
   </table></div>
@@ -115,7 +101,7 @@
   {{else}}<p class="card-body text-sm text-ink-2">{{T "No plans end in the next 7 days."}}</p>{{end}}
   </div>
   <div role="tabpanel" id="customers-expired" aria-labelledby="customers-tab-expired" data-list="expired" x-show="tab === 'expired'">
-  {{if .Recent}}<div class="overflow-x-auto"><table class="table">
+  {{if .Recent}}<div class="max-h-[22rem] overflow-auto"><table class="table">
     <thead><tr><th>{{T "Username"}}</th><th class="max-sm:hidden">{{T "Full Name"}}</th><th class="max-sm:hidden">{{T "Internet Package"}}</th><th class="font-medium">{{T "Expires"}}</th><th></th></tr></thead>
     <tbody>{{template "expiry-rows" .Recent}}</tbody>
   </table></div>
@@ -124,20 +110,17 @@
   </div>
   </div>
 </section>
-<section class="card mb-4" aria-labelledby="chart-sales-title" data-collapse="chart-sales">
-  <h2 class="card-title flex items-center justify-between gap-2" id="chart-sales-title"><span>{{T "Sales per month"}}</span>{{template "collapse" "chart-sales"}}</h2>
-  <div id="chart-sales-body" data-collapse-body><div class="card-body"><div class="h-44 sm:h-52"><canvas data-chart="bar" data-money="1" data-label="{{T "Sales"}}" data-labels="{{.Labels}}" data-values="{{.Sales}}" role="img" aria-label="{{T "Sales per month"}}"></canvas></div></div></div>
+<section class="card overflow-hidden" aria-labelledby="logs-title" data-collapse="logs">
+  <h2 class="card-title flex min-h-14 items-center justify-between gap-2" id="logs-title"><span>{{T "Activity Log"}}</span>
+    <span class="flex items-center gap-3">{{if $mgr}}<a class="link" href="/admin/logs">{{T "See all"}}</a>{{end}}{{template "collapse" "logs"}}</span></h2>
+  <div id="logs-body" data-collapse-body><div class="max-h-[22rem] overflow-auto"><table class="table">
+    <thead><tr><th>{{T "Date"}}</th><th>{{T "Action"}}</th><th>{{T "Description"}}</th></tr></thead>
+    <tbody>
+    {{range .Logs}}<tr><td class="whitespace-nowrap">{{ts .CreatedAt}}</td><td>{{.Action}}</td><td>{{.Description}}</td></tr>{{else}}<tr><td colspan="3">{{T "No data"}}</td></tr>{{end}}
+    </tbody>
+  </table></div></div>
 </section>
-<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-  <section class="card md:col-span-2 xl:col-span-3 overflow-hidden" aria-labelledby="logs-title" data-collapse="logs">
-    <h2 class="card-title flex items-center justify-between gap-2" id="logs-title"><span>{{T "Activity Log"}}</span>{{template "collapse" "logs"}}</h2>
-    <div id="logs-body" data-collapse-body><div class="overflow-x-auto"><table class="table">
-      <thead><tr><th>{{T "Date"}}</th><th>{{T "Action"}}</th><th>{{T "Description"}}</th></tr></thead>
-      <tbody>
-      {{range .Logs}}<tr><td class="whitespace-nowrap">{{ts .CreatedAt}}</td><td>{{.Action}}</td><td>{{.Description}}</td></tr>{{else}}<tr><td colspan="3">{{T "No data"}}</td></tr>{{end}}
-      </tbody>
-    </table></div></div>
-  </section>
+</div>
 </div>
 <script src="{{asset "/static/vendor/chart-4.4.9.umd.js"}}"></script>
 <script src="{{asset "/static/dashboard.js"}}"></script>
@@ -147,7 +130,7 @@
 {{define "usage-win"}}<div class="card-body pt-3">
   {{if .Empty}}<p class="text-sm text-ink-2">{{T "No usage recorded yet"}}</p>{{else}}
   <p class="flex flex-wrap items-baseline justify-between gap-2"><span class="big-num">{{.TotalNum}}<span class="unit">{{.TotalUnit}}</span></span><span class="text-sm tabular-nums text-ink-2">↓ {{.Down}} · ↑ {{.Up}}</span></p>
-  {{template "barchart" dict "Bars" .Bars "Default" .Total "Label" (T "Usage")}}
+  {{template "barchart" dict "Bars" .Bars "Default" "" "Label" (T "Usage")}}
   <h3 class="mt-4 text-sm font-medium">{{T "Top users"}}</h3>
   <ul class="mt-1 divide-y divide-line">{{range .Top}}{{$u := .}}<li class="flex items-center gap-3 py-2 text-sm">
     <span class="min-w-0 flex-1 truncate">{{if $u.Href}}<a class="link" href="{{$u.Href}}">{{$u.Name}}</a>{{else}}{{$u.Name}}{{end}}</span>

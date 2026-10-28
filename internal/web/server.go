@@ -96,8 +96,12 @@ type Server struct {
 	testSent map[int64][]time.Time  // admin id -> Integrations test times, see testAllow
 	// telegramAPI overrides the Telegram API root in tests (empty = the notify default)
 	telegramAPI string
+	// admin bell counts, cached for noticeCacheFor, see bellItems
+	noticeMu    sync.Mutex
+	noticeAt    time.Time
+	noticeItems []attnItem
 
-	idle      atomic.Int64 // admin idle timeout in ns, see ReloadSessionSettings
+	idle     atomic.Int64 // admin idle timeout in ns, see ReloadSessionSettings
 	single    atomic.Bool  // single_session
 	isolir    atomic.Bool  // isolir_enabled, see isolirGate
 	trust     atomic.Bool  // trust_proxy, see realIP
@@ -128,6 +132,9 @@ type Page struct {
 	Version       string
 	UpdateTag     string // set by render for SuperAdmin when a newer release is known
 	UpdateURL     string
+	Notices       []attnItem // admin bell: the items this admin may see, filled by render for admin pages
+	NoticeTotal   int        // sum of the Notices counts, the bell badge
+	NoticeErr     bool       // one of Notices is an error: the badge turns red
 	Data          any
 }
 

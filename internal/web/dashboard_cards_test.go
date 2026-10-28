@@ -71,26 +71,26 @@ func TestExpiringSoonWindow(t *testing.T) {
 	}
 }
 
-// The network card lists offline devices first, then unknown, then online; the offline row is tinted and marked.
+// The network list (networkCard, on the routers page now) puts offline devices first, then unknown, then online,
+// and tints the offline row. The dashboard shows only the Network tile: red when a device is offline.
 func TestNetworkCardOrderAndTint(t *testing.T) {
-	_, h, q, c, _ := healthApp(t, nil)
+	srv, h, q, c, _ := healthApp(t, nil)
 	mkRouter(t, q, "on-router", 1, "api", sql.NullInt64{Int64: 1, Valid: true}, sql.NullInt64{})
 	mkRouter(t, q, "off-router", 1, "api", sql.NullInt64{Int64: 0, Valid: true}, sql.NullInt64{})
 	mkRouter(t, q, "parked-router", 0, "api", sql.NullInt64{}, sql.NullInt64{})
+	card, err := srv.networkCard(t.Context(), time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(card.Rows) != 3 || card.Rows[0].Name != "off-router" || card.Rows[1].Name != "parked-router" || card.Rows[2].Name != "on-router" {
+		t.Fatalf("network rows out of order: %+v", card.Rows)
+	}
+	if card.Rows[0].Tint != "bg-err-bg" || card.Rows[1].Tint != "bg-surface-2" {
+		t.Fatalf("offline row tint %q, unknown row tint %q", card.Rows[0].Tint, card.Rows[1].Tint)
+	}
 	body := do(h, "GET", "/admin", nil, c).Body.String()
-
-	off, unk, on := strings.Index(body, ">off-router<"), strings.Index(body, ">parked-router<"), strings.Index(body, ">on-router<")
-	if off < 0 || unk < 0 || on < 0 || !(off < unk && unk < on) {
-		t.Fatalf("network rows out of order: off=%d unknown=%d online=%d", off, unk, on)
-	}
-	if !strings.Contains(body, `<li class="bg-err-bg">`) {
-		t.Fatal("offline row is not tinted with the error token")
-	}
-	if !strings.Contains(body, `<li class="bg-surface-2">`) {
-		t.Fatal("unknown row is not neutral")
-	}
-	if !strings.Contains(body, `text-err-fg">1 offline<`) {
-		t.Fatal("header summary does not show the offline count in the error colour")
+	if !strings.Contains(body, `class="stat-num text-err-fg" id="tile-network">1/3 `) {
+		t.Fatal("network tile is not red with the online count when a device is offline")
 	}
 }
 

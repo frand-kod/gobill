@@ -198,6 +198,18 @@ function gbNav(id) {
       <div class="ms-auto flex items-center gap-2">
         {{if .UpdateTag}}<a class="badge badge-ok" href="{{.UpdateURL}}" target="_blank" rel="noopener">{{.UpdateTag}} {{T "available"}}</a>
         <a class="link text-sm" href="/admin/docs/upgrade">{{T "Upgrade guide"}}</a>{{end}}
+        <div class="relative" x-data="{o:false}" @click.outside="o=false" @keydown.escape.window="o=false">
+          <button type="button" class="btn relative" @click="o=!o" :aria-expanded="o ? 'true' : 'false'" aria-controls="gb-bell" aria-label="{{T "Notifications"}}">{{icon "bell"}}
+            {{if .NoticeTotal}}<span id="bell-badge" data-count="{{.NoticeTotal}}" class="absolute -end-1 -top-1 flex min-w-5 justify-center rounded-full px-1.5 text-xs font-semibold leading-5 tabular-nums {{if .NoticeErr}}bg-err-bg text-err-fg ring-1 ring-err-fg bell-err{{else}}bg-warn-bg text-warn-fg ring-1 ring-warn-fg bell-warn{{end}}">{{.NoticeTotal}}</span>{{end}}
+          </button>
+          <div id="gb-bell" x-show="o" x-cloak class="absolute end-0 z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-surface py-1 shadow-lg">
+            <p class="px-4 py-2 text-sm font-semibold">{{T "Notifications"}}</p>
+            {{range .Notices}}<a class="flex items-center gap-3 px-4 py-2 text-sm hover:bg-surface-2 focus-visible:bg-surface-2" href="{{.Href}}" @click="o=false">
+              <span class="size-2.5 shrink-0 rounded-full {{if .Err}}bg-err-fg{{else}}bg-warn-fg{{end}}" aria-hidden="true"></span>
+              <span class="min-w-0 flex-1">{{T .Kind}}</span><span class="font-medium tabular-nums">{{.Count}}</span>
+            </a>{{else}}<p class="px-4 py-2 text-sm text-ink-2">{{T "Nothing to check"}}</p>{{end}}
+          </div>
+        </div>
         <div class="relative" x-data="gbThemeCtl()" @click.outside="o=false" @keydown.escape="o=false;$refs.btn.focus()">
           <button type="button" class="btn" x-ref="btn" @click="o=!o;if(o)$nextTick(function(){$refs.first.focus()})" :aria-expanded="o" aria-haspopup="dialog" aria-controls="theme-pop" aria-label="{{T "Theme"}}">{{icon "palette"}}<span class="hidden sm:inline">{{T "Theme"}}</span></button>
           <div x-show="o" x-cloak class="fixed inset-0 z-40 bg-black/40 sm:hidden" @click="o=false" aria-hidden="true"></div>

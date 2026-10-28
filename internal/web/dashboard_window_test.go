@@ -40,4 +40,7 @@ func TestDashboardRolling12Months(t *testing.T) {
 	if sales[0] != 1000 || sales[9] != 2000 || sales[11] != 4000 {
 		t.Fatalf("sales %v", sales)
 	}
+	if d.SalesTotal != 7000 { // the 12 month line under the Sales tab
+		t.Fatalf("sales total %d, want 7000", d.SalesTotal)
+	}
 }

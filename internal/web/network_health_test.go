@@ -117,28 +117,18 @@ func TestNetworkCardRowsAndStatus(t *testing.T) {
 	}
 }
 
+// The dashboard shows the Network tile (count of online devices, linked to the routers page); the device list is
+// on the network page. The tile is for managers only.
 func TestNetworkDashboardCard(t *testing.T) {
 	s, h, q, c, _ := healthApp(t, nil)
 	mkRouter(t, q, "core", 1, "api", sql.NullInt64{Int64: 1, Valid: true}, sql.NullInt64{})
 	body := do(h, "GET", "/admin", nil, c).Body.String()
-	if !strings.Contains(body, `id="network-summary"`) || !strings.Contains(body, "1/1") || !strings.Contains(body, "core") {
-		t.Fatalf("card missing: %s", body)
+	if !strings.Contains(body, `id="tile-network">1/1 `) || !strings.Contains(body, `href="/admin/routers"`) {
+		t.Fatal("network tile missing or not linked to the routers page")
 	}
-	if !strings.Contains(body, "/admin/network/router/") {
-		t.Fatal("no detail link")
-	}
-
-	// no devices: the empty state links to both add forms
-	_, h2, _, c2, _ := healthApp(t, nil)
-	with := do(h2, "GET", "/admin", nil, c2).Body.String()
-	if !strings.Contains(with, "/admin/routers/new") || !strings.Contains(with, "/admin/nas/new") {
-		t.Fatal("empty state has no add links")
-	}
-
-	// the card is for managers only
 	agent := roleLogin(t, s, h, "Agent")
-	if strings.Contains(do(h, "GET", "/admin", nil, agent).Body.String(), `id="network-title"`) {
-		t.Fatal("agent sees the network card")
+	if strings.Contains(do(h, "GET", "/admin", nil, agent).Body.String(), `id="tile-network"`) {
+		t.Fatal("agent sees the network tile")
 	}
 }
 

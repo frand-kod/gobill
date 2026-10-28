@@ -19,9 +19,7 @@ type dashWidgets struct {
 	Expiring  []expiringRow // active, ending in the next 7 days, soonest first
 	Recent    []expiringRow // ended in the last 7 days and not renewed, newest first
 	Usage     usageCard
-	Vouchers  []db.VoucherStockByPlanRow
-	Logs      []db.ActivityLog
-	ExpiryRun string // expiry_last_run, read by the "Needs a look" strip
+	Logs      []db.ActivityLog // the newest dashLogLimit entries
 }
 
 // usageCard is the Usage card: the same data over the last 7 and the last 30 days.
@@ -119,21 +117,20 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	if w.Usage.Month, err = s.usageWindow(ctx, now, loc, 30); err != nil {
 		return
 	}
-	if w.Vouchers, err = s.queries.VoucherStockByPlan(ctx); err != nil {
+	if w.Logs, err = s.queries.ListActivityLogs(ctx, db.ListActivityLogsParams{Limit: dashLogLimit}); err != nil {
 		return
 	}
-	if w.Logs, err = s.queries.ListActivityLogs(ctx, db.ListActivityLogsParams{Limit: 10}); err != nil {
-		return
-	}
-	w.ExpiryRun = settings["expiry_last_run"]
 	return
 }
 
 // dashListLimit caps the Expiring and Recent lists; the tab counts are the rows shown.
 const dashListLimit = 50
 
+// dashLogLimit is how many activity log rows the dashboard card shows; the See all link opens the rest.
+const dashLogLimit = 6
+
 // usageTopN is how many heaviest users the Usage card lists.
-const usageTopN = 5
+const usageTopN = 3
 
 // usageWindow reads the RADIUS octets of all users over the last n days (radius_usage_daily).
 func (s *Server) usageWindow(ctx context.Context, now time.Time, loc *time.Location, n int) (usageWin, error) {
