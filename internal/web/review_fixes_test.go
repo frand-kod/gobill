@@ -53,7 +53,8 @@ func TestForgotOTPPhoneLimit(t *testing.T) {
 	f := url.Values{"username": {"u1"}}
 	do(e.h, "POST", "/portal/forgot", f, nil)
 	w := do(e.h, "POST", "/portal/forgot", f, nil) // fresh session: only the server-side limit can stop it
-	if sent.Load() != 1 || w.Code != http.StatusTooManyRequests {
+	// pForgotSend sends in a goroutine, so wait for the one code to reach the gateway.
+	if !waitFor(func() bool { return sent.Load() == 1 }) || w.Code != http.StatusTooManyRequests {
 		t.Fatalf("sent %d code %d", sent.Load(), w.Code)
 	}
 }
