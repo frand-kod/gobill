@@ -12,12 +12,22 @@ import (
 	"github.com/frand-kod/gobill/internal/radius"
 )
 
-// diagItem is one status chip: Short is the chip text, Text the full sentence (the tests read it).
+// diagItem is one check: Short is the short text for the status line, Text the full sentence (the tests read it).
 type diagItem struct{ Label, Cls, State, Short, Text string }
 
 type diagnosis struct {
 	Items  []diagItem
 	Advice []string // one next step per failing check, in check order; "Everything looks normal" when none
+}
+
+// Item returns the check with this label, nil when it did not run.
+func (d diagnosis) Item(label string) *diagItem {
+	for i := range d.Items {
+		if d.Items[i].Label == label {
+			return &d.Items[i]
+		}
+	}
+	return nil
 }
 
 // NeedsAction: some item is warn or bad, so the page shows the advice.
@@ -192,20 +202,20 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 			add("Router", "warn", t("Not found"), t("The router of this plan was not found"))
 			tip("The router of this plan was not found: check the plan under Service Plan")
 		} else if r.Enabled == 0 {
-			add("Router", "warn", t("Off"), t("Router %s is switched off under Routers", r.Name))
+			add("Router", "warn", r.Name, t("Router %s is switched off under Routers", r.Name))
 			tip("Router %s is switched off: turn it on under Routers", r.Name)
 		} else if !r.Online.Valid {
-			add("Router", "warn", t("Not checked"), t("Router %s has not been checked yet", r.Name))
+			add("Router", "warn", r.Name, t("Router %s has not been checked yet", r.Name))
 			tip("Router %s has not been checked yet: open Routers and check its connection", r.Name)
 		} else if r.Online.Int64 == 0 {
 			if r.LastSeenAt.Valid {
-				add("Router", "bad", t("Offline"), t("Router %s is offline (last seen %s)", r.Name, s.ts(r.LastSeenAt.Int64)))
+				add("Router", "bad", r.Name, t("Router %s is offline (last seen %s)", r.Name, s.ts(r.LastSeenAt.Int64)))
 			} else {
-				add("Router", "bad", t("Offline"), t("Router %s is offline (never seen online)", r.Name))
+				add("Router", "bad", r.Name, t("Router %s is offline (never seen online)", r.Name))
 			}
 			tip("Router offline: check its power and cables")
 		} else {
-			add("Router", "ok", t("Online"), t("Router %s is online", r.Name))
+			add("Router", "ok", r.Name, t("Router %s is online", r.Name))
 		}
 	}
 

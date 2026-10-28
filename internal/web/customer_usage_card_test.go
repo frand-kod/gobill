@@ -18,8 +18,8 @@ func TestCustomerPageUsageCardAndEmptyFields(t *testing.T) {
 	if strings.Contains(body, `<dt class="text-xs text-ink-2">Email</dt>`) {
 		t.Fatal("empty email is shown")
 	}
-	if !strings.Contains(body, `<dt class="text-xs text-ink-2">Full Name</dt>`) {
-		t.Fatal("filled full name is missing")
+	if !strings.Contains(body, `<span class="text-base font-normal text-ink-2">`+e.cust.Fullname+`</span>`) {
+		t.Fatal("filled full name is missing from the header")
 	}
 
 	day := time.Now().In(e.srv.location()).Format("2006-01-02")

@@ -1,7 +1,7 @@
 {{define "content"}}
 {{with .Data}}
 <div class="page-head">
-  <h1 class="page-title">{{.C.Username}} <span class="badge {{badge .C.Status}} align-middle">{{T .C.Status}}</span></h1>
+  <h1 class="page-title">{{.C.Username}}{{with .C.Fullname}} <span class="text-base font-normal text-ink-2">{{.}}</span>{{end}}</h1>
   <div class="flex flex-wrap items-center gap-2">
     {{if .CanSell}}<a class="btn btn-primary" href="#recharge">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
     <a class="btn" href="/admin/deposit?customer={{.C.Username}}">{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>
@@ -21,36 +21,39 @@
     </div>
   </div>
 </div>
-<section class="mb-3 flex flex-wrap items-center gap-2" aria-label="{{T "Diagnosis"}}">
-  {{range .Diag.Items}}<span class="badge {{.Cls}}">{{T .Label}}{{with .Short}}: {{.}}{{end}}<span class="sr-only">: {{T .State}}</span></span>{{end}}
+{{with .Diag}}<section class="mb-3 text-sm text-ink-2" aria-label="{{T "Diagnosis"}}">
+  <p class="flex flex-wrap items-center gap-x-2">
+    {{with .Item "Connection"}}<span class="inline-flex items-center gap-1.5{{if eq .Short (T "Offline")}} text-err-fg{{else if eq .Cls "badge-warn"}} text-warn-fg{{end}}"><span class="size-2 rounded-full bg-current" aria-hidden="true"></span>{{.Short}}</span>{{end}}
+    {{with $.Data.C.ServiceType}}<span aria-hidden="true">·</span><span>{{.}}</span>{{end}}
+    {{with .Item "Router"}}<span aria-hidden="true">·</span><span class="{{if eq .Cls "badge-bad"}}text-err-fg{{else if eq .Cls "badge-warn"}}text-warn-fg{{end}}">{{.Short}}</span>{{end}}
+    {{with .Item "Account"}}{{if ne .Cls "badge-ok"}}<span aria-hidden="true">·</span><span class="text-err-fg">{{.Short}}</span>{{end}}{{end}}
+  </p>
 </section>
-{{if .Diag.NeedsAction}}<p class="mb-3 flex items-start gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm" role="status">{{icon "triangle-alert"}}<span><span class="font-semibold">{{T "Advice"}}:</span>{{range .Diag.Advice}} {{.}}{{end}}</span></p>{{end}}
-<div class="grid items-start gap-4 lg:grid-cols-2">
-  <div class="min-w-0 space-y-4">
+{{if .NeedsAction}}<p class="mb-3 flex items-start gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm" role="status">{{icon "triangle-alert"}}<span><span class="font-semibold">{{T "Advice"}}:</span>{{range .Advice}} {{.}}{{end}}</span></p>{{end}}
+{{end}}
+<div class="grid gap-4 lg:grid-cols-2">
+  <div class="flex min-w-0 flex-col gap-4">
     <section class="card">
       <h2 class="card-title">{{T "Customer"}}</h2>
       <div class="card-body py-3">
         <dl class="grid gap-x-6 sm:grid-cols-2">
-          {{with .C.Fullname}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Full Name"}}</dt><dd class="text-sm font-medium break-words">{{.}}</dd></div>{{end}}
           {{with .C.Phone}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Phone Number"}}</dt><dd class="text-sm font-medium break-words">{{.}}</dd></div>{{end}}
           {{with .C.Email}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Email"}}</dt><dd class="text-sm font-medium break-words">{{.}}</dd></div>{{end}}
           {{with .C.Address}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Address"}}</dt><dd class="text-sm font-medium break-words">{{.}}</dd></div>{{end}}
-          {{with .C.ServiceType}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Service Type"}}</dt><dd class="text-sm font-medium break-words">{{.}}</dd></div>{{end}}
           {{with .C.PppoeUsername}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "PPPoE Username"}}</dt><dd class="text-sm font-medium break-words">{{.}}</dd></div>{{end}}
           {{with .C.PppoeIp}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "PPPoE IP"}}</dt><dd class="text-sm font-medium break-words">{{.}}</dd></div>{{end}}
-          <div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Router Secret"}}</dt><dd class="text-sm font-medium">{{if .SecretSet}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd></div>
           <div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Balance"}}</dt><dd class="text-sm font-medium tabular-nums">{{money .C.Balance}}</dd></div>
           {{if .C.BillingDay.Valid}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Billing Day"}}</dt><dd class="text-sm font-medium">{{.C.BillingDay.Int64}}</dd></div>{{end}}
           <div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Auto Renewal"}}</dt><dd class="text-sm font-medium">{{if eq .C.AutoRenewal 1}}{{T "Yes"}}{{else}}{{T "No"}}{{end}}</dd></div>
-          {{with .Online}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Connection"}}</dt><dd class="text-sm"><span class="badge {{badge .}}">{{T .}}</span></dd></div>{{end}}
           <div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T "Created"}}</dt><dd class="text-sm font-medium">{{.Created}}</dd></div>
           {{range .Custom}}{{if .Value}}<div class="min-w-0 border-b border-line py-1.5"><dt class="text-xs text-ink-2">{{T .Label}}</dt><dd class="text-sm font-medium break-words">{{.Value}}</dd></div>{{end}}{{end}}
         </dl>
+        {{if not .SecretSet}}<p class="mt-2 flex items-center gap-2 text-sm text-warn-fg">{{icon "triangle-alert"}}<span>{{T "Account not created on the router yet"}}</span></p>{{end}}
       </div>
     </section>
-    {{template "radius_usage" .Usage}}
+    <div class="flex flex-1 flex-col [&>*]:flex-1">{{template "radius_usage" .Usage}}</div>
   </div>
-  <div class="min-w-0 space-y-4">
+  <div class="flex min-w-0 flex-col gap-4">
     {{if .CanSell}}
     <form id="recharge" class="card scroll-mt-20" method="post" action="/admin/customers/{{.C.ID}}/recharge/confirm" data-recharge>
       <h2 class="card-title">{{T "Recharge Account"}}</h2>
@@ -76,7 +79,7 @@
       </table></div>
       {{with .Iso}}<p class="px-4 py-2 text-sm">{{T "Isolation running until"}}: {{.}} · <a class="link" href="/admin/isolations?q={{$.Data.C.Username}}">{{T "Isolations"}}</a></p>{{end}}
     </section>
-    <section class="card overflow-hidden">
+    <section class="card flex-1 overflow-hidden">
       <h2 class="card-title">{{T "Transactions"}}</h2>
       <ul class="divide-y divide-line">{{range .Trx}}<li class="flex items-center justify-between gap-3 px-4 py-2 text-sm">
         <span class="min-w-0"><a class="text-accent-fg hover:underline" href="/admin/transactions/{{.ID}}/invoice">{{.Invoice}}</a> <span class="block text-xs text-ink-2 whitespace-nowrap">{{ts .CreatedAt}}</span></span>
