@@ -34,6 +34,10 @@ Go modules linked into cmd/gobill (direct and indirect, from go.mod):
 - modernc.org/libc (includes LICENSE-3RD-PARTY.md), modernc.org/mathutil, modernc.org/memory: BSD-3-Clause
 - filippo.io/edwards25519, github.com/google/uuid, github.com/remyoudompheng/bigfft: BSD-3-Clause
 - github.com/dustin/go-humanize: MIT
+- golang.zx2c4.com/wireguard (wireguard-go, userspace WireGuard; left out of the binary by the nowg build tag): MIT
+- gvisor.dev/gvisor (the network stack under wireguard-go, same tag): Apache-2.0, with parts under MIT
+- github.com/google/btree: Apache-2.0
+- golang.org/x/net, golang.org/x/time: BSD-3-Clause
 - layeh.com/radius: MPL-2.0
 - github.com/go-sql-driver/mysql (used by the PHPNuxBill importer): MPL-2.0
 

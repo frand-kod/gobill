@@ -27,6 +27,7 @@ import (
 	"github.com/frand-kod/gobill/internal/radius"
 	"github.com/frand-kod/gobill/internal/secret"
 	"github.com/frand-kod/gobill/internal/web"
+	"github.com/frand-kod/gobill/internal/wg"
 )
 
 // version is set at build time with -ldflags "-X main.version=...".
@@ -213,6 +214,21 @@ func run() error {
 			}
 		}()
 	}
+	// WireGuard: off unless the setting says yes, and GOBILL_WG=off beats the setting. RADIUS is served inside
+	// the tunnel on the same ports as the LAN socket.
+	wgm := &wg.Manager{Q: db.New(conn), Key: key, AuthPort: 1812, AcctPort: 1813}
+	if rs.AuthAddr != "" {
+		wgm.Radius = rs
+		_, p, _ := net.SplitHostPort(rs.AuthAddr)
+		wgm.AuthPort, _ = strconv.Atoi(p)
+		wgm.AcctPort = wgm.AuthPort + 1
+	}
+	app.WG = wgm
+	wgm.Reload(ctx)
+	if n, _ := db.New(conn).CountWgPeers(ctx); n > 0 && wg.Disabled() {
+		slog.Warn("GOBILL_WG=off: routers with a WireGuard tunnel are cut off from gobill", "routers", n)
+	}
+	go job.Run(ctx, "wg_endpoints", time.Minute, wgm.SaveEndpoints)
 	go func() {
 		slog.Info("listening", "addr", addr, "db", dbPath)
 		errCh <- srv.ListenAndServe()

@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/frand-kod/gobill/internal/notify"
+	"github.com/frand-kod/gobill/internal/wg"
 )
 
 // settingSample holds a valid value for fields whose generic sample would not pass validation.
@@ -28,6 +29,8 @@ var settingSample = map[string]string{
 	"qris_payload":       isoQRIS,
 	"isolir_hotspot_url": "http://192.168.20.1",
 	"isolir_allow_hosts": "wa.me\n*.bank.example",
+	"wg_subnet":          "10.55.0.0/24",
+	"wg_endpoint":        "vpn.example.com",
 }
 
 // settingSampleFor picks the value a test saves into a non-secret field: the last real choice of a
@@ -82,10 +85,13 @@ func TestSettingsEveryFieldShowsStoredValue(t *testing.T) {
 	s, h, _ := settingsSetup(t)
 	c := login(t, h, "alice")
 	for _, tab := range settingsTabs {
+		if tab.Slug == "wireguard" && !wg.Built {
+			continue // the nowg build has no such tab
+		}
 		fields := s.settingsFields(tab.Slug, nil, nil, nil)
 		form, want, checked := url.Values{}, map[string]string{}, map[string]bool{}
 		for i, f := range fields {
-			if settingsSpeed[f.Name] { // kept in the isolir bandwidth row, see TestIsolirSpeedSavesBandwidth
+			if settingsSpeed[f.Name] || f.Name == "wg_confirm" { // a confirmation, never stored // kept in the isolir bandwidth row, see TestIsolirSpeedSavesBandwidth
 				continue
 			}
 			switch f.Type {
@@ -106,7 +112,7 @@ func TestSettingsEveryFieldShowsStoredValue(t *testing.T) {
 		}
 		body := getBody(t, h, c, "/admin/settings/"+tab.Slug)
 		for _, f := range fields {
-			if settingsSpeed[f.Name] {
+			if settingsSpeed[f.Name] || f.Name == "wg_confirm" { // a confirmation, never stored
 				continue
 			}
 			switch f.Type {

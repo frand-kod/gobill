@@ -1,6 +1,6 @@
 module github.com/frand-kod/gobill
 
-go 1.26.10
+go 1.26.9
 
 require (
 	github.com/alexedwards/scs/sqlite3store v0.0.0-20251002162104-209de6e426de
@@ -17,12 +17,18 @@ require (
 	github.com/makiuchi-d/gozxing v0.1.1
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/yuin/goldmark v1.8.6
+	golang.zx2c4.com/wireguard v0.0.0-20261006164505-2631ce99a06f
 )
 
 require (
 	filippo.io/edwards25519 v1.1.1 // indirect
+	github.com/google/btree v1.1.2 // indirect
+	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	golang.org/x/time v0.7.0 // indirect
+	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
+	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
+	gvisor.dev/gvisor v0.0.0-20250503011706-39ed1f5ac29c // indirect
 )
 
 require (

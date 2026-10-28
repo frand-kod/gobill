@@ -15,6 +15,7 @@ import (
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/secret"
+	"github.com/frand-kod/gobill/internal/wg"
 	"strconv"
 )
 
@@ -110,7 +111,15 @@ func (s *Server) routerEdit(w http.ResponseWriter, r *http.Request) {
 	}
 	v := map[string]string{"name": x.Name, "host": x.Host, "port": fmt.Sprint(x.Port), "username": x.Username,
 		"description": x.Description, "enabled": fmt.Sprint(x.Enabled), "coordinates": x.Coordinates, "coverage": fmt.Sprint(x.Coverage), "cert_pin": x.CertPin}
-	s.renderForm(w, r, 200, formPage{"Edit Router", fmt.Sprint("/admin/routers/", id), "/admin/routers", routerFields(v, nil, true)})
+	fields := routerFields(v, nil, true)
+	if wg.Built && s.WG != nil && adminFrom(r).Role == "SuperAdmin" {
+		st, _ := s.loadSettings(r.Context())
+		n, _ := s.queries.CountWgPeers(r.Context())
+		if once := s.sessions.PopString(r.Context(), "wg_once"); st["wg_enabled"] == "yes" || n > 0 || once != "" {
+			fields = append(fields, s.routerWGFields(r.Context(), x, once, wgDefaults(st)["wg_port"])...)
+		}
+	}
+	s.renderForm(w, r, 200, formPage{"Edit Router", fmt.Sprint("/admin/routers/", id), "/admin/routers", fields})
 }
 
 func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
@@ -359,6 +368,13 @@ func (s *Server) routerDelete(w http.ResponseWriter, r *http.Request) {
 		name = x.Name
 	}
 	s.remove(w, r, "/admin/routers", "router", "Router is used by a plan", name, func(id int64) error {
-		return s.queries.DeleteRouter(r.Context(), id)
+		peer, perr := s.queries.GetWgPeer(r.Context(), id)
+		if err := s.queries.DeleteRouter(r.Context(), id); err != nil {
+			return err
+		}
+		if perr == nil { // the peer row went with the router; the tunnel and its NAS row go too
+			return s.wgRelease(r.Context(), peer)
+		}
+		return nil
 	})
 }
