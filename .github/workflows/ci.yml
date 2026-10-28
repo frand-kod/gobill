@@ -2,7 +2,10 @@ name: ci
 on: [push, pull_request]
 
 jobs:
-  test:
+  # Tags skip checks, test and build: the tagged commit was already tested on main, and the
+  # release job waits for that run instead of repeating it.
+  checks:
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,11 +21,21 @@ jobs:
           sh tools/third-party.sh
           git diff --exit-code THIRD_PARTY_LICENSES.txt
       - run: go vet ./...
-      - run: go test -race -timeout 30m ./...
       - run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
+  test:
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test -race -timeout 30m ./...
+
   build:
-    needs: test
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    needs: [checks, test]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -48,11 +61,27 @@ jobs:
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     steps:
+      - name: Tagged commit passed CI on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # The main push usually lands together with the tag, so wait for its run (up to 45 min).
+          for i in $(seq 90); do
+            r=$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --event push --json headBranch,status,conclusion \
+              -q '[.[] | select(.headBranch == "main")][0] | "\(.status) \(.conclusion)"')
+            case "$r" in
+              "completed success") exit 0 ;;
+              completed*) echo "CI on main for $GITHUB_SHA: $r"; exit 1 ;;
+            esac
+            sleep 30
+          done
+          echo "no finished CI run on main for $GITHUB_SHA; push main before the tag"; exit 1
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
