@@ -477,7 +477,6 @@ prov_line() { # router id: POST provision, print the one-line command with a bas
 }
 
 test_provision() {
-	[ "$LAB_MODE" = direct ] || die "provision test runs in direct mode (the CHR is reached over ssh and the lab WAN)"
 	local t0; t0=$(date +%s)
 	gb_login || die "cannot log in to gobill at $GOBILL"
 	local tun_self=10.98.0.1 tun_peer=10.98.0.2 line fetch imp out token
@@ -572,8 +571,28 @@ chr_disabled() { chr run /ppp/secret/print "?name=$1" | grep -qE 'disabled=(true
 chr_enabled() { ! chr_disabled "$1"; }
 mig_step() { gb_get /admin/routers/1/migration | grep -q "$1"; }
 
+# nat: gobill cannot reach the CHR, so reconcile and migration must refuse without changing anything
+test_recon_nat() {
+	local t0; t0=$(date +%s)
+	gb_login || die "cannot log in to gobill at $GOBILL"
+
+	echo "-- N1 unreachable router: reconcile shows the message and changes nothing"
+	check "reconcile page says the router could not be read" get_grep 'Could not read the router' /admin/routers/1/reconcile
+	check "confirmed apply changes nothing" bash -c '! curl -fsL -c "$1" -b "$1" -d confirm=1 -d a:PPPoE:cust13=push "$2/admin/routers/1/reconcile" | grep -q "Pushed"' _ "$JAR" "$GOBILL"
+	check "cust13 is not on the CHR" chr_lacks name=cust13 /ppp/secret/print
+
+	echo "-- N2 unreachable router: migration step 1 refuses and records nothing"
+	check "migration page loads" get_grep 'Not started' /admin/routers/1/migration
+	check "login test refused (no pass or fail result)" bash -c '! curl -fsL -c "$1" -b "$1" -d account=PPPoE:cust01 "$2/admin/routers/1/migration/test" | grep -q "Login test"' _ "$JAR" "$GOBILL"
+	check "migration still not started" mig_step 'Not started'
+
+	echo
+	echo "$PASS passed, $FAIL failed ($(($(date +%s) - t0))s)"
+	[ "$FAIL" = 0 ]
+}
+
 test_recon() {
-	[ "$LAB_MODE" = direct ] || die "recon test runs in direct mode"
+	[ "$LAB_MODE" = nat ] && { test_recon_nat; return; }
 	local t0; t0=$(date +%s)
 	gb_login || die "cannot log in to gobill at $GOBILL"
 
