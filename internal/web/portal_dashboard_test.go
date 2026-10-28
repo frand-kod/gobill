@@ -92,8 +92,8 @@ func TestPortalPlanCardStates(t *testing.T) {
 	if !strings.Contains(body, "x-text=\"left\"") {
 		t.Fatal("countdown ticker missing")
 	}
-	if !strings.Contains(body, "Tanpa batas") {
-		t.Fatal("unlimited plan should say Tanpa batas")
+	if !strings.Contains(body, "Unlimited") {
+		t.Fatal("unlimited plan should say Unlimited")
 	}
 }
 

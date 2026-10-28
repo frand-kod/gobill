@@ -387,7 +387,7 @@ func TestIsolirLogoutButton(t *testing.T) {
 	}
 	isoSettings(t, q, map[string]string{"isolir_hotspot_url": "http://192.168.20.1/"})
 	body := isoReq(h, "GET", "/isolir", "203.0.113.7", nil).Body.String()
-	if !strings.Contains(body, `href="http://192.168.20.1/logout"`) || !strings.Contains(body, "Keluar / pakai akun lain") {
+	if !strings.Contains(body, `href="http://192.168.20.1/logout"`) || !strings.Contains(body, "Logout / pakai akun lain") {
 		t.Fatal("logout button missing or wrong link")
 	}
 }

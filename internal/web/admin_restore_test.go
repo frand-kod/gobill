@@ -184,7 +184,7 @@ func TestRestoreConfirmStagesBacksUpAndRestarts(t *testing.T) {
 
 	w = do(h, "POST", restorePageURL+"/confirm", url.Values{"token": {token}, "understand": {"1"}}, c)
 	wantCode(t, w, 200, "confirm")
-	if !strings.Contains(w.Body.String(), "Pemulihan dijadwalkan") {
+	if !strings.Contains(w.Body.String(), "Restore dijadwalkan") {
 		t.Fatalf("no scheduled message: %s", w.Body.String())
 	}
 	if restarts != 1 {

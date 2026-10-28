@@ -96,7 +96,7 @@ func TestLogin(t *testing.T) {
 	h, _ := newTestServer(t)
 	for _, user := range []string{"alice", "nobody"} {
 		w := do(h, "POST", "/admin/login", url.Values{"username": {user}, "password": {"wrong"}}, nil)
-		if w.Code != 200 || !strings.Contains(w.Body.String(), "Nama pengguna atau kata sandi salah") {
+		if w.Code != 200 || !strings.Contains(w.Body.String(), "Username atau password salah") {
 			t.Fatalf("%s wrong password: %d %s", user, w.Code, w.Body.String())
 		}
 	}
