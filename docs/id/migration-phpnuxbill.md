@@ -142,6 +142,20 @@ Jika akun Anda hanya ada di MikroTik, tambahkan router di gobill (mode API), buk
 - Router RADIUS ditolak. Router yang mati menghentikan seluruh proses dengan pesan dan tanpa perubahan.
 - Profil hotspot dan PPPoE dicocokkan dengan paket menurut nama. Rate limit dan `/queue/simple` tidak dibaca.
 
+## Memindahkan router ke RADIUS bertahap
+
+Setelah rekonsiliasi di atas, SuperAdmin bisa memindahkan router dari akun lokal ke RADIUS tanpa malam cutover. Buka **Router**, ubah router, tekan **Migrasi ke RADIUS**. Halaman menunjukkan langkah yang sudah dicapai router dan waktunya.
+
+1. **Tes login.** Pilih satu akun. gobill mengajukan password akun itu di router ke jalur login RADIUS-nya dan menampilkan hasilnya (paket, batas kecepatan, atau alasan penolakan). Router hanya dibaca. Langkah 2 tersembunyi sampai ada tes yang lulus di sesi admin Anda.
+2. **Nyalakan use-radius.** gobill menampilkan dulu perubahan RouterOS yang tepat (`/ppp aaa set use-radius=yes`, dan `/ip hotspot profile set [find] use-radius=yes` untuk hotspot), lalu menerapkannya setelah Anda konfirmasi.
+3. **Nonaktifkan akun lokal.** Tersedia setelah langkah 2. Halaman konfirmasi menampilkan jumlah secret dan user hotspot yang akan dinonaktifkan. Hanya akun milik pelanggan gobill yang disentuh; akun yang hanya ada di router dibiarkan.
+
+**Rollback** tersedia sejak langkah 1. Rollback mengaktifkan lagi akun lokal dan mematikan use-radius. Akun lokal hanya dinonaktifkan, tidak pernah dihapus, jadi rollback tidak kehilangan apa pun.
+
+Sesi yang sedang berjalan tidak diputus oleh langkah apa pun: gobill tidak mengirim Disconnect dan tidak menghapus sesi aktif. Sesi pindah ke RADIUS saat login ulang. Router yang hanya punya paket RADIUS, atau tanpa akun lokal milik pelanggan gobill, ditolak.
+
+Untuk hotspot, halaman juga menampilkan blok **walled garden** (alamat gobill, tempat halaman bayar dan isolir dilayani, serta host yang diizinkan pada Isolir). gobill tidak menerapkannya: tempel sendiri di router. Status tiap router disimpan sebagai pengaturan (`radius_migration_<id router>`). Perintah RouterOS belum dicoba di router sungguhan saat fitur ini ditulis, jadi coba dulu di satu router.
+
 ## Belum didukung
 
 Fitur PHPNuxBill berikut belum ada di gobill. Pastikan Anda tidak membutuhkannya sebelum cutover.

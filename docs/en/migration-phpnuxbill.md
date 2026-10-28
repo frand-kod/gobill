@@ -142,6 +142,20 @@ If your accounts exist only on a MikroTik, add the router in gobill (API mode), 
 - A RADIUS router is refused. An offline router stops the whole run with a message and no change.
 - Hotspot and PPPoE profiles are matched to plans by name. Rate limits and `/queue/simple` are not read.
 
+## Move a router to RADIUS step by step
+
+After the reconcile above, a SuperAdmin can move a router from local accounts to RADIUS without a cut-over night. Open **Routers**, edit the router, press **Migrate to RADIUS**. The page shows which step the router has reached and when.
+
+1. **Test a login.** Pick one account. gobill offers the router's own password for it to its RADIUS login and shows the result (plan, rate limit, or the reject reason). The router is only read. Step 2 stays hidden until a test passed in your current admin session.
+2. **Turn on use-radius.** gobill first shows the exact RouterOS change (`/ppp aaa set use-radius=yes`, and `/ip hotspot profile set [find] use-radius=yes` for hotspot), and applies it after you confirm.
+3. **Disable the local accounts.** Available after step 2. A confirm page shows how many secrets and hotspot users will be disabled. Only accounts of gobill customers are touched; accounts that exist only on the router are left as they are.
+
+**Roll back** is available from step 1 on. It enables the local accounts again and turns use-radius off. Local accounts are only disabled, never deleted, so a rollback loses nothing.
+
+Running sessions are not cut by any step, and gobill sends no Disconnect and removes no active session. A session moves to RADIUS the next time it logs in. A router that only has RADIUS plans, or no local account of a gobill customer, is refused.
+
+For hotspot the page also shows a **walled garden** block (the gobill address, where the payment and isolir pages are served, and the allowed hosts of Isolation). gobill does not apply it: paste it on the router yourself. The state of each router is kept as a setting (`radius_migration_<router id>`). The RouterOS commands were not run against a real router when this was written, so try it on one router first.
+
 ## Not supported yet
 
 These PHPNuxBill features are not in gobill yet. Make sure you do not need them before cutover.

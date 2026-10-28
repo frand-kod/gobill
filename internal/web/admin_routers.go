@@ -114,6 +114,10 @@ func (s *Server) routerEdit(w http.ResponseWriter, r *http.Request) {
 	v := map[string]string{"name": x.Name, "host": x.Host, "port": fmt.Sprint(x.Port), "username": x.Username,
 		"id": fmt.Sprint(x.ID), "description": x.Description, "enabled": fmt.Sprint(x.Enabled), "coordinates": x.Coordinates, "coverage": fmt.Sprint(x.Coverage), "cert_pin": x.CertPin}
 	fields := routerFields(v, nil, true)
+	if adminFrom(r).Role == "SuperAdmin" {
+		fields = append(fields, field{Name: "migration", Label: "Move to RADIUS", Type: "link", Value: fmt.Sprint("/admin/routers/", id, "/migration"), Btn: "Migrate to RADIUS", Section: "RADIUS migration",
+			Hint: "Test a RADIUS login, turn on use-radius, then disable the local accounts. Can be rolled back."})
+	}
 	if wg.Built && s.WG != nil && adminFrom(r).Role == "SuperAdmin" {
 		st, _ := s.loadSettings(r.Context())
 		n, _ := s.queries.CountWgPeers(r.Context())
