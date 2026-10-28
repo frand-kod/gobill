@@ -235,7 +235,7 @@ func (s *Server) statusData(r *http.Request) (statusData, error) {
 	d.Backup = backupRow{LocalAt: st["backup_last_at"], LocalFile: st["backup_last_file"], Mirror: s.BackupMirror,
 		MirrorAt: st["backup_mirror_at"], MirrorErr: st["backup_mirror_error"]}
 	if t, err := time.ParseInLocation(backupLayout, d.Backup.LocalAt, loc); d.Backup.LocalAt != "" && err == nil {
-		d.Backup.LocalStale = now.Sub(t) > 36*time.Hour
+		d.Backup.LocalStale = now.Sub(t) > backupStaleAge
 		d.Backup.at = t
 	}
 	d.Levels = levelsOf(d, now)
@@ -332,7 +332,7 @@ const (
 	radiusRejectRatio = 10 // amber when rejected(24 h) > accepted(24 h) / radiusRejectRatio
 	diskBadDays       = 7  // red when the disk is projected to fill in fewer days
 	diskWarnDays      = 30 // amber when it is projected to fill in fewer days
-	backupStaleAge    = 48 * time.Hour
+	backupStaleAge    = 36 * time.Hour // same age as the "Older than 36 hours" badge
 )
 
 // levelsOf sets the level of each section from the data on the status page. Rules that need data the
