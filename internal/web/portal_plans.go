@@ -148,7 +148,7 @@ func (s *Server) pTransfer(w http.ResponseWriter, r *http.Request) {
 					msg += " " + st["minimum_transfer"]
 				}
 			}
-			s.pDash(w, r, 200, msg)
+			s.profilePage(w, r, 200, msg)
 			return
 		}
 	}
@@ -156,7 +156,7 @@ func (s *Server) pTransfer(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal transfer", err)
 		return
 	}
-	s.flashTo(w, r, "/portal", s.catalog.T(s.language(), "Sending balance success")+": "+money(amount)+" -> "+strings.TrimSpace(r.PostFormValue("username")))
+	s.flashTo(w, r, "/portal/profile", s.catalog.T(s.language(), "Sending balance success")+": "+money(amount)+" -> "+strings.TrimSpace(r.PostFormValue("username")))
 }
 
 // ---- self extend ----

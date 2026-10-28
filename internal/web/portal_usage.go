@@ -154,7 +154,8 @@ const (
 // dayBar is one stacked bar: the upload on top of the download.
 type dayBar struct {
 	Label                  string
-	X, Mid                 int // left edge and centre of the bar
+	Down, Up               string // the day's totals, shown on hover or tap
+	X, Mid                 int    // left edge and centre of the bar
 	UpY, UpH, DownY, DownH int
 	Today                  bool
 }
@@ -172,7 +173,7 @@ func chartBars(days []dayUse) []dayBar {
 		downH := int(d.Down * chartH / top)
 		upH := int((d.Down+d.Up)*chartH/top) - downH
 		x := i*step + (step-chartBar)/2
-		out[i] = dayBar{Label: d.Label, X: x, Mid: x + chartBar/2, DownH: downH, DownY: chartBase - downH,
+		out[i] = dayBar{Label: d.Label, Down: humanBytes(d.Down), Up: humanBytes(d.Up), X: x, Mid: x + chartBar/2, DownH: downH, DownY: chartBase - downH,
 			UpH: upH, UpY: chartBase - downH - upH, Today: d.Today}
 	}
 	return out

@@ -2662,5 +2662,9 @@
     "Move to RADIUS": "Pindah ke RADIUS",
     "Migrate to RADIUS": "Migrasi ke RADIUS",
     "RADIUS migration": "Migrasi RADIUS",
-    "Test a RADIUS login, turn on use-radius, then disable the local accounts. Can be rolled back.": "Tes login RADIUS, nyalakan use-radius, lalu nonaktifkan akun lokal. Bisa di-rollback."
+    "Test a RADIUS login, turn on use-radius, then disable the local accounts. Can be rolled back.": "Tes login RADIUS, nyalakan use-radius, lalu nonaktifkan akun lokal. Bisa di-rollback.",
+    "%s left": "Sisa %s",
+    "of %s": "dari %s",
+    "Current connection": "Koneksi saat ini",
+    "Usage this period": "Pemakaian periode ini"
 }

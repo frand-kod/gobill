@@ -36,5 +36,12 @@
   <div><label class="label" for="cnpass">{{T "Confirm New Password"}}</label><input class="input" id="cnpass" name="cnpass" type="password" autocomplete="new-password" minlength="{{.Brand.pass_min}}" required></div>
   <div><button class="btn btn-primary" type="submit">{{T "Change Password"}}</button></div>
 </div></form>
+{{if .Data.Transfer}}<form class="card mt-4" method="post" action="/portal/transfer" data-confirm="{{T "Send {balance} to {username}?"}}"><h2 class="card-title">{{T "Send Balance"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">
+  <div><label class="label" for="tu">{{T "Username"}}</label><input class="input" id="tu" name="username" required autocomplete="off"></div>
+  <div><label class="label" for="tb">{{T "Balance"}}{{if .Data.Minimum}} (min {{.Data.Minimum}}){{end}}</label><input class="input" id="tb" name="balance" type="number" min="1" inputmode="numeric" required></div>
+  <div class="self-end"><button class="btn" type="submit">{{T "Send Balance"}}</button></div>
+</div></form>{{end}}
+<p class="mt-6 text-sm text-ink-2">{{T "Last Login"}}: {{with .Data.LastLogin}}{{.}}{{else}}-{{end}}</p>
+<p class="mt-1 text-xs text-ink-2">{{or .Brand.company_name "gobill"}} · {{with .Version}}{{if or (eq . "dev") (hasPrefix . "v")}}{{.}}{{else}}v{{.}}{{end}}{{else}}dev{{end}} · GPL-3.0</p>
 {{template "pwscript"}}
 {{end}}

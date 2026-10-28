@@ -71,7 +71,7 @@ type pExtend struct {
 	Plan string
 }
 
-// pMeter is one usage row: a bar when the plan has a limit, plain text ("Tanpa batas") when not.
+// pMeter is one usage row: a bar when the plan has a limit.
 type pMeter struct {
 	Text string
 	Bar  bool
@@ -81,6 +81,9 @@ type pMeter struct {
 
 type pUsage struct {
 	Note    string // why there are no meters: no plan, or the plan's usage is not tracked here
+	Total   string // data used this period, the big number
+	Left    string // data left before the limit, "" without a data limit
+	Limit   string // the data limit, "" without one
 	Data    pMeter
 	HasTime bool // the plan has a time limit
 	Time    pMeter
@@ -99,6 +102,7 @@ type pDashData struct {
 	Plan      *pPlan   // nil when there is no active plan
 	PlanEnded string   // no active plan: the last plan that ended, "" if none
 	Extend    *pExtend // no active plan and extend_expired is on: renew the last ended plan
+	Buy       bool     // the customer can pay here (a gateway, or balance to spend): show the buy button
 	Usage     pUsage
 	Live      pLive    // the live card: online now, else last seen
 	Days      []dayBar // the 7-day usage chart
@@ -106,12 +110,9 @@ type pDashData struct {
 	Period    pTotal   // usage since the plan started
 	Words     pWords
 	Now       int64
-	LastLogin string
 	Notice    string       // the announcement page, plain text
 	Outage    bool         // a mass drop covers this customer: the banner "outage in your area"
 	Promo     *portalPromo // the Promosi card at the bottom, nil when no live portal promo
-	Transfer  bool         // allow_balance_transfer
-	Minimum   string
 	Voucher   bool
 	Company   string // operator contact from Settings
 	Phone     string
@@ -208,11 +209,9 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 	now := time.Now().Unix()
 	names := loginNames(*c)
 	n1, n2 := names2(names)
-	d := pDashData{Words: s.pTexts(), Now: now, Transfer: st["enable_balance"] != "no" && st["allow_balance_transfer"] == "yes", Minimum: st["minimum_transfer"], Voucher: st["disable_voucher"] != "yes",
-		Company: st["company_name"], Phone: st["phone"], WA: waLink(st["phone"], st["country_code_phone"])}
-	if c.LastLoginAt.Valid {
-		d.LastLogin = s.ts(c.LastLoginAt.Int64)
-	}
+	d := pDashData{Words: s.pTexts(), Now: now, Voucher: st["disable_voucher"] != "yes",
+		Company: st["company_name"], Phone: st["phone"], WA: waLink(st["phone"], st["country_code_phone"]),
+		Buy: st["payment_gateway"] != "" || st["enable_balance"] != "no" && c.Balance > 0}
 
 	// the active plan: the one that ends last
 	var sub *db.Subscription
@@ -304,9 +303,10 @@ func (s *Server) pUsage(ctx context.Context, c db.Customer, sub db.Subscription,
 		return pUsage{Note: s.catalog.T(s.language(), "Usage is not recorded for this plan")}
 	}
 	q := s.planQuota(ctx, c, sub, p)
-	u := pUsage{Data: pMeter{Text: s.catalog.T(s.language(), "No limit") + " · " + humanBytes(used)}}
+	u := pUsage{Total: humanBytes(used)}
 	if q.HasData {
 		u.Data = meter(q.Data, q.DataLim, humanBytes)
+		u.Left, u.Limit = humanBytes(max(q.DataLim-q.Data, 0)), humanBytes(q.DataLim)
 	}
 	if q.HasTime {
 		u.HasTime = true

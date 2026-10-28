@@ -35,5 +35,4 @@
   <a class="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 border-t-2 px-1 text-xs [&>svg]:size-5 {{if $inbox}}border-brand-500 font-semibold text-accent-fg{{else}}border-transparent text-ink-2{{end}}" href="/portal/inbox"{{if $inbox}} aria-current="page"{{end}}>{{icon "message-circle"}}<span>{{T "Inbox"}}{{if .Unread}} <span class="badge badge-warn">{{.Unread}}</span>{{end}}</span></a>
   <a class="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 border-t-2 px-1 text-xs [&>svg]:size-5 {{if $profile}}border-brand-500 font-semibold text-accent-fg{{else}}border-transparent text-ink-2{{end}}" href="/portal/profile"{{if $profile}} aria-current="page"{{end}}>{{icon "user-round"}}<span>{{T "Profile"}}</span></a>
 </nav>
-<footer class="mx-auto max-w-4xl px-4 pb-6 text-xs text-ink-2">{{or .Brand.company_name "gobill"}} · {{with .Version}}{{if or (eq . "dev") (hasPrefix . "v")}}{{.}}{{else}}v{{.}}{{end}}{{else}}dev{{end}} · GPL-3.0</footer>
 {{end}}

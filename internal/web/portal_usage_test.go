@@ -108,6 +108,15 @@ func TestPortalDashboardCards(t *testing.T) {
 			t.Fatalf("dashboard lacks %s", want)
 		}
 	}
+	// no gateway and no balance to spend: the customer pays the operator directly, so no buy button
+	if n := strings.Count(body, "<span>Buy / Extend</span>"); n != 0 {
+		t.Fatalf("Buy / Extend buttons without a way to pay = %d, want 0", n)
+	}
+	if !strings.Contains(body, `data-tip="`+time.Unix(now, 0).In(e.s.location()).Format("2 Jan")+" · ↓ ") {
+		t.Fatal("today's bar lacks its hover text")
+	}
+	setting(t, e, "payment_gateway", "tripay")
+	body = portalGet(t, e, c, "/portal")
 	if n := strings.Count(body, "<span>Buy / Extend</span>"); n != 1 { // the "?" intro text also names it
 		t.Fatalf("Buy / Extend buttons = %d, want 1", n)
 	}

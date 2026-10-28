@@ -90,6 +90,9 @@ func (s *Server) pPassword(w http.ResponseWriter, r *http.Request) {
 type contactData struct {
 	OTPPhone, OTPEmail bool   // change goes through an OTP (allow_phone_otp / allow_email_otp)
 	Pending, Value     string // a code was sent for kind Pending to Value
+	LastLogin          string
+	Transfer           bool // allow_balance_transfer: the Send Balance form
+	Minimum            string
 }
 
 func (s *Server) profilePage(w http.ResponseWriter, r *http.Request, code int, errMsg string) {
@@ -98,7 +101,11 @@ func (s *Server) profilePage(w http.ResponseWriter, r *http.Request, code int, e
 		s.fail(w, "portal profile", err)
 		return
 	}
-	d := contactData{OTPPhone: st["allow_phone_otp"] == "yes", OTPEmail: st["allow_email_otp"] == "yes"}
+	d := contactData{OTPPhone: st["allow_phone_otp"] == "yes", OTPEmail: st["allow_email_otp"] == "yes",
+		Transfer: st["enable_balance"] != "no" && st["allow_balance_transfer"] == "yes", Minimum: st["minimum_transfer"]}
+	if c := customerFrom(r); c.LastLoginAt.Valid {
+		d.LastLogin = s.ts(c.LastLoginAt.Int64)
+	}
 	if k := s.sessions.GetString(r.Context(), "ct_kind"); k != "" && time.Now().Unix() < s.sessions.GetInt64(r.Context(), "ct_exp") {
 		d.Pending, d.Value = k, s.sessions.GetString(r.Context(), "ct_val")
 	}

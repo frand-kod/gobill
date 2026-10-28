@@ -281,8 +281,8 @@ func TestPortalLastLoginRecorded(t *testing.T) {
 	if !cu.LastLoginAt.Valid || cu.LastLoginAt.Int64 < before {
 		t.Fatalf("last login not recorded: %+v", cu.LastLoginAt)
 	}
-	if body := portalGet(t, e, c, "/portal"); !strings.Contains(body, `href="/portal/profile#password"`) {
-		t.Fatal("security card lacks the change password link")
+	if body := portalGet(t, e, c, "/portal/profile"); !strings.Contains(body, "Last Login: "+e.s.ts(cu.LastLoginAt.Int64)) {
+		t.Fatal("profile lacks the last login")
 	}
 }
 

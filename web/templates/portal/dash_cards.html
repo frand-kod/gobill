@@ -1,115 +1,107 @@
+{{define "pmeter"}}{{if .Bar}}<div class="h-3 w-full overflow-hidden rounded-full border border-line bg-surface-2" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Pct}}" aria-label="{{.Text}}"><div class="h-full {{if .Warn}}bg-warn-fg{{else}}bg-brand-500{{end}}" style="width: {{.Pct}}%"></div></div>{{end}}{{end}}
 {{define "dash_cards"}}
 {{/* not deferred: portalLive and gbCountdown must exist before Alpine (deferred) starts; see usage.js */}}
 <script src="{{asset "/static/usage.js"}}"></script>
 
-{{/* a) plan: name, time left, validity used, one buy or extend button, balance */}}
-<section class="card mb-4" aria-labelledby="c-plan"><div class="card-body">
-  <h2 id="c-plan" class="card-title">{{T "Active Plan"}}</h2>
+{{/* one live scope: the plan card shows online/offline, the connection card the details; polled every 15 s while visible */}}
+<div class="mb-4 grid gap-4 lg:grid-cols-2" x-data="portalLive()" data-state="{{.Data.Live.JSON}}" data-url="/portal/usage.json" data-idle="{{T "Refreshes every 15 seconds"}}" data-updated="{{T "Updated %s"}}" data-failed="{{T "Connection lost, retrying"}}">
+
+{{/* a) plan and status: name, time left, validity used, the buy button when the customer can pay here */}}
+<section class="card" aria-labelledby="c-plan"><div class="card-body">
+  <div class="flex flex-wrap items-start justify-between gap-2">
+    <h2 id="c-plan" class="text-lg font-semibold">{{with .Data.Plan}}{{.Name}}{{else}}{{T "Active Plan"}}{{end}}</h2>
+    <span class="badge badge-ok" x-show="live.online"{{if not .Data.Live.Online}} style="display: none"{{end}}>{{T "Online"}}</span>
+    <span class="badge badge-warn" x-show="!live.online"{{if .Data.Live.Online}} style="display: none"{{end}}>{{T "Offline"}}</span>
+  </div>
   {{with .Data.Plan}}
-  <p class="text-lg font-semibold">{{.Name}}</p>
-  {{if .Pending}}<p class="mt-1 text-3xl font-semibold text-accent-fg">{{.Left}}</p>
-  {{else}}<p class="mt-1 text-3xl font-semibold text-accent-fg" x-data="gbCountdown({{.Expires}}, {{$.Data.Now}}, {{$.Data.Words.JSON}})" x-text="left">{{.Left}}</p>{{end}}
-  <div class="mt-3">
-    {{if not .Pending}}<div class="h-1.5 w-full overflow-hidden rounded-full bg-surface-2" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Pct}}" aria-label="{{T "Validity used"}}"><div class="h-full bg-brand-500" style="width: {{.Pct}}%"></div></div>{{end}}
-    <p class="mt-2 text-sm text-ink-2">{{T "Expires On"}}: {{.Ends}}</p>
-  </div>
+  {{if .Pending}}<p class="mt-2 text-3xl font-semibold text-accent-fg">{{.Left}}</p>
+  {{else}}<p class="mt-2 text-3xl font-semibold text-accent-fg" x-data="gbCountdown({{.Expires}}, {{$.Data.Now}}, {{$.Data.Words.JSON}})" x-text="left">{{.Left}}</p>{{end}}
+  {{if not .Pending}}<div class="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-surface-2" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Pct}}" aria-label="{{T "Validity used"}}"><div class="h-full bg-brand-500" style="width: {{.Pct}}%"></div></div>{{end}}
+  <p class="mt-2 text-sm text-ink-2">{{T "Expires On"}}: {{.Ends}}</p>
   {{else}}
-  <p class="text-base">{{with $.Data.PlanEnded}}{{.}}{{else}}{{T "You have no active plan yet."}}{{end}}</p>
+  <p class="mt-2 text-base">{{with $.Data.PlanEnded}}{{.}}{{else}}{{T "You have no active plan yet."}}{{end}}</p>
   {{end}}
-  <p class="mt-3 text-sm text-ink-2">{{T "Balance"}}: <span class="font-medium text-ink">{{money .Customer.Balance}}</span></p>
   {{with $.Data.Extend}}<form class="mt-4" method="post" action="/portal/extend/{{.ID}}" data-confirm="{{T "Extend"}} {{.Plan}}?"><button class="btn btn-primary min-h-12 w-full px-6 text-base" type="submit">{{icon "calendar-plus"}}<span>{{T "Extend"}} {{.Plan}}</span></button></form>
-  {{else}}<a class="btn btn-primary mt-4 min-h-12 w-full px-6 text-base" href="/portal/plans">{{icon "wallet"}}<span>{{T "Buy / Extend"}}</span></a>{{end}}
+  {{else}}{{if $.Data.Buy}}<a class="btn btn-primary mt-4 min-h-12 w-full px-6 text-base" href="/portal/plans">{{icon "wallet"}}<span>{{T "Buy / Extend"}}</span></a>{{end}}{{end}}
+  <p class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-ink-2">
+    <span>{{T "Balance"}}: <span class="font-medium text-ink">{{money .Customer.Balance}}</span></span>
+    {{if .Data.Voucher}}<a class="link" href="/portal/voucher">{{T "Voucher Activation"}} ›</a>{{end}}
+  </p>
 </div></section>
 
-{{/* b) live connection: the same meter as the admin online sessions page; polled every 15 s while visible */}}
-<section class="card mb-4" aria-labelledby="c-live"><div class="card-body" x-data="portalLive()" data-state="{{.Data.Live.JSON}}" data-url="/portal/usage.json" data-idle="{{T "Refreshes every 15 seconds"}}" data-updated="{{T "Updated %s"}}" data-failed="{{T "Connection lost, retrying"}}">
-  <div class="flex flex-wrap items-center justify-between gap-2">
-    <h2 id="c-live" class="card-title">{{T "Connection status"}}</h2>
-    <p class="text-xs text-ink-2" x-text="status">{{T "Refreshes every 15 seconds"}}</p>
-  </div>
-  <div x-show="live.online">
-    <p><span class="badge badge-ok">{{T "Online"}}</span></p>
-    <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-      <dt class="text-ink-2">{{T "IP"}}</dt><dd class="font-mono" x-text="live.ip">{{.Data.Live.IP}}</dd>
-      <dt class="text-ink-2">{{T "Device"}}</dt><dd class="font-mono" x-text="live.device || '-'">{{if .Data.Live.Device}}{{.Data.Live.Device}}{{else}}-{{end}}</dd>
-      <dt class="text-ink-2">{{T "Connected since"}}</dt><dd x-text="live.since">{{.Data.Live.Since}}</dd>
-      <dt class="text-ink-2">{{T "Connected for"}}</dt><dd x-text="live.for">{{.Data.Live.For}}</dd>
-      <dt class="text-ink-2">{{T "Session data"}}</dt><dd x-text="live.used">{{.Data.Live.Used}}</dd>
-    </dl>
-    <div class="mt-4 flex flex-wrap items-center gap-3">
-      <div class="flex items-center gap-2 whitespace-nowrap" role="img" aria-label="{{.Data.Live.Label}}" :aria-label="live.label">
-        <span class="flex items-end gap-0.5" aria-hidden="true"><i class="h-3 w-1.5 rounded-sm" :class="seg(0)"></i><i class="h-3 w-1.5 rounded-sm" :class="seg(1)"></i><i class="h-3 w-1.5 rounded-sm" :class="seg(2)"></i><i class="h-3 w-1.5 rounded-sm" :class="seg(3)"></i><i class="h-3 w-1.5 rounded-sm" :class="seg(4)"></i></span>
-      </div>
-      <p class="text-sm tabular-nums"><span aria-hidden="true">↓</span> <span class="font-medium" x-text="live.down">{{.Data.Live.Down}}</span> <span class="text-ink-2" aria-hidden="true">·</span> <span aria-hidden="true">↑</span> <span class="font-medium" x-text="live.up">{{.Data.Live.Up}}</span></p>
-    </div>
-    <p class="mt-1 text-xs text-ink-2" x-show="live.limit">{{T "Plan speed"}}: <span x-text="live.limit">{{.Data.Live.Limit}}</span></p>
-  </div>
-  <div x-show="!live.online">
-    <p><span class="badge badge-warn">{{T "Offline"}}</span></p>
-    <p class="mt-2 text-sm" x-show="live.seen">{{T "Last seen"}}: <span x-text="live.seen">{{.Data.Live.Seen}}</span></p>
-    <p class="mt-2 text-sm text-ink-2" x-show="!live.seen">{{T "No connection record yet"}}</p>
-  </div>
-</div></section>
-
-{{/* c) usage: this period against the data limit, today, and the last 7 days */}}
-<section class="card mb-4" aria-labelledby="c-usage"><div class="card-body">
-  <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-    <h2 id="c-usage" class="card-title">{{T "Usage"}}</h2>
-    <a class="text-sm underline" href="/portal/connection">{{T "Connection history"}}</a>
-  </div>
+{{/* b) usage: the period total (or what is left of the limit) is the big number; bars show each day on hover or tap */}}
+<section class="card" aria-labelledby="c-usage"><div class="card-body">
+  <h2 id="c-usage" class="card-title">{{T "Usage this period"}}</h2>
   {{with .Data.Usage}}
     {{with .Note}}<p class="mb-4 text-sm text-ink-2">{{.}}</p>{{else}}
-    <div class="mb-4">
-      <div class="mb-1 flex flex-wrap justify-between gap-2 text-sm"><span class="font-medium">{{T "Data this period"}}</span><span>{{.Data.Text}}{{if .Data.Warn}} <span class="badge badge-warn">{{T "Almost used up"}}</span>{{end}}</span></div>
-      {{template "pmeter" .Data}}
-    </div>
+    {{if .Left}}
+    <p class="flex flex-wrap items-baseline justify-between gap-2"><span class="text-3xl font-semibold tabular-nums">{{printf (T "%s left") .Left}}</span><span class="text-sm text-ink-2">{{printf (T "of %s") .Limit}}</span></p>
+    <div class="mt-2">{{template "pmeter" .Data}}</div>
+    <p class="mt-1 text-sm">{{T "Used"}} {{.Data.Text}}{{if .Data.Warn}} <span class="badge badge-warn">{{T "Almost used up"}}</span>{{end}}</p>
+    {{else}}
+    <p class="flex flex-wrap items-baseline justify-between gap-2"><span class="text-3xl font-semibold tabular-nums">{{.Total}}</span><span class="badge">{{T "No limit"}}</span></p>
+    {{end}}
+    <p class="mt-1 text-sm tabular-nums text-ink-2">↓ {{$.Data.Period.Down}} · ↑ {{$.Data.Period.Up}}</p>
     {{if .HasTime}}
-    <div class="mb-4">
+    <div class="mt-4">
       <div class="mb-1 flex flex-wrap justify-between gap-2 text-sm"><span class="font-medium">{{T "Online time"}}</span><span>{{.Time.Text}}{{if .Time.Warn}} <span class="badge badge-warn">{{T "Almost used up"}}</span>{{end}}</span></div>
       {{template "pmeter" .Time}}
     </div>
     {{end}}
     {{end}}
   {{end}}
-  <dl class="grid grid-cols-2 gap-3 text-sm">
-    <div class="rounded-md border border-line p-3"><dt class="text-ink-2">{{T "Today"}}</dt><dd class="mt-1 tabular-nums">↓ {{.Data.Today.Down}}<br>↑ {{.Data.Today.Up}}</dd></div>
-    <div class="rounded-md border border-line p-3"><dt class="text-ink-2">{{T "This period"}}</dt><dd class="mt-1 tabular-nums">↓ {{.Data.Period.Down}}<br>↑ {{.Data.Period.Up}}</dd></div>
-  </dl>
-  <figure class="mt-4">
+  {{$today := printf "%s · ↓ %s · ↑ %s" (T "Today") .Data.Today.Down .Data.Today.Up}}
+  <figure class="mt-4" x-data="{ tip: '' }" data-today="{{$today}}" @mouseleave="tip = ''">
+    <p class="mb-1 min-h-5 text-sm tabular-nums" aria-live="polite" x-text="tip || $el.parentElement.dataset.today">{{$today}}</p>
     <svg class="h-32 w-full text-brand-500" viewBox="0 0 280 120" role="img" aria-label="{{T "Daily usage, last 7 days"}}">
-      {{range .Data.Days}}<g><title>{{.Label}}</title>
+      {{range .Data.Days}}{{$tip := printf "%s · ↓ %s · ↑ %s" .Label .Down .Up}}<g class="cursor-pointer outline-none" tabindex="0" data-tip="{{$tip}}" @mouseenter="tip = $el.dataset.tip" @focus="tip = $el.dataset.tip" @click="tip = $el.dataset.tip" :opacity="tip && tip !== $el.dataset.tip ? 0.45 : 1"><title>{{$tip}}</title>
+        <rect x="{{.X}}" y="0" width="28" height="100" fill="transparent"/>
         <rect x="{{.X}}" y="{{.DownY}}" width="28" height="{{.DownH}}" rx="2" fill="currentColor"/>
         <rect x="{{.X}}" y="{{.UpY}}" width="28" height="{{.UpH}}" rx="2" fill="currentColor" opacity="0.4"/>
         <text x="{{.Mid}}" y="116" text-anchor="middle" font-size="9" class="fill-ink-2">{{.Label}}</text>
       </g>{{end}}
       <line x1="0" y1="100" x2="280" y2="100" stroke="currentColor" stroke-opacity="0.3"/>
     </svg>
-    <figcaption class="mt-1 flex flex-wrap gap-3 text-xs text-ink-2"><span><span class="mr-1 inline-block size-2 bg-brand-500"></span>{{T "Download"}}</span><span><span class="mr-1 inline-block size-2 bg-brand-500 opacity-40"></span>{{T "Upload"}}</span></figcaption>
+    <figcaption class="mt-1 flex flex-wrap items-center justify-between gap-3 text-xs text-ink-2">
+      <span class="flex gap-3"><span><span class="mr-1 inline-block size-2 bg-brand-500"></span>{{T "Download"}}</span><span><span class="mr-1 inline-block size-2 bg-brand-500 opacity-40"></span>{{T "Upload"}}</span></span>
+      <a class="link text-sm" href="/portal/connection">{{T "Connection history"}} ›</a>
+    </figcaption>
   </figure>
 </div></section>
 
+{{/* c) current connection: speed meter and session details, or when it was last seen */}}
+<section class="card" aria-labelledby="c-live"><div class="card-body">
+  <div class="flex flex-wrap items-center justify-between gap-2">
+    <h2 id="c-live" class="card-title">{{T "Current connection"}}</h2>
+    <p class="text-xs text-ink-2" x-text="status">{{T "Refreshes every 15 seconds"}}</p>
+  </div>
+  <div x-show="live.online">
+    <div class="flex flex-wrap items-center gap-3">
+      <div class="flex items-center gap-2 whitespace-nowrap" role="img" aria-label="{{.Data.Live.Label}}" :aria-label="live.label">
+        <span class="flex items-end gap-0.5" aria-hidden="true"><i class="h-3 w-1.5 rounded-sm" :class="seg(0)"></i><i class="h-3 w-1.5 rounded-sm" :class="seg(1)"></i><i class="h-3 w-1.5 rounded-sm" :class="seg(2)"></i><i class="h-3 w-1.5 rounded-sm" :class="seg(3)"></i><i class="h-3 w-1.5 rounded-sm" :class="seg(4)"></i></span>
+      </div>
+      <p class="text-sm tabular-nums"><span aria-hidden="true">↓</span> <span class="font-medium" x-text="live.down">{{.Data.Live.Down}}</span> <span class="text-ink-2" aria-hidden="true">·</span> <span aria-hidden="true">↑</span> <span class="font-medium" x-text="live.up">{{.Data.Live.Up}}</span></p>
+    </div>
+    <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+      <dt class="text-ink-2" x-show="live.limit">{{T "Plan speed"}}</dt><dd x-show="live.limit" x-text="live.limit">{{.Data.Live.Limit}}</dd>
+      <dt class="text-ink-2">{{T "Connected for"}}</dt><dd x-text="live.for">{{.Data.Live.For}}</dd>
+      <dt class="text-ink-2">{{T "IP"}}</dt><dd class="font-mono" x-text="live.ip">{{.Data.Live.IP}}</dd>
+      <dt class="text-ink-2">{{T "Session data"}}</dt><dd x-text="live.used">{{.Data.Live.Used}}</dd>
+      <dt class="text-ink-2">{{T "Device"}}</dt><dd class="font-mono" x-text="live.device || '-'">{{if .Data.Live.Device}}{{.Data.Live.Device}}{{else}}-{{end}}</dd>
+      <dt class="text-ink-2">{{T "Connected since"}}</dt><dd x-text="live.since">{{.Data.Live.Since}}</dd>
+    </dl>
+  </div>
+  <div x-show="!live.online">
+    <p class="text-sm" x-show="live.seen">{{T "Last seen"}}: <span x-text="live.seen">{{.Data.Live.Seen}}</span></p>
+    <p class="text-sm text-ink-2" x-show="!live.seen">{{T "No connection record yet"}}</p>
+  </div>
+</div></section>
+
 {{/* d) recent transactions */}}
-<section class="card mb-4" aria-labelledby="c-trx"><div class="card-body flex items-center justify-between gap-2"><h2 id="c-trx" class="card-title">{{T "Recent Transactions"}}</h2><a class="btn btn-ghost" href="/portal/orders">{{T "See all"}}</a></div>
+<section class="card" aria-labelledby="c-trx"><div class="card-body flex items-center justify-between gap-2"><h2 id="c-trx" class="card-title">{{T "Recent Transactions"}}</h2><a class="btn btn-ghost" href="/portal/orders">{{T "See all"}}</a></div>
 <div class="overflow-x-auto"><table class="table">
 <thead><tr><th>{{T "Invoice"}}</th><th>{{T "Package Name"}}</th><th>{{T "Package Price"}}</th><th class="hidden sm:table-cell">{{T "Created On"}}</th></tr></thead>
 <tbody>{{range .Data.Trx}}<tr><td><a class="underline" href="/portal/orders/{{.ID}}/invoice">{{.Invoice}}</a></td><td>{{.PlanName}}</td><td>{{money .Price}}</td><td class="hidden sm:table-cell">{{ts .CreatedAt}}</td></tr>
 {{else}}<tr><td class="py-8 text-center text-ink-2" colspan="4">{{T "No data"}}</td></tr>{{end}}</tbody></table></div></section>
-
-{{/* e) account security and help, side by side on wider screens */}}
-<div class="mb-4 grid gap-4 sm:grid-cols-2">
-  <section class="card" aria-labelledby="c-sec"><div class="card-body flex h-full flex-col gap-3">
-    <h2 id="c-sec" class="card-title">{{T "Account Security"}}</h2>
-    <p class="text-sm">{{T "Last Login"}}: {{with .Data.LastLogin}}{{.}}{{else}}-{{end}}</p>
-    <a class="btn btn-ghost mt-auto self-start" href="/portal/profile#password">{{T "Change Password"}}</a>
-  </div></section>
-  <section class="card" aria-labelledby="c-help"><div class="card-body flex h-full flex-col gap-3">
-    <h2 id="c-help" class="card-title">{{T "Help"}}</h2>
-    {{if or .Data.Phone .Data.WA}}<p class="text-sm"><span class="font-semibold">{{T "Need help? Contact"}} {{with .Data.Company}}{{.}}{{else}}{{T "your operator"}}{{end}}</span>{{with .Data.Phone}}<br><a class="text-accent-fg underline" href="tel:{{.}}">{{.}}</a>{{end}}</p>
-    {{with .Data.WA}}<a class="btn btn-ghost mt-auto self-start" href="{{.}}" target="_blank" rel="noopener">WhatsApp</a>{{end}}
-    {{else}}<p class="text-sm text-ink-2">{{T "No contact number yet"}}</p>{{end}}
-  </div></section>
 </div>
-
-{{/* f) voucher activation */}}
-{{if .Data.Voucher}}<p class="mb-4"><a class="btn btn-ghost w-full" href="/portal/voucher">{{icon "ticket"}}<span>{{T "Voucher Activation"}}</span></a></p>{{end}}
 {{end}}
