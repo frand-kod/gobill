@@ -18,7 +18,7 @@ func TestProfileDropdownLinks2FA(t *testing.T) {
 	}
 }
 
-// Expiring-soon rows ending today carry a "Hari ini" badge; later ones do not.
+// Expiring-soon rows show the time left ("... lagi"), in warning colour when the plan ends today.
 func TestDashboardExpiringTodayBadge(t *testing.T) {
 	e := billApp(t)
 	p := e.plan(t, "p1", "PPPoE", 25000)
@@ -29,15 +29,15 @@ func TestDashboardExpiringTodayBadge(t *testing.T) {
 		RouterID: sql.NullInt64{Int64: e.rt, Valid: true}, Type: "PPPoE", StartedAt: now.Unix(), ExpiresAt: endOfToday, Method: "Cash"}); err != nil {
 		t.Fatal(err)
 	}
-	const badge = `badge badge-warn ms-1">Hari ini</span>`
-	if body := do(e.h, "GET", "/admin", nil, e.c).Body.String(); !strings.Contains(body, badge) {
-		t.Fatal("no Hari ini badge for a plan ending in an hour")
+	const badge = `font-medium text-warn-fg"`
+	if body := do(e.h, "GET", "/admin", nil, e.c).Body.String(); !strings.Contains(body, badge) || !strings.Contains(body, " lagi</td>") {
+		t.Fatal("no time left in warning colour for a plan ending today")
 	}
 	if _, err := e.srv.conn.Exec(`UPDATE subscriptions SET expires_at = ?`, now.AddDate(0, 0, 3).Unix()); err != nil {
 		t.Fatal(err)
 	}
 	if body := do(e.h, "GET", "/admin", nil, e.c).Body.String(); strings.Contains(body, badge) {
-		t.Fatal("Hari ini badge on a plan ending in 3 days")
+		t.Fatal("warning colour on a plan ending in 3 days")
 	}
 }
 

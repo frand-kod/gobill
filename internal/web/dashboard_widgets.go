@@ -65,11 +65,11 @@ type expiringRow struct {
 	Username   string
 	Fullname   string
 	Plan       string
-	Expires    string
+	Expires    string // full date and time, the tooltip of When
+	When       string // "3 hours 20 minutes left" for Expiring, "2 days ago" for Recent
 	Phone      string
 	WA         string // wa.me link, "" when the phone is missing or too short
 	Days       int    // calendar days from today in the app zone: ahead for Expiring, back for Recent (0 = today)
-	Today      bool   // ends today (Days == 0)
 }
 
 // dayIndex is the calendar day of t in loc, counted in days since 1970-01-01 (DST does not skew it).
@@ -90,6 +90,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	// the lists cover whole calendar days: today and the six after it (expiring), the six before it (recent)
 	nextWeek := time.Date(y, m, d+7, 0, 0, 0, 0, loc).Unix() - 1
 	weekStart := time.Date(y, m, d-6, 0, 0, 0, 0, loc).Unix()
+	words := s.pTexts()
 	soon, err := s.queries.ListExpiringSubscriptions(ctx, db.ListExpiringSubscriptionsParams{
 		Since: now.Unix(), Until: nextWeek, PageLimit: dashListLimit})
 	if err != nil {
@@ -98,7 +99,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	for _, r := range soon {
 		x := s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.ExpiresAt)
 		x.Days = int(dayIndex(time.Unix(r.ExpiresAt, 0), loc) - today)
-		x.Today = x.Days == 0
+		x.When = words.span(r.ExpiresAt-now.Unix()) + " " + words.Left
 		w.Expiring = append(w.Expiring, x)
 	}
 	ended, err := s.queries.ListRecentlyExpiredSubscriptions(ctx, db.ListRecentlyExpiredSubscriptionsParams{
@@ -109,6 +110,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	for _, r := range ended {
 		x := s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.ExpiresAt)
 		x.Days = int(today - dayIndex(time.Unix(r.ExpiresAt, 0), loc))
+		x.When = words.span(now.Unix()-r.ExpiresAt) + " " + s.catalog.T(s.language(), "ago")
 		w.Recent = append(w.Recent, x)
 	}
 	if w.Usage.Week, err = s.usageWindow(ctx, now, loc, 7); err != nil {
