@@ -3,6 +3,8 @@
 # then the web assets. Run it after changing go.mod or web/static/vendor. The file is embedded in
 # the binary and served at /licenses, so it must ship with every build.
 set -eu
+# sort order depends on the locale; CI runs in C.UTF-8, so pin it to get the same file everywhere
+export LC_ALL=C
 cd "$(dirname "$0")/.."
 go mod download
 {
