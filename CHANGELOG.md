@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
+## [0.2.1] - 2026-10-29
+
+### Diubah
+
+- **Lonceng notifikasi admin**: strip **Perlu dicek** diganti lonceng di topbar semua halaman admin, dengan jumlah per jenis (router/NAS offline, job expiry macet, habis hari ini, expired 3 hari terakhir, stok voucher menipis). Badge merah untuk masalah, kuning untuk lainnya; hitungan di-cache 30 detik.
+- **Dashboard admin muat satu layar**: tile Jaringan, Penjualan dan Pelanggan baru dalam satu kartu bertab, pengguna teratas 3 baris, log aktivitas 6 baris.
+- **Detail pelanggan admin lebih padat**: 3 tombol utama plus menu Lainnya, field kosong disembunyikan, grafik pemakaian harian.
+- **Status Sistem muat satu layar**: ringkasan berwarna, sparkline, dua kolom. Batas backup basi disamakan 36 jam.
+- **Portal**: angka pemakaian lebih besar, bantuan cukup lewat WhatsApp.
+
+### Perbaikan
+
+- `tools/reproduce.sh` memakai toolchain Go resmi bila Go lokal adalah build distro.
+
 ## [0.2.0] - 2026-10-28
 
 ### Perubahan perilaku
