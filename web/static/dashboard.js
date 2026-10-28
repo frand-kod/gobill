@@ -95,3 +95,57 @@ document.querySelectorAll('canvas[data-chart]').forEach(function (el) {
     }
   });
 });
+
+// Customer rows: the username opens a small card (.gb-pop). Hover opens it on pointer devices; keyboard focus opens it;
+// Escape and leaving the row close it. On touch devices the first tap opens the card and the second tap follows the link.
+(function () {
+  var touch = window.matchMedia('(hover: none)');
+  function closeAll(keep) {
+    document.querySelectorAll('.gb-who.is-open').forEach(function (w) { if (w !== keep) w.classList.remove('is-open'); });
+  }
+  function closest(el, sel) { return el && el.closest ? el.closest(sel) : null; }
+  document.addEventListener('click', function (e) {
+    var w = closest(e.target, '.gb-who');
+    if (w && closest(e.target, '[data-pop-trigger]') && touch.matches && !w.classList.contains('is-open')) {
+      e.preventDefault();
+      closeAll(w);
+      w.classList.add('is-open');
+      return;
+    }
+    closeAll(w);
+  });
+  document.addEventListener('focusin', function (e) {
+    var w = closest(e.target, '.gb-who');
+    if (w && !touch.matches && closest(e.target, '[data-pop-trigger]')) {
+      closeAll(w);
+      w.classList.add('is-open');
+    }
+  });
+  document.addEventListener('focusout', function (e) {
+    var w = closest(e.target, '.gb-who');
+    if (w && !w.contains(e.relatedTarget)) w.classList.remove('is-open');
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeAll();
+  });
+})();
+
+// Dashboard on a desktop-sized screen (the same query as tall-xl in tailwind.css): the grid runs to the bottom of the
+// screen, above the footer, so both columns end level. Elsewhere the grid keeps its natural height.
+(function () {
+  var grid = document.getElementById('dash-grid');
+  if (!grid) return;
+  var tall = window.matchMedia('(min-width: 80rem) and (min-height: 800px)');
+  function fit() {
+    grid.style.height = '';
+    if (!tall.matches) return;
+    var main = grid.closest('main');
+    var footer = document.querySelector('main + footer');
+    var below = (footer ? footer.offsetHeight : 0) + (main ? parseFloat(getComputedStyle(main).paddingBottom) : 0);
+    var top = grid.getBoundingClientRect().top + window.scrollY;
+    grid.style.height = Math.max(window.innerHeight - top - below, 320) + 'px';
+  }
+  // the footer is parsed after this script, so the first fit waits for the load event
+  window.addEventListener('load', fit);
+  window.addEventListener('resize', fit);
+})();

@@ -68,6 +68,8 @@ type expiringRow struct {
 	Expires    string // full date and time, the tooltip of When
 	When       string // "3 hours 20 minutes left" for Expiring, "2 days ago" for Recent
 	Phone      string
+	Balance    string // money, shown in the username popover
+	LastSeen   string // last RADIUS session update, "" when the customer never connected
 	WA         string // wa.me link, "" when the phone is missing or too short
 	Days       int    // calendar days from today in the app zone: ahead for Expiring, back for Recent (0 = today)
 }
@@ -97,7 +99,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 		return
 	}
 	for _, r := range soon {
-		x := s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.ExpiresAt)
+		x := s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.Balance, r.LastSeenAt, r.ExpiresAt)
 		x.Days = int(dayIndex(time.Unix(r.ExpiresAt, 0), loc) - today)
 		x.When = words.span(r.ExpiresAt-now.Unix()) + " " + words.Left
 		w.Expiring = append(w.Expiring, x)
@@ -108,7 +110,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 		return
 	}
 	for _, r := range ended {
-		x := s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.ExpiresAt)
+		x := s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.Balance, r.LastSeenAt, r.ExpiresAt)
 		x.Days = int(today - dayIndex(time.Unix(r.ExpiresAt, 0), loc))
 		x.When = words.span(now.Unix()-r.ExpiresAt) + " " + s.catalog.T(s.language(), "ago")
 		w.Recent = append(w.Recent, x)
@@ -179,8 +181,12 @@ func (s *Server) usageWindow(ctx context.Context, now time.Time, loc *time.Locat
 }
 
 // expiringRow builds one dashboard row; the WhatsApp reminder link is set only when the phone number allows one.
-func (s *Server) expiringRow(settings map[string]string, customerID int64, username, fullname, phone, plan string, expiresAt int64) expiringRow {
-	x := expiringRow{CustomerID: customerID, Username: username, Fullname: fullname, Phone: phone, Plan: plan, Expires: s.ts(expiresAt)}
+func (s *Server) expiringRow(settings map[string]string, customerID int64, username, fullname, phone, plan string, balance, lastSeen, expiresAt int64) expiringRow {
+	x := expiringRow{CustomerID: customerID, Username: username, Fullname: fullname, Phone: phone, Plan: plan, Expires: s.ts(expiresAt),
+		Balance: money(balance)}
+	if lastSeen > 0 {
+		x.LastSeen = s.ts(lastSeen)
+	}
 	if l := waLink(phone, settings["country_code_phone"]); l != "" {
 		x.WA = l + "?text=" + url.QueryEscape(s.catalog.T(s.language(), "Hello, your internet plan is about to end. Please renew to stay online."))
 	}

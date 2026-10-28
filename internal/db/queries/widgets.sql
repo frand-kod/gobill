@@ -1,6 +1,7 @@
 -- name: ListExpiringSubscriptions :many
 -- Active subscriptions that end from now to the given limit, soonest first (dashboard widget).
-SELECT s.id, s.customer_id, s.expires_at, s.status, c.username, c.fullname, c.phone, p.name AS plan_name
+SELECT s.id, s.customer_id, s.expires_at, s.status, c.username, c.fullname, c.phone, c.balance, p.name AS plan_name,
+  (SELECT CAST(COALESCE(MAX(r.updated_at), 0) AS INTEGER) FROM radius_sessions r WHERE r.username = c.username) AS last_seen_at
 FROM subscriptions s
 JOIN customers c ON c.id = s.customer_id
 JOIN plans p ON p.id = s.plan_id
@@ -9,7 +10,8 @@ ORDER BY s.expires_at, s.id LIMIT sqlc.arg(page_limit);
 
 -- name: ListRecentlyExpiredSubscriptions :many
 -- Subscriptions that ended inside the window and are not renewed, newest first (dashboard "just expired" card).
-SELECT s.id, s.customer_id, s.expires_at, s.status, c.username, c.fullname, c.phone, p.name AS plan_name
+SELECT s.id, s.customer_id, s.expires_at, s.status, c.username, c.fullname, c.phone, c.balance, p.name AS plan_name,
+  (SELECT CAST(COALESCE(MAX(r.updated_at), 0) AS INTEGER) FROM radius_sessions r WHERE r.username = c.username) AS last_seen_at
 FROM subscriptions s
 JOIN customers c ON c.id = s.customer_id
 JOIN plans p ON p.id = s.plan_id

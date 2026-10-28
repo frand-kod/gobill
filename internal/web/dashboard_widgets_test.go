@@ -22,8 +22,23 @@ func TestDashboardWidgets(t *testing.T) {
 	if err := e.q.CreateActivityLog(ctx, db.CreateActivityLogParams{ActorType: "admin", Action: "Recharge", Description: "widget-log-marker"}); err != nil {
 		t.Fatal(err)
 	}
+	if err := e.q.UpdateCustomer(ctx, db.UpdateCustomerParams{Fullname: "U One", Phone: "081234567890", ServiceType: "PPPoE",
+		AutoRenewal: 1, Status: "Active", ID: e.cust.ID}); err != nil {
+		t.Fatal(err)
+	}
 	w := do(e.h, "GET", "/admin", nil, e.c)
 	body := w.Body.String()
+	// the username popover holds the full name and phone; the row's visible cells hold neither
+	if i := strings.Index(body, `href="/admin/customers/`+strconv.FormatInt(e.cust.ID, 10)+`">u1<`); i >= 0 {
+		start := strings.LastIndex(body[:i], "<tr ")
+		row := body[start : i+strings.Index(body[i:], "</tr>")]
+		pop := strings.Index(row, `class="gb-pop"`)
+		if pop < 0 || !strings.Contains(row[pop:], "U One") || strings.Contains(row[:pop], "081234567890") {
+			t.Errorf("customer row: popover or phone placement wrong: %s", row)
+		}
+	} else {
+		t.Error("expiring row for u1 missing")
+	}
 	for _, want := range []string{
 		`href="/admin/customers/` + strconv.FormatInt(e.cust.ID, 10) + `">u1<`, // expiring list links to the customer
 		`widget-log-marker`, // activity log

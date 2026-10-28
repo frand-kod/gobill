@@ -40,7 +40,8 @@ func (q *Queries) CountSetup(ctx context.Context) (CountSetupRow, error) {
 }
 
 const listExpiringSubscriptions = `-- name: ListExpiringSubscriptions :many
-SELECT s.id, s.customer_id, s.expires_at, s.status, c.username, c.fullname, c.phone, p.name AS plan_name
+SELECT s.id, s.customer_id, s.expires_at, s.status, c.username, c.fullname, c.phone, c.balance, p.name AS plan_name,
+  (SELECT CAST(COALESCE(MAX(r.updated_at), 0) AS INTEGER) FROM radius_sessions r WHERE r.username = c.username) AS last_seen_at
 FROM subscriptions s
 JOIN customers c ON c.id = s.customer_id
 JOIN plans p ON p.id = s.plan_id
@@ -62,7 +63,9 @@ type ListExpiringSubscriptionsRow struct {
 	Username   string
 	Fullname   string
 	Phone      string
+	Balance    int64
 	PlanName   string
+	LastSeenAt int64
 }
 
 // Active subscriptions that end from now to the given limit, soonest first (dashboard widget).
@@ -83,7 +86,9 @@ func (q *Queries) ListExpiringSubscriptions(ctx context.Context, arg ListExpirin
 			&i.Username,
 			&i.Fullname,
 			&i.Phone,
+			&i.Balance,
 			&i.PlanName,
+			&i.LastSeenAt,
 		); err != nil {
 			return nil, err
 		}
@@ -99,7 +104,8 @@ func (q *Queries) ListExpiringSubscriptions(ctx context.Context, arg ListExpirin
 }
 
 const listRecentlyExpiredSubscriptions = `-- name: ListRecentlyExpiredSubscriptions :many
-SELECT s.id, s.customer_id, s.expires_at, s.status, c.username, c.fullname, c.phone, p.name AS plan_name
+SELECT s.id, s.customer_id, s.expires_at, s.status, c.username, c.fullname, c.phone, c.balance, p.name AS plan_name,
+  (SELECT CAST(COALESCE(MAX(r.updated_at), 0) AS INTEGER) FROM radius_sessions r WHERE r.username = c.username) AS last_seen_at
 FROM subscriptions s
 JOIN customers c ON c.id = s.customer_id
 JOIN plans p ON p.id = s.plan_id
@@ -121,7 +127,9 @@ type ListRecentlyExpiredSubscriptionsRow struct {
 	Username   string
 	Fullname   string
 	Phone      string
+	Balance    int64
 	PlanName   string
+	LastSeenAt int64
 }
 
 // Subscriptions that ended inside the window and are not renewed, newest first (dashboard "just expired" card).
@@ -142,7 +150,9 @@ func (q *Queries) ListRecentlyExpiredSubscriptions(ctx context.Context, arg List
 			&i.Username,
 			&i.Fullname,
 			&i.Phone,
+			&i.Balance,
 			&i.PlanName,
+			&i.LastSeenAt,
 		); err != nil {
 			return nil, err
 		}
