@@ -1,6 +1,6 @@
 {{define "formgroups"}}
   {{range .Groups}}
-  {{if .Fold}}<details class="mb-4"{{if .Open}} open{{end}}><summary class="cursor-pointer py-2 text-sm font-medium text-accent-fg">{{T "Advanced options"}}</summary>{{end}}
+  {{if .Fold}}<details class="mb-4"{{if .Open}} open{{end}}><summary class="cursor-pointer py-2 text-sm font-medium link">{{T "Advanced options"}}</summary>{{end}}
   <section class="card{{if not .Fold}} mb-4{{end}}"{{with .Show}} x-show="{{.}}" x-cloak{{end}}>
     {{if .Title}}<h2 class="card-title">{{T .Title}}</h2>{{end}}
     <div class="card-body grid gap-x-6 gap-y-4 md:grid-cols-2">

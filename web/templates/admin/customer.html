@@ -3,7 +3,7 @@
 <div class="page-head">
   <h1 class="page-title">{{.C.Username}}{{with .C.Fullname}} <span class="text-base font-normal text-ink-2">{{.}}</span>{{end}}</h1>
   <div class="flex flex-wrap items-center gap-2">
-    {{if .CanSell}}<a class="btn btn-primary" href="#recharge">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
+    {{if .CanSell}}<a class="btn" href="#recharge">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
     <a class="btn" href="/admin/deposit?customer={{.C.Username}}">{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>
     <a class="btn" href="/admin/message/send?customer={{.C.ID}}">{{icon "scroll-text"}}<span>{{T "Send Message"}}</span></a>{{end}}
     <div class="relative" x-data="{o:false}" @click.outside="o=false" @keydown.escape.stop="o=false;$refs.more.focus()">

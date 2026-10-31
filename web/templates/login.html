@@ -27,7 +27,7 @@
   <section class="al-form">
     <form class="al-card space-y-5" method="post" action="/admin/login">
       <div class="space-y-2">
-        <span class="al-pill">{{icon "server"}}{{T "Administrator"}}</span>
+        <span class="badge badge-muted">{{icon "server"}}{{T "Administrator"}}</span>
         <h1 class="al-title">{{T "Sign in"}}</h1>
       </div>
       {{if .Error}}<p class="alert alert-error !mb-0" role="alert">{{icon "circle-alert"}}<span>{{T .Error}}</span></p>{{end}}

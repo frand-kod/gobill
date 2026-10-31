@@ -13,20 +13,20 @@
 {{if .Data.OTPPhone}}
 <form class="card mb-4" method="post" action="/portal/contact/phone/otp"><h2 class="card-title">{{T "Change Phone Number"}}</h2><div class="card-body flex flex-wrap gap-4">
   <div><label class="label" for="nphone">{{T "New Number"}}</label><input class="input" id="nphone" name="value" inputmode="tel" required></div>
-  <div class="self-end"><button class="btn btn-primary" type="submit">{{T "Request OTP"}}</button></div>
+  <div class="self-end"><button class="btn" type="submit">{{T "Request OTP"}}</button></div>
 </div></form>
 {{if eq .Data.Pending "phone"}}<form class="card mb-4" method="post" action="/portal/contact/phone/verify"><div class="card-body flex flex-wrap gap-4">
   <div><label class="label" for="potp">{{T "OTP"}} ({{.Data.Value}})</label><input class="input" id="potp" name="otp" inputmode="numeric" required></div>
-  <div class="self-end"><button class="btn btn-primary" type="submit">{{T "Update"}}</button></div>
+  <div class="self-end"><button class="btn" type="submit">{{T "Update"}}</button></div>
 </div></form>{{end}}{{end}}
 {{if .Data.OTPEmail}}
 <form class="card mb-4" method="post" action="/portal/contact/email/otp"><h2 class="card-title">{{T "Change Email"}}</h2><div class="card-body flex flex-wrap gap-4">
   <div><label class="label" for="nemail">{{T "New Email"}}</label><input class="input" id="nemail" name="value" type="email" required></div>
-  <div class="self-end"><button class="btn btn-primary" type="submit">{{T "Request OTP"}}</button></div>
+  <div class="self-end"><button class="btn" type="submit">{{T "Request OTP"}}</button></div>
 </div></form>
 {{if eq .Data.Pending "email"}}<form class="card mb-4" method="post" action="/portal/contact/email/verify"><div class="card-body flex flex-wrap gap-4">
   <div><label class="label" for="eotp">{{T "OTP"}} ({{.Data.Value}})</label><input class="input" id="eotp" name="otp" inputmode="numeric" required></div>
-  <div class="self-end"><button class="btn btn-primary" type="submit">{{T "Update"}}</button></div>
+  <div class="self-end"><button class="btn" type="submit">{{T "Update"}}</button></div>
 </div></form>{{end}}{{end}}
 <form class="card" id="password" method="post" action="/portal/password"><h2 class="card-title">{{T "Change Password"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">
   <div><label class="label" for="cur">{{T "Current Password"}}</label><input class="input" id="cur" name="password" type="password" autocomplete="current-password" required></div>
@@ -34,7 +34,7 @@
     <div class="pw-wrap"><input class="input" id="npass" name="npass" type="password" autocomplete="new-password" minlength="{{.Brand.pass_min}}" required><button class="pw-toggle" type="button" hidden data-pw="npass" data-show="{{T "Show"}}" data-hide="{{T "Hide"}}" aria-pressed="false" aria-controls="npass">{{T "Show"}}</button></div>
     <p class="hint">{{printf (T "At least %s characters") .Brand.pass_min}}</p></div>
   <div><label class="label" for="cnpass">{{T "Confirm New Password"}}</label><input class="input" id="cnpass" name="cnpass" type="password" autocomplete="new-password" minlength="{{.Brand.pass_min}}" required></div>
-  <div><button class="btn btn-primary" type="submit">{{T "Change Password"}}</button></div>
+  <div><button class="btn" type="submit">{{T "Change Password"}}</button></div>
 </div></form>
 {{if .Data.Transfer}}<form class="card mt-4" method="post" action="/portal/transfer" data-confirm="{{T "Send {balance} to {username}?"}}"><h2 class="card-title">{{T "Send Balance"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">
   <div><label class="label" for="tu">{{T "Username"}}</label><input class="input" id="tu" name="username" required autocomplete="off"></div>

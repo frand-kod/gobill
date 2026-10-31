@@ -1,4 +1,4 @@
-{{define "pmeter"}}{{if .Bar}}<div class="h-3 w-full overflow-hidden rounded-full border border-line bg-surface-2" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Pct}}" aria-label="{{.Text}}"><div class="h-full {{if .Warn}}bg-warn-fg{{else}}bg-brand-500{{end}}" style="width: {{.Pct}}%"></div></div>{{end}}{{end}}
+{{define "pmeter"}}{{if .Bar}}<div class="h-3 w-full overflow-hidden rounded-full border border-line bg-surface-2" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Pct}}" aria-label="{{.Text}}"><div class="h-full {{if .Warn}}bg-warn-fg{{else}}bg-info-fg{{end}}" style="width: {{.Pct}}%"></div></div>{{end}}{{end}}
 {{define "dash_cards"}}
 {{/* not deferred: portalLive and gbCountdown must exist before Alpine (deferred) starts; see usage.js */}}
 <script src="{{asset "/static/usage.js"}}"></script>
@@ -16,9 +16,9 @@
     <span class="badge badge-warn" x-show="!live.online"{{if .Data.Live.Online}} style="display: none"{{end}}>{{T "Offline"}}</span>
   </div>
   {{with .Data.Plan}}
-  {{if .Pending}}<p class="mt-2 text-3xl font-semibold text-accent-fg">{{.Left}}</p>
-  {{else}}<p class="mt-2 text-3xl font-semibold text-accent-fg" x-data="gbCountdown({{.Expires}}, {{$.Data.Now}}, {{$.Data.Words.JSON}})" x-text="left">{{.Left}}</p>{{end}}
-  {{if not .Pending}}<div class="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-surface-2" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Pct}}" aria-label="{{T "Validity used"}}"><div class="h-full bg-brand-500" style="width: {{.Pct}}%"></div></div>{{end}}
+  {{if .Pending}}<p class="mt-2 text-3xl font-semibold text-ink">{{.Left}}</p>
+  {{else}}<p class="mt-2 text-3xl font-semibold text-ink" x-data="gbCountdown({{.Expires}}, {{$.Data.Now}}, {{$.Data.Words.JSON}})" x-text="left">{{.Left}}</p>{{end}}
+  {{if not .Pending}}<div class="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-surface-2" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Pct}}" aria-label="{{T "Validity used"}}"><div class="h-full bg-info-fg" style="width: {{.Pct}}%"></div></div>{{end}}
   <p class="mt-2 text-sm text-ink-2">{{T "Expires On"}}: {{.Ends}}</p>
   {{else}}
   <p class="mt-2 text-base">{{with $.Data.PlanEnded}}{{.}}{{else}}{{T "You have no active plan yet."}}{{end}}</p>
@@ -69,7 +69,7 @@
   {{$today := printf "%s · ↓ %s · ↑ %s" (T "Today") .Data.Today.Down .Data.Today.Up}}
   {{template "barchart" dict "Bars" .Data.Days "Default" $today "Label" (T "Daily usage, last 7 days")}}
   <p class="mt-1 flex flex-wrap items-center justify-between gap-3 text-xs text-ink-2">
-    <span class="flex gap-3"><span><span class="mr-1 inline-block size-2 bg-brand-500"></span>{{T "Download"}}</span><span><span class="mr-1 inline-block size-2 bg-brand-500 opacity-40"></span>{{T "Upload"}}</span></span>
+    <span class="flex gap-3"><span><span class="mr-1 inline-block size-2 bg-info-fg"></span>{{T "Download"}}</span><span><span class="mr-1 inline-block size-2 bg-info-fg opacity-40"></span>{{T "Upload"}}</span></span>
     <a class="link text-sm" href="/portal/connection">{{T "Connection history"}} ›</a>
   </p>
 </div></section>
@@ -80,7 +80,7 @@
     <div class="relative w-40 shrink-0" role="img" aria-label="{{.Data.Live.Label}}" :aria-label="live.label" x-show="live.limit"{{if not .Data.Live.Limit}} style="display: none"{{end}}>
       <svg viewBox="0 0 120 66" class="w-full" aria-hidden="true">
         <path d="M10 60 A50 50 0 0 1 110 60" fill="none" stroke="var(--color-line)" stroke-width="10" stroke-linecap="round" pathLength="100"/>
-        <path d="M10 60 A50 50 0 0 1 110 60" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" pathLength="100" class="transition-all duration-700" :class="live.pct > 75 ? 'text-err-fg' : live.pct >= 50 ? 'text-warn-fg' : 'text-brand-500'" stroke-dasharray="{{.Data.Live.Pct}} 100" :stroke-dasharray="gauge()"/>
+        <path d="M10 60 A50 50 0 0 1 110 60" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" pathLength="100" class="transition-all duration-700" :class="live.pct > 75 ? 'text-err-fg' : live.pct >= 50 ? 'text-warn-fg' : 'text-info-fg'" stroke-dasharray="{{.Data.Live.Pct}} 100" :stroke-dasharray="gauge()"/>
       </svg>
       <p class="absolute inset-x-0 bottom-0 text-center leading-tight"><span class="block text-lg font-semibold tabular-nums">↓ <span x-text="live.down">{{.Data.Live.Down}}</span></span><span class="text-xs text-ink-2">{{printf (T "of %s") ""}}<span x-text="live.limit">{{.Data.Live.Limit}}</span></span></p>
     </div>

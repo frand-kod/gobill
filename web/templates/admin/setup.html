@@ -28,7 +28,7 @@ function wizLive(url, key) {
 <div class="mx-auto max-w-3xl">
   <p class="text-sm text-ink-2">{{T "Quick setup"}} · {{T "Step"}} {{.Num}} / {{.Total}}</p>
   <div class="mt-2 h-2 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-label="{{T "Setup progress"}}" aria-valuemin="1" aria-valuemax="{{.Total}}" aria-valuenow="{{.Num}}">
-    <div class="h-full rounded-full bg-brand-500" style="width: {{.Pct}}%"></div>
+    <div class="h-full rounded-full bg-info-fg" style="width: {{.Pct}}%"></div>
   </div>
 
   <div class="wiz-body mt-6">
@@ -36,7 +36,7 @@ function wizLive(url, key) {
     {{if .Verify}}<p class="mt-2"><span class="badge">{{T "Verification"}}</span> <span class="text-sm text-ink-2">{{T "Imported data is shown. Check it, then continue."}}</span></p>{{end}}
     <p class="mt-3 text-ink">{{T .Step.Why}}</p>
     <details class="mt-4 rounded-lg border border-line p-3">
-      <summary class="cursor-pointer text-sm font-medium text-accent-fg">{{T "Learn more"}}</summary>
+      <summary class="cursor-pointer text-sm font-medium link">{{T "Learn more"}}</summary>
       <p class="mt-2 text-sm text-ink-2">{{T .Step.Learn}}</p>
       <p class="mt-2"><a class="link" href="/admin/docs/{{.Step.Docs}}">{{T "Open the guide"}}</a></p>
     </details>
@@ -118,7 +118,7 @@ function wizLive(url, key) {
 
     <nav class="mt-8 flex items-center justify-between gap-2 border-t border-line pt-4" aria-label="{{T "Setup steps"}}">
       {{if .Prev}}<a class="btn" href="{{.Prev}}">{{T "Back"}}</a>{{else}}<span></span>{{end}}
-      {{if and .Done .Next}}<a class="btn btn-primary" href="{{.Next}}">{{T "Next"}}</a>{{end}}
+      {{if and .Done .Next}}<a class="btn" href="{{.Next}}">{{T "Next"}}</a>{{end}}
     </nav>
   </div>
 </div>

@@ -180,7 +180,7 @@
   /* stat tile on the dashboard: neutral, the number does the talking */
   .stat { padding: var(--sp-4); @apply flex items-center justify-between rounded-lg border border-line bg-surface; }
   a.stat { @apply hover:bg-surface-2; }
-  a.stat:hover { box-shadow: inset 3px 0 0 var(--accent); }
+  a.stat:hover { box-shadow: inset 3px 0 0 var(--border-strong); }
   .stat-num { font-size: var(--fs-title); font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; line-height: 1.25; }
   .stat-label { font-size: var(--fs-small); @apply text-ink-2; }
   /* big number: a headline total, the unit half size beside it: <p class="big-num">112.61<span class="unit">GB</span></p> */
@@ -191,7 +191,7 @@
   .stat-split-in { display: flex; flex-direction: column; }
   .stat-part { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-width: 0; padding: var(--sp-4); }
   a.stat-part { @apply hover:bg-surface-2; }
-  a.stat-part:hover { box-shadow: inset 3px 0 0 var(--accent); }
+  a.stat-part:hover { box-shadow: inset 3px 0 0 var(--border-strong); }
   .stat-sep { height: 1px; @apply bg-line; }
   @container (min-width: 15rem) {
     .stat-split-in { flex-direction: row; }
@@ -211,6 +211,7 @@
 
   .btn { min-height: var(--ctl-h); @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-3 text-sm font-medium text-ink transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50; }
   .btn-primary { @apply rounded-full border-brand-500 bg-brand-500 px-4 text-on-accent hover:border-brand-600 hover:bg-brand-600; }
+  .btn-ghost { @apply border-transparent bg-transparent; }
   .btn-danger { @apply text-err-fg hover:bg-err-bg; }
   .btn-danger-solid { background: #b42318; @apply rounded-full border-transparent px-4 text-white hover:opacity-90; }
   .btn-sm { min-height: var(--ctl-h-sm); @apply px-2 text-xs; }
@@ -231,7 +232,7 @@
   .alert-warn { @apply border-warn-fg/30 bg-warn-bg text-warn-fg; }
 
   /* the one-line description under the page title: neutral, thin accent edge only */
-  .callout { @apply mb-4 rounded-lg border border-s-2 border-line border-s-brand-500 bg-surface px-4 py-3 text-sm text-ink-2; }
+  .callout { @apply mb-4 rounded-lg border border-s-2 border-line border-s-line-strong bg-surface px-4 py-3 text-sm text-ink-2; }
   .callout-title { @apply mb-0.5 font-semibold text-ink; }
   .callout-tip { @apply mt-2 text-xs text-ink-2; }
   /* intro popover: anchored to its "?" on desktop, bottom sheet on phones (like the Tema popover) */
@@ -270,7 +271,8 @@
   .table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--surface-2) 55%, var(--surface)); }
   .table tbody tr { @apply border-t border-line first:border-t-0 hover:bg-surface-2; }
   /* row hover and keyboard focus: a 3px accent edge on the first cell (plus a frame on focus), on top of the tint */
-  .table tbody tr:hover > td:first-child, .table tbody tr:focus-within > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+  .table tbody tr:hover > td:first-child { box-shadow: inset 3px 0 0 var(--border-strong); }
+  .table tbody tr:focus-within > td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
   .table tbody tr:focus-within > td { box-shadow: inset 0 1px 0 var(--accent), inset 0 -1px 0 var(--accent); }
   .table tbody tr:focus-within > td:first-child { box-shadow: inset 3px 0 0 var(--accent), inset 0 1px 0 var(--accent), inset 0 -1px 0 var(--accent); }
   .table .num { font-variant-numeric: tabular-nums; @apply text-end; }
@@ -311,18 +313,15 @@
   .badge-bad { @apply bg-err-bg text-err-fg; }
   .badge-warn { @apply bg-warn-bg text-warn-fg; }
   .badge-muted { @apply bg-surface-2 text-ink-2 ring-1 ring-inset ring-line; }
+  .badge-info { @apply bg-info-bg text-info-fg; }
 
   /* sidebar: light surface, thin border, accent only on the active item */
   .sidebar { @apply border-e border-line bg-surface text-ink; }
   .nav-item { min-height: 2.25rem; @apply flex items-center gap-3 rounded-md border-s-2 border-transparent px-3 py-1.5 text-sm text-ink hover:bg-surface-2 aria-[current=page]:border-[var(--accent)] aria-[current=page]:bg-brand-50 aria-[current=page]:font-medium aria-[current=page]:text-accent-fg; }
   /* dark: the active item edge is the accent mixed with the surface, not full strength */
   :root.dark .nav-item[aria-current="page"] { border-inline-start-color: color-mix(in srgb, var(--accent) 80%, var(--surface)); }
-  /* Setup cepat: the sidebar entry is the accent colour so it is found first */
-  .nav-item.setup-accent { @apply mb-2 bg-brand-500 font-medium text-on-accent hover:bg-brand-600; border-inline-start-color: transparent; }
-  .nav-item.setup-accent[aria-current="page"] { @apply bg-brand-600 text-on-accent; }
-  .setup-accent .badge { background: color-mix(in srgb, var(--on-accent) 22%, transparent); color: var(--on-accent); border-color: transparent; }
-  /* sidebar icons take their group's hue (labels stay text colour); the active item uses the accent,
-     and Setup cepat keeps on-accent because it sits on the accent fill. Order matters: the last rule wins at equal specificity. */
+  /* sidebar icons take their group's hue (labels stay text colour); the active item uses the accent.
+     Order matters: the last rule wins at equal specificity. */
   .nav-hue-top svg { color: var(--nav-hue-top); }
   .nav-hue-reports svg { color: var(--nav-hue-reports); }
   .nav-hue-plans svg { color: var(--nav-hue-plans); }
@@ -330,7 +329,6 @@
   .nav-hue-maps svg { color: var(--nav-hue-maps); }
   .nav-hue-admin svg { color: var(--nav-hue-admin); }
   .nav-item[aria-current="page"] svg { color: var(--accent-fg); }
-  .nav-item.setup-accent svg { color: var(--on-accent); }
   /* wizard steps fade and slide in; no motion when the system asks for less */
   .wiz-body { animation: wiz-in 180ms ease-out both; }
   @keyframes wiz-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -395,7 +393,7 @@
   .prose-doc code { font-size: 0.875em; background: var(--surface-2); border-radius: 4px; padding: 0.1em 0.35em; }
   .prose-doc pre { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem 1rem; overflow-x: auto; line-height: 1.5; }
   .prose-doc pre code { background: none; padding: 0; font-size: 0.85em; }
-  .prose-doc blockquote { border-inline-start: 3px solid var(--accent); padding-inline-start: 1rem; color: var(--text-2); }
+  .prose-doc blockquote { border-inline-start: 3px solid var(--border-strong); padding-inline-start: 1rem; color: var(--text-2); }
   .prose-doc table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 0.9em; }
   .prose-doc th, .prose-doc td { border: 1px solid var(--border); padding: 0.4rem 0.6rem; text-align: start; vertical-align: top; }
   .prose-doc th { background: var(--surface-2); font-weight: var(--fw-bold); }
@@ -438,7 +436,6 @@
   .al-motif { opacity: 0.7; }
   @media (min-width: 1024px) { .al-motif { opacity: 1; } .al-shift { transform: translateY(-110px); } }
   .al-card { width: 100%; max-width: 24rem; }
-  .al-pill { font-size: var(--fs-small); @apply inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-0.5 font-medium text-accent-fg; }
   .al-title { font-size: 1.75rem; line-height: 1.15; font-weight: 650; letter-spacing: -0.02em; }
   .al-card .input { min-height: 2.75rem; font-size: 1rem; }
   .al-card .btn-primary { min-height: 2.75rem; font-size: 1rem; }
@@ -471,7 +468,6 @@
   .pl-card .btn { min-height: 3rem; font-size: 1rem; }
   .pl-card .btn-primary { font-weight: 600; }
   .pl-card .label { font-size: 0.9375rem; }
-  .pl-ghost { @apply rounded-full border-transparent text-accent-fg hover:bg-brand-50; }
   .pl-help { width: calc(100% - 2rem); max-width: 26rem; margin: 1.25rem auto 0; }
   @media (min-width: 640px) { .pl-hero { padding-top: 3rem; padding-bottom: 7rem; } .pl-name { font-size: 1.875rem; } }
 }

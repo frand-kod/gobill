@@ -12,7 +12,7 @@
 <header class="border-b border-line bg-surface">
   <div class="fiber-stripe" aria-hidden="true"></div>
   <div class="mx-auto flex max-w-4xl items-center gap-3 px-4 py-2">
-    <a href="/portal" class="flex min-w-0 items-center gap-2 font-semibold text-accent-fg">{{template "logoA" .Brand}}</a>
+    <a href="/portal" class="flex min-w-0 items-center gap-2 font-semibold text-ink">{{template "logoA" .Brand}}</a>
     <div class="relative ms-auto" x-data="{o:false, seen:{{if .BellUnread}}false{{else}}true{{end}}, toggle(){ this.o=!this.o; if(this.o && !this.seen){ this.seen=true; fetch('/portal/bell/seen',{method:'POST',credentials:'same-origin'}).catch(function(){}) } }}" @click.outside="o=false" @keydown.escape.window="o=false">
       <button type="button" class="btn relative" @click="toggle()" :aria-expanded="o ? 'true' : 'false'" aria-controls="gb-bell" aria-label="{{T "Notifications"}}">{{icon "bell"}}
         {{if .BellUnread}}<span x-show="!seen" class="absolute -end-1 -top-1 flex min-w-5 justify-center rounded-full bg-warn-bg px-1.5 text-xs font-semibold leading-5 tabular-nums text-warn-fg ring-1 ring-warn-fg">{{.BellUnread}}</span>{{end}}

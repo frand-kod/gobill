@@ -63,7 +63,7 @@ function gbNav(id) {
     </div>
     <nav id="gb-nav" class="flex-1 px-3 pb-6" aria-label="Main">
       <div class="nav-hue-top">
-      {{with .Setup}}{{if .Show}}<a class="nav-item setup-accent" href="/admin/setup" data-tip="{{T "Quick setup"}}"{{if hasPrefix $.Path "/admin/setup"}} aria-current="page"{{end}}>{{icon "rocket"}}<span>{{T "Quick setup"}}</span><span class="badge ms-auto">{{.Done}}/{{.Total}}</span></a>{{end}}{{end}}
+      {{with .Setup}}{{if .Show}}<a class="nav-item mb-2" href="/admin/setup" data-tip="{{T "Quick setup"}}"{{if hasPrefix $.Path "/admin/setup"}} aria-current="page"{{end}}>{{icon "rocket"}}<span>{{T "Quick setup"}}</span><span class="badge badge-info ms-auto">{{.Done}}/{{.Total}}</span></a>{{end}}{{end}}
       <a class="nav-item" href="/admin" data-tip="{{T "Dashboard"}}"{{if eq $act "/admin"}} aria-current="page"{{end}}>{{icon "layout-dashboard"}}<span>{{T "Dashboard"}}</span></a>
       <a class="nav-item" href="/admin/customers" data-tip="{{T "Customer"}}"{{if eq $act "/admin/customers"}} aria-current="page"{{end}}>{{icon "users"}}<span>{{T "Customer"}}</span></a>
       {{if $staff}}<a class="nav-item" href="/admin/recharge" data-tip="{{T "Recharge Account"}}"{{if eq $act "/admin/recharge"}} aria-current="page"{{end}}>{{icon "wallet"}}<span>{{T "Recharge Account"}}</span></a>

@@ -4,7 +4,7 @@
 <div class="space-y-2 p-4">
   <h3 class="font-semibold">{{.Title}}</h3>
   {{with .Body}}<p class="whitespace-pre-line text-sm text-ink-2">{{.}}</p>{{end}}
-  {{with .Link}}<a class="btn btn-primary" href="{{.}}" target="_blank" rel="noopener">Buka</a>{{end}}
+  {{with .Link}}<a class="btn" href="{{.}}" target="_blank" rel="noopener">Buka</a>{{end}}
 </div>{{end}}
 
 {{/* One small card for the portal dashboard. Closing hides it on this device (localStorage, guarded).

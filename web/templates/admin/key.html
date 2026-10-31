@@ -4,7 +4,7 @@
 <section class="card mb-4"><div class="card-body space-y-4">
   <p class="text-sm">{{T "The key encrypts router passwords, API keys and tokens in the database and in every backup. The backup mirror does not copy it. Keep a copy somewhere other than the mirror, such as a password manager or a printout."}}</p>
   <p class="text-sm">{{T "Fingerprint"}}: <code>{{.Fingerprint}}</code> {{if .Saved}}<span class="badge badge-ok">{{T "Marked as saved"}}</span>{{else}}<span class="badge badge-bad">{{T "Not marked as saved"}}</span>{{end}}</p>
-  {{if not .Saved}}<form method="post" action="/admin/settings/system/key/saved"><button class="btn btn-primary" type="submit">{{T "I have saved the key"}}</button></form>{{end}}
+  {{if not .Saved}}<form method="post" action="/admin/settings/system/key/saved"><button class="btn" type="submit">{{T "I have saved the key"}}</button></form>{{end}}
 </div></section>
 <form class="card" method="post" action="/admin/settings/system/key/download">
   <h2 class="card-title">{{T "Download the key"}}</h2>

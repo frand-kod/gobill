@@ -25,8 +25,8 @@
         <p class="caps-hint" id="caps" role="status" hidden>{{T "Caps Lock is on"}}</p></div>
       <button class="btn btn-primary w-full" type="submit">{{T "Sign in"}}</button>
       <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-        <a class="btn pl-ghost" href="/portal/forgot">{{T "Forgot Password"}}</a>
-        {{if or (eq .Brand.disable_registration "") (eq .Brand.disable_registration "no")}}<a class="btn pl-ghost" href="/portal/register">{{T "Register"}}</a>{{end}}
+        <a class="link text-sm" href="/portal/forgot">{{T "Forgot Password"}}</a>
+        {{if or (eq .Brand.disable_registration "") (eq .Brand.disable_registration "no")}}<a class="link text-sm" href="/portal/register">{{T "Register"}}</a>{{end}}
       </div>
     </div>
   </form>
@@ -36,7 +36,7 @@
       <h2 class="flex items-center gap-2 text-lg font-bold">{{icon "ticket"}}{{T "Login / Activate Voucher"}}</h2>
       <div><label class="label" for="v_username">{{T "Username"}}</label><input class="input" id="v_username" name="username" autocomplete="off" autocapitalize="none" spellcheck="false" required></div>
       <div><label class="label" for="v_code">{{T "Enter voucher code here"}}</label><input class="input" id="v_code" name="voucher" autocomplete="off" autocapitalize="none" spellcheck="false" required></div>
-      <button class="btn btn-primary w-full" type="submit">{{T "Login / Activate Voucher"}}</button>
+      <button class="btn w-full" type="submit">{{T "Login / Activate Voucher"}}</button>
     </div>
   </form>
   {{end}}
