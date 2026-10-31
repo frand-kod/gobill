@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
+## [0.2.4] - 2026-10-31
+
+### Diubah
+
+- **Sesi Online**: tabel jadi fokus. Tinggal dua kartu (Online/Aktif, Throughput); kartu login/putus sejam terakhir, grafik 24 jam, dan Per NAS/Per paket dihapus. Tombol "Putus yang dipilih" pindah ke toolbar tabel dan hanya muncul bila ada baris dicentang. Kolom Mulai digabung ke Durasi (tanggal di tooltip), Upload dan Download jadi satu kolom Pemakaian.
+- **Dashboard admin**: kartu Pelanggan (segera habis) di atas kolom lebar, Pemakaian pindah ke kanan. Kedua kolom berakhir sejajar tanpa hitungan tinggi JS. Kartu info pelanggan tidak lagi terpotong di baris bawah (terbuka ke atas bila perlu). Kartu Jaringan tenang saat semua NAS hidup, merah bila ada yang mati. Total pemakaian seukuran angka KPI, log aktivitas 5 baris dengan waktu relatif, grafik berwarna info, tombol WhatsApp netral dengan ikon hijau.
+- **Warna aksen** hanya untuk aksi utama, status aktif, dan link: meter dan progress pakai warna info, satu tombol utama per halaman, menu Setup cepat jadi menu biasa dengan badge. Tombol ghost kini benar-benar tanpa garis.
+
 ## [0.2.3] - 2026-10-29
 
 ### Fitur
