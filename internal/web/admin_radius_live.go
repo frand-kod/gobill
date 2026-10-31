@@ -1,19 +1,17 @@
 package web
 
-// Live online sessions: the speed meter, the summary tiles, the 24 h sparkline and the JSON the page polls.
+// Live online sessions: the speed meter, the summary tiles and the JSON the page polls.
 // The rates come from RADIUS Interim-Update: the counters of each open session are read on every refresh
 // and kept in memory. Nothing here is stored in the database.
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math"
 	"net/http"
 	"net/url"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -21,9 +19,6 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/radius"
 )
-
-// liveSpark is the sparkline length: one online count every 5 minutes for 24 hours.
-const liveSpark = 288
 
 // liveSample is the octet counters of a session at one interim update.
 type liveSample struct{ at, in, out int64 }
@@ -58,13 +53,11 @@ func (r *liveRate) bps() (down, up float64, ok bool) {
 	return float64(dOut) * 8 / float64(dt), float64(dIn) * 8 / float64(dt), true
 }
 
-// liveMonitor is the in-memory state of the live view: the rate samples of the open sessions and the
-// sparkline ring buffer. The zero value is ready to use.
+// liveMonitor is the in-memory state of the live view: the rate samples of the open sessions. The zero
+// value is ready to use.
 type liveMonitor struct {
 	mu    sync.Mutex
 	rates map[int64]*liveRate // open sessions only: refresh drops the rest
-	ring  [liveSpark]int      // online counts, the oldest is overwritten first
-	n, at int                 // samples held, next write position
 	swept int64               // when observe last swept stale rate entries
 }
 
@@ -118,28 +111,6 @@ func (m *liveMonitor) rate(id int64) (down, up float64, ok bool) {
 		return 0, 0, false
 	}
 	return r.bps()
-}
-
-// sample appends one online count to the sparkline.
-func (m *liveMonitor) sample(online int) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.ring[m.at] = online
-	m.at = (m.at + 1) % liveSpark
-	if m.n < liveSpark {
-		m.n++
-	}
-}
-
-// series returns the sparkline, oldest first.
-func (m *liveMonitor) series() []int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	out := make([]int, 0, m.n)
-	for i := m.n; i > 0; i-- {
-		out = append(out, m.ring[(m.at-i+liveSpark)%liveSpark])
-	}
-	return out
 }
 
 // speedMeter is the speed meter of a session: lit segments out of five, and their tone.
@@ -257,30 +228,19 @@ func speedOf(down, up float64, ok bool, plan planSpeed) (string, speedMeter) {
 	return text, meterOf(pct)
 }
 
-// liveCount is one line of a breakdown: a NAS or a plan and its online sessions.
-type liveCount struct {
-	Name string `json:"name"`
-	N    int    `json:"n"`
-}
-
 // liveTiles are the summary numbers. They cover all open sessions, not only the rows on the page.
 type liveTiles struct {
-	Online      int         `json:"online"`
-	ActiveSubs  int64       `json:"active_subs"`
-	Logins      int64       `json:"logins_hour"`
-	Disconnects int64       `json:"disconnects_hour"`
-	Down        float64     `json:"-"`
-	Up          float64     `json:"-"`
-	DownText    string      `json:"down_text"`
-	UpText      string      `json:"up_text"`
-	ByNAS       []liveCount `json:"by_nas"`
-	ByPlan      []liveCount `json:"by_plan"`
+	Online     int     `json:"online"`
+	ActiveSubs int64   `json:"active_subs"`
+	Down       float64 `json:"-"`
+	Up         float64 `json:"-"`
+	DownText   string  `json:"down_text"`
+	UpText     string  `json:"up_text"`
 }
 
-// liveView is one refresh of the live page: the tiles, the sparkline and one page of rows.
+// liveView is one refresh of the live page: the tiles and one page of rows.
 type liveView struct {
 	Tiles liveTiles `json:"tiles"`
-	Spark []int     `json:"spark"`
 	Rows  []sessRow `json:"rows"`
 	Total int64     `json:"total"`
 	Page  int       `json:"page"`
@@ -296,50 +256,21 @@ type liveData struct {
 	liveView
 }
 
-// liveBreakdown turns counts into lines, largest first.
-func liveBreakdown(counts map[string]int) []liveCount {
-	out := make([]liveCount, 0, len(counts))
-	for name, n := range counts {
-		out = append(out, liveCount{name, n})
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].N != out[j].N {
-			return out[i].N > out[j].N
-		}
-		return out[i].Name < out[j].Name
-	})
-	return out
-}
-
 // liveTilesOf counts the summary numbers over all open sessions.
-func (s *Server) liveTilesOf(ctx context.Context, open []db.RadiusSession, plans map[string]planSpeed, now int64) (liveTiles, error) {
+func (s *Server) liveTilesOf(ctx context.Context, open []db.RadiusSession) (liveTiles, error) {
 	var t liveTiles
 	var err error
 	t.Online = len(open)
 	if t.ActiveSubs, err = s.queries.CountSubscriptionsByStatus(ctx, "active"); err != nil {
 		return t, err
 	}
-	if t.Logins, err = s.queries.CountRadiusLoginsSince(ctx, now-3600); err != nil {
-		return t, err
-	}
-	if t.Disconnects, err = s.queries.CountRadiusDisconnectsSince(ctx, sql.NullInt64{Int64: now - 3600, Valid: true}); err != nil {
-		return t, err
-	}
-	nas, byPlan := map[string]int{}, map[string]int{}
 	for _, x := range open {
 		if down, up, ok := s.live.rate(x.ID); ok {
 			t.Down += down
 			t.Up += up
 		}
-		nas[x.NasIp]++
-		name := plans[x.Username].Name
-		if name == "" {
-			name = "—"
-		}
-		byPlan[name]++
 	}
 	t.DownText, t.UpText = rateText(t.Down), rateText(t.Up)
-	t.ByNAS, t.ByPlan = liveBreakdown(nas), liveBreakdown(byPlan)
 	return t, nil
 }
 
@@ -374,7 +305,7 @@ func (s *Server) liveLoad(r *http.Request) (liveView, string, error) {
 	plans := planSpeeds(planRows)
 	s.live.refresh(open)
 	var v liveView
-	if v.Tiles, err = s.liveTilesOf(ctx, open, plans, now); err != nil {
+	if v.Tiles, err = s.liveTilesOf(ctx, open); err != nil {
 		return liveView{}, q, err
 	}
 	ss, err := s.queries.SearchOpenRadiusSessions(ctx, db.SearchOpenRadiusSessionsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
@@ -394,7 +325,6 @@ func (s *Server) liveLoad(r *http.Request) (liveView, string, error) {
 		return pageHref("/admin/radius/sessions", url.Values{"q": {q}}, page, per)
 	})
 	v.Total, v.Page, v.Per = total, pg.Page, pg.Per
-	v.Spark = s.live.series()
 	return v, q, nil
 }
 
@@ -406,8 +336,7 @@ func (s *Server) radiusSessions(w http.ResponseWriter, r *http.Request) {
 	}
 	state, _ := json.Marshal(struct {
 		Tiles liveTiles `json:"tiles"`
-		Spark []int     `json:"spark"`
-	}{v.Tiles, v.Spark})
+	}{v.Tiles})
 	d := liveData{Q: q, State: string(state), Blank: sessRow{Bars: speedMeter{}.bars()}, liveView: v}
 	s.render(w, r, http.StatusOK, "radius_sessions", Page{Title: "Online Sessions",
 		Flash: s.sessions.PopString(r.Context(), "flash"), Error: s.sessions.PopString(r.Context(), "error"), Data: d})
@@ -426,14 +355,4 @@ func (s *Server) radiusSessionsJSON(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		slog.Error("live sessions json", "err", err)
 	}
-}
-
-// SampleOnline records the online count for the sparkline. cmd/gobill runs it every 5 minutes.
-func (s *Server) SampleOnline(ctx context.Context) error {
-	n, err := s.queries.CountOpenRadiusSessions(ctx, "")
-	if err != nil {
-		return err
-	}
-	s.live.sample(int(n))
-	return nil
 }

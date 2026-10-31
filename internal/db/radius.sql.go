@@ -78,28 +78,6 @@ func (q *Queries) CloseStaleRadiusSessions(ctx context.Context, updatedAt int64)
 	return result.RowsAffected()
 }
 
-const countRadiusDisconnectsSince = `-- name: CountRadiusDisconnectsSince :one
-SELECT COUNT(*) FROM radius_sessions WHERE stopped_at >= ?
-`
-
-func (q *Queries) CountRadiusDisconnectsSince(ctx context.Context, stoppedAt sql.NullInt64) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countRadiusDisconnectsSince, stoppedAt)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countRadiusLoginsSince = `-- name: CountRadiusLoginsSince :one
-SELECT COUNT(*) FROM radius_sessions WHERE started_at >= ?
-`
-
-func (q *Queries) CountRadiusLoginsSince(ctx context.Context, startedAt int64) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countRadiusLoginsSince, startedAt)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createNAS = `-- name: CreateNAS :one
 INSERT INTO nas (name, ip, secret_enc, description, require_message_auth) VALUES (?, ?, ?, ?, ?) RETURNING id, name, ip, secret_enc, description, require_message_auth, ma_seen
 `

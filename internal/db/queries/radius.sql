@@ -147,12 +147,6 @@ LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
 WHERE s.status = 'active'
 ORDER BY s.expires_at DESC;
 
--- name: CountRadiusLoginsSince :one
-SELECT COUNT(*) FROM radius_sessions WHERE started_at >= ?;
-
--- name: CountRadiusDisconnectsSince :one
-SELECT COUNT(*) FROM radius_sessions WHERE stopped_at >= ?;
-
 -- name: GetRadiusSessionOctets :one
 SELECT input_octets, output_octets FROM radius_sessions WHERE nas_ip = ? AND session_id = ?;
 

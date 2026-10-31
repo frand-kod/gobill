@@ -96,18 +96,6 @@ func TestPlanSpeedsNewestFirst(t *testing.T) {
 	}
 }
 
-// The sparkline keeps the last 288 samples, oldest first, and no more.
-func TestLiveSparklineBounded(t *testing.T) {
-	var m liveMonitor
-	for i := 0; i < liveSpark+50; i++ {
-		m.sample(i)
-	}
-	got := m.series()
-	if len(got) != liveSpark || got[0] != 50 || got[len(got)-1] != liveSpark+49 {
-		t.Fatalf("series len %d first %d last %d", len(got), got[0], got[len(got)-1])
-	}
-}
-
 // The live feed needs an admin login like the page, and its rate follows two interim updates.
 func TestRadiusSessionsJSON(t *testing.T) {
 	s, h, _, c := crudApp(t)
@@ -146,9 +134,6 @@ func TestRadiusSessionsJSON(t *testing.T) {
 	if want := "↓1,0 Mbps"; !strings.HasPrefix(v.Rows[0].Speed, want) {
 		t.Fatalf("speed %q, want prefix %q", v.Rows[0].Speed, want)
 	}
-	if len(v.Spark) != 0 {
-		t.Fatal("sparkline has samples before the sampler ran")
-	}
 	// the page itself renders the same rows and the tiles
 	body := do(h, "GET", "/admin/radius/sessions", nil, c).Body.String()
 	if !strings.Contains(body, `data-id="`) || !strings.Contains(body, "↓1,0 Mbps") {
@@ -156,19 +141,9 @@ func TestRadiusSessionsJSON(t *testing.T) {
 	}
 }
 
-// The sampler adds the online count; the dashboard tile links to the live page.
-func TestOnlineSampleAndDashboardLink(t *testing.T) {
-	s, h, _, c := crudApp(t)
-	if _, err := s.conn.Exec(`INSERT INTO radius_sessions (session_id, username, nas_ip, framed_ip, mac, started_at, updated_at)
-		VALUES ('s9', 'u9', '10.0.0.1', '10.20.0.9', '', ?, ?)`, time.Now().Unix(), time.Now().Unix()); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.SampleOnline(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	if got := s.live.series(); len(got) != 1 || got[0] != 1 {
-		t.Fatalf("sparkline %v, want [1]", got)
-	}
+// The dashboard tile links to the live page.
+func TestDashboardLinksLivePage(t *testing.T) {
+	_, h, _, c := crudApp(t)
 	if body := do(h, "GET", "/admin", nil, c).Body.String(); !strings.Contains(body, `href="/admin/radius/sessions"`) {
 		t.Fatal("dashboard has no link to the live sessions page")
 	}
