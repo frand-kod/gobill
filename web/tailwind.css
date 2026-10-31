@@ -5,7 +5,6 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 /* the dashboard fills the screen only on desktop-sized screens; web/static/dashboard.js measures the same query */
-@custom-variant tall-xl (@media (min-width: 80rem) and (min-height: 800px));
 
 /*
  * Design tokens. One place: this file. Cloudflare-like light surfaces, thin borders, no shadows,
@@ -252,11 +251,12 @@
   /* dashboard customer rows: the username opens a small card (hover, keyboard focus or a tap; dashboard.js sets is-open) */
   .gb-who-cell { overflow: visible; max-width: none; }
   .gb-who { @apply relative inline-block max-w-full align-middle; }
-  .gb-pop { @apply absolute start-0 top-full z-30 mt-1 hidden w-60 rounded-lg border border-line bg-surface p-3 text-xs text-ink shadow-lg; font-weight: normal; white-space: normal; }
+  .gb-pop { @apply fixed z-30 hidden w-60 rounded-lg border border-line bg-surface p-3 text-xs text-ink shadow-lg; font-weight: normal; white-space: normal; }
   @media (hover: hover) { .gb-who:hover > .gb-pop { @apply block; } }
   .gb-who.is-open > .gb-pop { @apply block; }
   /* a collapsed card keeps its header only; in tall mode it must not take a share of the column */
-  .card:has(> [data-collapse-body][hidden]) { @apply tall-xl:flex-none; }
+  /* !important: the xl:flex-1 utilities of the last card would otherwise win over this component rule */
+  @media (min-width: 80rem) { .card:has(> [data-collapse-body][hidden]) { flex: none !important; } }
 
   .table { line-height: var(--lh-table); @apply w-full text-left text-sm; }
   /* header: tinted with the neutral tokens, sticky inside .table-scroll; sort arrows dim when unsorted, accent when active */

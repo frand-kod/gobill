@@ -19,7 +19,7 @@ type dashWidgets struct {
 	Expiring []expiringRow // active, ending in the next 7 days, soonest first
 	Recent   []expiringRow // ended in the last 7 days and not renewed, newest first
 	Usage    usageCard
-	Logs     []db.ActivityLog // the newest dashLogLimit entries
+	Logs     []logRow // the newest dashLogLimit entries
 }
 
 // usageCard is the Usage card: the same data over the last 7 and the last 30 days.
@@ -121,8 +121,13 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	if w.Usage.Month, err = s.usageWindow(ctx, now, loc, 30); err != nil {
 		return
 	}
-	if w.Logs, err = s.queries.ListActivityLogs(ctx, db.ListActivityLogsParams{Limit: dashLogLimit}); err != nil {
+	logs, err := s.queries.ListActivityLogs(ctx, db.ListActivityLogsParams{Limit: dashLogLimit})
+	if err != nil {
 		return
+	}
+	for _, r := range logs {
+		when := words.span(now.Unix()-r.CreatedAt) + " " + s.catalog.T(s.language(), "ago")
+		w.Logs = append(w.Logs, logRow{Action: r.Action, Description: r.Description, When: when})
 	}
 	return
 }
@@ -131,7 +136,12 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 const dashListLimit = 50
 
 // dashLogLimit is how many activity log rows the dashboard card shows; the See all link opens the rest.
-const dashLogLimit = 6
+const dashLogLimit = 5
+
+// logRow is one row of the Activity Log card: the action, when it happened ago, and the full description (the tooltip).
+type logRow struct {
+	Action, Description, When string
+}
 
 // usageTopN is how many heaviest users the Usage card lists.
 const usageTopN = 3

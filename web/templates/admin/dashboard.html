@@ -39,48 +39,19 @@
     <div><p class="stat-label">{{T "Online"}}</p><p class="stat-num" id="tile-online">{{.OnlineNow}}</p></div>
     <span class="text-ok-fg">{{icon "wifi"}}</span>
   </a>
-  <a href="/admin/routers" class="stat py-3">
-    <div><p class="stat-label">{{T "Network"}}</p><p class="stat-num{{if .Network.Offline}} text-err-fg{{end}}" id="tile-network">{{.Network.Online}}/{{len .Network.Rows}} {{T "Online"}}</p></div>
+  <a href="/admin/routers" class="stat py-3{{if .Network.Offline}} border-err-fg{{end}}">
+    <div><p class="stat-label">{{T "Network"}}</p><p class="{{if .Network.Offline}}stat-num text-err-fg{{else}}text-base font-normal text-ink-2{{end}}" id="tile-network">{{.Network.Online}}/{{len .Network.Rows}} {{T "Online"}}</p></div>
     <span class="{{if .Network.Offline}}text-err-fg{{else}}text-ok-fg{{end}}">{{icon "network"}}</span>
   </a>{{end}}
 </div>
-<div id="dash-grid" class="grid gap-4 xl:grid-cols-5 tall-xl:grid-rows-[minmax(0,1fr)]">
-<div class="flex min-w-0 flex-col gap-4 xl:col-span-3 tall-xl:min-h-0">
-{{if $mgr}}
-<section class="card flex flex-col overflow-hidden tall-xl:flex-auto" aria-labelledby="usage-title" data-collapse="usage" x-data="{ win: 7 }">
-  <h2 class="card-title flex min-h-14 flex-wrap items-center justify-between gap-2" id="usage-title"><span>{{T "Usage"}}</span>
-    <span class="flex items-center gap-3"><span class="flex flex-wrap gap-2" role="group" aria-label="{{T "Usage"}}">
-      <button type="button" class="btn btn-sm" :aria-pressed="win === 7 ? 'true' : 'false'" @click="win = 7">{{T "7 days"}}</button>
-      <button type="button" class="btn btn-sm" :aria-pressed="win === 30 ? 'true' : 'false'" @click="win = 30">{{T "30 days"}}</button>
-    </span>{{template "collapse" "usage"}}</span></h2>
-  <div id="usage-body" data-collapse-body class="tall-xl:flex-1 tall-xl:min-h-0 tall-xl:overflow-auto">
-  <div x-show="win === 7">{{template "usage-win" .Usage.Week}}</div>
-  <div x-show="win === 30">{{template "usage-win" .Usage.Month}}</div>
-  <p class="card-body pt-0 text-xs text-ink-2">{{T "RADIUS sessions only"}}</p>
-  </div>
-</section>
-{{end}}
-{{/* Sales | New customers: one card, two tabs, one monthly chart each. gbSalesTabs (dashboard.js) resizes a chart when its tab opens. */}}
-<section class="card flex flex-col overflow-hidden tall-xl:flex-auto" aria-labelledby="sales-title" data-collapse="sales" x-data="gbSalesTabs()">
-  <h2 class="card-title flex min-h-14 flex-wrap items-center justify-between gap-2" id="sales-title"><span>{{T "Sales"}} | {{T "New customers"}}</span>{{template "collapse" "sales"}}</h2>
-  <div id="sales-body" class="card-body tall-xl:flex-1 tall-xl:min-h-0 tall-xl:overflow-auto" data-collapse-body>
-    <div class="flex flex-wrap gap-2" role="tablist" aria-label="{{T "Sales"}} | {{T "New customers"}}">
-      <button type="button" role="tab" id="sales-tab-sales" aria-controls="sales-panel-sales" class="btn btn-sm" :aria-selected="t === 'sales' ? 'true' : 'false'" :tabindex="t === 'sales' ? 0 : -1" @click="show('sales')">{{T "Sales"}}</button>
-      <button type="button" role="tab" id="sales-tab-regs" aria-controls="sales-panel-regs" class="btn btn-sm" :aria-selected="t === 'regs' ? 'true' : 'false'" :tabindex="t === 'regs' ? 0 : -1" @click="show('regs')">{{T "New customers"}}</button>
-    </div>
-    <div class="mt-3 h-36" role="tabpanel" id="sales-panel-sales" aria-labelledby="sales-tab-sales" x-show="t === 'sales'"><canvas data-chart="bar" data-money="1" data-label="{{T "Sales"}}" data-labels="{{.Labels}}" data-values="{{.Sales}}" role="img" aria-label="{{T "Sales per month"}}"></canvas></div>
-    <p class="mt-2 text-sm tabular-nums" x-show="t === 'sales'">{{T "Total 12 months"}}: {{money .SalesTotal}}</p>
-    <div class="mt-3 h-36" role="tabpanel" id="sales-panel-regs" aria-labelledby="sales-tab-regs" x-show="t === 'regs'"><canvas data-chart="bar" data-label="{{T "Customer"}}" data-labels="{{.Labels}}" data-values="{{.Regs}}" role="img" aria-label="{{T "New customers per month"}}"></canvas></div>
-  </div>
-</section>
-</div>
-<div class="flex min-w-0 flex-col gap-4 xl:col-span-2 tall-xl:min-h-0">
+<div id="dash-grid" class="grid gap-4 xl:grid-cols-5">
+<div class="flex min-w-0 flex-col gap-4 xl:col-span-3">
 {{/* Customers: the expiring and the expired lists. The tab and the day filter are Alpine state (gbCustomers in dashboard.js);
      the URL hash #customers-expiring-0 or #customers-expired-3 sets them, and the admin bell links there. */}}
-<section class="card flex flex-col overflow-hidden tall-xl:flex-auto" id="customers" aria-labelledby="customers-title" data-collapse="customers" x-data="gbCustomers()" x-init="read()" @hashchange.window="read()">
+<section class="card flex flex-col overflow-hidden" id="customers" aria-labelledby="customers-title" data-collapse="customers" x-data="gbCustomers()" x-init="read()" @hashchange.window="read()">
   <h2 class="card-title flex min-h-14 flex-wrap items-center justify-between gap-2" id="customers-title"><span>{{T "Customers"}}</span>
     <span class="flex items-center gap-3"><a class="link" href="/admin/subscriptions?status=active&sort=expires&dir=asc" x-show="tab === 'expiring'">{{T "See all"}}</a>{{template "collapse" "customers"}}</span></h2>
-  <div id="customers-body" data-collapse-body class="tall-xl:flex-1 tall-xl:min-h-0 tall-xl:overflow-auto">
+  <div id="customers-body" data-collapse-body>
   <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
     <div class="flex flex-wrap gap-2" role="tablist" aria-label="{{T "Customers"}}">
       <button type="button" role="tab" id="customers-tab-expiring" aria-controls="customers-expiring" class="btn btn-sm" :aria-selected="tab === 'expiring' ? 'true' : 'false'" :tabindex="tab === 'expiring' ? 0 : -1" @click="tab = 'expiring'">{{T "Expiring soon"}} (<span x-text="count('expiring')">{{len .Expiring}}</span>)</button>
@@ -93,7 +64,7 @@
     </div>
   </div>
   <div role="tabpanel" id="customers-expiring" aria-labelledby="customers-tab-expiring" data-list="expiring" x-show="tab === 'expiring'">
-  {{if .Expiring}}<div class="max-h-[22rem] tall-xl:max-h-none overflow-auto"><table class="table">
+  {{if .Expiring}}<div class="max-h-[22rem] overflow-auto"><table class="table">
     <thead><tr><th>{{T "Username"}}</th><th class="font-medium">{{T "Expires"}}</th><th></th></tr></thead>
     <tbody>{{template "expiry-rows" .Expiring}}</tbody>
   </table></div>
@@ -101,7 +72,7 @@
   {{else}}<p class="card-body text-sm text-ink-2">{{T "No plans end in the next 7 days."}}</p>{{end}}
   </div>
   <div role="tabpanel" id="customers-expired" aria-labelledby="customers-tab-expired" data-list="expired" x-show="tab === 'expired'">
-  {{if .Recent}}<div class="max-h-[22rem] tall-xl:max-h-none overflow-auto"><table class="table">
+  {{if .Recent}}<div class="max-h-[22rem] overflow-auto"><table class="table">
     <thead><tr><th>{{T "Username"}}</th><th class="font-medium">{{T "Expires"}}</th><th></th></tr></thead>
     <tbody>{{template "expiry-rows" .Recent}}</tbody>
   </table></div>
@@ -110,13 +81,42 @@
   </div>
   </div>
 </section>
-<section class="card flex flex-col overflow-hidden tall-xl:flex-auto" aria-labelledby="logs-title" data-collapse="logs">
+{{/* Sales | New customers: one card, two tabs, one monthly chart each. gbSalesTabs (dashboard.js) resizes a chart when its tab opens. */}}
+<section class="card flex flex-col overflow-hidden xl:flex-1" aria-labelledby="sales-title" data-collapse="sales" x-data="gbSalesTabs()">
+  <h2 class="card-title flex min-h-14 flex-wrap items-center justify-between gap-2" id="sales-title"><span>{{T "Sales"}} | {{T "New customers"}}</span>{{template "collapse" "sales"}}</h2>
+  <div id="sales-body" class="card-body" data-collapse-body>
+    <div class="flex flex-wrap gap-2" role="tablist" aria-label="{{T "Sales"}} | {{T "New customers"}}">
+      <button type="button" role="tab" id="sales-tab-sales" aria-controls="sales-panel-sales" class="btn btn-sm" :aria-selected="t === 'sales' ? 'true' : 'false'" :tabindex="t === 'sales' ? 0 : -1" @click="show('sales')">{{T "Sales"}}</button>
+      <button type="button" role="tab" id="sales-tab-regs" aria-controls="sales-panel-regs" class="btn btn-sm" :aria-selected="t === 'regs' ? 'true' : 'false'" :tabindex="t === 'regs' ? 0 : -1" @click="show('regs')">{{T "New customers"}}</button>
+    </div>
+    <div class="mt-3 h-36" role="tabpanel" id="sales-panel-sales" aria-labelledby="sales-tab-sales" x-show="t === 'sales'"><canvas data-chart="bar" data-money="1" data-label="{{T "Sales"}}" data-labels="{{.Labels}}" data-values="{{.Sales}}" role="img" aria-label="{{T "Sales per month"}}"></canvas></div>
+    <p class="mt-2 text-sm tabular-nums" x-show="t === 'sales'">{{T "Total 12 months"}}: {{money .SalesTotal}}</p>
+    <div class="mt-3 h-36" role="tabpanel" id="sales-panel-regs" aria-labelledby="sales-tab-regs" x-show="t === 'regs'"><canvas data-chart="bar" data-label="{{T "Customer"}}" data-labels="{{.Labels}}" data-values="{{.Regs}}" role="img" aria-label="{{T "New customers per month"}}"></canvas></div>
+  </div>
+</section>
+</div>
+<div class="flex min-w-0 flex-col gap-4 xl:col-span-2">
+{{if $mgr}}
+<section class="card flex flex-col overflow-hidden" aria-labelledby="usage-title" data-collapse="usage" x-data="{ win: 7 }">
+  <h2 class="card-title flex min-h-14 flex-wrap items-center justify-between gap-2" id="usage-title"><span>{{T "Usage"}}</span>
+    <span class="flex items-center gap-3"><span class="flex flex-wrap gap-2" role="group" aria-label="{{T "Usage"}}">
+      <button type="button" class="btn btn-sm" :aria-pressed="win === 7 ? 'true' : 'false'" @click="win = 7">{{T "7 days"}}</button>
+      <button type="button" class="btn btn-sm" :aria-pressed="win === 30 ? 'true' : 'false'" @click="win = 30">{{T "30 days"}}</button>
+    </span>{{template "collapse" "usage"}}</span></h2>
+  <div id="usage-body" data-collapse-body>
+  <div x-show="win === 7">{{template "usage-win" .Usage.Week}}</div>
+  <div x-show="win === 30">{{template "usage-win" .Usage.Month}}</div>
+  <p class="card-body pt-0 text-xs text-ink-2">{{T "RADIUS sessions only"}}</p>
+  </div>
+</section>
+{{end}}
+<section class="card flex flex-col overflow-hidden xl:flex-1" aria-labelledby="logs-title" data-collapse="logs">
   <h2 class="card-title flex min-h-14 items-center justify-between gap-2" id="logs-title"><span>{{T "Activity Log"}}</span>
     <span class="flex items-center gap-3">{{if $mgr}}<a class="link" href="/admin/logs">{{T "See all"}}</a>{{end}}{{template "collapse" "logs"}}</span></h2>
-  <div id="logs-body" data-collapse-body class="tall-xl:flex-1 tall-xl:min-h-0 tall-xl:overflow-auto"><div class="max-h-[22rem] tall-xl:max-h-none overflow-auto"><table class="table">
-    <thead><tr><th>{{T "Date"}}</th><th>{{T "Action"}}</th><th>{{T "Description"}}</th></tr></thead>
+  <div id="logs-body" data-collapse-body><div class="max-h-[22rem] overflow-auto"><table class="table">
+    <thead><tr><th>{{T "Action"}}</th><th>{{T "Date"}}</th></tr></thead>
     <tbody>
-    {{range .Logs}}<tr><td class="whitespace-nowrap">{{ts .CreatedAt}}</td><td>{{.Action}}</td><td>{{.Description}}</td></tr>{{else}}<tr><td colspan="3">{{T "No data"}}</td></tr>{{end}}
+    {{range .Logs}}<tr title="{{.Description}}"><td>{{.Action}}</td><td class="whitespace-nowrap text-ink-2">{{.When}}</td></tr>{{else}}<tr><td colspan="2">{{T "No data"}}</td></tr>{{end}}
     </tbody>
   </table></div></div>
 </section>
@@ -129,13 +129,13 @@
 {{define "collapse"}}<button type="button" class="btn btn-ghost btn-icon card-toggle hidden" data-collapse-toggle aria-controls="{{.}}-body" aria-expanded="true" aria-label="{{T "Show or hide"}}">{{icon "chevron-down"}}</button>{{end}}
 {{define "usage-win"}}<div class="card-body pt-3">
   {{if .Empty}}<p class="text-sm text-ink-2">{{T "No usage recorded yet"}}</p>{{else}}
-  <p class="flex flex-wrap items-baseline justify-between gap-2"><span class="big-num">{{.TotalNum}}<span class="unit">{{.TotalUnit}}</span></span><span class="text-sm tabular-nums text-ink-2">↓ {{.Down}} · ↑ {{.Up}}</span></p>
+  <p class="flex flex-wrap items-baseline justify-between gap-2"><span class="stat-num">{{.TotalNum}}<span class="ms-1 text-sm font-medium text-ink-2">{{.TotalUnit}}</span></span><span class="text-sm tabular-nums text-ink-2">↓ {{.Down}} · ↑ {{.Up}}</span></p>
   {{template "barchart" dict "Bars" .Bars "Default" "" "Label" (T "Usage")}}
   <h3 class="mt-4 text-sm font-medium">{{T "Top users"}}</h3>
   <ul class="mt-1 divide-y divide-line">{{range .Top}}{{$u := .}}<li class="flex items-center gap-3 py-2 text-sm">
     <span class="min-w-0 flex-1 truncate">{{if $u.Href}}<a class="link" href="{{$u.Href}}">{{$u.Name}}</a>{{else}}{{$u.Name}}{{end}}</span>
     <span class="shrink-0 tabular-nums">{{$u.Total}}</span>
-    <span class="block h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-surface-2" aria-hidden="true"><span class="block h-full bg-brand-500" style="width: {{$u.Pct}}%"></span></span>
+    <span class="block h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-surface-2" aria-hidden="true"><span class="block h-full bg-info-fg" style="width: {{$u.Pct}}%"></span></span>
   </li>{{end}}</ul>
   {{end}}
 </div>{{end}}
@@ -155,7 +155,7 @@
   </span></td>
   <td class="whitespace-nowrap font-medium{{if eq .Days 0}} text-warn-fg{{end}}" title="{{.Expires}}">{{.When}}</td>
   <td class="whitespace-nowrap text-end">
-    {{if .WA}}<a class="btn btn-icon tip-end border-[#25D366] bg-[#25D366] text-[#0b141a] hover:bg-[#1fb857]" href="{{.WA}}" target="_blank" rel="noopener" aria-label="WhatsApp" data-tip="WhatsApp">{{icon "message-circle"}}</a>{{end}}
+    {{if .WA}}<a class="btn btn-icon tip-end text-[#25D366]" href="{{.WA}}" target="_blank" rel="noopener" aria-label="WhatsApp" data-tip="WhatsApp">{{icon "message-circle"}}</a>{{end}}
     <a class="btn btn-icon tip-end" href="/admin/customers/{{.CustomerID}}" aria-label="{{T "Recharge"}}" data-tip="{{T "Recharge"}}">{{icon "wallet"}}</a>
   </td>
 </tr>{{end}}{{end}}

@@ -171,8 +171,8 @@ func TestDashboardUsageCard(t *testing.T) {
 	mn, mu := humanBytesParts(6<<20 + 3<<10)
 	for _, want := range []string{
 		`id="usage-title"`, "RADIUS sessions only",
-		`class="big-num">` + wn + `<span class="unit">` + wu + `</span>`,
-		`class="big-num">` + mn + `<span class="unit">` + mu + `</span>`,
+		`class="stat-num">` + wn + `<span class="ms-1 text-sm font-medium text-ink-2">` + wu + `</span>`,
+		`class="stat-num">` + mn + `<span class="ms-1 text-sm font-medium text-ink-2">` + mu + `</span>`,
 		`href="/admin/customers/` + strconv.FormatInt(e.cust.ID, 10) + `">u1<`,
 	} {
 		if !strings.Contains(body, want) {

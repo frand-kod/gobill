@@ -68,7 +68,7 @@ document.querySelectorAll('canvas[data-chart]').forEach(function (el) {
   var css = getComputedStyle(document.documentElement);
   var text = css.getPropertyValue('--text-2').trim() || '#575f69';
   var grid = css.getPropertyValue('--border').trim() || '#e3e6ea';
-  var accent = css.getPropertyValue('--accent').trim() || '#0b7f79';
+  var bar = css.getPropertyValue('--info-fg').trim() || '#1a5a9e';
   var money = !!el.dataset.money;
   el.gbChart = new Chart(el, {
     type: el.dataset.chart,
@@ -77,7 +77,7 @@ document.querySelectorAll('canvas[data-chart]').forEach(function (el) {
       datasets: [{
         label: el.dataset.label,
         data: JSON.parse(el.dataset.values),
-        backgroundColor: accent,
+        backgroundColor: bar,
         borderRadius: 4
       }]
     },
@@ -104,23 +104,39 @@ document.querySelectorAll('canvas[data-chart]').forEach(function (el) {
     document.querySelectorAll('.gb-who.is-open').forEach(function (w) { if (w !== keep) w.classList.remove('is-open'); });
   }
   function closest(el, sel) { return el && el.closest ? el.closest(sel) : null; }
+  // .gb-pop is fixed (the table scrolls and would clip it), so it is placed under the username, or above it near the bottom
+  function place(w) {
+    var pop = w.querySelector('.gb-pop'), trig = w.querySelector('[data-pop-trigger]');
+    if (!pop || !trig) return;
+    var r = trig.getBoundingClientRect();
+    pop.style.left = r.left + 'px';
+    pop.style.top = r.bottom + 4 + 'px';
+    if (r.bottom + 4 + pop.offsetHeight > window.innerHeight) pop.style.top = r.top - pop.offsetHeight - 4 + 'px';
+  }
+  function open(w) {
+    closeAll(w);
+    w.classList.add('is-open');
+    place(w);
+  }
   document.addEventListener('click', function (e) {
     var w = closest(e.target, '.gb-who');
     if (w && closest(e.target, '[data-pop-trigger]') && touch.matches && !w.classList.contains('is-open')) {
       e.preventDefault();
-      closeAll(w);
-      w.classList.add('is-open');
+      open(w);
       return;
     }
     closeAll(w);
   });
+  document.addEventListener('mouseover', function (e) {
+    var w = closest(e.target, '.gb-who');
+    if (w && !touch.matches) place(w);
+  });
   document.addEventListener('focusin', function (e) {
     var w = closest(e.target, '.gb-who');
-    if (w && !touch.matches && closest(e.target, '[data-pop-trigger]')) {
-      closeAll(w);
-      w.classList.add('is-open');
-    }
+    if (w && !touch.matches && closest(e.target, '[data-pop-trigger]')) open(w);
   });
+  // a placed card would sit in the wrong spot once the page moves
+  window.addEventListener('scroll', function () { closeAll(); }, true);
   document.addEventListener('focusout', function (e) {
     var w = closest(e.target, '.gb-who');
     if (w && !w.contains(e.relatedTarget)) w.classList.remove('is-open');
@@ -128,24 +144,4 @@ document.querySelectorAll('canvas[data-chart]').forEach(function (el) {
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') closeAll();
   });
-})();
-
-// Dashboard on a desktop-sized screen (the same query as tall-xl in tailwind.css): the grid runs to the bottom of the
-// screen, above the footer, so both columns end level. Elsewhere the grid keeps its natural height.
-(function () {
-  var grid = document.getElementById('dash-grid');
-  if (!grid) return;
-  var tall = window.matchMedia('(min-width: 80rem) and (min-height: 800px)');
-  function fit() {
-    grid.style.height = '';
-    if (!tall.matches) return;
-    var main = grid.closest('main');
-    var footer = document.querySelector('main + footer');
-    var below = (footer ? footer.offsetHeight : 0) + (main ? parseFloat(getComputedStyle(main).paddingBottom) : 0);
-    var top = grid.getBoundingClientRect().top + window.scrollY;
-    grid.style.height = Math.max(window.innerHeight - top - below, 320) + 'px';
-  }
-  // the footer is parsed after this script, so the first fit waits for the load event
-  window.addEventListener('load', fit);
-  window.addEventListener('resize', fit);
 })();
