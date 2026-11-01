@@ -170,6 +170,8 @@ func (s *Server) subSave(w http.ResponseWriter, r *http.Request) {
 	exp, err := time.ParseInLocation(localTime, v["expires_at"], s.location())
 	if err != nil {
 		e["expires_at"] = "Invalid value"
+	} else if exp.Unix() == sub.ExpiresAt-sub.ExpiresAt%60 { // the form shows minutes only: an untouched date keeps its seconds (and the expiry notice)
+		exp = time.Unix(sub.ExpiresAt, 0)
 	}
 	if len(e) == 0 {
 		if s.Billing == nil {
