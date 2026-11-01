@@ -235,7 +235,7 @@ func (s *Server) statusData(r *http.Request) (statusData, error) {
 	d.Backup = backupRow{LocalAt: st["backup_last_at"], LocalFile: st["backup_last_file"], Mirror: s.BackupMirror,
 		MirrorAt: st["backup_mirror_at"], MirrorErr: st["backup_mirror_error"]}
 	if t, err := time.ParseInLocation(backupLayout, d.Backup.LocalAt, loc); d.Backup.LocalAt != "" && err == nil {
-		d.Backup.LocalStale = now.Sub(t) > backupStaleAge
+		d.Backup.LocalStale = now.Before(t) || now.Sub(t) > backupStaleAge
 		d.Backup.at = t
 	}
 	d.Levels = levelsOf(d, now)
@@ -375,7 +375,7 @@ func levelsOf(d statusData, now time.Time) statusLevels {
 			l.Storage = levelWarn
 		}
 	}
-	if d.Backup.at.IsZero() || now.Sub(d.Backup.at) > backupStaleAge {
+	if d.Backup.at.IsZero() || now.Before(d.Backup.at) || now.Sub(d.Backup.at) > backupStaleAge {
 		l.Backup = levelWarn
 	}
 	if d.PayFailed > 0 {
