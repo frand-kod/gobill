@@ -30,16 +30,18 @@ Login voucher juga didukung di endpoint ini. Kode voucher dipakai sebagai userna
 
 ## Allow-list
 
-`radius.php` lama tidak punya autentikasi. Di gobill, pengamannya adalah pengaturan `radius_rest_allow`:
+`radius.php` lama tidak punya autentikasi. gobill menutup endpoint ini sampai Anda membukanya. Request hanya diterima jika salah satu syarat ini terpenuhi:
 
-- Isi dengan IP FreeRADIUS. Boleh memakai CIDR, dan dipisah koma.
-- Jika kosong, hanya loopback yang diizinkan, yaitu `127.0.0.0/8` dan `::1`. gobill mencatat peringatan saat start.
-- Jika kosong, request yang membawa header proxy (`X-Forwarded-For`, `X-Real-IP`, `Forwarded`, `CF-Connecting-IP`) ditolak. Di belakang Nginx atau cloudflared di host yang sama, semua klien internet datang dari loopback.
-- Jika FreeRADIUS berjalan di host lain, isi dengan IP-nya.
+- Alamat koneksinya ada di pengaturan `radius_rest_allow` (IP atau CIDR, dipisah koma). Untuk FreeRADIUS di host yang sama, isi `127.0.0.1, ::1`.
+- Request membawa header `X-Gobill-Secret` berisi nilai pengaturan `radius_rest_secret`. Perbandingannya constant-time. Request dengan secret yang benar diterima dari alamat mana saja.
+
+Jika kedua pengaturan kosong, semua request ditolak dengan 403 dan gobill mencatat peringatan saat start. Ini berubah: sebelumnya `radius_rest_allow` kosong berarti hanya loopback. Setelah upgrade, isi salah satu pengaturan di **Pengaturan > System & Security > FreeRADIUS**, atau login lewat FreeRADIUS berhenti bekerja.
+
+Untuk mengirim secret dari FreeRADIUS 3, tambahkan header pada panggilan `rest`, misalnya di `sites-enabled/default`: `update control { REST-HTTP-Header += "X-Gobill-Secret: <secret>" }` sebelum `rest` di `authorize`, `post-auth`, dan `accounting`. Cocokkan sintaksnya dengan dokumentasi `rlm_rest` versi FreeRADIUS Anda. Jika header tidak bisa diatur, pakai `radius_rest_allow`.
 
 `X-Forwarded-For` hanya dipercaya jika `trust_proxy` = `yes` dan koneksi langsung datang dari loopback atau dari `trusted_proxies`. Allow-list selalu memakai alamat koneksi asli.
 
-Endpoint ini tidak memakai CSRF karena dipanggil oleh mesin. Allow-list adalah pengamannya.
+Endpoint ini tidak memakai CSRF karena dipanggil oleh mesin. Allow-list atau secret adalah pengamannya.
 
 ## Disconnect
 

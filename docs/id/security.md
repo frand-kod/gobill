@@ -71,7 +71,7 @@ Jangan memakai `--add-port=1812/udp` atau `--add-port=8080/tcp`. Keduanya membuk
 
 Simpan di `/etc/nftables.conf`. Periksa dengan `sudo nft list ruleset`, lalu terapkan dengan `sudo nft -f /etc/nftables.conf`. Jika FreeRADIUS berada di host lain, tambahkan `ip saddr IP-FREERADIUS tcp dport 8080 accept`.
 
-**Batasi `/radius.php`.** Nilai `radius_rest_allow` kosong berarti hanya loopback. Isi dengan IP FreeRADIUS jika berjalan di host lain. `trust_proxy` tidak memengaruhi allow-list ini. Selama kosong, request yang membawa header proxy (`X-Forwarded-For`, `X-Real-IP`, `Forwarded`, `CF-Connecting-IP`) ditolak, karena di belakang Nginx atau cloudflared di host yang sama semua klien internet datang dari loopback. Lihat [FreeRADIUS lewat REST](freeradius-rest.md).
+**Batasi `/radius.php`.** Endpoint ini tertutup sampai Anda mengisi `radius_rest_allow` (IP FreeRADIUS, atau `127.0.0.1, ::1` di host yang sama) atau `radius_rest_secret` (dikirim FreeRADIUS di header `X-Gobill-Secret`). Tanpa keduanya, semua request mendapat 403. `trust_proxy` tidak memengaruhi allow-list, yang selalu memakai alamat koneksi asli. Lihat [FreeRADIUS lewat REST](freeradius-rest.md).
 
 ### Link jarak jauh (VPS)
 

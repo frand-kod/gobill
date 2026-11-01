@@ -108,7 +108,7 @@ Jika gobill dipasang di STB yang sudah menjalankan PHPNuxBill, FreeRADIUS, dan s
 
 1. **Port HTTP.** Bawaan gobill adalah `:8080`. Jika port itu sudah dipakai, set `GOBILL_HTTP` ke port lain di `/etc/gobill/config.env`, misalnya `GOBILL_HTTP=:8090`. Cek dulu dengan `ss -ltn`.
 2. **Port RADIUS.** FreeRADIUS sudah memakai UDP 1812 dan 1813. Selama FreeRADIUS tetap menjadi server RADIUS lewat `/radius.php`, set `GOBILL_RADIUS=off`. Jika suatu saat MikroTik diarahkan langsung ke gobill, matikan FreeRADIUS dulu, lalu aktifkan RADIUS gobill.
-3. **Allow-list `/radius.php`.** FreeRADIUS di host yang sama memanggil lewat loopback. Loopback diizinkan oleh `radius_rest_allow` yang kosong. Tidak perlu diisi.
+3. **Akses `/radius.php`.** FreeRADIUS di host yang sama: isi `radius_rest_allow` dengan `127.0.0.1, ::1`. Host lain: IP-nya, atau isi `radius_rest_secret`. `radius_rest_allow` kosong menolak semuanya.
 4. **Server WA.** `alt_wga_server_url` hasil impor, yaitu `http://127.0.0.1:3030`, langsung benar karena server WA ada di STB yang sama. Kosongkan `wa_url` yang berisi plugin PHP, lalu kirim pesan uji ke nomor Anda sendiri.
 5. **Notifikasi selama paralel.** `notify_customers` = `no` sampai cutover. PHPNuxBill tetap mengirim pesan ke pelanggan.
 

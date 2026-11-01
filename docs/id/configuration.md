@@ -80,7 +80,9 @@ Peran admin dan 2FA diatur per akun di menu **Pengguna Admin** dan halaman `/adm
 
 | Pengaturan | Fungsi |
 |---|---|
-| `radius_rest_allow` | Daftar IP atau CIDR, dipisah koma, yang boleh memanggil `/radius.php`. Kosong berarti hanya loopback, yaitu `127.0.0.0/8` dan `::1`. Isi dengan IP FreeRADIUS jika berjalan di host lain. Saat start, gobill mencatat peringatan jika kosong. |
+| `radius_rest_allow` | Daftar IP atau CIDR, dipisah koma, yang boleh memanggil `/radius.php`. Kosong berarti tidak ada, kecuali `radius_rest_secret` diisi. Untuk FreeRADIUS di host yang sama, isi `127.0.0.1, ::1`. |
+| `radius_rest_secret` | Secret bersama. Request yang membawa nilai ini di header `X-Gobill-Secret` boleh memanggil `/radius.php` dari alamat mana saja. Disimpan terenkripsi. Jika kedua pengaturan kosong, gobill menolak semua request dan mencatat peringatan saat start. |
+| `shared_users_pppoe` | `yes` menerapkan batas `shared_users` paket ke login PPPoE juga. Bawaan `no`: batas hanya untuk Hotspot. |
 | `trust_proxy` | `yes` agar `X-Forwarded-For` dipercaya. Header hanya dipercaya jika koneksi langsung datang dari loopback atau dari IP atau CIDR di `trusted_proxies`. Bawaan `no`. gobill memakai entri paling kanan sebagai IP klien, jadi proxy harus menulis IP asli di sana. |
 | `trusted_proxies` | IP atau CIDR reverse proxy, dipisah koma, misalnya `172.16.0.0/16, 10.0.0.2`. Loopback selalu dipercaya. Allow-list `/radius.php` tetap memakai alamat koneksi asli, bukan hasil `X-Forwarded-For`. |
 | `router_check` | `no` mematikan pengecekan router. Bawaannya aktif. Router yang mati memicu alert. Lihat [monitoring](monitoring.md). |
