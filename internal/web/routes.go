@@ -312,6 +312,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/logs", managers(http.HandlerFunc(s.logList)))
 	mux.Handle("GET /admin/logs/radius", managers(http.HandlerFunc(s.radiusLog)))
 	mux.Handle("GET /admin/logs/radius/export", managers(http.HandlerFunc(s.radiusLogExport)))
+	mux.Handle("GET /admin/logs/auth", managers(http.HandlerFunc(s.radiusAuthLog)))
+	mux.Handle("GET /admin/logs/auth/export", managers(http.HandlerFunc(s.radiusAuthLogExport)))
 	mux.Handle("GET /admin/logs/messages", managers(http.HandlerFunc(s.msgLog)))
 	mux.Handle("GET /admin/logs/messages/export", managers(http.HandlerFunc(s.msgLogExport)))
 

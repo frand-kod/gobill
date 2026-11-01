@@ -14,7 +14,7 @@ import (
 )
 
 // LogKinds are the log tables CleanLog knows.
-var LogKinds = []string{"activity", "radius", "messages"}
+var LogKinds = []string{"activity", "radius", "messages", "auth"}
 
 // LogKeepDefault is the retention when log_keep_days is not set; "0" still means keep forever.
 const LogKeepDefault = 90
@@ -40,6 +40,8 @@ func (s *Service) CleanLog(ctx context.Context, kind string, days int) (int64, e
 		return s.Q.DeleteRadiusSessionsClosedBefore(ctx, sql.NullInt64{Int64: cut, Valid: true})
 	case "messages":
 		return s.Q.DeleteMessageLogsBefore(ctx, cut)
+	case "auth":
+		return s.Q.DeleteRadiusAuthLogBefore(ctx, cut)
 	}
 	return 0, fmt.Errorf("unknown log kind %q", kind)
 }

@@ -271,6 +271,17 @@ type Promo struct {
 	UpdatedAt  int64
 }
 
+type RadiusAuthLog struct {
+	ID       int64
+	At       int64
+	Username string
+	NasIp    string
+	Mac      string
+	Accepted int64
+	Reason   string
+	Message  string
+}
+
 type RadiusSession struct {
 	ID             int64
 	SessionID      string

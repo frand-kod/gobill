@@ -8,6 +8,8 @@ import (
 	"layeh.com/radius/rfc2865"
 	"layeh.com/radius/rfc2866"
 	"layeh.com/radius/rfc2869"
+
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 func TestInterimIntervalSent(t *testing.T) {
@@ -65,5 +67,27 @@ func TestTerminateCauseStored(t *testing.T) {
 	var got string
 	if err := e.conn.QueryRow("SELECT terminate_cause FROM radius_sessions WHERE session_id = 's1'").Scan(&got); err != nil || got != "Idle-Timeout" {
 		t.Fatalf("cause %q err %v", got, err)
+	}
+}
+
+func TestAuthLogWritten(t *testing.T) {
+	e := setup(t)
+	e.auth(t, pap("alice", "pw"))
+	p := pap("alice", "bad")
+	p.Identifier++
+	e.auth(t, p)
+	rows, err := e.q.SearchRadiusAuthLog(context.Background(), db.SearchRadiusAuthLogParams{PageLimit: 10})
+	if err != nil || len(rows) != 2 {
+		t.Fatalf("rows %v err %v", rows, err)
+	}
+	if r := rows[0]; r.Accepted != 0 || r.Reason != "bad_password" || r.Username != "alice" || r.NasIp != "10.0.0.1" {
+		t.Fatalf("reject row %+v", r)
+	}
+	if rows[1].Accepted != 1 {
+		t.Fatalf("accept row %+v", rows[1])
+	}
+	e.s.Authorize(context.Background(), AuthRequest{User: "alice", DryRun: true, Check: func([]byte) (bool, string) { return true, "" }})
+	if n, _ := e.q.CountRadiusAuthLog(context.Background(), db.CountRadiusAuthLogParams{}); n != 2 {
+		t.Fatalf("dry run must not log, have %d", n)
 	}
 }

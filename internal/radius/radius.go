@@ -334,6 +334,7 @@ func (s *Server) Authorize(ctx context.Context, rq AuthRequest) Decision {
 		return Decision{Reject: "Too many attempts, try again later"}
 	}
 	d := s.decide(ctx, rq)
+	s.logAuth(ctx, rq, d)
 	switch d.Reject {
 	case "":
 		s.userFails.reset(rq.User)

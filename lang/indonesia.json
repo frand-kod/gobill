@@ -2700,5 +2700,9 @@
     "Enter whole seconds, 0 to 86400": "Isi detik bulat, 0 sampai 86400",
     "Idle timeout (seconds)": "Batas diam (detik)",
     "The NAS drops a session that sends no traffic for this long. Empty = not sent. RADIUS (gobill) only.": "NAS memutus sesi yang tidak ada lalu lintasnya selama waktu ini. Kosong = tidak dikirim. Hanya untuk RADIUS (gobill).",
-    "End reason": "Alasan berakhir"
+    "End reason": "Alasan berakhir",
+    "Login attempts": "Percobaan login",
+    "Every RADIUS login attempt, accepted or refused, with the reason. Check it when a customer says they cannot connect.": "Setiap percobaan login RADIUS, diterima atau ditolak, beserta alasannya. Cek di sini saat pelanggan bilang tidak bisa terhubung.",
+    "Rejected": "Ditolak",
+    "Accepted": "Diterima"
 }
