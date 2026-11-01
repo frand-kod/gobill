@@ -26,6 +26,13 @@ var testPub, testPriv, _ = ed25519.GenerateKey(nil)
 
 // fakeGitHub serves one release at /latest and /tags/<tag>, with the new binary and SHA256SUMS.
 func fakeGitHub(t *testing.T, tag string, bin []byte, sums string, withSums bool) *httptest.Server {
+	if sums != "" {
+		sums += "VERSION " + tag + "\n" // what `make sign` adds
+	}
+	return fakeGitHubRaw(t, tag, bin, sums, withSums)
+}
+
+func fakeGitHubRaw(t *testing.T, tag string, bin []byte, sums string, withSums bool) *httptest.Server {
 	t.Helper()
 	name, err := update.AssetName(runtime.GOARCH, buildGOARM())
 	if err != nil {

@@ -202,6 +202,18 @@ func (u *updater) update(ctx context.Context, current, want string, yes bool) er
 	if err := update.VerifySig(sums, sig, u.pubKey); err != nil {
 		return err
 	}
+	// The signature covers the VERSION line: it must name this release, and (unless the operator
+	// asked for a tag with --version, which also covers a deliberate rollback) be newer than us.
+	signed, err := update.SignedVersion(sums)
+	if err != nil {
+		return err
+	}
+	if signed != rel.Tag {
+		return fmt.Errorf("release tag %s does not match the signed version %s: refusing to install", rel.Tag, signed)
+	}
+	if want == "" && !update.Newer(signed, current) {
+		return fmt.Errorf("signed version %s is not newer than the running %s: refusing to downgrade", signed, current)
+	}
 	if err := update.Verify(newBin, sums, name); err != nil {
 		return err
 	}
