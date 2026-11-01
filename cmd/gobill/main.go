@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -121,6 +122,12 @@ func run() error {
 		return err
 	}
 	if created {
+		if os.Getenv("GOBILL_ALLOW_NEW_KEY") != "1" {
+			if what := sealedRows(conn); what != "" {
+				os.Remove(dbPath + ".key") // do not keep a key that cannot open the existing data
+				return fmt.Errorf("the key file %s.key was missing and the database already holds sealed values (%s); a new key cannot open them. Restore the original key file (or set GOBILL_SECRET_KEY), or set GOBILL_ALLOW_NEW_KEY=1 to start with a new key and accept losing those secrets", dbPath, what)
+			}
+		}
 		slog.Warn("generated a new secret key; back it up with the database", "path", dbPath+".key")
 	}
 
@@ -178,6 +185,7 @@ func run() error {
 	app.Billing = svc
 	go job.Run(ctx, "expiry", time.Minute, svc.ExpiryJob(guard.Trusted))
 	go job.Run(ctx, "reminder", time.Minute, svc.ReminderJob(guard.Trusted))
+	go job.Run(ctx, "upload_sweep", 10*time.Minute, app.SweepUploads)
 	go job.Run(ctx, "log_clean", 10*time.Minute, svc.LogCleanJob(guard.Trusted)) // once a day, setting log_keep_days
 	go job.Run(ctx, "router_check", 5*time.Minute, svc.RouterCheck)
 	alerts := &billing.AlertJob{S: svc, DBPath: dbPath, Free: func() (int64, error) { return job.DiskFreeMB(filepath.Dir(dbPath)) }}
@@ -249,10 +257,11 @@ func run() error {
 	<-guardDone
 	shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(shutCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
+	shutErr := srv.Shutdown(shutCtx)
+	os.Remove(marker) // stopped on purpose, even if Shutdown timed out: the next start must not report a crash
+	if shutErr != nil && !errors.Is(shutErr, http.ErrServerClosed) {
+		return shutErr
 	}
-	os.Remove(marker) // clean stop: the next start must not report a crash
 	if restarting {
 		return errRestart
 	}
@@ -362,4 +371,21 @@ func loadZone(name string, def *time.Location) *time.Location {
 		return l
 	}
 	return def
+}
+
+// sealedRows names the tables that hold encrypted values, or "" when there are none.
+func sealedRows(conn *sql.DB) string {
+	var found []string
+	for _, c := range []struct{ name, query string }{
+		{"customers.secret_enc", "SELECT EXISTS(SELECT 1 FROM customers WHERE length(secret_enc) > 0)"},
+		{"nas.secret_enc", "SELECT EXISTS(SELECT 1 FROM nas WHERE length(secret_enc) > 0)"},
+		{"routers.password_enc", "SELECT EXISTS(SELECT 1 FROM routers WHERE length(password_enc) > 0)"},
+		{"settings", "SELECT EXISTS(SELECT 1 FROM settings WHERE value LIKE 'enc1:%')"},
+	} {
+		var n int
+		if conn.QueryRow(c.query).Scan(&n) == nil && n > 0 {
+			found = append(found, c.name)
+		}
+	}
+	return strings.Join(found, ", ")
 }
