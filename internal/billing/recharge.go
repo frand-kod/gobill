@@ -178,9 +178,13 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		extend := found && active.PlanID == plan.ID && active.PendingStart == 0 && setting(ctx, q, "extend_expiry") != "no"
 		pendStart := plan.Device == "Radius" && settingOn(setting(ctx, q, "start_on_first_login")) && (!found || active.PendingStart == 1)
 		from, start := now, now.Unix()
+		fromExpiry := false // the new period continues the old expiry only while that is still ahead
 		var carry, carrySec int64
 		if extend {
-			from, start = time.Unix(active.ExpiresAt, 0).In(now.Location()), active.StartedAt
+			start = active.StartedAt
+			if active.ExpiresAt > now.Unix() {
+				from, fromExpiry = time.Unix(active.ExpiresAt, 0).In(now.Location()), true
+			}
 			// The usage window (started_at) is kept, so a session still online keeps counting.
 			if plan.Limited == 1 {
 				if carry, carrySec, err = rolloverQuota(ctx, q, c, plan, active); err != nil {
@@ -188,7 +192,7 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 				}
 			}
 		}
-		exp := NewExpiry(from, int(plan.Validity), Unit(plan.ValidityUnit), Options{Extend: extend, BillingDay: billingDay(c, plan)})
+		exp := NewExpiry(from, int(plan.Validity), Unit(plan.ValidityUnit), Options{Extend: fromExpiry, BillingDay: billingDay(c, plan)})
 		trx.PeriodStart, trx.PeriodEnd = start, exp.Unix()
 		// PHP: only the very first Period activation (never had a recharge row, active or not) is
 		// billed 0 and carries no bills. Otherwise: price (Invoice attr for Period, or the coupon-
