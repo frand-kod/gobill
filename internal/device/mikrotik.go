@@ -19,6 +19,8 @@ import (
 // DialTCP, when set, carries the plain API connection (internal/wg dials routers inside the tunnel through it).
 var DialTCP func(ctx context.Context, addr string) (net.Conn, error)
 
+const dialTimeout = 3 * time.Second
+
 // Router is the connection info of one MikroTik. A driver is bound to one router,
 // so the `router` argument of the Device methods is ignored.
 type Router struct {
@@ -43,23 +45,26 @@ func (r Router) exec(ctx context.Context, sentence []string) ([]map[string]strin
 	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
+	// connect+login get a short budget of their own, so a dead router costs 3s, not 10s
+	dctx, dcancel := context.WithTimeout(ctx, dialTimeout)
+	defer dcancel()
 	var c *routeros.Client
 	var err error
 	if DialTCP != nil && !r.TLS {
 		var nc net.Conn
-		if nc, err = DialTCP(ctx, r.Addr); err == nil {
+		if nc, err = DialTCP(dctx, r.Addr); err == nil {
 			if c, err = routeros.NewClient(nc); err == nil {
-				if err = c.LoginContext(ctx, r.User, r.Pass); err != nil {
+				if err = c.LoginContext(dctx, r.User, r.Pass); err != nil {
 					c.Close()
 				}
 			}
 		}
 	} else if r.TLS {
 		// RouterOS certs are self-signed, so the chain is not verified; the leaf is pinned instead.
-		c, err = routeros.DialTLSContext(ctx, r.Addr, r.User, r.Pass,
+		c, err = routeros.DialTLSContext(dctx, r.Addr, r.User, r.Pass,
 			&tls.Config{InsecureSkipVerify: true, VerifyConnection: r.verifyPin})
 	} else {
-		c, err = routeros.DialContext(ctx, r.Addr, r.User, r.Pass)
+		c, err = routeros.DialContext(dctx, r.Addr, r.User, r.Pass)
 	}
 	if err != nil {
 		return nil, err
