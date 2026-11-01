@@ -299,6 +299,7 @@ type AuthRequest struct {
 	FramedIP string
 	MAC      string
 	NAS      string // NAS address, for the voucher-guess limiter
+	PortType string // NAS-Port-Type by name ("Virtual", "Wireless-802.11"...), "" = the NAS did not send one
 	DryRun   bool   // read-only decision (router migration test): no pending start, no session kick
 }
 
@@ -360,6 +361,8 @@ func rejectReason(msg string) string {
 		return "voucher"
 	case strings.Contains(msg, "xpired"):
 		return "expired"
+	case strings.HasPrefix(msg, "Port type"):
+		return "port_type"
 	case strings.Contains(msg, "limit") || msg == SharedUsersFullMsg:
 		return "limit"
 	}
@@ -384,6 +387,25 @@ func (s *Server) decide(ctx context.Context, rq AuthRequest) Decision {
 		voucherFails.fail(nasKey, now)
 	}
 	return d
+}
+
+// Reject messages of the NAS-Port-Type check.
+const (
+	msgPortHotspot = "Port type mismatch: a Hotspot plan cannot log in on a Virtual (VPN/PPPoE) port"
+	msgPortPPPoE   = "Port type mismatch: a PPPoE plan cannot log in on a Wireless-802.11 (hotspot) port"
+)
+
+// portMismatch checks the plan type against NAS-Port-Type, only when the NAS sent one: a Hotspot plan
+// is refused on a Virtual port (PPP over a tunnel), a PPPoE plan on a Wireless-802.11 port (hotspot).
+// Ethernet and anything else pass: MikroTik uses Ethernet for both services.
+func portMismatch(planType, portType string) string {
+	switch {
+	case planType == "Hotspot" && portType == "Virtual":
+		return msgPortHotspot
+	case planType == "PPPoE" && portType == "Wireless-802.11":
+		return msgPortPPPoE
+	}
+	return ""
 }
 
 // InterimDefault is the Acct-Interim-Interval sent when the radius_interim_interval setting is unset.
@@ -538,6 +560,9 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 			}
 			pl = iso
 		}
+	}
+	if msg := portMismatch(pl.PlanType, rq.PortType); msg != "" {
+		return Decision{Reject: msg} // before Start: a refused login must not start a pending subscription
 	}
 	if pl.PendingStart == 1 && rq.DryRun {
 		pl.ExpiresAt = math.MaxInt32 // not started, not touched: the provisional expiry says nothing
@@ -777,6 +802,9 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 		Check: func(pw []byte) (bool, string) { return checkPassword(r.Packet, user, pw) }}
 	if ip := rfc2865.FramedIPAddress_Get(r.Packet); ip != nil {
 		rq.FramedIP = ip.String()
+	}
+	if pt, err := rfc2865.NASPortType_Lookup(r.Packet); err == nil {
+		rq.PortType = pt.String()
 	}
 	d := s.Authorize(r.Context(), rq)
 	if d.Reject != "" {

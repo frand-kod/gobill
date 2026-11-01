@@ -2710,5 +2710,9 @@
     "MAC (Calling-Station-Id)": "MAC (Calling-Station-Id)",
     "Enter a username and a password that differs from it": "Isi username dan sandi yang berbeda dari username",
     "Access-Reject": "Access-Reject",
-    "Access-Accept": "Access-Accept"
+    "Access-Accept": "Access-Accept",
+    "NAS-Port-Type": "NAS-Port-Type",
+    "Not sent": "Tidak dikirim",
+    "Wireless-802.11 (hotspot)": "Wireless-802.11 (hotspot)",
+    "Virtual (VPN / tunnel)": "Virtual (VPN / terowongan)"
 }

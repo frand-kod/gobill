@@ -2,6 +2,7 @@ package radius
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"layeh.com/radius"
@@ -89,5 +90,40 @@ func TestAuthLogWritten(t *testing.T) {
 	e.s.Authorize(context.Background(), AuthRequest{User: "alice", DryRun: true, Check: func([]byte) (bool, string) { return true, "" }})
 	if n, _ := e.q.CountRadiusAuthLog(context.Background(), db.CountRadiusAuthLogParams{}); n != 2 {
 		t.Fatalf("dry run must not log, have %d", n)
+	}
+}
+
+func TestPortTypeMismatchRejected(t *testing.T) {
+	e := setup(t)
+	withPort := func(id byte, pt rfc2865.NASPortType) *radius.Packet {
+		p := pap("alice", "pw")
+		p.Identifier = id
+		rfc2865.NASPortType_Set(p, pt)
+		return p
+	}
+	// alice has a Hotspot plan
+	r := e.auth(t, withPort(1, rfc2865.NASPortType_Value_Virtual))
+	if r.Code != radius.CodeAccessReject || !strings.Contains(rfc2865.ReplyMessage_GetString(r), "Port type mismatch") {
+		t.Fatalf("hotspot on virtual: %v %q", r.Code, rfc2865.ReplyMessage_GetString(r))
+	}
+	for i, pt := range []rfc2865.NASPortType{rfc2865.NASPortType_Value_Wireless80211, rfc2865.NASPortType_Value_Ethernet} {
+		if r := e.auth(t, withPort(byte(2+i), pt)); r.Code != radius.CodeAccessAccept {
+			t.Fatalf("hotspot on %v: %v", pt, r.Code)
+		}
+	}
+	p := pap("alice", "pw") // no NAS-Port-Type: the check is skipped
+	p.Identifier = 9
+	if r := e.auth(t, p); r.Code != radius.CodeAccessAccept {
+		t.Fatalf("no port type: %v", r.Code)
+	}
+	// vice versa: the same customer on a PPPoE plan
+	if _, err := e.conn.Exec("UPDATE plans SET type = 'PPPoE'"); err != nil {
+		t.Fatal(err)
+	}
+	if r := e.auth(t, withPort(10, rfc2865.NASPortType_Value_Wireless80211)); r.Code != radius.CodeAccessReject {
+		t.Fatalf("pppoe on wireless: %v", r.Code)
+	}
+	if r := e.auth(t, withPort(11, rfc2865.NASPortType_Value_Virtual)); r.Code != radius.CodeAccessAccept {
+		t.Fatalf("pppoe on virtual: %v", r.Code)
 	}
 }

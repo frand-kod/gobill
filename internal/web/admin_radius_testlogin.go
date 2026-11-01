@@ -25,11 +25,14 @@ func (s *Server) testLoginFields(r *http.Request, v, e map[string]string, result
 			sel.Options = append(sel.Options, option{n.Ip, n.Name})
 		}
 	}
+	pt := text("port_type", "NAS-Port-Type", v, e).as("select")
+	pt.Options = []option{{"", "Not sent"}, {"Wireless-802.11", "Wireless-802.11 (hotspot)"}, {"Ethernet", "Ethernet"}, {"Virtual", "Virtual (VPN / tunnel)"}}
 	out := section([]field{
 		text("username", "Username", v, e).req(),
 		text("password", "Password", v, e).as("password").req().hint("Checked against the customer's router password, nothing is written. A voucher-style login (password = username) is refused: it would redeem the voucher."),
 		sel,
 		text("mac", "MAC (Calling-Station-Id)", v, e),
+		pt,
 	}, "Test login", "")
 	if result != "" {
 		out = append(section([]field{{Name: "result", Label: "Result", Type: "pre", Value: result}}, "Result", ""), out...)
@@ -47,14 +50,14 @@ func (s *Server) testLoginForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) testLoginRun(w http.ResponseWriter, r *http.Request) {
-	v := formVals(r, "username", "password", "nas", "mac")
+	v := formVals(r, "username", "password", "nas", "mac", "port_type")
 	t := func(k string) string { return s.catalog.T(s.language(), k) }
 	user, pw := strings.TrimSpace(v["username"]), v["password"]
 	var result string
 	if user == "" || pw == "" || pw == user {
 		result = t("Enter a username and a password that differs from it")
 	} else {
-		d := s.radiusServer().Authorize(r.Context(), radius.AuthRequest{User: user, DryRun: true, NAS: v["nas"], MAC: strings.TrimSpace(v["mac"]),
+		d := s.radiusServer().Authorize(r.Context(), radius.AuthRequest{User: user, DryRun: true, NAS: v["nas"], MAC: strings.TrimSpace(v["mac"]), PortType: v["port_type"],
 			Check: func(stored []byte) (bool, string) { return subtle.ConstantTimeCompare([]byte(pw), stored) == 1, "" }})
 		if d.Reject != "" {
 			result = t("Access-Reject") + ": " + d.Reject

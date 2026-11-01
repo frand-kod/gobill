@@ -116,7 +116,7 @@ func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
 		// Voucher login (user == password, or empty password) is handled inside Authorize.
 		rs.NoteNAS(r.FormValue("nasIpAddress"))
 		d := rs.Authorize(r.Context(), radius.AuthRequest{User: user, Check: check,
-			FramedIP: r.FormValue("framedIPAddress"), MAC: r.FormValue("macAddr"), NAS: r.FormValue("nasIpAddress")})
+			FramedIP: r.FormValue("framedIPAddress"), MAC: r.FormValue("macAddr"), NAS: r.FormValue("nasIpAddress"), PortType: r.FormValue("nasPortType")})
 		if d.Reject != "" {
 			jsonOut(w, 401, rejectBody(d.Reject))
 			return
