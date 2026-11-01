@@ -79,6 +79,19 @@ func (q *Queries) DeleteReadInboxBefore(ctx context.Context, createdAt int64) (i
 	return result.RowsAffected()
 }
 
+const deleteUnreadInboxBefore = `-- name: DeleteUnreadInboxBefore :execrows
+DELETE FROM customers_inbox WHERE rowid IN (SELECT i.rowid FROM customers_inbox i WHERE i.read_at IS NULL AND i.created_at < ? LIMIT 5000)
+`
+
+// One batch of unread messages older than the cutoff; the caller loops until 0 rows.
+func (q *Queries) DeleteUnreadInboxBefore(ctx context.Context, createdAt int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteUnreadInboxBefore, createdAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const getInboxMessage = `-- name: GetInboxMessage :one
 SELECT id, customer_id, from_name, subject, body, read_at, created_at FROM customers_inbox WHERE id = ? AND customer_id = ?
 `

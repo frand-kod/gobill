@@ -40,3 +40,7 @@ WHERE (c.username LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' OR c.fullname LIK
   AND (CAST(sqlc.arg(status) AS TEXT) = ''
        OR (CAST(sqlc.arg(status) AS TEXT) = 'running' AND i.ended_at = 0)
        OR (CAST(sqlc.arg(status) AS TEXT) = 'ended' AND i.ended_at > 0));
+
+-- name: DeleteEndedIsolationsBefore :execrows
+-- One batch of resolved isolations that ended before the cutoff; the caller loops until 0 rows.
+DELETE FROM isolations WHERE id IN (SELECT i.id FROM isolations i WHERE i.ended_at > 0 AND i.ended_at < ? LIMIT 5000);
