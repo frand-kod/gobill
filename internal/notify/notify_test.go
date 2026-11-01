@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
 )
@@ -40,6 +41,33 @@ func TestCustomersSwitch(t *testing.T) {
 
 func nt(s map[string]string) *Notifier {
 	return &Notifier{Settings: s, HTTP: http.DefaultClient, TelegramAPI: "https://api.telegram.org"}
+}
+
+// A failed invoice send is retried in the background until it goes through (first try + 3 retries at most).
+func TestInvoiceRetriesFailedSend(t *testing.T) {
+	old := invoiceRetry
+	invoiceRetry = []time.Duration{0, 0, 0}
+	t.Cleanup(func() { invoiceRetry = old })
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if hits.Add(1) < 3 {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	}))
+	defer srv.Close()
+	n := nt(map[string]string{"sms_url": srv.URL + "/sms?to=[number]&m=[text]", "user_notification_payment": "sms"})
+	n.Timeout = 5 * time.Second
+	if err := n.RechargeSuccess(context.Background(), db.Customer{Phone: "0812345678"}, map[string]string{"invoice": "INV-1"}); err == nil {
+		t.Fatal("first send should fail")
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for hits.Load() < 3 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if got := hits.Load(); got != 3 {
+		t.Fatalf("hits %d, want 3 (first send fails twice, the retry succeeds and stops)", got)
+	}
 }
 
 // One gateway URL serves SMS: wa_url, unless an old install still has sms_url (then sms_url wins).
