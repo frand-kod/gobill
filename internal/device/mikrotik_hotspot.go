@@ -87,6 +87,8 @@ func (d *MikrotikHotspot) AddPlan(ctx context.Context, p Plan) error {
 		"=name=" + p.Name,
 		"=shared-users=" + itoa(p.SharedUsers),
 		"=rate-limit=" + p.rateLimit(),
+		"=on-login=" + p.OnLogin,
+		"=on-logout=" + p.OnLogout,
 	})
 	return err
 }

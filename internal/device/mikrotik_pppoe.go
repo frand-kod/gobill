@@ -115,6 +115,8 @@ func (d *MikrotikPPPoE) AddPlan(ctx context.Context, p Plan) error {
 		"=local-address=" + p.localAddr(),
 		"=remote-address=" + p.Pool,
 		"=rate-limit=" + p.rateLimit(),
+		"=on-up=" + p.OnLogin,
+		"=on-down=" + p.OnLogout,
 	})
 	return err
 }
