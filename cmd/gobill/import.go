@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -66,6 +67,15 @@ func runImport(args []string) error {
 	defer lite.Close()
 	if err := db.Migrate(lite); err != nil {
 		return err
+	}
+	if *force && !*dry {
+		// Same as the web import: keep a copy of the target before it is wiped.
+		backupDir := env("GOBILL_BACKUP_DIR", filepath.Join(filepath.Dir(*dbPath), "backup"))
+		name, err := db.Snapshot(ctx, lite, backupDir, "pre-import")
+		if err != nil {
+			return fmt.Errorf("pre-import backup: %w", err)
+		}
+		fmt.Printf("pre-import backup: %s\n", filepath.Join(backupDir, name))
 	}
 	rep, err := importer.Run(ctx, my, lite, importer.Options{Key: key, Loc: loc, DryRun: *dry, Force: *force, Notifications: *notif})
 	if err != nil {
