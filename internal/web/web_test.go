@@ -49,6 +49,14 @@ func newTestApp(t testing.TB) (*Server, *db.Queries) {
 
 func do(h http.Handler, method, target string, form url.Values, cookie *http.Cookie, hdr ...string) *httptest.ResponseRecorder {
 	var body *strings.Reader
+	if form != nil && method == "POST" && form.Get("token") == "" && (target == "/admin/deposit" || strings.HasSuffix(target, "/recharge")) {
+		// the money forms need a one-time token; a test that does not care gets a fresh one
+		f2 := url.Values{"token": {newFormToken()}}
+		for k, v := range form {
+			f2[k] = v
+		}
+		form = f2
+	}
 	if form != nil {
 		body = strings.NewReader(form.Encode())
 	} else {

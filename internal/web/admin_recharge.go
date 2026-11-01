@@ -27,6 +27,7 @@ type rechargeConfirm struct {
 	Balance, After         string
 	Insufficient           bool
 	Fragment               bool // the card alone, for the recharge dialog (X-Fragment: 1)
+	Token                  string
 }
 
 // isFragment: the recharge forms post with X-Fragment: 1 and show the answer in a dialog.
@@ -75,7 +76,7 @@ func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 		fail(planErrMsg(perr == nil, pl.Enabled))
 		return
 	}
-	d := rechargeConfirm{C: c, Plan: pv.Plan.Name, PlanID: planID, Method: method, MethodLabel: label, Price: money(pv.Price), Balance: money(c.Balance), After: money(c.Balance), Fragment: isFragment(r)}
+	d := rechargeConfirm{C: c, Plan: pv.Plan.Name, PlanID: planID, Method: method, MethodLabel: label, Price: money(pv.Price), Balance: money(c.Balance), After: money(c.Balance), Fragment: isFragment(r), Token: newFormToken()}
 	if !pv.Expiry.IsZero() {
 		d.Expiry = pv.Expiry.In(s.location()).Format("2006-01-02 15:04")
 	}
@@ -114,6 +115,10 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.Billing == nil {
 		s.fail(w, "recharge", errors.New("billing service not configured"))
+		return
+	}
+	if !takeFormToken(r.PostFormValue("token")) {
+		fail(msgFormReplayed)
 		return
 	}
 	planID, _ := posInt(r.PostFormValue("plan"))
@@ -198,6 +203,9 @@ func (s *Server) rechargeMethods(ctx context.Context) []option {
 	}
 	if st["enable_balance"] != "no" { // like billing: balance is on unless explicitly off
 		out = append(out, option{"Balance", "Balance"})
+	}
+	if s.strictAccess(ctx) && !ctxIsManager(ctx) { // strict: free recharge is for managers
+		return out
 	}
 	return append(out, option{methodZero, "Recharge Zero"})
 }

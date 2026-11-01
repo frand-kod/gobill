@@ -204,6 +204,7 @@ func TestVouchers(t *testing.T) {
 
 func TestReportRoleBillingReadOnly(t *testing.T) {
 	e := billApp(t)
+	e.q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "role_access_mode", Value: "phpnuxbill"}) // strict mode hides transactions from Report
 	r := login(t, e.h, "rita")
 	p := e.plan(t, "day", "PPPoE", 10000)
 	for _, path := range []string{"/admin/vouchers", "/admin/transactions"} {

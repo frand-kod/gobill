@@ -82,6 +82,9 @@ func seedSearch(t *testing.T, q *db.Queries) (cust db.Customer, plan db.Plan, tr
 
 func TestSearchJSONFindsRecordsByRole(t *testing.T) {
 	_, h, q, staff := crudApp(t)
+	if err := q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "role_access_mode", Value: "phpnuxbill"}); err != nil { // these tests cover the Report role reading search
+		t.Fatal(err)
+	}
 	cust, plan, trx := seedSearch(t, q)
 	report := login(t, h, "rita") // Report role: no vouchers, plans, routers or NAS
 
@@ -153,6 +156,9 @@ func TestSearchWildcardsAreLiteralAndQueryTruncated(t *testing.T) {
 
 func TestSearchSettingsEntries(t *testing.T) {
 	_, h, q, superAdmin := crudApp(t) // alice: SuperAdmin, sees every tab
+	if err := q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "role_access_mode", Value: "phpnuxbill"}); err != nil { // these tests cover the Report role reading search
+		t.Fatal(err)
+	}
 	mk(t, q, "ada", "Admin", 1)
 	adminCookie := login(t, h, "ada")
 	report := login(t, h, "rita")
