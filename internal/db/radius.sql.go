@@ -268,7 +268,7 @@ func (q *Queries) GetOpenRadiusSessionByFramedIP(ctx context.Context, framedIp s
 
 const getRadiusLogin = `-- name: GetRadiusLogin :one
 SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, c.session_version, c.coordinates, s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
-       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
+       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users, p.idle_timeout,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        fb.rate_down AS fup_rate_down, fb.rate_down_unit AS fup_rate_down_unit, fb.rate_up AS fup_rate_up, fb.rate_up_unit AS fup_rate_up_unit, fb.burst AS fup_burst,
        pl.name AS pool_name
@@ -299,6 +299,7 @@ type GetRadiusLoginRow struct {
 	DataLimit         sql.NullInt64
 	DataUnit          sql.NullString
 	SharedUsers       sql.NullInt64
+	IdleTimeout       sql.NullInt64
 	RateDown          sql.NullInt64
 	RateDownUnit      sql.NullString
 	RateUp            sql.NullInt64
@@ -353,6 +354,7 @@ func (q *Queries) GetRadiusLogin(ctx context.Context, name string) (GetRadiusLog
 		&i.DataLimit,
 		&i.DataUnit,
 		&i.SharedUsers,
+		&i.IdleTimeout,
 		&i.RateDown,
 		&i.RateDownUnit,
 		&i.RateUp,
@@ -370,7 +372,7 @@ func (q *Queries) GetRadiusLogin(ctx context.Context, name string) (GetRadiusLog
 
 const getRadiusPlan = `-- name: GetRadiusPlan :one
 SELECT s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
-       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
+       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users, p.idle_timeout,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        fb.rate_down AS fup_rate_down, fb.rate_down_unit AS fup_rate_down_unit, fb.rate_up AS fup_rate_up, fb.rate_up_unit AS fup_rate_up_unit, fb.burst AS fup_burst,
        pl.name AS pool_name
@@ -399,6 +401,7 @@ type GetRadiusPlanRow struct {
 	DataLimit         sql.NullInt64
 	DataUnit          sql.NullString
 	SharedUsers       sql.NullInt64
+	IdleTimeout       sql.NullInt64
 	RateDown          sql.NullInt64
 	RateDownUnit      sql.NullString
 	RateUp            sql.NullInt64
@@ -431,6 +434,7 @@ func (q *Queries) GetRadiusPlan(ctx context.Context, customerID int64) (GetRadiu
 		&i.DataLimit,
 		&i.DataUnit,
 		&i.SharedUsers,
+		&i.IdleTimeout,
 		&i.RateDown,
 		&i.RateDownUnit,
 		&i.RateUp,

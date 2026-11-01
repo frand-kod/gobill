@@ -491,7 +491,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 	if havePlan {
 		c, pl = lr.Customer, db.GetRadiusPlanRow{StartedAt: lr.StartedAt, QuotaCarryBytes: lr.QuotaCarryBytes, QuotaCarrySeconds: lr.QuotaCarrySeconds, ExpiresAt: lr.ExpiresAt, PendingStart: lr.PendingStart,
 			PlanID: lr.PlanID, PlanName: lr.PlanName, PlanType: lr.PlanType, Limited: lr.Limited, LimitType: lr.LimitType,
-			TimeLimit: lr.TimeLimit, TimeUnit: lr.TimeUnit, DataLimit: lr.DataLimit, DataUnit: lr.DataUnit, SharedUsers: lr.SharedUsers,
+			TimeLimit: lr.TimeLimit, TimeUnit: lr.TimeUnit, DataLimit: lr.DataLimit, DataUnit: lr.DataUnit, SharedUsers: lr.SharedUsers, IdleTimeout: lr.IdleTimeout,
 			RateDown: lr.RateDown, RateDownUnit: lr.RateDownUnit, RateUp: lr.RateUp, RateUpUnit: lr.RateUpUnit, Burst: lr.Burst, PoolName: lr.PoolName,
 			FupRateDown: lr.FupRateDown, FupRateDownUnit: lr.FupRateDownUnit, FupRateUp: lr.FupRateUp, FupRateUpUnit: lr.FupRateUpUnit, FupBurst: lr.FupBurst}
 	} else {
@@ -808,6 +808,9 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 	}
 	if d.Timeout > 0 {
 		rfc2865.SessionTimeout_Set(p, rfc2865.SessionTimeout(d.Timeout))
+	}
+	if d.Plan.IdleTimeout.Valid && d.Plan.IdleTimeout.Int64 > 0 {
+		rfc2865.IdleTimeout_Set(p, rfc2865.IdleTimeout(min(d.Plan.IdleTimeout.Int64, 1<<32-1)))
 	}
 	if d.Interim > 0 {
 		rfc2869.AcctInterimInterval_Set(p, rfc2869.AcctInterimInterval(d.Interim))

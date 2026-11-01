@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"layeh.com/radius"
+	"layeh.com/radius/rfc2865"
 	"layeh.com/radius/rfc2869"
 )
 
@@ -30,5 +31,20 @@ func TestInterimIntervalSent(t *testing.T) {
 	p.Identifier += 2
 	if _, err := rfc2869.AcctInterimInterval_Lookup(e.auth(t, p)); err == nil {
 		t.Fatal("0 must not send the attribute")
+	}
+}
+
+func TestIdleTimeoutPerPlan(t *testing.T) {
+	e := setup(t)
+	if _, err := rfc2865.IdleTimeout_Lookup(e.auth(t, pap("alice", "pw"))); err == nil {
+		t.Fatal("unset plan must not send Idle-Timeout")
+	}
+	if _, err := e.conn.Exec("UPDATE plans SET idle_timeout = 600"); err != nil {
+		t.Fatal(err)
+	}
+	p := pap("alice", "pw")
+	p.Identifier++
+	if got := rfc2865.IdleTimeout_Get(e.auth(t, p)); got != 600 {
+		t.Fatalf("idle-timeout %d", got)
 	}
 }

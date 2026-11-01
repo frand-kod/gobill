@@ -183,6 +183,9 @@ func (s *Server) acceptBody(d radius.Decision) kv {
 	if d.Timeout > 0 {
 		b["reply:Session-Timeout"] = d.Timeout // not in old PHP; makes the NAS drop the user at expiry
 	}
+	if pl.IdleTimeout.Valid && pl.IdleTimeout.Int64 > 0 {
+		b["reply:Idle-Timeout"] = pl.IdleTimeout.Int64
+	}
 	if d.Interim > 0 {
 		b["reply:Acct-Interim-Interval"] = d.Interim
 	}

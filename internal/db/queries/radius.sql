@@ -23,7 +23,7 @@ LIMIT 1;
 
 -- name: GetRadiusPlan :one
 SELECT s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
-       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
+       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users, p.idle_timeout,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        fb.rate_down AS fup_rate_down, fb.rate_down_unit AS fup_rate_down_unit, fb.rate_up AS fup_rate_up, fb.rate_up_unit AS fup_rate_up_unit, fb.burst AS fup_burst,
        pl.name AS pool_name
@@ -39,7 +39,7 @@ ORDER BY s.expires_at DESC LIMIT 1;
 -- GetCustomerForRadius and GetRadiusPlan in one statement for the common case, an active customer with
 -- an active plan: one read transaction per login instead of two. No row: use the two queries.
 SELECT sqlc.embed(c), s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
-       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
+       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users, p.idle_timeout,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        fb.rate_down AS fup_rate_down, fb.rate_down_unit AS fup_rate_down_unit, fb.rate_up AS fup_rate_up, fb.rate_up_unit AS fup_rate_up_unit, fb.burst AS fup_burst,
        pl.name AS pool_name

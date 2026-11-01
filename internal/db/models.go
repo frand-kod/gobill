@@ -238,13 +238,7 @@ type Plan struct {
 	Enabled        int64
 	Audience       string
 	FupBandwidthID sql.NullInt64
-}
-
-type PortalSeen struct {
-	CustomerID int64
-	Item       string
-	Version    string
-	SeenAt     int64
+	IdleTimeout    sql.NullInt64
 }
 
 type Pool struct {
@@ -253,6 +247,13 @@ type Pool struct {
 	LocalIp  string
 	RangeIp  string
 	RouterID int64
+}
+
+type PortalSeen struct {
+	CustomerID int64
+	Item       string
+	Version    string
+	SeenAt     int64
 }
 
 type Promo struct {

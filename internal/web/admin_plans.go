@@ -16,7 +16,7 @@ import (
 var (
 	planNames = []string{"name", "type", "billing", "price", "validity", "validity_unit", "limited", "limit_type",
 		"time_limit", "time_unit", "data_limit", "data_unit", "shared_users", "bandwidth_id", "router_id", "pool_id",
-		"expired_plan_id", "billing_day", "device", "fup_bandwidth_id", "enabled", "on_login", "on_logout", "audience"}
+		"expired_plan_id", "billing_day", "device", "fup_bandwidth_id", "idle_timeout", "enabled", "on_login", "on_logout", "audience"}
 	// the device driver an empty "device" field falls back to, by plan type
 	defaultDevices = map[string]string{"Hotspot": "MikrotikHotspot", "PPPoE": "MikrotikPppoe"}
 )
@@ -115,6 +115,8 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 		text("data_unit", "Data Unit", v, e).opts("MB", "GB").show("limited && limit_type !== 'Time_Limit'"),
 		fup.show("limited && limit_type !== 'Time_Limit' && device === 'Radius'").
 			hint("FUP (fair usage): past the data limit the customer stays online at this speed until the plan ends, instead of being rejected. RADIUS (gobill) only."),
+		text("idle_timeout", "Idle timeout (seconds)", v, e).as("number").show("device === 'Radius'").
+			hint("The NAS drops a session that sends no traffic for this long. Empty = not sent. RADIUS (gobill) only."),
 		text("shared_users", "Device limit", v, e).as("number").bind().show(hotspot).
 			hint("How many devices can be online with this plan at once. When the limit is full, Settings > Customers & Billing decides: kick the oldest device or reject the new login."),
 	}, "Limits", hotspot+" || "+pppoe+" && device === 'Radius'")...)
@@ -161,7 +163,7 @@ func planFormValues(p db.Plan) map[string]string {
 		"limit_type": p.LimitType.String, "time_limit": n(p.TimeLimit), "time_unit": p.TimeUnit.String,
 		"data_limit": n(p.DataLimit), "data_unit": p.DataUnit.String, "shared_users": n(p.SharedUsers),
 		"bandwidth_id": n(p.BandwidthID), "router_id": n(p.RouterID), "pool_id": n(p.PoolID),
-		"expired_plan_id": n(p.ExpiredPlanID), "billing_day": n(p.BillingDay), "device": p.Device, "fup_bandwidth_id": n(p.FupBandwidthID), "enabled": fmt.Sprint(p.Enabled), "on_login": p.OnLogin, "on_logout": p.OnLogout, "audience": p.Audience}
+		"expired_plan_id": n(p.ExpiredPlanID), "billing_day": n(p.BillingDay), "device": p.Device, "fup_bandwidth_id": n(p.FupBandwidthID), "idle_timeout": n(p.IdleTimeout), "enabled": fmt.Sprint(p.Enabled), "on_login": p.OnLogin, "on_logout": p.OnLogout, "audience": p.Audience}
 }
 
 func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
@@ -359,6 +361,9 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 		if p.Device == "" {
 			p.Device = defaultDevices[p.Type]
 		}
+		if p.Device == "Radius" {
+			p.IdleTimeout = optInt(v["idle_timeout"], e, "idle_timeout")
+		}
 		pppoeQuota := v["type"] == "PPPoE" && p.Device == "Radius" // only RADIUS enforces a PPPoE quota, and only bytes (Session-Timeout would cut the line)
 		if v["type"] == "PPPoE" && v["limited"] == "1" && !pppoeQuota {
 			e["limit_type"] = "A PPPoE data limit needs the RADIUS (gobill) device; the MikroTik API cannot enforce it"
@@ -404,7 +409,7 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 				DataLimit: p.DataLimit, DataUnit: p.DataUnit, SharedUsers: p.SharedUsers, BandwidthID: p.BandwidthID,
 				RouterID: p.RouterID, PoolID: p.PoolID, Enabled: p.Enabled, Limited: p.Limited, LimitType: p.LimitType,
 				ExpiredPlanID: p.ExpiredPlanID, BillingDay: p.BillingDay, OnLogin: p.OnLogin, OnLogout: p.OnLogout,
-				Device: p.Device, FupBandwidthID: p.FupBandwidthID, Audience: p.Audience, ID: id})
+				Device: p.Device, FupBandwidthID: p.FupBandwidthID, Audience: p.Audience, IdleTimeout: p.IdleTimeout, ID: id})
 			if err == nil {
 				saved, err = s.queries.GetPlan(ctx, id)
 			}
