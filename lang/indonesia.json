@@ -2699,5 +2699,6 @@
     "Sent to the NAS in every Access-Accept as Acct-Interim-Interval. Default 300. 0 = do not send, the NAS uses its own": "Dikirim ke NAS di setiap Access-Accept sebagai Acct-Interim-Interval. Bawaan 300. 0 = tidak dikirim, NAS memakai pengaturannya sendiri",
     "Enter whole seconds, 0 to 86400": "Isi detik bulat, 0 sampai 86400",
     "Idle timeout (seconds)": "Batas diam (detik)",
-    "The NAS drops a session that sends no traffic for this long. Empty = not sent. RADIUS (gobill) only.": "NAS memutus sesi yang tidak ada lalu lintasnya selama waktu ini. Kosong = tidak dikirim. Hanya untuk RADIUS (gobill)."
+    "The NAS drops a session that sends no traffic for this long. Empty = not sent. RADIUS (gobill) only.": "NAS memutus sesi yang tidak ada lalu lintasnya selama waktu ini. Kosong = tidak dikirim. Hanya untuk RADIUS (gobill).",
+    "End reason": "Alasan berakhir"
 }

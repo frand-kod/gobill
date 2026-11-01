@@ -884,7 +884,8 @@ type AcctRequest struct {
 	NASIPAttr, NASID     string // NAS-IP-Address / NAS-Identifier as the NAS reports them
 	MAC, FramedIP        string
 	SessionTime          int64
-	InOctets, OutOctets  int64 // gigawords already folded in
+	TerminateCause       string // Acct-Terminate-Cause by name, Stop only
+	InOctets, OutOctets  int64  // gigawords already folded in
 }
 
 // NoteNAS records a packet from NAS nas in radius_nas_last_packet_timestamp. Callers must only pass
@@ -916,7 +917,7 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 			a.InOctets, a.OutOctets = max(a.InOctets, 0), max(a.OutOctets, 0)
 		}
 		arg := db.UpsertRadiusSessionParams{SessionID: a.SessionID, Username: a.User, NasIp: a.NAS, NasIpAttr: a.NASIPAttr, NasIdentifier: a.NASID, FramedIp: a.FramedIP,
-			Mac: a.MAC, StartedAt: now - a.SessionTime, UpdatedAt: now, InputOctets: a.InOctets, OutputOctets: a.OutOctets}
+			Mac: a.MAC, StartedAt: now - a.SessionTime, UpdatedAt: now, InputOctets: a.InOctets, OutputOctets: a.OutOctets, TerminateCause: a.TerminateCause}
 		noteInterim(a.NAS, a.SessionID, a.Type, now)
 		if a.Type == rfc2866.AcctStatusType_Value_Stop {
 			arg.StoppedAt = sql.NullInt64{Int64: now, Valid: true}
@@ -965,6 +966,9 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 		a.NASIPAttr = ip.String()
 	}
 	a.NASID = rfc2865.NASIdentifier_GetString(p)
+	if c, err := rfc2866.AcctTerminateCause_Lookup(p); err == nil {
+		a.TerminateCause = c.String()
+	}
 	if err := s.Account(r.Context(), a); err != nil {
 		slog.Error("radius: accounting", "err", err)
 		return // no response: NAS retries

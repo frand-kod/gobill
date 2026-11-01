@@ -1,10 +1,12 @@
 package radius
 
 import (
+	"context"
 	"testing"
 
 	"layeh.com/radius"
 	"layeh.com/radius/rfc2865"
+	"layeh.com/radius/rfc2866"
 	"layeh.com/radius/rfc2869"
 )
 
@@ -46,5 +48,22 @@ func TestIdleTimeoutPerPlan(t *testing.T) {
 	p.Identifier++
 	if got := rfc2865.IdleTimeout_Get(e.auth(t, p)); got != 600 {
 		t.Fatalf("idle-timeout %d", got)
+	}
+}
+
+func TestTerminateCauseStored(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	a := AcctRequest{Type: rfc2866.AcctStatusType_Value_Start, NAS: "10.0.0.1", SessionID: "s1", User: "alice"}
+	if err := e.s.Account(ctx, a); err != nil {
+		t.Fatal(err)
+	}
+	a.Type, a.TerminateCause = rfc2866.AcctStatusType_Value_Stop, rfc2866.AcctTerminateCause_Value_IdleTimeout.String()
+	if err := e.s.Account(ctx, a); err != nil {
+		t.Fatal(err)
+	}
+	var got string
+	if err := e.conn.QueryRow("SELECT terminate_cause FROM radius_sessions WHERE session_id = 's1'").Scan(&got); err != nil || got != "Idle-Timeout" {
+		t.Fatalf("cause %q err %v", got, err)
 	}
 }

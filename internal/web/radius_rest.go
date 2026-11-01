@@ -146,7 +146,7 @@ func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
 		err := rs.Account(r.Context(), radius.AcctRequest{Type: typ, NAS: nas, NASIPAttr: r.FormValue("nasIpAddress"), NASID: r.FormValue("nasid"), SessionID: r.FormValue("acctSessionId"), User: user,
 			MAC: r.FormValue("macAddr"), FramedIP: r.FormValue("framedIPAddress"), SessionTime: n("acctSessionTime"),
 			InOctets:  n("acctInputGigawords")<<32 | n("acctInputOctets"),
-			OutOctets: n("acctOutputGigawords")<<32 | n("acctOutputOctets")})
+			OutOctets: n("acctOutputGigawords")<<32 | n("acctOutputOctets"), TerminateCause: terminateCause(r.FormValue("acctTerminateCause"))})
 		if err != nil {
 			slog.Error("radius rest: accounting", "err", err)
 			jsonOut(w, 500, nil)
@@ -223,4 +223,12 @@ func (s *Server) radiusServer() *radius.Server {
 		}
 	})
 	return s.Radius
+}
+
+// terminateCause is an Acct-Terminate-Cause form value as its name: FreeRADIUS sends the name, a number is looked up.
+func terminateCause(v string) string {
+	if n, err := strconv.ParseUint(v, 10, 32); err == nil {
+		return rfc2866.AcctTerminateCause(n).String()
+	}
+	return v
 }

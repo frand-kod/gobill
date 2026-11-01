@@ -90,7 +90,7 @@ func (s *Server) writeCSV(w http.ResponseWriter, name string, head []string, row
 	cw.Flush()
 }
 
-var radiusLogCols = []string{"User", "NAS", "IP", "MAC", "Start", "Stop", "Duration", "Upload", "Download"}
+var radiusLogCols = []string{"User", "NAS", "IP", "MAC", "Start", "Stop", "Duration", "Upload", "Download", "End reason"}
 
 func (s *Server) radiusLogParams(r *http.Request) db.SearchRadiusLogsParams {
 	_, _, f, t := s.dateRange(r)
@@ -105,7 +105,7 @@ func (s *Server) radiusLogRows(ss []db.RadiusSession) [][]string {
 			stop, end = s.ts(x.StoppedAt.Int64), x.StoppedAt.Int64
 		}
 		out = append(out, []string{x.Username, x.NasIp, x.FramedIp, x.Mac, s.ts(x.StartedAt), stop, humanDur(end - x.StartedAt),
-			humanBytes(x.InputOctets), humanBytes(x.OutputOctets)})
+			humanBytes(x.InputOctets), humanBytes(x.OutputOctets), x.TerminateCause})
 	}
 	return out
 }
