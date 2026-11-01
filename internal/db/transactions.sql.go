@@ -271,6 +271,17 @@ func (q *Queries) ListTransactionsByCustomer(ctx context.Context, arg ListTransa
 	return items, nil
 }
 
+const nextInvoiceNumber = `-- name: NextInvoiceNumber :one
+UPDATE invoice_seq SET n = n + 1 WHERE id = 1 RETURNING n
+`
+
+func (q *Queries) NextInvoiceNumber(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, nextInvoiceNumber)
+	var n int64
+	err := row.Scan(&n)
+	return n, err
+}
+
 const searchTransactions = `-- name: SearchTransactions :many
 SELECT id, invoice, customer_id, plan_id, username, plan_name, router_name, type, price, method, note, admin_id, created_at, period_start, period_end, CAST(?1 AS TEXT) AS sort_key -- e.g. date_asc; anything else = newest first
 FROM transactions

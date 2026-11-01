@@ -73,7 +73,7 @@ func TestStatusAndChannels(t *testing.T) {
 	if ch, err := g.Channels(context.Background()); err != nil || len(ch) != 1 || ch[0].Code != "BRIVA" {
 		t.Fatal(ch, err)
 	}
-	for in, want := range map[string]Status{"UNPAID": Pending, "FAILED": Failed, "REFUND": Failed, "EXPIRED": Expired} {
+	for in, want := range map[string]Status{"UNPAID": Pending, "FAILED": Failed, "REFUND": Refunded, "EXPIRED": Expired} {
 		if got, _ := mapStatus(in); got != want {
 			t.Errorf("%s -> %s", in, got)
 		}

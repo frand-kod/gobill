@@ -54,13 +54,13 @@ type quoted struct {
 //	price = base + tax(base) + the customer's bills        (PHP: tax is on the plan price only)
 //
 // The very first Period activation (never had a subscription for that router and type) and
-// Recharge Zero cost 0 and carry no bills. A gateway payment records the amount it charged.
+// Recharge Zero cost 0 and carry no bills. A gateway payment always records the amount it charged.
 func quote(ctx context.Context, q *db.Queries, customerID int64, plan db.Plan, cp *couponUse) (quoted, error) {
 	if cp != nil && cp.mode == modeZero {
 		return quoted{}, nil
 	}
 	period := plan.ValidityUnit == "Period"
-	if period {
+	if period && (cp == nil || cp.mode != modeTotal) { // a gateway payment records what it charged, even on the free first activation
 		if had, err := hadSub(ctx, q, customerID, plan.RouterID, plan.Type); err != nil || !had {
 			return quoted{}, err
 		}

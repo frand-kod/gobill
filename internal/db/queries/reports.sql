@@ -6,8 +6,8 @@ WHERE created_at >= sqlc.arg(from_ts) AND created_at < sqlc.arg(to_ts)
   AND (CAST(sqlc.arg(method) AS TEXT) = '' OR method = sqlc.arg(method))
   AND (CAST(sqlc.arg(router_name) AS TEXT) = '' OR router_name = sqlc.arg(router_name))
   AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR plan_id = sqlc.arg(plan_id))
-  -- balance transfer / send-plan rows exist only in gobill (PHP never writes them): not income
-  AND NOT (method = 'Customer - Balance' AND type = 'Balance')
+  -- income = SumTransactionsBetween: purchases paid from balance (the top-up already counted) and gifts are not income
+  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
 ORDER BY created_at, id;
 
 -- name: ReportTransactionsPage :many
@@ -18,7 +18,7 @@ WHERE created_at >= sqlc.arg(from_ts) AND created_at < sqlc.arg(to_ts)
   AND (CAST(sqlc.arg(method) AS TEXT) = '' OR method = sqlc.arg(method))
   AND (CAST(sqlc.arg(router_name) AS TEXT) = '' OR router_name = sqlc.arg(router_name))
   AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR plan_id = sqlc.arg(plan_id))
-  AND NOT (method = 'Customer - Balance' AND type = 'Balance')
+  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
 ORDER BY created_at, id
 LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
@@ -31,7 +31,7 @@ WHERE created_at >= sqlc.arg(from_ts) AND created_at < sqlc.arg(to_ts)
   AND (CAST(sqlc.arg(method) AS TEXT) = '' OR method = sqlc.arg(method))
   AND (CAST(sqlc.arg(router_name) AS TEXT) = '' OR router_name = sqlc.arg(router_name))
   AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR plan_id = sqlc.arg(plan_id))
-  AND NOT (method = 'Customer - Balance' AND type = 'Balance');
+  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%';
 
 -- name: ReportTotalsByType :many
 SELECT type AS name, COUNT(*) AS cnt, CAST(COALESCE(SUM(price), 0) AS INTEGER) AS total
@@ -41,7 +41,7 @@ WHERE created_at >= sqlc.arg(from_ts) AND created_at < sqlc.arg(to_ts)
   AND (CAST(sqlc.arg(method) AS TEXT) = '' OR method = sqlc.arg(method))
   AND (CAST(sqlc.arg(router_name) AS TEXT) = '' OR router_name = sqlc.arg(router_name))
   AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR plan_id = sqlc.arg(plan_id))
-  AND NOT (method = 'Customer - Balance' AND type = 'Balance')
+  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
 GROUP BY type
 ORDER BY type;
 
@@ -53,6 +53,6 @@ WHERE created_at >= sqlc.arg(from_ts) AND created_at < sqlc.arg(to_ts)
   AND (CAST(sqlc.arg(method) AS TEXT) = '' OR method = sqlc.arg(method))
   AND (CAST(sqlc.arg(router_name) AS TEXT) = '' OR router_name = sqlc.arg(router_name))
   AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR plan_id = sqlc.arg(plan_id))
-  AND NOT (method = 'Customer - Balance' AND type = 'Balance')
+  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
 GROUP BY method
 ORDER BY method;

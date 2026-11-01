@@ -152,6 +152,11 @@ type CustomersInbox struct {
 	CreatedAt  int64
 }
 
+type InvoiceSeq struct {
+	ID int64
+	N  int64
+}
+
 type Isolation struct {
 	ID         int64
 	CustomerID int64

@@ -62,6 +62,23 @@ func Discount(c db.Coupon, price int64, today string) (int64, error) {
 	return price - d, nil
 }
 
+// ReserveCoupon takes one use of the coupon when a gateway order is created, so two orders can
+// never share the last use. Closing the request unpaid gives it back (trigger payment_coupon_release).
+func ReserveCoupon(ctx context.Context, q *db.Queries, code string) error {
+	c, err := q.GetCouponByCode(ctx, code)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrCouponNotFound
+	} else if err != nil {
+		return err
+	}
+	if n, err := q.UseCoupon(ctx, c.ID); err != nil {
+		return err
+	} else if n == 0 {
+		return ErrCouponUsed
+	}
+	return nil
+}
+
 // RechargeWithBalanceCoupon is RechargeWithBalance with a coupon: the discounted price is debited
 // and recorded (note "Coupon CODE"), and usage is claimed in the same transaction.
 // Old PHP offers coupons on the portal order only, never on admin recharge or balance top-ups.

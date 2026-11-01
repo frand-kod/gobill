@@ -17,7 +17,7 @@ WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?4 AS TEXT) = '' OR method = ?4)
   AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
-  AND NOT (method = 'Customer - Balance' AND type = 'Balance')
+  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
 `
 
 type ReportTotalsParams struct {
@@ -57,7 +57,7 @@ WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?4 AS TEXT) = '' OR method = ?4)
   AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
-  AND NOT (method = 'Customer - Balance' AND type = 'Balance')
+  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
 GROUP BY method
 ORDER BY method
 `
@@ -115,7 +115,7 @@ WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?4 AS TEXT) = '' OR method = ?4)
   AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
-  AND NOT (method = 'Customer - Balance' AND type = 'Balance')
+  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
 GROUP BY type
 ORDER BY type
 `
@@ -172,8 +172,8 @@ WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?4 AS TEXT) = '' OR method = ?4)
   AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
-  -- balance transfer / send-plan rows exist only in gobill (PHP never writes them): not income
-  AND NOT (method = 'Customer - Balance' AND type = 'Balance')
+  -- income = SumTransactionsBetween: purchases paid from balance (the top-up already counted) and gifts are not income
+  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
 ORDER BY created_at, id
 `
 
@@ -240,7 +240,7 @@ WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?4 AS TEXT) = '' OR method = ?4)
   AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
-  AND NOT (method = 'Customer - Balance' AND type = 'Balance')
+  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
 ORDER BY created_at, id
 LIMIT ?8 OFFSET ?7
 `

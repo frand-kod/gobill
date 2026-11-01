@@ -143,8 +143,10 @@ func mapStatus(s string) (Status, error) {
 		return Pending, nil
 	case "PAID":
 		return Paid, nil
-	case "FAILED", "REFUND":
+	case "FAILED":
 		return Failed, nil
+	case "REFUND":
+		return Refunded, nil
 	case "EXPIRED":
 		return Expired, nil
 	}

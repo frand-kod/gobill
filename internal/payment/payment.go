@@ -16,6 +16,8 @@ const (
 	Paid    Status = "paid"
 	Failed  Status = "failed"
 	Expired Status = "expired"
+	// Refunded: the gateway refunded or charged back the payment. Recorded and alerted, never auto-reversed.
+	Refunded Status = "refunded"
 )
 
 // Transaction is a payment request. Customer fields are folded in (instead of a
