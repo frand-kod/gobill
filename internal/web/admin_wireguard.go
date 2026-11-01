@@ -369,7 +369,7 @@ func (s *Server) routerWGProvision(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "wireguard add peer", err)
 		return
 	}
-	s.sessions.Put(r.Context(), "wg_once", fmt.Sprintf("/tool fetch url=%q dst-path=gobill.rsc; /import gobill.rsc", baseURL(r)+"/provision/"+token))
+	s.sessions.Put(r.Context(), "wg_once", fetchLine(baseURL(r)+"/provision/"+token))
 	s.done(w, r, back, "WireGuard peer is ready. Paste the line into the router", "router.wg.provision", rt.Name)
 }
 
@@ -425,12 +425,14 @@ func (s *Server) wgRevoke(ctx context.Context, id int64) error {
 	}
 	up := db.UpdateRouterParams{Name: rt.Name, Host: rt.Host, Port: rt.Port, Username: rt.Username, PasswordEnc: rt.PasswordEnc,
 		Description: rt.Description, Enabled: rt.Enabled, Coordinates: rt.Coordinates, Coverage: rt.Coverage, CertPin: rt.CertPin, ID: id}
+	var restoreTLS *int64
 	if prev, _ := s.queries.GetSetting(ctx, wgPrevKey(id)); prev != "" {
 		var c wgCreds // back to the credentials the router had before the tunnel
 		if err := json.Unmarshal([]byte(prev), &c); err != nil {
 			return err
 		}
 		up.Host, up.Port, up.Username, up.PasswordEnc = c.Host, c.Port, c.User, c.Pass
+		restoreTLS = &c.TLS
 		if err := s.queries.UpsertSettingRaw(ctx, db.UpsertSettingRawParams{Key: wgPrevKey(id)}); err != nil {
 			return err
 		}
@@ -448,13 +450,29 @@ func (s *Server) wgRevoke(ctx context.Context, id int64) error {
 	if err := s.queries.UpdateRouter(ctx, up); err != nil {
 		return err
 	}
+	if restoreTLS != nil {
+		if err := s.queries.SetRouterTLS(ctx, db.SetRouterTLSParams{Tls: *restoreTLS, ID: id}); err != nil {
+			return err
+		}
+	}
 	return s.queries.DeleteWgPeer(ctx, id)
+}
+
+// fetchLine is the RouterOS command that downloads and imports the provision script. Over https the
+// router also verifies the server certificate, so the script cannot be swapped on the way.
+func fetchLine(u string) string {
+	opts := ""
+	if strings.HasPrefix(u, "https://") {
+		opts = " mode=https check-certificate=yes"
+	}
+	return fmt.Sprintf("/tool fetch url=%q%s dst-path=gobill.rsc; /import gobill.rsc", u, opts)
 }
 
 // wgCreds is what a router's API credentials were before the tunnel took them over (setting wg_prev_<id>).
 type wgCreds struct {
 	Host, User string
 	Port       int64
+	TLS        int64
 	Pass       []byte
 }
 

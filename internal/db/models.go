@@ -337,6 +337,7 @@ type Router struct {
 	LastSeenAt  sql.NullInt64
 	Online      sql.NullInt64
 	CertPin     string
+	Tls         int64
 }
 
 type Session struct {
