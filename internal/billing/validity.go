@@ -1,5 +1,5 @@
 // Package billing holds pure subscription math (no database).
-// Ported from phpnuxbill system/autoload/Package.php rechargeUser().
+// Data model ported from phpnuxbill; month arithmetic intentionally clamps instead of overflowing.
 package billing
 
 // Subscription validity and expiry-date arithmetic (pure, no database).
@@ -18,7 +18,7 @@ const (
 	Period Unit = "Period"
 )
 
-// defaultBillingDay mirrors PHP: $day_exp = 20 when no attribute/plan value (Package.php:88-95).
+// defaultBillingDay is used when there is no attribute/plan value.
 const defaultBillingDay = 20
 
 type Options struct {
@@ -30,9 +30,22 @@ type Options struct {
 	BillingDay int
 }
 
+// daysIn is the number of days in the month starting at first.
+func daysIn(first time.Time) int {
+	return first.AddDate(0, 1, -1).Day()
+}
+
+// addMonths adds n months and clamps the day to the target month's length
+// (Jan 31 + 1 month = Feb 28/29), keeping the time of day.
+func addMonths(t time.Time, n int) time.Time {
+	first := time.Date(t.Year(), t.Month()+time.Month(n), 1, 0, 0, 0, 0, t.Location())
+	return time.Date(first.Year(), first.Month(), min(t.Day(), daysIn(first)),
+		t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), t.Location())
+}
+
 // NewExpiry returns when a subscription starting (or extended) at from expires.
-// Month arithmetic uses Go's AddDate/time.Date, which overflow exactly like PHP
-// strtotime('+1 month') and DateTime::setDate (Jan 31 + 1 month = Mar 3, or Mar 2 in leap years).
+// Month arithmetic clamps to the last day of the target month. This deliberately differs
+// from PHP strtotime, which overflows into the next month.
 func NewExpiry(from time.Time, value int, unit Unit, opts Options) time.Time {
 	switch unit {
 	case Mins:
@@ -42,7 +55,7 @@ func NewExpiry(from time.Time, value int, unit Unit, opts Options) time.Time {
 	case Days:
 		return from.AddDate(0, 0, value) // PHP :182, :210 (keeps time of day)
 	case Months:
-		return from.AddDate(0, value, 0) // PHP :145, :202 (keeps time of day)
+		return addMonths(from, value) // keeps time of day
 	case Period:
 		day := opts.BillingDay
 		if day <= 0 {

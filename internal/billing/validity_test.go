@@ -21,7 +21,7 @@ func at(s string) time.Time {
 	return t
 }
 
-// Expected values for Months/Period were produced by running the PHP code (php 8, Asia/Jakarta).
+// Mins/Hrs/Days and fresh Period match PHP; Months and extended Period clamp to month end (PHP overflowed).
 func TestNewExpiry(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -39,12 +39,16 @@ func TestNewExpiry(t *testing.T) {
 		{"days extend uses expiry+its time (PHP :210)", "2025-02-25 12:00:00", 7, Days, Options{Extend: true}, "2025-03-04 12:00:00"},
 		{"days leap year", "2024-02-28 08:00:00", 2, Days, Options{}, "2024-03-01 08:00:00"},
 		{"months normal (PHP :145)", "2025-01-15 09:00:00", 1, Months, Options{}, "2025-02-15 09:00:00"},
-		{"months Jan31 overflow -> Mar3 (PHP :145)", "2025-01-31 09:00:00", 1, Months, Options{}, "2025-03-03 09:00:00"},
-		{"months Jan31 leap -> Mar2 (PHP :145)", "2024-01-31 09:00:00", 1, Months, Options{}, "2024-03-02 09:00:00"},
-		{"months Jan30 -> Mar2 (PHP :145)", "2025-01-30 09:00:00", 1, Months, Options{}, "2025-03-02 09:00:00"},
-		{"months Mar31 -> May1 (PHP :145)", "2025-03-31 09:00:00", 1, Months, Options{}, "2025-05-01 09:00:00"},
-		{"months leap Feb29 +12 -> Mar1 (PHP :145)", "2024-02-29 09:00:00", 12, Months, Options{}, "2025-03-01 09:00:00"},
-		{"months extend year wrap (PHP :202)", "2025-12-31 09:00:00", 2, Months, Options{Extend: true}, "2026-03-03 09:00:00"},
+		{"months Jan31 clamps to Feb28", "2025-01-31 09:00:00", 1, Months, Options{}, "2025-02-28 09:00:00"},
+		{"months Jan31 leap clamps to Feb29", "2024-01-31 09:00:00", 1, Months, Options{}, "2024-02-29 09:00:00"},
+		{"months Jan30 clamps to Feb28", "2025-01-30 09:00:00", 1, Months, Options{}, "2025-02-28 09:00:00"},
+		{"months Mar31 clamps to Apr30", "2025-03-31 09:00:00", 1, Months, Options{}, "2025-04-30 09:00:00"},
+		{"months leap Feb29 +12 clamps to Feb28", "2024-02-29 09:00:00", 12, Months, Options{}, "2025-02-28 09:00:00"},
+		{"months leap Feb29 +48 stays Feb29", "2024-02-29 09:00:00", 48, Months, Options{}, "2028-02-29 09:00:00"},
+		{"months Dec15 -> Jan15", "2025-12-15 09:00:00", 1, Months, Options{}, "2026-01-15 09:00:00"},
+		{"months Dec31 -> Jan31", "2025-12-31 09:00:00", 1, Months, Options{}, "2026-01-31 09:00:00"},
+		{"months extend year wrap clamps", "2025-12-31 09:00:00", 2, Months, Options{Extend: true}, "2026-02-28 09:00:00"},
+		{"months keeps time of day", "2025-01-31 23:59:59", 1, Months, Options{}, "2025-02-28 23:59:59"},
 		{"period billing day 1 from Jan31 (PHP :146)", "2025-01-31 14:00:00", 1, Period, Options{BillingDay: 1}, "2025-03-01 23:59:59"},
 		{"period billing day 31 from Jan31 (PHP :146)", "2025-01-31 14:00:00", 1, Period, Options{BillingDay: 31}, "2025-03-03 23:59:59"},
 		{"period default day 20 (PHP :88-94)", "2025-01-01 00:00:00", 1, Period, Options{}, "2025-01-20 23:59:59"},
