@@ -57,7 +57,7 @@ var settingsSecret = db.SecretSettings
 var settingsFile = map[string]bool{"logo": true, "logo_dark": true, "login_page_logo": true, "login_page_logo_dark": true, "login_page_favicon": true, "login_page_wallpaper": true}
 
 // settingsSuperField are keys on an Admin-visible tab that only a SuperAdmin sees and saves.
-var settingsSuperField = map[string]bool{"radius_rest_allow": true}
+var settingsSuperField = map[string]bool{"radius_rest_allow": true, "trust_proxy": true, "trusted_proxies": true}
 
 // forRole drops the SuperAdmin-only fields for any other role, so they are neither rendered nor saved.
 func forRole(fs []field, r *http.Request) []field {
