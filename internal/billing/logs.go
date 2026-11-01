@@ -19,6 +19,9 @@ var LogKinds = []string{"activity", "radius", "messages", "auth"}
 // LogKeepDefault is the retention when log_keep_days is not set; "0" still means keep forever.
 const LogKeepDefault = 90
 
+// unreadInboxDays is how long an unread customer message is kept, whatever log_keep_days says.
+const unreadInboxDays = 180
+
 // radiusStaleAfter closes an open RADIUS session that has had no update for this long, at its last update.
 // ponytail: fixed 1 h instead of 3 x the NAS interim interval (no such setting); add one if NAS intervals differ.
 const radiusStaleAfter = time.Hour
@@ -47,8 +50,8 @@ func (s *Service) CleanLog(ctx context.Context, kind string, days int) (int64, e
 }
 
 // LogCleanJob runs every few minutes. Each tick closes stale open RADIUS sessions; once a day it also
-// cleans the logs, prunes read inbox messages and unpaid payment requests older than log_keep_days,
-// and runs PRAGMA optimize. log_keep_days: missing = 90 days, 0 = keep forever.
+// cleans the logs, prunes read inbox messages, resolved isolations and unpaid payment requests older than
+// log_keep_days, prunes unread inbox messages older than 180 days, and runs PRAGMA optimize. log_keep_days: missing = 90 days, 0 = keep forever.
 func (s *Service) LogCleanJob(trusted func() bool) func(context.Context) error {
 	var last string
 	return func(ctx context.Context) error {
@@ -76,9 +79,17 @@ func (s *Service) LogCleanJob(trusted func() bool) func(context.Context) error {
 			if err := drainBatches(func() (int64, error) { return s.Q.DeleteReadInboxBefore(ctx, cut) }); err != nil {
 				return err
 			}
+			if err := drainBatches(func() (int64, error) { return s.Q.DeleteEndedIsolationsBefore(ctx, cut) }); err != nil {
+				return err
+			}
 			if err := drainBatches(func() (int64, error) { return s.Q.DeleteUnpaidPaymentRequestsBefore(ctx, cut) }); err != nil {
 				return err
 			}
+		}
+		// Unread messages are kept for 180 days whatever log_keep_days says; then they go like read ones.
+		unreadCut := s.now().AddDate(0, 0, -unreadInboxDays).Unix()
+		if err := drainBatches(func() (int64, error) { return s.Q.DeleteUnreadInboxBefore(ctx, unreadCut) }); err != nil {
+			return err
 		}
 		if err := db.Optimize(ctx, s.DB, "PRAGMA optimize"); err != nil {
 			return err

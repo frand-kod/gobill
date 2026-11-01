@@ -55,6 +55,19 @@ func (q *Queries) CreateIsolation(ctx context.Context, arg CreateIsolationParams
 	return i, err
 }
 
+const deleteEndedIsolationsBefore = `-- name: DeleteEndedIsolationsBefore :execrows
+DELETE FROM isolations WHERE id IN (SELECT i.id FROM isolations i WHERE i.ended_at > 0 AND i.ended_at < ? LIMIT 5000)
+`
+
+// One batch of resolved isolations that ended before the cutoff; the caller loops until 0 rows.
+func (q *Queries) DeleteEndedIsolationsBefore(ctx context.Context, endedAt int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteEndedIsolationsBefore, endedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const endCustomerIsolations = `-- name: EndCustomerIsolations :execrows
 UPDATE isolations SET ended_at = ?1, end_reason = ?2
 WHERE customer_id = ?3 AND ended_at = 0

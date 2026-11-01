@@ -122,6 +122,23 @@ func TestPortalBalanceOrderWhenSettingUnset(t *testing.T) {
 	}
 }
 
+// Wrong current passwords are throttled like logins: after maxFailedLogins the right one is refused too.
+func TestPortalPasswordWrongCurrentThrottled(t *testing.T) {
+	e := billApp(t)
+	portalCust(t, e, 0)
+	c, _ := custLogin(t, e, "u1", "pw12345")
+	form := func(cur string) url.Values {
+		return url.Values{"password": {cur}, "npass": {"newpass1"}, "cnpass": {"newpass1"}}
+	}
+	for i := 0; i < maxFailedLogins; i++ {
+		do(e.h, "POST", "/portal/password", form("wrong"), c)
+	}
+	w := do(e.h, "POST", "/portal/password", form("pw12345"), c)
+	if w.Code == http.StatusSeeOther { // a change would redirect; the lockout re-renders the page
+		t.Errorf("right password after lockout: changed, not throttled")
+	}
+}
+
 func TestPortalSessionRevokedOnPasswordChange(t *testing.T) {
 	e := billApp(t)
 	portalCust(t, e, 0)

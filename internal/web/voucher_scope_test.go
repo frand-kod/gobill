@@ -117,3 +117,40 @@ func TestVoucherScopeByRole(t *testing.T) {
 		t.Errorf("own batch code: %d", got)
 	}
 }
+
+// A role that sees masked codes finds used codes by their full text, never an unused one.
+func TestVoucherSearchMaskedRoleNoUnusedFullCode(t *testing.T) {
+	e := billApp(t)
+	h, q := e.h, e.q
+	plan := e.plan(t, "p", "PPPoE", 10000)
+	mk(t, q, "rep", "Report", 0)
+	mk(t, q, "adm", "Admin", 0)
+	if _, err := q.CreateVoucher(t.Context(), db.CreateVoucherParams{Code: "UNUSEDQ1", PlanID: plan.ID}); err != nil {
+		t.Fatal(err)
+	}
+	used, err := q.CreateVoucher(t.Context(), db.CreateVoucherParams{Code: "USEDQXX1", PlanID: plan.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := q.UseVoucher(t.Context(), db.UseVoucherParams{UsedBy: sql.NullInt64{Int64: 1, Valid: true}, ID: used.ID}); err != nil {
+		t.Fatal(err)
+	}
+	rep := login(t, h, "rep")
+	for _, path := range []string{"/admin/vouchers?q=UNUSEDQ", "/admin/vouchers?q=UNUSEDQ&status=unused", "/admin/vouchers?q=UN&status=unused"} {
+		w := do(h, "GET", path, nil, rep)
+		wantCode(t, w, 200, path)
+		if strings.Contains(w.Body.String(), "UNUSEDQ1") {
+			t.Errorf("%s: unused code matched by full text", path)
+		}
+	}
+	w := do(h, "GET", "/admin/vouchers?q=USEDQ", nil, rep)
+	wantCode(t, w, 200, "used search")
+	if !strings.Contains(w.Body.String(), "USEDQXX1") {
+		t.Errorf("used code not found by its full text")
+	}
+	w = do(h, "GET", "/admin/vouchers?q=UNUSEDQ", nil, login(t, h, "adm"))
+	wantCode(t, w, 200, "admin search")
+	if !strings.Contains(w.Body.String(), "UNUSEDQ1") {
+		t.Errorf("admin search lost the unused code")
+	}
+}

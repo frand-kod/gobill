@@ -75,7 +75,7 @@ func (b *Backup) Run(ctx context.Context) error {
 	if b.Mirror != "" {
 		b.mirror(ctx, final, now)
 	}
-	return b.rotate(ctx)
+	return b.rotate(ctx, now)
 }
 
 // mirror copies the new backup to Mirror, prunes it to backup_keep, and records the attempt and
@@ -119,13 +119,52 @@ func (b *Backup) retryMirror(ctx context.Context, src string, now time.Time) {
 	b.mirror(ctx, src, now)
 }
 
-// rotate deletes the oldest gobill-YYYYMMDD.db files beyond backup_keep (default 7).
-func (b *Backup) rotate(ctx context.Context) error {
+// rotate deletes the oldest gobill-YYYYMMDD.db files beyond backup_keep (default 7), and the old snapshots.
+func (b *Backup) rotate(ctx context.Context, now time.Time) error {
 	st, err := b.settings(ctx)
 	if err != nil {
 		return err
 	}
-	return prune(b.Dir, keepN(st))
+	if err := prune(b.Dir, keepN(st)); err != nil {
+		return err
+	}
+	return pruneSnapshots(b.Dir, now)
+}
+
+// snapshotName matches the pre-update, pre-import and pre-restore copies written by db.Snapshot.
+var snapshotName = regexp.MustCompile(`^gobill-(\d{8}-\d{6})-(pre-(?:update|import|restore))\.db$`)
+
+const (
+	snapshotKeep   = 3                   // newest snapshots kept per label, whatever their age
+	snapshotMaxAge = 30 * 24 * time.Hour // older snapshots beyond the newest snapshotKeep are deleted
+)
+
+// pruneSnapshots deletes snapshots older than snapshotMaxAge, keeping the newest snapshotKeep of each label.
+func pruneSnapshots(dir string, now time.Time) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	byLabel := map[string][]string{}
+	for _, e := range entries {
+		if m := snapshotName.FindStringSubmatch(e.Name()); m != nil && !e.IsDir() {
+			byLabel[m[2]] = append(byLabel[m[2]], e.Name())
+		}
+	}
+	for _, names := range byLabel {
+		sort.Strings(names) // the timestamp leads the name, so the order is by time
+		old := len(names) - snapshotKeep
+		for i := 0; i < old; i++ {
+			at, err := time.ParseInLocation("20060102-150405", snapshotName.FindStringSubmatch(names[i])[1], now.Location())
+			if err != nil || now.Sub(at) <= snapshotMaxAge {
+				continue
+			}
+			if err := os.Remove(filepath.Join(dir, names[i])); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // settings returns all settings as a map.

@@ -653,7 +653,31 @@ func (n *Notifier) invoice(ctx context.Context, c db.Customer, name string, vars
 			v[k] = n.get(s)
 		}
 	}
-	return n.send(ctx, c, n.get("user_notification_payment"), "Invoice #"+v["invoice"], n.fill(n.template(name), v))
+	to, subject, text := n.get("user_notification_payment"), "Invoice #"+v["invoice"], n.fill(n.template(name), v)
+	err := n.send(ctx, c, to, subject, text)
+	if err != nil {
+		n.retryInvoice(c, to, subject, text)
+	}
+	return err
+}
+
+// invoiceRetry are the waits before each retry of a failed invoice message (3 retries, no new table).
+var invoiceRetry = []time.Duration{30 * time.Second, 2 * time.Minute, 10 * time.Minute}
+
+// retryInvoice resends a failed invoice in the background, each retry with its own timeout.
+func (n *Notifier) retryInvoice(c db.Customer, to, subject, text string) {
+	go func() {
+		for _, wait := range invoiceRetry {
+			time.Sleep(wait)
+			ctx, cancel := context.WithTimeout(context.Background(), n.Timeout)
+			err := n.send(ctx, c, to, subject, text)
+			cancel()
+			if err == nil {
+				return
+			}
+			slog.Warn("invoice retry failed", "kind", subject, "err", err)
+		}
+	}()
 }
 
 // Expired sends the expired message via user_notification_expired (cron.php).

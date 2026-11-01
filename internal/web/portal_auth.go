@@ -138,6 +138,11 @@ func customerLoginURL(st map[string]string) string {
 func (s *Server) pLogout(w http.ResponseWriter, r *http.Request) {
 	s.sessions.Remove(r.Context(), "customer_id")
 	s.sessions.Remove(r.Context(), "impersonator")
+	for _, k := range s.sessions.Keys(r.Context()) { // pending contact-change OTP (ct_*) must not survive logout
+		if strings.HasPrefix(k, "ct_") {
+			s.sessions.Remove(r.Context(), k)
+		}
+	}
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 

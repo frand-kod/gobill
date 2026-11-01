@@ -99,7 +99,18 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 	if status != "unused" && status != "used" {
 		status = ""
 	}
-	rows, err := s.queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Q: q, Status: status, Viewer: voucherViewer(adminFrom(r)), PageLimit: pg.limit(), PageOffset: pg.offset()})
+	role := adminFrom(r).Role
+	canSee := oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales")
+	// A masked role must not find an unused code by its full text (an unused code is free service), so its
+	// search matches used codes only. "none" matches no row: unused codes are listed only without a search.
+	qStatus := status
+	if !canSee && q != "" {
+		qStatus = "used"
+		if status == "unused" {
+			qStatus = "none"
+		}
+	}
+	rows, err := s.queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Q: q, Status: qStatus, Viewer: voucherViewer(adminFrom(r)), PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
 		s.fail(w, "list vouchers", err)
 		return
@@ -109,7 +120,6 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "list plans", err)
 		return
 	}
-	role := adminFrom(r).Role
 	lp := listPage{Heading: "Voucher", Base: "/admin/vouchers", Q: q, Searchable: true, DeleteOnly: true,
 		CanCreate: oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), CanEdit: oneOf(role, "SuperAdmin", "Admin"),
 		Filters: []filter{{"status", status, vchStatuses}},
@@ -120,7 +130,6 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 	if lp.CanCreate {
 		lp.Links = []option{{"/admin/vouchers/redeem", "Redeem Voucher"}, {"/admin/vouchers/print?limit=36", "Print"}}
 	}
-	canSee := oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales")
 	for _, v := range rows {
 		used := ""
 		if v.UsedAt.Valid {
@@ -132,7 +141,7 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 		}
 		lp.Rows = append(lp.Rows, listRow{v.ID, []string{code, plans[v.PlanID].Name, v.Status, s.ts(v.CreatedAt), used}})
 	}
-	total, err := s.queries.CountVouchers(r.Context(), db.CountVouchersParams{Q: q, Status: status, Viewer: voucherViewer(adminFrom(r))})
+	total, err := s.queries.CountVouchers(r.Context(), db.CountVouchersParams{Q: q, Status: qStatus, Viewer: voucherViewer(adminFrom(r))})
 	if err != nil {
 		s.fail(w, "count vouchers", err)
 		return
