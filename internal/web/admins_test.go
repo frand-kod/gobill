@@ -28,7 +28,7 @@ func mk(t *testing.T, q *db.Queries, user, role string, root int64) db.Admin {
 
 func uform(user, role string) url.Values {
 	return url.Values{"username": {user}, "fullname": {user + " name"}, "role": {role}, "status": {"Active"},
-		"password": {"newpass1"}, "cpassword": {"newpass1"}}
+		"password": {"newpass1234"}, "cpassword": {"newpass1234"}}
 }
 
 func byName(t *testing.T, q *db.Queries, name string) db.Admin {
@@ -49,13 +49,13 @@ func TestAdminCreateAndPassword(t *testing.T) {
 	f.Set("password", "")
 	f.Set("cpassword", "")
 	wantCode(t, do(h, "POST", "/admin/users", f, c), 422, "password required on create")
-	f.Set("password", "newpass1")
+	f.Set("password", "newpass1234")
 	f.Set("cpassword", "other")
 	wantCode(t, do(h, "POST", "/admin/users", f, c), 422, "mismatch")
-	f.Set("cpassword", "newpass1")
+	f.Set("cpassword", "newpass1234")
 	wantCode(t, do(h, "POST", "/admin/users", f, c), 303, "create")
 	a := byName(t, q, "newbie")
-	if a.Role != "Admin" || bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte("newpass1")) != nil ||
+	if a.Role != "Admin" || bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte("newpass1234")) != nil ||
 		!strings.HasPrefix(a.PasswordHash, "$2") {
 		t.Fatalf("stored: %+v", a)
 	}
@@ -223,7 +223,7 @@ func TestChangeOwnPassword(t *testing.T) {
 		w := do(h, "POST", "/admin/password", url.Values{"current": {cur}, "password": {np}, "cpassword": {cp}}, c)
 		return w.Code, w.Result().Cookies()
 	}
-	for _, x := range [][3]string{{"wrong", "newpass1", "newpass1"}, {"secret123", "newpass1", "different"}, {"secret123", "123", "123"}} {
+	for _, x := range [][3]string{{"wrong", "newpass1234", "newpass1234"}, {"secret123", "newpass1234", "different"}, {"secret123", "123", "123"}} {
 		if code, _ := post(x[0], x[1], x[2]); code != 422 {
 			t.Fatalf("%v: got %d", x, code)
 		}
@@ -231,12 +231,12 @@ func TestChangeOwnPassword(t *testing.T) {
 	if a := byName(t, q, "alice"); bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte("secret123")) != nil || a.SessionVersion != 0 {
 		t.Fatal("rejected attempts changed the password")
 	}
-	code, cookies := post("secret123", "newpass1", "newpass1")
+	code, cookies := post("secret123", "newpass1234", "newpass1234")
 	if code != 303 {
 		t.Fatalf("change: %d", code)
 	}
 	a := byName(t, q, "alice")
-	if bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte("newpass1")) != nil || a.SessionVersion != 1 {
+	if bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte("newpass1234")) != nil || a.SessionVersion != 1 {
 		t.Fatalf("not stored: %+v", a)
 	}
 	var nc *http.Cookie

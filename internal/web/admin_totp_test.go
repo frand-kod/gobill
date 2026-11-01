@@ -149,8 +149,9 @@ func TestTOTPWrongCodeThrottled(t *testing.T) {
 	h := s.Handler()
 	key, _ := enrollTOTP(t, s, h, login(t, h, "alice"), "alice")
 
-	pending := sessionCookie(passwordStep(h, "alice"))
-	for i := 0; i < maxFailedLogins; i++ {
+	var pending *http.Cookie
+	for i := 0; i < maxFailedLogins; i++ { // a fresh password step each time: one pending login only allows max2FAPerLogin guesses
+		pending = sessionCookie(passwordStep(h, "alice"))
 		if w := secondStep(h, pending, "000000"); w.Code != 200 {
 			t.Fatalf("attempt %d: %d", i, w.Code)
 		}
