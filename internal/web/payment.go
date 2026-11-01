@@ -127,6 +127,25 @@ func (s *Server) settlePayment(ctx context.Context, pr db.PaymentRequest, st pay
 			return s.Billing.TopUpPaid(ctx, claim, pr.CustomerID.Int64, pr.Amount, gatewayLabel(pr.Gateway)+" - "+pr.Channel)
 		}
 		return s.Billing.RechargePaid(ctx, claim, pr.CustomerID.Int64, pr.PlanID, gatewayLabel(pr.Gateway)+" - "+pr.Channel, pr.Coupon, pr.Amount)
+	case payment.Refunded:
+		if pr.Status != "paid" { // never settled: nothing to take back, just close it
+			_, err := s.queries.ClosePaymentRequest(ctx, db.ClosePaymentRequestParams{Status: "failed", Ref: pr.Ref})
+			return err
+		}
+		// ponytail: payment_requests.status has no 'refunded' value, so the record is the activity log;
+		// a repeated callback logs and alerts again. Add a status via table rebuild if that gets noisy.
+		slog.Warn("payment refunded by the gateway after it was settled", "ref", pr.Ref)
+		msg := fmt.Sprintf("Gateway melaporkan REFUND/chargeback untuk pembayaran yang sudah lunas: tidak dibatalkan otomatis, cek manual\nGateway: %s %s\nRef: %s\nJumlah: %s\nUsername: %s",
+			pr.Gateway, pr.Channel, pr.Ref, money(pr.Amount), pr.Username)
+		if err := s.queries.CreateActivityLog(ctx, db.CreateActivityLogParams{ActorType: "system", Action: "payment_refunded", Description: msg}); err != nil {
+			slog.Error("log refund", "ref", pr.Ref, "err", err)
+		}
+		if s.Billing != nil {
+			if err := s.Billing.Alert(ctx, msg); err != nil {
+				slog.Error("operator alert", "ref", pr.Ref, "err", err)
+			}
+		}
+		return nil
 	case payment.Failed, payment.Expired:
 		_, err := s.queries.ClosePaymentRequest(ctx, db.ClosePaymentRequestParams{Status: string(st), Ref: pr.Ref})
 		return err
