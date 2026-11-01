@@ -146,4 +146,4 @@
 {{end}}
 {{end}}
 
-{{define "statusDot"}}<span class="me-2 inline-flex items-center align-middle"><span class="inline-block size-2.5 rounded-full {{.Dot}}" aria-hidden="true"></span><span class="sr-only">{{if eq . "bad"}}{{T "Problem"}}{{else if eq . "warn"}}{{T "Warning"}}{{else}}{{T "OK"}}{{end}}</span></span>{{end}}
+{{define "statusDot"}}<span class="me-2 inline-flex items-center align-middle"><span class="inline-block size-2.5 rounded-full {{.Dot}}" aria-hidden="true"></span><span class="me-2 text-xs font-normal text-ink-2">{{if eq . "bad"}}{{T "Problem"}}{{else if eq . "warn"}}{{T "Warning"}}{{else}}{{T "OK"}}{{end}}</span></span>{{end}}

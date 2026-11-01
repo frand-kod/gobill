@@ -63,6 +63,26 @@ window.gbSalesTabs = function () {
   };
 };
 
+// Tabs (role=tab inside a tablist): Left and Right move between them (wrapping), Home and End go to the first and last.
+// The tab that gets focus is clicked, so it is selected too (the roving tabindex is set by Alpine).
+document.addEventListener('keydown', function (e) {
+  var tab = e.target.closest ? e.target.closest('[role="tab"]') : null;
+  if (!tab) return;
+  var tabs = Array.prototype.slice.call(tab.parentNode.querySelectorAll('[role="tab"]'));
+  var i = tabs.indexOf(tab), n;
+  if (e.key === 'ArrowRight') n = (i + 1) % tabs.length;
+  else if (e.key === 'ArrowLeft') n = (i - 1 + tabs.length) % tabs.length;
+  else if (e.key === 'Home') n = 0;
+  else if (e.key === 'End') n = tabs.length - 1;
+  else return;
+  e.preventDefault();
+  tabs[n].focus();
+  tabs[n].click();
+});
+
+// Reduced motion: no Chart.js animation (it is the only motion on the dashboard).
+if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) Chart.defaults.animation = false;
+
 // Draws the dashboard bar charts from data-* attributes (see dashboard.html).
 document.querySelectorAll('canvas[data-chart]').forEach(function (el) {
   var css = getComputedStyle(document.documentElement);

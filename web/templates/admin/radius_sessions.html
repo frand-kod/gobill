@@ -3,7 +3,7 @@
 <div id="live" x-data="liveSessions()" data-state="{{.State}}" data-url="/admin/radius/sessions.json" data-idle="{{T "Refreshes every 10 seconds"}}" data-updated="{{T "Updated %s"}}" data-failed="{{T "Connection lost, retrying"}}" data-empty="{{T "No data"}}" data-disconnect="{{T "Disconnect"}}">
 <div class="page-head">
   <h1 class="page-title">{{T "Online Sessions"}}{{template "callout" $.Intro}}</h1>
-  <p class="text-xs text-ink-2" x-text="status">{{T "Refreshes every 10 seconds"}}</p>
+  <p class="text-xs text-ink-2" role="status" :class="failed ? 'font-medium text-warn-fg' : 'text-ink-2'" x-text="status">{{T "Refreshes every 10 seconds"}}</p>
 </div>
 <div class="mb-4 grid grid-cols-2 gap-3">
   <div class="stat">
@@ -55,5 +55,5 @@
   <td data-f="nas">{{.NAS}}</td><td data-f="ip">{{.IP}}</td><td class="text-xs text-ink-2" data-f="mac">{{.MAC}}</td><td data-f="for" title="{{.Start}}">{{.For}}</td><td class="whitespace-nowrap">↓ <span data-f="down">{{.Down}}</span> ↑ <span data-f="up">{{.Up}}</span></td>
   <td><div class="flex items-center gap-2 whitespace-nowrap" role="img" aria-label="{{.Speed}}" data-f="meter"><span class="flex items-end gap-0.5" aria-hidden="true">{{range .Bars}}<i class="h-3 w-1.5 rounded-sm {{.}}"></i>{{end}}</span><span class="text-xs tabular-nums text-ink-2" data-f="speed">{{.Speed}}</span></div></td>
   <td class="text-end"><form method="post" action="/admin/radius/sessions/{{.ID}}/disconnect" data-confirm="{{T "Disconnect"}} {{.User}}?" data-confirm-danger>
-    <button class="btn btn-danger btn-icon tip-end" type="submit" aria-label="{{T "Disconnect"}}" data-tip="{{T "Disconnect"}}">{{icon "unplug"}}</button></form></td>
+    <button class="btn btn-danger btn-icon tip-end" type="submit" aria-label="{{T "Disconnect"}} {{.User}}" data-tip="{{T "Disconnect"}}">{{icon "unplug"}}</button></form></td>
 </tr>{{end}}

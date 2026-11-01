@@ -29,7 +29,7 @@ func (s *Server) testLoginFields(r *http.Request, v, e map[string]string, result
 	pt.Options = []option{{"", "Not sent"}, {"Wireless-802.11", "Wireless-802.11 (hotspot)"}, {"Ethernet", "Ethernet"}, {"Virtual", "Virtual (VPN / tunnel)"}}
 	out := section([]field{
 		text("username", "Username", v, e).req(),
-		text("password", "Password", v, e).as("password").req().hint("Checked against the customer's router password, nothing is written. A voucher-style login (password = username) is refused: it would redeem the voucher."),
+		text("password", "Password", v, e).as("password").req().hint("Checked against the customer's router password. The attempt is logged in the activity log; no session or customer data changes. A voucher-style login (password = username) is refused: it would redeem the voucher."),
 		sel,
 		text("mac", "MAC (Calling-Station-Id)", v, e),
 		pt,

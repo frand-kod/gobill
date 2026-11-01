@@ -2754,5 +2754,9 @@
     "Boost hours": "Jam boost",
     "Same format as Login hours, e.g. * 00:00-06:00 for a night boost. Online customers are switched within a minute.": "Format sama dengan Jam login, misalnya * 00:00-06:00 untuk boost malam. Pelanggan yang online dipindah dalam satu menit.",
     "Invalid schedule: use Mon-Fri 08:00-17:00; Sat 09:00-12:00": "Jadwal tidak valid: pakai Mon-Fri 08:00-17:00; Sat 09:00-12:00",
-    "Set both the boost bandwidth and the boost hours, or neither": "Isi bandwidth boost dan jam boost sekaligus, atau kosongkan keduanya"
+    "Set both the boost bandwidth and the boost hours, or neither": "Isi bandwidth boost dan jam boost sekaligus, atau kosongkan keduanya",
+    "Skip to content": "Lewati ke konten",
+    "Notifications (%d)": "Notifikasi (%d)",
+    "Account menu": "Menu akun",
+    "Checked against the customer's router password. The attempt is logged in the activity log; no session or customer data changes. A voucher-style login (password = username) is refused: it would redeem the voucher.": "Dicocokkan dengan password router pelanggan. Percobaan dicatat di log aktivitas; tidak ada data sesi atau pelanggan yang berubah. Login gaya voucher (password = username) ditolak: itu akan menebus voucher."
 }
