@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -90,10 +91,22 @@ func TestAuditSec7_RegistrationUnthrottled(t *testing.T) {
 	}
 }
 
-// #8: restore replaces the whole database; it should ask for the current password like the key download.
+// #8: restore and import replace the database; their confirm asks for the current password like the key download.
 func TestAuditSec8_RestoreNoStepUp(t *testing.T) {
-	_, h, c := restoreApp(t)
-	if w := do(h, "GET", restorePageURL, nil, c); !strings.Contains(w.Body.String(), `name="current"`) {
-		t.Fatal("restore form has no current-password step-up")
+	s, h, c := restoreApp(t)
+	w := restoreUpload(t, h, c, backupFile(t, s, nil))
+	if !strings.Contains(w.Body.String(), `name="current"`) {
+		t.Fatal("restore confirm has no current-password field")
 	}
+	token := importToken.FindStringSubmatch(w.Body.String())[1]
+	for _, pw := range []string{"", "wrong"} {
+		wantCode(t, do(h, "POST", restorePageURL+"/confirm", url.Values{"token": {token}, "understand": {"1"}, "current": {pw}}, c), 422, "password "+pw)
+	}
+	if _, err := os.Stat(s.DBPath + ".restore"); !os.IsNotExist(err) {
+		t.Fatal("restore staged without the right password")
+	}
+	// import: same step-up
+	tok := preview(t, h, c)
+	wantCode(t, do(h, "POST", importPage+"/confirm", url.Values{"token": {tok}, "understand": {"1"}, "current": {"wrong"}}, c), 422, "import wrong password")
+	wantCode(t, do(h, "POST", importPage+"/confirm", url.Values{"token": {tok}, "understand": {"1"}, "current": {"secret123"}}, c), 303, "import right password")
 }

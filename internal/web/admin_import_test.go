@@ -139,8 +139,8 @@ func TestImportConfirmNeedsCurrentToken(t *testing.T) {
 	stale := preview(t, h, c)
 	current := preview(t, h, c) // the second preview replaces the first token
 
-	wantCode(t, do(h, "POST", importPage+"/confirm", url.Values{"understand": {"1"}}, c), 422, "no token")
-	wantCode(t, do(h, "POST", importPage+"/confirm", url.Values{"token": {stale}, "understand": {"1"}}, c), 422, "stale token")
+	wantCode(t, do(h, "POST", importPage+"/confirm", url.Values{"understand": {"1"}, "current": {"secret123"}}, c), 422, "no token")
+	wantCode(t, do(h, "POST", importPage+"/confirm", url.Values{"token": {stale}, "understand": {"1"}, "current": {"secret123"}}, c), 422, "stale token")
 	wantCode(t, do(h, "POST", importPage+"/confirm", url.Values{"token": {current}}, c), 422, "no confirm box")
 	if n := countRows(t, s, "SELECT count(*) FROM customers"); n != 0 {
 		t.Fatalf("refused confirm still imported: %d customers", n)
@@ -152,7 +152,7 @@ func TestImportConfirmBacksUpReplacesAndEndsSession(t *testing.T) {
 	before := tempImports(t)
 	token := preview(t, h, c)
 
-	w := do(h, "POST", importPage+"/confirm", url.Values{"token": {token}, "understand": {"1"}}, c)
+	w := do(h, "POST", importPage+"/confirm", url.Values{"token": {token}, "understand": {"1"}, "current": {"secret123"}}, c)
 	wantCode(t, w, 303, "confirm")
 	if loc := w.Header().Get("Location"); loc != "/admin/login" {
 		t.Fatalf("redirect to %q", loc)

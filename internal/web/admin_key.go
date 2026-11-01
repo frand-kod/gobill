@@ -61,25 +61,38 @@ func (s *Server) keySaved(w http.ResponseWriter, r *http.Request) {
 	s.done(w, r, keyPage, "Marked as saved", "settings.key.saved", fp)
 }
 
-// keyDownload sends the key as a file after the current password and, with 2FA on, a valid code.
-func (s *Server) keyDownload(w http.ResponseWriter, r *http.Request) {
+// stepUp checks the current password and, with 2FA on, a valid code from the form. It returns a
+// message to show when the check fails (failures count toward the login throttle), or an error
+// when the 2FA secret cannot be opened.
+func (s *Server) stepUp(r *http.Request) (string, error) {
 	a, ip := adminFrom(r), clientIP(r)
 	if s.tooManyFailures(ip) {
-		s.flashTo(w, r, keyPage, "Too many failed attempts. Try again in 15 minutes.")
-		return
+		return "Too many failed attempts. Try again in 15 minutes.", nil
 	}
 	ok := bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte(r.PostFormValue("current"))) == nil
 	if a.TotpEnabled == 1 {
 		k, err := s.totpOpen(a.TotpSecretEnc)
 		if err != nil {
-			s.fail(w, "open totp secret", err)
-			return
+			return "", err
 		}
 		ok = s.totpVerify(a.ID, k, cleanCode(r.PostFormValue("code"))) && ok
 	}
 	if !ok {
 		s.recordFailure(ip)
-		s.flashTo(w, r, keyPage, "Incorrect password or code")
+		return "Incorrect password or code", nil
+	}
+	return "", nil
+}
+
+// keyDownload sends the key as a file after the current password and, with 2FA on, a valid code.
+func (s *Server) keyDownload(w http.ResponseWriter, r *http.Request) {
+	msg, err := s.stepUp(r)
+	if err != nil {
+		s.fail(w, "open totp secret", err)
+		return
+	}
+	if msg != "" {
+		s.flashTo(w, r, keyPage, msg)
 		return
 	}
 	s.logActivity(r, "settings.key.download", keyFingerprint(s.SecretKey))

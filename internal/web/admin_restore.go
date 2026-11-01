@@ -31,6 +31,7 @@ type restoreView struct {
 	Current importCounts
 	Newest  string
 	Done    bool
+	TOTP    bool // the confirm asks for a 2FA code too
 }
 
 // refusal is a file the restore page turns down. Msg is shown translated, Detail as is.
@@ -177,6 +178,7 @@ func inspectBackup(ctx context.Context, path string, key []byte, loc *time.Locat
 }
 
 func (s *Server) renderRestore(w http.ResponseWriter, r *http.Request, status int, v restoreView, msg, detail string) {
+	v.TOTP = adminFrom(r).TotpEnabled == 1
 	p := Page{Title: "Restore database", Data: v, Detail: detail}
 	if msg != "" {
 		p.Error = s.catalog.T(s.language(), msg)
@@ -255,6 +257,14 @@ func (s *Server) restoreConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.PostFormValue("understand") != "1" {
 		s.renderRestore(w, r, http.StatusUnprocessableEntity, restoreView{}, "Tick the box to confirm the overwrite.", "")
+		return
+	}
+	// replacing the whole database is as sensitive as the key download: ask for the password again
+	if msg, err := s.stepUp(r); err != nil {
+		s.fail(w, "open totp secret", err)
+		return
+	} else if msg != "" {
+		s.renderRestore(w, r, http.StatusUnprocessableEntity, restoreView{}, msg, "")
 		return
 	}
 	bak, err := s.importBackup(ctx, "pre-restore")

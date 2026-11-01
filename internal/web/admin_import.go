@@ -51,6 +51,7 @@ type importView struct {
 	Rows    []importRow
 	Current importCounts
 	Filled  bool // gobill has data: confirm asks first
+	TOTP    bool // the confirm asks for a 2FA code too
 }
 
 func countImportRows(ctx context.Context, conn *sql.DB) (importCounts, error) {
@@ -197,6 +198,7 @@ func importRows(rep *importer.Report) []importRow {
 }
 
 func (s *Server) renderImport(w http.ResponseWriter, r *http.Request, status int, v importView, msg, detail string) {
+	v.TOTP = adminFrom(r).TotpEnabled == 1
 	p := Page{Title: "Import PHPNuxBill", Data: v, Detail: detail}
 	if msg != "" {
 		p.Error = s.catalog.T(s.language(), msg)
@@ -268,6 +270,14 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 	if cur.filled() && r.PostFormValue("understand") != "1" {
 		s.renderImport(w, r, http.StatusUnprocessableEntity, importView{}, "Tick the box to confirm the overwrite.", "")
+		return
+	}
+	// the import replaces the admins and settings: ask for the password again, like the key download
+	if msg, err := s.stepUp(r); err != nil {
+		s.fail(w, "open totp secret", err)
+		return
+	} else if msg != "" {
+		s.renderImport(w, r, http.StatusUnprocessableEntity, importView{}, msg, "")
 		return
 	}
 	bak, err := s.importBackup(ctx, "pre-import")
