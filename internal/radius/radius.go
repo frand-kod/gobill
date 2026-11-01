@@ -299,6 +299,7 @@ type AuthRequest struct {
 	FramedIP string
 	MAC      string
 	NAS      string // NAS address, for the voucher-guess limiter
+	PortID   string // NAS-Port-Id as the NAS reports it, "" = not sent
 	PortType string // NAS-Port-Type by name ("Virtual", "Wireless-802.11"...), "" = the NAS did not send one
 	DryRun   bool   // read-only decision (router migration test): no pending start, no session kick
 }
@@ -363,6 +364,8 @@ func rejectReason(msg string) string {
 		return "expired"
 	case strings.HasPrefix(msg, "Port type"):
 		return "port_type"
+	case strings.HasPrefix(msg, "Account locked"):
+		return "binding"
 	case strings.Contains(msg, "limit") || msg == SharedUsersFullMsg:
 		return "limit"
 	}
@@ -404,6 +407,50 @@ func portMismatch(planType, portType string) string {
 		return msgPortHotspot
 	case planType == "PPPoE" && portType == "Wireless-802.11":
 		return msgPortPPPoE
+	}
+	return ""
+}
+
+// Reject messages of the per-customer binding.
+const (
+	msgBindMAC  = "Account locked to another device (MAC address does not match)"
+	msgBindPort = "Account locked to another port (NAS-Port-Id does not match)"
+)
+
+// NormMAC reads a MAC address in any usual notation (AA:BB:.., AA-BB-.., aabb.ccdd.eeff) and returns
+// AA:BB:CC:DD:EE:FF, or "" when it is not a MAC.
+func NormMAC(s string) string {
+	var h []byte
+	for _, c := range []byte(strings.ToUpper(s)) {
+		switch {
+		case c >= '0' && c <= '9', c >= 'A' && c <= 'F':
+			h = append(h, c)
+		case c == ':' || c == '-' || c == '.':
+		default:
+			return ""
+		}
+	}
+	if len(h) != 12 {
+		return ""
+	}
+	var b strings.Builder
+	for i := 0; i < 12; i += 2 {
+		if i > 0 {
+			b.WriteByte(':')
+		}
+		b.Write(h[i : i+2])
+	}
+	return b.String()
+}
+
+// bindingMismatch checks the customer's lock to a MAC and/or NAS-Port-Id. A locked value the NAS did
+// not send counts as a mismatch: the lock cannot be verified, so it fails closed.
+func bindingMismatch(mac, port string, rq AuthRequest) string {
+	if mac != "" && NormMAC(rq.MAC) != NormMAC(mac) || mac != "" && NormMAC(rq.MAC) == "" {
+		return msgBindMAC
+	}
+	if port != "" && !strings.EqualFold(strings.TrimSpace(rq.PortID), port) {
+		return msgBindPort
 	}
 	return ""
 }
@@ -515,7 +562,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 		c, pl = lr.Customer, db.GetRadiusPlanRow{StartedAt: lr.StartedAt, QuotaCarryBytes: lr.QuotaCarryBytes, QuotaCarrySeconds: lr.QuotaCarrySeconds, ExpiresAt: lr.ExpiresAt, PendingStart: lr.PendingStart,
 			PlanID: lr.PlanID, PlanName: lr.PlanName, PlanType: lr.PlanType, Limited: lr.Limited, LimitType: lr.LimitType,
 			TimeLimit: lr.TimeLimit, TimeUnit: lr.TimeUnit, DataLimit: lr.DataLimit, DataUnit: lr.DataUnit, SharedUsers: lr.SharedUsers, IdleTimeout: lr.IdleTimeout,
-			RateDown: lr.RateDown, RateDownUnit: lr.RateDownUnit, RateUp: lr.RateUp, RateUpUnit: lr.RateUpUnit, Burst: lr.Burst, PoolName: lr.PoolName,
+			RateDown: lr.RateDown, RateDownUnit: lr.RateDownUnit, RateUp: lr.RateUp, RateUpUnit: lr.RateUpUnit, Burst: lr.Burst, PoolName: lr.PoolName, BindMac: lr.BindMac, BindPortID: lr.BindPortID,
 			FupRateDown: lr.FupRateDown, FupRateDownUnit: lr.FupRateDownUnit, FupRateUp: lr.FupRateUp, FupRateUpUnit: lr.FupRateUpUnit, FupBurst: lr.FupBurst}
 	} else {
 		c, err = s.Q.GetCustomerForRadius(ctx, user)
@@ -563,6 +610,9 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 	}
 	if msg := portMismatch(pl.PlanType, rq.PortType); msg != "" {
 		return Decision{Reject: msg} // before Start: a refused login must not start a pending subscription
+	}
+	if msg := bindingMismatch(pl.BindMac, pl.BindPortID, rq); msg != "" {
+		return Decision{Reject: msg}
 	}
 	if pl.PendingStart == 1 && rq.DryRun {
 		pl.ExpiresAt = math.MaxInt32 // not started, not touched: the provisional expiry says nothing
@@ -803,6 +853,7 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 	if ip := rfc2865.FramedIPAddress_Get(r.Packet); ip != nil {
 		rq.FramedIP = ip.String()
 	}
+	rq.PortID = rfc2869.NASPortID_GetString(r.Packet)
 	if pt, err := rfc2865.NASPortType_Lookup(r.Packet); err == nil {
 		rq.PortType = pt.String()
 	}
@@ -913,6 +964,7 @@ type AcctRequest struct {
 	NASIPAttr, NASID     string // NAS-IP-Address / NAS-Identifier as the NAS reports them
 	MAC, FramedIP        string
 	SessionTime          int64
+	NASPortID            string // NAS-Port-Id as the NAS reports it
 	TerminateCause       string // Acct-Terminate-Cause by name, Stop only
 	InOctets, OutOctets  int64  // gigawords already folded in
 }
@@ -946,7 +998,7 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 			a.InOctets, a.OutOctets = max(a.InOctets, 0), max(a.OutOctets, 0)
 		}
 		arg := db.UpsertRadiusSessionParams{SessionID: a.SessionID, Username: a.User, NasIp: a.NAS, NasIpAttr: a.NASIPAttr, NasIdentifier: a.NASID, FramedIp: a.FramedIP,
-			Mac: a.MAC, StartedAt: now - a.SessionTime, UpdatedAt: now, InputOctets: a.InOctets, OutputOctets: a.OutOctets, TerminateCause: a.TerminateCause}
+			Mac: a.MAC, StartedAt: now - a.SessionTime, UpdatedAt: now, InputOctets: a.InOctets, OutputOctets: a.OutOctets, TerminateCause: a.TerminateCause, NasPortID: a.NASPortID}
 		noteInterim(a.NAS, a.SessionID, a.Type, now)
 		if a.Type == rfc2866.AcctStatusType_Value_Stop {
 			arg.StoppedAt = sql.NullInt64{Int64: now, Valid: true}
@@ -995,6 +1047,7 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 		a.NASIPAttr = ip.String()
 	}
 	a.NASID = rfc2865.NASIdentifier_GetString(p)
+	a.NASPortID = rfc2869.NASPortID_GetString(p)
 	if c, err := rfc2866.AcctTerminateCause_Lookup(p); err == nil {
 		a.TerminateCause = c.String()
 	}

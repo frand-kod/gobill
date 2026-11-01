@@ -26,9 +26,10 @@ SELECT s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users, p.idle_timeout,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        fb.rate_down AS fup_rate_down, fb.rate_down_unit AS fup_rate_down_unit, fb.rate_up AS fup_rate_up, fb.rate_up_unit AS fup_rate_up_unit, fb.burst AS fup_burst,
-       pl.name AS pool_name
+       pl.name AS pool_name, COALESCE(cb.mac, '') AS bind_mac, COALESCE(cb.port_id, '') AS bind_port_id
 FROM subscriptions s
 JOIN plans p ON p.id = s.plan_id
+LEFT JOIN customer_bindings cb ON cb.customer_id = s.customer_id
 LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
 LEFT JOIN bandwidths fb ON fb.id = p.fup_bandwidth_id AND p.device = 'Radius'
 LEFT JOIN pools pl ON pl.id = p.pool_id
@@ -42,8 +43,9 @@ SELECT sqlc.embed(c), s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, 
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users, p.idle_timeout,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        fb.rate_down AS fup_rate_down, fb.rate_down_unit AS fup_rate_down_unit, fb.rate_up AS fup_rate_up, fb.rate_up_unit AS fup_rate_up_unit, fb.burst AS fup_burst,
-       pl.name AS pool_name
+       pl.name AS pool_name, COALESCE(cb.mac, '') AS bind_mac, COALESCE(cb.port_id, '') AS bind_port_id
 FROM customers c
+LEFT JOIN customer_bindings cb ON cb.customer_id = c.id
 JOIN subscriptions s ON s.id = (SELECT id FROM subscriptions WHERE customer_id = c.id AND status = 'active' ORDER BY expires_at DESC LIMIT 1)
 JOIN plans p ON p.id = s.plan_id
 LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
@@ -68,11 +70,12 @@ ORDER BY started_at ASC, id ASC;
 UPDATE radius_sessions SET stopped_at = ? WHERE id = ? AND stopped_at IS NULL;
 
 -- name: UpsertRadiusSession :exec
-INSERT INTO radius_sessions (session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets, terminate_cause)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO radius_sessions (session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets, terminate_cause, nas_port_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (nas_ip, session_id) DO UPDATE SET
     nas_ip_attr = COALESCE(NULLIF(excluded.nas_ip_attr, ''), radius_sessions.nas_ip_attr),
     nas_identifier = COALESCE(NULLIF(excluded.nas_identifier, ''), radius_sessions.nas_identifier),
+    nas_port_id = COALESCE(NULLIF(excluded.nas_port_id, ''), radius_sessions.nas_port_id),
     framed_ip = excluded.framed_ip, updated_at = excluded.updated_at,
     stopped_at = COALESCE(radius_sessions.stopped_at, excluded.stopped_at),
     terminate_cause = COALESCE(NULLIF(excluded.terminate_cause, ''), radius_sessions.terminate_cause),

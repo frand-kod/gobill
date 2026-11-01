@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/radius"
 	"github.com/frand-kod/gobill/internal/secret"
 	"golang.org/x/crypto/bcrypt"
 	"strconv"
@@ -25,7 +26,7 @@ import (
 var (
 	custStatuses = []string{"Active", "Banned", "Disabled", "Inactive", "Limited", "Suspended"}
 	custNames    = []string{"username", "fullname", "address", "phone", "email", "service_type", "pppoe_username",
-		"pppoe_ip", "billing_day", "auto_renewal", "status", "coordinates", "send_welcome_message", "notify_sms", "notify_wa", "notify_email", "plan"}
+		"pppoe_ip", "billing_day", "auto_renewal", "status", "coordinates", "bind_mac", "bind_port_id", "send_welcome_message", "notify_sms", "notify_wa", "notify_email", "plan"}
 )
 
 func custFields(v, e map[string]string, editing bool) []field {
@@ -51,6 +52,8 @@ func custFields(v, e map[string]string, editing bool) []field {
 		text("pppoe_username", "PPPoE Username", v, e),
 		text("pppoe_ip", "PPPoE IP", v, e),
 		sec,
+		text("bind_mac", "Lock to MAC address", v, e).hint("RADIUS only. Optional: the customer can log in only from this device (Calling-Station-Id). Empty = any device."),
+		text("bind_port_id", "Lock to port (NAS-Port-Id)", v, e).hint("RADIUS only. Optional: the customer can log in only on this NAS port, e.g. ether3 or the PPPoE interface. Empty = any port."),
 		text("billing_day", "Billing Day", v, e).as("number").hint("Day of month, 1-31. Optional; overrides the plan."),
 		ar,
 	}, "Service & billing", "")
@@ -298,6 +301,9 @@ func (s *Server) custEdit(w http.ResponseWriter, r *http.Request) {
 	if c.BillingDay.Valid {
 		v["billing_day"] = fmt.Sprint(c.BillingDay.Int64)
 	}
+	if b, err := s.queries.GetCustomerBinding(r.Context(), c.ID); err == nil {
+		v["bind_mac"], v["bind_port_id"] = b.Mac, b.PortID
+	}
 	fs, err := s.customerForm(r.Context(), c.ID, v, nil, true)
 	if err != nil {
 		s.fail(w, "custom fields", err)
@@ -464,6 +470,14 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if v["bind_mac"] != "" {
+		if m := radius.NormMAC(v["bind_mac"]); m != "" {
+			v["bind_mac"] = m
+		} else {
+			e["bind_mac"] = "Enter a MAC address like AA:BB:CC:DD:EE:FF"
+		}
+	}
+	v["bind_port_id"] = strings.TrimSpace(v["bind_port_id"])
 	if v["phone"] != "" { // several accounts may share a number unless wa_unique_per_account is yes
 		if taken, err := s.phoneTaken(r.Context(), v["phone"], id); err != nil {
 			s.fail(w, "check phone", err)
@@ -568,6 +582,13 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 		}
 		if err == nil {
 			err = s.cfStore(ctx, q, cid, cfv)
+		}
+		if err == nil {
+			if v["bind_mac"] == "" && v["bind_port_id"] == "" {
+				err = q.DeleteCustomerBinding(ctx, cid)
+			} else {
+				err = q.SetCustomerBinding(ctx, db.SetCustomerBindingParams{CustomerID: cid, Mac: v["bind_mac"], PortID: v["bind_port_id"]})
+			}
 		}
 		if err == nil {
 			err = tx.Commit()

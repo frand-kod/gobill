@@ -2714,5 +2714,11 @@
     "NAS-Port-Type": "NAS-Port-Type",
     "Not sent": "Tidak dikirim",
     "Wireless-802.11 (hotspot)": "Wireless-802.11 (hotspot)",
-    "Virtual (VPN / tunnel)": "Virtual (VPN / terowongan)"
+    "Virtual (VPN / tunnel)": "Virtual (VPN / terowongan)",
+    "Lock to MAC address": "Kunci ke alamat MAC",
+    "RADIUS only. Optional: the customer can log in only from this device (Calling-Station-Id). Empty = any device.": "Hanya RADIUS. Opsional: pelanggan hanya bisa login dari perangkat ini (Calling-Station-Id). Kosong = perangkat apa saja.",
+    "Lock to port (NAS-Port-Id)": "Kunci ke port (NAS-Port-Id)",
+    "RADIUS only. Optional: the customer can log in only on this NAS port, e.g. ether3 or the PPPoE interface. Empty = any port.": "Hanya RADIUS. Opsional: pelanggan hanya bisa login di port NAS ini, misalnya ether3 atau antarmuka PPPoE. Kosong = port apa saja.",
+    "Enter a MAC address like AA:BB:CC:DD:EE:FF": "Isi alamat MAC seperti AA:BB:CC:DD:EE:FF",
+    "NAS-Port-Id": "NAS-Port-Id"
 }

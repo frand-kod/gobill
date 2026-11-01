@@ -130,6 +130,12 @@ type Customer struct {
 	Coordinates    string
 }
 
+type CustomerBinding struct {
+	CustomerID int64
+	Mac        string
+	PortID     string
+}
+
 type CustomerFieldValue struct {
 	CustomerID int64
 	FieldID    int64
@@ -297,6 +303,7 @@ type RadiusSession struct {
 	InputOctets    int64
 	OutputOctets   int64
 	TerminateCause string
+	NasPortID      string
 }
 
 type RadiusUsageDaily struct {

@@ -33,6 +33,7 @@ func (s *Server) testLoginFields(r *http.Request, v, e map[string]string, result
 		sel,
 		text("mac", "MAC (Calling-Station-Id)", v, e),
 		pt,
+		text("port_id", "NAS-Port-Id", v, e),
 	}, "Test login", "")
 	if result != "" {
 		out = append(section([]field{{Name: "result", Label: "Result", Type: "pre", Value: result}}, "Result", ""), out...)
@@ -50,14 +51,14 @@ func (s *Server) testLoginForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) testLoginRun(w http.ResponseWriter, r *http.Request) {
-	v := formVals(r, "username", "password", "nas", "mac", "port_type")
+	v := formVals(r, "username", "password", "nas", "mac", "port_type", "port_id")
 	t := func(k string) string { return s.catalog.T(s.language(), k) }
 	user, pw := strings.TrimSpace(v["username"]), v["password"]
 	var result string
 	if user == "" || pw == "" || pw == user {
 		result = t("Enter a username and a password that differs from it")
 	} else {
-		d := s.radiusServer().Authorize(r.Context(), radius.AuthRequest{User: user, DryRun: true, NAS: v["nas"], MAC: strings.TrimSpace(v["mac"]), PortType: v["port_type"],
+		d := s.radiusServer().Authorize(r.Context(), radius.AuthRequest{User: user, DryRun: true, NAS: v["nas"], MAC: strings.TrimSpace(v["mac"]), PortType: v["port_type"], PortID: strings.TrimSpace(v["port_id"]),
 			Check: func(stored []byte) (bool, string) { return subtle.ConstantTimeCompare([]byte(pw), stored) == 1, "" }})
 		if d.Reject != "" {
 			result = t("Access-Reject") + ": " + d.Reject

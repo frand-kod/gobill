@@ -127,3 +127,54 @@ func TestPortTypeMismatchRejected(t *testing.T) {
 		t.Fatalf("pppoe on virtual: %v", r.Code)
 	}
 }
+
+func TestBindingRejectsMismatch(t *testing.T) {
+	e := setup(t)
+	if _, err := e.conn.Exec("INSERT INTO customer_bindings (customer_id, mac, port_id) SELECT id, 'AA:BB:CC:DD:EE:FF', 'ether3' FROM customers"); err != nil {
+		t.Fatal(err)
+	}
+	try := func(id byte, mac, port string) *radius.Packet {
+		p := pap("alice", "pw")
+		p.Identifier = id
+		if mac != "" {
+			rfc2865.CallingStationID_SetString(p, mac)
+		}
+		if port != "" {
+			rfc2869.NASPortID_SetString(p, port)
+		}
+		return e.auth(t, p)
+	}
+	for i, c := range []struct{ mac, port, want string }{
+		{"AA:BB:CC:DD:EE:FF", "ether3", ""},
+		{"aa-bb-cc-dd-ee-ff", "ETHER3", ""},
+		{"AA:BB:CC:DD:EE:00", "ether3", "MAC"},
+		{"", "ether3", "MAC"},
+		{"AA:BB:CC:DD:EE:FF", "ether4", "NAS-Port-Id"},
+		{"AA:BB:CC:DD:EE:FF", "", "NAS-Port-Id"},
+	} {
+		r := try(byte(i+1), c.mac, c.port)
+		msg := rfc2865.ReplyMessage_GetString(r)
+		if c.want == "" && r.Code != radius.CodeAccessAccept || c.want != "" && (r.Code != radius.CodeAccessReject || !strings.Contains(msg, "Account locked") || !strings.Contains(msg, c.want)) {
+			t.Errorf("%+v: %v %q", c, r.Code, msg)
+		}
+	}
+	// MAC only: the port is free
+	if _, err := e.conn.Exec("UPDATE customer_bindings SET port_id = ''"); err != nil {
+		t.Fatal(err)
+	}
+	e.s.forgetNAS()
+	if r := try(20, "AA:BB:CC:DD:EE:FF", "whatever"); r.Code != radius.CodeAccessAccept {
+		t.Fatalf("mac-only binding: %v", r.Code)
+	}
+}
+
+func TestNASPortIDStoredOnSession(t *testing.T) {
+	e := setup(t)
+	if err := e.s.Account(context.Background(), AcctRequest{Type: rfc2866.AcctStatusType_Value_Start, NAS: "10.0.0.1", SessionID: "s1", User: "alice", NASPortID: "ether3"}); err != nil {
+		t.Fatal(err)
+	}
+	var got string
+	if err := e.conn.QueryRow("SELECT nas_port_id FROM radius_sessions WHERE session_id = 's1'").Scan(&got); err != nil || got != "ether3" {
+		t.Fatalf("port %q err %v", got, err)
+	}
+}
