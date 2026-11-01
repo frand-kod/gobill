@@ -13,12 +13,17 @@ import (
 	"time"
 )
 
-func (s *Service) removeFromDevice(ctx context.Context, c db.Customer, p db.Plan) {
+// removeOrQueue removes the customer from the plan's device. Item 6 turns a failure into a retry entry.
+func (s *Service) removeOrQueue(ctx context.Context, c db.Customer, p db.Plan, kind string) error {
 	dev, dc, dp, _, err := s.prepare(ctx, c, p)
 	if err == nil {
 		err = dev.RemoveCustomer(ctx, dc, dp)
 	}
-	if err != nil {
+	return err
+}
+
+func (s *Service) removeFromDevice(ctx context.Context, c db.Customer, p db.Plan) {
+	if err := s.removeOrQueue(ctx, c, p, "remove"); err != nil {
 		slog.Error("device: remove failed, sync manually", "customer", c.Username, "plan", p.Name, "err", err)
 	}
 }

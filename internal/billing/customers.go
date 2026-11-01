@@ -37,6 +37,30 @@ func (s *Service) DeactivateCustomer(ctx context.Context, customerID, adminID in
 	return n, err
 }
 
+// SuspendCustomer takes every active subscription of the customer off its device while the DB rows
+// stay active (status Banned/Disabled/Suspended); SyncCustomer puts them back. A RADIUS device also
+// drops the open sessions. It keeps going after a failure and returns the joined errors.
+func (s *Service) SuspendCustomer(ctx context.Context, customerID int64) (int, error) {
+	c, err := s.Q.GetCustomer(ctx, customerID)
+	if err != nil {
+		return 0, err
+	}
+	subs, err := s.activeSubs(ctx, customerID)
+	n := 0
+	for _, x := range subs {
+		p, e := s.Q.GetPlan(ctx, x.PlanID)
+		if e == nil {
+			e = s.removeOrQueue(ctx, c, p, "suspend")
+		}
+		if e != nil {
+			err = errors.Join(err, e)
+		} else {
+			n++
+		}
+	}
+	return n, err
+}
+
 // DeleteCustomer removes the customer from its router(s) first and deletes the DB row (and its
 // recharges; transactions and payment requests are kept with customer_id NULL, like the old
 // customers/delete) only when that worked. A device failure refuses the delete and keeps the row.

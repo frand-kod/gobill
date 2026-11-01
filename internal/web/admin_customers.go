@@ -607,7 +607,20 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 			if id != 0 {
 				act, msg = "customer.update", "Data Updated Successfully"
 				// A new password, username, pppoe username/ip goes to the router, as the old app did.
-				if (pass != "" || sec != "" || v["username"] != cur.Username || v["pppoe_username"] != cur.PppoeUsername || v["pppoe_ip"] != cur.PppoeIp) && s.Billing != nil {
+				if v["status"] != cur.Status && s.Billing != nil { // leaving Active cuts the router; coming back re-syncs
+					var serr error
+					if cur.Status == "Active" {
+						_, serr = s.Billing.SuspendCustomer(r.Context(), id)
+					} else if v["status"] == "Active" {
+						_, serr = s.Billing.SyncCustomer(r.Context(), id, adminFrom(r).ID)
+					}
+					if serr != nil {
+						slog.Error("customer status router update", "customer", v["username"], "err", serr)
+						s.logActivity(r, "customer.sync_failed", fmt.Sprintf("%s: %v", v["username"], serr))
+						s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Saved, but the router could not be updated")+": "+serr.Error())
+					}
+				}
+				if v["status"] == "Active" && cur.Status == "Active" && (pass != "" || sec != "" || v["username"] != cur.Username || v["pppoe_username"] != cur.PppoeUsername || v["pppoe_ip"] != cur.PppoeIp) && s.Billing != nil {
 					if _, serr := s.Billing.SyncAfterEdit(r.Context(), cur, adminFrom(r).ID); serr != nil {
 						slog.Error("sync customer", "customer", v["username"], "err", serr)
 						s.logActivity(r, "customer.sync_failed", fmt.Sprintf("%s: %v", v["username"], serr))
