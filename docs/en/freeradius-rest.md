@@ -30,12 +30,14 @@ Voucher login is also supported on this endpoint. The voucher code is used as th
 
 ## Allow-list
 
-The old `radius.php` had no authentication. In gobill, the protection is the setting `radius_rest_allow`:
+The old `radius.php` had no authentication. gobill keeps the endpoint closed until you open it. A request is accepted only if one of these holds:
 
-- Fill it with the FreeRADIUS IP. CIDR is allowed, and entries are separated by commas.
-- If it is empty, only loopback is allowed: `127.0.0.0/8` and `::1`. gobill writes a warning at startup.
-- If it is empty, a request that carries a proxy header (`X-Forwarded-For`, `X-Real-IP`, `Forwarded`, `CF-Connecting-IP`) is refused. Behind Nginx or cloudflared on the same host, every internet client arrives from loopback.
-- If FreeRADIUS runs on another host, fill in its IP.
+- Its connection address is in the setting `radius_rest_allow` (IPs or CIDRs separated by commas). For FreeRADIUS on the same host, set it to `127.0.0.1, ::1`.
+- It carries the header `X-Gobill-Secret` with the value of the setting `radius_rest_secret`. The compare is constant-time. A request with the right secret is accepted from any address.
+
+If neither setting is set, every request is refused with 403, and gobill writes a warning at startup. This changed: before, an empty `radius_rest_allow` meant loopback only. After upgrading, set one of the two settings in **Settings > System & Security > FreeRADIUS**, or FreeRADIUS logins stop working.
+
+To send the secret from FreeRADIUS 3, add the header in the `rest` call, for example in `sites-enabled/default`: `update control { REST-HTTP-Header += "X-Gobill-Secret: <the secret>" }` before `rest` in `authorize`, `post-auth` and `accounting`. Check the syntax against your FreeRADIUS version's `rlm_rest` documentation. If you cannot set a header, use `radius_rest_allow` instead.
 
 `X-Forwarded-For` is trusted only if `trust_proxy` = `yes` and the direct connection comes from loopback or from `trusted_proxies`. The allow-list always uses the real connection address.
 

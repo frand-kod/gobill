@@ -80,7 +80,9 @@ Admin roles and 2FA are set per account in **Admin Users** and on the `/admin/2f
 
 | Setting | Purpose |
 |---|---|
-| `radius_rest_allow` | Comma-separated list of IPs or CIDRs that may call `/radius.php`. Empty means loopback only: `127.0.0.0/8` and `::1`. Fill it with the FreeRADIUS IP if FreeRADIUS runs on another host. At startup, gobill logs a warning if it is empty. |
+| `radius_rest_allow` | Comma-separated list of IPs or CIDRs that may call `/radius.php`. Empty means nobody, unless `radius_rest_secret` is set. For FreeRADIUS on the same host use `127.0.0.1, ::1`. |
+| `radius_rest_secret` | Shared secret. A request with this value in the `X-Gobill-Secret` header may call `/radius.php` from any address. Stored encrypted. With both settings empty, gobill refuses every request and logs a warning at startup. |
+| `shared_users_pppoe` | `yes` applies the plan's `shared_users` limit to PPPoE logins too. Default `no`: the limit is for Hotspot only. |
 | `trust_proxy` | `yes` trusts `X-Forwarded-For`. The header is trusted only if the direct connection comes from loopback or from an IP or CIDR in `trusted_proxies`. Default `no`. gobill uses the rightmost entry as the client IP, so the proxy must write the real IP there. |
 | `trusted_proxies` | Comma-separated IPs or CIDRs of reverse proxies, for example `172.16.0.0/16, 10.0.0.2`. Loopback is always trusted. The `/radius.php` allow-list still uses the real connection address, not the `X-Forwarded-For` value. |
 | `router_check` | `no` turns off the router check. It is on by default. A down router triggers an alert. See [monitoring](monitoring.md). |

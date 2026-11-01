@@ -101,18 +101,18 @@ func (t *tunnel) up(m *Manager, cfg Config) error {
 		}
 	}
 	// Hooks are set last; they only answer for addresses inside the tunnel and dial the rest as usual.
-	devpkg.DialTCP = func(ctx context.Context, addr string) (net.Conn, error) {
+	devpkg.SetDialTCP(func(ctx context.Context, addr string) (net.Conn, error) {
 		if ap, ok := inside(sub, addr); ok {
 			return tnet.DialContextTCPAddrPort(ctx, ap)
 		}
 		return (&net.Dialer{}).DialContext(ctx, "tcp", addr)
-	}
-	radius.DialUDP = func(ctx context.Context, addr string) (net.Conn, error) {
+	})
+	radius.SetDialUDP(func(ctx context.Context, addr string) (net.Conn, error) {
 		if ap, ok := inside(sub, addr); ok {
 			return tnet.DialUDPAddrPort(netip.AddrPortFrom(self, 0), ap)
 		}
 		return (&net.Dialer{}).DialContext(ctx, "udp", addr)
-	}
+	})
 	return nil
 }
 
@@ -126,7 +126,8 @@ func (t *tunnel) down() {
 	if t.dev == nil {
 		return
 	}
-	devpkg.DialTCP, radius.DialUDP = nil, nil
+	devpkg.SetDialTCP(nil)
+	radius.SetDialUDP(nil)
 	t.stop()
 	t.wg.Wait()
 	t.dev.Close()

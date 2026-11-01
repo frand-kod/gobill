@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"layeh.com/radius"
@@ -180,19 +181,30 @@ func ProbeCoA(ctx context.Context, q *db.Queries, key []byte, ip string) error {
 	return fmt.Errorf("no NAS configured for %s", ip)
 }
 
-// DialUDP, when set, carries CoA and Disconnect requests (internal/wg dials routers inside the tunnel through it).
-var DialUDP func(ctx context.Context, addr string) (net.Conn, error)
+// dialUDP, when set, carries CoA and Disconnect requests (internal/wg dials routers inside the tunnel
+// through it). It is atomic: the tunnel sets and clears it while requests are in flight.
+var dialUDP atomic.Pointer[func(ctx context.Context, addr string) (net.Conn, error)]
 
-// exchange is radius.Exchange, over DialUDP when a tunnel is set.
+// SetDialUDP installs the tunnel dialer; nil removes it.
+func SetDialUDP(f func(ctx context.Context, addr string) (net.Conn, error)) {
+	if f == nil {
+		dialUDP.Store(nil)
+		return
+	}
+	dialUDP.Store(&f)
+}
+
+// exchange is radius.Exchange, over the tunnel dialer when one is set.
 func exchange(ctx context.Context, p *radius.Packet, addr string) (*radius.Packet, error) {
-	if DialUDP == nil {
+	dial := dialUDP.Load()
+	if dial == nil {
 		return radius.Exchange(ctx, p, addr)
 	}
 	wire, err := p.Encode()
 	if err != nil {
 		return nil, err
 	}
-	c, err := DialUDP(ctx, addr)
+	c, err := (*dial)(ctx, addr)
 	if err != nil {
 		return nil, err
 	}

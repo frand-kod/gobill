@@ -237,7 +237,7 @@ func TestSettingsSecretsMarkedSavedNotEchoed(t *testing.T) {
 	s, h, _ := settingsSetup(t)
 	c := login(t, h, "alice")
 	const saved = "Saved. Leave empty to keep the current secret"
-	errField := map[string][2]string{"integrations": {"smtp_port", "70000"}, "payment": {"tripay_mode", "bogus"}}
+	errField := map[string][2]string{"integrations": {"smtp_port", "70000"}, "payment": {"tripay_mode", "bogus"}, "system": {"radius_rest_allow", "not an ip"}}
 	for _, tab := range settingsTabs {
 		for _, f := range s.settingsFields(tab.Slug, nil, nil, nil) {
 			if f.Type != "password" {

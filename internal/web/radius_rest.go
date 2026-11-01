@@ -3,6 +3,7 @@ package web
 // RADIUS REST API used by the FreeRADIUS server.
 
 import (
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
@@ -21,18 +22,21 @@ import (
 
 func isRadiusRest(path string) bool { return path == "/radius.php" || path == "/radius/rest" }
 
-// radiusRestAllowed: empty allow-list = loopback only. It checks the TCP peer, never X-Forwarded-For.
-// With the default list, a request carrying a proxy header is refused: behind Nginx or cloudflared on
-// the same host every internet client arrives from loopback, and FreeRADIUS never sets these headers.
+// radiusRestAllowed: the endpoint is closed until the operator opens it. A request passes when it
+// carries the shared secret (setting radius_rest_secret, header X-Gobill-Secret) or comes from an
+// address in radius_rest_allow. With neither setting, everything is refused. The allow-list checks
+// the TCP peer, never X-Forwarded-For.
 func radiusRestAllowed(r *http.Request, m map[string]string) bool {
+	if want := m["radius_rest_secret"]; want != "" {
+		// hash first so the compare takes the same time whatever the lengths
+		a, b := sha256.Sum256([]byte(want)), sha256.Sum256([]byte(r.Header.Get("X-Gobill-Secret")))
+		if subtle.ConstantTimeCompare(a[:], b[:]) == 1 {
+			return true
+		}
+	}
 	allow := strings.TrimSpace(m["radius_rest_allow"])
 	if allow == "" {
-		for _, h := range []string{"X-Forwarded-For", "X-Real-Ip", "Forwarded", "Cf-Connecting-Ip"} {
-			if r.Header.Get(h) != "" {
-				return false
-			}
-		}
-		allow = "127.0.0.0/8,::1"
+		return false
 	}
 	a, ok := peerAddr(originalPeer(r))
 	if !ok {

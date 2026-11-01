@@ -28,14 +28,17 @@ func routerFields(v, e map[string]string, editing bool) []field {
 	pw.Value = "" // never rendered back
 	en := text("enabled", "Enabled", v, e).as("checkbox")
 	en.Checked = v["enabled"] == "1"
+	tlsField := text("tls", "API connection", v, e).as("select")
+	tlsField.Options = []option{{"0", "Plain API (usually port 8728)"}, {"1", "API-SSL, TLS (usually port 8729)"}}
 	out := section([]field{
 		text("name", "Router Name", v, e).req(),
 		text("host", "Host", v, e).req(),
 		text("port", "Port", v, e).as("number").req(),
+		tlsField,
 	}, "Connection", "")
 	out = append(out, section([]field{text("username", "Username", v, e).req(), pw}, "Login", "")...)
 	if editing {
-		rp := text("reset_pin", "Reset certificate pin", v, e).as("checkbox").hint("Not pinned yet. The certificate is pinned on the first TLS connection (port 8729). Tick to forget the pin after the router certificate was changed.")
+		rp := text("reset_pin", "Reset certificate pin", v, e).as("checkbox").hint("Not pinned yet. The certificate is pinned on the first TLS connection (API-SSL). Tick to forget the pin after the router certificate was changed.")
 		if v["cert_pin"] != "" {
 			rp.Hint = v["cert_pin"] // SHA-256 hex, needs no translation
 		}
@@ -97,7 +100,7 @@ func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) routerNew(w http.ResponseWriter, r *http.Request) {
-	v := map[string]string{"port": "8728", "enabled": "1"}
+	v := map[string]string{"port": "8728", "tls": "0", "enabled": "1"}
 	s.renderForm(w, r, 200, formPage{"Add Router", "/admin/routers", "/admin/routers", routerFields(v, nil, false)})
 }
 
@@ -111,7 +114,7 @@ func (s *Server) routerEdit(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "get router", err)
 		return
 	}
-	v := map[string]string{"name": x.Name, "host": x.Host, "port": fmt.Sprint(x.Port), "username": x.Username,
+	v := map[string]string{"name": x.Name, "host": x.Host, "port": fmt.Sprint(x.Port), "tls": fmt.Sprint(x.Tls), "username": x.Username,
 		"id": fmt.Sprint(x.ID), "description": x.Description, "enabled": fmt.Sprint(x.Enabled), "coordinates": x.Coordinates, "coverage": fmt.Sprint(x.Coverage), "cert_pin": x.CertPin}
 	fields := routerFields(v, nil, true)
 	if adminFrom(r).Role == "SuperAdmin" {
@@ -130,7 +133,7 @@ func (s *Server) routerEdit(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
-	v := formVals(r, "name", "host", "port", "username", "description", "enabled", "coordinates", "coverage", "reset_pin")
+	v := formVals(r, "name", "host", "port", "tls", "username", "description", "enabled", "coordinates", "coverage", "reset_pin")
 	pass := r.PostFormValue("password")
 	e := map[string]string{}
 	for _, k := range []string{"name", "host", "username"} {
@@ -186,13 +189,22 @@ func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 		if v["enabled"] == "1" {
 			enabled = 1
 		}
+		tlsMode := int64(0)
+		if v["tls"] == "1" {
+			tlsMode = 1
+		}
 		var err error
 		if id == 0 {
-			_, err = s.queries.CreateRouter(r.Context(), db.CreateRouterParams{Name: v["name"], Host: v["host"], Port: port,
-				Username: v["username"], PasswordEnc: enc, Description: v["description"], Enabled: enabled, Coordinates: coords, Coverage: coverage})
+			var rt db.Router
+			if rt, err = s.queries.CreateRouter(r.Context(), db.CreateRouterParams{Name: v["name"], Host: v["host"], Port: port,
+				Username: v["username"], PasswordEnc: enc, Description: v["description"], Enabled: enabled, Coordinates: coords, Coverage: coverage}); err == nil {
+				err = s.queries.SetRouterTLS(r.Context(), db.SetRouterTLSParams{Tls: tlsMode, ID: rt.ID})
+			}
 		} else {
-			err = s.queries.UpdateRouter(r.Context(), db.UpdateRouterParams{Name: v["name"], Host: v["host"], Port: port,
-				Username: v["username"], PasswordEnc: enc, Description: v["description"], Enabled: enabled, Coordinates: coords, Coverage: coverage, CertPin: pin, ID: id})
+			if err = s.queries.UpdateRouter(r.Context(), db.UpdateRouterParams{Name: v["name"], Host: v["host"], Port: port,
+				Username: v["username"], PasswordEnc: enc, Description: v["description"], Enabled: enabled, Coordinates: coords, Coverage: coverage, CertPin: pin, ID: id}); err == nil {
+				err = s.queries.SetRouterTLS(r.Context(), db.SetRouterTLSParams{Tls: tlsMode, ID: id})
+			}
 		}
 		switch {
 		case isUnique(err):

@@ -71,7 +71,7 @@ Do not use `--add-port=1812/udp` or `--add-port=8080/tcp`. Both open the port to
 
 Save it to `/etc/nftables.conf`. Check it with `sudo nft list ruleset`, then apply it with `sudo nft -f /etc/nftables.conf`. If FreeRADIUS is on another host, add `ip saddr IP-FREERADIUS tcp dport 8080 accept`.
 
-**Limit `/radius.php`.** An empty `radius_rest_allow` means loopback only. Fill it with the FreeRADIUS IP if FreeRADIUS runs on another host. `trust_proxy` does not affect this allow-list. While it is empty, a request that carries a proxy header (`X-Forwarded-For`, `X-Real-IP`, `Forwarded`, `CF-Connecting-IP`) is refused, because behind Nginx or cloudflared on the same host every internet client arrives from loopback. See [FreeRADIUS over REST](freeradius-rest.md).
+**Limit `/radius.php`.** The endpoint is closed until you set `radius_rest_allow` (the FreeRADIUS IP, or `127.0.0.1, ::1` on the same host) or `radius_rest_secret` (sent by FreeRADIUS in the `X-Gobill-Secret` header). With neither, every request gets 403. `trust_proxy` does not affect the allow-list, which always uses the real connection address. See [FreeRADIUS over REST](freeradius-rest.md).
 
 ### Remote link (VPS)
 

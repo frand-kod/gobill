@@ -141,8 +141,8 @@ func (s *Server) portalRoutes2(mux *http.ServeMux) {
 func (s *Server) radiusRestRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /radius.php", s.radiusRest)
 	mux.HandleFunc("POST /radius/rest", s.radiusRest)
-	if m, err := s.loadSettings(context.Background()); err == nil && strings.TrimSpace(m["radius_rest_allow"]) == "" {
-		slog.Warn("radius.php endpoint accepts loopback only (radius_rest_allow is empty); if FreeRADIUS runs on another host, set radius_rest_allow to its IP (comma-separated IPs/CIDRs)")
+	if m, err := s.loadSettings(context.Background()); err == nil && strings.TrimSpace(m["radius_rest_allow"]) == "" && m["radius_rest_secret"] == "" {
+		slog.Warn("radius.php endpoint refuses ALL requests: neither radius_rest_allow nor radius_rest_secret is set. Before, an empty allow-list meant loopback only. If FreeRADIUS uses this endpoint, set radius_rest_allow (e.g. 127.0.0.1 or its IP) or radius_rest_secret (Settings > System > FreeRADIUS), see docs/en/freeradius-rest.md")
 	}
 }
 

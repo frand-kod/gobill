@@ -138,3 +138,22 @@ func Verify(path string, sums []byte, name string) error {
 	}
 	return nil
 }
+
+// SignedVersion returns the release tag that the signed SHA256SUMS names in its `VERSION vX.Y.Z`
+// line. The maintainer's sign step adds it, so a validly signed old release cannot be republished
+// under a newer tag. A file without the line is an error.
+func SignedVersion(sums []byte) (string, error) {
+	v := ""
+	for _, line := range strings.Split(string(sums), "\n") {
+		if f := strings.Fields(line); len(f) == 2 && f[0] == "VERSION" {
+			if v != "" {
+				return "", errors.New("SHA256SUMS has more than one VERSION line")
+			}
+			v = f[1]
+		}
+	}
+	if v == "" {
+		return "", errors.New("SHA256SUMS has no signed VERSION line: this release was signed with an older tool; refusing to install it")
+	}
+	return v, nil
+}

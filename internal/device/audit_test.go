@@ -28,14 +28,32 @@ func TestAuditRouter3_HotspotAddDeletes(t *testing.T) {
 
 // Router #7: a TLS (8729) router ignores the WireGuard tunnel dialer.
 func TestAuditRouter7_TLSIgnoresTunnel(t *testing.T) {
-	old := DialTCP
-	t.Cleanup(func() { DialTCP = old })
+	t.Cleanup(func() { SetDialTCP(nil) })
 	used := false
-	DialTCP = func(context.Context, string) (net.Conn, error) { used = true; return nil, errors.New("tunnel") }
+	SetDialTCP(func(context.Context, string) (net.Conn, error) { used = true; return nil, errors.New("tunnel") })
 	Router{Addr: "127.0.0.1:1", TLS: true}.exec(ctx, []string{"/system/identity/print"})
 	if !used {
 		t.Fatal("TLS router dialed directly, bypassing the tunnel")
 	}
+}
+
+// Router #7: the tunnel sets and clears the dial hook while jobs dial; `go test -race` must stay quiet.
+func TestAuditRouter7_DialHookRace(t *testing.T) {
+	t.Cleanup(func() { SetDialTCP(nil) })
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 200; i++ {
+			SetDialTCP(func(context.Context, string) (net.Conn, error) { return nil, errors.New("x") })
+			SetDialTCP(nil)
+		}
+	}()
+	for i := 0; i < 200; i++ {
+		if c, err := DialTCP(ctx, "127.0.0.1:1"); err == nil {
+			c.Close()
+		}
+	}
+	<-done
 }
 
 // Router #9: with pppoe_username set, a secret named after the gobill username is still taken over.
@@ -46,6 +64,17 @@ func TestAuditRouter9_SecretIDHijack(t *testing.T) {
 	must(t, d.AddCustomer(ctx, c, plan))
 	if sentAny(f, "=numbers=*9") {
 		t.Fatal("secret named after Username was rewritten although PPPoEUsername is set")
+	}
+}
+
+// Router #9: removing a customer with a PPPoE name touches only that name, never a secret called after Username.
+func TestAuditRouter9_RemoveOnlyManagedName(t *testing.T) {
+	d, f := pp(map[string]string{"/ppp/secret|name=bob": "*9", "/ppp/secret|name=bob-ppp": "*8"})
+	c := cust
+	c.PPPoEUsername = "bob-ppp"
+	must(t, d.RemoveCustomer(ctx, c, plan))
+	if sentAny(f, "=numbers=*9") || !sentAny(f, "/ppp/secret/remove =numbers=*8") {
+		t.Fatalf("sent %v", f.sent)
 	}
 }
 

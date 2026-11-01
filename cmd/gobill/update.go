@@ -91,6 +91,32 @@ func runRollback(args []string) error {
 	return u.rollback()
 }
 
+// runHealthcheck is `gobill healthcheck`: GET /health on the local port (GOBILL_HTTP, default :8080)
+// and exit 0 if it answers 200, 1 otherwise. The Docker HEALTHCHECK uses it, because the distroless
+// image has no shell or curl.
+func runHealthcheck(args []string) error {
+	if len(args) > 0 {
+		return errors.New("usage: gobill healthcheck")
+	}
+	_, port, err := net.SplitHostPort(env("GOBILL_HTTP", ":8080"))
+	if err != nil {
+		return fmt.Errorf("GOBILL_HTTP: want host:port: %w", err)
+	}
+	return checkHealth("http://127.0.0.1:" + port + "/health")
+}
+
+func checkHealth(url string) error {
+	resp, err := (&http.Client{Timeout: 4 * time.Second}).Get(url)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("health: %s", resp.Status)
+	}
+	return nil
+}
+
 func requireRoot(cmd string) error {
 	if os.Geteuid() != 0 {
 		return fmt.Errorf("gobill %s must run as root: sudo gobill %s", cmd, cmd)
@@ -201,6 +227,18 @@ func (u *updater) update(ctx context.Context, current, want string, yes bool) er
 	// Signature first: a checksum from an unsigned SHA256SUMS proves nothing.
 	if err := update.VerifySig(sums, sig, u.pubKey); err != nil {
 		return err
+	}
+	// The signature covers the VERSION line: it must name this release, and (unless the operator
+	// asked for a tag with --version, which also covers a deliberate rollback) be newer than us.
+	signed, err := update.SignedVersion(sums)
+	if err != nil {
+		return err
+	}
+	if signed != rel.Tag {
+		return fmt.Errorf("release tag %s does not match the signed version %s: refusing to install", rel.Tag, signed)
+	}
+	if want == "" && !update.Newer(signed, current) {
+		return fmt.Errorf("signed version %s is not newer than the running %s: refusing to downgrade", signed, current)
 	}
 	if err := update.Verify(newBin, sums, name); err != nil {
 		return err

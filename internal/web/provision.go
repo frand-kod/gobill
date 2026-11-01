@@ -145,13 +145,17 @@ func (s *Server) wgPending(ctx context.Context, id int64) ([]byte, bool) {
 // credentials (first switch only) so revoking can give them back.
 func (s *Server) wgSwitchCreds(ctx context.Context, rt db.Router, ip string, pass []byte) error {
 	if prev, _ := s.queries.GetSetting(ctx, wgPrevKey(rt.ID)); prev == "" {
-		b, _ := json.Marshal(wgCreds{Host: rt.Host, Port: rt.Port, User: rt.Username, Pass: rt.PasswordEnc})
+		b, _ := json.Marshal(wgCreds{Host: rt.Host, Port: rt.Port, TLS: rt.Tls, User: rt.Username, Pass: rt.PasswordEnc})
 		if err := s.queries.UpsertSettingRaw(ctx, db.UpsertSettingRawParams{Key: wgPrevKey(rt.ID), Value: string(b)}); err != nil {
 			return err
 		}
 	}
 	if err := s.queries.UpdateRouter(ctx, db.UpdateRouterParams{Name: rt.Name, Host: ip, Port: 8728, Username: provUser, PasswordEnc: pass,
 		Description: rt.Description, Enabled: rt.Enabled, Coordinates: rt.Coordinates, Coverage: rt.Coverage, CertPin: rt.CertPin, ID: rt.ID}); err != nil {
+		return err
+	}
+	// the tunnel address is reached over the plain API on 8728
+	if err := s.queries.SetRouterTLS(ctx, db.SetRouterTLSParams{Tls: 0, ID: rt.ID}); err != nil {
 		return err
 	}
 	return s.queries.UpsertSettingRaw(ctx, db.UpsertSettingRawParams{Key: wgPendingKey(rt.ID)})

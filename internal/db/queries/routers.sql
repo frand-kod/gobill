@@ -32,3 +32,6 @@ UPDATE routers SET online = ?, last_seen_at = COALESCE(?, last_seen_at) WHERE id
 
 -- name: ListOfflineRouters :many
 SELECT * FROM routers WHERE enabled = 1 AND online = 0 ORDER BY name;
+
+-- name: SetRouterTLS :exec
+UPDATE routers SET tls = ? WHERE id = ?;

@@ -17,11 +17,8 @@ const (
 )
 
 func (d *MikrotikPPPoE) secretID(ctx context.Context, c Customer) (string, error) {
-	id, err := firstID(ctx, d.ex, pppSecret, "name", c.Username)
-	if err != nil || id != "" || c.PPPoEUsername == "" {
-		return id, err
-	}
-	return firstID(ctx, d.ex, pppSecret, "name", c.PPPoEUsername)
+	// Only the name gobill manages: a secret that merely shares the other name is someone else's.
+	return firstID(ctx, d.ex, pppSecret, "name", c.pppUser())
 }
 
 func (d *MikrotikPPPoE) AddCustomer(ctx context.Context, c Customer, p Plan) error {
@@ -80,13 +77,8 @@ func (d *MikrotikPPPoE) RemoveCustomer(ctx context.Context, c Customer, p Plan) 
 		}
 		return d.removeActive(ctx, c)
 	}
-	if err := removeWhere(ctx, d.ex, pppSecret, "name", c.Username); err != nil {
+	if err := removeWhere(ctx, d.ex, pppSecret, "name", c.pppUser()); err != nil {
 		return err
-	}
-	if c.PPPoEUsername != "" {
-		if err := removeWhere(ctx, d.ex, pppSecret, "name", c.PPPoEUsername); err != nil {
-			return err
-		}
 	}
 	return d.removeActive(ctx, c)
 }

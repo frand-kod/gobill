@@ -18,4 +18,5 @@ ENV GOBILL_DB=/data/gobill.db \
 USER nonroot:nonroot
 VOLUME ["/data"]
 EXPOSE 8080/tcp 1812/udp 1813/udp
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["/usr/local/bin/gobill", "healthcheck"]
 ENTRYPOINT ["/usr/local/bin/gobill"]

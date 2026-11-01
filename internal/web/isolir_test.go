@@ -278,6 +278,7 @@ func TestRadiusRestIsolirAcceptCarriesAddressList(t *testing.T) {
 	s, h, q := isoSetup(t)
 	isoCustomer(t, s, q, "203.0.113.7", true)
 	isoEnable(t, s, q)
+	q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "radius_rest_allow", Value: "127.0.0.1"})
 	w := post(h, "/radius.php?action=authorize", url.Values{"username": {"budi"}, "password": {"pw"}}, "")
 	if w.Code != 200 {
 		t.Fatalf("code %d %s", w.Code, w.Body)

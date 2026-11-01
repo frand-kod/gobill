@@ -47,6 +47,14 @@
     <div class="card-body space-y-4">
       <p class="text-sm">{{T "Current data will be replaced with the backup. A backup of the current data is made first. The app will restart."}}</p>
       <input type="hidden" name="token" value="{{.Token}}">
+      <div>
+        <label class="label" for="current">{{T "Current password"}}</label>
+        <input class="input" id="current" name="current" type="password" autocomplete="current-password" required>
+      </div>
+      {{if .TOTP}}<div>
+        <label class="label" for="code">{{T "Authenticator or recovery code"}}</label>
+        <input class="input" id="code" name="code" autocomplete="one-time-code" required>
+      </div>{{end}}
       <label class="flex items-center gap-2 py-2 text-sm font-medium"><input type="checkbox" class="size-4 rounded accent-brand-500" name="understand" value="1" required> {{T "I understand the current data will be replaced"}}</label>
       <div class="flex flex-wrap gap-2">
         <button class="btn btn-primary" type="submit">{{T "Restore now"}}</button>

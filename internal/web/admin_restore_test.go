@@ -182,7 +182,7 @@ func TestRestoreConfirmStagesBacksUpAndRestarts(t *testing.T) {
 		t.Fatal("refused confirm staged a restore")
 	}
 
-	w = do(h, "POST", restorePageURL+"/confirm", url.Values{"token": {token}, "understand": {"1"}}, c)
+	w = do(h, "POST", restorePageURL+"/confirm", url.Values{"token": {token}, "understand": {"1"}, "current": {"secret123"}}, c)
 	wantCode(t, w, 200, "confirm")
 	if !strings.Contains(w.Body.String(), "Restore dijadwalkan") {
 		t.Fatalf("no scheduled message: %s", w.Body.String())
