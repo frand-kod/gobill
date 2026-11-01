@@ -215,3 +215,18 @@ func TestIdleTimeoutApplied(t *testing.T) {
 		t.Fatalf("idle session still valid: %d", w.Code)
 	}
 }
+
+// The CSV export reads exportChunk rows at a time; a log longer than one chunk must come out whole.
+func TestMessageLogExportPagesWholeLog(t *testing.T) {
+	_, h, q, c := crudApp(t)
+	n := exportChunk*2 + 7
+	for i := 0; i < n; i++ {
+		if err := q.CreateMessageLog(t.Context(), db.CreateMessageLogParams{Channel: "sms", Recipient: "0812", Body: "m", Status: "ok"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	csv := do(h, "GET", "/admin/logs/messages/export", nil, c).Body.String()
+	if got := strings.Count(csv, "\n"); got != n+1 { // header + every row
+		t.Fatalf("csv lines %d, want %d", got, n+1)
+	}
+}

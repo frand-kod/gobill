@@ -1,13 +1,18 @@
 package notify
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -131,6 +136,60 @@ func TestWebhookSignature(t *testing.T) {
 	m.Write(body)
 	if ev != "payment.paid" || sig != "sha256="+hex.EncodeToString(m.Sum(nil)) {
 		t.Fatal(ev, sig)
+	}
+}
+
+// Each delivery has a random id, sent in the body and in X-Event-Id; every attempt is logged.
+func TestWebhookIDAndLog(t *testing.T) {
+	var body []byte
+	var evID string
+	code := http.StatusOK
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ = io.ReadAll(r.Body)
+		evID = r.Header.Get("X-Event-Id")
+		w.WriteHeader(code)
+	}))
+	defer srv.Close()
+	n := nt(map[string]string{"webhook_url": srv.URL + "/hook?token=abc", "webhook_secret": "s3"})
+	var logs []string
+	n.Log = func(ch, to, subject, b string, err error) {
+		logs = append(logs, ch+"|"+to+"|"+subject+"|"+strconv.FormatBool(err != nil))
+	}
+	ctx := context.Background()
+	if err := n.Webhook(ctx, "payment.paid", 1); err != nil {
+		t.Fatal(err)
+	}
+	var got struct{ ID, Event string }
+	if err := json.Unmarshal(body, &got); err != nil || len(got.ID) != 32 || got.ID != evID || got.Event != "payment.paid" {
+		t.Fatalf("body id %q header %q event %q err %v", got.ID, evID, got.Event, err)
+	}
+	code = http.StatusBadGateway
+	if _, err := n.PostWebhook(ctx, "recharge.expired", 1); err == nil {
+		t.Fatal("want HTTP error")
+	}
+	host := strings.TrimPrefix(srv.URL, "http://")
+	want := []string{"webhook|" + host + "|payment.paid|false", "webhook|" + host + "|recharge.expired|true"}
+	if strings.Join(logs, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("log hook calls %q", logs)
+	}
+}
+
+// A webhook_url without webhook_secret warns, once per process.
+func TestWebhookNoSecretWarnsOnce(t *testing.T) {
+	var buf bytes.Buffer
+	old := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	defer slog.SetDefault(old)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer srv.Close()
+	n := nt(map[string]string{"webhook_url": srv.URL})
+	for i := 0; i < 2; i++ {
+		if err := n.Webhook(context.Background(), "e", 1); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if c := strings.Count(buf.String(), "webhook_secret is empty"); c != 1 {
+		t.Fatalf("warnings %d: %s", c, buf.String())
 	}
 }
 
