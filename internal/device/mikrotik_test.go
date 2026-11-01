@@ -71,8 +71,7 @@ func TestHotspotAddCustomer(t *testing.T) {
 	must(t, d.AddCustomer(ctx, cust, plan))
 	f.check(t,
 		"/ip/hotspot/user/print =.proplist=.id ?name=bob",
-		"/ip/hotspot/user/remove =numbers=*1",
-		"/ip/hotspot/user/add =name=bob =profile=Gold =password=pw =comment=Bob B | Gold, Silver =email=b@x")
+		"/ip/hotspot/user/set =numbers=*1 =name=bob =profile=Gold =password=pw =comment=Bob B | Gold, Silver =email=b@x")
 }
 
 func TestHotspotAddCustomerLimitsAndExpired(t *testing.T) {

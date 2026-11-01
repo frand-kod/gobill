@@ -20,7 +20,8 @@ func (d *MikrotikHotspot) AddCustomer(ctx context.Context, c Customer, p Plan) e
 	if c.Password == "" {
 		return errors.New("customer has no router password")
 	}
-	if err := removeWhere(ctx, d.ex, hsUser, "name", c.Username); err != nil {
+	id, err := firstID(ctx, d.ex, hsUser, "name", c.Username)
+	if err != nil {
 		return err
 	}
 	if p.IsExpiredProfile {
@@ -28,13 +29,16 @@ func (d *MikrotikHotspot) AddCustomer(ctx context.Context, c Customer, p Plan) e
 			return err
 		}
 	}
-	s := []string{hsUser + "/add",
-		"=name=" + c.Username,
-		"=profile=" + p.Name,
-		"=password=" + c.Password,
-		"=comment=" + c.FullName + " | " + strings.Join(c.Bills, ", "),
-		"=email=" + c.Email,
+	// set in place when the user exists: its counters survive and a failed call never drops the user
+	s := []string{hsUser + "/add"}
+	if id != "" {
+		s = []string{hsUser + "/set", "=numbers=" + id}
 	}
+	s = append(s, "=name="+c.Username,
+		"=profile="+p.Name,
+		"=password="+c.Password,
+		"=comment="+c.FullName+" | "+strings.Join(c.Bills, ", "),
+		"=email="+c.Email)
 	if p.Limited {
 		t := p.LimitType
 		if t == "Time_Limit" || t == "Both_Limit" {
@@ -52,7 +56,7 @@ func (d *MikrotikHotspot) AddCustomer(ctx context.Context, c Customer, p Plan) e
 			}
 		}
 	}
-	_, err := d.ex(ctx, s)
+	_, err = d.ex(ctx, s)
 	return err
 }
 

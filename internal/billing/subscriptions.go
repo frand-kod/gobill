@@ -282,9 +282,13 @@ func expiredNoticeMinutes(v string) int {
 	return n
 }
 
-// ExpireDue expires due subscriptions, takes them off the router and auto-renews from balance.
-// Like cron.php, the router is touched first: if it fails the row stays active and is retried
-// next run. ExpireSubscription is the idempotent claim (0 rows = already expired).
+// errRouter marks an expireOne failure caused by the router, so ExpireDue stops dialing that router this run.
+var errRouter = errors.New("router")
+
+// ExpireDue auto-renews due subscriptions from balance (in place, the router is not touched first)
+// and expires and removes the rest. If the router fails the row stays active and is retried next
+// run, but that router is skipped for the remaining subs of this run. ExpireSubscription is the
+// idempotent claim (0 rows = already expired).
 func (s *Service) ExpireDue(ctx context.Context) error {
 	if mins := expiredNoticeMinutes(setting(ctx, s.Q, "expired_notify_minutes_before")); mins > 0 {
 		if err := s.noticeBeforeExpiry(ctx, mins); err != nil {
@@ -296,9 +300,17 @@ func (s *Service) ExpireDue(ctx context.Context) error {
 		return err
 	}
 	autoRenew := setting(ctx, s.Q, "enable_balance") != "no" // PHP config enable_balance
+	dead := map[int64]bool{}                                  // routers that failed this run: their other subs wait for the next one
 	for _, sub := range subs {
+		if sub.RouterID.Valid && dead[sub.RouterID.Int64] {
+			continue
+		}
 		if err := s.expireOne(ctx, sub, autoRenew); err != nil {
 			slog.Error("expiry failed", "subscription", sub.ID, "err", err)
+			if sub.RouterID.Valid && errors.Is(err, errRouter) {
+				dead[sub.RouterID.Int64] = true
+				slog.Warn("router skipped for the rest of this expiry run", "router", sub.RouterID.Int64)
+			}
 		}
 	}
 	return s.endDueIsolations(ctx)
@@ -388,23 +400,17 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 	if err != nil {
 		return err
 	}
-	dev, dc, dp, _, err := s.prepare(ctx, c, plan)
-	if err != nil {
-		return err
-	}
-	if err := dev.RemoveCustomer(ctx, dc, dp); err != nil {
-		return fmt.Errorf("remove from router: %w", err)
-	}
-	n, err := s.Q.ExpireSubscription(ctx, db.ExpireSubscriptionParams{ID: sub.ID, Now: now})
-	if err != nil || n == 0 {
-		return err
-	}
 	var renewErr error
 	nf := s.notifier()
 	if renewable(plan, c, autoRenew) {
 		price, err := s.OrderPrice(ctx, c.ID, plan.Price)
 		if err == nil && c.Balance >= price {
-			if err = s.rechargeWithBalance(ctx, c.ID, plan.ID, 0, true); err == nil {
+			// renewed in place: the customer stays on the router, which only gets the idempotent add
+			rctx, failed := TrackDeviceFailure(ctx)
+			if err = s.rechargeWithBalance(rctx, c.ID, plan.ID, 0, true); err == nil {
+				if *failed {
+					return fmt.Errorf("%w: renewed, router add failed", errRouter)
+				}
 				return nil
 			}
 			s.telegram(fmt.Sprintf("FAILED RENEWAL #cron\n\n#u.%s #buy #%s \n%s\nPrice: %d", c.Username, plan.Type, plan.Name, plan.Price))
@@ -412,6 +418,25 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 		if err != nil { // the price could not be read, or the recharge failed
 			renewErr = fmt.Errorf("auto renewal: %w", err)
 		}
+	}
+	dev, dc, dp, _, err := s.prepare(ctx, c, plan)
+	if err != nil {
+		return fmt.Errorf("%w: %w", errRouter, err)
+	}
+	if err := dev.RemoveCustomer(ctx, dc, dp); err != nil {
+		return fmt.Errorf("%w: remove from router: %w", errRouter, err)
+	}
+	n, err := s.Q.ExpireSubscription(ctx, db.ExpireSubscriptionParams{ID: sub.ID, Now: now})
+	if err != nil {
+		return err
+	}
+	if n == 0 { // a recharge landed meanwhile and its router add may have run before our remove: put the customer back
+		if cur, err := s.Q.GetSubscription(ctx, sub.ID); err == nil && cur.Status == "active" {
+			if np, err := s.Q.GetPlan(ctx, cur.PlanID); err == nil {
+				return s.activate(ctx, &pending{cust: c, plan: np})
+			}
+		}
+		return nil
 	}
 	if nf != nil {
 		if err := s.sendExpiredNotice(ctx, sub, c, plan); err != nil { // skipped when the early notice already went out
