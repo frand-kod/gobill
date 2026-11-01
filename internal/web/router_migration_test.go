@@ -207,3 +207,27 @@ func TestRouterMigrationNoLocalAccounts(t *testing.T) {
 		t.Fatal("state stored without accounts")
 	}
 }
+
+// router#5: rollback re-enables only the accounts step 3 disabled, not ones disabled by hand.
+func TestRouterMigrationRollbackOnlyOwn(t *testing.T) {
+	h, c, q, base, f, _ := migApp(t)
+	post := func(act string, kv ...string) {
+		v := url.Values{}
+		for i := 0; i+1 < len(kv); i += 2 {
+			v.Set(kv[i], kv[i+1])
+		}
+		do(h, "POST", base+"/"+act, v, c)
+	}
+	post("test", "account", "Hotspot:ro")
+	post("switch", "confirm", "1")
+	post("disable", "confirm", "1")
+	if rec, _ := q.GetSetting(t.Context(), "radius_mig_disabled_1"); rec != "Hotspot:ro" || !f.disabled["*1"] {
+		t.Fatalf("record %q disabled %v", rec, f.disabled)
+	}
+	// the admin had disabled this account by hand: the record does not list it
+	q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "radius_mig_disabled_1", Value: "Hotspot:gone"})
+	post("rollback")
+	if !f.disabled["*1"] || migStep(t, q) != "0" {
+		t.Fatalf("rollback re-enabled a hand-disabled account: %v step %q", f.disabled, migStep(t, q))
+	}
+}

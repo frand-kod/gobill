@@ -100,7 +100,7 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 	out = append(out, section([]field{
 		text("price", "Plan Price", v, e).as("number").req().bind(),
 		validity,
-		text("billing_day", "Billing Day", v, e).as("number").hint("Postpaid: day of month, 1-31").show("billing === 'postpaid'"),
+		text("billing_day", "Billing Day", v, e).as("number").hint("Day of month, 1-31. Empty: day 20 (postpaid and Period plans)").show("billing === 'postpaid' || validity_unit === 'Period'"),
 	}, "Price & validity", "")...)
 	out = append(out, section([]field{
 		exp.show(notBalance).hint("Default: a RADIUS customer is isolated when isolation is enabled, otherwise disconnected. Pick a plan to send them there instead."),
@@ -393,6 +393,12 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		p.Device = ""
+	}
+	if id != 0 && len(e) == 0 && (p.Type != old.Type || p.RouterID != old.RouterID || p.Device != old.Device) {
+		var n int
+		if s.conn.QueryRowContext(ctx, "SELECT count(*) FROM subscriptions WHERE plan_id = ? AND status = 'active'", id).Scan(&n) == nil && n > 0 {
+			e["type"] = "Active subscriptions use this plan: the service, router and device cannot change until they end"
+		}
 	}
 	if len(e) == 0 {
 		var saved db.Plan

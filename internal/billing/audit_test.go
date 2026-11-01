@@ -193,3 +193,17 @@ func TestAuditRouter8_DeleteOrphan(t *testing.T) {
 		t.Fatal("customer deleted from DB while still on the router (orphan keeps authenticating)")
 	}
 }
+
+// Router #8: force deletes the row even when the router removal fails.
+func TestAuditRouter8_DeleteForce(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0)
+	n := 0
+	e.s.DeviceFor = func(db.Plan, db.Router) (device.Device, error) { return countFail{fakeDev{calls: e.calls}, &n}, nil }
+	if err := e.s.DeleteCustomerForce(ctx, e.cust.ID, true); err == nil {
+		t.Fatal("router error not reported")
+	}
+	if _, err := e.q.GetCustomer(ctx, e.cust.ID); err == nil {
+		t.Fatal("force delete kept the customer")
+	}
+}

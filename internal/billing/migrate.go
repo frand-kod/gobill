@@ -45,6 +45,10 @@ func (s *Service) Migration(ctx context.Context, routerID int64) Migration {
 	return Migration{step, at, f[2]}
 }
 
+// migDisKey holds the "Type:Name" lines of the accounts step 3 disabled, so rollback re-enables
+// only those and not accounts the admin disabled by hand. Empty or missing: no record.
+func migDisKey(routerID int64) string { return "radius_mig_disabled_" + strconv.FormatInt(routerID, 10) }
+
 func (s *Service) setMigration(ctx context.Context, routerID int64, step int, kinds string) error {
 	return s.Q.UpsertSetting(ctx, db.UpsertSettingParams{Key: migKey(routerID), Value: fmt.Sprintf("%d:%d:%s", step, s.now().Unix(), kinds)})
 }
@@ -187,6 +191,7 @@ func (s *Service) MigrationDisable(ctx context.Context, routerID, adminID int64)
 		return 0, err
 	}
 	n := 0
+	var done []string
 	for _, a := range accts {
 		if a.Disabled {
 			continue
@@ -195,8 +200,12 @@ func (s *Service) MigrationDisable(ctx context.Context, routerID, adminID int64)
 			break
 		}
 		n++
+		done = append(done, a.Type+":"+a.Name)
 	}
 	if n > 0 {
+		if serr := s.Q.UpsertSetting(ctx, db.UpsertSettingParams{Key: migDisKey(routerID), Value: strings.Join(done, "\n")}); serr != nil {
+			return n, serr
+		}
 		if serr := s.setMigration(ctx, routerID, 3, st.Kinds); serr != nil {
 			return n, serr
 		}
@@ -223,8 +232,14 @@ func (s *Service) MigrationRollback(ctx context.Context, routerID, adminID int64
 			return 0, err
 		}
 		if st.Step == 3 {
+			rec := setting(ctx, s.Q, migDisKey(routerID))
+			mine := map[string]bool{}
+			for _, k := range strings.Split(rec, "\n") {
+				mine[k] = true
+			}
 			for _, a := range accts {
-				if !a.Disabled {
+				// with a record only those accounts; without one (state from before the record) all disabled ones
+				if !a.Disabled || rec != "" && !mine[a.Type+":"+a.Name] {
 					continue
 				}
 				if err := rt.SetDisabled(ctx, a, false); err != nil {
@@ -238,6 +253,9 @@ func (s *Service) MigrationRollback(ctx context.Context, routerID, adminID int64
 		}
 	}
 	if err := s.setMigration(ctx, routerID, 0, st.Kinds); err != nil {
+		return n, err
+	}
+	if err := s.Q.UpsertSetting(ctx, db.UpsertSettingParams{Key: migDisKey(routerID)}); err != nil {
 		return n, err
 	}
 	return n, s.logAdmin(ctx, s.Q, adminID, "router.radius_rollback", fmt.Sprintf("router %d: back from step %d, %d local accounts enabled", routerID, st.Step, n))

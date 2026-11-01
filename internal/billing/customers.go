@@ -37,10 +37,14 @@ func (s *Service) DeactivateCustomer(ctx context.Context, customerID, adminID in
 	return n, err
 }
 
-// DeleteCustomer removes the customer and its recharges but keeps transactions and payment requests
-// (customer_id becomes NULL), like the old customers/delete. The router is contacted after the commit: a device failure
-// is returned as an error but the delete stays.
-func (s *Service) DeleteCustomer(ctx context.Context, id int64) error {
+// DeleteCustomer removes the customer from its router(s) first and deletes the DB row (and its
+// recharges; transactions and payment requests are kept with customer_id NULL, like the old
+// customers/delete) only when that worked. A device failure refuses the delete and keeps the row.
+func (s *Service) DeleteCustomer(ctx context.Context, id int64) error { return s.DeleteCustomerForce(ctx, id, false) }
+
+// DeleteCustomerForce is DeleteCustomer; with force the row is deleted even when the router removal
+// fails (the router error is still returned, the delete stays).
+func (s *Service) DeleteCustomerForce(ctx context.Context, id int64, force bool) error {
 	c, err := s.Q.GetCustomer(ctx, id)
 	if err != nil {
 		return err
@@ -49,24 +53,12 @@ func (s *Service) DeleteCustomer(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	plans := make([]db.Plan, 0, len(subs))
+	var derr error
 	for _, x := range subs {
 		p, err := s.Q.GetPlan(ctx, x.PlanID)
 		if err != nil {
 			return err
 		}
-		plans = append(plans, p)
-	}
-	if err := s.tx(ctx, func(q *db.Queries) error {
-		if err := q.DetachCustomerTransactions(ctx, nullID(id)); err != nil {
-			return err
-		}
-		return q.DeleteCustomer(ctx, id)
-	}); err != nil {
-		return err
-	}
-	var derr error
-	for _, p := range plans {
 		dev, dc, dp, _, e := s.prepare(ctx, c, p)
 		if e == nil {
 			dp.ExpiredPlan = nil // a deleted customer leaves the router entirely (PHP customers/delete)
@@ -75,6 +67,17 @@ func (s *Service) DeleteCustomer(ctx context.Context, id int64) error {
 		if e != nil {
 			derr = errors.Join(derr, fmt.Errorf("remove from router: %w", e))
 		}
+	}
+	if derr != nil && !force {
+		return derr
+	}
+	if err := s.tx(ctx, func(q *db.Queries) error {
+		if err := q.DetachCustomerTransactions(ctx, nullID(id)); err != nil {
+			return err
+		}
+		return q.DeleteCustomer(ctx, id)
+	}); err != nil {
+		return err
 	}
 	return derr
 }
