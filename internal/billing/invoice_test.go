@@ -2,7 +2,6 @@ package billing
 
 import (
 	"context"
-	"fmt"
 	"regexp"
 	"testing"
 	"time"
@@ -13,14 +12,11 @@ import (
 var invoiceRe = regexp.MustCompile(`^INV-\d{4}-\d{6,}$`)
 
 // Invoices are INV-YYMM-NNNNNN: YYMM is the month in the service zone, NNNNNN the global
-// sequence (last transaction id + 1), zero-padded and never truncated.
+// invoice_seq sequence, zero-padded and never truncated.
 func TestInvoiceFormatAndPadding(t *testing.T) {
 	ctx, e := context.Background(), setup(t)
-	for i := 0; i < 1531; i++ { // ids 1..1531 already used
-		if _, err := e.q.CreateTransaction(ctx, db.CreateTransactionParams{Invoice: fmt.Sprintf("OLD-%d", i),
-			Username: "u", PlanName: "p", RouterName: "balance", Type: "Balance", Method: "m"}); err != nil {
-			t.Fatal(err)
-		}
+	if _, err := e.conn.Exec("UPDATE invoice_seq SET n = 1531"); err != nil { // 1..1531 already used
+		t.Fatal(err)
 	}
 	tx := func(now time.Time) string {
 		t.Helper()

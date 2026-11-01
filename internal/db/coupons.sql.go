@@ -141,6 +141,15 @@ func (q *Queries) GetCouponByCode(ctx context.Context, code string) (Coupon, err
 	return i, err
 }
 
+const releaseCoupon = `-- name: ReleaseCoupon :exec
+UPDATE coupons SET used = used - 1 WHERE code = ? AND used > 0
+`
+
+func (q *Queries) ReleaseCoupon(ctx context.Context, code string) error {
+	_, err := q.db.ExecContext(ctx, releaseCoupon, code)
+	return err
+}
+
 const searchCoupons = `-- name: SearchCoupons :many
 SELECT id, code, type, value, description, max_usage, used, min_order, max_discount, start_date, end_date, status, created_at FROM coupons WHERE code LIKE '%' || CAST(?1 AS TEXT) || '%' OR description LIKE '%' || CAST(?1 AS TEXT) || '%'
 ORDER BY id DESC LIMIT ?3 OFFSET ?2

@@ -250,16 +250,12 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 	return pend, err
 }
 
-// nextInvoice is PHP _raid(): max(id)+1, as INV-YYMM-NNNNNN where YYMM is now's month in the
-// service zone. The sequence is global (not reset per month); it must run inside the write tx.
+// nextInvoice is INV-YYMM-NNNNNN, where YYMM is now's month in the service zone and NNNNNN comes
+// from the invoice_seq sequence (global, not reset per month). It must run inside the write tx.
 func (s *Service) nextInvoice(ctx context.Context, q *db.Queries, now time.Time) (string, error) {
-	last, err := q.ListTransactions(ctx, db.ListTransactionsParams{Limit: 1})
+	n, err := q.NextInvoiceNumber(ctx)
 	if err != nil {
 		return "", err
-	}
-	n := int64(1)
-	if len(last) > 0 {
-		n = last[0].ID + 1
 	}
 	return fmt.Sprintf("INV-%s-%06d", now.In(s.Location()).Format("0601"), n), nil
 }

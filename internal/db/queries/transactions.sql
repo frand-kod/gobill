@@ -40,3 +40,6 @@ SELECT CAST(COALESCE(SUM(price), 0) AS INTEGER) FROM transactions WHERE created_
 -- name: ListActivationsByCustomer :many
 -- Plan purchases and activations of the customer; balance moves are not activations.
 SELECT * FROM transactions WHERE customer_id = ? AND type <> 'Balance' ORDER BY id DESC LIMIT ? OFFSET ?;
+
+-- name: NextInvoiceNumber :one
+UPDATE invoice_seq SET n = n + 1 WHERE id = 1 RETURNING n;
