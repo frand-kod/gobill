@@ -33,7 +33,7 @@ func TestReportTotalsMatchRowList(t *testing.T) {
 	s, q := newTestApp(t)
 	jkt, _ := time.LoadLocation("Asia/Jakarta")
 	s.Billing = &billing.Service{Loc: jkt}
-	seedMixed(t, s, jkt, 60)
+	seedMixed(t, s, jkt, 90)
 	for _, qs := range []string{
 		"from=2026-03-09&to=2026-03-11",
 		"from=2026-03-09&to=2026-03-11&type=PPPoE",
@@ -110,7 +110,7 @@ func TestReportPaginationKeepsFilter(t *testing.T) {
 	s, h, _, c := crudApp(t)
 	jkt, _ := time.LoadLocation("Asia/Jakarta")
 	s.Billing = &billing.Service{Loc: jkt}
-	seedMixed(t, s, jkt, 60)
+	seedMixed(t, s, jkt, 90)
 	target := "/admin/reports/period?from=2026-03-09&to=2026-03-11&router=r2"
 	p1 := do(h, "GET", target, nil, c).Body.String()
 	p2 := do(h, "GET", target+"&page=2", nil, c).Body.String()
@@ -127,9 +127,9 @@ func TestReportPaginationKeepsFilter(t *testing.T) {
 	if !strings.Contains(p2, "page=1") || strings.Contains(p2, "page=3") {
 		t.Fatal("page 2 needs a Prev link and no Next link")
 	}
-	// 30 rows are on router r2; rows 11 and 41 are balance transfers and leave the report: 20 on page 1, 8 on page 2
-	if n := strings.Count(p2, rowTag); n != 8 {
-		t.Fatalf("page 2 rows %d, want 8", n)
+	// the balance-paid and gift rows leave the report: 20 on page 1, 7 on page 2
+	if n := strings.Count(p2, rowTag); n != 7 {
+		t.Fatalf("page 2 rows %d, want 7", n)
 	}
 	// the totals show all matching rows, not the page
 	if !strings.Contains(p2, "Total") {
@@ -137,8 +137,8 @@ func TestReportPaginationKeepsFilter(t *testing.T) {
 	}
 	req := httptest.NewRequest("GET", target, nil)
 	d, _, err := s.reportLoad(req, true)
-	if err != nil || d.Count != 28 {
-		t.Fatalf("count %d %v, want 28", d.Count, err)
+	if err != nil || d.Count != 27 {
+		t.Fatalf("count %d %v, want 27", d.Count, err)
 	}
 }
 

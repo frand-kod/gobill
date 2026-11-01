@@ -70,9 +70,9 @@ func TestReportPagerCountsMatchingRows(t *testing.T) {
 	s, h, _, c := crudApp(t)
 	jkt, _ := time.LoadLocation("Asia/Jakarta")
 	s.Billing = &billing.Service{Loc: jkt}
-	seedMixed(t, s, jkt, 60)
+	seedMixed(t, s, jkt, 90)
 	body := do(h, "GET", "/admin/reports/period?from=2026-03-09&to=2026-03-11&router=r2", nil, c).Body.String()
-	if !strings.Contains(body, showing(s, 1, 20, 28)) {
-		t.Fatalf("no %q in the report pager", showing(s, 1, 20, 28))
+	if !strings.Contains(body, showing(s, 1, 20, 27)) {
+		t.Fatalf("no %q in the report pager", showing(s, 1, 20, 27))
 	}
 }
