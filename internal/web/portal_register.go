@@ -168,6 +168,11 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		}
 		s.sessions.Remove(ctx, "reg_otp")
 	}
+	// per-IP cap on new accounts (same limiter as OTP sends, own key)
+	if !s.otpAllow("reg:"+clientIP(r), "") {
+		s.prender(w, r, http.StatusTooManyRequests, "p_register", Page{Title: "Register", Data: d, Error: "Too many registrations from this address. Try again later."})
+		return
+	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(f("password")), bcryptCost)
 	var enc []byte
 	if err == nil {
