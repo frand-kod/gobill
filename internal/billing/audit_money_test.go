@@ -2,6 +2,8 @@ package billing
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"testing"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -21,20 +23,41 @@ func TestAuditMoney3_FirstPeriodGatewayPrice(t *testing.T) {
 	}
 }
 
-// Audit #4: a coupon with max_usage 1 must not discount two gateway orders.
+// Audit #4: a coupon with max_usage 1 is reserved when the gateway order is created: a second order is
+// refused, settlement does not use it again, and an order that expires unpaid gives it back.
 func TestAuditMoney4_CouponMaxUsageGateway(t *testing.T) {
 	ctx, e := context.Background(), setup(t)
 	e.conn.Exec(`INSERT INTO coupons (code, type, value, max_usage, start_date, end_date) VALUES ('ONE','fixed',1000,1,'2000-01-01','2999-12-31')`)
-	// both orders were priced while used = 0 (Discount passes for each); both then settle
-	for i := 0; i < 2; i++ {
-		if err := e.s.RechargePaid(ctx, claimOK, e.cust.ID, e.day.ID, "Tripay - QRIS", "ONE", 9000); err != nil {
-			t.Fatal(err)
+	used := func() (n int) { e.conn.QueryRow(`SELECT used FROM coupons WHERE code = 'ONE'`).Scan(&n); return }
+	order := func(ref string) error {
+		if err := ReserveCoupon(ctx, e.q, "ONE"); err != nil {
+			return err
 		}
+		_, err := e.q.CreatePaymentRequest(ctx, db.CreatePaymentRequestParams{Ref: ref, Gateway: "tripay", CustomerID: sql.NullInt64{Int64: e.cust.ID, Valid: true},
+			Username: "u", PlanID: e.day.ID, Amount: 9000, Coupon: "ONE", ExpiresAt: e.now.Unix() - 1})
+		return err
 	}
-	var n int
-	e.conn.QueryRow(`SELECT COUNT(*) FROM transactions WHERE note LIKE '%Coupon ONE%'`).Scan(&n)
-	if n > 1 {
-		t.Fatalf("coupon with max_usage 1 discounted %d paid orders", n)
+	if err := order("A"); err != nil {
+		t.Fatal(err)
+	}
+	if err := order("B"); !errors.Is(err, ErrCouponUsed) {
+		t.Fatalf("second order with an exhausted coupon: %v", err)
+	}
+	if err := e.s.RechargePaid(ctx, func(q *db.Queries) (bool, error) { n, err := q.ClaimPaymentPaid(ctx, "A"); return n > 0, err }, e.cust.ID, e.day.ID, "Tripay - QRIS", "ONE", 9000); err != nil {
+		t.Fatal(err)
+	}
+	if used() != 1 {
+		t.Fatalf("coupon used %d after settlement, want 1 (reserved once)", used())
+	}
+	e.conn.Exec(`UPDATE coupons SET max_usage = 2`)
+	if err := order("C"); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.s.ExpirePayments(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if used() != 1 {
+		t.Fatalf("coupon used %d after the unpaid order expired, want 1 (paid A keeps its use)", used())
 	}
 }
 

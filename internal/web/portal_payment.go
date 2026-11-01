@@ -19,7 +19,7 @@ import (
 )
 
 // pPay is the gateway branch of the order: pending row, gateway transaction, redirect to pay_url.
-// Coupons follow the old flow: validated now against the plan price, claimed when paid.
+// Coupons are validated against the plan price and reserved when the order is created (payOrder).
 func (s *Server) pPay(w http.ResponseWriter, r *http.Request) {
 	c := customerFrom(r)
 	st, err := s.loadSettings(r.Context())
@@ -117,12 +117,25 @@ func (s *Server) pTopUp(w http.ResponseWriter, r *http.Request) {
 // payOrder stores the pending payment, creates the gateway transaction and redirects to its pay URL.
 // planID 0 = custom balance top-up.
 func (s *Server) payOrder(w http.ResponseWriter, r *http.Request, g Gateway, c *db.Customer, planID int64, planName string, amount int64, code, channel string) {
+	if code != "" { // reserve the coupon use now; refused when it ran out since the price was shown
+		if err := billing.ReserveCoupon(r.Context(), s.queries, code); err != nil {
+			if m := couponErr(err); m != "" {
+				s.plansPage(w, r, 200, s.catalog.T(s.language(), m))
+				return
+			}
+			s.fail(w, "portal pay coupon", err)
+			return
+		}
+	}
 	raw := make([]byte, 8)
 	rand.Read(raw)
 	exp := time.Now().Add(payExpiry)
 	pr, err := s.queries.CreatePaymentRequest(r.Context(), db.CreatePaymentRequestParams{Ref: "NB" + strings.ToUpper(hex.EncodeToString(raw)),
 		Gateway: g.Name(), CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, Username: c.Username, PlanID: planID, Amount: amount, Coupon: code, Channel: channel, ExpiresAt: exp.Unix()})
 	if err != nil {
+		if code != "" {
+			s.queries.ReleaseCoupon(r.Context(), code)
+		}
 		s.fail(w, "portal pay", err)
 		return
 	}

@@ -43,8 +43,7 @@ func (s *Service) creditPaid(ctx context.Context, q *db.Queries, now time.Time, 
 // RechargePaid is Recharge for a confirmed online payment. claim runs first in the SAME
 // transaction (it flips payment_requests pending->paid); false means someone else already did,
 // so nothing is recharged. A crash can therefore never leave "paid" without the recharge.
-// With a coupon, price (what was charged) is recorded and the coupon usage is claimed; a coupon
-// that ran out meanwhile does not fail the recharge, the customer has already paid.
+// With a coupon, price (what was charged) is recorded; the coupon use was reserved at order time.
 func (s *Service) RechargePaid(ctx context.Context, claim func(*db.Queries) (bool, error), customerID, planID int64, method, coupon string, price int64) error {
 	var p *pending
 	err := s.tx(ctx, func(q *db.Queries) error {
@@ -61,8 +60,7 @@ func (s *Service) RechargePaid(ctx context.Context, claim func(*db.Queries) (boo
 			cp = &couponUse{price: price, mode: modeTotal}
 		}
 		if coupon != "" {
-			if c, err := q.GetCouponByCode(ctx, coupon); err == nil {
-				_, _ = q.UseCoupon(ctx, c.ID)
+			if c, err := q.GetCouponByCode(ctx, coupon); err == nil { // the use was reserved when the order was created
 				if cp != nil {
 					cp.code = c.Code
 				}
