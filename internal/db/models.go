@@ -413,3 +413,15 @@ type WgToken struct {
 	UsedAt    int64
 	UsedIp    string
 }
+
+type RouterPending struct {
+	ID        int64
+	RouterID  int64
+	Kind      string
+	Username  string
+	Payload   string
+	Attempts  int64
+	LastError string
+	CreatedAt int64
+	TriedAt   int64
+}
