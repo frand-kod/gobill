@@ -652,10 +652,12 @@ func (s *Server) custDelete(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "delete customer", errors.New("billing service not configured"))
 		return
 	}
-	// Transactions are kept (customer_id -> NULL); a device error does not undo the delete.
-	if err := s.Billing.DeleteCustomer(r.Context(), id); err != nil {
+	// Transactions are kept (customer_id -> NULL). The router goes first: on failure the row stays
+	// unless "force" is checked, which deletes anyway.
+	if err := s.Billing.DeleteCustomerForce(r.Context(), id, r.FormValue("force") == "1"); err != nil {
 		if _, gerr := s.queries.GetCustomer(r.Context(), id); gerr == nil {
-			s.fail(w, "delete customer", err)
+			s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Not deleted, the router could not remove the customer")+": "+err.Error()+". "+s.catalog.T(s.language(), "Retry, or delete with force=1 to delete anyway"))
+			http.Redirect(w, r, "/admin/customers/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
 			return
 		}
 		slog.Error("delete customer: router", "customer", c.Username, "err", err)

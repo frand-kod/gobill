@@ -1009,6 +1009,8 @@
     "Router Secret": "Secret Router",
     "Hotspot/PPPoE password on the router. Leave empty to keep the current one.": "Password Hotspot/PPPoE di router. Kosongkan untuk mempertahankan yang sekarang.",
     "Billing Day": "Tanggal Tagihan",
+    "Not deleted, the router could not remove the customer": "Tidak dihapus, router gagal menghapus pelanggan",
+    "Retry, or delete with force=1 to delete anyway": "Coba lagi, atau hapus dengan force=1 untuk tetap menghapus",
     "Day of month, 1-31. Optional; overrides the plan.": "Tanggal dalam bulan, 1-31. Opsional; menggantikan paket.",
     "Auto Renewal": "Perpanjangan Otomatis",
     "Created": "Dibuat",
