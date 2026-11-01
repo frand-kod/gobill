@@ -41,9 +41,9 @@ func customerPasswordMin(st map[string]string) int {
 
 // customerPasswordErr returns why pass cannot be a customer password, or "". It applies to every
 // customer password path. Equal to the username is refused because RADIUS treats it as a voucher login.
-func customerPasswordErr(st map[string]string, username, pass string) string {
+func (s *Server) customerPasswordErr(st map[string]string, username, pass string) string {
 	if n := customerPasswordMin(st); len(pass) < n || len(pass) > 64 {
-		return fmt.Sprintf("Password should be between %d to 64 characters", n)
+		return fmt.Sprintf(s.catalog.T(s.language(), "Password should be between %d to 64 characters"), n)
 	}
 	if strings.EqualFold(pass, username) {
 		return "Password must not be the same as the username"
@@ -109,7 +109,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		show("Invalid phone number format")
 		return
 	}
-	if msg := customerPasswordErr(st, d.Username, f("password")); msg != "" {
+	if msg := s.customerPasswordErr(st, d.Username, f("password")); msg != "" {
 		show(msg)
 		return
 	}

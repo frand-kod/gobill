@@ -9,10 +9,10 @@ import (
 
 	"context"
 	"errors"
+	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
 	"golang.org/x/crypto/bcrypt"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -158,7 +158,7 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.sessions.GetString(ctx, "forgot_user") == username && time.Now().Unix() < s.sessions.GetInt64(ctx, "forgot_exp") {
 		wait := s.sessions.GetInt64(ctx, "forgot_exp") - time.Now().Unix()
-		s.forgotRender(w, r, http.StatusOK, "", "Verification Code already sent, please wait "+strconv.FormatInt(wait, 10)+" seconds.")
+		s.forgotRender(w, r, http.StatusOK, "", fmt.Sprintf(s.catalog.T(s.language(), "Verification Code already sent, please wait %d seconds."), wait))
 		return
 	}
 	otp, err := newOTP()
@@ -261,7 +261,7 @@ func (s *Server) pForgotReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	npass := r.PostFormValue("npass")
-	msg := customerPasswordErr(st, user, npass)
+	msg := s.customerPasswordErr(st, user, npass)
 	if msg == "" && npass != r.PostFormValue("cnpass") {
 		msg = "Passwords does not match"
 	}

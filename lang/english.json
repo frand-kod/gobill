@@ -507,7 +507,6 @@
     "Invalid email address": "Invalid email address",
     "Enter a day between 1 and 31": "Enter a day between 1 and 31",
     "Username already exists": "Username already exists",
-    "Customer has transactions and cannot be deleted": "Customer has transactions and cannot be deleted",
     "Bandwidth is used by a plan": "Bandwidth is used by a plan",
     "Router is used by a plan": "Router is used by a plan",
     "Pool is used by a plan": "Pool is used by a plan",
