@@ -85,13 +85,13 @@
 {{end}}
 {{/* row controls in the action cell: inline on desktop and on phones when the row has at most two */}}
 {{define "rowItem"}}{{if eq .Kind "edit"}}<a class="btn btn-ghost btn-icon tip-end" href="{{.Href}}" aria-label="{{T .Label}}" data-tip="{{T .Label}}">{{icon .Icon}}</a>
-{{else if eq .Kind "delete"}}<form method="post" action="{{.Href}}" data-confirm="{{T "Delete"}} {{.Name}}?" data-confirm-danger>
+{{else if eq .Kind "delete"}}<form method="post" action="{{.Href}}" data-confirm="{{T "Delete"}} {{.Name}}?{{with .Note}} {{T .}}{{end}}" data-confirm-danger>
   <button class="btn btn-danger btn-icon tip-end" type="submit" aria-label="{{T "Delete"}}" data-tip="{{T "Delete"}}">{{icon .Icon}}</button>
 </form>
 {{else}}<form class="flex items-center gap-1" method="post" action="{{.Href}}"{{if .Confirm}} data-confirm="{{T .Label}} {{.Name}}{{with .Field}} (+{{printf "{%s}" .}} {{T "days"}}){{end}}?"{{if .Danger}} data-confirm-danger{{end}}{{end}}>{{with .Field}}<input class="input input-sm w-16" type="number" name="{{.}}" value="7" min="1" aria-label="{{T .}}"><span class="text-xs text-ink-2">{{T "days"}}</span>{{end}}<button class="btn btn-ghost btn-icon tip-end" type="submit" aria-label="{{T .Label}}" data-tip="{{T .Label}}">{{icon .Icon}}</button></form>{{end}}{{end}}
 {{/* the same controls in the phone "more actions" menu; the extend days input moves in here */}}
 {{define "rowMenuItem"}}{{if eq .Kind "edit"}}<a class="menu-item" role="menuitem" href="{{.Href}}">{{icon .Icon}}<span>{{T .Label}}</span></a>
-{{else if eq .Kind "delete"}}<form method="post" action="{{.Href}}" data-confirm="{{T "Delete"}} {{.Name}}?" data-confirm-danger>
+{{else if eq .Kind "delete"}}<form method="post" action="{{.Href}}" data-confirm="{{T "Delete"}} {{.Name}}?{{with .Note}} {{T .}}{{end}}" data-confirm-danger>
   <button class="menu-item text-err-fg" role="menuitem" type="submit">{{icon .Icon}}<span>{{T "Delete"}}</span></button>
 </form>
 {{else if .Field}}<form class="flex flex-wrap items-center gap-2 px-3 py-2" method="post" action="{{.Href}}"{{if .Confirm}} data-confirm="{{T .Label}} {{.Name}} (+{{printf "{%s}" .Field}} {{T "days"}})?"{{if .Danger}} data-confirm-danger{{end}}{{end}}>

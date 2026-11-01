@@ -2754,5 +2754,10 @@
     "Boost hours": "Jam boost",
     "Same format as Login hours, e.g. * 00:00-06:00 for a night boost. Online customers are switched within a minute.": "Format sama dengan Jam login, misalnya * 00:00-06:00 untuk boost malam. Pelanggan yang online dipindah dalam satu menit.",
     "Invalid schedule: use Mon-Fri 08:00-17:00; Sat 09:00-12:00": "Jadwal tidak valid: pakai Mon-Fri 08:00-17:00; Sat 09:00-12:00",
-    "Set both the boost bandwidth and the boost hours, or neither": "Isi bandwidth boost dan jam boost sekaligus, atau kosongkan keduanya"
+    "Set both the boost bandwidth and the boost hours, or neither": "Isi bandwidth boost dan jam boost sekaligus, atau kosongkan keduanya",
+    "Add %s to %s; balance becomes %s": "Tambah %s ke %s; saldo menjadi %s",
+    "Choose a package or enter an amount, not both": "Pilih paket atau isi jumlah, jangan keduanya",
+    "The balance and active plans are removed (plans are also removed from the router). Transactions are kept.": "Saldo dan paket aktif dihapus (paket juga dihapus dari router). Transaksi tetap disimpan.",
+    "The router could not remove this customer, so nothing was deleted.": "Router gagal menghapus pelanggan ini, jadi belum ada yang dihapus.",
+    "Check the router and retry, or delete anyway: the customer is removed here and the router is cleaned up later. Balance and plans are lost; transactions are kept.": "Periksa router lalu coba lagi, atau tetap hapus: pelanggan dihapus di sini dan router dibersihkan nanti. Saldo dan paket hilang; transaksi tetap disimpan."
 }

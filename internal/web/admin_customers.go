@@ -190,7 +190,8 @@ func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 	}
 	role := adminFrom(r).Role
 	lp := listPage{Heading: "Customer", Base: "/admin/customers", Q: typed, Searchable: true, ViewLink: true,
-		CanCreate: oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), CanEdit: oneOf(role, "SuperAdmin", "Admin"),
+		DeleteNote: "The balance and active plans are removed (plans are also removed from the router). Transactions are kept.",
+		CanCreate:  oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), CanEdit: oneOf(role, "SuperAdmin", "Admin"),
 		Cols:     []string{"Username", "Full Name", "Balance", "Package", "Service Type", "PPPoE Username", "Ends On", "Status"},
 		SortKeys: []string{"username", "fullname", "balance", "", "", "", "expires", "status"}, Sort: sort, Dir: dir,
 		Filters: []filter{{"service_type", p.ServiceType, anyOpts("Service Type", "Hotspot", "PPPoE", "Others")},
@@ -315,21 +316,22 @@ func (s *Server) custEdit(w http.ResponseWriter, r *http.Request) {
 type subRow struct{ Plan, Router, Expires, Status string }
 
 type custDetail struct {
-	Manage    bool // SuperAdmin/Admin: deactivate, sync, login as customer
-	C         db.Customer
-	Created   string
-	SecretSet bool
-	CanEdit   bool
-	CanSell   bool // may recharge
-	Plans     []option
-	Methods   []option // payment methods offered on the recharge form
-	Subs      []subRow
-	Usage     *radiusUsage
-	Trx       []db.Transaction
-	Custom    []field // custom fields with this customer's values
-	Online    string  // "" unless check_customer_online is yes; else Online, Offline or Error
-	Iso       string  // end of the running isolation, "" when none
-	Diag      diagnosis
+	Manage       bool // SuperAdmin/Admin: deactivate, sync, login as customer
+	C            db.Customer
+	Created      string
+	SecretSet    bool
+	CanEdit      bool
+	CanSell      bool // may recharge
+	Plans        []option
+	Methods      []option // payment methods offered on the recharge form
+	Subs         []subRow
+	Usage        *radiusUsage
+	Trx          []db.Transaction
+	Custom       []field // custom fields with this customer's values
+	Online       string  // "" unless check_customer_online is yes; else Online, Offline or Error
+	Iso          string  // end of the running isolation, "" when none
+	Diag         diagnosis
+	RouterFailed bool // a delete was refused because the router could not remove the customer: offer "Delete anyway"
 }
 
 func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
@@ -340,7 +342,7 @@ func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	role := adminFrom(r).Role
 	d := custDetail{Manage: oneOf(role, "SuperAdmin", "Admin"), C: c, Created: s.ts(c.CreatedAt), SecretSet: len(c.SecretEnc) > 0,
-		CanEdit: oneOf(role, "SuperAdmin", "Admin"), CanSell: oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales")}
+		CanEdit: oneOf(role, "SuperAdmin", "Admin"), CanSell: oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), RouterFailed: r.URL.Query().Get("router_failed") == "1"}
 	opts, plans, err := s.planOptions(r, !d.Manage) // PHP: SuperAdmin/Admin may recharge a disabled plan
 	if err != nil {
 		s.fail(w, "list plans", err)
@@ -690,13 +692,14 @@ func (s *Server) custDelete(w http.ResponseWriter, r *http.Request) {
 	// unless "force" is checked, which deletes anyway.
 	if err := s.Billing.DeleteCustomerForce(r.Context(), id, r.FormValue("force") == "1"); err != nil {
 		if _, gerr := s.queries.GetCustomer(r.Context(), id); gerr == nil {
-			s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Not deleted, the router could not remove the customer")+": "+err.Error()+". "+s.catalog.T(s.language(), "Retry, or delete with force=1 to delete anyway"))
-			http.Redirect(w, r, "/admin/customers/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+			slog.Error("delete customer: router", "customer", c.Username, "err", err)
+			s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Not deleted, the router could not remove the customer"))
+			http.Redirect(w, r, "/admin/customers/"+strconv.FormatInt(id, 10)+"?router_failed=1", http.StatusSeeOther)
 			return
 		}
 		slog.Error("delete customer: router", "customer", c.Username, "err", err)
 		s.logActivity(r, "customer.delete_router_failed", fmt.Sprintf("%s: %v", c.Username, err))
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Deleted, but the router could not be updated")+": "+err.Error())
+		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Deleted, but the router could not be updated"))
 	}
 	s.done(w, r, "/admin/customers", "Data Deleted Successfully", "customer.delete", c.Username)
 }

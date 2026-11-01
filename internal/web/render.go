@@ -107,6 +107,7 @@ func (s *Server) parseTemplates() error {
 		"print":            {"admin/print.html"},
 		"voucher_view":     {"base.html", "admin/app.html", "admin/voucher_view.html"},
 		"recharge_confirm": {"base.html", "admin/app.html", "admin/recharge_confirm.html", "admin/recharge_dialog.html"},
+		"deposit_confirm":  {"base.html", "admin/app.html", "admin/deposit_confirm.html"},
 		"recharge":         {"base.html", "admin/app.html", "admin/recharge.html", "admin/customer_pick.html", "admin/customer_summary.html", "admin/recharge_dialog.html"},
 		"report":           {"base.html", "admin/app.html", "admin/report.html"},
 		"report_print":     {"admin/report_print.html"},

@@ -155,3 +155,20 @@ func TestAdminExtendSetting(t *testing.T) {
 		t.Fatal("SuperAdmin refused with admin_extend=super")
 	}
 }
+
+func TestDepositRefusesPlanAndAmountThenConfirms(t *testing.T) {
+	e := billApp(t)
+	top := e.plan(t, "topup", "Balance", 50000)
+	f := url.Values{"customer": {"u1"}, "plan": {itoa(top.ID)}, "amount": {"7000"}, "confirmed": {"1"}}
+	wantCode(t, do(e.h, "POST", "/admin/deposit", f, e.c), 422, "plan and amount")
+	// first step: a summary, no money moves
+	f = url.Values{"customer": {"u1"}, "plan": {itoa(top.ID)}, "confirmed": {""}}
+	w := do(e.h, "POST", "/admin/deposit", f, e.c)
+	wantCode(t, w, 200, "confirm step")
+	if !strings.Contains(w.Body.String(), `name="confirmed" value="1"`) || !strings.Contains(w.Body.String(), "50.000") {
+		t.Fatalf("no confirm summary: %s", w.Body.String())
+	}
+	if c, _ := e.q.GetCustomer(t.Context(), e.cust.ID); c.Balance != 0 {
+		t.Fatalf("balance moved before confirm: %d", c.Balance)
+	}
+}
