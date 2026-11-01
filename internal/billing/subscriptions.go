@@ -126,6 +126,14 @@ func (s *Service) DeactivateSubscription(ctx context.Context, id, adminID int64)
 	if err != nil || n == 0 {
 		return err
 	}
+	// Mark it as an admin decision: the value is the new expiry, so any later renewal (which moves
+	// expires_at) makes the mark stale without a cleanup. ExtendExpired refuses a marked row.
+	// ponytail: one settings row per deactivated subscription; a column once a migration is justified.
+	if cur, err := s.Q.GetSubscription(ctx, id); err == nil {
+		if err := s.Q.UpsertSetting(ctx, db.UpsertSettingParams{Key: deactivatedKey(id), Value: strconv.FormatInt(cur.ExpiresAt, 10)}); err != nil {
+			return err
+		}
+	}
 	who := "system"
 	if a, err := s.Q.GetAdmin(ctx, adminID); err == nil {
 		who = a.Username
@@ -133,6 +141,8 @@ func (s *Service) DeactivateSubscription(ctx context.Context, id, adminID int64)
 	s.telegram("Admin " + who + " Deactivate " + plan.Name + " for u" + c.Username) // customers.php:268
 	return s.logAdmin(ctx, s.Q, adminID, "subscription.deactivate", c.Username+" "+plan.Name)
 }
+
+func deactivatedKey(id int64) string { return fmt.Sprint("deactivated_", id) }
 
 // ExtendExpired is home.php ?extend=: an expired subscription is switched back on for
 // extend_days days from now, once per calendar month per customer. (The old code kept only the
@@ -164,6 +174,9 @@ func (s *Service) ExtendExpired(ctx context.Context, customerID, subID int64) (t
 		}
 		if sub.Status == "active" {
 			return ErrNotExpired
+		}
+		if setting(ctx, q, deactivatedKey(sub.ID)) == strconv.FormatInt(sub.ExpiresAt, 10) {
+			return ErrExtendDisabled // an admin switched this plan off; only an admin brings it back
 		}
 		plan, err := q.GetPlan(ctx, sub.PlanID)
 		if err != nil {
