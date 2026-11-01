@@ -450,6 +450,34 @@ func TestDataLimit(t *testing.T) {
 	}
 }
 
+// F3: the shared_users limit applies to PPPoE only when shared_users_pppoe = yes.
+func TestSharedUsersPPPoE(t *testing.T) {
+	for _, on := range []bool{false, true} {
+		e := setup(t)
+		ctx := context.Background()
+		rt, _ := e.q.ListRouters(ctx, db.ListRoutersParams{Limit: 1})
+		pool, err := e.q.CreatePool(ctx, db.CreatePoolParams{Name: "pp", RangeIp: "10.9.0.2-10.9.0.9", RouterID: rt[0].ID})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := e.conn.Exec("UPDATE plans SET type='PPPoE', pool_id=?", pool.ID); err != nil {
+			t.Fatal(err)
+		}
+		e.setShared(t, 1)
+		e.setPolicy(t, "reject")
+		if on {
+			if err := e.q.UpsertSetting(ctx, db.UpsertSettingParams{Key: "shared_users_pppoe", Value: "yes"}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		e.sendAcct(t, rfc2866.AcctStatusType_Value_Start, "s1", "172.16.0.5", "AA:AA")
+		r := e.authFrom(t, "172.16.0.9", "BB:BB")
+		if want := map[bool]radius.Code{false: radius.CodeAccessAccept, true: radius.CodeAccessReject}[on]; r.Code != want {
+			t.Fatalf("shared_users_pppoe=%v: second device got %v, want %v", on, r.Code, want)
+		}
+	}
+}
+
 func TestPPPoEAttrs(t *testing.T) {
 	e := setup(t)
 	ctx := context.Background()

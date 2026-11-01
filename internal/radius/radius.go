@@ -643,9 +643,9 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 		}
 		slog.Warn("radius: clock untrusted, accepting expired subscription", "user", user)
 	}
-	// Old PHP: Hotspot only, count of logged-in sessions >= shared_users is refused (reject policy),
+	// Old PHP: Hotspot only (PPPoE too when shared_users_pppoe = yes), count of logged-in sessions >= shared_users is refused (reject policy),
 	// or the oldest ones are dropped so that this login fits (kick_oldest, the default).
-	if pl.PlanType == "Hotspot" && pl.SharedUsers.Valid {
+	if (pl.PlanType == "Hotspot" || (pl.PlanType == "PPPoE" && s.settings(ctx)["shared_users_pppoe"] == "yes")) && pl.SharedUsers.Valid {
 		others, err := s.Q.ListOtherOpenRadiusSessions(ctx, db.ListOtherOpenRadiusSessionsParams{
 			Username: user, UpdatedAt: s.now().Unix() - StaleFor(rq.NAS), FramedIp: rq.FramedIP, Column4: rq.FramedIP, Mac: rq.MAC, Column6: rq.MAC})
 		if err != nil { // fail closed: unknown sessions must not count as zero
