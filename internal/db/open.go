@@ -78,6 +78,12 @@ func Migrate(conn *sql.DB) error {
 		return err
 	}
 	sort.Strings(names)
+	if len(names) > 0 {
+		last := strings.TrimPrefix(names[len(names)-1], "migrations/")
+		if latest, err := strconv.Atoi(strings.SplitN(last, "_", 2)[0]); err == nil && current > latest {
+			return fmt.Errorf("database schema version %d is newer than this binary supports (%d): upgrade gobill or restore an older backup", current, latest)
+		}
+	}
 
 	for _, name := range names {
 		base := strings.TrimPrefix(name, "migrations/")

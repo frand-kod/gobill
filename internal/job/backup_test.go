@@ -39,14 +39,14 @@ func TestBackupWritesRotatesAndSkips(t *testing.T) {
 		t.Fatalf("untrusted run wrote a backup: %v", err)
 	}
 
-	// Trusted clock, outside the hour: nothing is written.
+	// Trusted clock, before the backup hour: nothing is written.
 	trusted = true
-	b.Now = func() time.Time { return at(1, 3) }
+	b.Now = func() time.Time { return at(1, 1) }
 	if err := b.Run(ctx); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(backupDir, "gobill-20261001.db")); !os.IsNotExist(err) {
-		t.Fatalf("run outside 02:00 wrote a backup")
+		t.Fatalf("run before 02:00 wrote a backup")
 	}
 
 	// Days 1 to 3 at 02:00: the file is created, and rotation keeps only the newest 2.
