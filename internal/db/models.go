@@ -130,6 +130,12 @@ type Customer struct {
 	Coordinates    string
 }
 
+type CustomerBinding struct {
+	CustomerID int64
+	Mac        string
+	PortID     string
+}
+
 type CustomerFieldValue struct {
 	CustomerID int64
 	FieldID    int64
@@ -213,38 +219,35 @@ type PaymentRequest struct {
 }
 
 type Plan struct {
-	ID             int64
-	Name           string
-	Type           string
-	Billing        string
-	Price          int64
-	Validity       int64
-	ValidityUnit   string
-	Limited        int64
-	LimitType      sql.NullString
-	TimeLimit      sql.NullInt64
-	TimeUnit       sql.NullString
-	DataLimit      sql.NullInt64
-	DataUnit       sql.NullString
-	SharedUsers    sql.NullInt64
-	BandwidthID    sql.NullInt64
-	RouterID       sql.NullInt64
-	PoolID         sql.NullInt64
-	ExpiredPlanID  sql.NullInt64
-	BillingDay     sql.NullInt64
-	OnLogin        string
-	OnLogout       string
-	Device         string
-	Enabled        int64
-	Audience       string
-	FupBandwidthID sql.NullInt64
-}
-
-type PortalSeen struct {
-	CustomerID int64
-	Item       string
-	Version    string
-	SeenAt     int64
+	ID               int64
+	Name             string
+	Type             string
+	Billing          string
+	Price            int64
+	Validity         int64
+	ValidityUnit     string
+	Limited          int64
+	LimitType        sql.NullString
+	TimeLimit        sql.NullInt64
+	TimeUnit         sql.NullString
+	DataLimit        sql.NullInt64
+	DataUnit         sql.NullString
+	SharedUsers      sql.NullInt64
+	BandwidthID      sql.NullInt64
+	RouterID         sql.NullInt64
+	PoolID           sql.NullInt64
+	ExpiredPlanID    sql.NullInt64
+	BillingDay       sql.NullInt64
+	OnLogin          string
+	OnLogout         string
+	Device           string
+	Enabled          int64
+	Audience         string
+	FupBandwidthID   sql.NullInt64
+	IdleTimeout      sql.NullInt64
+	LoginWindow      string
+	BoostWindow      string
+	BoostBandwidthID sql.NullInt64
 }
 
 type Pool struct {
@@ -253,6 +256,13 @@ type Pool struct {
 	LocalIp  string
 	RangeIp  string
 	RouterID int64
+}
+
+type PortalSeen struct {
+	CustomerID int64
+	Item       string
+	Version    string
+	SeenAt     int64
 }
 
 type Promo struct {
@@ -270,20 +280,33 @@ type Promo struct {
 	UpdatedAt  int64
 }
 
+type RadiusAuthLog struct {
+	ID       int64
+	At       int64
+	Username string
+	NasIp    string
+	Mac      string
+	Accepted int64
+	Reason   string
+	Message  string
+}
+
 type RadiusSession struct {
-	ID            int64
-	SessionID     string
-	Username      string
-	NasIp         string
-	NasIpAttr     string
-	NasIdentifier string
-	FramedIp      string
-	Mac           string
-	StartedAt     int64
-	UpdatedAt     int64
-	StoppedAt     sql.NullInt64
-	InputOctets   int64
-	OutputOctets  int64
+	ID             int64
+	SessionID      string
+	Username       string
+	NasIp          string
+	NasIpAttr      string
+	NasIdentifier  string
+	FramedIp       string
+	Mac            string
+	StartedAt      int64
+	UpdatedAt      int64
+	StoppedAt      sql.NullInt64
+	InputOctets    int64
+	OutputOctets   int64
+	TerminateCause string
+	NasPortID      string
 }
 
 type RadiusUsageDaily struct {

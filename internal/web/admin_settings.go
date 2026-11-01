@@ -418,6 +418,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		}, "Data retention", "")...)
 		out = append(out, section([]field{
 			text("radius_rest_allow", "Allowed addresses for /radius.php", v, e).hint("Comma-separated IPs or CIDR ranges that may call /radius.php, e.g. 192.168.1.10, 10.0.0.0/24. Empty = loopback only. Saved changes apply to the next request, no restart needed"),
+			text("radius_interim_interval", "Accounting update interval (seconds)", v, e).as("number").hint("Sent to the NAS in every Access-Accept as Acct-Interim-Interval. Default 300. 0 = do not send, the NAS uses its own"),
 		}, "FreeRADIUS", "")...)
 		out = append(out, section([]field{
 			sel("role_access_mode", "Role access", option{"strict", "Strict"}, option{"phpnuxbill", "PHPNuxBill compatible"}).hint("Strict: only SuperAdmin and Admin can add balance, use Recharge Zero and generate vouchers, and the Report role sees reports only. PHPNuxBill compatible: Agent and Sales can add balance, use Recharge Zero and generate vouchers, and every role reads transactions and customer exports"),
@@ -535,6 +536,9 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	}
 	if x := v["log_keep_days"]; x != "" && !inRange(x, 0, 3650) {
 		e["log_keep_days"] = "Enter whole days, 0 to 3650. 0 keeps logs forever"
+	}
+	if x := v["radius_interim_interval"]; x != "" && !inRange(x, 0, 86400) {
+		e["radius_interim_interval"] = "Enter whole seconds, 0 to 86400"
 	}
 	if x := v["backup_keep"]; x != "" && !inRange(x, 1, 1<<30) {
 		e["backup_keep"] = "Enter a whole number, 1 or more"

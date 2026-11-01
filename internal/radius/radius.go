@@ -14,6 +14,7 @@ import (
 	"math"
 	"net"
 	"net/netip"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -298,6 +299,8 @@ type AuthRequest struct {
 	FramedIP string
 	MAC      string
 	NAS      string // NAS address, for the voucher-guess limiter
+	PortID   string // NAS-Port-Id as the NAS reports it, "" = not sent
+	PortType string // NAS-Port-Type by name ("Virtual", "Wireless-802.11"...), "" = the NAS did not send one
 	DryRun   bool   // read-only decision (router migration test): no pending start, no session kick
 }
 
@@ -311,6 +314,7 @@ type Decision struct {
 	// AddressList is the Mikrotik-Address-List of an isolated customer (isolir plan), "" = none.
 	AddressList string
 	Timeout     int64 // Session-Timeout seconds, 0 = none
+	Interim     int64 // Acct-Interim-Interval seconds, 0 = not sent
 	Expires     int64
 	TotalLeft   int64 // remaining bytes when a data limit applies (HasTotal)
 	HasTotal    bool
@@ -332,6 +336,7 @@ func (s *Server) Authorize(ctx context.Context, rq AuthRequest) Decision {
 		return Decision{Reject: "Too many attempts, try again later"}
 	}
 	d := s.decide(ctx, rq)
+	s.logAuth(ctx, rq, d)
 	switch d.Reject {
 	case "":
 		s.userFails.reset(rq.User)
@@ -357,6 +362,12 @@ func rejectReason(msg string) string {
 		return "voucher"
 	case strings.Contains(msg, "xpired"):
 		return "expired"
+	case strings.HasPrefix(msg, "Port type"):
+		return "port_type"
+	case strings.HasPrefix(msg, msgOutsideWindow):
+		return "window"
+	case strings.HasPrefix(msg, "Account locked"):
+		return "binding"
 	case strings.Contains(msg, "limit") || msg == SharedUsersFullMsg:
 		return "limit"
 	}
@@ -381,6 +392,84 @@ func (s *Server) decide(ctx context.Context, rq AuthRequest) Decision {
 		voucherFails.fail(nasKey, now)
 	}
 	return d
+}
+
+// Reject messages of the NAS-Port-Type check.
+const (
+	msgPortHotspot = "Port type mismatch: a Hotspot plan cannot log in on a Virtual (VPN/PPPoE) port"
+	msgPortPPPoE   = "Port type mismatch: a PPPoE plan cannot log in on a Wireless-802.11 (hotspot) port"
+)
+
+// portMismatch checks the plan type against NAS-Port-Type, only when the NAS sent one: a Hotspot plan
+// is refused on a Virtual port (PPP over a tunnel), a PPPoE plan on a Wireless-802.11 port (hotspot).
+// Ethernet and anything else pass: MikroTik uses Ethernet for both services.
+func portMismatch(planType, portType string) string {
+	switch {
+	case planType == "Hotspot" && portType == "Virtual":
+		return msgPortHotspot
+	case planType == "PPPoE" && portType == "Wireless-802.11":
+		return msgPortPPPoE
+	}
+	return ""
+}
+
+// msgOutsideWindow starts the reject message of a login outside the plan's login window.
+const msgOutsideWindow = "Login not allowed at this time"
+
+// Reject messages of the per-customer binding.
+const (
+	msgBindMAC  = "Account locked to another device (MAC address does not match)"
+	msgBindPort = "Account locked to another port (NAS-Port-Id does not match)"
+)
+
+// NormMAC reads a MAC address in any usual notation (AA:BB:.., AA-BB-.., aabb.ccdd.eeff) and returns
+// AA:BB:CC:DD:EE:FF, or "" when it is not a MAC.
+func NormMAC(s string) string {
+	var h []byte
+	for _, c := range []byte(strings.ToUpper(s)) {
+		switch {
+		case c >= '0' && c <= '9', c >= 'A' && c <= 'F':
+			h = append(h, c)
+		case c == ':' || c == '-' || c == '.':
+		default:
+			return ""
+		}
+	}
+	if len(h) != 12 {
+		return ""
+	}
+	var b strings.Builder
+	for i := 0; i < 12; i += 2 {
+		if i > 0 {
+			b.WriteByte(':')
+		}
+		b.Write(h[i : i+2])
+	}
+	return b.String()
+}
+
+// bindingMismatch checks the customer's lock to a MAC and/or NAS-Port-Id. A locked value the NAS did
+// not send counts as a mismatch: the lock cannot be verified, so it fails closed.
+func bindingMismatch(mac, port string, rq AuthRequest) string {
+	if mac != "" && NormMAC(rq.MAC) != NormMAC(mac) || mac != "" && NormMAC(rq.MAC) == "" {
+		return msgBindMAC
+	}
+	if port != "" && !strings.EqualFold(strings.TrimSpace(rq.PortID), port) {
+		return msgBindPort
+	}
+	return ""
+}
+
+// InterimDefault is the Acct-Interim-Interval sent when the radius_interim_interval setting is unset.
+const InterimDefault = 300
+
+// interimInterval is the radius_interim_interval setting: seconds, 0 = do not send, unset = InterimDefault.
+func (s *Server) interimInterval(ctx context.Context) int64 {
+	v, ok := s.settings(ctx)["radius_interim_interval"]
+	if n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64); ok && err == nil && n >= 0 {
+		return min(n, 1<<32-1)
+	}
+	return InterimDefault
 }
 
 // sharedPolicy is the shared_users_policy setting: "reject" or "kick_oldest" (default, also when unset).
@@ -477,9 +566,10 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 	if havePlan {
 		c, pl = lr.Customer, db.GetRadiusPlanRow{StartedAt: lr.StartedAt, QuotaCarryBytes: lr.QuotaCarryBytes, QuotaCarrySeconds: lr.QuotaCarrySeconds, ExpiresAt: lr.ExpiresAt, PendingStart: lr.PendingStart,
 			PlanID: lr.PlanID, PlanName: lr.PlanName, PlanType: lr.PlanType, Limited: lr.Limited, LimitType: lr.LimitType,
-			TimeLimit: lr.TimeLimit, TimeUnit: lr.TimeUnit, DataLimit: lr.DataLimit, DataUnit: lr.DataUnit, SharedUsers: lr.SharedUsers,
-			RateDown: lr.RateDown, RateDownUnit: lr.RateDownUnit, RateUp: lr.RateUp, RateUpUnit: lr.RateUpUnit, Burst: lr.Burst, PoolName: lr.PoolName,
-			FupRateDown: lr.FupRateDown, FupRateDownUnit: lr.FupRateDownUnit, FupRateUp: lr.FupRateUp, FupRateUpUnit: lr.FupRateUpUnit, FupBurst: lr.FupBurst}
+			TimeLimit: lr.TimeLimit, TimeUnit: lr.TimeUnit, DataLimit: lr.DataLimit, DataUnit: lr.DataUnit, SharedUsers: lr.SharedUsers, IdleTimeout: lr.IdleTimeout, LoginWindow: lr.LoginWindow, BoostWindow: lr.BoostWindow,
+			RateDown: lr.RateDown, RateDownUnit: lr.RateDownUnit, RateUp: lr.RateUp, RateUpUnit: lr.RateUpUnit, Burst: lr.Burst, PoolName: lr.PoolName, BindMac: lr.BindMac, BindPortID: lr.BindPortID,
+			FupRateDown: lr.FupRateDown, FupRateDownUnit: lr.FupRateDownUnit, FupRateUp: lr.FupRateUp, FupRateUpUnit: lr.FupRateUpUnit, FupBurst: lr.FupBurst,
+			BoostRateDown: lr.BoostRateDown, BoostRateDownUnit: lr.BoostRateDownUnit, BoostRateUp: lr.BoostRateUp, BoostRateUpUnit: lr.BoostRateUpUnit, BoostBurst: lr.BoostBurst}
 	} else {
 		c, err = s.Q.GetCustomerForRadius(ctx, user)
 	}
@@ -524,6 +614,18 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 			pl = iso
 		}
 	}
+	if msg := portMismatch(pl.PlanType, rq.PortType); msg != "" {
+		return Decision{Reject: msg} // before Start: a refused login must not start a pending subscription
+	}
+	if msg := bindingMismatch(pl.BindMac, pl.BindPortID, rq); msg != "" {
+		return Decision{Reject: msg}
+	}
+	var winLeft int64 // seconds to the end of the login window, 0 = no window
+	if ok, left := windowLeft(pl.LoginWindow, s.now().In(s.loc())); !ok {
+		return Decision{Reject: msgOutsideWindow + " (" + pl.LoginWindow + ")"}
+	} else {
+		winLeft = left
+	}
 	if pl.PendingStart == 1 && rq.DryRun {
 		pl.ExpiresAt = math.MaxInt32 // not started, not touched: the provisional expiry says nothing
 	} else if pl.PendingStart == 1 && s.Start != nil { // before the expiry check: a pending row's provisional expiry is not the real one
@@ -559,11 +661,16 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 			}
 		}
 	}
-	d := Decision{Success: success, Cust: c, Plan: pl, Expires: pl.ExpiresAt, AddressList: isolir.AddressListFor(s.settings(ctx), pl.PlanID)}
+	d := Decision{Success: success, Cust: c, Plan: pl, Expires: pl.ExpiresAt, Interim: s.interimInterval(ctx), AddressList: isolir.AddressListFor(s.settings(ctx), pl.PlanID)}
 	if left > 0 {
 		d.Timeout = left
 	}
 	d.Rate = rateLimit(pl.RateUp, pl.RateDown, pl.RateUpUnit, pl.RateDownUnit, pl.Burst)
+	if boostOn(pl.BoostWindow, s.now().In(s.loc())) { // before FUP: past the data limit the FUP rate wins
+		if b := rateLimit(pl.BoostRateUp, pl.BoostRateDown, pl.BoostRateUpUnit, pl.BoostRateDownUnit, pl.BoostBurst); b != "" {
+			d.Rate = b
+		}
+	}
 	if pl.Limited == 1 {
 		lt := pl.LimitType.String
 		hasTime := (lt == "Time_Limit" || lt == "Both_Limit") && pl.TimeLimit.Valid
@@ -596,6 +703,9 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 				}
 			}
 		}
+	}
+	if winLeft > 0 && (d.Timeout == 0 || winLeft < d.Timeout) {
+		d.Timeout = winLeft // the NAS drops the session at the end of the login window
 	}
 	if d.Timeout > 1<<32-1 {
 		d.Timeout = 1<<32 - 1
@@ -763,6 +873,10 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 	if ip := rfc2865.FramedIPAddress_Get(r.Packet); ip != nil {
 		rq.FramedIP = ip.String()
 	}
+	rq.PortID = rfc2869.NASPortID_GetString(r.Packet)
+	if pt, err := rfc2865.NASPortType_Lookup(r.Packet); err == nil {
+		rq.PortType = pt.String()
+	}
 	d := s.Authorize(r.Context(), rq)
 	if d.Reject != "" {
 		reject(w, r, d.Reject)
@@ -794,6 +908,12 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 	}
 	if d.Timeout > 0 {
 		rfc2865.SessionTimeout_Set(p, rfc2865.SessionTimeout(d.Timeout))
+	}
+	if d.Plan.IdleTimeout.Valid && d.Plan.IdleTimeout.Int64 > 0 {
+		rfc2865.IdleTimeout_Set(p, rfc2865.IdleTimeout(min(d.Plan.IdleTimeout.Int64, 1<<32-1)))
+	}
+	if d.Interim > 0 {
+		rfc2869.AcctInterimInterval_Set(p, rfc2869.AcctInterimInterval(d.Interim))
 	}
 	send(w, p)
 }
@@ -864,7 +984,9 @@ type AcctRequest struct {
 	NASIPAttr, NASID     string // NAS-IP-Address / NAS-Identifier as the NAS reports them
 	MAC, FramedIP        string
 	SessionTime          int64
-	InOctets, OutOctets  int64 // gigawords already folded in
+	NASPortID            string // NAS-Port-Id as the NAS reports it
+	TerminateCause       string // Acct-Terminate-Cause by name, Stop only
+	InOctets, OutOctets  int64  // gigawords already folded in
 }
 
 // NoteNAS records a packet from NAS nas in radius_nas_last_packet_timestamp. Callers must only pass
@@ -896,7 +1018,7 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 			a.InOctets, a.OutOctets = max(a.InOctets, 0), max(a.OutOctets, 0)
 		}
 		arg := db.UpsertRadiusSessionParams{SessionID: a.SessionID, Username: a.User, NasIp: a.NAS, NasIpAttr: a.NASIPAttr, NasIdentifier: a.NASID, FramedIp: a.FramedIP,
-			Mac: a.MAC, StartedAt: now - a.SessionTime, UpdatedAt: now, InputOctets: a.InOctets, OutputOctets: a.OutOctets}
+			Mac: a.MAC, StartedAt: now - a.SessionTime, UpdatedAt: now, InputOctets: a.InOctets, OutputOctets: a.OutOctets, TerminateCause: a.TerminateCause, NasPortID: a.NASPortID}
 		noteInterim(a.NAS, a.SessionID, a.Type, now)
 		if a.Type == rfc2866.AcctStatusType_Value_Stop {
 			arg.StoppedAt = sql.NullInt64{Int64: now, Valid: true}
@@ -945,6 +1067,10 @@ func (s *Server) handleAcct(w radius.ResponseWriter, r *radius.Request) {
 		a.NASIPAttr = ip.String()
 	}
 	a.NASID = rfc2865.NASIdentifier_GetString(p)
+	a.NASPortID = rfc2869.NASPortID_GetString(p)
+	if c, err := rfc2866.AcctTerminateCause_Lookup(p); err == nil {
+		a.TerminateCause = c.String()
+	}
 	if err := s.Account(r.Context(), a); err != nil {
 		slog.Error("radius: accounting", "err", err)
 		return // no response: NAS retries

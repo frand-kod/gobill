@@ -23,14 +23,17 @@ LIMIT 1;
 
 -- name: GetRadiusPlan :one
 SELECT s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
-       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
+       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users, p.idle_timeout, p.login_window, p.boost_window,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        fb.rate_down AS fup_rate_down, fb.rate_down_unit AS fup_rate_down_unit, fb.rate_up AS fup_rate_up, fb.rate_up_unit AS fup_rate_up_unit, fb.burst AS fup_burst,
-       pl.name AS pool_name
+       xb.rate_down AS boost_rate_down, xb.rate_down_unit AS boost_rate_down_unit, xb.rate_up AS boost_rate_up, xb.rate_up_unit AS boost_rate_up_unit, xb.burst AS boost_burst,
+       pl.name AS pool_name, COALESCE(cb.mac, '') AS bind_mac, COALESCE(cb.port_id, '') AS bind_port_id
 FROM subscriptions s
 JOIN plans p ON p.id = s.plan_id
+LEFT JOIN customer_bindings cb ON cb.customer_id = s.customer_id
 LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
 LEFT JOIN bandwidths fb ON fb.id = p.fup_bandwidth_id AND p.device = 'Radius'
+LEFT JOIN bandwidths xb ON xb.id = p.boost_bandwidth_id AND p.device = 'Radius'
 LEFT JOIN pools pl ON pl.id = p.pool_id
 WHERE s.customer_id = ? AND s.status = 'active'
 ORDER BY s.expires_at DESC LIMIT 1;
@@ -39,15 +42,18 @@ ORDER BY s.expires_at DESC LIMIT 1;
 -- GetCustomerForRadius and GetRadiusPlan in one statement for the common case, an active customer with
 -- an active plan: one read transaction per login instead of two. No row: use the two queries.
 SELECT sqlc.embed(c), s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
-       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
+       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users, p.idle_timeout, p.login_window, p.boost_window,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        fb.rate_down AS fup_rate_down, fb.rate_down_unit AS fup_rate_down_unit, fb.rate_up AS fup_rate_up, fb.rate_up_unit AS fup_rate_up_unit, fb.burst AS fup_burst,
-       pl.name AS pool_name
+       xb.rate_down AS boost_rate_down, xb.rate_down_unit AS boost_rate_down_unit, xb.rate_up AS boost_rate_up, xb.rate_up_unit AS boost_rate_up_unit, xb.burst AS boost_burst,
+       pl.name AS pool_name, COALESCE(cb.mac, '') AS bind_mac, COALESCE(cb.port_id, '') AS bind_port_id
 FROM customers c
+LEFT JOIN customer_bindings cb ON cb.customer_id = c.id
 JOIN subscriptions s ON s.id = (SELECT id FROM subscriptions WHERE customer_id = c.id AND status = 'active' ORDER BY expires_at DESC LIMIT 1)
 JOIN plans p ON p.id = s.plan_id
 LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
 LEFT JOIN bandwidths fb ON fb.id = p.fup_bandwidth_id AND p.device = 'Radius'
+LEFT JOIN bandwidths xb ON xb.id = p.boost_bandwidth_id AND p.device = 'Radius'
 LEFT JOIN pools pl ON pl.id = p.pool_id
 WHERE (c.username = sqlc.arg(name) OR (c.pppoe_username <> '' AND c.pppoe_username = sqlc.arg(name))) AND c.status = 'Active'
 LIMIT 1;
@@ -68,13 +74,15 @@ ORDER BY started_at ASC, id ASC;
 UPDATE radius_sessions SET stopped_at = ? WHERE id = ? AND stopped_at IS NULL;
 
 -- name: UpsertRadiusSession :exec
-INSERT INTO radius_sessions (session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO radius_sessions (session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets, terminate_cause, nas_port_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (nas_ip, session_id) DO UPDATE SET
     nas_ip_attr = COALESCE(NULLIF(excluded.nas_ip_attr, ''), radius_sessions.nas_ip_attr),
     nas_identifier = COALESCE(NULLIF(excluded.nas_identifier, ''), radius_sessions.nas_identifier),
+    nas_port_id = COALESCE(NULLIF(excluded.nas_port_id, ''), radius_sessions.nas_port_id),
     framed_ip = excluded.framed_ip, updated_at = excluded.updated_at,
     stopped_at = COALESCE(radius_sessions.stopped_at, excluded.stopped_at),
+    terminate_cause = COALESCE(NULLIF(excluded.terminate_cause, ''), radius_sessions.terminate_cause),
     input_octets = MAX(radius_sessions.input_octets, excluded.input_octets), output_octets = MAX(radius_sessions.output_octets, excluded.output_octets);
 
 -- name: CloseRadiusSessionsByNAS :exec
@@ -201,3 +209,11 @@ JOIN customers c ON c.status = 'Active' AND (c.username = rs.username OR (c.pppo
 JOIN subscriptions s ON s.id = (SELECT id FROM subscriptions WHERE customer_id = c.id AND status = 'active' ORDER BY expires_at DESC LIMIT 1)
 JOIN plans p ON p.id = s.plan_id
 WHERE rs.stopped_at IS NULL AND p.fup_bandwidth_id IS NOT NULL AND p.device = 'Radius' AND p.limited = 1;
+
+-- name: ListBoostSessions :many
+-- Open sessions of customers whose active plan has a scheduled boost (RADIUS): the boost job checks these.
+SELECT rs.* FROM radius_sessions rs
+JOIN customers c ON c.status = 'Active' AND (c.username = rs.username OR (c.pppoe_username <> '' AND c.pppoe_username = rs.username))
+JOIN subscriptions s ON s.id = (SELECT id FROM subscriptions WHERE customer_id = c.id AND status = 'active' ORDER BY expires_at DESC LIMIT 1)
+JOIN plans p ON p.id = s.plan_id
+WHERE rs.stopped_at IS NULL AND p.boost_bandwidth_id IS NOT NULL AND p.boost_window <> '' AND p.device = 'Radius';

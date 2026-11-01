@@ -21,6 +21,7 @@ var listIntros = map[string]intro{
 	"/admin/fields":                {"Extra customer fields", "Extra questions on the customer form, such as ID card number or tower name.", ""},
 	"/admin/logs":                  {"Activity log", "What admins did, newest first. Look here to find out who changed or deleted something.", ""},
 	"/admin/logs/radius":           {"RADIUS login log", "Login attempts from RADIUS customers, accepted or refused. Check it when a customer says they cannot connect.", ""},
+	"/admin/logs/auth":             {"Login attempts", "Every RADIUS login attempt, accepted or refused, with the reason. Check it when a customer says they cannot connect.", ""},
 	"/admin/logs/messages":         {"Message log", "Every SMS, WhatsApp or email this system sent, and whether it went through.", ""},
 	"/admin/message/bulk/status":   {"Bulk message progress", "Who received your bulk message and who did not.", ""},
 	"/admin/payment-gateway":       {"Online payment", "The online payment services customers can pay with. Keys are set under Settings, Payments.", ""},

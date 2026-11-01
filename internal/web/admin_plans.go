@@ -7,16 +7,18 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"strings"
 
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/radius"
 	"strconv"
 )
 
 var (
 	planNames = []string{"name", "type", "billing", "price", "validity", "validity_unit", "limited", "limit_type",
 		"time_limit", "time_unit", "data_limit", "data_unit", "shared_users", "bandwidth_id", "router_id", "pool_id",
-		"expired_plan_id", "billing_day", "device", "fup_bandwidth_id", "enabled", "on_login", "on_logout", "audience"}
+		"expired_plan_id", "billing_day", "device", "fup_bandwidth_id", "idle_timeout", "login_window", "boost_window", "boost_bandwidth_id", "enabled", "on_login", "on_logout", "audience"}
 	// the device driver an empty "device" field falls back to, by plan type
 	defaultDevices = map[string]string{"Hotspot": "MikrotikHotspot", "PPPoE": "MikrotikPppoe"}
 )
@@ -55,11 +57,14 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 	bw, rt, pool, exp := sel("bandwidth_id", "Bandwidth Name").bind(), sel("router_id", "Router"), sel("pool_id", "Pool Name"), sel("expired_plan_id", "Expired Plan")
 	fup := sel("fup_bandwidth_id", "Speed after the data limit")
 	fup.Options = []option{{"", "No FUP: reject at the limit"}}
+	boost := sel("boost_bandwidth_id", "Boost bandwidth")
+	boost.Options = []option{{"", "No boost"}}
 	rt.Options, pool.Options, exp.Options = []option{{"", "Choose a router"}}, []option{{"", "No pool"}}, []option{{"", "Default: Isolation, or disconnect"}}
 	for _, b := range x.bw {
 		bw.Options = append(bw.Options, option{fmt.Sprint(b.ID), b.Name})
 	}
 	for _, b := range x.bw {
+		boost.Options = append(boost.Options, option{fmt.Sprint(b.ID), b.Name})
 		fup.Options = append(fup.Options, option{fmt.Sprint(b.ID), b.Name})
 	}
 	for _, o := range x.rt {
@@ -115,6 +120,8 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 		text("data_unit", "Data Unit", v, e).opts("MB", "GB").show("limited && limit_type !== 'Time_Limit'"),
 		fup.show("limited && limit_type !== 'Time_Limit' && device === 'Radius'").
 			hint("FUP (fair usage): past the data limit the customer stays online at this speed until the plan ends, instead of being rejected. RADIUS (gobill) only."),
+		text("idle_timeout", "Idle timeout (seconds)", v, e).as("number").show("device === 'Radius'").
+			hint("The NAS drops a session that sends no traffic for this long. Empty = not sent. RADIUS (gobill) only."),
 		text("shared_users", "Device limit", v, e).as("number").bind().show(hotspot).
 			hint("How many devices can be online with this plan at once. When the limit is full, Settings > Customers & Billing decides: kick the oldest device or reject the new login."),
 	}, "Limits", hotspot+" || "+pppoe+" && device === 'Radius'")...)
@@ -123,6 +130,11 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 		rt.show(radius),
 		pool.show(pppoe),
 	}, "Network & device", notBalance)...)
+	out = append(out, section([]field{
+		text("login_window", "Login hours", v, e).hint("When customers of this plan may log in, in the app time zone. Example: Mon-Fri 08:00-17:00; Sat 09:00-12:00. A window past midnight is fine: 22:00-06:00. Empty = always. The session is cut at the end of the window. RADIUS (gobill) only.").wide(),
+		boost.hint("Speed used during the boost hours instead of the plan's own bandwidth. A customer past the data limit still gets the FUP speed. RADIUS (gobill) only."),
+		text("boost_window", "Boost hours", v, e).hint("Same format as Login hours, e.g. * 00:00-06:00 for a night boost. Online customers are switched within a minute."),
+	}, "Schedule", "device === 'Radius'")...)
 	scripts := section([]field{
 		text("on_login", "On Login", v, e).as("textarea"),
 		text("on_logout", "On Logout", v, e).as("textarea")}, "Router scripts", notBalance)
@@ -161,7 +173,7 @@ func planFormValues(p db.Plan) map[string]string {
 		"limit_type": p.LimitType.String, "time_limit": n(p.TimeLimit), "time_unit": p.TimeUnit.String,
 		"data_limit": n(p.DataLimit), "data_unit": p.DataUnit.String, "shared_users": n(p.SharedUsers),
 		"bandwidth_id": n(p.BandwidthID), "router_id": n(p.RouterID), "pool_id": n(p.PoolID),
-		"expired_plan_id": n(p.ExpiredPlanID), "billing_day": n(p.BillingDay), "device": p.Device, "fup_bandwidth_id": n(p.FupBandwidthID), "enabled": fmt.Sprint(p.Enabled), "on_login": p.OnLogin, "on_logout": p.OnLogout, "audience": p.Audience}
+		"expired_plan_id": n(p.ExpiredPlanID), "billing_day": n(p.BillingDay), "device": p.Device, "fup_bandwidth_id": n(p.FupBandwidthID), "idle_timeout": n(p.IdleTimeout), "login_window": p.LoginWindow, "boost_window": p.BoostWindow, "boost_bandwidth_id": n(p.BoostBandwidthID), "enabled": fmt.Sprint(p.Enabled), "on_login": p.OnLogin, "on_logout": p.OnLogout, "audience": p.Audience}
 }
 
 func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
@@ -359,6 +371,19 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 		if p.Device == "" {
 			p.Device = defaultDevices[p.Type]
 		}
+		if p.Device == "Radius" {
+			p.IdleTimeout = optInt(v["idle_timeout"], e, "idle_timeout")
+			p.LoginWindow, p.BoostWindow = strings.TrimSpace(v["login_window"]), strings.TrimSpace(v["boost_window"])
+			for _, k := range []string{"login_window", "boost_window"} {
+				if _, err := radius.ParseWindow(v[k]); err != nil {
+					e[k] = "Invalid schedule: use Mon-Fri 08:00-17:00; Sat 09:00-12:00"
+				}
+			}
+			p.BoostBandwidthID = optInt(v["boost_bandwidth_id"], e, "boost_bandwidth_id")
+			if p.BoostBandwidthID.Valid != (p.BoostWindow != "") {
+				e["boost_window"] = "Set both the boost bandwidth and the boost hours, or neither"
+			}
+		}
 		pppoeQuota := v["type"] == "PPPoE" && p.Device == "Radius" // only RADIUS enforces a PPPoE quota, and only bytes (Session-Timeout would cut the line)
 		if v["type"] == "PPPoE" && v["limited"] == "1" && !pppoeQuota {
 			e["limit_type"] = "A PPPoE data limit needs the RADIUS (gobill) device; the MikroTik API cannot enforce it"
@@ -410,7 +435,7 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 				DataLimit: p.DataLimit, DataUnit: p.DataUnit, SharedUsers: p.SharedUsers, BandwidthID: p.BandwidthID,
 				RouterID: p.RouterID, PoolID: p.PoolID, Enabled: p.Enabled, Limited: p.Limited, LimitType: p.LimitType,
 				ExpiredPlanID: p.ExpiredPlanID, BillingDay: p.BillingDay, OnLogin: p.OnLogin, OnLogout: p.OnLogout,
-				Device: p.Device, FupBandwidthID: p.FupBandwidthID, Audience: p.Audience, ID: id})
+				Device: p.Device, FupBandwidthID: p.FupBandwidthID, Audience: p.Audience, IdleTimeout: p.IdleTimeout, LoginWindow: p.LoginWindow, BoostWindow: p.BoostWindow, BoostBandwidthID: p.BoostBandwidthID, ID: id})
 			if err == nil {
 				saved, err = s.queries.GetPlan(ctx, id)
 			}

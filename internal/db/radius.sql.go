@@ -241,7 +241,7 @@ func (q *Queries) GetNAS(ctx context.Context, id int64) (Na, error) {
 }
 
 const getOpenRadiusSessionByFramedIP = `-- name: GetOpenRadiusSessionByFramedIP :one
-SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions WHERE framed_ip = ? AND stopped_at IS NULL ORDER BY started_at DESC, id DESC LIMIT 1
+SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets, terminate_cause, nas_port_id FROM radius_sessions WHERE framed_ip = ? AND stopped_at IS NULL ORDER BY started_at DESC, id DESC LIMIT 1
 `
 
 // The most recently started open session on a client IP (the /isolir page identifies the customer by it).
@@ -262,21 +262,26 @@ func (q *Queries) GetOpenRadiusSessionByFramedIP(ctx context.Context, framedIp s
 		&i.StoppedAt,
 		&i.InputOctets,
 		&i.OutputOctets,
+		&i.TerminateCause,
+		&i.NasPortID,
 	)
 	return i, err
 }
 
 const getRadiusLogin = `-- name: GetRadiusLogin :one
 SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, c.session_version, c.coordinates, s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
-       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
+       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users, p.idle_timeout, p.login_window, p.boost_window,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        fb.rate_down AS fup_rate_down, fb.rate_down_unit AS fup_rate_down_unit, fb.rate_up AS fup_rate_up, fb.rate_up_unit AS fup_rate_up_unit, fb.burst AS fup_burst,
-       pl.name AS pool_name
+       xb.rate_down AS boost_rate_down, xb.rate_down_unit AS boost_rate_down_unit, xb.rate_up AS boost_rate_up, xb.rate_up_unit AS boost_rate_up_unit, xb.burst AS boost_burst,
+       pl.name AS pool_name, COALESCE(cb.mac, '') AS bind_mac, COALESCE(cb.port_id, '') AS bind_port_id
 FROM customers c
+LEFT JOIN customer_bindings cb ON cb.customer_id = c.id
 JOIN subscriptions s ON s.id = (SELECT id FROM subscriptions WHERE customer_id = c.id AND status = 'active' ORDER BY expires_at DESC LIMIT 1)
 JOIN plans p ON p.id = s.plan_id
 LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
 LEFT JOIN bandwidths fb ON fb.id = p.fup_bandwidth_id AND p.device = 'Radius'
+LEFT JOIN bandwidths xb ON xb.id = p.boost_bandwidth_id AND p.device = 'Radius'
 LEFT JOIN pools pl ON pl.id = p.pool_id
 WHERE (c.username = ?1 OR (c.pppoe_username <> '' AND c.pppoe_username = ?1)) AND c.status = 'Active'
 LIMIT 1
@@ -299,6 +304,9 @@ type GetRadiusLoginRow struct {
 	DataLimit         sql.NullInt64
 	DataUnit          sql.NullString
 	SharedUsers       sql.NullInt64
+	IdleTimeout       sql.NullInt64
+	LoginWindow       string
+	BoostWindow       string
 	RateDown          sql.NullInt64
 	RateDownUnit      sql.NullString
 	RateUp            sql.NullInt64
@@ -309,7 +317,14 @@ type GetRadiusLoginRow struct {
 	FupRateUp         sql.NullInt64
 	FupRateUpUnit     sql.NullString
 	FupBurst          sql.NullString
+	BoostRateDown     sql.NullInt64
+	BoostRateDownUnit sql.NullString
+	BoostRateUp       sql.NullInt64
+	BoostRateUpUnit   sql.NullString
+	BoostBurst        sql.NullString
 	PoolName          sql.NullString
+	BindMac           string
+	BindPortID        string
 }
 
 // GetCustomerForRadius and GetRadiusPlan in one statement for the common case, an active customer with
@@ -353,6 +368,9 @@ func (q *Queries) GetRadiusLogin(ctx context.Context, name string) (GetRadiusLog
 		&i.DataLimit,
 		&i.DataUnit,
 		&i.SharedUsers,
+		&i.IdleTimeout,
+		&i.LoginWindow,
+		&i.BoostWindow,
 		&i.RateDown,
 		&i.RateDownUnit,
 		&i.RateUp,
@@ -363,21 +381,31 @@ func (q *Queries) GetRadiusLogin(ctx context.Context, name string) (GetRadiusLog
 		&i.FupRateUp,
 		&i.FupRateUpUnit,
 		&i.FupBurst,
+		&i.BoostRateDown,
+		&i.BoostRateDownUnit,
+		&i.BoostRateUp,
+		&i.BoostRateUpUnit,
+		&i.BoostBurst,
 		&i.PoolName,
+		&i.BindMac,
+		&i.BindPortID,
 	)
 	return i, err
 }
 
 const getRadiusPlan = `-- name: GetRadiusPlan :one
 SELECT s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
-       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users,
+       p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users, p.idle_timeout, p.login_window, p.boost_window,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        fb.rate_down AS fup_rate_down, fb.rate_down_unit AS fup_rate_down_unit, fb.rate_up AS fup_rate_up, fb.rate_up_unit AS fup_rate_up_unit, fb.burst AS fup_burst,
-       pl.name AS pool_name
+       xb.rate_down AS boost_rate_down, xb.rate_down_unit AS boost_rate_down_unit, xb.rate_up AS boost_rate_up, xb.rate_up_unit AS boost_rate_up_unit, xb.burst AS boost_burst,
+       pl.name AS pool_name, COALESCE(cb.mac, '') AS bind_mac, COALESCE(cb.port_id, '') AS bind_port_id
 FROM subscriptions s
 JOIN plans p ON p.id = s.plan_id
+LEFT JOIN customer_bindings cb ON cb.customer_id = s.customer_id
 LEFT JOIN bandwidths b ON b.id = p.bandwidth_id
 LEFT JOIN bandwidths fb ON fb.id = p.fup_bandwidth_id AND p.device = 'Radius'
+LEFT JOIN bandwidths xb ON xb.id = p.boost_bandwidth_id AND p.device = 'Radius'
 LEFT JOIN pools pl ON pl.id = p.pool_id
 WHERE s.customer_id = ? AND s.status = 'active'
 ORDER BY s.expires_at DESC LIMIT 1
@@ -399,6 +427,9 @@ type GetRadiusPlanRow struct {
 	DataLimit         sql.NullInt64
 	DataUnit          sql.NullString
 	SharedUsers       sql.NullInt64
+	IdleTimeout       sql.NullInt64
+	LoginWindow       string
+	BoostWindow       string
 	RateDown          sql.NullInt64
 	RateDownUnit      sql.NullString
 	RateUp            sql.NullInt64
@@ -409,7 +440,14 @@ type GetRadiusPlanRow struct {
 	FupRateUp         sql.NullInt64
 	FupRateUpUnit     sql.NullString
 	FupBurst          sql.NullString
+	BoostRateDown     sql.NullInt64
+	BoostRateDownUnit sql.NullString
+	BoostRateUp       sql.NullInt64
+	BoostRateUpUnit   sql.NullString
+	BoostBurst        sql.NullString
 	PoolName          sql.NullString
+	BindMac           string
+	BindPortID        string
 }
 
 func (q *Queries) GetRadiusPlan(ctx context.Context, customerID int64) (GetRadiusPlanRow, error) {
@@ -431,6 +469,9 @@ func (q *Queries) GetRadiusPlan(ctx context.Context, customerID int64) (GetRadiu
 		&i.DataLimit,
 		&i.DataUnit,
 		&i.SharedUsers,
+		&i.IdleTimeout,
+		&i.LoginWindow,
+		&i.BoostWindow,
 		&i.RateDown,
 		&i.RateDownUnit,
 		&i.RateUp,
@@ -441,13 +482,20 @@ func (q *Queries) GetRadiusPlan(ctx context.Context, customerID int64) (GetRadiu
 		&i.FupRateUp,
 		&i.FupRateUpUnit,
 		&i.FupBurst,
+		&i.BoostRateDown,
+		&i.BoostRateDownUnit,
+		&i.BoostRateUp,
+		&i.BoostRateUpUnit,
+		&i.BoostBurst,
 		&i.PoolName,
+		&i.BindMac,
+		&i.BindPortID,
 	)
 	return i, err
 }
 
 const getRadiusSession = `-- name: GetRadiusSession :one
-SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions WHERE id = ?
+SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets, terminate_cause, nas_port_id FROM radius_sessions WHERE id = ?
 `
 
 func (q *Queries) GetRadiusSession(ctx context.Context, id int64) (RadiusSession, error) {
@@ -467,6 +515,8 @@ func (q *Queries) GetRadiusSession(ctx context.Context, id int64) (RadiusSession
 		&i.StoppedAt,
 		&i.InputOctets,
 		&i.OutputOctets,
+		&i.TerminateCause,
+		&i.NasPortID,
 	)
 	return i, err
 }
@@ -544,8 +594,56 @@ func (q *Queries) ListActivePlanRates(ctx context.Context) ([]ListActivePlanRate
 	return items, nil
 }
 
+const listBoostSessions = `-- name: ListBoostSessions :many
+SELECT rs.id, rs.session_id, rs.username, rs.nas_ip, rs.nas_ip_attr, rs.nas_identifier, rs.framed_ip, rs.mac, rs.started_at, rs.updated_at, rs.stopped_at, rs.input_octets, rs.output_octets, rs.terminate_cause, rs.nas_port_id FROM radius_sessions rs
+JOIN customers c ON c.status = 'Active' AND (c.username = rs.username OR (c.pppoe_username <> '' AND c.pppoe_username = rs.username))
+JOIN subscriptions s ON s.id = (SELECT id FROM subscriptions WHERE customer_id = c.id AND status = 'active' ORDER BY expires_at DESC LIMIT 1)
+JOIN plans p ON p.id = s.plan_id
+WHERE rs.stopped_at IS NULL AND p.boost_bandwidth_id IS NOT NULL AND p.boost_window <> '' AND p.device = 'Radius'
+`
+
+// Open sessions of customers whose active plan has a scheduled boost (RADIUS): the boost job checks these.
+func (q *Queries) ListBoostSessions(ctx context.Context) ([]RadiusSession, error) {
+	rows, err := q.db.QueryContext(ctx, listBoostSessions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RadiusSession
+	for rows.Next() {
+		var i RadiusSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.Username,
+			&i.NasIp,
+			&i.NasIpAttr,
+			&i.NasIdentifier,
+			&i.FramedIp,
+			&i.Mac,
+			&i.StartedAt,
+			&i.UpdatedAt,
+			&i.StoppedAt,
+			&i.InputOctets,
+			&i.OutputOctets,
+			&i.TerminateCause,
+			&i.NasPortID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFUPSessions = `-- name: ListFUPSessions :many
-SELECT rs.id, rs.session_id, rs.username, rs.nas_ip, rs.nas_ip_attr, rs.nas_identifier, rs.framed_ip, rs.mac, rs.started_at, rs.updated_at, rs.stopped_at, rs.input_octets, rs.output_octets FROM radius_sessions rs
+SELECT rs.id, rs.session_id, rs.username, rs.nas_ip, rs.nas_ip_attr, rs.nas_identifier, rs.framed_ip, rs.mac, rs.started_at, rs.updated_at, rs.stopped_at, rs.input_octets, rs.output_octets, rs.terminate_cause, rs.nas_port_id FROM radius_sessions rs
 JOIN customers c ON c.status = 'Active' AND (c.username = rs.username OR (c.pppoe_username <> '' AND c.pppoe_username = rs.username))
 JOIN subscriptions s ON s.id = (SELECT id FROM subscriptions WHERE customer_id = c.id AND status = 'active' ORDER BY expires_at DESC LIMIT 1)
 JOIN plans p ON p.id = s.plan_id
@@ -576,6 +674,8 @@ func (q *Queries) ListFUPSessions(ctx context.Context) ([]RadiusSession, error) 
 			&i.StoppedAt,
 			&i.InputOctets,
 			&i.OutputOctets,
+			&i.TerminateCause,
+			&i.NasPortID,
 		); err != nil {
 			return nil, err
 		}
@@ -626,7 +726,7 @@ func (q *Queries) ListNAS(ctx context.Context) ([]Na, error) {
 }
 
 const listOpenRadiusSessionsByUser = `-- name: ListOpenRadiusSessionsByUser :many
-SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions WHERE username = ? AND stopped_at IS NULL
+SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets, terminate_cause, nas_port_id FROM radius_sessions WHERE username = ? AND stopped_at IS NULL
 `
 
 func (q *Queries) ListOpenRadiusSessionsByUser(ctx context.Context, username string) ([]RadiusSession, error) {
@@ -652,6 +752,8 @@ func (q *Queries) ListOpenRadiusSessionsByUser(ctx context.Context, username str
 			&i.StoppedAt,
 			&i.InputOctets,
 			&i.OutputOctets,
+			&i.TerminateCause,
+			&i.NasPortID,
 		); err != nil {
 			return nil, err
 		}
@@ -667,7 +769,7 @@ func (q *Queries) ListOpenRadiusSessionsByUser(ctx context.Context, username str
 }
 
 const listOtherOpenRadiusSessions = `-- name: ListOtherOpenRadiusSessions :many
-SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions
+SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets, terminate_cause, nas_port_id FROM radius_sessions
 WHERE username = ? AND stopped_at IS NULL AND updated_at >= ?
   AND (framed_ip <> ? OR ? = '')
   AND (mac <> ? OR ? = '')
@@ -714,6 +816,8 @@ func (q *Queries) ListOtherOpenRadiusSessions(ctx context.Context, arg ListOther
 			&i.StoppedAt,
 			&i.InputOctets,
 			&i.OutputOctets,
+			&i.TerminateCause,
+			&i.NasPortID,
 		); err != nil {
 			return nil, err
 		}
@@ -765,7 +869,7 @@ func (q *Queries) ListRadiusDropsSince(ctx context.Context, since int64) ([]List
 }
 
 const listRadiusSessionsByUsers = `-- name: ListRadiusSessionsByUsers :many
-SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions
+SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets, terminate_cause, nas_port_id FROM radius_sessions
 WHERE username = ?1 OR username = ?2
 ORDER BY started_at DESC, id DESC LIMIT ?4 OFFSET ?3
 `
@@ -806,6 +910,8 @@ func (q *Queries) ListRadiusSessionsByUsers(ctx context.Context, arg ListRadiusS
 			&i.StoppedAt,
 			&i.InputOctets,
 			&i.OutputOctets,
+			&i.TerminateCause,
+			&i.NasPortID,
 		); err != nil {
 			return nil, err
 		}
@@ -863,7 +969,7 @@ func (q *Queries) ListRadiusUsageDaily(ctx context.Context, arg ListRadiusUsageD
 }
 
 const listRecentRadiusSessionsByUser = `-- name: ListRecentRadiusSessionsByUser :many
-SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions WHERE username = ? ORDER BY started_at DESC LIMIT 10
+SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets, terminate_cause, nas_port_id FROM radius_sessions WHERE username = ? ORDER BY started_at DESC LIMIT 10
 `
 
 func (q *Queries) ListRecentRadiusSessionsByUser(ctx context.Context, username string) ([]RadiusSession, error) {
@@ -889,6 +995,8 @@ func (q *Queries) ListRecentRadiusSessionsByUser(ctx context.Context, username s
 			&i.StoppedAt,
 			&i.InputOctets,
 			&i.OutputOctets,
+			&i.TerminateCause,
+			&i.NasPortID,
 		); err != nil {
 			return nil, err
 		}
@@ -913,7 +1021,7 @@ func (q *Queries) MarkNASMASeen(ctx context.Context, id int64) error {
 }
 
 const searchOpenRadiusSessions = `-- name: SearchOpenRadiusSessions :many
-SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions
+SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets, terminate_cause, nas_port_id FROM radius_sessions
 WHERE stopped_at IS NULL
   AND (username LIKE '%' || CAST(?1 AS TEXT) || '%' OR framed_ip LIKE '%' || CAST(?1 AS TEXT) || '%' OR mac LIKE '%' || CAST(?1 AS TEXT) || '%')
 ORDER BY started_at DESC LIMIT ?3 OFFSET ?2
@@ -948,6 +1056,8 @@ func (q *Queries) SearchOpenRadiusSessions(ctx context.Context, arg SearchOpenRa
 			&i.StoppedAt,
 			&i.InputOctets,
 			&i.OutputOctets,
+			&i.TerminateCause,
+			&i.NasPortID,
 		); err != nil {
 			return nil, err
 		}
@@ -963,7 +1073,7 @@ func (q *Queries) SearchOpenRadiusSessions(ctx context.Context, arg SearchOpenRa
 }
 
 const searchRadiusLogs = `-- name: SearchRadiusLogs :many
-SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets FROM radius_sessions
+SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets, terminate_cause, nas_port_id FROM radius_sessions
 WHERE (username LIKE '%' || CAST(?1 AS TEXT) || '%' OR nas_ip LIKE '%' || CAST(?1 AS TEXT) || '%')
   AND (CAST(?2 AS INTEGER) = 0 OR started_at >= ?2)
   AND (CAST(?3 AS INTEGER) = 0 OR started_at < ?3)
@@ -1008,6 +1118,8 @@ func (q *Queries) SearchRadiusLogs(ctx context.Context, arg SearchRadiusLogsPara
 			&i.StoppedAt,
 			&i.InputOctets,
 			&i.OutputOctets,
+			&i.TerminateCause,
+			&i.NasPortID,
 		); err != nil {
 			return nil, err
 		}
@@ -1198,29 +1310,33 @@ func (q *Queries) UpdateNAS(ctx context.Context, arg UpdateNASParams) error {
 }
 
 const upsertRadiusSession = `-- name: UpsertRadiusSession :exec
-INSERT INTO radius_sessions (session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO radius_sessions (session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets, terminate_cause, nas_port_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (nas_ip, session_id) DO UPDATE SET
     nas_ip_attr = COALESCE(NULLIF(excluded.nas_ip_attr, ''), radius_sessions.nas_ip_attr),
     nas_identifier = COALESCE(NULLIF(excluded.nas_identifier, ''), radius_sessions.nas_identifier),
+    nas_port_id = COALESCE(NULLIF(excluded.nas_port_id, ''), radius_sessions.nas_port_id),
     framed_ip = excluded.framed_ip, updated_at = excluded.updated_at,
     stopped_at = COALESCE(radius_sessions.stopped_at, excluded.stopped_at),
+    terminate_cause = COALESCE(NULLIF(excluded.terminate_cause, ''), radius_sessions.terminate_cause),
     input_octets = MAX(radius_sessions.input_octets, excluded.input_octets), output_octets = MAX(radius_sessions.output_octets, excluded.output_octets)
 `
 
 type UpsertRadiusSessionParams struct {
-	SessionID     string
-	Username      string
-	NasIp         string
-	NasIpAttr     string
-	NasIdentifier string
-	FramedIp      string
-	Mac           string
-	StartedAt     int64
-	UpdatedAt     int64
-	StoppedAt     sql.NullInt64
-	InputOctets   int64
-	OutputOctets  int64
+	SessionID      string
+	Username       string
+	NasIp          string
+	NasIpAttr      string
+	NasIdentifier  string
+	FramedIp       string
+	Mac            string
+	StartedAt      int64
+	UpdatedAt      int64
+	StoppedAt      sql.NullInt64
+	InputOctets    int64
+	OutputOctets   int64
+	TerminateCause string
+	NasPortID      string
 }
 
 func (q *Queries) UpsertRadiusSession(ctx context.Context, arg UpsertRadiusSessionParams) error {
@@ -1237,6 +1353,8 @@ func (q *Queries) UpsertRadiusSession(ctx context.Context, arg UpsertRadiusSessi
 		arg.StoppedAt,
 		arg.InputOctets,
 		arg.OutputOctets,
+		arg.TerminateCause,
+		arg.NasPortID,
 	)
 	return err
 }

@@ -13,36 +13,40 @@ import (
 const createPlan = `-- name: CreatePlan :one
 INSERT INTO plans (name, type, billing, price, validity, validity_unit, time_limit, time_unit,
                    data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, enabled,
-                   limited, limit_type, expired_plan_id, billing_day, on_login, on_logout, device, fup_bandwidth_id, audience)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(NULLIF(CAST(?24 AS TEXT), ''), 'public'))
-RETURNING id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience, fup_bandwidth_id
+                   limited, limit_type, expired_plan_id, billing_day, on_login, on_logout, device, fup_bandwidth_id, idle_timeout, login_window, boost_window, boost_bandwidth_id, audience)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(NULLIF(CAST(?28 AS TEXT), ''), 'public'))
+RETURNING id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience, fup_bandwidth_id, idle_timeout, login_window, boost_window, boost_bandwidth_id
 `
 
 type CreatePlanParams struct {
-	Name           string
-	Type           string
-	Billing        string
-	Price          int64
-	Validity       int64
-	ValidityUnit   string
-	TimeLimit      sql.NullInt64
-	TimeUnit       sql.NullString
-	DataLimit      sql.NullInt64
-	DataUnit       sql.NullString
-	SharedUsers    sql.NullInt64
-	BandwidthID    sql.NullInt64
-	RouterID       sql.NullInt64
-	PoolID         sql.NullInt64
-	Enabled        int64
-	Limited        int64
-	LimitType      sql.NullString
-	ExpiredPlanID  sql.NullInt64
-	BillingDay     sql.NullInt64
-	OnLogin        string
-	OnLogout       string
-	Device         string
-	FupBandwidthID sql.NullInt64
-	Audience       string
+	Name             string
+	Type             string
+	Billing          string
+	Price            int64
+	Validity         int64
+	ValidityUnit     string
+	TimeLimit        sql.NullInt64
+	TimeUnit         sql.NullString
+	DataLimit        sql.NullInt64
+	DataUnit         sql.NullString
+	SharedUsers      sql.NullInt64
+	BandwidthID      sql.NullInt64
+	RouterID         sql.NullInt64
+	PoolID           sql.NullInt64
+	Enabled          int64
+	Limited          int64
+	LimitType        sql.NullString
+	ExpiredPlanID    sql.NullInt64
+	BillingDay       sql.NullInt64
+	OnLogin          string
+	OnLogout         string
+	Device           string
+	FupBandwidthID   sql.NullInt64
+	IdleTimeout      sql.NullInt64
+	LoginWindow      string
+	BoostWindow      string
+	BoostBandwidthID sql.NullInt64
+	Audience         string
 }
 
 func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (Plan, error) {
@@ -70,6 +74,10 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (Plan, e
 		arg.OnLogout,
 		arg.Device,
 		arg.FupBandwidthID,
+		arg.IdleTimeout,
+		arg.LoginWindow,
+		arg.BoostWindow,
+		arg.BoostBandwidthID,
 		arg.Audience,
 	)
 	var i Plan
@@ -99,6 +107,10 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (Plan, e
 		&i.Enabled,
 		&i.Audience,
 		&i.FupBandwidthID,
+		&i.IdleTimeout,
+		&i.LoginWindow,
+		&i.BoostWindow,
+		&i.BoostBandwidthID,
 	)
 	return i, err
 }
@@ -113,7 +125,7 @@ func (q *Queries) DeletePlan(ctx context.Context, id int64) error {
 }
 
 const getPlan = `-- name: GetPlan :one
-SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience, fup_bandwidth_id FROM plans WHERE id = ?
+SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience, fup_bandwidth_id, idle_timeout, login_window, boost_window, boost_bandwidth_id FROM plans WHERE id = ?
 `
 
 func (q *Queries) GetPlan(ctx context.Context, id int64) (Plan, error) {
@@ -145,12 +157,16 @@ func (q *Queries) GetPlan(ctx context.Context, id int64) (Plan, error) {
 		&i.Enabled,
 		&i.Audience,
 		&i.FupBandwidthID,
+		&i.IdleTimeout,
+		&i.LoginWindow,
+		&i.BoostWindow,
+		&i.BoostBandwidthID,
 	)
 	return i, err
 }
 
 const listEnabledPlansByType = `-- name: ListEnabledPlansByType :many
-SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience, fup_bandwidth_id FROM plans WHERE enabled = 1 AND type = ? AND audience = 'public' AND price > 0 ORDER BY price
+SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience, fup_bandwidth_id, idle_timeout, login_window, boost_window, boost_bandwidth_id FROM plans WHERE enabled = 1 AND type = ? AND audience = 'public' AND price > 0 ORDER BY price
 `
 
 // Customer portal list: admin-only plans and Rp 0 plans are never sold to a customer.
@@ -189,6 +205,10 @@ func (q *Queries) ListEnabledPlansByType(ctx context.Context, type_ string) ([]P
 			&i.Enabled,
 			&i.Audience,
 			&i.FupBandwidthID,
+			&i.IdleTimeout,
+			&i.LoginWindow,
+			&i.BoostWindow,
+			&i.BoostBandwidthID,
 		); err != nil {
 			return nil, err
 		}
@@ -204,7 +224,7 @@ func (q *Queries) ListEnabledPlansByType(ctx context.Context, type_ string) ([]P
 }
 
 const listPlans = `-- name: ListPlans :many
-SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience, fup_bandwidth_id FROM plans ORDER BY name LIMIT ? OFFSET ?
+SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience, fup_bandwidth_id, idle_timeout, login_window, boost_window, boost_bandwidth_id FROM plans ORDER BY name LIMIT ? OFFSET ?
 `
 
 type ListPlansParams struct {
@@ -247,6 +267,10 @@ func (q *Queries) ListPlans(ctx context.Context, arg ListPlansParams) ([]Plan, e
 			&i.Enabled,
 			&i.Audience,
 			&i.FupBandwidthID,
+			&i.IdleTimeout,
+			&i.LoginWindow,
+			&i.BoostWindow,
+			&i.BoostBandwidthID,
 		); err != nil {
 			return nil, err
 		}
@@ -262,7 +286,7 @@ func (q *Queries) ListPlans(ctx context.Context, arg ListPlansParams) ([]Plan, e
 }
 
 const listPlansByRouter = `-- name: ListPlansByRouter :many
-SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience FROM plans WHERE router_id = ? AND enabled = 1 AND type <> 'Balance' ORDER BY id
+SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience, fup_bandwidth_id, idle_timeout, login_window, boost_window, boost_bandwidth_id FROM plans WHERE router_id = ? AND enabled = 1 AND type <> 'Balance' ORDER BY id
 `
 
 // Plans a router serves, for the bulk push to that router.
@@ -300,6 +324,11 @@ func (q *Queries) ListPlansByRouter(ctx context.Context, routerID sql.NullInt64)
 			&i.Device,
 			&i.Enabled,
 			&i.Audience,
+			&i.FupBandwidthID,
+			&i.IdleTimeout,
+			&i.LoginWindow,
+			&i.BoostWindow,
+			&i.BoostBandwidthID,
 		); err != nil {
 			return nil, err
 		}
@@ -315,7 +344,7 @@ func (q *Queries) ListPlansByRouter(ctx context.Context, routerID sql.NullInt64)
 }
 
 const searchPlans = `-- name: SearchPlans :many
-SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience, fup_bandwidth_id FROM plans WHERE name LIKE '%' || CAST(?1 AS TEXT) || '%' AND id <> ?2 ORDER BY name LIMIT ?4 OFFSET ?3
+SELECT id, name, type, billing, price, validity, validity_unit, limited, limit_type, time_limit, time_unit, data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, expired_plan_id, billing_day, on_login, on_logout, device, enabled, audience, fup_bandwidth_id, idle_timeout, login_window, boost_window, boost_bandwidth_id FROM plans WHERE name LIKE '%' || CAST(?1 AS TEXT) || '%' AND id <> ?2 ORDER BY name LIMIT ?4 OFFSET ?3
 `
 
 type SearchPlansParams struct {
@@ -365,6 +394,10 @@ func (q *Queries) SearchPlans(ctx context.Context, arg SearchPlansParams) ([]Pla
 			&i.Enabled,
 			&i.Audience,
 			&i.FupBandwidthID,
+			&i.IdleTimeout,
+			&i.LoginWindow,
+			&i.BoostWindow,
+			&i.BoostBandwidthID,
 		); err != nil {
 			return nil, err
 		}
@@ -383,36 +416,40 @@ const updatePlan = `-- name: UpdatePlan :exec
 UPDATE plans SET name = ?, type = ?, billing = ?, price = ?, validity = ?, validity_unit = ?,
     time_limit = ?, time_unit = ?, data_limit = ?, data_unit = ?, shared_users = ?,
     bandwidth_id = ?, router_id = ?, pool_id = ?, enabled = ?,
-    limited = ?, limit_type = ?, expired_plan_id = ?, billing_day = ?, on_login = ?, on_logout = ?, device = ?, fup_bandwidth_id = ?, audience = ?
+    limited = ?, limit_type = ?, expired_plan_id = ?, billing_day = ?, on_login = ?, on_logout = ?, device = ?, fup_bandwidth_id = ?, audience = ?, idle_timeout = ?, login_window = ?, boost_window = ?, boost_bandwidth_id = ?
 WHERE id = ?
 `
 
 type UpdatePlanParams struct {
-	Name           string
-	Type           string
-	Billing        string
-	Price          int64
-	Validity       int64
-	ValidityUnit   string
-	TimeLimit      sql.NullInt64
-	TimeUnit       sql.NullString
-	DataLimit      sql.NullInt64
-	DataUnit       sql.NullString
-	SharedUsers    sql.NullInt64
-	BandwidthID    sql.NullInt64
-	RouterID       sql.NullInt64
-	PoolID         sql.NullInt64
-	Enabled        int64
-	Limited        int64
-	LimitType      sql.NullString
-	ExpiredPlanID  sql.NullInt64
-	BillingDay     sql.NullInt64
-	OnLogin        string
-	OnLogout       string
-	Device         string
-	FupBandwidthID sql.NullInt64
-	Audience       string
-	ID             int64
+	Name             string
+	Type             string
+	Billing          string
+	Price            int64
+	Validity         int64
+	ValidityUnit     string
+	TimeLimit        sql.NullInt64
+	TimeUnit         sql.NullString
+	DataLimit        sql.NullInt64
+	DataUnit         sql.NullString
+	SharedUsers      sql.NullInt64
+	BandwidthID      sql.NullInt64
+	RouterID         sql.NullInt64
+	PoolID           sql.NullInt64
+	Enabled          int64
+	Limited          int64
+	LimitType        sql.NullString
+	ExpiredPlanID    sql.NullInt64
+	BillingDay       sql.NullInt64
+	OnLogin          string
+	OnLogout         string
+	Device           string
+	FupBandwidthID   sql.NullInt64
+	Audience         string
+	IdleTimeout      sql.NullInt64
+	LoginWindow      string
+	BoostWindow      string
+	BoostBandwidthID sql.NullInt64
+	ID               int64
 }
 
 func (q *Queries) UpdatePlan(ctx context.Context, arg UpdatePlanParams) error {
@@ -441,6 +478,10 @@ func (q *Queries) UpdatePlan(ctx context.Context, arg UpdatePlanParams) error {
 		arg.Device,
 		arg.FupBandwidthID,
 		arg.Audience,
+		arg.IdleTimeout,
+		arg.LoginWindow,
+		arg.BoostWindow,
+		arg.BoostBandwidthID,
 		arg.ID,
 	)
 	return err

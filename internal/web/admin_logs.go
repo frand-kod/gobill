@@ -15,7 +15,7 @@ import (
 
 // ---- log cleanup ----
 
-var logPages = map[string]string{"activity": "/admin/logs", "radius": "/admin/logs/radius", "messages": "/admin/logs/messages"}
+var logPages = map[string]string{"activity": "/admin/logs", "radius": "/admin/logs/radius", "auth": "/admin/logs/auth", "messages": "/admin/logs/messages"}
 
 func (s *Server) logClean(w http.ResponseWriter, r *http.Request) {
 	kind := r.PathValue("kind")
@@ -123,7 +123,7 @@ func (s *Server) exportCSV(w http.ResponseWriter, name string, head []string, pa
 	}
 }
 
-var radiusLogCols = []string{"User", "NAS", "IP", "MAC", "Start", "Stop", "Duration", "Upload", "Download"}
+var radiusLogCols = []string{"User", "NAS", "IP", "MAC", "Start", "Stop", "Duration", "Upload", "Download", "End reason"}
 
 func (s *Server) radiusLogParams(r *http.Request) db.SearchRadiusLogsParams {
 	_, _, f, t := s.dateRange(r)
@@ -138,7 +138,7 @@ func (s *Server) radiusLogRows(ss []db.RadiusSession) [][]string {
 			stop, end = s.ts(x.StoppedAt.Int64), x.StoppedAt.Int64
 		}
 		out = append(out, []string{x.Username, x.NasIp, x.FramedIp, x.Mac, s.ts(x.StartedAt), stop, humanDur(end - x.StartedAt),
-			humanBytes(x.InputOctets), humanBytes(x.OutputOctets)})
+			humanBytes(x.InputOctets), humanBytes(x.OutputOctets), x.TerminateCause})
 	}
 	return out
 }
@@ -158,7 +158,7 @@ func (s *Server) radiusLog(w http.ResponseWriter, r *http.Request) {
 	for i, c := range s.radiusLogRows(ss) {
 		lp.Rows = append(lp.Rows, listRow{ss[i].ID, c})
 	}
-	lp.Links = []option{{"/admin/logs/radius/export?" + lp.query().Encode(), "Export CSV"}}
+	lp.Links = []option{{"/admin/logs/radius/export?" + lp.query().Encode(), "Export CSV"}, {"/admin/logs/auth", "Login attempts"}, {"/admin/radius/ip-lookup", "Who had this IP"}}
 	total, err := s.queries.CountRadiusLogs(r.Context(), db.CountRadiusLogsParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
 	if err != nil {
 		s.fail(w, "count radius logs", err)
@@ -233,5 +233,61 @@ func (s *Server) msgLogExport(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		s.fail(w, "export message log", err)
+	}
+}
+
+var authLogCols = []string{"Date", "User", "NAS", "MAC", "Result", "Reason"}
+
+func (s *Server) authLogParams(r *http.Request) db.SearchRadiusAuthLogParams {
+	_, _, f, t := s.dateRange(r)
+	return db.SearchRadiusAuthLogParams{Q: strings.TrimSpace(r.URL.Query().Get("q")), FromTs: f, ToTs: t}
+}
+
+func (s *Server) authLogRows(rows []db.RadiusAuthLog) [][]string {
+	out := [][]string{}
+	for _, x := range rows {
+		res := s.catalog.T(s.language(), "Rejected")
+		if x.Accepted == 1 {
+			res = s.catalog.T(s.language(), "Accepted")
+		}
+		out = append(out, []string{s.ts(x.At), x.Username, x.NasIp, x.Mac, res, x.Message})
+	}
+	return out
+}
+
+// radiusAuthLog lists every RADIUS login attempt (post-auth log): accepted or rejected, with the reason.
+func (s *Server) radiusAuthLog(w http.ResponseWriter, r *http.Request) {
+	q, pg := paging(r)
+	p := s.authLogParams(r)
+	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
+	rows, err := s.queries.SearchRadiusAuthLog(r.Context(), p)
+	if err != nil {
+		s.fail(w, "auth log", err)
+		return
+	}
+	from, to, _, _ := s.dateRange(r)
+	lp := listPage{Heading: "Login attempts", Base: "/admin/logs/auth", Q: q, Searchable: true, Dates: true, From: from, To: to, Cols: authLogCols, Clean: "/admin/logs/clean/auth"}
+	for i, c := range s.authLogRows(rows) {
+		lp.Rows = append(lp.Rows, listRow{rows[i].ID, c})
+	}
+	lp.Links = []option{{"/admin/logs/auth/export?" + lp.query().Encode(), "Export CSV"}, {"/admin/logs/radius", "Radius Logs"}}
+	total, err := s.queries.CountRadiusAuthLog(r.Context(), db.CountRadiusAuthLogParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
+	if err != nil {
+		s.fail(w, "count auth log", err)
+		return
+	}
+	lp.finish(pg, total)
+	s.renderList(w, r, lp)
+}
+
+func (s *Server) radiusAuthLogExport(w http.ResponseWriter, r *http.Request) {
+	p := s.authLogParams(r)
+	err := s.exportCSV(w, "login-attempts", authLogCols, func(off int64) ([][]string, error) {
+		p.PageLimit, p.PageOffset = exportChunk, off
+		rows, err := s.queries.SearchRadiusAuthLog(r.Context(), p)
+		return s.authLogRows(rows), err
+	})
+	if err != nil {
+		s.fail(w, "export auth log", err)
 	}
 }

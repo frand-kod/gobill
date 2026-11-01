@@ -116,7 +116,7 @@ func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
 		// Voucher login (user == password, or empty password) is handled inside Authorize.
 		rs.NoteNAS(r.FormValue("nasIpAddress"))
 		d := rs.Authorize(r.Context(), radius.AuthRequest{User: user, Check: check,
-			FramedIP: r.FormValue("framedIPAddress"), MAC: r.FormValue("macAddr"), NAS: r.FormValue("nasIpAddress")})
+			FramedIP: r.FormValue("framedIPAddress"), MAC: r.FormValue("macAddr"), NAS: r.FormValue("nasIpAddress"), PortType: r.FormValue("nasPortType"), PortID: r.FormValue("nasPortId")})
 		if d.Reject != "" {
 			jsonOut(w, 401, rejectBody(d.Reject))
 			return
@@ -143,10 +143,10 @@ func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
 		if nas == "" {
 			nas = clientIP(r)
 		}
-		err := rs.Account(r.Context(), radius.AcctRequest{Type: typ, NAS: nas, NASIPAttr: r.FormValue("nasIpAddress"), NASID: r.FormValue("nasid"), SessionID: r.FormValue("acctSessionId"), User: user,
+		err := rs.Account(r.Context(), radius.AcctRequest{Type: typ, NAS: nas, NASIPAttr: r.FormValue("nasIpAddress"), NASID: r.FormValue("nasid"), SessionID: r.FormValue("acctSessionId"), NASPortID: r.FormValue("nasPortId"), User: user,
 			MAC: r.FormValue("macAddr"), FramedIP: r.FormValue("framedIPAddress"), SessionTime: n("acctSessionTime"),
 			InOctets:  n("acctInputGigawords")<<32 | n("acctInputOctets"),
-			OutOctets: n("acctOutputGigawords")<<32 | n("acctOutputOctets")})
+			OutOctets: n("acctOutputGigawords")<<32 | n("acctOutputOctets"), TerminateCause: terminateCause(r.FormValue("acctTerminateCause"))})
 		if err != nil {
 			slog.Error("radius rest: accounting", "err", err)
 			jsonOut(w, 500, nil)
@@ -183,6 +183,12 @@ func (s *Server) acceptBody(d radius.Decision) kv {
 	if d.Timeout > 0 {
 		b["reply:Session-Timeout"] = d.Timeout // not in old PHP; makes the NAS drop the user at expiry
 	}
+	if pl.IdleTimeout.Valid && pl.IdleTimeout.Int64 > 0 {
+		b["reply:Idle-Timeout"] = pl.IdleTimeout.Int64
+	}
+	if d.Interim > 0 {
+		b["reply:Acct-Interim-Interval"] = d.Interim
+	}
 	if d.AddressList != "" { // isolir: the NAS puts the client in this address-list (see docs/isolation)
 		b["reply:Mikrotik-Address-List"] = d.AddressList
 	}
@@ -217,4 +223,12 @@ func (s *Server) radiusServer() *radius.Server {
 		}
 	})
 	return s.Radius
+}
+
+// terminateCause is an Acct-Terminate-Cause form value as its name: FreeRADIUS sends the name, a number is looked up.
+func terminateCause(v string) string {
+	if n, err := strconv.ParseUint(v, 10, 32); err == nil {
+		return rfc2866.AcctTerminateCause(n).String()
+	}
+	return v
 }
