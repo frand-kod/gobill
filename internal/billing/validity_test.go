@@ -57,11 +57,14 @@ func TestNewExpiry(t *testing.T) {
 		{"period day 31 x2 leap Feb29 (PHP :146)", "2024-02-29 08:00:00", 2, Period, Options{BillingDay: 31}, "2024-05-01 23:59:59"},
 		{"period day 1 year wrap", "2025-12-28 08:00:00", 1, Period, Options{BillingDay: 1}, "2026-02-01 23:59:59"},
 		{"period 3 months", "2025-03-15 08:00:00", 3, Period, Options{BillingDay: 10}, "2025-06-10 23:59:59"},
-		// extension: overflow first, then set day (PHP :206); time is 23:59:00
-		{"period extend day 1", "2025-01-31 23:59:00", 1, Period, Options{Extend: true, BillingDay: 1}, "2025-03-01 23:59:00"},
+		// extension: target month first, then billing day clamped to its length; time is 23:59:00
+		{"period extend day 1", "2025-01-31 23:59:00", 1, Period, Options{Extend: true, BillingDay: 1}, "2025-02-01 23:59:00"},
 		{"period extend day 20", "2025-01-20 23:59:00", 1, Period, Options{Extend: true, BillingDay: 20}, "2025-02-20 23:59:00"},
-		// deviation: PHP stores invalid 2025-04-31; we normalize to May 1
-		{"period extend day 31 in 30-day month", "2025-03-10 23:59:00", 1, Period, Options{Extend: true, BillingDay: 31}, "2025-05-01 23:59:00"},
+		{"period extend day 31 in 30-day month", "2025-03-10 23:59:00", 1, Period, Options{Extend: true, BillingDay: 31}, "2025-04-30 23:59:00"},
+		{"period extend day 31 from Jan31 -> Feb28", "2025-01-31 23:59:00", 1, Period, Options{Extend: true, BillingDay: 31}, "2025-02-28 23:59:00"},
+		{"period extend day 31 from Feb28 -> Mar31", "2025-02-28 23:59:00", 1, Period, Options{Extend: true, BillingDay: 31}, "2025-03-31 23:59:00"},
+		{"period extend day 30 leap Feb", "2024-01-30 23:59:00", 1, Period, Options{Extend: true, BillingDay: 30}, "2024-02-29 23:59:00"},
+		{"period extend Dec -> Jan", "2025-12-20 23:59:00", 1, Period, Options{Extend: true, BillingDay: 20}, "2026-01-20 23:59:00"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

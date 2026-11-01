@@ -69,14 +69,18 @@ func NewExpiry(from time.Time, value int, unit Unit, opts Options) time.Time {
 	return from
 }
 
-// extendPeriod mirrors PHP :206-207: date("Y-m-$day_exp", strtotime(exp + N months)), time 23:59:00.
-// Month overflow happens first (Jan 31 + 1 month = Mar 3) and the billing day is then set in
-// that month.
-// Deviation: PHP builds the literal string "Y-m-31" so day 31 in a 30-day month stores an invalid
-// date like 2025-04-31; here time.Date normalizes it to May 1 (same as the fresh path's setDate).
+// clampDay is y-m-day at midnight with day clamped to the month's length (m may be out of range).
+func clampDay(y int, m time.Month, day int, loc *time.Location) time.Time {
+	first := time.Date(y, m, 1, 0, 0, 0, 0, loc)
+	return time.Date(first.Year(), first.Month(), min(day, daysIn(first)), 0, 0, 0, 0, loc)
+}
+
+// extendPeriod computes the target month (exp month + value) first, then sets the billing day
+// clamped to that month's length, time 23:59:00. PHP overflowed the month first, which skipped
+// a month for billing day 29-31; that is a bug and is not kept.
 func extendPeriod(exp time.Time, value, day int) time.Time {
-	m := exp.AddDate(0, value, 0)
-	return time.Date(m.Year(), m.Month(), day, 23, 59, 0, 0, m.Location())
+	d := clampDay(exp.Year(), exp.Month()+time.Month(value), day, exp.Location())
+	return time.Date(d.Year(), d.Month(), d.Day(), 23, 59, 0, 0, exp.Location())
 }
 
 // freshPeriod mirrors PHP :146-180: next-month billing day, pushed so the first period is
