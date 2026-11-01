@@ -9,7 +9,45 @@ import (
 	"errors"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/billing"
+	"sync"
+	"time"
 )
+
+// Money forms (deposit, single recharge) carry a one-time token: a second POST with the same token
+// (double click, back + resend) is refused and charges nothing. Tokens live in memory; a restart
+// only makes an open form ask to be reloaded.
+var formTokens = struct {
+	sync.Mutex
+	m map[string]time.Time
+}{m: map[string]time.Time{}}
+
+const msgFormReplayed = "This form was already submitted or has expired. Nothing was charged. Open the form again."
+
+func newFormToken() string {
+	tok, err := newBulkToken()
+	if err != nil {
+		return "" // an empty token is never accepted, so the form simply fails closed
+	}
+	formTokens.Lock()
+	defer formTokens.Unlock()
+	now := time.Now()
+	for k, exp := range formTokens.m { // ponytail: linear sweep, fine for a handful of admins
+		if now.After(exp) {
+			delete(formTokens.m, k)
+		}
+	}
+	formTokens.m[tok] = now.Add(2 * time.Hour)
+	return tok
+}
+
+// takeFormToken consumes tok; it reports true only the first time a live token is presented.
+func takeFormToken(tok string) bool {
+	formTokens.Lock()
+	defer formTokens.Unlock()
+	exp, ok := formTokens.m[tok]
+	delete(formTokens.m, tok)
+	return ok && time.Now().Before(exp)
+}
 
 func depositPage(v, e map[string]string, plans []option) formPage {
 	pl := text("plan", "Balance Package", v, e).as("select")
@@ -19,6 +57,7 @@ func depositPage(v, e map[string]string, plans []option) formPage {
 		pl.hint("Pick a package, or leave empty and enter an amount"),
 		text("amount", "Balance Amount", v, e).as("number"),
 		text("note", "Note", v, e).as("textarea"),
+		{Name: "token", Type: "hidden", Value: newFormToken()},
 	}, "Refill Balance", "")}
 }
 
@@ -46,6 +85,11 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 	opts, err := s.balancePlans(r)
 	if err != nil {
 		s.fail(w, "list plans", err)
+		return
+	}
+	if !takeFormToken(r.PostFormValue("token")) {
+		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), msgFormReplayed))
+		http.Redirect(w, r, "/admin/deposit", http.StatusSeeOther)
 		return
 	}
 	v, e := formVals(r, "customer", "plan", "amount", "note"), map[string]string{}

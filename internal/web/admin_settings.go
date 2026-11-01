@@ -420,6 +420,9 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			text("radius_rest_allow", "Allowed addresses for /radius.php", v, e).hint("Comma-separated IPs or CIDR ranges that may call /radius.php, e.g. 192.168.1.10, 10.0.0.0/24. Empty = loopback only. Saved changes apply to the next request, no restart needed"),
 		}, "FreeRADIUS", "")...)
 		out = append(out, section([]field{
+			sel("role_access_mode", "Role access", option{"strict", "Strict"}, option{"phpnuxbill", "PHPNuxBill compatible"}).hint("Strict: only SuperAdmin and Admin can add balance, use Recharge Zero and generate vouchers, and the Report role sees reports only. PHPNuxBill compatible: Agent and Sales can add balance, use Recharge Zero and generate vouchers, and every role reads transactions and customer exports"),
+		}, "Access", "")...)
+		out = append(out, section([]field{
 			sel("hs_auth_method", "Hotspot Auth Method", option{"pap", "PAP"}, option{"chap", "CHAP"}),
 			sel("shared_users_policy", "When the device limit is full", option{"kick_oldest", "Kick oldest device"}, option{"reject", "Reject new login"}).hint("Phones now use random MACs. Kick oldest device stops a customer from being locked out when their phone reconnects with a new MAC."),
 		}, "Hotspot", "")...)

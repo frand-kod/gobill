@@ -4,6 +4,7 @@
   <div class="card-body space-y-4">
     <input type="hidden" name="plan" value="{{.PlanID}}">
     <input type="hidden" name="method" value="{{.Method}}">
+    <input type="hidden" name="token" value="{{.Token}}">
     <dl class="grid grid-cols-2 gap-2 text-sm">
       <dt class="text-ink-2">{{T "Customer"}}</dt><dd>{{.C.Fullname}} ({{.C.Username}})</dd>
       <dt class="text-ink-2">{{T "Service Plan"}}</dt><dd>{{.Plan}}</dd>

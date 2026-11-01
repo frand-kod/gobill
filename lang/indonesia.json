@@ -2697,5 +2697,11 @@
     "Buy or extend a plan before it runs out": "Beli atau perpanjang paket sebelum habis",
     "Nothing new": "Tidak ada yang baru",
     "Open customer": "Buka pelanggan",
-    "Account not created on the router yet": "Akun di router belum dibuat"
+    "Account not created on the router yet": "Akun di router belum dibuat",
+    "This form was already submitted or has expired. Nothing was charged. Open the form again.": "Formulir ini sudah dikirim atau kedaluwarsa. Tidak ada yang ditagih. Buka formulir lagi.",
+    "Role access": "Hak akses peran",
+    "Access": "Akses",
+    "Strict": "Ketat",
+    "PHPNuxBill compatible": "Kompatibel PHPNuxBill",
+    "Strict: only SuperAdmin and Admin can add balance, use Recharge Zero and generate vouchers, and the Report role sees reports only. PHPNuxBill compatible: Agent and Sales can add balance, use Recharge Zero and generate vouchers, and every role reads transactions and customer exports": "Ketat: hanya SuperAdmin dan Admin yang bisa menambah saldo, memakai Recharge Zero dan membuat voucher, dan peran Report hanya melihat laporan. Kompatibel PHPNuxBill: Agent dan Sales bisa menambah saldo, memakai Recharge Zero dan membuat voucher, dan semua peran membaca transaksi dan ekspor pelanggan"
 }

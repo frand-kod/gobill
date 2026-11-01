@@ -85,6 +85,14 @@ func voucherViewer(a *db.Admin) int64 {
 	return 0
 }
 
+// maskCode hides all but the first 2 characters of a voucher code.
+func maskCode(c string) string {
+	if len(c) <= 2 {
+		return "****"
+	}
+	return c[:2] + "****"
+}
+
 func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 	q, pg := paging(r)
 	status := r.URL.Query().Get("status")
@@ -112,12 +120,17 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 	if lp.CanCreate {
 		lp.Links = []option{{"/admin/vouchers/redeem", "Redeem Voucher"}, {"/admin/vouchers/print?limit=36", "Print"}}
 	}
+	canSee := oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales")
 	for _, v := range rows {
 		used := ""
 		if v.UsedAt.Valid {
 			used = s.ts(v.UsedAt.Int64)
 		}
-		lp.Rows = append(lp.Rows, listRow{v.ID, []string{v.Code, plans[v.PlanID].Name, v.Status, s.ts(v.CreatedAt), used}})
+		code := v.Code
+		if v.Status == "unused" && !canSee { // an unused code is free service
+			code = maskCode(code)
+		}
+		lp.Rows = append(lp.Rows, listRow{v.ID, []string{code, plans[v.PlanID].Name, v.Status, s.ts(v.CreatedAt), used}})
 	}
 	total, err := s.queries.CountVouchers(r.Context(), db.CountVouchersParams{Q: q, Status: status, Viewer: voucherViewer(adminFrom(r))})
 	if err != nil {

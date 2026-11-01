@@ -152,12 +152,12 @@ func (s *Server) docsRoutes(mux *http.ServeMux, all func(http.Handler) http.Hand
 	mux.Handle("GET /admin/docs/{slug}", all(http.HandlerFunc(s.docsPage)))
 }
 
-func (s *Server) reportRoutes(mux *http.ServeMux, all func(http.Handler) http.Handler) {
+func (s *Server) reportRoutes(mux *http.ServeMux, all, noReport func(http.Handler) http.Handler) {
 	mux.Handle("GET /admin/reports", all(s.reportPage(false)))
 	mux.Handle("GET /admin/reports/period", all(s.reportPage(true)))
 	mux.Handle("GET /admin/reports/print", all(http.HandlerFunc(s.reportPrint)))
 	mux.Handle("GET /admin/reports/export", all(http.HandlerFunc(s.reportExport)))
-	mux.Handle("GET /admin/transactions/{id}/invoice", all(http.HandlerFunc(s.trxInvoice)))
+	mux.Handle("GET /admin/transactions/{id}/invoice", noReport(http.HandlerFunc(s.trxInvoice)))
 }
 
 // Handler returns the router wrapped in CSRF protection and session loading.
@@ -172,6 +172,10 @@ func (s *Server) Handler() http.Handler {
 	// Old PHP: bandwidth, routers, pool and logs are SuperAdmin/Admin only; customers are
 	// readable by everyone, creatable by Agent/Sales too, editable/deletable by managers.
 	staff := s.requireAdmin("SuperAdmin", "Admin", "Agent", "Sales")
+	// role_access_mode: strict narrows these to managers (money) or staff (reading customer data);
+	// phpnuxbill keeps the old PHP rules.
+	money := s.byMode(managers, staff)
+	noReport := s.byMode(staff, all)
 	crud := func(base string, list, nw, edit, save, del http.HandlerFunc) {
 		mux.Handle("GET "+base, managers(list))
 		mux.Handle("GET "+base+"/new", managers(nw))
@@ -203,10 +207,10 @@ func (s *Server) Handler() http.Handler {
 
 	// customers: search, list, detail, edit, delete, actions, custom fields, maps
 	mux.Handle("GET /admin/search", all(http.HandlerFunc(s.searchPage)))
-	mux.Handle("GET /admin/search.json", all(http.HandlerFunc(s.searchJSON)))
+	mux.Handle("GET /admin/search.json", noReport(http.HandlerFunc(s.searchJSON)))
 	mux.Handle("GET /admin/customers/pick", staff(http.HandlerFunc(s.custPick)))
 	mux.Handle("GET /admin/customers", all(http.HandlerFunc(s.custList)))
-	mux.Handle("GET /admin/customers/export", all(http.HandlerFunc(s.custExport)))
+	mux.Handle("GET /admin/customers/export", noReport(http.HandlerFunc(s.custExport)))
 	mux.Handle("GET /admin/customers/new", staff(http.HandlerFunc(s.custNew)))
 	mux.Handle("POST /admin/customers", staff(http.HandlerFunc(s.custSave)))
 	mux.Handle("GET /admin/customers/{id}", all(http.HandlerFunc(s.custView)))
@@ -230,25 +234,25 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/customers/{id}/summary", staff(http.HandlerFunc(s.custSummary)))
 	mux.Handle("GET /admin/recharge", staff(http.HandlerFunc(s.rechargePick)))
 	mux.Handle("POST /admin/recharge", staff(http.HandlerFunc(s.rechargeStart)))
-	mux.Handle("GET /admin/deposit", staff(http.HandlerFunc(s.depositForm)))
-	mux.Handle("POST /admin/deposit", staff(http.HandlerFunc(s.depositSave)))
+	mux.Handle("GET /admin/deposit", money(http.HandlerFunc(s.depositForm)))
+	mux.Handle("POST /admin/deposit", money(http.HandlerFunc(s.depositSave)))
 	mux.Handle("GET /admin/subscriptions", all(http.HandlerFunc(s.subList)))
-	mux.Handle("GET /admin/subscriptions/export", all(http.HandlerFunc(s.subExport)))
+	mux.Handle("GET /admin/subscriptions/export", noReport(http.HandlerFunc(s.subExport)))
 	mux.Handle("GET /admin/isolations", all(http.HandlerFunc(s.isoList)))
-	mux.Handle("GET /admin/isolations/export", all(http.HandlerFunc(s.isoExport)))
+	mux.Handle("GET /admin/isolations/export", noReport(http.HandlerFunc(s.isoExport)))
 	mux.Handle("GET /admin/subscriptions/{id}/edit", managers(http.HandlerFunc(s.subEdit)))
 	mux.Handle("POST /admin/subscriptions/{id}", managers(http.HandlerFunc(s.subSave)))
 	mux.Handle("POST /admin/subscriptions/{id}/extend", staff(http.HandlerFunc(s.subExtend)))
 	mux.Handle("POST /admin/subscriptions/{id}/deactivate", managers(http.HandlerFunc(s.subDeactivate)))
 	mux.Handle("POST /admin/subscriptions/{id}/sync", managers(http.HandlerFunc(s.subSync)))
-	mux.Handle("GET /admin/transactions", all(http.HandlerFunc(s.trxList)))
+	mux.Handle("GET /admin/transactions", noReport(http.HandlerFunc(s.trxList)))
 	s.paymentAdminRoutes(mux, managers)
 
 	// vouchers and coupons
 	// Old PHP plan.php: voucher list is open to all admins, generate/redeem to staff, delete to managers.
 	mux.Handle("GET /admin/vouchers", all(http.HandlerFunc(s.vchList)))
-	mux.Handle("GET /admin/vouchers/new", staff(http.HandlerFunc(s.vchNew)))
-	mux.Handle("POST /admin/vouchers", staff(http.HandlerFunc(s.vchGenerate)))
+	mux.Handle("GET /admin/vouchers/new", money(http.HandlerFunc(s.vchNew)))
+	mux.Handle("POST /admin/vouchers", money(http.HandlerFunc(s.vchGenerate)))
 	mux.Handle("GET /admin/vouchers/print", staff(http.HandlerFunc(s.vchPrint)))
 	mux.Handle("GET /admin/vouchers/view", staff(http.HandlerFunc(s.vchView)))
 	mux.Handle("GET /admin/vouchers/redeem", staff(http.HandlerFunc(s.vchRedeemForm)))
@@ -307,7 +311,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/maps/odp/data", managers(http.HandlerFunc(s.mapODPData)))
 
 	// reports and logs
-	s.reportRoutes(mux, all)
+	s.reportRoutes(mux, all, noReport)
 	s.docsRoutes(mux, all)
 	mux.Handle("GET /admin/logs", managers(http.HandlerFunc(s.logList)))
 	mux.Handle("GET /admin/logs/radius", managers(http.HandlerFunc(s.radiusLog)))
