@@ -94,3 +94,38 @@ func TestBackupWritesRotatesAndSkips(t *testing.T) {
 		t.Fatal("existing backup was overwritten")
 	}
 }
+
+// Snapshots older than 30 days go, but the newest 3 of each label stay whatever their age.
+func TestPruneSnapshotsKeepsNewestThreePerLabel(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Date(2026, 11, 2, 12, 0, 0, 0, time.Local)
+	deleted := map[string]bool{
+		"gobill-20260901-101010-pre-update.db": true, // the two oldest pre-update snapshots, beyond the newest 3
+		"gobill-20260902-101010-pre-update.db": true,
+	}
+	all := []string{
+		"gobill-20260903-101010-pre-update.db",
+		"gobill-20260904-101010-pre-update.db",
+		"gobill-20260905-101010-pre-update.db",
+		"gobill-20261101-101010-pre-import.db",  // recent
+		"gobill-20260901-101010-pre-restore.db", // the only one of its label
+		"gobill-20260901-101010-other.db",       // not a snapshot
+	}
+	for n := range deleted {
+		all = append(all, n)
+	}
+	for _, n := range all {
+		if err := os.WriteFile(filepath.Join(dir, n), nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := pruneSnapshots(dir, now); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range all {
+		_, err := os.Stat(filepath.Join(dir, n))
+		if gone := os.IsNotExist(err); gone != deleted[n] {
+			t.Errorf("%s: gone=%v, want %v", n, gone, deleted[n])
+		}
+	}
+}
