@@ -230,7 +230,8 @@ func (s *Server) recent(ip string) []time.Time {
 }
 
 // legacyLogin checks an admin imported from PHPNuxBill (sha1 in admins.legacy_sha1).
-// On a match it rehashes the password to bcrypt and clears the marker, so it works once.
+// On a match it rehashes the password to bcrypt but keeps the marker: requireAdmin sends the admin to
+// the change-password page until they pick a new password (which clears it).
 func (s *Server) legacyLogin(ctx context.Context, id int64, password string) bool {
 	var want string
 	if s.conn.QueryRowContext(ctx, "SELECT legacy_sha1 FROM admins WHERE id = ?", id).Scan(&want) != nil || want == "" {
@@ -241,7 +242,7 @@ func (s *Server) legacyLogin(ctx context.Context, id int64, password string) boo
 		return false
 	}
 	if h, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost); err == nil {
-		s.conn.ExecContext(ctx, "UPDATE admins SET password_hash = ?, legacy_sha1 = '' WHERE id = ?", string(h), id)
+		s.conn.ExecContext(ctx, "UPDATE admins SET password_hash = ? WHERE id = ?", string(h), id)
 	}
 	return true
 }
@@ -271,6 +272,12 @@ func (s *Server) requireAdmin(roles ...string) func(http.Handler) http.Handler {
 				// password, role or status changed since this session was created
 				s.sessions.Destroy(r.Context())
 				http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
+				return
+			}
+			// an admin still on the imported sha1 hash must pick a new password first
+			if admin.LegacySha1 != "" && r.URL.Path != "/admin/password" && r.URL.Path != "/logout" {
+				s.sessions.Put(r.Context(), "flash", s.catalog.T(s.language(), "Your password is from the old system. Choose a new one to continue."))
+				http.Redirect(w, r, "/admin/password", http.StatusSeeOther)
 				return
 			}
 			if len(roles) > 0 && !contains(roles, admin.Role) {

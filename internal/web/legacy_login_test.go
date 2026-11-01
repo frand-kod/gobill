@@ -24,10 +24,27 @@ func TestLegacySha1LoginRehashes(t *testing.T) {
 	login(t, h, "alice") // sha1 match
 	var hash, legacy string
 	s.conn.QueryRow("SELECT password_hash, legacy_sha1 FROM admins WHERE username = 'alice'").Scan(&hash, &legacy)
-	if legacy != "" || bcrypt.CompareHashAndPassword([]byte(hash), []byte("secret123")) != nil {
-		t.Fatalf("not rehashed: %q %q", hash, legacy)
+	if legacy == "" || bcrypt.CompareHashAndPassword([]byte(hash), []byte("secret123")) != nil {
+		t.Fatalf("not rehashed, or the marker was cleared before a password change: %q %q", hash, legacy)
 	}
-	login(t, h, "alice") // now plain bcrypt
+	c := login(t, h, "alice") // now plain bcrypt; the marker stays
+	// A2: until the password is changed, every admin page redirects to the change-password page.
+	for _, p := range []string{"/admin", "/admin/customers"} {
+		if w := do(h, "GET", p, nil, c); w.Code != 303 || w.Header().Get("Location") != "/admin/password" {
+			t.Fatalf("%s: %d %q, want redirect to /admin/password", p, w.Code, w.Header().Get("Location"))
+		}
+	}
+	if w := do(h, "GET", "/admin/password", nil, c); w.Code != 200 {
+		t.Fatalf("change-password page: %d", w.Code)
+	}
+	w := do(h, "POST", "/admin/password", url.Values{"current": {"secret123"}, "password": {"brand-new-pass-1"}, "cpassword": {"brand-new-pass-1"}}, c)
+	if w.Code >= 400 {
+		t.Fatalf("change password: %d %s", w.Code, w.Body.String())
+	}
+	s.conn.QueryRow("SELECT legacy_sha1 FROM admins WHERE username = 'alice'").Scan(&legacy)
+	if legacy != "" {
+		t.Fatal("marker still set after the password change")
+	}
 }
 
 func TestAdminResetClearsLegacySha1(t *testing.T) {
