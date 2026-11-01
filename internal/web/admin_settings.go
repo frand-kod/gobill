@@ -979,7 +979,8 @@ func (s *Server) dbBackup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
-	dir, err := os.MkdirTemp("", "gobill-backup-")
+	// Next to the database, not os.TempDir: that is often a RAM tmpfs too small for the copy.
+	dir, err := os.MkdirTemp(filepath.Dir(s.DBPath), "gobill-backup-")
 	if err != nil {
 		s.fail(w, "backup dir", err)
 		return
