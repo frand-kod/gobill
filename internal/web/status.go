@@ -38,20 +38,21 @@ type statusData struct {
 	DaysToFull float64 `json:"days_to_full"`      // -1 when unknown or not growing
 	HistDays   int     `json:"history_days"`
 
-	Accepted24h float64      `json:"radius_accepted_24h"`
-	Rejected24h float64      `json:"radius_rejected_24h"`
-	AvgMs       float64      `json:"radius_avg_ms"` // since start
-	Open        int64        `json:"radius_open_sessions"`
-	NAS         []nasRow     `json:"nas"`
-	Jobs        []jobRow     `json:"jobs"`
-	Notify      []notifyRow  `json:"notifications"`
-	PayOK       float64      `json:"payment_callbacks_ok"`
-	PayFailed   float64      `json:"payment_callbacks_failed"`
-	PayLast     string       `json:"payment_last_callback"`
-	Sec         secRow       `json:"security"`
-	Backup      backupRow    `json:"backup"`
-	Levels      statusLevels `json:"levels"`
-	JobsFailing int          `json:"-"` // jobs with a failure in a row, for the summary row
+	Accepted24h   float64      `json:"radius_accepted_24h"`
+	Rejected24h   float64      `json:"radius_rejected_24h"`
+	AvgMs         float64      `json:"radius_avg_ms"` // since start
+	Open          int64        `json:"radius_open_sessions"`
+	RouterPending int64        `json:"router_removals_pending"` // failed router removals the retry job still owes
+	NAS           []nasRow     `json:"nas"`
+	Jobs          []jobRow     `json:"jobs"`
+	Notify        []notifyRow  `json:"notifications"`
+	PayOK         float64      `json:"payment_callbacks_ok"`
+	PayFailed     float64      `json:"payment_callbacks_failed"`
+	PayLast       string       `json:"payment_last_callback"`
+	Sec           secRow       `json:"security"`
+	Backup        backupRow    `json:"backup"`
+	Levels        statusLevels `json:"levels"`
+	JobsFailing   int          `json:"-"` // jobs with a failure in a row, for the summary row
 
 	RadiusAcc spark `json:"-"`
 	RadiusRej spark `json:"-"`
@@ -160,6 +161,10 @@ func (s *Server) statusData(r *http.Request) (statusData, error) {
 	}
 	if err := s.conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM radius_sessions WHERE stopped_at IS NULL AND updated_at >= ?",
 		now.Unix()-radius.StaleMax()).Scan(&d.Open); err != nil {
+		return d, err
+	}
+
+	if d.RouterPending, err = s.queries.CountRouterPending(ctx); err != nil {
 		return d, err
 	}
 

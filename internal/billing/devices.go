@@ -3,6 +3,9 @@ package billing
 // Router device preparation, lookup and removal for plans; device failure tracking.
 
 import (
+	"database/sql"
+	"encoding/json"
+	"errors"
 	"log/slog"
 
 	"context"
@@ -13,13 +16,97 @@ import (
 	"time"
 )
 
-// removeOrQueue removes the customer from the plan's device. Item 6 turns a failure into a retry entry.
-func (s *Service) removeOrQueue(ctx context.Context, c db.Customer, p db.Plan, kind string) error {
+// removeNow takes the customer off the plan's device. kind "delete" removes the account entirely
+// (no isolation plan); every other kind lets the device move it to its expired plan.
+func (s *Service) removeNow(ctx context.Context, c db.Customer, p db.Plan, kind string) error {
 	dev, dc, dp, _, err := s.prepare(ctx, c, p)
 	if err == nil {
+		if kind == "delete" {
+			dp.ExpiredPlan = nil
+		}
 		err = dev.RemoveCustomer(ctx, dc, dp)
 	}
 	return err
+}
+
+// removeOrQueue is removeNow; a failure on a router plan is also written to router_pending, so the
+// retry job finishes the removal when the router is back. The error is still returned.
+func (s *Service) removeOrQueue(ctx context.Context, c db.Customer, p db.Plan, kind string) error {
+	err := s.removeNow(ctx, c, p, kind)
+	if err != nil {
+		err = errors.Join(err, s.queueRemoval(ctx, c, p, kind, err))
+	}
+	return err
+}
+
+type pendingPayload struct {
+	PlanID int64  `json:"plan_id"`
+	PPPoE  string `json:"pppoe_username,omitempty"`
+}
+
+// queueRemoval records a removal that did not happen. Plans without a router (RADIUS, dummy) have
+// no outage to wait for and are not queued. It returns only a failure to record.
+func (s *Service) queueRemoval(ctx context.Context, c db.Customer, p db.Plan, kind string, cause error) error {
+	if !p.RouterID.Valid {
+		return nil
+	}
+	b, _ := json.Marshal(pendingPayload{PlanID: p.ID, PPPoE: c.PppoeUsername})
+	return s.Q.AddRouterPending(ctx, db.AddRouterPendingParams{RouterID: p.RouterID.Int64, Kind: kind, Username: c.Username,
+		Payload: string(b), LastError: cause.Error(), CreatedAt: s.now().Unix()})
+}
+
+// pendingBackoff is the wait after the n-th failed retry: 5 min, doubling, capped at about 5 hours.
+func pendingBackoff(attempts int64) time.Duration {
+	return 5 * time.Minute << min(attempts, 6)
+}
+
+// RetryPending retries the queued router removals that are due. A router that fails once is not
+// dialed again for the rest of the run. An entry is dropped when it succeeds, when its plan is gone,
+// or when the customer is meant to be on the router again (active and Active subscription of the plan).
+func (s *Service) RetryPending(ctx context.Context) error {
+	rows, err := s.Q.ListRouterPending(ctx)
+	if err != nil {
+		return err
+	}
+	now := s.now()
+	dead := map[int64]bool{}
+	for _, r := range rows {
+		if dead[r.RouterID] || r.TriedAt+int64(pendingBackoff(r.Attempts)/time.Second) > now.Unix() {
+			continue
+		}
+		done, err := s.retryOne(ctx, r)
+		if err == nil && done {
+			err = s.Q.DeleteRouterPending(ctx, r.ID)
+		} else if err != nil {
+			dead[r.RouterID] = true
+			err = s.Q.BumpRouterPending(ctx, db.BumpRouterPendingParams{LastError: err.Error(), TriedAt: now.Unix(), ID: r.ID})
+		}
+		if err != nil {
+			slog.Error("router pending", "id", r.ID, "err", err)
+		}
+	}
+	return nil
+}
+
+// retryOne returns done=true when the entry needs no further work.
+func (s *Service) retryOne(ctx context.Context, r db.RouterPending) (bool, error) {
+	var pl pendingPayload
+	if err := json.Unmarshal([]byte(r.Payload), &pl); err != nil {
+		return true, nil
+	}
+	p, err := s.Q.GetPlan(ctx, pl.PlanID)
+	if err != nil {
+		return errors.Is(err, sql.ErrNoRows), err
+	}
+	c := db.Customer{Username: r.Username, PppoeUsername: pl.PPPoE}
+	if cur, err := s.Q.GetCustomerByUsername(ctx, r.Username); err == nil {
+		if cur.Status == "Active" {
+			if _, live, _ := activeSub(ctx, s.Q, cur.ID, p.RouterID, p.Type); live {
+				return true, nil
+			}
+		}
+	}
+	return true, s.removeNow(ctx, c, p, r.Kind)
 }
 
 func (s *Service) removeFromDevice(ctx context.Context, c db.Customer, p db.Plan) {

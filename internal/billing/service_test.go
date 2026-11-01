@@ -303,7 +303,7 @@ func TestExpireOneSkipsRenewedSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	*e.calls = nil
-	if err := e.s.expireOne(ctx, stale, false); err != nil {
+	if err := e.s.expireOne(ctx, stale, false, false); err != nil {
 		t.Fatal(err)
 	}
 	if len(*e.calls) != 0 || e.sub(t).Status != "active" {

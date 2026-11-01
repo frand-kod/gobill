@@ -48,6 +48,7 @@
         <div class="stat"><div><p class="stat-label">{{T "Average time (ms)"}}</p><p class="stat-num">{{printf "%.1f" .AvgMs}}</p></div></div>
         <div class="stat"><div><p class="stat-label">{{T "Open sessions"}}</p><p class="stat-num">{{.Open}}</p></div></div>
       </div>
+      <p class="mb-4 text-sm">{{T "Router removals waiting for retry"}}: {{if .RouterPending}}<span class="badge badge-bad">{{.RouterPending}}</span>{{else}}0{{end}}</p>
       <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         {{template "sparkline" dict "Label" (T "Accepted per 15 min, last 24 h") "Spark" $.Data.RadiusAcc}}
         {{template "sparkline" dict "Label" (T "Rejected per 15 min, last 24 h") "Spark" $.Data.RadiusRej}}

@@ -101,7 +101,7 @@ func (s *Service) ExtendSubscription(ctx context.Context, id int64, days int, ad
 }
 
 // DeactivateSubscription expires the subscription now and takes it off the router. Doing it twice
-// is a no-op. Like cron expiry, the router goes first: if it fails nothing changes.
+// is a no-op. The DB changes first; a router failure is queued for the retry job and returned.
 func (s *Service) DeactivateSubscription(ctx context.Context, id, adminID int64) error {
 	sub, err := s.Q.GetSubscription(ctx, id)
 	if err != nil || sub.Status != "active" {
@@ -114,13 +114,6 @@ func (s *Service) DeactivateSubscription(ctx context.Context, id, adminID int64)
 	c, err := s.Q.GetCustomer(ctx, sub.CustomerID)
 	if err != nil {
 		return err
-	}
-	dev, dc, dp, _, err := s.prepare(ctx, c, plan)
-	if err != nil {
-		return err
-	}
-	if err := dev.RemoveCustomer(ctx, dc, dp); err != nil {
-		return fmt.Errorf("remove from router: %w", err)
 	}
 	n, err := s.Q.DeactivateSubscription(ctx, db.DeactivateSubscriptionParams{Now: s.now().Unix(), ID: id})
 	if err != nil || n == 0 {
@@ -139,7 +132,13 @@ func (s *Service) DeactivateSubscription(ctx context.Context, id, adminID int64)
 		who = a.Username
 	}
 	s.telegram("Admin " + who + " Deactivate " + plan.Name + " for u" + c.Username) // customers.php:268
-	return s.logAdmin(ctx, s.Q, adminID, "subscription.deactivate", c.Username+" "+plan.Name)
+	if err := s.logAdmin(ctx, s.Q, adminID, "subscription.deactivate", c.Username+" "+plan.Name); err != nil {
+		return err
+	}
+	if err := s.removeOrQueue(ctx, c, plan, "deactivate"); err != nil {
+		return fmt.Errorf("deactivated, router removal queued for retry: %w", err)
+	}
+	return nil
 }
 
 func deactivatedKey(id int64) string { return fmt.Sprint("deactivated_", id) }
@@ -329,10 +328,7 @@ func (s *Service) ExpireDue(ctx context.Context) error {
 	autoRenew := setting(ctx, s.Q, "enable_balance") != "no" // PHP config enable_balance
 	dead := map[int64]bool{}                                 // routers that failed this run: their other subs wait for the next one
 	for _, sub := range subs {
-		if sub.RouterID.Valid && dead[sub.RouterID.Int64] {
-			continue
-		}
-		if err := s.expireOne(ctx, sub, autoRenew); err != nil {
+		if err := s.expireOne(ctx, sub, autoRenew, sub.RouterID.Valid && dead[sub.RouterID.Int64]); err != nil {
 			slog.Error("expiry failed", "subscription", sub.ID, "err", err)
 			if sub.RouterID.Valid && errors.Is(err, errRouter) {
 				dead[sub.RouterID.Int64] = true
@@ -411,7 +407,10 @@ func renewable(plan db.Plan, c db.Customer, autoRenew bool) bool {
 	return autoRenew && (SellablePlan(plan) || plan.Audience == "admin") && c.AutoRenewal == 1 && c.Status == "Active"
 }
 
-func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew bool) error {
+// expireOne expires one due subscription. The DB is the truth: when the router cannot be reached
+// (or skipDial says it already failed this run) the subscription still expires and the removal goes
+// to router_pending for the retry job. The returned errRouter only tells ExpireDue to stop dialing.
+func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew, skipDial bool) error {
 	// The job works from a snapshot: a renewal since then must not be expired.
 	now := s.now().Unix()
 	cur, err := s.Q.GetSubscription(ctx, sub.ID)
@@ -446,12 +445,19 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 			renewErr = fmt.Errorf("auto renewal: %w", err)
 		}
 	}
-	dev, dc, dp, _, err := s.prepare(ctx, c, plan)
-	if err != nil {
-		return fmt.Errorf("%w: %w", errRouter, err)
+	var rerr error
+	if skipDial {
+		rerr = errors.New("router skipped this run")
+	} else {
+		rerr = s.removeNow(ctx, c, plan, "expire")
 	}
-	if err := dev.RemoveCustomer(ctx, dc, dp); err != nil {
-		return fmt.Errorf("%w: remove from router: %w", errRouter, err)
+	if rerr != nil {
+		if !plan.RouterID.Valid { // nothing to queue for: keep the old behaviour, retry whole expiry
+			return fmt.Errorf("%w: remove from device: %w", errRouter, rerr)
+		}
+		if qerr := s.queueRemoval(ctx, c, plan, "expire", rerr); qerr != nil {
+			return fmt.Errorf("%w: remove from router: %w", errRouter, errors.Join(rerr, qerr))
+		}
 	}
 	var n int64
 	err = s.tx(ctx, func(q *db.Queries) error { // expiry and isolation commit together
@@ -479,6 +485,9 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 		nf.Go("webhook", func(ctx context.Context) error {
 			return nf.Webhook(ctx, "recharge.expired", map[string]any{"username": c.Username, "plan": plan.Name, "expires_at": sub.ExpiresAt})
 		})
+	}
+	if rerr != nil {
+		return errors.Join(renewErr, fmt.Errorf("%w: expired, removal queued: %w", errRouter, rerr))
 	}
 	return renewErr
 }

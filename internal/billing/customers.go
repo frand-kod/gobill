@@ -85,10 +85,9 @@ func (s *Service) DeleteCustomerForce(ctx context.Context, id int64, force bool)
 		if err != nil {
 			return err
 		}
-		dev, dc, dp, _, e := s.prepare(ctx, c, p)
-		if e == nil {
-			dp.ExpiredPlan = nil // a deleted customer leaves the router entirely (PHP customers/delete)
-			e = dev.RemoveCustomer(ctx, dc, dp)
+		e := s.removeNow(ctx, c, p, "delete") // a deleted customer leaves the router entirely (PHP customers/delete)
+		if e != nil && force {                // the row goes anyway: the retry job finishes the removal
+			e = errors.Join(e, s.queueRemoval(ctx, c, p, "delete", e))
 		}
 		if e != nil {
 			derr = errors.Join(derr, fmt.Errorf("remove from router: %w", e))

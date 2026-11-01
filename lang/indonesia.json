@@ -1958,6 +1958,7 @@
     "Rejected (24 h)": "Ditolak (24 jam)",
     "Average time (ms)": "Rata-rata waktu (ms)",
     "Open sessions": "Sesi terbuka",
+    "Router removals waiting for retry": "Penghapusan di router menunggu diulang",
     "Accepted per 15 min, last 24 h": "Diterima per 15 menit, 24 jam terakhir",
     "Rejected per 15 min, last 24 h": "Ditolak per 15 menit, 24 jam terakhir",
     "No packet since start": "Belum ada paket sejak start",
