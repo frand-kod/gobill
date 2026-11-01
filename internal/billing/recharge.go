@@ -175,6 +175,18 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 		if err != nil {
 			return nil, err
 		}
+		if !found { // the plan's router or type was edited after the sale: renew that row (RenewSubscription moves it) instead of adding a second one
+			subs, err := q.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: customerID, Limit: 1000})
+			if err != nil {
+				return nil, err
+			}
+			for _, sub := range subs {
+				if sub.Status == "active" && sub.PlanID == plan.ID {
+					active, found = sub, true
+					break
+				}
+			}
+		}
 		extend := found && active.PlanID == plan.ID && active.PendingStart == 0 && setting(ctx, q, "extend_expiry") != "no"
 		pendStart := plan.Device == "Radius" && settingOn(setting(ctx, q, "start_on_first_login")) && (!found || active.PendingStart == 1)
 		from, start := now, now.Unix()
