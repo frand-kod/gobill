@@ -120,9 +120,12 @@ func daysBetween(a, b time.Time) int {
 	return int(d.Hours() / 24)
 }
 
-// FirstPeriodInvoice is the prorated first postpaid invoice (PHP :432-448): price/(30*value)
-// per day times days from start to expiry, capped at price. Integer math, rounded down
-// (PHP stored a float). Only used when the customer has no stored "Invoice" yet.
+// FirstPeriodInvoice is the prorated first postpaid invoice: price * days(start..expiry) /
+// days in the full period, capped at price. The full period is the real span from
+// (expiry - value months, clamped) to expiry, e.g. 31 days for one month ending Jan 20,
+// 28 for one ending Mar 20 in a non-leap year. Integer rupiah: the multiplication happens
+// first and the division truncates, so the result is rounded down (never over-charges).
+// Only used when the customer has no stored "Invoice" yet.
 func FirstPeriodInvoice(price int64, value int, start, expiry time.Time) int64 {
 	if value < 1 {
 		value = 1
@@ -130,7 +133,8 @@ func FirstPeriodInvoice(price int64, value int, start, expiry time.Time) int64 {
 	s := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC)
 	e := time.Date(expiry.Year(), expiry.Month(), expiry.Day(), 0, 0, 0, 0, time.UTC)
 	days := int64(daysBetween(e, s))
-	got := price * days / int64(30*value)
+	periodDays := int64(daysBetween(e, addMonths(e, -value)))
+	got := price * days / periodDays
 	if got > price {
 		return price
 	}
