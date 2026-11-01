@@ -2720,5 +2720,12 @@
     "Lock to port (NAS-Port-Id)": "Kunci ke port (NAS-Port-Id)",
     "RADIUS only. Optional: the customer can log in only on this NAS port, e.g. ether3 or the PPPoE interface. Empty = any port.": "Hanya RADIUS. Opsional: pelanggan hanya bisa login di port NAS ini, misalnya ether3 atau antarmuka PPPoE. Kosong = port apa saja.",
     "Enter a MAC address like AA:BB:CC:DD:EE:FF": "Isi alamat MAC seperti AA:BB:CC:DD:EE:FF",
-    "NAS-Port-Id": "NAS-Port-Id"
+    "NAS-Port-Id": "NAS-Port-Id",
+    "Who had this IP": "Siapa memakai IP ini",
+    "IP address": "Alamat IP",
+    "At (date and time)": "Pada (tanggal dan jam)",
+    "Empty = now. Session history is kept for the days set in Settings > Keep logs (days).": "Kosong = sekarang. Riwayat sesi disimpan selama hari yang diatur di Pengaturan > Simpan log (hari).",
+    "Enter a valid IP address": "Isi alamat IP yang valid",
+    "No session had this IP at that time": "Tidak ada sesi yang memakai IP ini pada saat itu",
+    "still online": "masih online"
 }

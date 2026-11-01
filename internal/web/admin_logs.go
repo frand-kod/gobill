@@ -125,7 +125,7 @@ func (s *Server) radiusLog(w http.ResponseWriter, r *http.Request) {
 	for i, c := range s.radiusLogRows(ss) {
 		lp.Rows = append(lp.Rows, listRow{ss[i].ID, c})
 	}
-	lp.Links = []option{{"/admin/logs/radius/export?" + lp.query().Encode(), "Export CSV"}, {"/admin/logs/auth", "Login attempts"}}
+	lp.Links = []option{{"/admin/logs/radius/export?" + lp.query().Encode(), "Export CSV"}, {"/admin/logs/auth", "Login attempts"}, {"/admin/radius/ip-lookup", "Who had this IP"}}
 	total, err := s.queries.CountRadiusLogs(r.Context(), db.CountRadiusLogsParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
 	if err != nil {
 		s.fail(w, "count radius logs", err)
