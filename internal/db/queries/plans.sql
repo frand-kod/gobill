@@ -1,8 +1,8 @@
 -- name: CreatePlan :one
 INSERT INTO plans (name, type, billing, price, validity, validity_unit, time_limit, time_unit,
                    data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, enabled,
-                   limited, limit_type, expired_plan_id, billing_day, on_login, on_logout, device, fup_bandwidth_id, idle_timeout, audience)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(NULLIF(CAST(sqlc.arg(audience) AS TEXT), ''), 'public'))
+                   limited, limit_type, expired_plan_id, billing_day, on_login, on_logout, device, fup_bandwidth_id, idle_timeout, login_window, boost_window, boost_bandwidth_id, audience)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(NULLIF(CAST(sqlc.arg(audience) AS TEXT), ''), 'public'))
 RETURNING *;
 
 -- name: GetPlan :one
@@ -22,7 +22,7 @@ SELECT * FROM plans WHERE name LIKE '%' || CAST(sqlc.arg(q) AS TEXT) || '%' AND 
 UPDATE plans SET name = ?, type = ?, billing = ?, price = ?, validity = ?, validity_unit = ?,
     time_limit = ?, time_unit = ?, data_limit = ?, data_unit = ?, shared_users = ?,
     bandwidth_id = ?, router_id = ?, pool_id = ?, enabled = ?,
-    limited = ?, limit_type = ?, expired_plan_id = ?, billing_day = ?, on_login = ?, on_logout = ?, device = ?, fup_bandwidth_id = ?, audience = ?, idle_timeout = ?
+    limited = ?, limit_type = ?, expired_plan_id = ?, billing_day = ?, on_login = ?, on_logout = ?, device = ?, fup_bandwidth_id = ?, audience = ?, idle_timeout = ?, login_window = ?, boost_window = ?, boost_bandwidth_id = ?
 WHERE id = ?;
 
 -- name: DeletePlan :exec

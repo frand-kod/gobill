@@ -364,6 +364,8 @@ func rejectReason(msg string) string {
 		return "expired"
 	case strings.HasPrefix(msg, "Port type"):
 		return "port_type"
+	case strings.HasPrefix(msg, msgOutsideWindow):
+		return "window"
 	case strings.HasPrefix(msg, "Account locked"):
 		return "binding"
 	case strings.Contains(msg, "limit") || msg == SharedUsersFullMsg:
@@ -410,6 +412,9 @@ func portMismatch(planType, portType string) string {
 	}
 	return ""
 }
+
+// msgOutsideWindow starts the reject message of a login outside the plan's login window.
+const msgOutsideWindow = "Login not allowed at this time"
 
 // Reject messages of the per-customer binding.
 const (
@@ -561,9 +566,10 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 	if havePlan {
 		c, pl = lr.Customer, db.GetRadiusPlanRow{StartedAt: lr.StartedAt, QuotaCarryBytes: lr.QuotaCarryBytes, QuotaCarrySeconds: lr.QuotaCarrySeconds, ExpiresAt: lr.ExpiresAt, PendingStart: lr.PendingStart,
 			PlanID: lr.PlanID, PlanName: lr.PlanName, PlanType: lr.PlanType, Limited: lr.Limited, LimitType: lr.LimitType,
-			TimeLimit: lr.TimeLimit, TimeUnit: lr.TimeUnit, DataLimit: lr.DataLimit, DataUnit: lr.DataUnit, SharedUsers: lr.SharedUsers, IdleTimeout: lr.IdleTimeout,
+			TimeLimit: lr.TimeLimit, TimeUnit: lr.TimeUnit, DataLimit: lr.DataLimit, DataUnit: lr.DataUnit, SharedUsers: lr.SharedUsers, IdleTimeout: lr.IdleTimeout, LoginWindow: lr.LoginWindow, BoostWindow: lr.BoostWindow,
 			RateDown: lr.RateDown, RateDownUnit: lr.RateDownUnit, RateUp: lr.RateUp, RateUpUnit: lr.RateUpUnit, Burst: lr.Burst, PoolName: lr.PoolName, BindMac: lr.BindMac, BindPortID: lr.BindPortID,
-			FupRateDown: lr.FupRateDown, FupRateDownUnit: lr.FupRateDownUnit, FupRateUp: lr.FupRateUp, FupRateUpUnit: lr.FupRateUpUnit, FupBurst: lr.FupBurst}
+			FupRateDown: lr.FupRateDown, FupRateDownUnit: lr.FupRateDownUnit, FupRateUp: lr.FupRateUp, FupRateUpUnit: lr.FupRateUpUnit, FupBurst: lr.FupBurst,
+			BoostRateDown: lr.BoostRateDown, BoostRateDownUnit: lr.BoostRateDownUnit, BoostRateUp: lr.BoostRateUp, BoostRateUpUnit: lr.BoostRateUpUnit, BoostBurst: lr.BoostBurst}
 	} else {
 		c, err = s.Q.GetCustomerForRadius(ctx, user)
 	}
@@ -614,6 +620,12 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 	if msg := bindingMismatch(pl.BindMac, pl.BindPortID, rq); msg != "" {
 		return Decision{Reject: msg}
 	}
+	var winLeft int64 // seconds to the end of the login window, 0 = no window
+	if ok, left := windowLeft(pl.LoginWindow, s.now().In(s.loc())); !ok {
+		return Decision{Reject: msgOutsideWindow + " (" + pl.LoginWindow + ")"}
+	} else {
+		winLeft = left
+	}
 	if pl.PendingStart == 1 && rq.DryRun {
 		pl.ExpiresAt = math.MaxInt32 // not started, not touched: the provisional expiry says nothing
 	} else if pl.PendingStart == 1 && s.Start != nil { // before the expiry check: a pending row's provisional expiry is not the real one
@@ -654,6 +666,11 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 		d.Timeout = left
 	}
 	d.Rate = rateLimit(pl.RateUp, pl.RateDown, pl.RateUpUnit, pl.RateDownUnit, pl.Burst)
+	if boostOn(pl.BoostWindow, s.now().In(s.loc())) { // before FUP: past the data limit the FUP rate wins
+		if b := rateLimit(pl.BoostRateUp, pl.BoostRateDown, pl.BoostRateUpUnit, pl.BoostRateDownUnit, pl.BoostBurst); b != "" {
+			d.Rate = b
+		}
+	}
 	if pl.Limited == 1 {
 		lt := pl.LimitType.String
 		hasTime := (lt == "Time_Limit" || lt == "Both_Limit") && pl.TimeLimit.Valid
@@ -686,6 +703,9 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 				}
 			}
 		}
+	}
+	if winLeft > 0 && (d.Timeout == 0 || winLeft < d.Timeout) {
+		d.Timeout = winLeft // the NAS drops the session at the end of the login window
 	}
 	if d.Timeout > 1<<32-1 {
 		d.Timeout = 1<<32 - 1

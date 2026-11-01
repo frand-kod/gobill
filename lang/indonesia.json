@@ -2727,5 +2727,14 @@
     "Empty = now. Session history is kept for the days set in Settings > Keep logs (days).": "Kosong = sekarang. Riwayat sesi disimpan selama hari yang diatur di Pengaturan > Simpan log (hari).",
     "Enter a valid IP address": "Isi alamat IP yang valid",
     "No session had this IP at that time": "Tidak ada sesi yang memakai IP ini pada saat itu",
-    "still online": "masih online"
+    "still online": "masih online",
+    "Login hours": "Jam login",
+    "When customers of this plan may log in, in the app time zone. Example: Mon-Fri 08:00-17:00; Sat 09:00-12:00. A window past midnight is fine: 22:00-06:00. Empty = always. The session is cut at the end of the window. RADIUS (gobill) only.": "Kapan pelanggan paket ini boleh login, dalam zona waktu aplikasi. Contoh: Mon-Fri 08:00-17:00; Sat 09:00-12:00. Jendela melewati tengah malam boleh: 22:00-06:00. Kosong = selalu. Sesi diputus saat jendela berakhir. Hanya untuk RADIUS (gobill).",
+    "Boost bandwidth": "Bandwidth boost",
+    "No boost": "Tanpa boost",
+    "Speed used during the boost hours instead of the plan's own bandwidth. A customer past the data limit still gets the FUP speed. RADIUS (gobill) only.": "Kecepatan yang dipakai pada jam boost menggantikan bandwidth paket. Pelanggan yang melewati kuota tetap mendapat kecepatan FUP. Hanya untuk RADIUS (gobill).",
+    "Boost hours": "Jam boost",
+    "Same format as Login hours, e.g. * 00:00-06:00 for a night boost. Online customers are switched within a minute.": "Format sama dengan Jam login, misalnya * 00:00-06:00 untuk boost malam. Pelanggan yang online dipindah dalam satu menit.",
+    "Invalid schedule: use Mon-Fri 08:00-17:00; Sat 09:00-12:00": "Jadwal tidak valid: pakai Mon-Fri 08:00-17:00; Sat 09:00-12:00",
+    "Set both the boost bandwidth and the boost hours, or neither": "Isi bandwidth boost dan jam boost sekaligus, atau kosongkan keduanya"
 }
