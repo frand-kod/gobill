@@ -293,6 +293,13 @@ type RadiusUsageDaily struct {
 	OutputOctets int64
 }
 
+type ReminderSent struct {
+	SubscriptionID int64
+	ExpiresAt      int64
+	Days           int64
+	SentAt         int64
+}
+
 type Router struct {
 	ID          int64
 	Name        string

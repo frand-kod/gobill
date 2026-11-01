@@ -190,11 +190,7 @@ func (s *Service) ExtendExpired(ctx context.Context, customerID, subID int64) (t
 	if err := s.activate(ctx, &p); err != nil {
 		slog.Error("device: extend activate failed, sync manually", "customer", p.cust.Username, "err", err)
 	}
-	if n := s.notifier(); n != nil {
-		n.Go("telegram", func(c context.Context) error {
-			return n.Telegram(c, fmt.Sprintf("#u%s (%s) #id%d #extend #%s \n%s\nNew Expired: %s", p.cust.Username, p.cust.Fullname, p.cust.ID, p.plan.Type, p.plan.Name, until.Format("2006-01-02 15:04:05")))
-		})
-	}
+	s.telegram(fmt.Sprintf("#u%s (%s) #id%d #extend #%s \n%s\nNew Expired: %s", p.cust.Username, p.cust.Fullname, p.cust.ID, p.plan.Type, p.plan.Name, until.Format("2006-01-02 15:04:05")))
 	return until, nil
 }
 
@@ -411,10 +407,7 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 			if err = s.rechargeWithBalance(ctx, c.ID, plan.ID, 0, true); err == nil {
 				return nil
 			}
-			if nf != nil {
-				txt := fmt.Sprintf("FAILED RENEWAL #cron\n\n#u.%s #buy #%s \n%s\nPrice: %d", c.Username, plan.Type, plan.Name, plan.Price)
-				nf.Go("telegram", func(ctx context.Context) error { return nf.Telegram(ctx, txt) })
-			}
+			s.telegram(fmt.Sprintf("FAILED RENEWAL #cron\n\n#u.%s #buy #%s \n%s\nPrice: %d", c.Username, plan.Type, plan.Name, plan.Price))
 		}
 		if err != nil { // the price could not be read, or the recharge failed
 			renewErr = fmt.Errorf("auto renewal: %w", err)

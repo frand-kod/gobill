@@ -192,7 +192,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/portal", http.StatusSeeOther)
 }
 
-// registered sends the welcome message and, when reg_nofify_admin is on, tells the admin (Telegram).
+// registered sends the welcome message and, when reg_nofify_admin is on, alerts the admin (alert_channel).
 func (s *Server) registered(ctx context.Context, st map[string]string, c db.Customer) {
 	n, err := notify.Load(ctx, s.queries)
 	if err != nil {
@@ -202,9 +202,9 @@ func (s *Server) registered(ctx context.Context, st map[string]string, c db.Cust
 	n.Go("welcome", func(ctx context.Context) error {
 		return n.Custom(ctx, c, "welcome_message", "Welcome", map[string]string{"company": st["company_name"], "Username": c.Username, "url": customerLoginURL(st), "Password": "********"})
 	})
-	if st["reg_nofify_admin"] == "yes" {
-		n.Go("telegram", func(ctx context.Context) error {
-			return n.Telegram(ctx, fmt.Sprintf("%s - New User Registration\n\nFull Name: %s\nUsername: %s\nEmail: %s\nPhone Number: %s\nAddress: %s",
+	if st["reg_nofify_admin"] == "yes" && s.Billing != nil { // operator alert: follows alert_channel
+		n.Go("alert", func(ctx context.Context) error {
+			return s.Billing.Alert(ctx, fmt.Sprintf("%s - New User Registration\n\nFull Name: %s\nUsername: %s\nEmail: %s\nPhone Number: %s\nAddress: %s",
 				st["company_name"], c.Fullname, c.Username, c.Email, c.Phone, c.Address))
 		})
 	}

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -173,5 +174,60 @@ func TestNilNotifierNoop(t *testing.T) {
 	}
 	if err := e.s.ReminderJob(func() bool { return true })(ctx); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// A reminder whose send fails is retried on the next pass; one sent is never sent again.
+// A customer whose balance will auto-renew the plan gets no reminder.
+func TestReminderRetryAndAutoRenewSkip(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	var fail atomic.Bool
+	fail.Store(true)
+	got := make(chan string, 20)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got <- r.URL.RawQuery
+		if fail.Load() {
+			w.WriteHeader(http.StatusBadGateway)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	for k, v := range map[string]string{"user_notification_reminder": "wa", "message_delay": "0", "wa_url": srv.URL + "/wa?n=[number]&t=[text]"} {
+		e.q.UpsertSetting(ctx, db.UpsertSettingParams{Key: k, Value: v})
+	}
+	n, err := notify.Load(ctx, e.q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.s.Reload(n, jkt)
+	base := time.Date(2025, 1, 10, 7, 0, 0, 0, jkt)
+	for i, name := range []string{"poor", "rich"} {
+		c, err := e.q.CreateCustomer(ctx, db.CreateCustomerParams{Username: name, PasswordHash: "h", Fullname: name, Phone: "0812345678" + string(rune('0'+i)), ServiceType: "PPPoE", Status: "Active"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if name == "rich" {
+			e.conn.Exec(`UPDATE customers SET auto_renewal = 1, balance = 1000000 WHERE id = ?`, c.ID)
+		}
+		if _, err := e.q.CreateSubscription(ctx, db.CreateSubscriptionParams{CustomerID: c.ID, PlanID: e.day.ID, RouterID: e.day.RouterID,
+			Type: "PPPoE", StartedAt: base.Unix(), ExpiresAt: base.AddDate(0, 0, 3).Unix(), Method: "x"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	job := e.s.ReminderJob(func() bool { return true })
+	e.now = base
+	job(ctx)
+	if reqs := drain(got); len(reqs) != 1 || !strings.Contains(reqs[0], "8123456780") {
+		t.Fatalf("first pass (gateway down): %v", reqs)
+	}
+	fail.Store(false)
+	e.now = base.Add(reminderEvery)
+	job(ctx)
+	if reqs := drain(got); len(reqs) != 1 {
+		t.Fatalf("retry pass: %v", reqs)
+	}
+	e.now = base.Add(2 * reminderEvery)
+	job(ctx)
+	if reqs := drain(got); len(reqs) != 0 {
+		t.Fatalf("resent: %v", reqs)
 	}
 }

@@ -157,9 +157,7 @@ func (s *Service) TransferBalance(ctx context.Context, fromID int64, toUsername 
 		n.Go("balance_received", func(c context.Context) error {
 			return n.Custom(c, to, "balance_received", "Balance Notification", map[string]string{"name": from.Fullname + " (" + from.Username + ")", "balance": bal, "current_balance": notify.Money(to.Balance)})
 		})
-		n.Go("telegram", func(c context.Context) error {
-			return n.Telegram(c, fmt.Sprintf("#u%s send balance to #u%s \n%d", from.Username, to.Username, amount))
-		})
+		s.telegram(fmt.Sprintf("#u%s send balance to #u%s \n%d", from.Username, to.Username, amount))
 	}
 	return nil
 }
