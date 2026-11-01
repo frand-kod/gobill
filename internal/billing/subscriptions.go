@@ -327,7 +327,7 @@ func (s *Service) ExpireDue(ctx context.Context) error {
 		return err
 	}
 	autoRenew := setting(ctx, s.Q, "enable_balance") != "no" // PHP config enable_balance
-	dead := map[int64]bool{}                                  // routers that failed this run: their other subs wait for the next one
+	dead := map[int64]bool{}                                 // routers that failed this run: their other subs wait for the next one
 	for _, sub := range subs {
 		if sub.RouterID.Valid && dead[sub.RouterID.Int64] {
 			continue
@@ -453,7 +453,14 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 	if err := dev.RemoveCustomer(ctx, dc, dp); err != nil {
 		return fmt.Errorf("%w: remove from router: %w", errRouter, err)
 	}
-	n, err := s.Q.ExpireSubscription(ctx, db.ExpireSubscriptionParams{ID: sub.ID, Now: now})
+	var n int64
+	err = s.tx(ctx, func(q *db.Queries) error { // expiry and isolation commit together
+		var err error
+		if n, err = q.ExpireSubscription(ctx, db.ExpireSubscriptionParams{ID: sub.ID, Now: now}); err != nil || n == 0 {
+			return err
+		}
+		return s.isolate(ctx, q, plan, c) // when enabled, keeps the customer online on the restricted plan
+	})
 	if err != nil {
 		return err
 	}
@@ -472,10 +479,6 @@ func (s *Service) expireOne(ctx context.Context, sub db.Subscription, autoRenew 
 		nf.Go("webhook", func(ctx context.Context) error {
 			return nf.Webhook(ctx, "recharge.expired", map[string]any{"username": c.Username, "plan": plan.Name, "expires_at": sub.ExpiresAt})
 		})
-	}
-	// Not renewed: isolir (when enabled) keeps the customer online on the restricted plan.
-	if err := s.isolate(ctx, plan, c); err != nil {
-		slog.Error("isolir", "subscription", sub.ID, "err", err)
 	}
 	return renewErr
 }

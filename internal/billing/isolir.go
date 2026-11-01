@@ -14,39 +14,37 @@ import (
 	"github.com/frand-kod/gobill/internal/isolir"
 )
 
-// isolate starts the isolation of an expired subscription. It runs after the expiry is committed
-// and no auto-renewal happened. It does nothing when isolir_enabled is not "yes", the plan has its
+// isolate starts the isolation of an expired subscription. It runs in the transaction that expires
+// the subscription (q), so a crash cannot leave an expired customer without it, when no auto-renewal happened. It does nothing when isolir_enabled is not "yes", the plan has its
 // own expired_plan_id (explicit wins), the plan is not on the Radius device (a router plan cannot be
 // isolated), the customer is not Active, the customer already has a running isolation, or the customer
 // still has another active subscription.
-func (s *Service) isolate(ctx context.Context, plan db.Plan, c db.Customer) error {
-	if setting(ctx, s.Q, "isolir_enabled") != "yes" || plan.ExpiredPlanID.Valid || plan.Device != "Radius" || c.Status != "Active" {
+func (s *Service) isolate(ctx context.Context, q *db.Queries, plan db.Plan, c db.Customer) error {
+	if setting(ctx, q, "isolir_enabled") != "yes" || plan.ExpiredPlanID.Valid || plan.Device != "Radius" || c.Status != "Active" {
 		return nil
 	}
-	if _, err := isolir.EnsurePlan(ctx, s.Q); err != nil {
+	if _, err := isolir.EnsurePlan(ctx, q); err != nil {
 		return fmt.Errorf("isolir plan: %w", err)
 	}
-	days := isolir.Days(setting(ctx, s.Q, "isolir_days"))
+	days := isolir.Days(setting(ctx, q, "isolir_days"))
 	now := s.now()
-	return s.tx(ctx, func(q *db.Queries) error {
-		subs, err := q.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 1000})
-		if err != nil {
-			return err
-		}
-		for _, sub := range subs {
-			if sub.Status == "active" {
-				return nil
-			}
-		}
-		if _, err := q.GetRunningIsolation(ctx, db.GetRunningIsolationParams{CustomerID: c.ID, Now: now.Unix()}); err == nil {
+	subs, err := q.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 1000})
+	if err != nil {
+		return err
+	}
+	for _, sub := range subs {
+		if sub.Status == "active" {
 			return nil
 		}
-		if _, err := q.CreateIsolation(ctx, db.CreateIsolationParams{CustomerID: c.ID, StartedAt: now.Unix(), EndsAt: isolir.Until(now, days).Unix()}); err != nil {
-			return err
-		}
-		return q.CreateActivityLog(ctx, db.CreateActivityLogParams{ActorType: "system", ActorID: 0, Action: "isolir",
-			Description: fmt.Sprintf("%s isolir %d hari (%s)", c.Username, days, plan.Name)})
-	})
+	}
+	if _, err := q.GetRunningIsolation(ctx, db.GetRunningIsolationParams{CustomerID: c.ID, Now: now.Unix()}); err == nil {
+		return nil
+	}
+	if _, err := q.CreateIsolation(ctx, db.CreateIsolationParams{CustomerID: c.ID, StartedAt: now.Unix(), EndsAt: isolir.Until(now, days).Unix()}); err != nil {
+		return err
+	}
+	return q.CreateActivityLog(ctx, db.CreateActivityLogParams{ActorType: "system", ActorID: 0, Action: "isolir",
+		Description: fmt.Sprintf("%s isolir %d hari (%s)", c.Username, days, plan.Name)})
 }
 
 // isolirPlan reports whether planID is the isolir plan. The isolir plan is a system plan: it is never

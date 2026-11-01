@@ -64,7 +64,9 @@ func (s *Service) SuspendCustomer(ctx context.Context, customerID int64) (int, e
 // DeleteCustomer removes the customer from its router(s) first and deletes the DB row (and its
 // recharges; transactions and payment requests are kept with customer_id NULL, like the old
 // customers/delete) only when that worked. A device failure refuses the delete and keeps the row.
-func (s *Service) DeleteCustomer(ctx context.Context, id int64) error { return s.DeleteCustomerForce(ctx, id, false) }
+func (s *Service) DeleteCustomer(ctx context.Context, id int64) error {
+	return s.DeleteCustomerForce(ctx, id, false)
+}
 
 // DeleteCustomerForce is DeleteCustomer; with force the row is deleted even when the router removal
 // fails (the router error is still returned, the delete stays).
