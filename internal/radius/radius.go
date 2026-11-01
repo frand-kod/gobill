@@ -14,6 +14,7 @@ import (
 	"math"
 	"net"
 	"net/netip"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -311,6 +312,7 @@ type Decision struct {
 	// AddressList is the Mikrotik-Address-List of an isolated customer (isolir plan), "" = none.
 	AddressList string
 	Timeout     int64 // Session-Timeout seconds, 0 = none
+	Interim     int64 // Acct-Interim-Interval seconds, 0 = not sent
 	Expires     int64
 	TotalLeft   int64 // remaining bytes when a data limit applies (HasTotal)
 	HasTotal    bool
@@ -381,6 +383,18 @@ func (s *Server) decide(ctx context.Context, rq AuthRequest) Decision {
 		voucherFails.fail(nasKey, now)
 	}
 	return d
+}
+
+// InterimDefault is the Acct-Interim-Interval sent when the radius_interim_interval setting is unset.
+const InterimDefault = 300
+
+// interimInterval is the radius_interim_interval setting: seconds, 0 = do not send, unset = InterimDefault.
+func (s *Server) interimInterval(ctx context.Context) int64 {
+	v, ok := s.settings(ctx)["radius_interim_interval"]
+	if n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64); ok && err == nil && n >= 0 {
+		return min(n, 1<<32-1)
+	}
+	return InterimDefault
 }
 
 // sharedPolicy is the shared_users_policy setting: "reject" or "kick_oldest" (default, also when unset).
@@ -559,7 +573,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 			}
 		}
 	}
-	d := Decision{Success: success, Cust: c, Plan: pl, Expires: pl.ExpiresAt, AddressList: isolir.AddressListFor(s.settings(ctx), pl.PlanID)}
+	d := Decision{Success: success, Cust: c, Plan: pl, Expires: pl.ExpiresAt, Interim: s.interimInterval(ctx), AddressList: isolir.AddressListFor(s.settings(ctx), pl.PlanID)}
 	if left > 0 {
 		d.Timeout = left
 	}
@@ -794,6 +808,9 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 	}
 	if d.Timeout > 0 {
 		rfc2865.SessionTimeout_Set(p, rfc2865.SessionTimeout(d.Timeout))
+	}
+	if d.Interim > 0 {
+		rfc2869.AcctInterimInterval_Set(p, rfc2869.AcctInterimInterval(d.Interim))
 	}
 	send(w, p)
 }
