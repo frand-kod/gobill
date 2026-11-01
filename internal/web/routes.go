@@ -300,6 +300,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/radius/sessions.json", managers(http.HandlerFunc(s.radiusSessionsJSON)))
 	mux.Handle("POST /admin/radius/sessions/disconnect-many", managers(http.HandlerFunc(s.radiusDisconnectMany)))
 	mux.Handle("POST /admin/radius/sessions/{id}/disconnect", managers(http.HandlerFunc(s.radiusDisconnect)))
+	mux.Handle("GET /admin/radius/test-login", managers(http.HandlerFunc(s.testLoginForm)))
+	mux.Handle("POST /admin/radius/test-login", managers(http.HandlerFunc(s.testLoginRun)))
 	crud("/admin/odp", s.odpList, s.odpNew, s.odpEdit, s.odpSave, s.odpDelete)
 	mux.Handle("GET /admin/maps/routers", managers(s.mapPage("Routers Geo Location Information", "/admin/maps/routers/data")))
 	mux.Handle("GET /admin/maps/routers/data", managers(http.HandlerFunc(s.mapRouterData)))

@@ -92,7 +92,8 @@ func (s *Server) nasList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp := listPage{Heading: "NAS", Base: "/admin/nas", CanCreate: true, CanEdit: true,
-		Cols: []string{"Name", "IP / CIDR", "Description", "Secret", "Message-Authenticator"}}
+		Cols:  []string{"Name", "IP / CIDR", "Description", "Secret", "Message-Authenticator"},
+		Links: []option{{"/admin/radius/test-login", "Test login"}}}
 	for _, n := range rows {
 		weak := "" // legacy rows keep working; only flagged
 		if p, err := secret.Open(s.SecretKey, n.SecretEnc); err == nil && weakSecret(string(p)) != "" {

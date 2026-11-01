@@ -2704,5 +2704,11 @@
     "Login attempts": "Percobaan login",
     "Every RADIUS login attempt, accepted or refused, with the reason. Check it when a customer says they cannot connect.": "Setiap percobaan login RADIUS, diterima atau ditolak, beserta alasannya. Cek di sini saat pelanggan bilang tidak bisa terhubung.",
     "Rejected": "Ditolak",
-    "Accepted": "Diterima"
+    "Accepted": "Diterima",
+    "Test login": "Tes login",
+    "Checked against the customer's router password, nothing is written. A voucher-style login (password = username) is refused: it would redeem the voucher.": "Dicek terhadap sandi router pelanggan, tidak ada yang ditulis. Login gaya voucher (sandi = username) ditolak: akan menebus voucher.",
+    "MAC (Calling-Station-Id)": "MAC (Calling-Station-Id)",
+    "Enter a username and a password that differs from it": "Isi username dan sandi yang berbeda dari username",
+    "Access-Reject": "Access-Reject",
+    "Access-Accept": "Access-Accept"
 }
