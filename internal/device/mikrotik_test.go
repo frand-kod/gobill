@@ -118,11 +118,11 @@ func TestHotspotPlans(t *testing.T) {
 	must(t, d.UpdatePlan(ctx, "Missing", p))
 	must(t, d.RemovePlan(ctx, Plan{Name: "Old"}))
 	f.check(t,
-		"/ip/hotspot/user/profile/add =name=Gold =shared-users=2 =rate-limit=512K/2M 3M/4M",
+		"/ip/hotspot/user/profile/add =name=Gold =shared-users=2 =rate-limit=512K/2M 3M/4M =on-login=x =on-logout=",
 		"/ip/hotspot/user/profile/print =.proplist=.id ?name=Old",
 		"/ip/hotspot/user/profile/set =numbers=*5 =name=Gold =shared-users=2 =rate-limit=512K/2M 3M/4M =on-login=x =on-logout=",
 		"/ip/hotspot/user/profile/print =.proplist=.id ?name=Missing",
-		"/ip/hotspot/user/profile/add =name=Gold =shared-users=2 =rate-limit=512K/2M 3M/4M",
+		"/ip/hotspot/user/profile/add =name=Gold =shared-users=2 =rate-limit=512K/2M 3M/4M =on-login=x =on-logout=",
 		"/ip/hotspot/user/profile/print =.proplist=.id ?name=Old",
 		"/ip/hotspot/user/profile/remove =numbers=*5")
 }
@@ -214,11 +214,11 @@ func TestPPPoEPlans(t *testing.T) {
 	must(t, d.UpdatePlan(ctx, "Nope", p))
 	must(t, d.RemovePlan(ctx, Plan{Name: "Old"}))
 	f.check(t,
-		"/ppp/profile/add =name=Gold =local-address=10.0.0.1 =remote-address=pool1 =rate-limit=512K/2M 3M/4M",
+		"/ppp/profile/add =name=Gold =local-address=10.0.0.1 =remote-address=pool1 =rate-limit=512K/2M 3M/4M =on-up= =on-down=",
 		"/ppp/profile/print =.proplist=.id ?name=Old",
 		"/ppp/profile/set =numbers=*5 =name=Gold =local-address=10.0.0.1 =remote-address=pool1 =rate-limit=512K/2M 3M/4M =on-up= =on-down=",
 		"/ppp/profile/print =.proplist=.id ?name=Nope",
-		"/ppp/profile/add =name=Gold =local-address=pool1 =remote-address=pool1 =rate-limit=512K/2M 3M/4M",
+		"/ppp/profile/add =name=Gold =local-address=pool1 =remote-address=pool1 =rate-limit=512K/2M 3M/4M =on-up= =on-down=",
 		"/ppp/profile/print =.proplist=.id ?name=Old",
 		"/ppp/profile/remove =numbers=*5")
 }
