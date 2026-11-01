@@ -53,7 +53,15 @@ func LoadKey(hexKey, path string) (key []byte, created bool, err error) {
 		if errors.Is(err, os.ErrNotExist) {
 			key = make([]byte, 32)
 			rand.Read(key)
-			return key, true, os.WriteFile(path, []byte(hex.EncodeToString(key)+"\n"), 0o600)
+			f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+			if err != nil {
+				return nil, false, err
+			}
+			_, err = f.WriteString(hex.EncodeToString(key) + "\n")
+			if cerr := f.Close(); err == nil {
+				err = cerr
+			}
+			return key, true, err
 		}
 		if err != nil {
 			return nil, false, err

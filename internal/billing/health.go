@@ -106,7 +106,7 @@ func (a *AlertJob) Run(ctx context.Context) error {
 	stale := false
 	last := st["backup_last_at"]
 	if t, err := time.ParseInLocation(backupTime, last, now.Location()); last != "" && err == nil {
-		stale = now.Sub(t) > backupMaxAge
+		stale = now.Before(t) || now.Sub(t) > backupMaxAge // a last backup in the future means the clock is behind
 	}
 	a.edge(ctx, "backup:local", stale,
 		"Backup lokal terakhir "+last+", lebih dari 36 jam lalu",

@@ -3,7 +3,9 @@ package job
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
@@ -69,11 +71,22 @@ func Run(ctx context.Context, name string, interval time.Duration, fn func(conte
 			return
 		case <-t.C:
 			start := time.Now()
-			err := fn(ctx)
+			err := safeCall(ctx, name, fn)
 			record(name, start, err)
 			if err != nil {
 				slog.Error("job failed", "job", name, "err", err)
 			}
 		}
 	}
+}
+
+// safeCall turns a panic in fn into an error, so one bad job cannot crash the process.
+func safeCall(ctx context.Context, name string, fn func(context.Context) error) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("job panicked", "job", name, "panic", r, "stack", string(debug.Stack()))
+			err = fmt.Errorf("panic: %v", r)
+		}
+	}()
+	return fn(ctx)
 }

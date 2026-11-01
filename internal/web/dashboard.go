@@ -174,7 +174,7 @@ func (s *Server) noticeCounts(ctx context.Context, now time.Time) ([]attnItem, e
 		out = append(out, attnItem{Kind: "Router/NAS offline", Count: net.Offline, Href: "/admin/routers", Err: true, Mgr: true})
 	}
 	if last := settings["expiry_last_run"]; last != "" {
-		if t, err := time.ParseInLocation(time.DateTime, last, loc); err == nil && now.Sub(t) > expiryJobStale {
+		if t, err := time.ParseInLocation(time.DateTime, last, loc); err == nil && (now.Before(t) || now.Sub(t) > expiryJobStale) {
 			out = append(out, attnItem{Kind: "Expiry job stalled", Count: 1, Href: "/admin/status", Err: true, Mgr: true})
 		}
 	}

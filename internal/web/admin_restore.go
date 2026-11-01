@@ -285,3 +285,11 @@ func (s *Server) restoreCancel(w http.ResponseWriter, r *http.Request) {
 	s.sessions.Put(r.Context(), "flash", s.catalog.T(s.language(), "Restore cancelled."))
 	http.Redirect(w, r, restorePage, http.StatusSeeOther)
 }
+
+// SweepUploads is the job body that removes abandoned import and restore uploads, so they do not
+// stay on disk until someone happens to visit those pages.
+func (s *Server) SweepUploads(context.Context) error {
+	sweepImports()
+	s.sweepRestores()
+	return nil
+}

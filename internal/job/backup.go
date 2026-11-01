@@ -36,8 +36,8 @@ type Backup struct {
 // backupTime is the layout of the backup_* status settings.
 const backupTime = "2006-01-02 15:04:05"
 
-// Run is the job.Run body. It ticks every minute; it writes only during the backup hour and
-// only when today's file is missing, so repeated ticks in that hour are harmless. While today's
+// Run is the job.Run body. It ticks every minute; it writes once the backup hour has passed and
+// only when today's file is missing, so a box that was off at 02:xx still backs up later. While today's
 // copy is missing from the mirror, the mirror copy is retried once an hour.
 func (b *Backup) Run(ctx context.Context) error {
 	now := time.Now()
@@ -49,7 +49,7 @@ func (b *Backup) Run(ctx context.Context) error {
 		b.retryMirror(ctx, final, now) // never overwrite today's file
 		return nil
 	}
-	if now.Hour() != backupHour {
+	if now.Hour() < backupHour {
 		return nil
 	}
 	if !b.Trusted() {
