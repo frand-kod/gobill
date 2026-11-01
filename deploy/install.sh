@@ -98,6 +98,21 @@ esac
 if systemctl is-active --quiet gobill; then
 	systemctl stop gobill
 fi
+# Upgrade: cadangkan database dulu (service sudah berhenti, jadi db + -wal + -shm konsisten).
+if [ -x "$BIN" ]; then
+	DB=$(sed -n 's/^GOBILL_DB=//p' "$CONF" 2>/dev/null | tail -n 1)
+	DB=${DB:-$STATE_DIR/gobill.db}
+	if [ -f "$DB" ]; then
+		BK=$STATE_DIR/backup/pre-install-$(date +%Y%m%d-%H%M%S)
+		install -d -m 0750 -o gobill -g gobill "$STATE_DIR/backup" "$BK"
+		cp -p "$DB" "$BK/"
+		for x in "$DB-wal" "$DB-shm"; do
+			if [ -e "$x" ]; then cp -p "$x" "$BK/"; fi
+		done
+		chown -R gobill:gobill "$BK"
+		log "database dicadangkan ke $BK"
+	fi
+fi
 log "memasang binary ke $BIN ($ARCH)"
 install -m 0755 "$TMP" "$BIN"
 
