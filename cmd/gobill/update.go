@@ -257,7 +257,10 @@ func (u *updater) revert(prev, backup string) error {
 		}
 	}
 	keep(u.systemctl("stop"))
-	keep(restoreDB(backup, u.dbPath))
+	if err := restoreDB(backup, u.dbPath); err != nil {
+		// Never start the old binary on a database that was not restored.
+		return fmt.Errorf("database restore failed (%w); the service is left STOPPED. Recover by hand: copy %s over %s, delete %s-wal and %s-shm, put %s.prev back as %s, then run: systemctl start gobill", err, backup, u.dbPath, u.dbPath, u.dbPath, u.bin, u.bin)
+	}
 	keep(copyFile(prev, u.bin, 0o755))
 	keep(u.systemctl("start"))
 	return errors.Join(errs...)
@@ -407,16 +410,22 @@ func swapBinary(bin, prev string) error {
 	return nil
 }
 
-// restoreDB writes backup over the database file in place, so its owner and mode stay as the
-// service expects, then removes the -wal and -shm files that belong to the old data. Only call it
-// while gobill is stopped.
+// restoreDB copies backup to a temp file next to the database, fsyncs it, gives it the live
+// file's mode and owner, then renames it over dbPath, so a failed copy leaves the live database
+// intact. It then removes the -wal and -shm files that belong to the old data. Only call it while
+// gobill is stopped.
 func restoreDB(backup, dbPath string) error {
 	in, err := os.Open(backup)
 	if err != nil {
 		return err
 	}
 	defer in.Close()
-	out, err := os.OpenFile(dbPath, os.O_WRONLY|os.O_TRUNC, 0)
+	mode := os.FileMode(0o600)
+	if st, err := os.Stat(dbPath); err == nil {
+		mode = st.Mode().Perm()
+	}
+	tmp := dbPath + ".restore-tmp"
+	out, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
 	if err != nil {
 		return err
 	}
@@ -427,7 +436,13 @@ func restoreDB(backup, dbPath string) error {
 	if cerr := out.Close(); err == nil {
 		err = cerr
 	}
+	if err == nil {
+		os.Chmod(tmp, mode)
+		chownLike(dbPath, tmp) // best effort: the updater runs as root, the service user owns the DB
+		err = os.Rename(tmp, dbPath)
+	}
 	if err != nil {
+		os.Remove(tmp)
 		return err
 	}
 	os.Remove(dbPath + "-wal")
