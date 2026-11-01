@@ -11,13 +11,35 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-routeros/routeros/v3"
 )
 
-// DialTCP, when set, carries the plain API connection (internal/wg dials routers inside the tunnel through it).
-var DialTCP func(ctx context.Context, addr string) (net.Conn, error)
+// DialFunc opens a connection to host:port.
+type DialFunc = func(ctx context.Context, addr string) (net.Conn, error)
+
+// dialTCP, when set, carries the API connection, plain or TLS (internal/wg dials routers inside the
+// tunnel through it). It is atomic: the tunnel sets and clears it while jobs are dialing.
+var dialTCP atomic.Pointer[DialFunc]
+
+// SetDialTCP installs the tunnel dialer; nil removes it.
+func SetDialTCP(f DialFunc) {
+	if f == nil {
+		dialTCP.Store(nil)
+		return
+	}
+	dialTCP.Store(&f)
+}
+
+// DialTCP dials through the tunnel dialer, or directly when none is set.
+func DialTCP(ctx context.Context, addr string) (net.Conn, error) {
+	if f := dialTCP.Load(); f != nil {
+		return (*f)(ctx, addr)
+	}
+	return (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+}
 
 const dialTimeout = 3 * time.Second
 
@@ -50,19 +72,31 @@ func (r Router) exec(ctx context.Context, sentence []string) ([]map[string]strin
 	defer dcancel()
 	var c *routeros.Client
 	var err error
-	if DialTCP != nil && !r.TLS {
+	// RouterOS certs are self-signed, so the chain is not verified; the leaf is pinned instead.
+	tlsCfg := &tls.Config{InsecureSkipVerify: true, VerifyConnection: r.verifyPin}
+	if dialTCP.Load() != nil {
 		var nc net.Conn
 		if nc, err = DialTCP(dctx, r.Addr); err == nil {
-			if c, err = routeros.NewClient(nc); err == nil {
-				if err = c.LoginContext(dctx, r.User, r.Pass); err != nil {
-					c.Close()
+			if r.TLS {
+				tc := tls.Client(nc, tlsCfg)
+				if err = tc.HandshakeContext(dctx); err != nil {
+					nc.Close()
+				} else {
+					nc = tc
+				}
+			}
+			if err == nil {
+				if c, err = routeros.NewClient(nc); err == nil {
+					if err = c.LoginContext(dctx, r.User, r.Pass); err != nil {
+						c.Close()
+					}
+				} else {
+					nc.Close()
 				}
 			}
 		}
 	} else if r.TLS {
-		// RouterOS certs are self-signed, so the chain is not verified; the leaf is pinned instead.
-		c, err = routeros.DialTLSContext(dctx, r.Addr, r.User, r.Pass,
-			&tls.Config{InsecureSkipVerify: true, VerifyConnection: r.verifyPin})
+		c, err = routeros.DialTLSContext(dctx, r.Addr, r.User, r.Pass, tlsCfg)
 	} else {
 		c, err = routeros.DialContext(dctx, r.Addr, r.User, r.Pass)
 	}

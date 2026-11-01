@@ -28,14 +28,32 @@ func TestAuditRouter3_HotspotAddDeletes(t *testing.T) {
 
 // Router #7: a TLS (8729) router ignores the WireGuard tunnel dialer.
 func TestAuditRouter7_TLSIgnoresTunnel(t *testing.T) {
-	old := DialTCP
-	t.Cleanup(func() { DialTCP = old })
+	t.Cleanup(func() { SetDialTCP(nil) })
 	used := false
-	DialTCP = func(context.Context, string) (net.Conn, error) { used = true; return nil, errors.New("tunnel") }
+	SetDialTCP(func(context.Context, string) (net.Conn, error) { used = true; return nil, errors.New("tunnel") })
 	Router{Addr: "127.0.0.1:1", TLS: true}.exec(ctx, []string{"/system/identity/print"})
 	if !used {
 		t.Fatal("TLS router dialed directly, bypassing the tunnel")
 	}
+}
+
+// Router #7: the tunnel sets and clears the dial hook while jobs dial; `go test -race` must stay quiet.
+func TestAuditRouter7_DialHookRace(t *testing.T) {
+	t.Cleanup(func() { SetDialTCP(nil) })
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 200; i++ {
+			SetDialTCP(func(context.Context, string) (net.Conn, error) { return nil, errors.New("x") })
+			SetDialTCP(nil)
+		}
+	}()
+	for i := 0; i < 200; i++ {
+		if c, err := DialTCP(ctx, "127.0.0.1:1"); err == nil {
+			c.Close()
+		}
+	}
+	<-done
 }
 
 // Router #9: with pppoe_username set, a secret named after the gobill username is still taken over.
