@@ -4,6 +4,7 @@ package web
 
 import (
 	"encoding/csv"
+	"log/slog"
 	"net/http"
 
 	"fmt"
@@ -90,6 +91,38 @@ func (s *Server) writeCSV(w http.ResponseWriter, name string, head []string, row
 	cw.Flush()
 }
 
+// exportChunk is how many log rows a CSV export reads at a time, so a long log is never held in memory whole.
+const exportChunk = 1000
+
+// exportCSV streams a log export: page(off) returns the rows from off (at most exportChunk). The first
+// page is read before the headers go out, so a failure there can still be an error response; later
+// failures can only be logged, and the file ends early.
+func (s *Server) exportCSV(w http.ResponseWriter, name string, head []string, page func(off int64) ([][]string, error)) error {
+	rows, err := page(0)
+	if err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`-`+time.Now().Format("20060102")+`.csv"`)
+	cw := csv.NewWriter(w)
+	cw.Write(head)
+	for off := int64(0); ; {
+		for _, rec := range rows {
+			csvSafe(rec)
+			cw.Write(rec)
+		}
+		cw.Flush()
+		if len(rows) < exportChunk {
+			return nil
+		}
+		off += exportChunk
+		if rows, err = page(off); err != nil {
+			slog.Error("csv export stopped", "file", name, "err", err)
+			return nil
+		}
+	}
+}
+
 var radiusLogCols = []string{"User", "NAS", "IP", "MAC", "Start", "Stop", "Duration", "Upload", "Download"}
 
 func (s *Server) radiusLogParams(r *http.Request) db.SearchRadiusLogsParams {
@@ -137,13 +170,14 @@ func (s *Server) radiusLog(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) radiusLogExport(w http.ResponseWriter, r *http.Request) {
 	p := s.radiusLogParams(r)
-	p.PageLimit = -1
-	ss, err := s.queries.SearchRadiusLogs(r.Context(), p)
+	err := s.exportCSV(w, "radius-logs", radiusLogCols, func(off int64) ([][]string, error) {
+		p.PageLimit, p.PageOffset = exportChunk, off
+		ss, err := s.queries.SearchRadiusLogs(r.Context(), p)
+		return s.radiusLogRows(ss), err
+	})
 	if err != nil {
 		s.fail(w, "export radius log", err)
-		return
 	}
-	s.writeCSV(w, "radius-logs", radiusLogCols, s.radiusLogRows(ss))
 }
 
 var msgLogCols = []string{"Date", "Type", "Recipient", "Subject", "Status", "Message"}
@@ -192,11 +226,12 @@ func (s *Server) msgLog(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) msgLogExport(w http.ResponseWriter, r *http.Request) {
 	p := s.msgLogParams(r)
-	p.PageLimit = -1
-	ms, err := s.queries.SearchMessageLogs(r.Context(), p)
+	err := s.exportCSV(w, "message-logs", msgLogCols, func(off int64) ([][]string, error) {
+		p.PageLimit, p.PageOffset = exportChunk, off
+		ms, err := s.queries.SearchMessageLogs(r.Context(), p)
+		return s.msgLogRows(ms), err
+	})
 	if err != nil {
 		s.fail(w, "export message log", err)
-		return
 	}
-	s.writeCSV(w, "message-logs", msgLogCols, s.msgLogRows(ms))
 }
