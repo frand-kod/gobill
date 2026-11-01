@@ -40,7 +40,7 @@ type Plan struct {
 	Pool        string
 	PoolLocalIP string // optional; falls back to Pool
 
-	OnLogin, OnLogout string // router scripts, set on UpdatePlan only
+	OnLogin, OnLogout string // router scripts, sent on AddPlan and UpdatePlan
 
 	// ExpiredPlan is the profile an expired customer is moved to instead of being deleted.
 	ExpiredPlan *Plan
