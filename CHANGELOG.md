@@ -6,6 +6,61 @@ All notable changes to this project are documented here. The format follows
 
 Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
+## [Unreleased]
+
+Hasil audit menyeluruh (uang, siklus langganan, router, keamanan, operasional) beserta perbaikannya, ditambah fitur RADIUS baru. Migrasi `0029` sampai `0039`.
+
+### Penting sebelum upgrade
+
+- **`/radius.php` tertutup secara bawaan.** Sebelumnya `radius_rest_allow` kosong berarti loopback saja; sekarang semua request ditolak (403) sampai `radius_rest_allow` (misalnya `127.0.0.1, ::1`) atau `radius_rest_secret` (header `X-Gobill-Secret`) diisi di **Pengaturan > System & Security > FreeRADIUS**. Pengguna FreeRADIUS lewat REST wajib mengisinya, atau login pelanggan berhenti.
+- **Rilis bertanda tangan kini memuat versi.** `make sign` menulis baris `VERSION` ke `SHA256SUMS`; `gobill update` menolak rilis tanpa baris itu, berbeda dari tag, atau lebih lama dari versi berjalan (kecuali `--version` eksplisit untuk rollback).
+- **Mode akses peran bawaan `strict`.** Deposit saldo, Recharge Zero, dan buat voucher hanya untuk SuperAdmin/Admin; peran Report hanya membaca laporan (tanpa ekspor pelanggan, pencarian, dan transaksi). Pilih `phpnuxbill` di Pengaturan > Akses untuk hak akses lama.
+- **Password admin minimal 10 karakter** untuk password baru atau yang diganti. Admin hasil impor PHPNuxBill (hash sha1) wajib mengganti password saat login pertama.
+
+### Fitur
+
+- **RADIUS**: `Acct-Interim-Interval` di Access-Accept (pengaturan, bawaan 300 detik), `Idle-Timeout` per paket, alasan sesi berakhir (`Acct-Terminate-Cause`) di log sesi, log percobaan login (`/admin/logs/auth`, CSV), halaman Tes login, validasi `NAS-Port-Type` terhadap tipe paket, kunci akun ke MAC dan/atau `NAS-Port-Id`, pencarian "siapa memakai IP X pada jam T".
+- **Jadwal paket**: jendela jam login (mis. `Mon-Fri 08:00-17:00`, Session-Timeout dipotong di akhir jendela) dan kecepatan boost terjadwal lewat CoA.
+- `shared_users_pppoe`: batas perangkat bisa diterapkan ke PPPoE.
+- **Antrian retry router**: pelepasan pelanggan yang gagal karena router mati dicatat dan diulang tiap 5 menit; jumlahnya tampil di Status Sistem.
+- Mode koneksi API router (biasa/TLS) di form router; router port 8729 otomatis TLS.
+- `gobill healthcheck` dan `HEALTHCHECK` di Dockerfile.
+- Webhook membawa `id` (dan header `X-Event-Id`) dan tercatat di log pesan.
+
+### Perubahan dari PHPNuxBill
+
+PHPNuxBill kini sumber data, bukan sumber perilaku. Perilaku lama yang salah diperbaiki:
+
+- **Masa aktif bulanan di akhir bulan di-clamp**: 31 Jan + 1 bulan = 28/29 Feb (dulu 3 Mar). Paket Period dengan tanggal tagihan 29-31 tidak lagi melompati satu bulan, baik aktivasi pertama maupun perpanjangan.
+- **Faktur prorata pertama** dihitung dari jumlah hari sebenarnya, bukan 30 hari (15 hari dari Rp 300.000 di bulan 31 hari = Rp 145.161).
+- **Perpanjangan otomatis dari saldo** dilakukan di tempat: pelanggan tidak lagi diputus dari router lalu ditambahkan ulang, dan tidak ada baris langganan baru.
+- **Recharge pada langganan yang sudah lewat masa aktif** dihitung dari sekarang, bukan dari tanggal habis lama (dulu bisa langsung expired lagi).
+- **Hotspot**: user di router diubah di tempat (`set`), tidak dihapus lalu dibuat ulang; counter pemakaian tidak lagi ter-reset saat sinkron.
+- **Status Banned/Disabled/Suspended** memutus pelanggan dari router; kembali Aktif menyinkronkan ulang.
+- **Harga transaksi selalu sama dengan uang yang diterima** (aktivasi Period pertama lewat gateway dulu tercatat Rp 0).
+- **Kupon dengan batas pemakaian direservasi saat order dibuat**; order yang kedaluwarsa atau gagal mengembalikannya.
+- **Laporan dan dashboard memakai satu definisi pemasukan**: pembelian dari saldo dan "Balance - Gift" tidak dihitung lagi di laporan, sehingga total laporan bisa turun.
+- **Nomor invoice dari sequence**, tidak lagi `max(id)+1`.
+- Kode voucher yang belum terpakai disamarkan untuk peran yang tidak bisa membuat voucher.
+
+### Diperbaiki
+
+- Panic di job latar belakang tidak lagi mematikan proses (RADIUS, UI, WireGuard).
+- Rollback `gobill update` memulihkan database secara atomik dan tidak menjalankan service bila pemulihan gagal.
+- Start ditolak bila file kunci baru dibuat padahal database berisi data terenkripsi (`GOBILL_ALLOW_NEW_KEY=1` untuk memaksa). Database yang lebih baru dari binary ditolak.
+- Backup harian disusul bila jam 02:00 terlewat; alert backup dan job expiry tidak diam saat jam sistem mundur.
+- Satu router mati tidak lagi menahan expiry untuk semua pelanggan: langganan tetap expired di database, pelepasan masuk antrian retry.
+- Provisioning WireGuard baru mengganti kredensial router setelah router mengambil script; revoke memulihkan kredensial lama.
+- Hapus pelanggan melepas dari router dulu; bila router gagal, penghapusan ditolak dengan tombol "Hapus tetap".
+- Rollback migrasi RADIUS hanya mengaktifkan kembali akun yang dinonaktifkan oleh migrasi.
+- Order yang sudah dibayar tetapi tidak bisa diproses (paket terhapus) dikreditkan ke saldo pelanggan dengan alert operator; refund gateway dicatat dan dikirimi alert.
+- Edit/extend admin dan extend portal mengakhiri isolir yang berjalan; langganan yang dinonaktifkan admin tidak bisa dihidupkan lagi lewat extend portal.
+- Deposit dan recharge admin memakai token sekali pakai (tidak tercatat dobel saat diklik dua kali).
+- Ganti host/port router wajib memasukkan ulang password; `trust_proxy`/`trusted_proxies` hanya SuperAdmin dan menolak `0.0.0.0/0`; 2FA dibatasi 5 percobaan per login dan dikunci per akun; registrasi portal dibatasi per IP; restore dan import meminta password (dan kode 2FA).
+- Pengingat H-7/3/1 diulang bila gateway gagal dan tidak dikirim dua kali; alert operator mengikuti `alert_channel`; invoice yang gagal terkirim diulang 3 kali.
+- Import `--force` bisa menimpa database yang punya agent batch; import CLI membuat snapshot dulu. `install.sh` mem-backup database sebelum upgrade.
+- Ekspor CSV log dibaca bertahap; index `customers.created_at`; snapshot lama dipangkas; isolir selesai dan inbox lama ikut retensi; header HSTS dan Permissions-Policy.
+
 ## [0.2.4] - 2026-10-31
 
 ### Diubah
