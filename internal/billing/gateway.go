@@ -4,6 +4,9 @@ package billing
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
+	"log/slog"
 
 	"context"
 	"github.com/frand-kod/gobill/internal/db"
@@ -46,6 +49,7 @@ func (s *Service) creditPaid(ctx context.Context, q *db.Queries, now time.Time, 
 // With a coupon, price (what was charged) is recorded; the coupon use was reserved at order time.
 func (s *Service) RechargePaid(ctx context.Context, claim func(*db.Queries) (bool, error), customerID, planID int64, method, coupon string, price int64) error {
 	var p *pending
+	var credited string // set when the payment was kept as balance instead of a recharge
 	err := s.tx(ctx, func(q *db.Queries) error {
 		if ok, err := claim(q); err != nil || !ok {
 			return err
@@ -53,6 +57,7 @@ func (s *Service) RechargePaid(ctx context.Context, claim func(*db.Queries) (boo
 		if c, err := q.GetCustomer(ctx, customerID); err == nil && c.Status != "Active" {
 			// PHP dies here and the payment is left in limbo. It is already claimed, so keep the
 			// money: credit the customer's balance, to be spent once the account is active again.
+			credited = "customer is not active"
 			return s.creditPaid(ctx, q, s.now(), customerID, price, method, "Payment Credit")
 		}
 		var cp *couponUse
@@ -68,8 +73,20 @@ func (s *Service) RechargePaid(ctx context.Context, claim func(*db.Queries) (boo
 		}
 		var err error
 		p, err = s.recharge(ctx, q, customerID, planID, method, 0, cp)
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, ErrIsolirPlan) {
+			// The plan (or its router) is gone or can no longer be sold: retrying never helps and the
+			// money is already claimed, so keep it as balance. recharge fails before it writes anything.
+			p, credited = nil, fmt.Sprintf("plan %d cannot be recharged: %v", planID, err)
+			return s.creditPaid(ctx, q, s.now(), customerID, price, method, "Payment Credit")
+		}
 		return err
 	})
+	if credited != "" && err == nil {
+		msg := fmt.Sprintf("Pembayaran gateway diterima tetapi tidak bisa jadi paket (%s): dana masuk ke saldo pelanggan, cek manual\nPelanggan: %d\nMetode: %s\nJumlah: %d", credited, customerID, method, price)
+		if aerr := s.Alert(ctx, msg); aerr != nil {
+			slog.Error("operator alert", "customer", customerID, "err", aerr)
+		}
+	}
 	if err != nil || p == nil {
 		return err
 	}
