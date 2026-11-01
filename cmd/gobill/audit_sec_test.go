@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -31,6 +33,23 @@ func TestAuditSec2_SignatureDoesNotBindVersion(t *testing.T) {
 		if b, _ := os.ReadFile(tu.bin); string(b) != "old" {
 			t.Fatalf("%s: binary replaced", name)
 		}
+	}
+}
+
+func TestHealthcheck(t *testing.T) {
+	code := 200
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(code) }))
+	defer srv.Close()
+	if err := checkHealth(srv.URL); err != nil {
+		t.Fatal(err)
+	}
+	code = 503
+	if checkHealth(srv.URL) == nil {
+		t.Fatal("503 counted as healthy")
+	}
+	srv.Close()
+	if checkHealth(srv.URL) == nil {
+		t.Fatal("closed server counted as healthy")
 	}
 }
 

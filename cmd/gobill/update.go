@@ -91,6 +91,32 @@ func runRollback(args []string) error {
 	return u.rollback()
 }
 
+// runHealthcheck is `gobill healthcheck`: GET /health on the local port (GOBILL_HTTP, default :8080)
+// and exit 0 if it answers 200, 1 otherwise. The Docker HEALTHCHECK uses it, because the distroless
+// image has no shell or curl.
+func runHealthcheck(args []string) error {
+	if len(args) > 0 {
+		return errors.New("usage: gobill healthcheck")
+	}
+	_, port, err := net.SplitHostPort(env("GOBILL_HTTP", ":8080"))
+	if err != nil {
+		return fmt.Errorf("GOBILL_HTTP: want host:port: %w", err)
+	}
+	return checkHealth("http://127.0.0.1:" + port + "/health")
+}
+
+func checkHealth(url string) error {
+	resp, err := (&http.Client{Timeout: 4 * time.Second}).Get(url)
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("health: %s", resp.Status)
+	}
+	return nil
+}
+
 func requireRoot(cmd string) error {
 	if os.Geteuid() != 0 {
 		return fmt.Errorf("gobill %s must run as root: sudo gobill %s", cmd, cmd)
