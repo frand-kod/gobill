@@ -6,6 +6,7 @@
     {{if .CanSell}}<a class="btn" href="#recharge">{{icon "wallet"}}<span>{{T "Recharge"}}</span></a>
     <a class="btn" href="/admin/deposit?customer={{.C.Username}}">{{icon "banknote"}}<span>{{T "Add balance"}}</span></a>
     <a class="btn" href="/admin/message/send?customer={{.C.ID}}">{{icon "scroll-text"}}<span>{{T "Send Message"}}</span></a>{{end}}
+    {{if and .Manage (hasPrefix $.Error (T "Not deleted, the router could not remove the customer"))}}<form method="post" action="/admin/customers/{{.C.ID}}/delete" data-confirm="{{T "Delete anyway (router not cleaned)"}} {{.C.Username}}?" data-confirm-danger><input type="hidden" name="force" value="1"><button class="btn btn-danger" type="submit">{{icon "trash-2"}}<span>{{T "Delete anyway (router not cleaned)"}}</span></button></form>{{end}}
     <div class="relative" x-data="{o:false}" @click.outside="o=false" @keydown.escape.stop="o=false;$refs.more.focus()">
       <button type="button" class="btn btn-ghost" x-ref="more" @click="o=!o" :aria-expanded="o ? 'true' : 'false'" aria-haspopup="menu">{{icon "ellipsis"}}<span>{{T "More"}}</span></button>
       <div x-show="o" x-cloak role="menu" class="absolute end-0 top-full z-30 mt-1 w-56 max-w-[85vw] rounded-lg border border-line bg-surface py-1 shadow-lg">
