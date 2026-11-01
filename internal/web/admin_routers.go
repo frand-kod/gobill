@@ -23,7 +23,7 @@ func routerFields(v, e map[string]string, editing bool) []field {
 	pw := text("password", "Password", v, e).as("password").req()
 	if editing {
 		pw.Required = false
-		pw.Hint = "Leave empty to keep the current password"
+		pw.Hint = "Leave empty to keep the current password (re-enter it if you change host or port)"
 	}
 	pw.Value = "" // never rendered back
 	en := text("enabled", "Enabled", v, e).as("checkbox")
@@ -162,6 +162,9 @@ func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		current = x.PasswordEnc
+		if pass == "" && (v["host"] != x.Host || port != x.Port) {
+			e["password"] = "Re-enter the password when the host or port changes"
+		}
 		v["cert_pin"] = x.CertPin
 		if v["reset_pin"] != "1" {
 			pin = x.CertPin

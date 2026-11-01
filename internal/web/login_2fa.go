@@ -4,6 +4,7 @@ package web
 // session; the admin session is opened by finishLogin once the code checks out.
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -14,6 +15,11 @@ import (
 
 // pending2FAWindow is how long a password-verified admin has to enter the second factor.
 const pending2FAWindow = 5 * time.Minute
+
+const (
+	max2FAPerLogin = 5  // wrong codes before the pending login is dropped
+	max2FAFailures = 10 // wrong codes per account (any IP) before only recovery codes work, for the failure window
+)
 
 // pending2FA returns the admin id waiting for a second factor, or 0 when none is waiting or it expired.
 func (s *Server) pending2FA(r *http.Request) int64 {
@@ -55,15 +61,37 @@ func (s *Server) login2FASubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.userDelay(uk)
-	if !s.verify2FA(r, admin, cleanCode(r.PostFormValue("code"))) {
+	ak, code := fmt.Sprint("2fa:", id), cleanCode(r.PostFormValue("code"))
+	s.mu.Lock()
+	hardLocked := len(s.recent(ak)) >= max2FAFailures
+	s.mu.Unlock()
+	var ok bool
+	if hardLocked { // only a recovery code gets through while the account is locked
+		ok = s.useRecoveryCode(r, admin.ID, code)
+	} else {
+		ok = s.verify2FA(r, admin, code)
+	}
+	if !ok {
 		metrics.Inc("login_failures_total", "scope", "2fa")
 		s.loginFailed(ip, admin.Username)
 		s.recordFailure(uk)
+		s.recordFailure(ak)
+		if tries := s.sessions.GetInt64(ctx, "pending_2fa_tries") + 1; tries >= max2FAPerLogin {
+			s.sessions.Remove(ctx, "pending_2fa")
+			s.sessions.Remove(ctx, "pending_2fa_until")
+			s.sessions.Remove(ctx, "pending_2fa_tries")
+			s.render(w, r, http.StatusOK, "login", Page{Title: "Sign in", Error: "Too many wrong codes. Sign in again."})
+			return
+		} else {
+			s.sessions.Put(ctx, "pending_2fa_tries", tries)
+		}
 		s.render(w, r, http.StatusOK, "login_2fa", Page{Title: "Two-factor login", Error: "Invalid code"})
 		return
 	}
 	s.clearFailures(loginKey(ip, admin.Username))
 	s.clearFailures(uk)
+	s.clearFailures(ak)
+	s.sessions.Remove(ctx, "pending_2fa_tries")
 	s.sessions.Remove(ctx, "pending_2fa")
 	s.sessions.Remove(ctx, "pending_2fa_until")
 	s.finishLogin(w, r, admin)

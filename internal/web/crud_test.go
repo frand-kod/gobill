@@ -91,10 +91,14 @@ func TestRouterPasswordEncrypted(t *testing.T) {
 	}
 	// empty password keeps the old one
 	form.Set("password", "")
+	host := form.Get("host")
 	form.Set("host", "10.0.0.2")
+	wantCode(t, do(h, "POST", "/admin/routers/1", form, c), 422, "host change needs the password again")
+	form.Set("host", host)
+	form.Set("description", "edited")
 	wantCode(t, do(h, "POST", "/admin/routers/1", form, c), 303, "update")
 	r2, _ := q.GetRouter(t.Context(), r.ID)
-	if r2.Host != "10.0.0.2" || !bytes.Equal(r2.PasswordEnc, r.PasswordEnc) {
+	if r2.Description != "edited" || !bytes.Equal(r2.PasswordEnc, r.PasswordEnc) {
 		t.Fatal("password not kept")
 	}
 	// password required on create, port range checked

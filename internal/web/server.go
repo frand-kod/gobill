@@ -328,6 +328,11 @@ func parseTrustedProxies(spec string) (ps []netip.Prefix, ok bool) {
 			continue
 		}
 		if p, err := netip.ParsePrefix(e); err == nil {
+			// a catch-all range would let any client spoof X-Forwarded-For
+			if p.Bits() < 8 && p.Addr().Is4() || p.Bits() < 32 && !p.Addr().Is4() {
+				ok = false
+				continue
+			}
 			ps = append(ps, p)
 		} else if a, err := netip.ParseAddr(e); err == nil {
 			ps = append(ps, netip.PrefixFrom(a, a.BitLen()))

@@ -222,8 +222,8 @@ func (s *Server) adminSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if pass != "" || t == nil {
-		if n := len(pass); n < 6 || n > 72 { // bcrypt reads at most 72 bytes
-			e["password"] = "Password should be 6 to 72 characters"
+		if n := len(pass); n < 10 || n > 72 { // bcrypt reads at most 72 bytes
+			e["password"] = "Password should be 10 to 72 characters"
 		} else if pass != cpass {
 			e["cpassword"] = "Passwords does not match"
 		}
@@ -367,8 +367,8 @@ func (s *Server) passwordSave(w http.ResponseWriter, r *http.Request) {
 		again(422)
 		return
 	}
-	if n := len(pass); n < 6 || n > 72 {
-		e["password"] = "Password should be 6 to 72 characters"
+	if n := len(pass); n < 10 || n > 72 {
+		e["password"] = "Password should be 10 to 72 characters"
 	} else if pass != cpass {
 		e["cpassword"] = "Passwords does not match"
 	}

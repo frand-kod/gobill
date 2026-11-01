@@ -68,6 +68,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 			s.errorPage(w, "-")
 			return
 		}
+		s.sessions.Put(r.Context(), "pending_2fa_tries", 0)
 		s.sessions.Put(r.Context(), "pending_2fa", admin.ID)
 		s.sessions.Put(r.Context(), "pending_2fa_until", time.Now().Add(pending2FAWindow).Unix())
 		http.Redirect(w, r, "/admin/login/2fa", http.StatusSeeOther)
