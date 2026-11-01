@@ -95,6 +95,11 @@ func cacheDefaults(next http.Handler) http.Handler {
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "same-origin")
+		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)")
+		// HSTS only over HTTPS: a plain-HTTP LAN login must not pin the host to HTTPS in the browser.
+		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" || strings.Contains(r.Header.Get("CF-Visitor"), `"scheme":"https"`) {
+			h.Set("Strict-Transport-Security", "max-age=31536000")
+		}
 		if w.Header().Get("Cache-Control") == "" {
 			w.Header().Set("Cache-Control", "private, no-cache")
 			if strings.HasPrefix(r.URL.Path, "/uploads/") {

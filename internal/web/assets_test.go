@@ -18,10 +18,18 @@ func TestStaticAssetCacheHeaders(t *testing.T) {
 	if cc := page.Header().Get("Cache-Control"); cc != "private, no-cache" {
 		t.Errorf("HTML Cache-Control = %q, want private, no-cache", cc)
 	}
-	for k, want := range map[string]string{"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "same-origin"} {
+	for k, want := range map[string]string{"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "same-origin",
+		"Permissions-Policy": "camera=(), microphone=(), geolocation=(self)"} {
 		if got := page.Header().Get(k); got != want {
 			t.Errorf("%s = %q, want %q", k, got, want)
 		}
+	}
+	if hsts := page.Header().Get("Strict-Transport-Security"); hsts != "" {
+		t.Errorf("HSTS sent over plain HTTP: %q", hsts)
+	}
+	tls := do(h, "GET", "/admin", nil, c, "X-Forwarded-Proto", "https")
+	if hsts := tls.Header().Get("Strict-Transport-Security"); hsts != "max-age=31536000" {
+		t.Errorf("HSTS over https = %q", hsts)
 	}
 
 	versioned := do(h, "GET", "/static/app.css?v=x", nil, nil)
