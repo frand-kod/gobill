@@ -88,26 +88,25 @@ func extendPeriod(exp time.Time, value, day int) time.Time {
 func freshPeriod(now time.Time, value, day int) time.Time {
 	loc := now.Location()
 	cur := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
-	// 'first day of next month' then setDate(y, m, day)
-	next := time.Date(cur.Year(), cur.Month()+1, 1, 0, 0, 0, 0, loc)
-	exp := time.Date(next.Year(), next.Month(), day, 0, 0, 0, 0, loc)
+	// The billing day is clamped in every month it lands in (day 31 in February = Feb 28/29);
+	// the month offset k is tracked separately so a short month never shifts later months.
+	k := 1 // 'first day of next month'
+	at := func(k int) time.Time { return clampDay(cur.Year(), cur.Month()+time.Month(k), day, loc) }
 
 	if value < 1 {
-		value = 1 // PHP would loop forever on 0; not a valid plan
+		value = 1 // 0 is not a valid plan
 	}
 	minDays, maxDays := 7*value, 35*value
-	for daysBetween(exp, cur) < minDays {
-		exp = exp.AddDate(0, 1, 0)
+	for daysBetween(at(k), cur) < minDays {
+		k++
 	}
-	for daysBetween(exp, cur) > maxDays {
-		exp = exp.AddDate(0, -1, 0)
+	for daysBetween(at(k), cur) > maxDays {
+		k--
 	}
-	if daysBetween(exp, cur) < minDays || !exp.After(cur) {
-		exp = exp.AddDate(0, 1, 0)
+	if daysBetween(at(k), cur) < minDays || !at(k).After(cur) {
+		k++
 	}
-	if value > 1 {
-		exp = exp.AddDate(0, value-1, 0)
-	}
+	exp := at(k + value - 1)
 	return time.Date(exp.Year(), exp.Month(), exp.Day(), 23, 59, 59, 0, loc)
 }
 

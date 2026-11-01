@@ -21,7 +21,7 @@ func at(s string) time.Time {
 	return t
 }
 
-// Mins/Hrs/Days and fresh Period match PHP; Months and extended Period clamp to month end (PHP overflowed).
+// Mins/Hrs/Days match PHP; Months and Period (fresh and extended) clamp to month end (PHP overflowed).
 func TestNewExpiry(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -50,11 +50,11 @@ func TestNewExpiry(t *testing.T) {
 		{"months extend year wrap clamps", "2025-12-31 09:00:00", 2, Months, Options{Extend: true}, "2026-02-28 09:00:00"},
 		{"months keeps time of day", "2025-01-31 23:59:59", 1, Months, Options{}, "2025-02-28 23:59:59"},
 		{"period billing day 1 from Jan31 (PHP :146)", "2025-01-31 14:00:00", 1, Period, Options{BillingDay: 1}, "2025-03-01 23:59:59"},
-		{"period billing day 31 from Jan31 (PHP :146)", "2025-01-31 14:00:00", 1, Period, Options{BillingDay: 31}, "2025-03-03 23:59:59"},
+		{"period billing day 31 from Jan31 clamps to Feb 28", "2025-01-31 14:00:00", 1, Period, Options{BillingDay: 31}, "2025-02-28 23:59:59"},
 		{"period default day 20 (PHP :88-94)", "2025-01-01 00:00:00", 1, Period, Options{}, "2025-01-20 23:59:59"},
 		{"period default day 20 mid month", "2025-01-10 08:00:00", 1, Period, Options{}, "2025-01-20 23:59:59"},
 		{"period day 5 from Jan25", "2025-01-25 08:00:00", 1, Period, Options{BillingDay: 5}, "2025-02-05 23:59:59"},
-		{"period day 31 x2 leap Feb29 (PHP :146)", "2024-02-29 08:00:00", 2, Period, Options{BillingDay: 31}, "2024-05-01 23:59:59"},
+		{"period day 31 x2 from leap Feb29 clamps to Apr 30", "2024-02-29 08:00:00", 2, Period, Options{BillingDay: 31}, "2024-04-30 23:59:59"},
 		{"period day 1 year wrap", "2025-12-28 08:00:00", 1, Period, Options{BillingDay: 1}, "2026-02-01 23:59:59"},
 		{"period 3 months", "2025-03-15 08:00:00", 3, Period, Options{BillingDay: 10}, "2025-06-10 23:59:59"},
 		// extension: target month first, then billing day clamped to its length; time is 23:59:00
