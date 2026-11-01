@@ -155,7 +155,7 @@ func TestSearchWildcardsAreLiteralAndQueryTruncated(t *testing.T) {
 }
 
 func TestSearchSettingsEntries(t *testing.T) {
-	_, h, q, superAdmin := crudApp(t) // alice: SuperAdmin, sees every tab
+	_, h, q, superAdmin := crudApp(t)                                                                                          // alice: SuperAdmin, sees every tab
 	if err := q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "role_access_mode", Value: "phpnuxbill"}); err != nil { // these tests cover the Report role reading search
 		t.Fatal(err)
 	}

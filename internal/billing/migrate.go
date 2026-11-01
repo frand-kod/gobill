@@ -47,7 +47,9 @@ func (s *Service) Migration(ctx context.Context, routerID int64) Migration {
 
 // migDisKey holds the "Type:Name" lines of the accounts step 3 disabled, so rollback re-enables
 // only those and not accounts the admin disabled by hand. Empty or missing: no record.
-func migDisKey(routerID int64) string { return "radius_mig_disabled_" + strconv.FormatInt(routerID, 10) }
+func migDisKey(routerID int64) string {
+	return "radius_mig_disabled_" + strconv.FormatInt(routerID, 10)
+}
 
 func (s *Service) setMigration(ctx context.Context, routerID int64, step int, kinds string) error {
 	return s.Q.UpsertSetting(ctx, db.UpsertSettingParams{Key: migKey(routerID), Value: fmt.Sprintf("%d:%d:%s", step, s.now().Unix(), kinds)})
