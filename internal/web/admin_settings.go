@@ -57,7 +57,7 @@ var settingsSecret = db.SecretSettings
 var settingsFile = map[string]bool{"logo": true, "logo_dark": true, "login_page_logo": true, "login_page_logo_dark": true, "login_page_favicon": true, "login_page_wallpaper": true}
 
 // settingsSuperField are keys on an Admin-visible tab that only a SuperAdmin sees and saves.
-var settingsSuperField = map[string]bool{"radius_rest_allow": true, "trust_proxy": true, "trusted_proxies": true}
+var settingsSuperField = map[string]bool{"radius_rest_allow": true, "radius_rest_secret": true, "trust_proxy": true, "trusted_proxies": true}
 
 // forRole drops the SuperAdmin-only fields for any other role, so they are neither rendered nor saved.
 func forRole(fs []field, r *http.Request) []field {
@@ -417,7 +417,8 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			text("backup_keep", "Backups kept", v, e).as("number").hint("Number of automatic daily backups kept, in the main folder and in the mirror. Default 7, at least 1"),
 		}, "Data retention", "")...)
 		out = append(out, section([]field{
-			text("radius_rest_allow", "Allowed addresses for /radius.php", v, e).hint("Comma-separated IPs or CIDR ranges that may call /radius.php, e.g. 192.168.1.10, 10.0.0.0/24. Empty = loopback only. Saved changes apply to the next request, no restart needed"),
+			text("radius_rest_allow", "Allowed addresses for /radius.php", v, e).hint("Comma-separated IPs or CIDR ranges that may call /radius.php, e.g. 192.168.1.10, 10.0.0.0/24. Empty = nobody, unless the shared secret below is set. Saved changes apply to the next request, no restart needed"),
+			sec("radius_rest_secret", "Shared secret for /radius.php"),
 			text("radius_interim_interval", "Accounting update interval (seconds)", v, e).as("number").hint("Sent to the NAS in every Access-Accept as Acct-Interim-Interval. Default 300. 0 = do not send, the NAS uses its own"),
 		}, "FreeRADIUS", "")...)
 		out = append(out, section([]field{
@@ -426,6 +427,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		out = append(out, section([]field{
 			sel("hs_auth_method", "Hotspot Auth Method", option{"pap", "PAP"}, option{"chap", "CHAP"}),
 			sel("shared_users_policy", "When the device limit is full", option{"kick_oldest", "Kick oldest device"}, option{"reject", "Reject new login"}).hint("Phones now use random MACs. Kick oldest device stops a customer from being locked out when their phone reconnects with a new MAC."),
+			sel("shared_users_pppoe", "Apply the device limit to PPPoE", settingsYesNo...).hint("No (default): the Shared Users limit is checked for Hotspot plans only. Yes: PPPoE logins are counted too"),
 		}, "Hotspot", "")...)
 		return out
 	}

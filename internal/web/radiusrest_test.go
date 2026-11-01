@@ -54,6 +54,8 @@ func restSetup(t testing.TB, expired bool) (*Server, *db.Queries) {
 		Type: "Hotspot", StartedAt: exp - 7200, ExpiresAt: exp}); err != nil {
 		t.Fatal(err)
 	}
+	// /radius.php is closed until opened; the tests call it from loopback
+	q.UpsertSetting(ctx, db.UpsertSettingParams{Key: "radius_rest_allow", Value: "127.0.0.1, ::1"})
 	return s, q
 }
 
@@ -243,22 +245,37 @@ func TestRadiusRestCSRFAndMaintenance(t *testing.T) {
 	}
 }
 
-func TestRadiusRestEmptyAllowLoopbackOnly(t *testing.T) {
-	m := map[string]string{}
-	for remote, want := range map[string]bool{"127.0.0.1:1": true, "[::1]:1": true, "10.0.0.5:1": false} {
-		if got := radiusRestAllowed(&http.Request{RemoteAddr: remote}, m); got != want {
-			t.Errorf("%s: %v want %v", remote, got, want)
+// sec#6: with neither radius_rest_allow nor radius_rest_secret, nothing is accepted (not even
+// loopback); the secret header opens it from any address; an explicit allow-list checks the TCP peer only.
+func TestRadiusRestClosedByDefault(t *testing.T) {
+	req := func(remote string, hdr ...string) *http.Request {
+		r := &http.Request{RemoteAddr: remote, Header: http.Header{}}
+		for i := 0; i+1 < len(hdr); i += 2 {
+			r.Header.Set(hdr[i], hdr[i+1])
+		}
+		return r
+	}
+	if radiusRestAllowed(req("127.0.0.1:1"), map[string]string{}) {
+		t.Error("loopback accepted with no setting")
+	}
+	m := map[string]string{"radius_rest_secret": "s3cret"}
+	for _, c := range []struct {
+		r    *http.Request
+		want bool
+	}{
+		{req("8.8.8.8:1", "X-Gobill-Secret", "s3cret"), true},
+		{req("8.8.8.8:1", "X-Gobill-Secret", "wrong"), false},
+		{req("127.0.0.1:1"), false},
+		{req("8.8.8.8:1", "X-Gobill-Secret", ""), false},
+	} {
+		if got := radiusRestAllowed(c.r, m); got != c.want {
+			t.Errorf("secret case %v: %v want %v", c.r.Header, got, c.want)
 		}
 	}
-	// a same-host reverse proxy: the peer is loopback but the client is on the internet
-	for _, h := range []string{"X-Forwarded-For", "X-Real-Ip", "Forwarded", "Cf-Connecting-Ip"} {
-		r := &http.Request{RemoteAddr: "127.0.0.1:1", Header: http.Header{h: {"203.0.113.9"}}}
-		if radiusRestAllowed(r, m) {
-			t.Errorf("loopback with %s must be refused when the allow-list is empty", h)
-		}
+	if radiusRestAllowed(req("8.8.8.8:1", "X-Gobill-Secret", ""), map[string]string{}) {
+		t.Error("empty secret header matched an unset secret")
 	}
-	r := &http.Request{RemoteAddr: "127.0.0.1:1", Header: http.Header{"X-Forwarded-For": {"203.0.113.9"}}}
-	if !radiusRestAllowed(r, map[string]string{"radius_rest_allow": "127.0.0.1"}) {
+	if !radiusRestAllowed(req("127.0.0.1:1", "X-Forwarded-For", "203.0.113.9"), map[string]string{"radius_rest_allow": "127.0.0.1"}) {
 		t.Error("an explicit allow-list keeps checking the TCP peer only")
 	}
 }

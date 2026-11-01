@@ -108,7 +108,7 @@ If gobill is installed on an STB that already runs PHPNuxBill, FreeRADIUS, and t
 
 1. **HTTP port.** gobill's default is `:8080`. If another application uses that port, set `GOBILL_HTTP` to another port in `/etc/gobill/config.env`, for example `GOBILL_HTTP=:8090`. Check first with `ss -ltn`.
 2. **RADIUS port.** FreeRADIUS already uses UDP 1812 and 1813. As long as FreeRADIUS remains the RADIUS server through `/radius.php`, set `GOBILL_RADIUS=off`. If MikroTik is later pointed directly at gobill, stop FreeRADIUS first, then enable gobill's RADIUS.
-3. **`/radius.php` allow-list.** FreeRADIUS on the same host calls through loopback. Loopback is allowed by an empty `radius_rest_allow`. There is no need to fill it in.
+3. **`/radius.php` access.** FreeRADIUS on the same host: set `radius_rest_allow` to `127.0.0.1, ::1`. Another host: its IP, or set `radius_rest_secret`. An empty `radius_rest_allow` refuses everything.
 4. **WA server.** The `alt_wga_server_url` from the import, `http://127.0.0.1:3030`, is correct directly because the WA server is on the same STB. Clear the `wa_url` that contains the PHP plugin, then send a test message to your own number.
 5. **Notifications during the parallel run.** `notify_customers` = `no` until cutover. PHPNuxBill keeps sending messages to customers.
 
