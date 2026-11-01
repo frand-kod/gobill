@@ -67,6 +67,17 @@ func TestAuditRouter9_SecretIDHijack(t *testing.T) {
 	}
 }
 
+// Router #9: removing a customer with a PPPoE name touches only that name, never a secret called after Username.
+func TestAuditRouter9_RemoveOnlyManagedName(t *testing.T) {
+	d, f := pp(map[string]string{"/ppp/secret|name=bob": "*9", "/ppp/secret|name=bob-ppp": "*8"})
+	c := cust
+	c.PPPoEUsername = "bob-ppp"
+	must(t, d.RemoveCustomer(ctx, c, plan))
+	if sentAny(f, "=numbers=*9") || !sentAny(f, "/ppp/secret/remove =numbers=*8") {
+		t.Fatalf("sent %v", f.sent)
+	}
+}
+
 // Router #11: AddPlan omits on-login/on-up scripts that UpdatePlan sends.
 func TestAuditRouter11_AddPlanScripts(t *testing.T) {
 	p := plan

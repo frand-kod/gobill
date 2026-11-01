@@ -161,7 +161,6 @@ func TestPPPoEAddCustomerNew(t *testing.T) {
 	c.PPPoEUsername, c.PPPoEPassword, c.PPPoEIP = "bob-ppp", "ppw", "10.0.0.5"
 	must(t, d.AddCustomer(ctx, c, plan))
 	f.check(t,
-		"/ppp/secret/print =.proplist=.id ?name=bob",
 		"/ppp/secret/print =.proplist=.id ?name=bob-ppp",
 		"/ppp/secret/add =service=pppoe =profile=Gold =comment=Bob B | b@x | Gold, Silver =password=ppw =name=bob-ppp =remote-address=10.0.0.5")
 }
