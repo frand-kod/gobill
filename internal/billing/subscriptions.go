@@ -21,6 +21,7 @@ func (s *Service) EditSubscription(ctx context.Context, id, planID int64, expire
 	var old, cur db.Plan
 	var cust db.Customer
 	status := "expired"
+	ended := false
 	err := s.tx(ctx, func(q *db.Queries) error {
 		sub, err := q.GetSubscription(ctx, id)
 		if err != nil {
@@ -55,6 +56,9 @@ func (s *Service) EditSubscription(ctx context.Context, id, planID int64, expire
 		if err == nil && revive {
 			err = q.RestartSubscription(ctx, db.RestartSubscriptionParams{StartedAt: s.now().Unix(), ID: id})
 		}
+		if err == nil && status == "active" { // a running isolation ends with the plan coming back
+			ended, err = endIsolation(ctx, q, s.now().Unix(), cust.ID, "paid")
+		}
 		if err != nil {
 			return err
 		}
@@ -63,6 +67,9 @@ func (s *Service) EditSubscription(ctx context.Context, id, planID int64, expire
 	})
 	if err != nil {
 		return err
+	}
+	if ended {
+		s.disconnectIsolated(ctx, cust)
 	}
 	changed := old.ID != cur.ID
 	if changed { // the old plan's profile must go
@@ -133,6 +140,7 @@ func (s *Service) DeactivateSubscription(ctx context.Context, id, adminID int64)
 func (s *Service) ExtendExpired(ctx context.Context, customerID, subID int64) (time.Time, error) {
 	var p pending
 	var until time.Time
+	ended := false
 	err := s.tx(ctx, func(q *db.Queries) error {
 		c, err := q.GetCustomer(ctx, customerID)
 		if err != nil {
@@ -177,6 +185,9 @@ func (s *Service) ExtendExpired(ctx context.Context, customerID, subID int64) (t
 		if err = q.UpsertSetting(ctx, db.UpsertSettingParams{Key: key, Value: month}); err != nil {
 			return err
 		}
+		if ended, err = endIsolation(ctx, q, now.Unix(), c.ID, "paid"); err != nil {
+			return err
+		}
 		if err = q.CreateActivityLog(ctx, db.CreateActivityLogParams{ActorType: "customer", ActorID: c.ID, Action: "extend",
 			Description: fmt.Sprintf("%s extend for %d days", c.Username, days)}); err != nil {
 			return err
@@ -186,6 +197,9 @@ func (s *Service) ExtendExpired(ctx context.Context, customerID, subID int64) (t
 	})
 	if err != nil {
 		return time.Time{}, err
+	}
+	if ended {
+		s.disconnectIsolated(ctx, p.cust)
 	}
 	if err := s.activate(ctx, &p); err != nil {
 		slog.Error("device: extend activate failed, sync manually", "customer", p.cust.Username, "err", err)
