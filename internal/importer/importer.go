@@ -145,6 +145,34 @@ func orNil(id int64, ok bool) any {
 var dataTables = []string{"activity_logs", "vouchers", "transactions", "subscriptions", "customers",
 	"plans", "pools", "bandwidths", "routers", "nas", "admins", "settings"}
 
+// Trigger SQL copied verbatim from migrations/0022_agent_batches.sql; wipeAgent recreates them.
+const (
+	agentLedgerNoUpdate = `CREATE TRIGGER agent_ledger_no_update BEFORE UPDATE OF batch_id, kind, amount, voucher_id, note, created_at ON agent_ledger
+BEGIN SELECT RAISE(ABORT, 'agent_ledger is append-only'); END;`
+	agentLedgerNoDelete = `CREATE TRIGGER agent_ledger_no_delete BEFORE DELETE ON agent_ledger
+BEGIN SELECT RAISE(ABORT, 'agent_ledger is append-only'); END;`
+)
+
+// wipeAgent empties the agent tables, which hold RESTRICT foreign keys into vouchers, admins and
+// plans. agent_ledger is append-only (its triggers abort DELETE), so they are dropped for this
+// transaction only and recreated before returning. A rollback restores them too.
+func wipeAgent(ctx context.Context, tx *sql.Tx) error {
+	for _, q := range []string{
+		"DROP TRIGGER agent_ledger_no_update",
+		"DROP TRIGGER agent_ledger_no_delete",
+		"DELETE FROM agent_ledger",
+		"DELETE FROM agent_batch_vouchers",
+		"DELETE FROM agent_batches",
+		agentLedgerNoUpdate,
+		agentLedgerNoDelete,
+	} {
+		if _, err := tx.ExecContext(ctx, q); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Run imports everything in one SQLite transaction.
 func Run(ctx context.Context, my, lite *sql.DB, o Options) (*Report, error) {
 	tx, err := lite.BeginTx(ctx, nil)
@@ -152,6 +180,11 @@ func Run(ctx context.Context, my, lite *sql.DB, o Options) (*Report, error) {
 		return nil, err
 	}
 	defer tx.Rollback()
+	if o.Force {
+		if err := wipeAgent(ctx, tx); err != nil {
+			return nil, err
+		}
+	}
 	for _, t := range dataTables {
 		var n int
 		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM "+t).Scan(&n); err != nil {
