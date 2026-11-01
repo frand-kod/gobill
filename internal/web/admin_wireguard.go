@@ -7,6 +7,8 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -336,9 +338,9 @@ func (s *Server) routerWGProvision(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "seal api password", err)
 		return
 	}
-	if err := q.UpdateRouter(r.Context(), db.UpdateRouterParams{Name: rt.Name, Host: ip.String(), Port: 8728, Username: provUser, PasswordEnc: apiEnc,
-		Description: rt.Description, Enabled: rt.Enabled, Coordinates: rt.Coordinates, Coverage: rt.Coverage, CertPin: rt.CertPin, ID: id}); err != nil {
-		s.fail(w, "save router api user", err)
+	// The router keeps its stored credentials until the script is fetched (provisionScript switches them then).
+	if err := q.UpsertSettingRaw(r.Context(), db.UpsertSettingRawParams{Key: wgPendingKey(id), Value: base64.StdEncoding.EncodeToString(apiEnc)}); err != nil {
+		s.fail(w, "save pending router api user", err)
 		return
 	}
 	rnd := make([]byte, 32)
@@ -411,20 +413,53 @@ func (s *Server) wgRevoke(ctx context.Context, id int64) error {
 	if err := s.wgRelease(ctx, p); err != nil {
 		return err
 	}
-	// The API user on the router is only reachable from the tunnel address, which is now cut. The stored
-	// password is replaced as well, so what gobill holds no longer matches the router.
-	if rt, err := s.queries.GetRouter(ctx, id); err == nil {
+	pending, _ := s.queries.GetSetting(ctx, wgPendingKey(id))
+	if pending != "" { // the script was never fetched: nothing was switched for it
+		if err := s.queries.UpsertSettingRaw(ctx, db.UpsertSettingRawParams{Key: wgPendingKey(id)}); err != nil {
+			return err
+		}
+	}
+	rt, err := s.queries.GetRouter(ctx, id)
+	if err != nil {
+		return s.queries.DeleteWgPeer(ctx, id)
+	}
+	up := db.UpdateRouterParams{Name: rt.Name, Host: rt.Host, Port: rt.Port, Username: rt.Username, PasswordEnc: rt.PasswordEnc,
+		Description: rt.Description, Enabled: rt.Enabled, Coordinates: rt.Coordinates, Coverage: rt.Coverage, CertPin: rt.CertPin, ID: id}
+	if prev, _ := s.queries.GetSetting(ctx, wgPrevKey(id)); prev != "" {
+		var c wgCreds // back to the credentials the router had before the tunnel
+		if err := json.Unmarshal([]byte(prev), &c); err != nil {
+			return err
+		}
+		up.Host, up.Port, up.Username, up.PasswordEnc = c.Host, c.Port, c.User, c.Pass
+		if err := s.queries.UpsertSettingRaw(ctx, db.UpsertSettingRawParams{Key: wgPrevKey(id)}); err != nil {
+			return err
+		}
+	} else if pending == "" {
+		// Switched before wg_prev_<id> existed: the tunnel address is cut and the old password is gone, so
+		// the stored one is replaced to not match the router.
 		enc, err := secret.Seal(s.SecretKey, []byte(secret.RandomPassword(24)))
 		if err != nil {
 			return err
 		}
-		if err := s.queries.UpdateRouter(ctx, db.UpdateRouterParams{Name: rt.Name, Host: rt.Host, Port: rt.Port, Username: rt.Username, PasswordEnc: enc,
-			Description: rt.Description, Enabled: rt.Enabled, Coordinates: rt.Coordinates, Coverage: rt.Coverage, CertPin: rt.CertPin, ID: id}); err != nil {
-			return err
-		}
+		up.PasswordEnc = enc
+	} else {
+		return s.queries.DeleteWgPeer(ctx, id)
+	}
+	if err := s.queries.UpdateRouter(ctx, up); err != nil {
+		return err
 	}
 	return s.queries.DeleteWgPeer(ctx, id)
 }
+
+// wgCreds is what a router's API credentials were before the tunnel took them over (setting wg_prev_<id>).
+type wgCreds struct {
+	Host, User string
+	Port       int64
+	Pass       []byte
+}
+
+func wgPendingKey(id int64) string { return fmt.Sprint("wg_pending_", id) } // base64 sealed API password, until the script is fetched
+func wgPrevKey(id int64) string    { return fmt.Sprint("wg_prev_", id) }
 
 // wgRelease cuts the peer from the tunnel and deletes the NAS row of its address.
 func (s *Server) wgRelease(ctx context.Context, p db.WgPeer) error {

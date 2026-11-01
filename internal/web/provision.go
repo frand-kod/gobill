@@ -6,10 +6,13 @@ package web
 // never says why (the log does).
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -96,7 +99,13 @@ func (s *Server) provisionScript(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "wireguard nas", err)
 		return
 	}
-	apiPass, err := secret.Open(s.SecretKey, rt.PasswordEnc)
+	// a pending password is switched in below, once the token is claimed; none = switched already
+	pendingEnc, pending := s.wgPending(ctx, id)
+	apiEnc := rt.PasswordEnc
+	if pending {
+		apiEnc = pendingEnc
+	}
+	apiPass, err := secret.Open(s.SecretKey, apiEnc)
 	if err != nil {
 		s.fail(w, "open router api password", err)
 		return
@@ -114,7 +123,36 @@ func (s *Server) provisionScript(w http.ResponseWriter, r *http.Request) {
 		refuse("claimed", id)
 		return
 	}
+	if pending {
+		if err := s.wgSwitchCreds(ctx, rt, p.Ip, pendingEnc); err != nil {
+			s.fail(w, "switch router api user", err)
+			return
+		}
+	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Write([]byte(script))
+}
+
+// wgPending is the sealed API password waiting for the script to be fetched (see routerWGProvision).
+func (s *Server) wgPending(ctx context.Context, id int64) ([]byte, bool) {
+	v, _ := s.queries.GetSetting(ctx, wgPendingKey(id))
+	enc, err := base64.StdEncoding.DecodeString(v)
+	return enc, v != "" && err == nil
+}
+
+// wgSwitchCreds points the router at its tunnel address and new API user, remembering the previous
+// credentials (first switch only) so revoking can give them back.
+func (s *Server) wgSwitchCreds(ctx context.Context, rt db.Router, ip string, pass []byte) error {
+	if prev, _ := s.queries.GetSetting(ctx, wgPrevKey(rt.ID)); prev == "" {
+		b, _ := json.Marshal(wgCreds{Host: rt.Host, Port: rt.Port, User: rt.Username, Pass: rt.PasswordEnc})
+		if err := s.queries.UpsertSettingRaw(ctx, db.UpsertSettingRawParams{Key: wgPrevKey(rt.ID), Value: string(b)}); err != nil {
+			return err
+		}
+	}
+	if err := s.queries.UpdateRouter(ctx, db.UpdateRouterParams{Name: rt.Name, Host: ip, Port: 8728, Username: provUser, PasswordEnc: pass,
+		Description: rt.Description, Enabled: rt.Enabled, Coordinates: rt.Coordinates, Coverage: rt.Coverage, CertPin: rt.CertPin, ID: rt.ID}); err != nil {
+		return err
+	}
+	return s.queries.UpsertSettingRaw(ctx, db.UpsertSettingRawParams{Key: wgPendingKey(rt.ID)})
 }

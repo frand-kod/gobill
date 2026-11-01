@@ -132,15 +132,18 @@ func TestProvisionAgainCancelsOldToken(t *testing.T) {
 
 func TestProvisionRemoveRevokes(t *testing.T) {
 	s, h, c, id, path := provisioned(t)
+	orig, _ := s.queries.GetRouter(t.Context(), id)
+	fetchScript(t, h, path, "198.51.100.7:4000", http.StatusOK) // the router takes over the tunnel credentials
 	before, _ := s.queries.GetRouter(t.Context(), id)
+	if before.Host == orig.Host || string(before.PasswordEnc) == string(orig.PasswordEnc) {
+		t.Fatal("credentials not switched once the script was fetched")
+	}
 	if w := wgPost(h, c, id, "revoke"); w.Code != http.StatusSeeOther {
 		t.Fatalf("revoke: %d", w.Code)
 	}
 	after, _ := s.queries.GetRouter(t.Context(), id)
-	pw1, _ := secret.Open(s.SecretKey, before.PasswordEnc)
-	pw2, _ := secret.Open(s.SecretKey, after.PasswordEnc)
-	if len(pw2) == 0 || string(pw1) == string(pw2) {
-		t.Error("the API password gobill holds was not replaced")
+	if after.Host != orig.Host || after.Username != orig.Username || string(after.PasswordEnc) != string(orig.PasswordEnc) {
+		t.Error("revoke did not restore the previous credentials")
 	}
 	fetchScript(t, h, path, "198.51.100.7:4000", http.StatusGone) // no peer: no script
 	// deleting the router takes the token with it
@@ -201,7 +204,8 @@ func TestProvisionScriptShape(t *testing.T) {
 }
 
 func TestWGCheckStages(t *testing.T) {
-	_, h, c, id, _ := provisioned(t)
+	_, h, c, id, path := provisioned(t)
+	fetchScript(t, h, path, "198.51.100.7:4000", http.StatusOK) // credentials switch when the script is fetched
 	if w := wgPost(h, c, id, "check"); w.Code != http.StatusSeeOther {
 		t.Fatalf("check: %d", w.Code)
 	}
