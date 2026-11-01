@@ -45,6 +45,9 @@ PHPNuxBill kini sumber data, bukan sumber perilaku. Perilaku lama yang salah dip
 
 ### Diperbaiki
 
+- Pengaturan Ya/Tidak yang belum pernah disimpan kini tampil sesuai perilaku sebenarnya. Sebelumnya tampil "Ya", sehingga sekali Simpan menyalakan isolir, trust proxy, nonaktif voucher, dan lainnya tanpa disadari. Periksa tab Pengaturan bila pernah menyimpannya di versi lama.
+- Tombol "Impor dari PHPNuxBill" di wizard setup tidak lagi 404.
+- Garis tepi kolom input lebih tegas (kontras minimal 3:1, WCAG 1.4.11), garis kartu sedikit lebih gelap.
 - Panic di job latar belakang tidak lagi mematikan proses (RADIUS, UI, WireGuard).
 - Rollback `gobill update` memulihkan database secara atomik dan tidak menjalankan service bila pemulihan gagal.
 - Start ditolak bila file kunci baru dibuat padahal database berisi data terenkripsi (`GOBILL_ALLOW_NEW_KEY=1` untuk memaksa). Database yang lebih baru dari binary ditolak.

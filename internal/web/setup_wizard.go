@@ -35,7 +35,7 @@ const (
 	setupModeKey  = "setup_mode"   // "new", or "import" once a PHPNuxBill import finished
 	setupRouter   = "setup_router" // "radius", "api" or "both"
 	setupVoucher  = "setup_test_voucher"
-	importPageURL = "/admin/settings/miscellaneous/import"
+	importPageURL = "/admin/settings/system/import"
 )
 
 // wizStep is one page of the wizard. Titles and texts are catalog keys (lang/indonesia.json).

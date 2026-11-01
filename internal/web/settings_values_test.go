@@ -295,3 +295,34 @@ func TestSettingsKeepsTypedValuesOn422(t *testing.T) {
 		t.Fatalf("empty channel not shown as Disabled: %s", block)
 	}
 }
+
+// TestSettingsUnsetYesNoShowsRuntimeDefault: an unset yes/no setting must show what the code does
+// while it is unset. Showing the first option ("Yes") turned isolation, trust_proxy, disable_voucher
+// and the rest on with one save of an untouched tab.
+func TestSettingsUnsetYesNoShowsRuntimeDefault(t *testing.T) {
+	s, h, _ := settingsSetup(t)
+	c := login(t, h, "alice")
+	n := 0
+	for _, tab := range settingsTabs {
+		if tab.Slug == "wireguard" && !wg.Built {
+			continue
+		}
+		body := getBody(t, h, c, "/admin/settings/"+tab.Slug)
+		for _, f := range s.settingsFields(tab.Slug, nil, nil, nil) {
+			if f.Type != "select" || len(f.Options) != 2 || f.Options[0].Value != "yes" {
+				continue
+			}
+			want := "no"
+			if settingsYesByDefault[f.Name] {
+				want = "yes"
+			}
+			if !strings.Contains(selectBlock(body, f.Name), `value="`+want+`" selected`) {
+				t.Errorf("%s/%s: unset should show %q", tab.Slug, f.Name, want)
+			}
+			n++
+		}
+	}
+	if n < 20 {
+		t.Fatalf("checked only %d yes/no selects", n)
+	}
+}

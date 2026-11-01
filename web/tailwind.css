@@ -59,8 +59,8 @@
     --surface: #f9fafb;
     --surface-2: #eef0f3;
     --field: #ffffff;
-    --border: #dde1e7;
-    --border-strong: #c3cad3;
+    --border: #cfd4db;
+    --border-strong: #8b95a1; /* inputs: >=3:1 on --field (WCAG 1.4.11) */
     --text: #1f2328;
     --text-2: #575f69;
     /* sidebar icon hue per group (muted, >=3:1 on --surface); see .nav-hue-* below */
@@ -115,7 +115,7 @@
   :root.dark {
     --accent-fg: var(--fg-d, color-mix(in srgb, var(--accent) 50%, white));
     --bg: #0f1216; --surface: #171b21; --surface-2: #1e232a; --field: #1b2029;
-    --border: #2b323b; --border-strong: #3a434e;
+    --border: #343c46; --border-strong: #636d7a;
     --text: #e8eaed; --text-2: #a3abb5;
     --nav-hue-top: #a8c4c0; --nav-hue-reports: #d4bb85; --nav-hue-plans: #b9adde;
     --nav-hue-network: #9dc4e2; --nav-hue-maps: #a6cba9; --nav-hue-admin: #d9a9b8;

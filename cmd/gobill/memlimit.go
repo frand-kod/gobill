@@ -107,5 +107,6 @@ func memTotal() int64 {
 			return kb << 10
 		}
 	}
+	_ = sc.Err() // a read error means "unknown", same as not found: 0
 	return 0
 }

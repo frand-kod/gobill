@@ -82,7 +82,11 @@ var settingsZones = []string{"Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura", "
 	"Europe/Berlin", "America/New_York", "America/Chicago", "America/Los_Angeles", "Australia/Sydney", "UTC"}
 
 var (
-	settingsYesNo    = []option{{"yes", "Yes"}, {"no", "No"}}
+	settingsYesNo = []option{{"yes", "Yes"}, {"no", "No"}}
+	// settingsYesByDefault are the yes/no keys the code treats as on while unset (it tests != "no").
+	// Every other yes/no key is off while unset.
+	settingsYesByDefault = map[string]bool{"notify_customers": true, "notify_otp": true, "isolir_show_voucher": true,
+		"extend_expiry": true, "enable_balance": true, "router_check": true, "update_check": true}
 	settingsOnOff    = []option{{"on", "On"}, {"off", "Off"}}
 	settingsChannels = []option{{"", "Disabled"}, {"sms", "SMS"}, {"wa", "WhatsApp"}, {"email", "Email"}}
 )
@@ -93,6 +97,12 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 	sel := func(name, label string, opts ...option) field {
 		f := text(name, label, v, e).as("select")
 		f.Options = opts
+		if f.Value == "" && len(opts) == 2 && opts[0].Value == "yes" { // unset: show what the code does, not the first option
+			f.Value = "no"
+			if settingsYesByDefault[name] {
+				f.Value = "yes"
+			}
+		}
 		return f
 	}
 	chk := func(name, label string) field {
