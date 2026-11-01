@@ -1,5 +1,5 @@
 // Package billing holds pure subscription math (no database).
-// Ported from phpnuxbill system/autoload/Package.php rechargeUser().
+// Data model ported from phpnuxbill; month arithmetic intentionally clamps instead of overflowing.
 package billing
 
 // Subscription validity and expiry-date arithmetic (pure, no database).
@@ -18,7 +18,7 @@ const (
 	Period Unit = "Period"
 )
 
-// defaultBillingDay mirrors PHP: $day_exp = 20 when no attribute/plan value (Package.php:88-95).
+// defaultBillingDay is used when there is no attribute/plan value.
 const defaultBillingDay = 20
 
 type Options struct {
@@ -30,9 +30,22 @@ type Options struct {
 	BillingDay int
 }
 
+// daysIn is the number of days in the month starting at first.
+func daysIn(first time.Time) int {
+	return first.AddDate(0, 1, -1).Day()
+}
+
+// addMonths adds n months and clamps the day to the target month's length
+// (Jan 31 + 1 month = Feb 28/29), keeping the time of day.
+func addMonths(t time.Time, n int) time.Time {
+	first := time.Date(t.Year(), t.Month()+time.Month(n), 1, 0, 0, 0, 0, t.Location())
+	return time.Date(first.Year(), first.Month(), min(t.Day(), daysIn(first)),
+		t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), t.Location())
+}
+
 // NewExpiry returns when a subscription starting (or extended) at from expires.
-// Month arithmetic uses Go's AddDate/time.Date, which overflow exactly like PHP
-// strtotime('+1 month') and DateTime::setDate (Jan 31 + 1 month = Mar 3, or Mar 2 in leap years).
+// Month arithmetic clamps to the last day of the target month. This deliberately differs
+// from PHP strtotime, which overflows into the next month.
 func NewExpiry(from time.Time, value int, unit Unit, opts Options) time.Time {
 	switch unit {
 	case Mins:
@@ -42,7 +55,7 @@ func NewExpiry(from time.Time, value int, unit Unit, opts Options) time.Time {
 	case Days:
 		return from.AddDate(0, 0, value) // PHP :182, :210 (keeps time of day)
 	case Months:
-		return from.AddDate(0, value, 0) // PHP :145, :202 (keeps time of day)
+		return addMonths(from, value) // keeps time of day
 	case Period:
 		day := opts.BillingDay
 		if day <= 0 {
@@ -56,14 +69,18 @@ func NewExpiry(from time.Time, value int, unit Unit, opts Options) time.Time {
 	return from
 }
 
-// extendPeriod mirrors PHP :206-207: date("Y-m-$day_exp", strtotime(exp + N months)), time 23:59:00.
-// Month overflow happens first (Jan 31 + 1 month = Mar 3) and the billing day is then set in
-// that month.
-// Deviation: PHP builds the literal string "Y-m-31" so day 31 in a 30-day month stores an invalid
-// date like 2025-04-31; here time.Date normalizes it to May 1 (same as the fresh path's setDate).
+// clampDay is y-m-day at midnight with day clamped to the month's length (m may be out of range).
+func clampDay(y int, m time.Month, day int, loc *time.Location) time.Time {
+	first := time.Date(y, m, 1, 0, 0, 0, 0, loc)
+	return time.Date(first.Year(), first.Month(), min(day, daysIn(first)), 0, 0, 0, 0, loc)
+}
+
+// extendPeriod computes the target month (exp month + value) first, then sets the billing day
+// clamped to that month's length, time 23:59:00. PHP overflowed the month first, which skipped
+// a month for billing day 29-31; that is a bug and is not kept.
 func extendPeriod(exp time.Time, value, day int) time.Time {
-	m := exp.AddDate(0, value, 0)
-	return time.Date(m.Year(), m.Month(), day, 23, 59, 0, 0, m.Location())
+	d := clampDay(exp.Year(), exp.Month()+time.Month(value), day, exp.Location())
+	return time.Date(d.Year(), d.Month(), d.Day(), 23, 59, 0, 0, exp.Location())
 }
 
 // freshPeriod mirrors PHP :146-180: next-month billing day, pushed so the first period is
@@ -103,9 +120,12 @@ func daysBetween(a, b time.Time) int {
 	return int(d.Hours() / 24)
 }
 
-// FirstPeriodInvoice is the prorated first postpaid invoice (PHP :432-448): price/(30*value)
-// per day times days from start to expiry, capped at price. Integer math, rounded down
-// (PHP stored a float). Only used when the customer has no stored "Invoice" yet.
+// FirstPeriodInvoice is the prorated first postpaid invoice: price * days(start..expiry) /
+// days in the full period, capped at price. The full period is the real span from
+// (expiry - value months, clamped) to expiry, e.g. 31 days for one month ending Jan 20,
+// 28 for one ending Mar 20 in a non-leap year. Integer rupiah: the multiplication happens
+// first and the division truncates, so the result is rounded down (never over-charges).
+// Only used when the customer has no stored "Invoice" yet.
 func FirstPeriodInvoice(price int64, value int, start, expiry time.Time) int64 {
 	if value < 1 {
 		value = 1
@@ -113,7 +133,8 @@ func FirstPeriodInvoice(price int64, value int, start, expiry time.Time) int64 {
 	s := time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC)
 	e := time.Date(expiry.Year(), expiry.Month(), expiry.Day(), 0, 0, 0, 0, time.UTC)
 	days := int64(daysBetween(e, s))
-	got := price * days / int64(30*value)
+	periodDays := int64(daysBetween(e, addMonths(e, -value)))
+	got := price * days / periodDays
 	if got > price {
 		return price
 	}
