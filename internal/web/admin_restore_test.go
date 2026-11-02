@@ -201,3 +201,21 @@ func TestRestoreConfirmStagesBacksUpAndRestarts(t *testing.T) {
 		t.Fatalf("want one automatic backup before the restore, got %v", backups)
 	}
 }
+
+// A wrong password or a missing tick keeps the preview and token: no new upload needed.
+func TestRestoreStepUpFailureKeepsPreview(t *testing.T) {
+	s, h, c := restoreApp(t)
+	s.Restart = func() {}
+	w := restoreUpload(t, h, c, backupFile(t, s, nil))
+	token := importToken.FindStringSubmatch(w.Body.String())[1]
+
+	w = do(h, "POST", restorePageURL+"/confirm", url.Values{"token": {token}, "understand": {"1"}, "current": {"wrong"}}, c)
+	wantCode(t, w, 422, "wrong password")
+	if !strings.Contains(w.Body.String(), token) {
+		t.Fatalf("preview with the staged token missing: %s", w.Body.String())
+	}
+	if _, err := os.Stat(s.DBPath + ".restore"); !os.IsNotExist(err) {
+		t.Fatal("refused confirm staged a restore")
+	}
+	wantCode(t, do(h, "POST", restorePageURL+"/confirm", url.Values{"token": {token}, "understand": {"1"}, "current": {"secret123"}}, c), 200, "retry with the same token")
+}

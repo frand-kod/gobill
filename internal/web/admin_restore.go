@@ -186,6 +186,20 @@ func (s *Server) renderRestore(w http.ResponseWriter, r *http.Request, status in
 	s.render(w, r, status, "restore", p)
 }
 
+// restoreAgain re-renders the preview of the staged file with an error (wrong password, missing tick),
+// so the admin does not have to upload again. If the preview cannot be rebuilt the plain form is shown.
+func (s *Server) restoreAgain(w http.ResponseWriter, r *http.Request, token, path, msg string) {
+	v := restoreView{}
+	ctx := r.Context()
+	bak, newest, err := inspectBackup(ctx, path, s.SecretKey, s.location())
+	cur, err2 := countImportRows(ctx, s.conn)
+	fi, err3 := os.Stat(path)
+	if err == nil && err2 == nil && err3 == nil {
+		v = restoreView{Token: token, Size: fi.Size(), Backup: bak, Current: cur, Newest: newest}
+	}
+	s.renderRestore(w, r, http.StatusUnprocessableEntity, v, msg, "")
+}
+
 func (s *Server) restoreForm(w http.ResponseWriter, r *http.Request) {
 	s.sweepRestores()
 	s.renderRestore(w, r, http.StatusOK, restoreView{}, "", "")
@@ -256,7 +270,7 @@ func (s *Server) restoreConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.PostFormValue("understand") != "1" {
-		s.renderRestore(w, r, http.StatusUnprocessableEntity, restoreView{}, "Tick the box to confirm the overwrite.", "")
+		s.restoreAgain(w, r, r.PostFormValue("token"), path, "Tick the box to confirm the overwrite.")
 		return
 	}
 	// replacing the whole database is as sensitive as the key download: ask for the password again
@@ -264,7 +278,7 @@ func (s *Server) restoreConfirm(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "open totp secret", err)
 		return
 	} else if msg != "" {
-		s.renderRestore(w, r, http.StatusUnprocessableEntity, restoreView{}, msg, "")
+		s.restoreAgain(w, r, r.PostFormValue("token"), path, msg)
 		return
 	}
 	bak, err := s.importBackup(ctx, "pre-restore")

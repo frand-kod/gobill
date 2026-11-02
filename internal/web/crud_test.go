@@ -293,3 +293,14 @@ func TestCustomerDeleteKeepsTransactions(t *testing.T) {
 		}
 	}
 }
+
+func TestCustomerDeleteForceBlockOnlyAfterRouterFailure(t *testing.T) {
+	e := billApp(t)
+	p := "/admin/customers/" + itoa(e.cust.ID)
+	if b := do(e.h, "GET", p, nil, e.c).Body.String(); strings.Contains(b, `name="force"`) {
+		t.Fatal("force delete offered without a router failure")
+	}
+	if b := do(e.h, "GET", p+"?router_failed=1", nil, e.c).Body.String(); !strings.Contains(b, `name="force"`) || strings.Contains(b, "force=1") {
+		t.Fatalf("force block missing or leaks developer text")
+	}
+}

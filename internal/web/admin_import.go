@@ -206,6 +206,16 @@ func (s *Server) renderImport(w http.ResponseWriter, r *http.Request, status int
 	s.render(w, r, status, "import", p)
 }
 
+// importAgain re-renders the dry-run preview of the staged file with an error (wrong password, missing
+// tick), so the admin does not have to upload again. If the preview cannot be rebuilt the plain form is shown.
+func (s *Server) importAgain(w http.ResponseWriter, r *http.Request, token string, files map[string]string, cur importCounts, msg string) {
+	v := importView{}
+	if rep, err := s.runImport(r.Context(), files, true); err == nil {
+		v = importView{Token: token, Rows: importRows(rep), Current: cur, Filled: cur.filled()}
+	}
+	s.renderImport(w, r, http.StatusUnprocessableEntity, v, msg, "")
+}
+
 func (s *Server) importForm(w http.ResponseWriter, r *http.Request) {
 	sweepImports()
 	s.renderImport(w, r, http.StatusOK, importView{}, "", "")
@@ -269,7 +279,7 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if cur.filled() && r.PostFormValue("understand") != "1" {
-		s.renderImport(w, r, http.StatusUnprocessableEntity, importView{}, "Tick the box to confirm the overwrite.", "")
+		s.importAgain(w, r, r.PostFormValue("token"), files, cur, "Tick the box to confirm the overwrite.")
 		return
 	}
 	// the import replaces the admins and settings: ask for the password again, like the key download
@@ -277,7 +287,7 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "open totp secret", err)
 		return
 	} else if msg != "" {
-		s.renderImport(w, r, http.StatusUnprocessableEntity, importView{}, msg, "")
+		s.importAgain(w, r, r.PostFormValue("token"), files, cur, msg)
 		return
 	}
 	bak, err := s.importBackup(ctx, "pre-import")

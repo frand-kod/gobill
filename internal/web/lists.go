@@ -31,6 +31,7 @@ type listPage struct {
 	Searchable       bool
 	Nav              pageNav      // row count, page-size links and Prev/Next under the table
 	DeleteOnly       bool         // rows have no edit page
+	DeleteNote       string       // consequences shown in the delete confirm, English key
 	Links            []option     // extra toolbar buttons: Value = href
 	Filters          []filter     // selects next to the search box
 	SortKeys         []string     // parallel to Cols; "" = not sortable
@@ -204,7 +205,8 @@ type rowItem struct {
 	Name    string // first cell of the row, used in confirm texts
 	Confirm bool   // asks first
 	Danger  bool
-	Primary bool // the one control shown on phones when the row has more than two
+	Note    string // delete: consequences, appended to the confirm text
+	Primary bool   // the one control shown on phones when the row has more than two
 }
 
 // actionIcon is the icon of a row action by its path.
@@ -243,7 +245,7 @@ func (lp listPage) RowItems(r listRow) []rowItem {
 		items = append(items, rowItem{Kind: "edit", Href: lp.Base + "/" + id + "/edit", Label: "Edit", Icon: "pencil", Name: name})
 	}
 	if !lp.NoDelete {
-		items = append(items, rowItem{Kind: "delete", Href: lp.Base + "/" + id + "/delete", Label: "Delete", Icon: "trash-2", Name: name, Confirm: true, Danger: true})
+		items = append(items, rowItem{Kind: "delete", Href: lp.Base + "/" + id + "/delete", Label: "Delete", Icon: "trash-2", Name: name, Confirm: true, Danger: true, Note: lp.DeleteNote})
 	}
 	if len(items) > 0 {
 		p := 0

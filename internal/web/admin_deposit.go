@@ -55,10 +55,18 @@ func depositPage(v, e map[string]string, plans []option) formPage {
 	return formPage{"Refill Balance", "/admin/deposit", "/admin/customers", section([]field{
 		customerPick("customer", "Username", v, e).req().withBalance(),
 		pl.hint("Pick a package, or leave empty and enter an amount"),
-		text("amount", "Balance Amount", v, e).as("number"),
+		numeric(text("amount", "Balance Amount", v, e).as("number")),
 		text("note", "Note", v, e).as("textarea"),
 		{Name: "token", Type: "hidden", Value: newFormToken()},
 	}, "Refill Balance", "")}
+}
+
+func numeric(f field) field { f.Numeric = true; return f }
+
+// depositConfirm is the "are you sure" page: what will be added, to whom, and the balance after.
+type depositConfirm struct {
+	Summary                             string
+	Customer, Plan, Amount, Note, Token string
 }
 
 func (s *Server) balancePlans(r *http.Request) (opts []option, err error) {
@@ -87,7 +95,8 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "list plans", err)
 		return
 	}
-	if !takeFormToken(r.PostFormValue("token")) {
+	confirmed := r.PostFormValue("confirmed") == "1"
+	if confirmed && !takeFormToken(r.PostFormValue("token")) {
 		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), msgFormReplayed))
 		http.Redirect(w, r, "/admin/deposit", http.StatusSeeOther)
 		return
@@ -102,8 +111,27 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 	}
 	planID, _ := posInt(v["plan"])
 	amount, _ := posInt(v["amount"])
-	if planID == 0 && amount == 0 {
+	switch {
+	case planID != 0 && amount != 0:
+		e["amount"] = "Choose a package or enter an amount, not both"
+	case planID == 0 && amount == 0:
 		e["amount"] = "Choose a Balance package or enter an amount"
+	}
+	if len(e) == 0 && !confirmed {
+		if planID > 0 {
+			pl, err := s.queries.GetPlan(r.Context(), planID)
+			if err != nil || pl.Type != "Balance" {
+				e["plan"] = "Invalid value"
+			} else {
+				amount = pl.Price
+			}
+		}
+		if len(e) == 0 {
+			d := depositConfirm{Customer: c.Username, Plan: v["plan"], Amount: v["amount"], Note: v["note"], Token: r.PostFormValue("token")}
+			d.Summary = fmt.Sprintf(s.catalog.T(s.language(), "Add %s to %s; balance becomes %s"), money(amount), c.Username, money(c.Balance+amount))
+			s.render(w, r, 200, "deposit_confirm", Page{Title: "Refill Balance", Data: d})
+			return
+		}
 	}
 	if len(e) == 0 {
 		if s.Billing == nil {

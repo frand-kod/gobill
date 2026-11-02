@@ -21,6 +21,7 @@ type field struct {
 	Bind                                  bool         // field feeds the form's Alpine state (x-model)
 	Gen                                   bool         // "Generate" button fills the field with a random value
 	Fold                                  bool         // its card sits inside a collapsed "Advanced options"
+	Numeric                               bool         // number input: digit keypad on phones (inputmode=numeric)
 	Balance                               bool         // customer picker lists each customer's balance
 	Btn                                   string       // link field: button text, default "Download backup"
 	Confirm                               string       // formbtn field: browser confirm text shown before the submit

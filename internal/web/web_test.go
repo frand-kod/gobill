@@ -57,6 +57,9 @@ func do(h http.Handler, method, target string, form url.Values, cookie *http.Coo
 		}
 		form = f2
 	}
+	if _, ok := form["confirmed"]; form != nil && !ok && method == "POST" && target == "/admin/deposit" {
+		form.Set("confirmed", "1") // tests skip the confirm step unless they set "confirmed" themselves
+	}
 	if form != nil {
 		body = strings.NewReader(form.Encode())
 	} else {

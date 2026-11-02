@@ -2805,4 +2805,9 @@
     "Password should be between %d to 64 characters": "Kata sandi harus %d sampai 64 karakter",
     "Message Sent Successfully": "Pesan berhasil dikirim",
     "A bulk message is already running": "Pesan massal sedang berjalan",
-    "No customers match this filter": "Tidak ada pelanggan yang cocok dengan filter ini"}
+    "No customers match this filter": "Tidak ada pelanggan yang cocok dengan filter ini",
+    "Add %s to %s; balance becomes %s": "Tambah %s ke %s; saldo menjadi %s",
+    "Choose a package or enter an amount, not both": "Pilih paket atau isi jumlah, jangan keduanya",
+    "The balance and active plans are removed (plans are also removed from the router). Transactions are kept.": "Saldo dan paket aktif dihapus (paket juga dihapus dari router). Transaksi tetap disimpan.",
+    "The router could not remove this customer, so nothing was deleted.": "Router gagal menghapus pelanggan ini, jadi belum ada yang dihapus.",
+    "Check the router and retry, or delete anyway: the customer is removed here and the router is cleaned up later. Balance and plans are lost; transactions are kept.": "Periksa router lalu coba lagi, atau tetap hapus: pelanggan dihapus di sini dan router dibersihkan nanti. Saldo dan paket hilang; transaksi tetap disimpan."}

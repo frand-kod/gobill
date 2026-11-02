@@ -1,0 +1,21 @@
+{{define "content"}}
+{{with .Data}}
+<div class="mb-4"><h1 class="page-title">{{T "Refill Balance"}}</h1></div>
+<form class="card max-w-xl" method="post" action="/admin/deposit">
+  <div class="card-body space-y-4">
+    <input type="hidden" name="customer" value="{{.Customer}}">
+    <input type="hidden" name="plan" value="{{.Plan}}">
+    <input type="hidden" name="amount" value="{{.Amount}}">
+    <input type="hidden" name="note" value="{{.Note}}">
+    <input type="hidden" name="token" value="{{.Token}}">
+    <input type="hidden" name="confirmed" value="1">
+    <p class="text-lg font-semibold">{{.Summary}}</p>
+    {{with .Note}}<p class="text-sm text-ink-2">{{T "Note"}}: {{.}}</p>{{end}}
+    <div class="flex flex-wrap gap-2">
+      <button class="btn btn-primary" type="submit">{{icon "banknote"}}<span>{{T "Refill Balance"}}</span></button>
+      <a class="btn btn-ghost" href="/admin/deposit?customer={{.Customer}}">{{T "Cancel"}}</a>
+    </div>
+  </div>
+</form>
+{{end}}
+{{end}}
