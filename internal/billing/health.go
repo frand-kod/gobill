@@ -46,20 +46,32 @@ type DBSample struct {
 }
 
 // AlertJob evaluates the alert rules every minute. Each rule alerts once when it turns bad and
-// once when it recovers; it stays silent while it remains bad. The state is in memory, so a
-// restart re-alerts for conditions that are still bad.
+// once when it recovers; it stays silent while it remains bad. The active keys are saved in the
+// settings table (alert_active), so a restart does not repeat alerts for conditions that are still bad.
 type AlertJob struct {
 	S      *Service
 	DBPath string                // SQLite file, for the daily size sample; "" skips the sample
 	Free   func() (int64, error) // free MB on the database folder
 	Now    func() time.Time      // nil = time.Now
 	active map[string]bool
+	seen   map[string]bool // nas: keys whose metric series was live in this process
 }
+
+// activeKey is the settings key holding the active alert keys (JSON array), so a restart does not
+// re-alert for conditions that are still bad and still sends the recovery for those that cleared.
+const activeKey = "alert_active"
 
 // Run is the job.Run body.
 func (a *AlertJob) Run(ctx context.Context) error {
 	if a.active == nil {
-		a.active = map[string]bool{}
+		a.active, a.seen = map[string]bool{}, map[string]bool{}
+		var keys []string
+		if v, err := a.S.Q.GetSetting(ctx, activeKey); err == nil {
+			_ = json.Unmarshal([]byte(v), &keys)
+		}
+		for _, k := range keys {
+			a.active[k] = true
+		}
 	}
 	now := time.Now()
 	if a.Now != nil {
@@ -80,9 +92,10 @@ func (a *AlertJob) Run(ctx context.Context) error {
 			fmt.Sprintf("Disk pulih: %d MB tersisa di folder database", mb))
 	}
 
-	a.checkNAS(ctx, st, now)
+	down := a.S.downHosts(ctx)
+	a.checkNAS(ctx, st, now, down)
 	a.checkBadSecret(ctx)
-	a.checkMassDrop(ctx, st, now)
+	a.checkMassDrop(ctx, st, now, down)
 
 	for _, j := range job.Stats() {
 		a.edge(ctx, "job:"+j.Name, j.Failures >= jobFailMax,
@@ -115,13 +128,35 @@ func (a *AlertJob) Run(ctx context.Context) error {
 	if err := a.sampleDB(ctx, st, now); err != nil {
 		errs = append(errs, err)
 	}
+	if err := a.saveActive(ctx, st[activeKey]); err != nil {
+		errs = append(errs, err)
+	}
 	return errors.Join(errs...)
 }
 
+// saveActive persists the keys that are currently bad, when they changed since prev.
+func (a *AlertJob) saveActive(ctx context.Context, prev string) error {
+	keys := []string{}
+	for k, v := range a.active {
+		if v {
+			keys = append(keys, k)
+		}
+	}
+	slices.Sort(keys)
+	b, _ := json.Marshal(keys)
+	if string(b) == prev {
+		return nil
+	}
+	return a.S.Q.UpsertSetting(ctx, db.UpsertSettingParams{Key: activeKey, Value: string(b)})
+}
+
 // checkNAS alerts when a NAS IP that has sent RADIUS packets since start sends none for
-// alert_nas_silent_minutes. The nas table only supplies a display name. The samples are copied
+// alert_nas_silent_minutes, but only while that NAS still has open sessions: a NAS with none that
+// sends nothing is a quiet night, not an outage. If an active alert finds no open sessions left
+// (the stale-close job ended them), it eases silently: "kembali mengirim paket" would be untrue.
+// A NAS whose router is declared offline is left to the router alert (down: router hosts). The nas table only supplies a display name. The samples are copied
 // first: metrics.Each holds the registry lock.
-func (a *AlertJob) checkNAS(ctx context.Context, st map[string]string, now time.Time) {
+func (a *AlertJob) checkNAS(ctx context.Context, st map[string]string, now time.Time, down map[string]bool) {
 	silent, err := strconv.Atoi(st["alert_nas_silent_minutes"])
 	if err != nil || silent < 1 {
 		silent = defaultNASSilent
@@ -130,6 +165,15 @@ func (a *AlertJob) checkNAS(ctx context.Context, st map[string]string, now time.
 	if err != nil {
 		slog.Error("alert: list nas", "err", err)
 		return
+	}
+	open := map[string]int64{}
+	if stats, err := a.S.Q.ListNASPacketStats(ctx); err != nil {
+		slog.Error("alert: nas sessions", "err", err)
+		return
+	} else {
+		for _, r := range stats {
+			open[r.NasIp] = r.Active
+		}
 	}
 	type seen struct {
 		ip string
@@ -143,21 +187,29 @@ func (a *AlertJob) checkNAS(ctx context.Context, st map[string]string, now time.
 	})
 	live := map[string]bool{}
 	for _, p := range last {
-		live["nas:"+p.ip] = true
+		key := "nas:" + p.ip
+		live[key], a.seen[key] = true, true
+		isSilent := now.Sub(p.at) >= time.Duration(silent)*time.Minute
+		if down[p.ip] || (isSilent && open[p.ip] == 0) {
+			delete(a.active, key)
+			continue
+		}
 		name := p.ip // any NAS that sent a packet since start; the nas table name is only a label
 		for _, n := range nas {
 			if n.Ip == p.ip {
 				name = n.Name
 			}
 		}
-		a.edge(ctx, "nas:"+p.ip, now.Sub(p.at) >= time.Duration(silent)*time.Minute,
+		a.edge(ctx, key, isSilent,
 			fmt.Sprintf("NAS %s (%s) tidak mengirim paket RADIUS selama %d menit", name, p.ip, silent),
 			fmt.Sprintf("NAS %s (%s) kembali mengirim paket RADIUS", name, p.ip))
 	}
 	// A NAS whose series the metrics registry evicted (older than 24 h or over the cap) is forgotten
-	// silently: no alert, so a NAS that returns later starts a fresh episode.
+	// silently: no alert, so a NAS that returns later starts a fresh episode. A key restored after a
+	// restart has no series until the NAS sends a packet: it stays (so the recovery is sent) while the
+	// NAS still has open sessions.
 	for k := range a.active {
-		if strings.HasPrefix(k, "nas:") && !live[k] {
+		if ip, ok := strings.CutPrefix(k, "nas:"); ok && !live[k] && (a.seen[k] || open[ip] == 0) {
 			delete(a.active, k)
 		}
 	}
@@ -166,7 +218,7 @@ func (a *AlertJob) checkNAS(ctx context.Context, st map[string]string, now time.
 // checkMassDrop alerts when at least alert_mass_drop_min customers of one NAS lost their session (Stop, or
 // closed as stale) within alert_mass_drop_window minutes and have not come back. A NAS that is silent as a whole
 // is left to the NAS-silent rule. Same edge rule as the others: one alert per episode, one when it eases.
-func (a *AlertJob) checkMassDrop(ctx context.Context, st map[string]string, now time.Time) {
+func (a *AlertJob) checkMassDrop(ctx context.Context, st map[string]string, now time.Time, down map[string]bool) {
 	minN, win := massDropRule(st)
 	byNAS := map[string][]string{}
 	if minN > 0 {
@@ -182,6 +234,10 @@ func (a *AlertJob) checkMassDrop(ctx context.Context, st map[string]string, now 
 		}
 	}
 	for ip, users := range byNAS {
+		if down[ip] { // the router alert covers this incident
+			delete(a.active, "massdrop:"+ip)
+			continue
+		}
 		list := strings.Join(users[:min(len(users), massDropListMax)], ", ")
 		if len(users) > massDropListMax {
 			list += fmt.Sprintf(" (+%d lagi)", len(users)-massDropListMax)

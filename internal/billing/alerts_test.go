@@ -20,6 +20,15 @@ import (
 // alertsFor returns the messages in reqs that mention sub (the telegram stub logs every request).
 func alertsFor(reqs []string, sub string) int { return count(reqs, sub) }
 
+// openSession adds an open RADIUS session on nasIP: the NAS-silent rule only alerts for a NAS with customers online.
+func openSession(t *testing.T, e *env, nasIP, user string) {
+	t.Helper()
+	if err := e.q.UpsertRadiusSession(context.Background(), db.UpsertRadiusSessionParams{SessionID: user, Username: user, NasIp: nasIP,
+		StartedAt: e.now.Unix() - 3600, UpdatedAt: e.now.Unix() - 3600}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestNASSilentAlertOncePerEpisode(t *testing.T) {
 	metrics.Reset()
 	t.Cleanup(metrics.Reset)
@@ -31,6 +40,7 @@ func TestNASSilentAlertOncePerEpisode(t *testing.T) {
 	}
 	now := time.Now().UTC().Truncate(time.Minute) // metrics expire series by wall clock
 	job := &AlertJob{S: e.s, Free: func() (int64, error) { return 9999, nil }, Now: func() time.Time { return now }}
+	openSession(t, e, "10.9.0.5", "c1")
 	last := now.Add(-time.Minute)
 	metrics.Set("radius_nas_last_packet_timestamp", float64(last.Unix()), "nas", "10.9.0.5")
 	run := func(what string, want int) {
@@ -60,6 +70,7 @@ func TestNASSilentWithoutTableEntry(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Minute) // metrics expire series by wall clock
 	alert := &AlertJob{S: e.s, Free: func() (int64, error) { return 9999, nil }, Now: func() time.Time { return now }}
+	openSession(t, e, "10.9.0.7", "c1")
 	metrics.Set("radius_nas_last_packet_timestamp", float64(now.Add(-time.Hour).Unix()), "nas", "10.9.0.7")
 	run := func(what string, want int) {
 		t.Helper()
@@ -195,6 +206,7 @@ func TestNASEvictionClearsStateSilently(t *testing.T) {
 	now := time.Now().UTC() // metrics expire series older than 24 h against the real clock
 	metrics.Now = func() time.Time { return now }
 	alert := &AlertJob{S: e.s, Free: func() (int64, error) { return 9999, nil }, Now: func() time.Time { return now }}
+	openSession(t, e, "10.9.0.8", "c1")
 	metrics.Set("radius_nas_last_packet_timestamp", float64(now.Add(-time.Hour).Unix()), "nas", "10.9.0.8")
 	if err := alert.Run(ctx); err != nil {
 		t.Fatal(err)
@@ -255,4 +267,70 @@ func TestAlertChannelWhatsApp(t *testing.T) {
 		!strings.Contains(bodies[0], "081234567890@s.whatsapp.net") {
 		t.Fatalf("WA sends = %v", bodies)
 	}
+}
+
+// A quiet NAS without open sessions is normal; with open sessions the same silence is an outage.
+// An active alert whose sessions are gone eases without a message.
+func TestNASSilentNeedsOpenSessions(t *testing.T) {
+	metrics.Reset()
+	t.Cleanup(metrics.Reset)
+	e := setup(t)
+	got := withNotify(t, e)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Minute)
+	alert := &AlertJob{S: e.s, Free: func() (int64, error) { return 9999, nil }, Now: func() time.Time { return now }}
+	metrics.Set("radius_nas_last_packet_timestamp", float64(now.Add(-time.Hour).Unix()), "nas", "10.9.1.1")
+	metrics.Set("radius_nas_last_packet_timestamp", float64(now.Add(-time.Hour).Unix()), "nas", "10.9.1.2")
+	openSession(t, e, "10.9.1.2", "c1")
+	if err := alert.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	reqs := drain(got)
+	if n := alertsFor(reqs, "10.9.1.1"); n != 0 {
+		t.Fatalf("quiet NAS without sessions: %d alerts, want 0", n)
+	}
+	if n := alertsFor(reqs, "10.9.1.2"); n != 1 {
+		t.Fatalf("NAS with open session: %d alerts, want 1", n)
+	}
+	if _, err := e.conn.ExecContext(ctx, "UPDATE radius_sessions SET stopped_at = ?", now.Unix()); err != nil {
+		t.Fatal(err)
+	}
+	if err := alert.Run(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n := alertsFor(drain(got), "10.9.1.2"); n != 0 || alert.active["nas:10.9.1.2"] {
+		t.Fatalf("sessions gone: want a silent ease (alerts %d, active %v)", n, alert.active["nas:10.9.1.2"])
+	}
+}
+
+// A restart keeps the active alerts: no repeat for a condition still bad, recovery when it cleared.
+func TestAlertStatePersistsAcrossRestart(t *testing.T) {
+	metrics.Reset()
+	t.Cleanup(metrics.Reset)
+	e := setup(t)
+	got := withNotify(t, e)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Minute)
+	openSession(t, e, "10.9.2.1", "c1")
+	metrics.Set("radius_nas_last_packet_timestamp", float64(now.Add(-time.Hour).Unix()), "nas", "10.9.2.1")
+	newJob := func() *AlertJob {
+		return &AlertJob{S: e.s, Free: func() (int64, error) { return 9999, nil }, Now: func() time.Time { return now }}
+	}
+	run := func(j *AlertJob, what string, want int) {
+		t.Helper()
+		if err := j.Run(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if n := alertsFor(drain(got), "10.9.2.1"); n != want {
+			t.Fatalf("%s: %d alerts, want %d", what, n, want)
+		}
+	}
+	run(newJob(), "first run", 1)
+	j := newJob() // restart: the metrics registry still has the series here
+	run(j, "after restart, still silent", 0)
+
+	j = newJob() // restart, then the NAS sends again
+	metrics.Set("radius_nas_last_packet_timestamp", float64(now.Unix()), "nas", "10.9.2.1")
+	run(j, "after restart, recovered", 1)
+	run(newJob(), "restart again", 0)
 }

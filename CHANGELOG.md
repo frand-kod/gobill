@@ -45,6 +45,7 @@ PHPNuxBill kini sumber data, bukan sumber perilaku. Perilaku lama yang salah dip
 
 ### Diperbaiki
 
+- Peringatan operator lebih sedikit: NAS diam hanya diperingatkan bila masih punya sesi terbuka, router dinyatakan tidak terjangkau setelah 2 ping gagal berturut-turut, peringatan NAS/gangguan massal ditahan saat router NAS itu sudah tidak terjangkau, dan status peringatan aktif disimpan sehingga restart tidak mengirim ulang.
 - Pengaturan Ya/Tidak yang belum pernah disimpan kini tampil sesuai perilaku sebenarnya. Sebelumnya tampil "Ya", sehingga sekali Simpan menyalakan isolir, trust proxy, nonaktif voucher, dan lainnya tanpa disadari. Periksa tab Pengaturan bila pernah menyimpannya di versi lama.
 - Tombol "Impor dari PHPNuxBill" di wizard setup tidak lagi 404.
 - Portal: halaman isolir punya tombol bayar/perpanjang; pembayaran yang menunggu tampil di dasbor dan riwayat; halaman pembayaran memberi langkah lanjut per status; pelanggan tanpa gateway diberi cara bayar; kode lupa password bisa diminta ulang setelah 60 detik.

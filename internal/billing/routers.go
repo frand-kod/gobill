@@ -4,7 +4,10 @@ package billing
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log/slog"
+	"slices"
+	"sync"
 
 	"context"
 	"fmt"
@@ -16,9 +19,75 @@ import (
 	"time"
 )
 
-// RouterCheck pings every enabled router, stores online/last_seen_at, and sends one Telegram
-// alert per state change (not per tick). router_check = "no" turns it off; unset counts as yes.
-// It is the job.Run body of the old router_check cron.
+const (
+	routerFailMax = 2                   // consecutive failed pings before a router is declared offline (~10 min at the 5 min tick)
+	routerDownKey = "alert_router_down" // settings key: JSON array of router ids declared offline
+)
+
+// routerState is the in-memory alert state of RouterCheck: failed pings in a row, and the routers
+// declared offline. The offline set is persisted so a restart neither re-alerts nor loses the recovery.
+type routerState struct {
+	mu     sync.Mutex
+	loaded bool
+	fails  map[int64]int
+	down   map[int64]bool
+}
+
+// load reads the persisted offline set once. Caller holds mu.
+func (rs *routerState) load(ctx context.Context, q *db.Queries) {
+	if rs.loaded {
+		return
+	}
+	rs.loaded = true
+	rs.fails, rs.down = map[int64]int{}, map[int64]bool{}
+	v, _ := q.GetSetting(ctx, routerDownKey)
+	var ids []int64
+	_ = json.Unmarshal([]byte(v), &ids)
+	for _, id := range ids {
+		rs.down[id] = true
+	}
+}
+
+// save persists the offline set. Caller holds mu.
+func (rs *routerState) save(ctx context.Context, q *db.Queries) {
+	ids := []int64{}
+	for id := range rs.down {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	b, _ := json.Marshal(ids)
+	if err := q.UpsertSetting(ctx, db.UpsertSettingParams{Key: routerDownKey, Value: string(b)}); err != nil {
+		slog.Error("save router alert state", "err", err)
+	}
+}
+
+// downHosts returns the hosts of enabled routers currently declared offline. AlertJob uses it to
+// leave the NAS-silent and mass-drop alerts of such a router to the router alert.
+func (s *Service) downHosts(ctx context.Context) map[string]bool {
+	s.rt.mu.Lock()
+	defer s.rt.mu.Unlock()
+	s.rt.load(ctx, s.Q)
+	hosts := map[string]bool{}
+	if len(s.rt.down) == 0 {
+		return hosts
+	}
+	rs, err := s.Q.ListEnabledRouters(ctx)
+	if err != nil {
+		return hosts
+	}
+	for _, r := range rs {
+		if s.rt.down[r.ID] {
+			hosts[r.Host] = true
+		}
+	}
+	return hosts
+}
+
+// RouterCheck pings every enabled router and stores online/last_seen_at. A router is declared
+// offline (stored online=0, one alert) only after routerFailMax failed pings in a row, so a blip
+// is invisible; one alert when it comes back, and only if the offline alert was sent. A router
+// that is down at start is declared after the same number of failures. router_check = "no" turns
+// it off; unset counts as yes. It is the job.Run body of the old router_check cron.
 func (s *Service) RouterCheck(ctx context.Context) error {
 	if setting(ctx, s.Q, "router_check") == "no" {
 		return nil
@@ -27,28 +96,44 @@ func (s *Service) RouterCheck(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	s.rt.mu.Lock()
+	defer s.rt.mu.Unlock()
+	s.rt.load(ctx, s.Q)
 	for _, r := range rs {
 		pctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		_, perr := s.Ping(pctx, r)
 		cancel()
 		up := perr == nil
-		p := db.SetRouterStatusParams{ID: r.ID, Online: sql.NullInt64{Valid: true}}
+		wasDown := s.rt.down[r.ID]
 		if up {
+			s.rt.fails[r.ID] = 0
+		} else {
+			s.rt.fails[r.ID]++
+		}
+		declared := wasDown || (!up && s.rt.fails[r.ID] >= routerFailMax)
+		p := db.SetRouterStatusParams{ID: r.ID, Online: sql.NullInt64{Valid: true}}
+		switch {
+		case up:
 			p.Online.Int64 = 1
 			p.LastSeenAt = sql.NullInt64{Int64: s.now().Unix(), Valid: true}
+		case !declared:
+			continue // a first failure: UI and alerts keep the previous state
 		}
 		if err := s.Q.SetRouterStatus(ctx, p); err != nil {
 			return err
 		}
-		// alert on a change; the very first check only alerts when the router is down
-		known, wasUp := r.Online.Valid, r.Online.Int64 == 1
-		if (known && wasUp == up) || (!known && up) {
+		var msg string
+		switch {
+		case up && wasDown:
+			delete(s.rt.down, r.ID)
+			msg = fmt.Sprintf("Router %s kembali terhubung", r.Name)
+		case !up && !wasDown:
+			s.rt.down[r.ID] = true
+			msg = fmt.Sprintf("Router %s tidak terjangkau: %s", r.Name, perr)
+		default:
 			continue
 		}
-		msg := "Router " + r.Name + " is back online"
-		if !up {
-			msg = "Router " + r.Name + " is OFFLINE: " + perr.Error()
-		}
+		s.rt.save(ctx, s.Q)
 		if err := s.Alert(ctx, msg); err != nil {
 			slog.Error("router alert", "router", r.Name, "err", err)
 		}

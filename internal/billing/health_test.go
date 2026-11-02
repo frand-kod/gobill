@@ -107,6 +107,7 @@ func TestMassDropAlert(t *testing.T) {
 	for i := 0; i < 5; i++ { // whole NAS silent: left to the NAS-silent rule
 		stop("10.0.0.2", fmt.Sprintf("s%d", i), 60)
 	}
+	openSession(t, e, "10.0.0.2", "live") // a NAS with customers online and no packets
 	old := metrics.Now
 	metrics.Now = func() time.Time { return e.now }
 	defer func() { metrics.Now = old }()

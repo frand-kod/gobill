@@ -37,6 +37,7 @@ type Service struct {
 	DeviceFor func(plan db.Plan, router db.Router) (device.Device, error)
 	// RouterFor builds the connection for a router (ping, pool sync); nil means from the stored row.
 	RouterFor func(router db.Router) (device.Router, error)
+	rt        routerState
 }
 
 // Reload swaps the notifier and time zone (after settings change).
