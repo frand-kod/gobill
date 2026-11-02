@@ -127,7 +127,7 @@ var secondaryCols = map[string]bool{"Full Name": true, "Package": true, "Plan Na
 	"Location": true, "Username": true, "Actor": true, "Description": true, "IP": true, "IP / CIDR": true,
 	"Address": true, "Coverage": true, "Coordinates": true, "Local IP": true, "IP Range": true, "Router": true,
 	"Host": true, "Enabled": true, "Last Seen": true, "Last Login": true, "User Type": true, "Burst": true,
-	"Plan Validity": true}
+	"Plan Validity": true, "Features": true}
 
 // IsNum reports whether column i is numeric (right-aligned, header included).
 func (lp listPage) IsNum(i int) bool {
@@ -218,6 +218,23 @@ type rowItem struct {
 	Danger  bool
 	Note    string // delete: consequences, appended to the confirm text
 	Primary bool   // the one control shown on phones when the row has more than two
+	Busy    string // action: label shown on the button while its request runs (data-busy-label)
+}
+
+// actionBusy is the busy label of a row action, "" when the action has none.
+func actionBusy(path string) string {
+	if path == "test" {
+		return "Contacting router…"
+	}
+	return ""
+}
+
+// Tags splits a cell of a comma-separated list (the Features column) into its badges.
+func (lp listPage) Tags(s string) []string {
+	if s == "" {
+		return nil
+	}
+	return strings.Split(s, ", ")
 }
 
 // actionIcon is the icon of a row action by its path.
@@ -250,7 +267,7 @@ func (lp listPage) RowItems(r listRow) []rowItem {
 	var items []rowItem
 	for _, a := range lp.Actions {
 		items = append(items, rowItem{Kind: "action", Href: lp.Base + "/" + id + "/" + a.Path,
-			Label: a.Label, Icon: actionIcon(a.Path), Field: a.Field, Name: name, Confirm: a.Confirm, Danger: a.Path == "deactivate"})
+			Label: a.Label, Icon: actionIcon(a.Path), Field: a.Field, Name: name, Confirm: a.Confirm, Danger: a.Path == "deactivate", Busy: actionBusy(a.Path)})
 	}
 	if !lp.DeleteOnly {
 		items = append(items, rowItem{Kind: "edit", Href: lp.Base + "/" + id + "/edit", Label: "Edit", Icon: "pencil", Name: name})

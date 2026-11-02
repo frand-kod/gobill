@@ -5,6 +5,7 @@ package web
 import (
 	"database/sql"
 	"net/http"
+	"net/url"
 
 	"errors"
 	"fmt"
@@ -98,7 +99,7 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 	confirmed := r.PostFormValue("confirmed") == "1"
 	if confirmed && !takeFormToken(r.PostFormValue("token")) {
 		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), msgFormReplayed))
-		http.Redirect(w, r, "/admin/deposit", http.StatusSeeOther)
+		http.Redirect(w, r, "/admin/deposit?customer="+url.QueryEscape(r.PostFormValue("customer")), http.StatusSeeOther)
 		return
 	}
 	v, e := formVals(r, "customer", "plan", "amount", "note"), map[string]string{}
@@ -112,6 +113,8 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 	planID, _ := posInt(v["plan"])
 	amount, _ := posInt(v["amount"])
 	switch {
+	case wholeErr(v["amount"]) != "":
+		e["amount"] = wholeErr(v["amount"])
 	case planID != 0 && amount != 0:
 		e["amount"] = "Choose a package or enter an amount, not both"
 	case planID == 0 && amount == 0:

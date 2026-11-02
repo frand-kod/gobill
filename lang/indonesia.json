@@ -2928,5 +2928,11 @@
     "Breadcrumb": "Jejak navigasi",
     "Have you saved the key outside this server? Without it a restored backup cannot open router passwords and API keys.": "Sudah menyimpan kunci di luar server ini? Tanpa kunci, cadangan yang dipulihkan tidak bisa membuka sandi router dan kunci API.",
     "Skipping leaves this step empty. It can be filled later in Settings.": "Melewati langkah ini membuatnya kosong. Langkah ini bisa diisi nanti di Pengaturan.",
-    "Prefilled with now. Empty also means now. Session history is kept for the days set in Settings > Keep logs (days).": "Diisi dengan sekarang. Kosong juga berarti sekarang. Riwayat sesi disimpan selama hari yang diatur di Pengaturan > Simpan log (hari)."
-}
+    "Prefilled with now. Empty also means now. Session history is kept for the days set in Settings > Keep logs (days).": "Diisi dengan sekarang. Kosong juga berarti sekarang. Riwayat sesi disimpan selama hari yang diatur di Pengaturan > Simpan log (hari).",
+    "Delete logs older than {keep} days?": "Hapus log lebih dari {keep} hari?",
+    "Use whole numbers without dots or commas": "Gunakan angka bulat tanpa titik/koma",
+    "Recorded as Rp 0, no income": "Dicatat Rp 0, tidak ada pemasukan",
+    "Contacting router…": "Menghubungi router…",
+    "Features": "Fitur",
+    "Idle timeout": "Batas diam",
+    "FUP": "FUP"}

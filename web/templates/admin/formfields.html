@@ -85,9 +85,9 @@
         {{end}}
         <input class="input" id="{{.Name}}" name="{{.Name}}" type="file" accept="image/png,image/jpeg,image/webp,image/x-icon"{{if .Error}} aria-invalid="true"{{end}}{{with .Describe}} aria-describedby="{{.}}"{{end}}>
         {{else}}
-        <input class="input" id="{{.Name}}" name="{{.Name}}" type="{{.Type}}" value="{{.Value}}"{{if .Bind}} x-model="{{.Name}}"{{end}}{{with .ReqIf}} :aria-required="{{.}}"{{end}}{{if .Required}} required{{end}}{{if eq .Type "password"}} autocomplete="{{if .Cur}}current-password{{else}}new-password{{end}}"{{end}}{{if eq .Type "number"}} min="0"{{end}}{{if .Numeric}} inputmode="numeric"{{end}}{{if .Error}} aria-invalid="true"{{end}}{{with .Describe}} aria-describedby="{{.}}"{{end}}>
+        {{if eq .Type "password"}}<div class="pw-wrap">{{end}}<input class="input" id="{{.Name}}" name="{{.Name}}" type="{{.Type}}" value="{{.Value}}"{{if .Bind}} x-model="{{.Name}}"{{end}}{{with .ReqIf}} :aria-required="{{.}}"{{end}}{{if .Required}} required{{end}}{{if eq .Type "password"}} autocomplete="{{if .Cur}}current-password{{else}}new-password{{end}}"{{end}}{{if eq .Type "tel"}} inputmode="tel" autocomplete="tel"{{end}}{{if eq .Type "number"}} min="0"{{end}}{{if .Numeric}} inputmode="numeric"{{end}}{{if .Error}} aria-invalid="true"{{end}}{{with .Describe}} aria-describedby="{{.}}"{{end}}>{{if eq .Type "password"}}<button type="button" class="pw-toggle" hidden data-pw="{{.Name}}" data-show="{{T "Show"}}" data-hide="{{T "Hide"}}" aria-pressed="false" aria-controls="{{.Name}}">{{T "Show"}}</button></div>{{end}}
         {{if .Chips}}{{$n := .Name}}<p class="hint mt-2 flex flex-wrap gap-1">{{range .Chips}}<button type="button" class="rounded border border-line px-1.5 py-1 font-mono text-xs hover:text-accent-fg" data-var-target="{{$n}}" data-var-insert="{{.}}" aria-label="{{T "Insert"}} {{.}}">{{.}}</button>{{end}}</p>{{end}}
-        {{if .Gen}}<button type="button" class="btn btn-ghost mt-2" @click="const a='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_',b=crypto.getRandomValues(new Uint8Array(24)),i=$el.previousElementSibling;i.type='text';i.value=Array.from(b,x=>a[x&63]).join('')">{{T "Generate"}}</button>{{end}}
+        {{if .Gen}}<button type="button" class="btn btn-ghost mt-2" @click="const a='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_',b=crypto.getRandomValues(new Uint8Array(24)),i=$el.closest('.field-wrap').querySelector('input'),t=i.parentElement.querySelector('[data-pw]');i.type='text';i.value=Array.from(b,x=>a[x&63]).join('');if(t){t.textContent=t.dataset.hide;t.setAttribute('aria-pressed','true')}">{{T "Generate"}}</button>{{end}}
         {{end}}
         {{end}}
         {{if .Hint}}<p class="hint" id="{{.Name}}-hint">{{T .Hint}}</p>{{end}}
@@ -99,4 +99,5 @@
   </section>
   {{if .Fold}}</details>{{end}}
   {{end}}
+{{template "pwscript"}}
 {{end}}
