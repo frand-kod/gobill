@@ -451,7 +451,7 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 			s.fail(w, "customer password", err)
 			return
 		}
-		if msg := customerPasswordErr(st, v["username"], pass); msg != "" {
+		if msg := s.customerPasswordErr(st, v["username"], pass); msg != "" {
 			e["password"] = msg
 		}
 	}

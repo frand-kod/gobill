@@ -484,7 +484,7 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 	}
 	if x, ok := v["isolir_days"]; ok {
 		if n, err := strconv.Atoi(x); err != nil || n < 0 || n > 3650 {
-			e["isolir_days"] = "Masukkan 0 sampai 3650"
+			e["isolir_days"] = "Enter whole days, 0 to 3650"
 		}
 	}
 	if _, ok := v["wg_port"]; ok {

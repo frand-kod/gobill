@@ -179,7 +179,7 @@ func TestIsolirVoucherWithoutSessionAndRateLimited(t *testing.T) {
 	s, h, q := isoSetup(t)
 	cross := []string{"Origin", "null", "Sec-Fetch-Site", "cross-site"} // the sandboxed page posts like this
 	w := isoReq(h, "POST", "/isolir/voucher", "198.51.100.9", url.Values{"code": {"ABC"}}, cross...)
-	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Masukkan voucher di halaman login hotspot") {
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Masukkan voucher di halaman masuk hotspot") {
 		t.Fatalf("unknown client: %d %s", w.Code, w.Body)
 	}
 	isoCustomer(t, s, q, "203.0.113.7", true)
@@ -388,7 +388,7 @@ func TestIsolirLogoutButton(t *testing.T) {
 	}
 	isoSettings(t, q, map[string]string{"isolir_hotspot_url": "http://192.168.20.1/"})
 	body := isoReq(h, "GET", "/isolir", "203.0.113.7", nil).Body.String()
-	if !strings.Contains(body, `href="http://192.168.20.1/logout"`) || !strings.Contains(body, "Logout / pakai akun lain") {
+	if !strings.Contains(body, `href="http://192.168.20.1/logout"`) || !strings.Contains(body, "Keluar / pakai akun lain") {
 		t.Fatal("logout button missing or wrong link")
 	}
 }

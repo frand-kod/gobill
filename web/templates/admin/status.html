@@ -32,7 +32,7 @@
     <span class="text-xs text-ink-2">{{printf "%.0f" .Sec.Fail10m}} {{T "Login failures (10 min)"}} · {{.Sec.Locked}} {{T "Locked now"}}</span>
   </a>
   <a href="#st-backup" class="stat flex-col items-start gap-1 hover:bg-surface-2">
-    <span class="flex items-center gap-2 text-sm font-medium">{{template "statusDot" .Levels.Backup}}Backup</span>
+    <span class="flex items-center gap-2 text-sm font-medium">{{template "statusDot" .Levels.Backup}}{{T "Backup"}}</span>
     <span class="text-xs text-ink-2">{{if .Backup.LocalAt}}{{.Backup.LocalAt}}{{else}}{{T "None yet"}}{{end}}</span>
   </a>
 </nav>
@@ -57,7 +57,7 @@
       <ul class="divide-y divide-line">
         {{range .NAS}}<li class="flex flex-wrap items-center gap-2 py-2 text-sm">
           <span class="font-medium">{{.Name}}</span><span class="text-ink-2">{{.IP}}</span>
-          <span class="ms-auto">{{if not .Seen}}<span class="text-ink-2">{{T "No packet since start"}}</span>{{else if .Warn}}<span class="badge badge-bad">{{icon "triangle-alert"}}<span class="ms-1">{{T "Last packet"}}: {{printf "idle %d min" .Minutes}}</span></span>{{else}}<span class="badge badge-ok">{{T "Last packet"}}: {{printf "%d min ago" .Minutes}}</span>{{end}}</span>
+          <span class="ms-auto">{{if not .Seen}}<span class="text-ink-2">{{T "No packet since start"}}</span>{{else if .Warn}}<span class="badge badge-bad">{{icon "triangle-alert"}}<span class="ms-1">{{T "Last packet"}}: {{printf (T "idle %d min") .Minutes}}</span></span>{{else}}<span class="badge badge-ok">{{T "Last packet"}}: {{printf (T "%d min ago") .Minutes}}</span>{{end}}</span>
           {{if .BadSecret}}<span class="badge badge-bad" title="{{T "Secret in gobill NAS does not match /radius on the router"}}">{{icon "triangle-alert"}}<span class="ms-1">{{T "Bad secret"}}: {{.BadCount}}</span></span>{{end}}
         </li>{{end}}
       </ul>
@@ -132,7 +132,7 @@
       <dt class="text-ink-2">Tripay {{T "callbacks failed"}}</dt><dd>{{printf "%.0f" .PayFailed}}</dd>
       <dt class="text-ink-2">{{T "Last callback"}}</dt><dd>{{if .PayLast}}{{.PayLast}}{{else}}-{{end}}</dd>
     </dl>
-    <h2 class="card-title" id="st-backup">{{template "statusDot" .Levels.Backup}}Backup</h2>
+    <h2 class="card-title" id="st-backup">{{template "statusDot" .Levels.Backup}}{{T "Backup"}}</h2>
     <dl class="card-body grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
       <dt class="text-ink-2">{{T "Last local backup"}}</dt>
       <dd>{{if .Backup.LocalAt}}{{.Backup.LocalAt}} {{.Backup.LocalFile}}{{if .Backup.LocalStale}} <span class="badge badge-bad">{{T "Older than 36 hours"}}</span>{{end}}{{else}}{{T "None yet"}}{{end}}</dd>

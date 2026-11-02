@@ -16,8 +16,13 @@ import (
 // uiKeyPatterns find the English keys of the UI in the Go sources: catalog lookups, the field
 // labels, hints, buttons and titles of the forms, and the flash messages of done and flashTo.
 var uiKeyPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`catalog\.T\(\w+, "((?:[^"\\]|\\.)*)"`),
+	regexp.MustCompile(`catalog\.T\([\w.()]+, "((?:[^"\\]|\\.)*)"`),
 	regexp.MustCompile(`\b(?:Label|Hint|Btn|Title|Section|Notice|Confirm):\s*"((?:[^"\\]|\\.)*)"`),
+	// page messages and field errors: Page{Error: "..."}, e["x"] = "...", show("..."), render helpers with a message
+	regexp.MustCompile(`\b(?:Error|Flash):\s*"((?:[^"\\]|\\.)*)"`),
+	regexp.MustCompile(`\be\["\w+"\]\s*=\s*"((?:[^"\\]|\\.)*)"`),
+	regexp.MustCompile(`(?:^|[^.\w])show\("((?:[^"\\]|\\.)*)"\)`),
+	regexp.MustCompile(`\b(?:profilePage|plansPage|forgotRender|msgBulkPage|msgSendPage)\(w, r, [^,]+, (?:v, nil, |"[^"]*", )?"((?:[^"\\]|\\.)*)"\)`),
 	regexp.MustCompile(`\.hint\("((?:[^"\\]|\\.)*)"`),
 	regexp.MustCompile(`\bs\.(?:done|flashTo)\(w, r, [^,]+, "((?:[^"\\]|\\.)*)"`),
 	// field constructors take the label second: text("name", "Label", v, e)
@@ -39,12 +44,16 @@ func uiKeysInSources(t *testing.T) map[string]string {
 	t.Helper()
 	keys := map[string]string{}
 	tplRe := regexp.MustCompile(`\bTT? "([^"]+)"`)
+	ariaRe := regexp.MustCompile(`aria-label="([A-Z][^"{]*)"`)
 	fs.WalkDir(gobill.FS, "web/templates", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".html") {
 			return err
 		}
 		b, _ := fs.ReadFile(gobill.FS, p)
 		for _, m := range tplRe.FindAllStringSubmatch(string(b), -1) {
+			keys[m[1]] = p
+		}
+		for _, m := range ariaRe.FindAllStringSubmatch(string(b), -1) {
 			keys[m[1]] = p
 		}
 		return nil

@@ -267,7 +267,7 @@ func (s *Server) pForgotReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	npass := r.PostFormValue("npass")
-	msg := customerPasswordErr(st, user, npass)
+	msg := s.customerPasswordErr(st, user, npass)
 	if msg == "" && npass != r.PostFormValue("cnpass") {
 		msg = "Passwords does not match"
 	}

@@ -70,7 +70,7 @@ func (s *Server) pPassword(w http.ResponseWriter, r *http.Request) {
 	if bcrypt.CompareHashAndPassword([]byte(c.PasswordHash), []byte(r.PostFormValue("password"))) != nil {
 		s.recordFailure(pwKey)
 		msg = "Incorrect current password"
-	} else if msg = customerPasswordErr(st, c.Username, npass); msg == "" && npass != r.PostFormValue("cnpass") {
+	} else if msg = s.customerPasswordErr(st, c.Username, npass); msg == "" && npass != r.PostFormValue("cnpass") {
 		msg = "Passwords does not match"
 	}
 	if msg != "" {
@@ -199,7 +199,7 @@ func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if exp := s.sessions.GetInt64(ctx, "ct_exp"); s.sessions.GetString(ctx, "ct_kind") == kind && time.Now().Unix() < exp {
-		s.profilePage(w, r, 200, fmt.Sprintf("Please wait %d seconds before sending another code", exp-time.Now().Unix()))
+		s.profilePage(w, r, 200, fmt.Sprintf(s.catalog.T(s.language(), "Please wait %d seconds before sending another code"), exp-time.Now().Unix()))
 		return
 	}
 	if !s.otpAllow(clientIP(r), val) {

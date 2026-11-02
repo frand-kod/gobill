@@ -26,7 +26,7 @@ func TestForgotResetMinimumLength(t *testing.T) {
 	ck := sessionOf(do(e.h, "POST", "/portal/forgot", url.Values{"username": {"u1"}}, nil))
 	do(e.h, "POST", "/portal/forgot/verify", url.Values{"otp_code": {otp()}}, ck)
 	w := do(e.h, "POST", "/portal/forgot/reset", url.Values{"npass": {"newpas7"}, "cnpass": {"newpas7"}}, ck)
-	if !strings.Contains(w.Body.String(), "Password should be between 8 to 64 characters") {
+	if !strings.Contains(w.Body.String(), "Kata sandi harus 8 sampai 64 karakter") {
 		t.Fatal("7-character password accepted")
 	}
 }

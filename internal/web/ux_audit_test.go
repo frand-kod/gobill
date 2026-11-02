@@ -49,7 +49,7 @@ func TestPortalDisabledBalanceLink(t *testing.T) {
 	setting(t, e, "enable_balance", "yes", "phone", "081234567890", "country_code_phone", "62")
 	c, _ := custLogin(t, e, "u1", "pw12345")
 	body := do(e.h, "GET", "/portal/plans", nil, c).Body.String()
-	if !strings.Contains(body, "https://wa.me/6281234567890") || !strings.Contains(body, "Minta admin mengisi saldo") {
+	if !strings.Contains(body, "https://wa.me/6281234567890") || !strings.Contains(body, "Minta admin menambah saldo") {
 		t.Fatal("no operator link under the disabled balance button")
 	}
 }

@@ -179,7 +179,7 @@ func (s *Server) abCreate(w http.ResponseWriter, r *http.Request) {
 		bonus, ok2 = 0, true
 	}
 	if !ok1 || !ok2 || paid+bonus < 1 || paid+bonus > maxVouchers {
-		e["paid"] = "Enter a number between 1 and " + strconv.Itoa(maxVouchers)
+		e["paid"] = fmt.Sprintf(s.catalog.T(s.language(), "Enter a number between 1 and %d"), maxVouchers)
 	}
 	price, ok := nonNeg(v["price"])
 	if !ok || price > 100_000_000 {
