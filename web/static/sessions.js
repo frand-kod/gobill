@@ -41,12 +41,15 @@
     if (box) box.setAttribute('aria-label', r.user);
     var form = tr.querySelector('form');
     if (form) form.dataset.confirm = labels.disconnect + ' ' + r.user + '?';
+    var off = tr.querySelector('form button');
+    if (off) off.setAttribute('aria-label', labels.disconnect + ' ' + r.user);
   }
 
   window.liveSessions = function () {
     return {
       tiles: {},
       status: '',
+      failed: false,
       labels: {},
       body: null,
       tpl: null,
@@ -81,9 +84,10 @@
           .then(function (v) {
             self.tiles = v.tiles || {};
             self.rows(v.rows || []);
+            self.failed = false;
             self.status = self.labels.updated.replace('%s', new Date().toLocaleTimeString());
           })
-          .catch(function () { self.status = self.labels.failed; });
+          .catch(function () { self.failed = true; self.status = self.labels.failed; });
       },
 
       rows: function (list) {

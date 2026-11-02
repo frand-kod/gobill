@@ -359,6 +359,10 @@ func levelsOf(d statusData, now time.Time) statusLevels {
 	if l.Radius == levelOK && d.Rejected24h > d.Accepted24h/radiusRejectRatio {
 		l.Radius = levelWarn
 	}
+	// Router removals the retry job still owes: amber under Jobs, the section that does that work.
+	if d.RouterPending > 0 && l.Jobs == levelOK {
+		l.Jobs = levelWarn
+	}
 	// Sent and Failed per channel are counts since start, so a channel that never sent is red
 	// only when it has failed; the amber rule uses the 24 h failure series.
 	if d.NotifyErr.Total > 0 {

@@ -89,6 +89,16 @@ func TestStatusLevels(t *testing.T) {
 	if got := levelsOf(stalled, now).Jobs; got != levelBad {
 		t.Fatalf("expiry job last run 16 min ago: jobs level %q, want bad", got)
 	}
+	// router removals the retry job still owes raise the Jobs level to warn, and nothing else
+	pending := ok
+	pending.RouterPending = 2
+	if got := levelsOf(pending, now); got.Jobs != levelWarn || got.Radius != levelOK || got.Storage != levelOK {
+		t.Fatalf("2 pending router removals: %+v, want jobs warn and the rest green", got)
+	}
+	pending.Jobs = []jobRow{{Name: expiryJob, at: now.Add(-16 * time.Minute)}}
+	if got := levelsOf(pending, now).Jobs; got != levelBad {
+		t.Fatalf("pending removals must not lower a red jobs level: got %q", got)
+	}
 }
 
 func TestMetricsTokenActions(t *testing.T) {

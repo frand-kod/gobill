@@ -495,3 +495,6 @@
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 }
+
+/* the admin top bar is sticky: in-page anchors (the skip link to #main) stop below it */
+html { scroll-padding-top: 4.5rem; }

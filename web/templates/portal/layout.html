@@ -1,4 +1,5 @@
 {{define "body"}}{{template "toasts" .}}
+<a href="#main" class="btn btn-primary sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-50">{{T "Skip to content"}}</a>
 {{if .Impersonating}}<div class="flex flex-wrap items-center justify-center gap-3 bg-warn-bg px-4 py-2 text-sm font-medium text-warn-fg" role="status">
   <span>{{T "You are logged in as admin"}}: {{.Customer.Username}}</span>
   <form method="post" action="/portal/impersonate/end"><button class="btn btn-ghost btn-sm" type="submit">{{T "Back to admin"}}</button></form>
@@ -36,7 +37,7 @@
     <a class="border-b-2 px-3 py-2 text-sm {{if $profile}}border-brand-500 font-semibold text-accent-fg{{else}}border-transparent text-ink-2 hover:text-ink{{end}}" href="/portal/profile"{{if $profile}} aria-current="page"{{end}}>{{T "Profile"}}</a>
   </nav>
 </header>
-<main class="mx-auto max-w-4xl p-4 pb-24 sm:pb-6">
+<main id="main" tabindex="-1" class="mx-auto max-w-4xl p-4 pb-24 focus:outline-none sm:pb-6">
   {{template "content" .}}
 </main>
 {{/* phones: a fixed bottom tab bar with the five main pages */}}

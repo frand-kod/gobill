@@ -2810,4 +2810,8 @@
     "Choose a package or enter an amount, not both": "Pilih paket atau isi jumlah, jangan keduanya",
     "The balance and active plans are removed (plans are also removed from the router). Transactions are kept.": "Saldo dan paket aktif dihapus (paket juga dihapus dari router). Transaksi tetap disimpan.",
     "The router could not remove this customer, so nothing was deleted.": "Router gagal menghapus pelanggan ini, jadi belum ada yang dihapus.",
-    "Check the router and retry, or delete anyway: the customer is removed here and the router is cleaned up later. Balance and plans are lost; transactions are kept.": "Periksa router lalu coba lagi, atau tetap hapus: pelanggan dihapus di sini dan router dibersihkan nanti. Saldo dan paket hilang; transaksi tetap disimpan."}
+    "Check the router and retry, or delete anyway: the customer is removed here and the router is cleaned up later. Balance and plans are lost; transactions are kept.": "Periksa router lalu coba lagi, atau tetap hapus: pelanggan dihapus di sini dan router dibersihkan nanti. Saldo dan paket hilang; transaksi tetap disimpan.",
+    "Skip to content": "Lewati ke konten",
+    "Notifications (%d)": "Notifikasi (%d)",
+    "Account menu": "Menu akun",
+    "Checked against the customer's router password. The attempt is logged in the activity log; no session or customer data changes. A voucher-style login (password = username) is refused: it would redeem the voucher.": "Dicocokkan dengan password router pelanggan. Percobaan dicatat di log aktivitas; tidak ada data sesi atau pelanggan yang berubah. Login gaya voucher (password = username) ditolak: itu akan menebus voucher."}
