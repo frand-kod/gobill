@@ -10,10 +10,10 @@
   {{template "formgroups" .}}
   {{if $.Help.Sticky}}<div class="sticky bottom-0 z-10 flex gap-2 border-t border-line bg-surface py-3">
     <button class="btn btn-primary" type="submit">{{T .Submit}}</button>
-    <a class="btn btn-ghost" href="{{.Cancel}}">{{T "Cancel"}}</a>
+    {{if eq .Cancel "/logout"}}<button class="btn btn-ghost" type="submit" formaction="/logout" formnovalidate>{{T "Logout"}}</button>{{else}}<a class="btn btn-ghost" href="{{.Cancel}}">{{T "Cancel"}}</a>{{end}}
   </div>{{else}}<div class="flex gap-2">
     <button class="btn btn-primary" type="submit">{{T .Submit}}</button>
-    <a class="btn btn-ghost" href="{{.Cancel}}">{{T "Cancel"}}</a>
+    {{if eq .Cancel "/logout"}}<button class="btn btn-ghost" type="submit" formaction="/logout" formnovalidate>{{T "Logout"}}</button>{{else}}<a class="btn btn-ghost" href="{{.Cancel}}">{{T "Cancel"}}</a>{{end}}
   </div>{{end}}
 </form>
 {{if .HasVars}}<script src="{{asset "/static/tplvars.js"}}"></script>{{end}}
