@@ -23,7 +23,7 @@ import (
 // ---- login / logout ----
 
 func (s *Server) loginForm(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, http.StatusOK, "login", Page{Title: "Sign in"})
+	s.render(w, r, http.StatusOK, "login", Page{Title: "Admin sign in"})
 }
 
 type loginData struct{ Username string }
@@ -33,7 +33,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	ip, uk := clientIP(r), "u:"+strings.ToLower(username)
 	if s.loginLocked(ip, username) {
 		s.render(w, r, http.StatusTooManyRequests, "login", Page{
-			Title: "Sign in",
+			Title: "Admin sign in",
 			Error: "Too many failed attempts. Try again in 15 minutes.",
 		})
 		return
@@ -54,7 +54,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		s.loginFailed(ip, username)
 		s.recordFailure(uk)
 		s.render(w, r, http.StatusOK, "login", Page{
-			Title: "Sign in",
+			Title: "Admin sign in",
 			Error: "Invalid Username or Password",
 			Data:  loginData{Username: username},
 		})

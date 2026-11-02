@@ -13,20 +13,20 @@
 {{if .Data.OTPPhone}}
 <form class="card mb-4" method="post" action="/portal/contact/phone/otp"><h2 class="card-title">{{T "Change Phone Number"}}</h2><div class="card-body flex flex-wrap gap-4">
   <div><label class="label" for="nphone">{{T "New Number"}}</label><input class="input" id="nphone" name="value" inputmode="tel" required></div>
-  <div class="self-end"><button class="btn" type="submit">{{T "Request OTP"}}</button></div>
+  <div class="self-end"><button class="btn" type="submit">{{T "Send code"}}</button></div>
 </div></form>
 {{if eq .Data.Pending "phone"}}<form class="card mb-4" id="verify" method="post" action="/portal/contact/phone/verify"><h2 class="card-title">{{printf (T "Enter the code sent to %s") .Data.Value}}</h2><div class="card-body flex flex-wrap gap-4">
-  <div><label class="label" for="potp">{{T "OTP"}} ({{.Data.Value}})</label><input class="input" id="potp" name="otp" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
-  <div class="self-end"><button class="btn" type="submit">{{T "Update"}}</button></div>
+  <div><label class="label" for="potp">{{T "Verification Code"}} ({{.Data.Value}})</label><input class="input" id="potp" name="otp" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
+  <div class="self-end"><button class="btn" type="submit">{{T "Save"}}</button></div>
 </div></form>{{end}}{{end}}
 {{if .Data.OTPEmail}}
 <form class="card mb-4" method="post" action="/portal/contact/email/otp"><h2 class="card-title">{{T "Change Email"}}</h2><div class="card-body flex flex-wrap gap-4">
   <div><label class="label" for="nemail">{{T "New Email"}}</label><input class="input" id="nemail" name="value" type="email" required></div>
-  <div class="self-end"><button class="btn" type="submit">{{T "Request OTP"}}</button></div>
+  <div class="self-end"><button class="btn" type="submit">{{T "Send code"}}</button></div>
 </div></form>
 {{if eq .Data.Pending "email"}}<form class="card mb-4" id="verify" method="post" action="/portal/contact/email/verify"><h2 class="card-title">{{printf (T "Enter the code sent to %s") .Data.Value}}</h2><div class="card-body flex flex-wrap gap-4">
-  <div><label class="label" for="eotp">{{T "OTP"}} ({{.Data.Value}})</label><input class="input" id="eotp" name="otp" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
-  <div class="self-end"><button class="btn" type="submit">{{T "Update"}}</button></div>
+  <div><label class="label" for="eotp">{{T "Verification Code"}} ({{.Data.Value}})</label><input class="input" id="eotp" name="otp" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
+  <div class="self-end"><button class="btn" type="submit">{{T "Save"}}</button></div>
 </div></form>{{end}}{{end}}
 <form class="card" id="password" method="post" action="/portal/password"><h2 class="card-title">{{T "Change Password"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">
   <div><label class="label" for="cur">{{T "Current Password"}}</label><input class="input" id="cur" name="password" type="password" autocomplete="current-password" required></div>
@@ -36,11 +36,53 @@
   <div><label class="label" for="cnpass">{{T "Confirm New Password"}}</label><input class="input" id="cnpass" name="cnpass" type="password" autocomplete="new-password" minlength="{{.Brand.pass_min}}" required></div>
   <div><button class="btn" type="submit">{{T "Change Password"}}</button></div>
 </div></form>
-{{if .Data.Transfer}}<form class="card mt-4" method="post" action="/portal/transfer" data-confirm="{{T "Send {balance} to {username}?"}}"><h2 class="card-title">{{T "Send Balance"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">
-  <div><label class="label" for="tu">{{T "Username"}}</label><input class="input" id="tu" name="username" required autocomplete="off"></div>
+{{if .Data.Transfer}}<form class="card mt-4" id="transfer" method="post" action="/portal/transfer" data-confirm="{{T "Send {balance} to {username}?"}}" data-confirm-named="{{T "Send {balance} to {name} ({username})?"}}" data-lookup="/portal/transfer/lookup" data-recipient="{{T "Recipient"}}" data-notfound="{{T "User not found"}}"><h2 class="card-title">{{T "Send Balance"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">
+  <div><label class="label" for="tu">{{T "Username"}}</label><input class="input" id="tu" name="username" required autocomplete="off" aria-describedby="tu-who"><p class="hint" id="tu-who" role="status"></p></div>
   <div><label class="label" for="tb">{{T "Balance"}}{{if .Data.Minimum}} (min {{.Data.Minimum}}){{end}}</label><input class="input" id="tb" name="balance" type="number" min="1" inputmode="numeric" required></div>
   <div class="self-end"><button class="btn" type="submit">{{T "Send Balance"}}</button></div>
-</div></form>{{end}}
+</div></form>
+<script>
+// Names the recipient before the confirm: the username is looked up as the customer types, and a submit waits for
+// that lookup. An unknown username stops the submit here; the dialog then names the person it will pay.
+(function () {
+  var f = document.getElementById('transfer'), u = f.elements.username, hint = document.getElementById('tu-who'), known = {}, timer;
+  // resolves to the full name, '' when there is no such username, or null when the lookup failed
+  function lookup() {
+    var v = u.value.trim();
+    if (!v) return Promise.resolve(null);
+    if (v in known) return Promise.resolve(known[v]);
+    return fetch(f.dataset.lookup + '?username=' + encodeURIComponent(v), { credentials: 'same-origin' }).then(function (r) {
+      if (r.status === 404) return (known[v] = '');
+      return r.ok ? r.json().then(function (j) { return (known[v] = j.name || v); }) : null;
+    }).catch(function () { return null; });
+  }
+  u.addEventListener('input', function () {
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      lookup().then(function (name) {
+        hint.textContent = name === '' ? f.dataset.notfound : name ? f.dataset.recipient + ': ' + name : '';
+      });
+    }, 300);
+  });
+  f.addEventListener('submit', function (e) {
+    var v = u.value.trim();
+    if (f.dataset.ok || !v) return;
+    if (f.dataset.looked !== v) { // first submit for this username: look it up, then submit again
+      e.preventDefault();
+      e.stopPropagation();
+      lookup().then(function () { f.dataset.looked = v; f.requestSubmit(e.submitter); });
+      return;
+    }
+    if (known[v] === '') { // nobody has this username: stay here, the hint says so
+      e.preventDefault();
+      e.stopPropagation();
+      u.focus();
+      return;
+    }
+    if (known[v]) f.dataset.confirm = f.dataset.confirmNamed.replace('{name}', known[v]);
+  });
+})();
+</script>{{end}}
 <p class="mt-6 text-sm text-ink-2">{{T "Last Login"}}: {{with .Data.LastLogin}}{{.}}{{else}}-{{end}}</p>
 <p class="mt-1 text-xs text-ink-2">{{or .Brand.company_name "gobill"}} · {{with .Version}}{{if or (eq . "dev") (hasPrefix . "v")}}{{.}}{{else}}v{{.}}{{end}}{{else}}dev{{end}} · GPL-3.0</p>
 {{template "pwscript"}}

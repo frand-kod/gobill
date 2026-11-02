@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"errors"
+	"fmt"
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/payment"
@@ -56,7 +57,7 @@ func (s *Server) pPay(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil || !ok {
 		slog.Warn("pay: channel", "channel", channel, "err", err)
-		s.plansPage(w, r, 200, "Please select Payment Gateway")
+		s.plansPage(w, r, 200, "Please choose how to pay")
 		return
 	}
 	amount, code := p.Price, strings.TrimSpace(r.PostFormValue("coupon"))
@@ -109,7 +110,7 @@ func (s *Server) pTopUp(w http.ResponseWriter, r *http.Request) {
 	case amount <= 0 || amount > 1_000_000_000:
 		s.plansPage(w, r, 200, "Please enter amount")
 	case err != nil || !ok:
-		s.plansPage(w, r, 200, "Please select Payment Gateway")
+		s.plansPage(w, r, 200, "Please choose how to pay")
 	default:
 		s.payOrder(w, r, g, c, 0, "Custom Balance", amount, "", channel)
 	}
@@ -230,8 +231,9 @@ func (s *Server) pPayCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	back := "/portal/payments/" + strconv.FormatInt(pr.ID, 10)
 	if pr.Status == "pending" && pr.GatewayRef != "" {
-		if !s.payCheckAllowed(pr.ID) {
-			s.flashTo(w, r, back, "Please wait a moment before checking again, try again later")
+		if wait := s.payCheckWait(pr.ID); wait > 0 {
+			s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.catalog.T(s.language(), "Wait %d seconds before checking again"), wait))
+			http.Redirect(w, r, back, http.StatusSeeOther)
 			return
 		}
 		got, err := g.Status(r.Context(), payment.Transaction{ID: pr.Ref, Reference: pr.GatewayRef})
@@ -252,9 +254,10 @@ func (s *Server) pPayCheck(w http.ResponseWriter, r *http.Request) {
 // merchant for about an hour on excess status calls).
 const payCheckGap = 30 * time.Second
 
-// payCheckAllowed records a status call for payment id, or reports that one was made within payCheckGap.
+// payCheckWait records a status call for payment id. It returns 0 when the call may go ahead, otherwise the
+// whole seconds left until the next one may.
 // ponytail: in memory and per process; entries are dropped as they age out. Use a DB column if several instances ever run.
-func (s *Server) payCheckAllowed(id int64) bool {
+func (s *Server) payCheckWait(id int64) int {
 	s.payCheckMu.Lock()
 	defer s.payCheckMu.Unlock()
 	now := time.Now()
@@ -263,12 +266,13 @@ func (s *Server) payCheckAllowed(id int64) bool {
 			delete(s.payCheckAt, k)
 		}
 	}
-	if _, busy := s.payCheckAt[id]; busy {
-		return false
+	if t, busy := s.payCheckAt[id]; busy {
+		left := payCheckGap - now.Sub(t)
+		return max(1, int((left+time.Second-1)/time.Second))
 	}
 	if s.payCheckAt == nil {
 		s.payCheckAt = map[int64]time.Time{}
 	}
 	s.payCheckAt[id] = now
-	return true
+	return 0
 }

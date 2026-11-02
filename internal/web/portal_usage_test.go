@@ -70,7 +70,7 @@ func TestDailyUsageAggregation(t *testing.T) {
 	if len(days) != 7 || !days[6].Today || days[6].Down != 22 || days[6].Up != 11 {
 		t.Fatalf("today: %+v", days[6])
 	}
-	if days[0].Label != "6 Oct" || days[0].Down != 200 || days[0].Up != 100 {
+	if days[0].Label != "2026-10-06" || days[0].Down != 200 || days[0].Up != 100 {
 		t.Fatalf("first day: %+v", days[0])
 	}
 	for i := 1; i < 6; i++ {
@@ -107,7 +107,7 @@ func TestPortalDashboardCards(t *testing.T) {
 	if n := strings.Count(body, "<span>Buy / Extend</span>"); n != 0 {
 		t.Fatalf("Buy / Extend buttons without a way to pay = %d, want 0", n)
 	}
-	if !strings.Contains(body, `data-tip="`+time.Unix(now, 0).In(e.s.location()).Format("2 Jan")+" · ↓ ") {
+	if !strings.Contains(body, `data-tip="`+time.Unix(now, 0).In(e.s.location()).Format("2006-01-02")+" · ↓ ") {
 		t.Fatal("today's bar lacks its hover text")
 	}
 	setting(t, e, "payment_gateway", "tripay")

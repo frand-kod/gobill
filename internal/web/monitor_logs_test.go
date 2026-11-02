@@ -101,7 +101,7 @@ func TestRechargeConfirmPreviewWritesNothing(t *testing.T) {
 
 	// balance method shows the balance after and blocks when short
 	b := do(e.h, "POST", base+"/confirm", url.Values{"plan": {itoa(p.ID)}, "method": {"Balance"}}, e.c).Body.String()
-	if !strings.Contains(b, `id="balance-after">Rp -10.000`) || !strings.Contains(b, "disabled") {
+	if !strings.Contains(b, `id="balance-after">-Rp 10.000`) || !strings.Contains(b, "disabled") {
 		t.Fatalf("balance preview: %s", b)
 	}
 	wantCode(t, do(e.h, "POST", base+"/confirm", url.Values{"plan": {"999"}, "method": {"Cash"}}, e.c), 303, "bad plan")

@@ -4,6 +4,7 @@ package web
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -157,7 +158,10 @@ func (s *Server) pTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	amount, _ := strconv.ParseInt(strings.TrimSpace(r.PostFormValue("balance")), 10, 64)
-	err := s.Billing.TransferBalance(r.Context(), customerFrom(r).ID, strings.TrimSpace(r.PostFormValue("username")), amount)
+	username := strings.TrimSpace(r.PostFormValue("username"))
+	// the recipient's name for the flash, read before the transfer (an unknown user just leaves the name empty)
+	to, _ := s.queries.GetCustomerByUsername(r.Context(), username)
+	err := s.Billing.TransferBalance(r.Context(), customerFrom(r).ID, username, amount)
 	for _, e := range []error{billing.ErrSelfTransfer, billing.ErrTargetNotFound, billing.ErrBelowMinimum, billing.ErrTransferDisabled, billing.ErrInsufficientBalance, billing.ErrInactive} {
 		if errors.Is(err, e) {
 			msg := s.catalog.T(s.language(), e.Error())
@@ -174,7 +178,32 @@ func (s *Server) pTransfer(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal transfer", err)
 		return
 	}
-	s.flashTo(w, r, "/portal/profile", s.catalog.T(s.language(), "Sending balance success")+": "+money(amount)+" -> "+strings.TrimSpace(r.PostFormValue("username")))
+	s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.catalog.T(s.language(), "Sent %s to %s (%s)"), money(amount), to.Fullname, username))
+	http.Redirect(w, r, "/portal/profile", http.StatusSeeOther)
+}
+
+// pTransferLookup names the recipient for the confirm dialog. 404 when the username is unknown or transfers are off.
+func (s *Server) pTransferLookup(w http.ResponseWriter, r *http.Request) {
+	st, err := s.loadSettings(r.Context())
+	if err != nil {
+		s.fail(w, "portal transfer lookup", err)
+		return
+	}
+	if st["enable_balance"] == "no" || st["allow_balance_transfer"] != "yes" {
+		http.NotFound(w, r)
+		return
+	}
+	c, err := s.queries.GetCustomerByUsername(r.Context(), strings.TrimSpace(r.URL.Query().Get("username")))
+	if errors.Is(err, sql.ErrNoRows) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		s.fail(w, "portal transfer lookup", err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"name": c.Fullname})
 }
 
 // ---- self extend ----

@@ -140,7 +140,7 @@ func dailyUsage(rows []dayTotal, n int, now int64, loc *time.Location) []dayUse 
 	idx := make(map[string]int, n)
 	for i := range days {
 		d := first.AddDate(0, 0, i-(n-1))
-		days[i] = dayUse{Label: d.Format("2 Jan"), Today: i == n-1}
+		days[i] = dayUse{Label: d.Format("2006-01-02"), Today: i == n-1}
 		idx[d.Format("2006-01-02")] = i
 	}
 	for _, x := range rows {
@@ -225,7 +225,7 @@ func (s *Server) pConnHistory(w http.ResponseWriter, r *http.Request) {
 	for _, x := range ss {
 		key := time.Unix(x.StartedAt, 0).In(loc).Format("2006-01-02")
 		if len(out.Days) == 0 || out.Days[len(out.Days)-1].key != key {
-			out.Days = append(out.Days, pConnDay{Label: time.Unix(x.StartedAt, 0).In(loc).Format("2 Jan 2006"), key: key})
+			out.Days = append(out.Days, pConnDay{Label: time.Unix(x.StartedAt, 0).In(loc).Format("2006-01-02"), key: key})
 		}
 		day := &out.Days[len(out.Days)-1]
 		day.Rows = append(day.Rows, s.pSession(x, now, w2))

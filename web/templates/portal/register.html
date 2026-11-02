@@ -1,11 +1,14 @@
 {{define "body"}}
-<main class="grid min-h-screen place-items-center p-4">
-  <form class="card w-full max-w-md overflow-hidden" method="post" action="/portal/register">
-    <div class="fiber-stripe" aria-hidden="true"></div>
+<main class="pl">
+  <header class="pl-hero">
+    <span class="pl-bubble" style="width:14rem;height:14rem;inset-inline-end:-4rem;top:-5rem" aria-hidden="true"></span>
+    <p class="pl-name">{{with .Brand.login_page_head}}{{.}}{{else}}{{or .Brand.company_name "gobill"}}{{end}}</p>
+  </header>
+  <form class="card pl-card" method="post" action="/portal/register">
     <div class="card-body space-y-4">
-      <h1 class="page-title">{{T "Register"}}</h1>
-      {{if .Flash}}<p class="alert alert-ok" role="status">{{icon "circle-check"}}<span>{{.Flash}}</span></p>{{end}}
-      {{if .Error}}<p class="alert alert-error" role="alert">{{icon "circle-alert"}}<span>{{T .Error}}</span></p>{{end}}
+      <h1 class="text-xl font-bold">{{T "Register"}}</h1>
+      {{if .Flash}}<p class="alert alert-ok !mb-0" role="status">{{icon "circle-check"}}<span>{{.Flash}}</span></p>{{end}}
+      {{if .Error}}<p class="alert alert-error !mb-0" role="alert">{{icon "circle-alert"}}<span>{{T .Error}}</span></p>{{end}}
       {{with .Data}}
       <div><label class="label" for="username">{{T "Username"}}</label><input class="input" id="username" name="username" autocapitalize="none" autocomplete="username" required aria-describedby="uhint" pattern="[a-z0-9]{4,32}" minlength="4" maxlength="32" value="{{.Username}}"><p class="hint" id="uhint">{{T "4 to 32 characters, lowercase letters and digits only"}}</p></div>
       <div><label class="label" for="password">{{T "Password"}}</label>

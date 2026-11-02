@@ -131,6 +131,7 @@ func (s *Server) portalRoutes2(mux *http.ServeMux) {
 	mux.Handle("GET /portal/voucher", s.requireCustomer(s.pVoucherForm))
 	mux.Handle("POST /portal/voucher", s.requireCustomer(s.pVoucher))
 	mux.Handle("POST /portal/transfer", s.requireCustomer(s.pTransfer))
+	mux.Handle("GET /portal/transfer/lookup", s.requireCustomer(s.pTransferLookup))
 	mux.Handle("POST /portal/extend/{id}", s.requireCustomer(s.pExtend))
 	mux.Handle("POST /portal/contact/{kind}/otp", s.requireCustomer(s.pContactOTP))
 	mux.Handle("POST /portal/contact/{kind}/verify", s.requireCustomer(s.pContactVerify))

@@ -68,14 +68,14 @@ func (s *Server) prender(w http.ResponseWriter, r *http.Request, status int, nam
 // ---- login ----
 
 func (s *Server) pLoginForm(w http.ResponseWriter, r *http.Request) {
-	s.prender(w, r, 200, "p_login", Page{Title: "Sign in"})
+	s.prender(w, r, 200, "p_login", Page{Title: "Customer sign in"})
 }
 
 func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.PostFormValue("username"))
 	ip, uk := "c:"+clientIP(r), "cu:"+strings.ToLower(username)
 	if s.loginLocked(ip, username) {
-		s.prender(w, r, http.StatusTooManyRequests, "p_login", Page{Title: "Sign in", Error: "Too many failed attempts. Try again in 15 minutes."})
+		s.prender(w, r, http.StatusTooManyRequests, "p_login", Page{Title: "Customer sign in", Error: "Too many failed attempts. Try again in 15 minutes."})
 		return
 	}
 	s.userDelay(uk)
@@ -87,14 +87,14 @@ func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
 	ok := bcrypt.CompareHashAndPassword(hash, []byte(r.PostFormValue("password"))) == nil
 	if err == nil && ok && (c.Status == "Banned" || c.Status == "Disabled") {
 		// only after a correct password, so this does not reveal which usernames exist
-		s.prender(w, r, 200, "p_login", Page{Title: "Sign in", Error: "This account cannot be used, contact the admin", Data: username})
+		s.prender(w, r, 200, "p_login", Page{Title: "Customer sign in", Error: "This account cannot be used, contact the admin", Data: username})
 		return
 	}
 	if err != nil || !ok {
 		metrics.Inc("login_failures_total", "scope", "portal")
 		s.loginFailed(ip, username)
 		s.recordFailure(uk)
-		s.prender(w, r, 200, "p_login", Page{Title: "Sign in", Error: "Invalid Username or Password", Data: username})
+		s.prender(w, r, 200, "p_login", Page{Title: "Customer sign in", Error: "Invalid Username or Password", Data: username})
 		return
 	}
 	s.clearFailures(loginKey(ip, username))
@@ -170,7 +170,7 @@ func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 	ip := "c:" + clientIP(r)
 	bad := func() {
 		s.recordFailure(ip)
-		s.prender(w, r, 200, "p_login", Page{Title: "Sign in", Error: "Voucher Not Valid"})
+		s.prender(w, r, 200, "p_login", Page{Title: "Customer sign in", Error: "Voucher Not Valid"})
 	}
 	code := strings.TrimSpace(r.PostFormValue("voucher"))
 	username := strings.Map(func(c rune) rune {
