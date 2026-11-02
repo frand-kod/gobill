@@ -179,7 +179,7 @@ func (s *Server) pTransfer(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal transfer", err)
 		return
 	}
-	s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.catalog.T(s.language(), "Sent %s to %s (%s)"), money(amount), to.Fullname, username))
+	s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.catalog.T(s.language(), "Sent %s to %s (%s)"), money(amount), maskName(to.Fullname), username))
 	http.Redirect(w, r, "/portal/profile", http.StatusSeeOther)
 }
 
