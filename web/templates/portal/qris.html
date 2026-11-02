@@ -1,9 +1,8 @@
 {{define "body"}}
 <main class="mx-auto max-w-md space-y-4 p-4">
   {{with .Data}}
-  {{if .Expired}}<div class="alert alert-warn" role="status">{{icon "clock"}}<span>{{T "This invoice is no longer waiting for payment. Open your portal to see your package."}}</span></div>
-  {{else}}{{.Card}}
-  <p class="text-sm text-ink-2">{{T "After you pay, your package is active once the admin has checked the payment."}}</p>{{end}}
+  {{.Card}}
+  <p class="text-sm text-ink-2">{{T "After you pay, your package is active once the admin has checked the payment."}}</p>
   <a class="btn btn-ghost w-full" href="/portal">{{T "Back to portal"}}</a>
   {{end}}
 </main>

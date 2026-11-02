@@ -41,7 +41,7 @@ func TestPortalPlansShortfall(t *testing.T) {
 	}
 }
 
-// A QRIS page for a period that is over shows the state, not the QR.
+// A QRIS page always shows the QR (an overdue bill must stay payable), the confirmation note and a way back.
 func TestQRISPageNotPending(t *testing.T) {
 	s, h, q := isoSetup(t)
 	isoSettings(t, q, map[string]string{"qris_payload": isoQRIS, "company_name": "Toko"})
@@ -53,8 +53,8 @@ func TestQRISPageNotPending(t *testing.T) {
 		}
 		return isoReq(h, "GET", fmt.Sprintf("/qris/%d/%s", tr.ID, payment.QRISToken(s.SecretKey, tr.ID)), "198.51.100.9", nil).Body.String()
 	}
-	if b := mk(time.Now().Add(-time.Hour).Unix()); strings.Contains(b, "data:image/png") || !strings.Contains(b, "tidak lagi menunggu pembayaran") {
-		t.Error("over invoice still shows the QR")
+	if b := mk(time.Now().Add(-time.Hour).Unix()); !strings.Contains(b, "data:image/png") {
+		t.Error("overdue invoice lost its QR")
 	}
 	if b := mk(time.Now().Add(time.Hour).Unix()); !strings.Contains(b, "data:image/png") || !strings.Contains(b, "Kembali ke portal") || !strings.Contains(b, "memeriksa") {
 		t.Error("live invoice misses the QR, the note or the back link")
