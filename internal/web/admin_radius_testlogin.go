@@ -41,6 +41,16 @@ func (s *Server) testLoginFields(r *http.Request, v, e map[string]string, result
 	return out, nil
 }
 
+// rejectLabels maps the reject reasons of radius.Authorize to English keys (translated by T); other reasons are shown as they are.
+var rejectLabels = map[string]string{
+	"Login invalid......":                "Login refused",
+	"Too many attempts, try again later": "Too many attempts, try again later",
+	"Internet Plan Expired..":            "Internet plan expired",
+	"Voucher Expired...":                 "Voucher expired",
+	"You have exceeded your time limit.": "Time limit reached",
+	"You have exceeded your data limit.": "Data limit reached",
+}
+
 func (s *Server) testLoginForm(w http.ResponseWriter, r *http.Request) {
 	fs, err := s.testLoginFields(r, nil, nil, "")
 	if err != nil {
@@ -54,24 +64,39 @@ func (s *Server) testLoginRun(w http.ResponseWriter, r *http.Request) {
 	v := formVals(r, "username", "password", "nas", "mac", "port_type", "port_id")
 	t := func(k string) string { return s.catalog.T(s.language(), k) }
 	user, pw := strings.TrimSpace(v["username"]), v["password"]
-	var result string
-	if user == "" || pw == "" || pw == user {
-		result = t("Enter a username and a password that differs from it")
-	} else {
+	e := map[string]string{}
+	switch {
+	case user == "":
+		e["username"] = "Enter a username"
+	case pw == "":
+		e["password"] = "Enter a password"
+	case pw == user:
+		e["password"] = "Enter a username and a password that differs from it"
+	}
+	var result, reject string
+	if len(e) == 0 {
 		d := s.radiusServer().Authorize(r.Context(), radius.AuthRequest{User: user, DryRun: true, NAS: v["nas"], MAC: strings.TrimSpace(v["mac"]), PortType: v["port_type"], PortID: strings.TrimSpace(v["port_id"]),
 			Check: func(stored []byte) (bool, string) { return subtle.ConstantTimeCompare([]byte(pw), stored) == 1, "" }})
 		if d.Reject != "" {
-			result = t("Access-Reject") + ": " + d.Reject
+			reject = d.Reject
+			if k, ok := rejectLabels[d.Reject]; ok {
+				reject = t(k)
+			}
 		} else {
 			result = fmt.Sprintf("%s\n%s: %s\n%s", t("Access-Accept"), t("Plan"), d.Plan.PlanName, strings.Join(d.Attrs(), "\n"))
 		}
 		s.logActivity(r, "radius.test_login", user)
 	}
 	v["password"] = ""
-	fs, err := s.testLoginFields(r, v, nil, result)
+	fs, err := s.testLoginFields(r, v, e, result)
 	if err != nil {
 		s.fail(w, "test login", err)
 		return
 	}
-	s.renderForm(w, r, 200, formPage{"Test login", "/admin/radius/test-login", "/admin/nas", fs})
+	// a reject is an error alert above the form (role=alert), the same as the validation errors
+	page := Page{Title: "Test login", Data: formPage{"Test login", "/admin/radius/test-login", "/admin/nas", fs}}
+	if reject != "" {
+		page.Error = t("Access-Reject") + ": " + reject
+	}
+	s.render(w, r, http.StatusOK, "form", page)
 }

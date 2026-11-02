@@ -1,6 +1,6 @@
 {{define "content"}}
 {{with .Data}}
-<div class="page-head"><h1 class="page-title">{{T "System Status"}}</h1><p class="hint">{{T "Refreshes every 30 seconds."}}</p></div>
+<div class="page-head"><h1 class="page-title">{{T "System Status"}}</h1><div class="flex flex-wrap items-center gap-3"><p class="hint">{{T "Refreshes every 30 seconds."}}</p><button type="button" class="btn btn-ghost btn-sm" id="st-pause" data-pause="{{T "Pause refresh"}}" data-resume="{{T "Resume refresh"}}">{{T "Pause refresh"}}</button></div></div>
 
 <nav class="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8" aria-label="{{T "System Status"}}">
   <a href="#st-app" class="stat flex-col items-start gap-1 hover:bg-surface-2">
@@ -9,7 +9,7 @@
   </a>
   <a href="#st-storage" class="stat flex-col items-start gap-1 hover:bg-surface-2">
     <span class="flex items-center gap-2 text-sm font-medium">{{template "statusDot" .Levels.Storage}}{{T "Storage"}}</span>
-    <span class="text-xs text-ink-2">{{printf "%.2f" .DBMB}} MB · {{if ge .DaysToFull 0.0}}{{printf "%.0f" .DaysToFull}} {{T "days"}}{{else}}{{T "Not known"}}{{end}}</span>
+    <span class="text-xs text-ink-2">{{printf "%.2f" .DBMB}} MB · {{if ge .DaysToFull 0.0}}{{T "Disk full in"}} {{printf "%.0f" .DaysToFull}} {{T "days"}}{{else}}{{T "Days until disk full"}}: {{T "Not known"}}{{end}}</span>
   </a>
   <a href="#st-radius" class="stat flex-col items-start gap-1 hover:bg-surface-2">
     <span class="flex items-center gap-2 text-sm font-medium">{{template "statusDot" .Levels.Radius}}RADIUS</span>
@@ -17,7 +17,7 @@
   </a>
   <a href="#st-jobs" class="stat flex-col items-start gap-1 hover:bg-surface-2">
     <span class="flex items-center gap-2 text-sm font-medium">{{template "statusDot" .Levels.Jobs}}{{T "Background jobs"}}</span>
-    <span class="text-xs text-ink-2">{{.JobsFailing}} / {{len .Jobs}} {{T "Failures in a row"}}</span>
+    <span class="text-xs text-ink-2">{{printf (T "Jobs failed: %d of %d") .JobsFailing (len .Jobs)}}</span>
   </a>
   <a href="#st-notify" class="stat flex-col items-start gap-1 hover:bg-surface-2">
     <span class="flex items-center gap-2 text-sm font-medium">{{template "statusDot" .Levels.Notify}}{{T "Notifications"}}</span>
@@ -25,7 +25,7 @@
   </a>
   <a href="#st-pay" class="stat flex-col items-start gap-1 hover:bg-surface-2">
     <span class="flex items-center gap-2 text-sm font-medium">{{template "statusDot" .Levels.Pay}}{{T "Payments"}}</span>
-    <span class="text-xs text-ink-2">{{printf "%.0f" .PayOK}} {{T "callbacks OK"}} · {{printf "%.0f" .PayFailed}} {{T "callbacks failed"}}</span>
+    <span class="text-xs text-ink-2">{{printf "%.0f" .PayOK}} {{T "callbacks OK"}} · {{printf "%.0f" .PayFailed}} {{T "callbacks failed"}} ({{T "since app start"}})</span>
   </a>
   <a href="#st-sec" class="stat flex-col items-start gap-1 hover:bg-surface-2">
     <span class="flex items-center gap-2 text-sm font-medium">{{template "statusDot" .Levels.Sec}}{{T "Security"}}</span>
@@ -45,7 +45,7 @@
       <div class="mb-4 grid grid-cols-2 gap-2 xl:grid-cols-4">
         <div class="stat"><div><p class="stat-label">{{T "Accepted (24 h)"}}</p><p class="stat-num">{{printf "%.0f" .Accepted24h}}</p></div></div>
         <div class="stat"><div><p class="stat-label">{{T "Rejected (24 h)"}}</p><p class="stat-num">{{printf "%.0f" .Rejected24h}}</p></div></div>
-        <div class="stat"><div><p class="stat-label">{{T "Average time (ms)"}}</p><p class="stat-num">{{printf "%.1f" .AvgMs}}</p></div></div>
+        <div class="stat"><div><p class="stat-label">{{T "Average time (ms)"}} · {{T "since app start"}}</p><p class="stat-num">{{printf "%.1f" .AvgMs}}</p></div></div>
         <div class="stat"><div><p class="stat-label">{{T "Open sessions"}}</p><p class="stat-num">{{.Open}}</p></div></div>
       </div>
       <p class="mb-4 text-sm">{{T "Router removals waiting for retry"}}: {{if .RouterPending}}<span class="badge badge-bad">{{.RouterPending}}</span>{{else}}0{{end}}</p>
@@ -142,7 +142,22 @@
   </section>
 
 </div>
-<script>setTimeout(function () { location.reload(); }, 30000);</script>
+<script>
+(function () {
+  // Reloads every 30 s, unless paused, the tab is hidden, or a control inside main has focus (a reload would drop it).
+  var btn = document.getElementById('st-pause'), main = document.getElementById('main'), paused = false;
+  setInterval(function () {
+    if (paused || document.hidden) return;
+    var ae = document.activeElement;
+    if (main && ae && ae !== btn && main.contains(ae)) return;
+    location.reload();
+  }, 30000);
+  btn.addEventListener('click', function () {
+    paused = !paused;
+    btn.textContent = paused ? btn.dataset.resume : btn.dataset.pause;
+  });
+})();
+</script>
 {{end}}
 {{end}}
 
