@@ -2814,4 +2814,13 @@
     "Skip to content": "Lewati ke konten",
     "Notifications (%d)": "Notifikasi (%d)",
     "Account menu": "Menu akun",
-    "Checked against the customer's router password. The attempt is logged in the activity log; no session or customer data changes. A voucher-style login (password = username) is refused: it would redeem the voucher.": "Dicocokkan dengan password router pelanggan. Percobaan dicatat di log aktivitas; tidak ada data sesi atau pelanggan yang berubah. Login gaya voucher (password = username) ditolak: itu akan menebus voucher."}
+    "Checked against the customer's router password. The attempt is logged in the activity log; no session or customer data changes. A voucher-style login (password = username) is refused: it would redeem the voucher.": "Dicocokkan dengan password router pelanggan. Percobaan dicatat di log aktivitas; tidak ada data sesi atau pelanggan yang berubah. Login gaya voucher (password = username) ditolak: itu akan menebus voucher.",
+    "fields need fixing": "kolom perlu diperbaiki",
+    "No results for this filter": "Tidak ada hasil untuk filter ini",
+    "Actions": "Aksi",
+    "Forbidden": "Akses ditolak",
+    "You do not have access to this page.": "Anda tidak punya akses ke halaman ini.",
+    "Page not found": "Halaman tidak ditemukan",
+    "The page you opened does not exist or was moved.": "Halaman yang Anda buka tidak ada atau sudah dipindahkan.",
+    "Method not allowed": "Metode tidak diizinkan",
+    "This address does not accept that kind of request.": "Alamat ini tidak menerima jenis permintaan itu."}

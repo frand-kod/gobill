@@ -191,6 +191,9 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, name
 			*a.dst = v
 		}
 	}
+	if s.sessions.PopString(ctx, "flash_sticky") != "" {
+		p.Sticky = true
+	}
 	if p.Intro.Title == "" {
 		p.Intro = introFor(name, r.URL.Path)
 	}

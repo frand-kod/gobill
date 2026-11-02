@@ -122,7 +122,7 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 	}
 	lp := listPage{Heading: "Voucher", Base: "/admin/vouchers", Q: q, Searchable: true, DeleteOnly: true,
 		CanCreate: oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), CanEdit: oneOf(role, "SuperAdmin", "Admin"),
-		Filters: []filter{{"status", status, vchStatuses}},
+		Filters: []filter{{"status", status, vchStatuses, "Status"}},
 		Cols:    []string{"Code Voucher", "Plan Name", "Status", "Created", "Used"}}
 	if lp.CanEdit {
 		lp.Bulk = []bulkAction{{"delete-many", "Delete selected", true, false, false}, {"remove-old", "Delete used vouchers older than 3 months", true, true, false}}

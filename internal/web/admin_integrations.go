@@ -20,7 +20,7 @@ import (
 // shows the server's answer on the integrations page.
 func (s *Server) waTest(w http.ResponseWriter, r *http.Request) {
 	if adminFrom(r).Role != "SuperAdmin" {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+		s.deny(w, r, http.StatusForbidden)
 		return
 	}
 	v, e, err := s.waTestSend(r)

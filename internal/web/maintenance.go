@@ -37,7 +37,7 @@ func (s *Server) maintenance(next http.Handler) http.Handler {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Retry-After", "3600")
 		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+		w.Write([]byte(`<!doctype html><html lang="` + s.langCode() + `"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
 			`<title>` + title + `</title></head>` +
 			`<body style="font-family:sans-serif;text-align:center;padding:4rem 1rem"><h1>` + title + `</h1><p>` + msg + `</p></body></html>`))
 	})

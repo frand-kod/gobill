@@ -43,7 +43,7 @@ func (s *Server) isoList(w http.ResponseWriter, r *http.Request) {
 	}
 	lp := listPage{Heading: "Isolations", Base: "/admin/isolations", Q: p.Q, Searchable: true,
 		Cols:    []string{"Username", "Name", "Started On", "Ends On", "Ended On", "Reason", "Status"},
-		Filters: []filter{{"status", p.Status, []option{{"", "Status"}, {"running", "running"}, {"ended", "ended"}}}}}
+		Filters: []filter{{"status", p.Status, []option{{"", "Status"}, {"running", "running"}, {"ended", "ended"}}, "Status"}}}
 	lp.Links = []option{{"/admin/isolations/export?" + lp.query().Encode(), "Export CSV"}}
 	now := time.Now().Unix()
 	for _, x := range rows {

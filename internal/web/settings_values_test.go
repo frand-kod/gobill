@@ -58,7 +58,7 @@ func settingSampleFor(f field) string {
 
 // secretHint returns the hint under a password field, so each secret is checked on its own.
 func secretHint(body, name string) string {
-	m := regexp.MustCompile(`(?s)name="` + name + `" type="password".*?<p class="hint">([^<]*)</p>`).FindStringSubmatch(body)
+	m := regexp.MustCompile(`(?s)name="` + name + `" type="password".*?<p class="hint"[^>]*>([^<]*)</p>`).FindStringSubmatch(body)
 	if m == nil {
 		return ""
 	}

@@ -101,16 +101,100 @@ func (s *Server) fail(w http.ResponseWriter, what string, err error) {
 }
 
 // errorPage is the 500 page: Indonesian text from the catalog, no internal error text, a reference to find the log line.
-// It does not use the page layout because fail has no request (and the failure may be in the layout itself).
 func (s *Server) errorPage(w http.ResponseWriter, ref string) {
-	t := func(k string) string { return html.EscapeString(s.catalog.T(s.language(), k)) }
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusInternalServerError)
-	fmt.Fprintf(w, `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%[1]s</title><link rel="stylesheet" href="%[5]s"></head>
-<body><main class="mx-auto max-w-md p-4"><div class="card mt-12"><div class="card-body space-y-4" role="alert"><h1 class="text-xl font-semibold">%[1]s</h1><p>%[2]s</p><p class="hint">Ref: %[3]s</p>
-<a class="btn btn-primary min-h-10" href="/" onclick="history.back();return false">%[4]s</a></div></div></main></body></html>`,
-		t("Something went wrong"), t("The request could not be completed. Check the data before trying again."), ref, t("Go back"), s.asset("/static/app.css"))
+	s.errorHTML(w, http.StatusInternalServerError, "Something went wrong", "The request could not be completed. Check the data before trying again.", ref)
 }
+
+// langCode is the html lang attribute for the active language.
+func (s *Server) langCode() string {
+	switch s.language() {
+	case "english":
+		return "en"
+	case "arabic":
+		return "ar"
+	case "spanish":
+		return "es"
+	case "turkish":
+		return "tr"
+	}
+	return "id"
+}
+
+// errorHTML is the shared error page (500, 403, 404, 405). It does not use the page layout because fail has
+// no request (and the failure may be in the layout itself), so it carries its own lang and a small theme script.
+func (s *Server) errorHTML(w http.ResponseWriter, code int, title, msg, ref string) {
+	t := func(k string) string { return html.EscapeString(s.catalog.T(s.language(), k)) }
+	refLine := ""
+	if ref != "" {
+		refLine = `<p class="hint">Ref: ` + html.EscapeString(ref) + `</p>`
+	}
+	dir := "ltr"
+	if s.language() == "arabic" {
+		dir = "rtl"
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(code)
+	fmt.Fprintf(w, `<!doctype html><html lang="%[6]s" dir="%[7]s"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%[1]s</title>`+
+		`<script>try{var t=JSON.parse(localStorage.getItem('gb-theme')||'{}'),m=t.mode||'system',d=document.documentElement;d.classList.toggle('dark',m==='dark'||m==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);if(t.accent==='orange')d.dataset.accent='orange'}catch(e){}</script>`+
+		`<link rel="stylesheet" href="%[5]s"></head>
+<body><main class="mx-auto max-w-md p-4"><div class="card mt-12"><div class="card-body space-y-4" role="alert"><h1 class="text-xl font-semibold">%[1]s</h1><p>%[2]s</p>%[3]s
+<a class="btn btn-primary min-h-10" href="/" onclick="history.back();return false">%[4]s</a></div></div></main></body></html>`,
+		t(title), t(msg), refLine, t("Go back"), s.asset("/static/app.css"), s.langCode(), dir)
+}
+
+// wantsPlain reports a request whose answer is data, not a page: API, JSON, RADIUS and static paths.
+func wantsPlain(r *http.Request) bool {
+	p := r.URL.Path
+	return strings.HasSuffix(p, ".json") || strings.HasPrefix(p, "/api/") || strings.HasPrefix(p, "/static/") ||
+		strings.HasPrefix(p, "/callback/") || isRadiusRest(p) || strings.Contains(r.Header.Get("Accept"), "json")
+}
+
+// deny answers 403, 404 or 405: the styled page for browsers, the bare status text for API callers.
+func (s *Server) deny(w http.ResponseWriter, r *http.Request, code int) {
+	if wantsPlain(r) {
+		http.Error(w, http.StatusText(code), code)
+		return
+	}
+	title, msg := "Forbidden", "You do not have access to this page."
+	switch code {
+	case http.StatusNotFound:
+		title, msg = "Page not found", "The page you opened does not exist or was moved."
+	case http.StatusMethodNotAllowed:
+		title, msg = "Method not allowed", "This address does not accept that kind of request."
+	}
+	s.errorHTML(w, code, title, msg, "")
+}
+
+// styledNotFound wraps the mux: a request no route matches (404, or 405 for a known path) gets the styled page.
+func (s *Server) styledNotFound(mux *http.ServeMux) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h, pattern := mux.Handler(r)
+		if pattern != "" {
+			mux.ServeHTTP(w, r) // not h: only the mux fills in the path values
+			return
+		}
+		probe := &statusProbe{h: http.Header{}}
+		h.ServeHTTP(probe, r)
+		if probe.code != http.StatusNotFound && probe.code != http.StatusMethodNotAllowed { // a redirect to the clean path
+			mux.ServeHTTP(w, r)
+			return
+		}
+		if probe.code == http.StatusMethodNotAllowed {
+			w.Header().Set("Allow", probe.h.Get("Allow"))
+		}
+		s.deny(w, r, probe.code)
+	})
+}
+
+// statusProbe records the status the mux's own 404/405 handler would send, and drops its body.
+type statusProbe struct {
+	h    http.Header
+	code int
+}
+
+func (p *statusProbe) Header() http.Header         { return p.h }
+func (p *statusProbe) Write(b []byte) (int, error) { return len(b), nil }
+func (p *statusProbe) WriteHeader(c int)           { p.code = c }
 
 func pathID(r *http.Request) int64 {
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
@@ -131,6 +215,9 @@ func (s *Server) logActivity(r *http.Request, action, desc string) {
 func (s *Server) done(w http.ResponseWriter, r *http.Request, back, msg, action, desc string) {
 	s.logActivity(r, action, desc)
 	s.sessions.Put(r.Context(), "flash", s.catalog.T(s.language(), msg))
+	if strings.Contains(action, "recharge") || strings.Contains(action, "deposit") { // money results stay until closed
+		s.sessions.Put(r.Context(), "flash_sticky", "1")
+	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 

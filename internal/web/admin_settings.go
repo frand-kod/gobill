@@ -641,7 +641,7 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 }
 
 // settingsTab reads the sub-page from the path. It 404s an unknown page and 403s a role that may not open it.
-func settingsTab(w http.ResponseWriter, r *http.Request) (string, bool) {
+func (s *Server) settingsTab(w http.ResponseWriter, r *http.Request) (string, bool) {
 	tab := r.PathValue("tab")
 	for _, t := range settingsTabs {
 		if t.Slug == "wireguard" && !wg.Built {
@@ -649,13 +649,13 @@ func settingsTab(w http.ResponseWriter, r *http.Request) (string, bool) {
 		}
 		if t.Slug == tab {
 			if t.SuperOnly && adminFrom(r).Role != "SuperAdmin" {
-				http.Error(w, "Forbidden", http.StatusForbidden)
+				s.deny(w, r, http.StatusForbidden)
 				return "", false
 			}
 			return tab, true
 		}
 	}
-	http.NotFound(w, r)
+	s.deny(w, r, http.StatusNotFound)
 	return "", false
 }
 
@@ -664,7 +664,7 @@ func (s *Server) settingsForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/settings/app", http.StatusSeeOther)
 		return
 	}
-	tab, ok := settingsTab(w, r)
+	tab, ok := s.settingsTab(w, r)
 	if !ok {
 		return
 	}
@@ -798,7 +798,7 @@ func (s *Server) backupStatus(st map[string]string) string {
 }
 
 func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
-	tab, ok := settingsTab(w, r)
+	tab, ok := s.settingsTab(w, r)
 	if !ok {
 		return
 	}
@@ -988,7 +988,7 @@ func (s *Server) notifReset(w http.ResponseWriter, r *http.Request) {
 // dbBackup streams a consistent copy of the database made with VACUUM INTO. SuperAdmin only.
 func (s *Server) dbBackup(w http.ResponseWriter, r *http.Request) {
 	if a := adminFrom(r); a == nil || a.Role != "SuperAdmin" {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+		s.deny(w, r, http.StatusForbidden)
 		return
 	}
 	// Next to the database, not os.TempDir: that is often a RAM tmpfs too small for the copy.
