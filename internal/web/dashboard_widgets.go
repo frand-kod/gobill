@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"net/url"
 	"strconv"
 	"strings"
@@ -20,6 +21,8 @@ type dashWidgets struct {
 	Recent   []expiringRow // ended in the last 7 days and not renewed, newest first
 	Usage    usageCard
 	Logs     []logRow // the newest dashLogLimit entries
+	// the card's query failed (logged): the card shows "Data could not be loaded" and the rest of the page renders
+	ExpiringErr, RecentErr, UsageErr, LogsErr bool
 }
 
 // usageCard is the Usage card: the same data over the last 7 and the last 30 days.
@@ -93,10 +96,12 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	nextWeek := time.Date(y, m, d+7, 0, 0, 0, 0, loc).Unix() - 1
 	weekStart := time.Date(y, m, d-6, 0, 0, 0, 0, loc).Unix()
 	words := s.pTexts()
+	// each card's query is independent: a failure sets its Err flag and leaves its rows empty
 	soon, err := s.queries.ListExpiringSubscriptions(ctx, db.ListExpiringSubscriptionsParams{
 		Since: now.Unix(), Until: nextWeek, PageLimit: dashListLimit})
 	if err != nil {
-		return
+		slog.Error("dashboard expiring", "err", err)
+		w.ExpiringErr = true
 	}
 	for _, r := range soon {
 		x := s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.Balance, r.LastSeenAt, r.ExpiresAt)
@@ -107,7 +112,8 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	ended, err := s.queries.ListRecentlyExpiredSubscriptions(ctx, db.ListRecentlyExpiredSubscriptionsParams{
 		Since: weekStart, Until: now.Unix(), PageLimit: dashListLimit})
 	if err != nil {
-		return
+		slog.Error("dashboard recent", "err", err)
+		w.RecentErr = true
 	}
 	for _, r := range ended {
 		x := s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.Balance, r.LastSeenAt, r.ExpiresAt)
@@ -115,21 +121,25 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 		x.When = words.span(now.Unix()-r.ExpiresAt) + " " + s.catalog.T(s.language(), "ago")
 		w.Recent = append(w.Recent, x)
 	}
-	if w.Usage.Week, err = s.usageWindow(ctx, now, loc, 7); err != nil {
-		return
-	}
-	if w.Usage.Month, err = s.usageWindow(ctx, now, loc, 30); err != nil {
-		return
+	week, errWeek := s.usageWindow(ctx, now, loc, 7)
+	month, errMonth := s.usageWindow(ctx, now, loc, 30)
+	if err = errors.Join(errWeek, errMonth); err != nil {
+		slog.Error("dashboard usage", "err", err)
+		w.UsageErr = true
+	} else {
+		w.Usage = usageCard{Week: week, Month: month}
 	}
 	logs, err := s.queries.ListActivityLogs(ctx, db.ListActivityLogsParams{Limit: dashLogLimit})
 	if err != nil {
-		return
+		slog.Error("dashboard activity log", "err", err)
+		w.LogsErr = true
 	}
 	for _, r := range logs {
 		when := words.span(now.Unix()-r.CreatedAt) + " " + s.catalog.T(s.language(), "ago")
 		w.Logs = append(w.Logs, logRow{Label: s.actionLabel(r.Action), Actor: s.actorLabel(ctx, r.ActorType, r.ActorID), Description: r.Description, When: when})
 	}
-	return
+	// card errors are flagged above, not returned: only the settings read (before any card) fails the page
+	return w, nil
 }
 
 // dashListLimit caps the Expiring and Recent lists; the tab counts are the rows shown.

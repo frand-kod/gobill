@@ -207,7 +207,7 @@ function gbNav(id) {
           <div id="gb-bell" x-show="o" x-cloak class="absolute end-0 z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-surface py-1 shadow-lg">
             <p class="px-4 py-2 text-sm font-semibold">{{T "Notifications"}}</p>
             {{range .Notices}}<a class="flex items-center gap-3 px-4 py-2 text-sm hover:bg-surface-2 focus-visible:bg-surface-2" href="{{.Href}}" @click="o=false">
-              <span class="size-2.5 shrink-0 rounded-full {{if .Err}}bg-err-fg{{else}}bg-warn-fg{{end}}" aria-hidden="true"></span>
+              {{if .Err}}<span class="shrink-0 text-err-fg" aria-hidden="true">{{icon "triangle-alert"}}</span><span class="sr-only">{{T "Problem"}}:</span>{{else}}<span class="shrink-0 text-warn-fg" aria-hidden="true">{{icon "circle-alert"}}</span><span class="sr-only">{{T "Warning"}}:</span>{{end}}
               <span class="min-w-0 flex-1">{{T .Kind}}</span><span class="font-medium tabular-nums">{{.Count}}</span>
             </a>{{else}}<p class="px-4 py-2 text-sm text-ink-2">{{T "Nothing to check"}}</p>{{end}}
           </div>

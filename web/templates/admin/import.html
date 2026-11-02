@@ -39,8 +39,16 @@
     {{if .Filled}}
     <button class="btn btn-primary" type="button" @click="$refs.dlg.showModal()">{{T "Import now"}}</button>
     {{else}}
-    <form method="post" action="/admin/settings/system/import/confirm">
+    <form class="w-full space-y-3" method="post" action="/admin/settings/system/import/confirm">
       <input type="hidden" name="token" value="{{.Token}}">
+      <div>
+        <label class="label" for="current">{{T "Current password"}}</label>
+        <input class="input" id="current" name="current" type="password" autocomplete="current-password" required>
+      </div>
+      {{if .TOTP}}<div>
+        <label class="label" for="code">{{T "Authenticator or recovery code"}}</label>
+        <input class="input" id="code" name="code" autocomplete="one-time-code" required>
+      </div>{{end}}
       <button class="btn btn-primary" type="submit">{{T "Import now"}}</button>
     </form>
     {{end}}

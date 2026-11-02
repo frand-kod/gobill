@@ -83,9 +83,9 @@ func money(n int64) string {
 // badge maps a status value to its badge colour class.
 func badge(v string) string {
 	switch strings.ToLower(v) {
-	case "active", "enable", "enabled", "unused", "yes", "online", "ok":
+	case "active", "enable", "enabled", "unused", "yes", "online", "ok", "accepted":
 		return "badge-ok"
-	case "disable", "disabled", "banned", "suspended", "expired", "inactive", "no", "offline", "error":
+	case "disable", "disabled", "banned", "suspended", "expired", "inactive", "no", "offline", "error", "rejected":
 		return "badge-bad"
 	case "limited", "secret lemah":
 		return "badge-warn"

@@ -304,19 +304,31 @@ func (s *Server) msgLogExport(w http.ResponseWriter, r *http.Request) {
 
 var authLogCols = []string{"Date", "User", "NAS", "MAC", "Result", "Reason"}
 
+// authLogListCols is the page header: the column named "Status" makes list.html draw the result as a badge.
+var authLogListCols = []string{"Date", "User", "NAS", "MAC", "Status", "Reason"}
+
 func (s *Server) authLogParams(r *http.Request) db.SearchRadiusAuthLogParams {
 	_, _, f, t := s.dateRange(r)
 	return db.SearchRadiusAuthLogParams{Q: strings.TrimSpace(r.URL.Query().Get("q")), FromTs: f, ToTs: t}
 }
 
-func (s *Server) authLogRows(rows []db.RadiusAuthLog) [][]string {
+// authLogRows: the export gets translated results and raw reasons. The page (page=true) gets the English
+// result key, which list.html translates and badges, and the reason translated through rejectLabels.
+func (s *Server) authLogRows(rows []db.RadiusAuthLog, page bool) [][]string {
 	out := [][]string{}
 	for _, x := range rows {
-		res := s.catalog.T(s.language(), "Rejected")
+		res, reason := "Rejected", x.Message
 		if x.Accepted == 1 {
-			res = s.catalog.T(s.language(), "Accepted")
+			res = "Accepted"
 		}
-		out = append(out, []string{s.ts(x.At), x.Username, x.NasIp, x.Mac, res, x.Message})
+		if page {
+			if k, ok := rejectLabels[x.Message]; ok {
+				reason = s.catalog.T(s.language(), k)
+			}
+		} else {
+			res = s.catalog.T(s.language(), res)
+		}
+		out = append(out, []string{s.ts(x.At), x.Username, x.NasIp, x.Mac, res, reason})
 	}
 	return out
 }
@@ -332,8 +344,8 @@ func (s *Server) radiusAuthLog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	from, to, _, _ := s.dateRange(r)
-	lp := listPage{Heading: "Login attempts", Base: "/admin/logs/auth", Q: q, Searchable: true, Dates: true, From: from, To: to, Cols: authLogCols, Clean: "/admin/logs/clean/auth"}
-	for i, c := range s.authLogRows(rows) {
+	lp := listPage{Heading: "Login attempts", Base: "/admin/logs/auth", Q: q, Searchable: true, Dates: true, From: from, To: to, Cols: authLogListCols, Clean: "/admin/logs/clean/auth"}
+	for i, c := range s.authLogRows(rows, true) {
 		lp.Rows = append(lp.Rows, listRow{rows[i].ID, c})
 	}
 	lp.Links = []option{{"/admin/logs/auth/export?" + lp.query().Encode(), "Export CSV"}, {"/admin/logs/radius", "Radius Logs"}}
@@ -351,7 +363,7 @@ func (s *Server) radiusAuthLogExport(w http.ResponseWriter, r *http.Request) {
 	err := s.exportCSV(w, "login-attempts", authLogCols, func(off int64) ([][]string, error) {
 		p.PageLimit, p.PageOffset = exportChunk, off
 		rows, err := s.queries.SearchRadiusAuthLog(r.Context(), p)
-		return s.authLogRows(rows), err
+		return s.authLogRows(rows, false), err
 	})
 	if err != nil {
 		s.fail(w, "export auth log", err)

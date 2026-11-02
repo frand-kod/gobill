@@ -2919,4 +2919,14 @@
     "Your password is from the old system and is stored in a weak format. Choose a new one to continue. You cannot open other pages until you do.": "Kata sandi Anda berasal dari sistem lama dan disimpan dalam format yang lemah. Pilih yang baru untuk melanjutkan. Halaman lain tidak bisa dibuka sebelum Anda menggantinya.",
     "Sending…": "Mengirim…",
     "Checking…": "Memeriksa…",
-    "I have saved them": "Saya sudah menyimpannya"}
+    "I have saved them": "Saya sudah menyimpannya",
+    "Second copy not set up yet": "Cadangan kedua belum diatur",
+    "Data could not be loaded": "Data tidak dapat dimuat",
+    "Download traffic": "Unduh",
+    "Upload traffic": "Unggah",
+    "opens in a new tab": "dibuka di tab baru",
+    "Breadcrumb": "Jejak navigasi",
+    "Have you saved the key outside this server? Without it a restored backup cannot open router passwords and API keys.": "Sudah menyimpan kunci di luar server ini? Tanpa kunci, cadangan yang dipulihkan tidak bisa membuka sandi router dan kunci API.",
+    "Skipping leaves this step empty. It can be filled later in Settings.": "Melewati langkah ini membuatnya kosong. Langkah ini bisa diisi nanti di Pengaturan.",
+    "Prefilled with now. Empty also means now. Session history is kept for the days set in Settings > Keep logs (days).": "Diisi dengan sekarang. Kosong juga berarti sekarang. Riwayat sesi disimpan selama hari yang diatur di Pengaturan > Simpan log (hari)."
+}

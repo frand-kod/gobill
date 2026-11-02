@@ -5,6 +5,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -28,6 +29,7 @@ type dashData struct {
 	MoneyPrefix, MoneySep    string // money's currency prefix and group separator, for the chart axis
 	ListLimit                int    // dashListLimit: the Customers tabs show "N+" at this many rows
 	Network                  netCard
+	NetErr                   bool // the network card query failed: the tile shows "Data could not be loaded"
 	dashWidgets
 }
 
@@ -126,11 +128,13 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 		d.SalesTotal += sales[m]
 	}
 	d.Labels, d.Regs, d.Sales = jsonStr(labels), jsonStr(regs), jsonStr(sales)
+	// a failing card is logged and blanked (its template shows "Data could not be loaded"); the page still renders
 	if d.dashWidgets, err = s.widgetData(ctx, now); err != nil {
 		return
 	}
 	if d.Network, err = s.networkCard(ctx, now); err != nil {
-		return
+		slog.Error("dashboard network card", "err", err)
+		d.NetErr, err = true, nil
 	}
 	return
 }

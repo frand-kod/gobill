@@ -2,10 +2,10 @@
 {{with .Data}}
 {{$d := .}}
 <div class="page-head">
-  <h1 class="page-title">{{if .Period}}{{T "Period Report"}}{{else}}{{T "Daily Report"}}{{end}}{{template "callout" $.Intro}}</h1>
+  <h1 class="page-title">{{if .Period}}{{T "Period Report"}}{{else}}{{T "Daily Report"}}{{end}}: {{if .Period}}{{.From}} – {{.To}}{{else}}{{.From}}{{end}}{{template "callout" $.Intro}}</h1>
   <div class="flex flex-wrap gap-2">
     <a class="btn btn-ghost" href="/admin/reports/export?{{.Query}}">{{T "Export CSV"}}</a>
-    <a class="btn btn-ghost" href="/admin/reports/print?{{.Query}}" target="_blank">{{T "Print"}}</a>
+    <a class="btn btn-ghost" href="/admin/reports/print?{{.Query}}" target="_blank" rel="noopener">{{T "Print"}} <span aria-hidden="true">↗</span><span class="sr-only">({{T "opens in a new tab"}})</span></a>
   </div>
 </div>
 <div class="card overflow-hidden">

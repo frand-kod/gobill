@@ -32,6 +32,7 @@ type netRow struct {
 type netCard struct {
 	Rows            []netRow
 	Online, Offline int
+	OfflineNames    []string // up to 3 offline device names, the tile shows them
 }
 
 // netStat is what the RADIUS side saw of one NAS, keyed by its packet source IP.
@@ -82,6 +83,9 @@ func (s *Server) networkCard(ctx context.Context, now time.Time) (netCard, error
 			c.Online++
 		case "Offline":
 			c.Offline++
+			if len(c.OfflineNames) < 3 {
+				c.OfflineNames = append(c.OfflineNames, r.Name)
+			}
 			c.Rows[i].Tint = "bg-err-bg"
 		default:
 			c.Rows[i].Tint = "bg-surface-2"

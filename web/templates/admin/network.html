@@ -2,7 +2,7 @@
 {{with .Data}}
 <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
   <div class="min-w-0">
-    <p class="text-sm text-ink-2"><a class="link" href="/admin">{{T "Dashboard"}}</a> / {{T "Network"}}</p>
+    <nav aria-label="{{T "Breadcrumb"}}"><p class="text-sm text-ink-2"><a class="link" href="/admin">{{T "Dashboard"}}</a> / {{T "Network"}}</p></nav>
     <h1 class="page-title min-w-0">{{.Name}}{{template "callout" $.Intro}}</h1>
     <p class="text-sm text-ink-2">{{T .TypeLabel}}</p>
   </div>
@@ -33,9 +33,10 @@
 
 {{if eq .Kind "router"}}
 <section class="card mb-4" aria-labelledby="net-live">
-  <h2 class="card-title flex flex-wrap items-center justify-between gap-2" id="net-live"><span>{{T "Live check"}}</span>
-    {{if .CanCheck}}<form method="post" action="{{.Row.Href}}/check"><button class="btn btn-primary" type="submit">{{icon "gauge"}}<span>{{T "Check now"}}</span></button></form>{{end}}
-  </h2>
+  <div class="card-title flex flex-wrap items-center justify-between gap-2">
+    <h2 id="net-live">{{T "Live check"}}</h2>
+    {{if .CanCheck}}<form method="post" action="{{.Row.Href}}/check"><button class="btn btn-primary" type="submit" data-busy-label="{{T "Checking…"}}">{{icon "gauge"}}<span>{{T "Check now"}}</span></button></form>{{end}}
+  </div>
   <div class="card-body text-sm">
     {{if not .CanCheck}}
       <p class="text-ink-2">{{T "This router has no API user or password. Add them under Routers to check it live."}}</p>

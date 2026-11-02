@@ -111,7 +111,8 @@ function wizLive(url, key) {
 
       <div class="flex flex-wrap gap-2">
         <button class="btn btn-primary" type="submit">{{T "Save and continue"}}</button>
-        <button class="btn btn-ghost" type="submit" formaction="/admin/setup/{{.Step.Slug}}/skip" formnovalidate>{{T "Skip this step"}}</button>
+        <button class="btn btn-ghost" type="submit" formaction="/admin/setup/{{.Step.Slug}}/skip" formnovalidate{{if not .Step.Optional}} aria-describedby="skip-hint"{{end}}>{{T "Skip this step"}}</button>
+        {{if not .Step.Optional}}<p id="skip-hint" class="hint w-full">{{T "Skipping leaves this step empty. It can be filled later in Settings."}}</p>{{end}}
       </div>
     </form>
     {{end}}

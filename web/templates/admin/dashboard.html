@@ -40,7 +40,7 @@
     <span class="text-ok-fg">{{icon "wifi"}}</span>
   </a>
   <a href="/admin/routers" class="stat py-3{{if .Network.Offline}} border-err-fg{{end}}">
-    <div><p class="stat-label">{{T "Network"}}</p><p class="{{if .Network.Offline}}stat-num text-err-fg{{else}}text-base font-normal text-ink-2{{end}}" id="tile-network">{{.Network.Online}}/{{len .Network.Rows}} {{T "Online"}}</p></div>
+    <div><p class="stat-label">{{T "Network"}}</p>{{if .NetErr}}<p class="text-sm text-err-fg">{{T "Data could not be loaded"}}</p>{{else}}<p class="{{if .Network.Offline}}stat-num text-err-fg{{else}}text-base font-normal text-ink-2{{end}}" id="tile-network">{{.Network.Online}}/{{len .Network.Rows}} {{T "Online"}}</p>{{if .Network.OfflineNames}}<p class="text-xs text-err-fg">{{.Network.Offline}} {{T "Offline"}}: {{range $i, $n := .Network.OfflineNames}}{{if $i}}, {{end}}{{$n}}{{end}}</p>{{end}}{{end}}</div>
     <span class="{{if .Network.Offline}}text-err-fg{{else}}text-ok-fg{{end}}">{{icon "network"}}</span>
   </a>{{end}}
 </div>
@@ -64,7 +64,8 @@
     </div>
   </div>
   <div role="tabpanel" id="customers-expiring" aria-labelledby="customers-tab-expiring" data-list="expiring" x-show="tab === 'expiring'">
-  {{if .Expiring}}<div class="max-h-[22rem] overflow-auto"><table class="table">
+  {{if .ExpiringErr}}<p class="card-body text-sm text-err-fg">{{T "Data could not be loaded"}}</p>
+  {{else if .Expiring}}<div class="max-h-[22rem] overflow-auto"><table class="table">
     <thead><tr><th>{{T "Username"}}</th><th class="font-medium">{{T "Expires"}}</th><th></th></tr></thead>
     <tbody>{{template "expiry-rows" .Expiring}}</tbody>
   </table></div>
@@ -72,7 +73,8 @@
   {{else}}<p class="card-body text-sm text-ink-2">{{T "No plans end in the next 7 days."}}</p>{{end}}
   </div>
   <div role="tabpanel" id="customers-expired" aria-labelledby="customers-tab-expired" data-list="expired" x-show="tab === 'expired'">
-  {{if .Recent}}<div class="max-h-[22rem] overflow-auto"><table class="table">
+  {{if .RecentErr}}<p class="card-body text-sm text-err-fg">{{T "Data could not be loaded"}}</p>
+  {{else if .Recent}}<div class="max-h-[22rem] overflow-auto"><table class="table">
     <thead><tr><th>{{T "Username"}}</th><th class="font-medium">{{T "Expires"}}</th><th></th></tr></thead>
     <tbody>{{template "expiry-rows" .Recent}}</tbody>
   </table></div>
@@ -104,8 +106,9 @@
       <button type="button" class="btn btn-sm" :aria-pressed="win === 30 ? 'true' : 'false'" @click="win = 30">{{T "30 days"}}</button>
     </span>{{template "collapse" "usage"}}</span></h2>
   <div id="usage-body" data-collapse-body>
+  {{if .UsageErr}}<p class="card-body text-sm text-err-fg">{{T "Data could not be loaded"}}</p>{{else}}
   <div x-show="win === 7">{{template "usage-win" .Usage.Week}}</div>
-  <div x-show="win === 30">{{template "usage-win" .Usage.Month}}</div>
+  <div x-show="win === 30">{{template "usage-win" .Usage.Month}}</div>{{end}}
   <p class="card-body pt-0 text-xs text-ink-2">{{T "RADIUS sessions only"}}</p>
   </div>
 </section>
@@ -116,7 +119,7 @@
   <div id="logs-body" data-collapse-body><div class="max-h-[22rem] overflow-auto"><table class="table">
     <thead><tr><th>{{T "Action"}}</th><th>{{T "Date"}}</th></tr></thead>
     <tbody>
-    {{range .Logs}}<tr><td class="min-w-0 break-words"><span class="block">{{.Label}}</span><span class="block text-xs text-ink-2">{{.Actor}}{{with .Description}} · {{.}}{{end}}</span></td><td class="whitespace-nowrap text-ink-2">{{.When}}</td></tr>{{else}}<tr><td colspan="2">{{T "No data"}}</td></tr>{{end}}
+    {{if .LogsErr}}<tr><td colspan="2" class="text-err-fg">{{T "Data could not be loaded"}}</td></tr>{{else}}{{range .Logs}}<tr><td class="min-w-0 break-words"><span class="block">{{.Label}}</span><span class="block text-xs text-ink-2">{{.Actor}}{{with .Description}} · {{.}}{{end}}</span></td><td class="whitespace-nowrap text-ink-2">{{.When}}</td></tr>{{else}}<tr><td colspan="2">{{T "No data"}}</td></tr>{{end}}{{end}}
     </tbody>
   </table></div></div>
 </section>
@@ -129,7 +132,7 @@
 {{define "collapse"}}<button type="button" class="btn btn-ghost btn-icon card-toggle hidden" data-collapse-toggle aria-controls="{{.}}-body" aria-expanded="true" aria-label="{{T "Show or hide"}}">{{icon "chevron-down"}}</button>{{end}}
 {{define "usage-win"}}<div class="card-body pt-3">
   {{if .Empty}}<p class="text-sm text-ink-2">{{T "No usage recorded yet"}}</p>{{else}}
-  <p class="flex flex-wrap items-baseline justify-between gap-2"><span class="stat-num">{{.TotalNum}}<span class="ms-1 text-sm font-medium text-ink-2">{{.TotalUnit}}</span></span><span class="text-sm tabular-nums text-ink-2">↓ {{.Down}} · ↑ {{.Up}}</span></p>
+  <p class="flex flex-wrap items-baseline justify-between gap-2"><span class="stat-num">{{.TotalNum}}<span class="ms-1 text-sm font-medium text-ink-2">{{.TotalUnit}}</span></span><span class="text-sm tabular-nums text-ink-2"><span aria-hidden="true">↓</span><span class="sr-only"> {{T "Download traffic"}}</span> {{.Down}} · <span aria-hidden="true">↑</span><span class="sr-only"> {{T "Upload traffic"}}</span> {{.Up}}</span></p>
   {{template "barchart" dict "Bars" .Bars "Default" "" "Label" (T "Usage")}}
   <h3 class="mt-4 text-sm font-medium">{{T "Top users"}}</h3>
   <ul class="mt-1 divide-y divide-line">{{range .Top}}{{$u := .}}<li class="flex items-center gap-3 py-2 text-sm">

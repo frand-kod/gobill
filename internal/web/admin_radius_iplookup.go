@@ -16,7 +16,7 @@ const dtLocal = "2006-01-02T15:04"
 func (s *Server) ipLookupFields(v, e map[string]string, result string) []field {
 	out := section([]field{
 		text("ip", "IP address", v, e).req(),
-		text("at", "At (date and time)", v, e).as("datetime-local").hint("Empty = now. Session history is kept for the days set in Settings > Keep logs (days)."),
+		text("at", "At (date and time)", v, e).as("datetime-local").hint("Prefilled with now. Empty also means now. Session history is kept for the days set in Settings > Keep logs (days)."),
 	}, "Who had this IP", "")
 	if result != "" {
 		out = append(section([]field{{Name: "result", Label: "Result", Type: "pre", Value: result}}, "Result", ""), out...)
