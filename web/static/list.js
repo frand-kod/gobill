@@ -7,6 +7,8 @@
   function bulkCount() {
     var n = document.querySelectorAll('input[name=ids]:checked').length;
     document.querySelectorAll('[data-bulk-count]').forEach(function (el) { el.textContent = n; });
+    document.querySelectorAll('[data-needs-sel]').forEach(function (b) { b.disabled = n === 0; });
+    document.querySelectorAll('[data-bulk-n]').forEach(function (el) { el.textContent = n ? ' (' + n + ')' : ''; });
   }
 
   function load(form) {
@@ -15,7 +17,8 @@
     var params = new URLSearchParams();
     new FormData(form).forEach(function (v, k) { if (v !== '') params.append(k, v); });
     url.search = params.toString();
-    var mine = ++seq;
+    var mine = ++seq, busy = document.querySelector('[data-list]');
+    if (busy) { busy.setAttribute('aria-busy', 'true'); busy.style.opacity = '.5'; }
     fetch(url.href, { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
       .then(function (r) { if (!r.ok) throw new Error('status ' + r.status); return r.text(); })
       .then(function (html) {
@@ -37,6 +40,8 @@
           }
         }
         bulkCount();
+        var st = document.getElementById('list-status');
+        if (st) st.textContent = next.getAttribute('data-count') || '';
       })
       .catch(function () { location.href = url.href; });
   }

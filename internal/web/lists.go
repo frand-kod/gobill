@@ -46,6 +46,16 @@ type listPage struct {
 	Note, NoteLink   string       // muted line under the title, linking to NoteLink; "" = none
 }
 
+// BulkAll reports whether a bulk action acts on all matching rows; the bar then shows without a selection.
+func (lp listPage) BulkAll() bool {
+	for _, b := range lp.Bulk {
+		if b.All {
+			return true
+		}
+	}
+	return false
+}
+
 // bulkAction is a button that POSTs the checked row ids (name "ids") to Base/Path.
 type bulkAction struct {
 	Path, Label string

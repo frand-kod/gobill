@@ -23,7 +23,7 @@ func nasFields(v, e map[string]string, editing bool) []field {
 		pw.Required = false
 		pw.Hint = "Leave empty to keep the current secret. Generate shows a new one once: copy it to the MikroTik"
 	}
-	pw.Value = "" // never rendered back
+	// the stored secret is never rendered back; a value the admin just typed or generated is kept on a 422
 	ma := text("require_message_auth", "Message-Authenticator", v, e).as("select")
 	ma.Options = []option{{"0", "Auto (recommended)"}, {"1", "Always required"}, {"2", "Not required (legacy NAS)"}}
 	if ma.Value == "" {
@@ -126,6 +126,7 @@ func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
 	v := formVals(r, "name", "ip", "description", "require_message_auth")
 	pass := r.PostFormValue("secret")
+	v["secret"] = pass
 	e := map[string]string{}
 	for _, k := range []string{"name", "ip"} {
 		if v[k] == "" {

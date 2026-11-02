@@ -33,6 +33,9 @@ type field struct {
 	Wide                                  bool         // spans both columns of the card grid
 	Parts                                 []field      // row: the controls on one line under the row's label
 	Class                                 string       // row part: extra classes on its control (width)
+	ReqIf                                 string       // Alpine condition under which the field is required: shows the * and aria-required
+	Chips                                 []string     // text input: example values as buttons that insert the text at the cursor
+	Change                                string       // select: Alpine handler run on change
 	Gate                                  string       // JS condition under which the field is submitted; set by Groups, "" = always
 }
 
@@ -169,6 +172,10 @@ func (f field) show(c string) field { f.Show = c; return f }
 
 func (f field) bind() field { f.Bind = true; return f }
 
+func (f field) reqIf(c string) field { f.ReqIf = c; return f }
+
+func (f field) chips(c ...string) field { f.Chips = c; return f }
+
 func (f field) hint(h string) field { f.Hint = h; return f }
 
 func (f field) wide() field { f.Wide = true; return f }
@@ -215,7 +222,7 @@ func (fp formPage) Submit() string {
 // HasVars reports whether a field has variable chips, so the form loads their script.
 func (fp formPage) HasVars() bool {
 	for _, f := range fp.Fields {
-		if len(f.Vars) > 0 {
+		if len(f.Vars) > 0 || len(f.Chips) > 0 {
 			return true
 		}
 	}

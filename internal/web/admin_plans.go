@@ -52,6 +52,20 @@ func (s *Server) planRefs(r *http.Request) (x planRefs, err error) {
 	return
 }
 
+// scheduleChips are the tap-to-insert examples under the schedule fields.
+var scheduleChips = []string{"Mon-Fri 08:00-17:00", "Sat,Sun 09:00-12:00", "* 22:00-06:00", "; "}
+
+// scheduleError names which part of a schedule is wrong.
+func scheduleError(err error) string {
+	switch m := err.Error(); {
+	case strings.Contains(m, "bad day"):
+		return "Unknown day name: use Mon, Tue, Wed, Thu, Fri, Sat, Sun"
+	case strings.Contains(m, "bad time"):
+		return "Invalid time: use HH:MM-HH:MM, from 00:00 to 24:00, start and end different"
+	}
+	return "Invalid rule: use DAYS HH:MM-HH:MM, e.g. Mon-Fri 08:00-17:00"
+}
+
 func planFields(v, e map[string]string, x planRefs, self int64) []field {
 	sel := func(name, label string) field { return text(name, label, v, e).as("select") }
 	bw, rt, pool, exp := sel("bandwidth_id", "Bandwidth Name").bind(), sel("router_id", "Router"), sel("pool_id", "Pool Name"), sel("expired_plan_id", "Expired Plan")
@@ -98,14 +112,14 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 		text("name", "Plan Name", v, e).req().wide(),
 		text("type", "Service", v, e).opts("Hotspot", "PPPoE", "Balance").bind(),
 		text("billing", "Billing (Prepaid/Postpaid)", v, e).opts("prepaid", "postpaid").bind(),
-		bw.show(notBalance),
+		bw.show(notBalance).reqIf(notBalance),
 		row("availability", "Availability", check("enabled", "Enable"), aud).wide().
 			hint("Enable turns the plan on or off. Public: sold on the customer portal. Admin only: hidden from the portal, so customers cannot buy, extend or auto-renew it, but an admin can still give it."),
 	}, "Basic", "")
 	out = append(out, section([]field{
 		text("price", "Plan Price", v, e).as("number").req().bind(),
 		validity,
-		text("billing_day", "Billing Day", v, e).as("number").hint("Day of month, 1-31. Empty: day 20 (postpaid and Period plans)").show("billing === 'postpaid' || validity_unit === 'Period'"),
+		text("billing_day", "Billing Day", v, e).as("number").hint("Day of month, 1-31. Required for postpaid plans. Empty on a Period plan: day 20").reqIf("billing === 'postpaid'").show("billing === 'postpaid' || validity_unit === 'Period'"),
 	}, "Price & validity", "")...)
 	out = append(out, section([]field{
 		exp.show(notBalance).hint("Default: a RADIUS customer is isolated when isolation is enabled, otherwise disconnected. Pick a plan to send them there instead."),
@@ -127,13 +141,13 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 	}, "Limits", hotspot+" || "+pppoe+" && device === 'Radius'")...)
 	out = append(out, section([]field{
 		dev.show(notBalance),
-		rt.show(radius),
+		rt.show(radius).reqIf(radius),
 		pool.show(pppoe),
 	}, "Network & device", notBalance)...)
 	out = append(out, section([]field{
-		text("login_window", "Login hours", v, e).hint("When customers of this plan may log in, in the app time zone. Example: Mon-Fri 08:00-17:00; Sat 09:00-12:00. A window past midnight is fine: 22:00-06:00. Empty = always. The session is cut at the end of the window. RADIUS (gobill) only.").wide(),
+		text("login_window", "Login hours", v, e).hint("When customers of this plan may log in, in the app time zone. Day names are English: Mon, Tue, Wed, Thu, Fri, Sat, Sun. Separate rules with ;. A window past midnight is fine: 22:00-06:00. Empty = always. The session is cut at the end of the window. RADIUS (gobill) only.").chips(scheduleChips...).wide(),
 		boost.hint("Speed used during the boost hours instead of the plan's own bandwidth. A customer past the data limit still gets the FUP speed. RADIUS (gobill) only."),
-		text("boost_window", "Boost hours", v, e).hint("Same format as Login hours, e.g. * 00:00-06:00 for a night boost. Online customers are switched within a minute."),
+		text("boost_window", "Boost hours", v, e).hint("Same format as Login hours, e.g. * 00:00-06:00 for a night boost. Online customers are switched within a minute.").chips(scheduleChips...),
 	}, "Schedule", "device === 'Radius'")...)
 	scripts := section([]field{
 		text("on_login", "On Login", v, e).as("textarea"),
@@ -376,7 +390,7 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 			p.LoginWindow, p.BoostWindow = strings.TrimSpace(v["login_window"]), strings.TrimSpace(v["boost_window"])
 			for _, k := range []string{"login_window", "boost_window"} {
 				if _, err := radius.ParseWindow(v[k]); err != nil {
-					e[k] = "Invalid schedule: use Mon-Fri 08:00-17:00; Sat 09:00-12:00"
+					e[k] = scheduleError(err)
 				}
 			}
 			p.BoostBandwidthID = optInt(v["boost_bandwidth_id"], e, "boost_bandwidth_id")

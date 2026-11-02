@@ -26,14 +26,24 @@ func routerFields(v, e map[string]string, editing bool) []field {
 		pw.Hint = "Leave empty to keep the current password (re-enter it if you change host or port)"
 	}
 	pw.Value = "" // never rendered back
+	host, port := text("host", "Host", v, e).req(), text("port", "Port", v, e).as("number").req()
+	if editing { // the stored password only fits the stored host and port
+		host, port = host.bind(), port.bind()
+		pw = pw.reqIf(fmt.Sprintf("host !== %s || port !== %s", jsonStr(v["orig_host"]), jsonStr(v["orig_port"])))
+	} else {
+		port = port.bind()
+	}
 	en := text("enabled", "Enabled", v, e).as("checkbox")
 	en.Checked = v["enabled"] == "1"
 	tlsField := text("tls", "API connection", v, e).as("select")
 	tlsField.Options = []option{{"0", "Plain API (usually port 8728)"}, {"1", "API-SSL, TLS (usually port 8729)"}}
+	tlsField.Hint = "Plain API sends the password unencrypted: use it only on a LAN or VPN, and API-SSL across the internet."
+	tlsField.Bind = true
+	tlsField.Change = "if ($event.target.value === '1' && port === '8728') port = '8729'; else if ($event.target.value === '0' && port === '8729') port = '8728'"
 	out := section([]field{
 		text("name", "Router Name", v, e).req(),
-		text("host", "Host", v, e).req(),
-		text("port", "Port", v, e).as("number").req(),
+		host,
+		port,
 		tlsField,
 	}, "Connection", "")
 	out = append(out, section([]field{text("username", "Username", v, e).req(), pw}, "Login", "")...)
@@ -115,7 +125,8 @@ func (s *Server) routerEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := map[string]string{"name": x.Name, "host": x.Host, "port": fmt.Sprint(x.Port), "tls": fmt.Sprint(x.Tls), "username": x.Username,
-		"id": fmt.Sprint(x.ID), "description": x.Description, "enabled": fmt.Sprint(x.Enabled), "coordinates": x.Coordinates, "coverage": fmt.Sprint(x.Coverage), "cert_pin": x.CertPin}
+		"id": fmt.Sprint(x.ID), "description": x.Description, "enabled": fmt.Sprint(x.Enabled), "coordinates": x.Coordinates, "coverage": fmt.Sprint(x.Coverage), "cert_pin": x.CertPin,
+		"orig_host": x.Host, "orig_port": fmt.Sprint(x.Port)}
 	fields := routerFields(v, nil, true)
 	if adminFrom(r).Role == "SuperAdmin" {
 		fields = append(fields, field{Name: "migration", Label: "Move to RADIUS", Type: "link", Value: fmt.Sprint("/admin/routers/", id, "/migration"), Btn: "Migrate to RADIUS", Section: "RADIUS migration",
@@ -169,6 +180,7 @@ func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 			e["password"] = "Re-enter the password when the host or port changes"
 		}
 		v["cert_pin"] = x.CertPin
+		v["orig_host"], v["orig_port"] = x.Host, fmt.Sprint(x.Port)
 		if v["reset_pin"] != "1" {
 			pin = x.CertPin
 		}
