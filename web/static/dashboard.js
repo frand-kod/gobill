@@ -45,6 +45,11 @@ window.gbCustomers = function () {
         if (self.fits(+tr.dataset.days)) n++;
       });
       return n;
+    },
+    // the tab count; "50+" when the lists are capped (data-limit = dashListLimit) and the count reaches the cap
+    label: function (list) {
+      var n = this.count(list), limit = +this.$el.dataset.limit;
+      return limit && n >= limit ? n + '+' : String(n);
     }
   };
 };
@@ -89,7 +94,14 @@ document.querySelectorAll('canvas[data-chart]').forEach(function (el) {
   var text = css.getPropertyValue('--text-2').trim() || '#575f69';
   var grid = css.getPropertyValue('--border').trim() || '#e3e6ea';
   var bar = css.getPropertyValue('--info-fg').trim() || '#1a5a9e';
-  var money = !!el.dataset.money;
+  // money values: the prefix and group separator come from Go's money() (data-money-prefix, data-money-sep)
+  var isMoney = !!el.dataset.money, prefix = el.dataset.moneyPrefix || '', sep = el.dataset.moneySep || '.';
+  function fmtMoney(n) {
+    var digits = String(Math.round(Math.abs(n))).replace(/\B(?=(\d{3})+(?!\d))/g, function () { return sep; });
+    return (n < 0 ? '-' : '') + prefix + digits;
+  }
+  var yTicks = { color: text, precision: 0 };
+  if (isMoney) yTicks.callback = function (v) { return fmtMoney(v); };
   el.gbChart = new Chart(el, {
     type: el.dataset.chart,
     data: {
@@ -106,11 +118,11 @@ document.querySelectorAll('canvas[data-chart]').forEach(function (el) {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: money ? { callbacks: { label: function (c) { return 'Rp ' + c.parsed.y.toLocaleString('id-ID'); } } } : {}
+        tooltip: isMoney ? { callbacks: { label: function (c) { return fmtMoney(c.parsed.y); } } } : {}
       },
       scales: {
         x: { ticks: { color: text }, grid: { display: false } },
-        y: { beginAtZero: true, ticks: { color: text, precision: 0 }, grid: { color: grid } }
+        y: { beginAtZero: true, ticks: yTicks, grid: { color: grid } }
       }
     }
   });

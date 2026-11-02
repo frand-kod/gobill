@@ -20,7 +20,17 @@
     var btn = document.querySelector('[data-bulk-disconnect]');
     if (btn) btn.classList.toggle('hidden', !document.querySelector('input[name=ids]:checked'));
   }
-  document.addEventListener('change', syncBulk);
+  // while a session is ticked the refresh waits, so the rows and the selection stay as the user left them
+  function selecting() {
+    return !!document.querySelector('input[name=ids]:checked');
+  }
+  // ended rows fade out and go, except the ones the user has ticked
+  function sweepEnded() {
+    document.querySelectorAll('#sess-body tr.row-ended').forEach(function (tr) {
+      if (!tr.querySelector('input:checked')) tr.remove();
+    });
+  }
+  document.addEventListener('change', function () { syncBulk(); sweepEnded(); });
 
   function fill(tr, r, labels) {
     ['user', 'plan', 'nas', 'ip', 'mac', 'for', 'up', 'down', 'speed'].forEach(function (f) {
@@ -70,8 +80,8 @@
         this.tpl = document.getElementById('sess-row-tpl');
         this.url = el.dataset.url + window.location.search;
         var self = this;
-        setInterval(function () { if (!document.hidden) self.refresh(); }, EVERY_MS);
-        document.addEventListener('visibilitychange', function () { if (!document.hidden) self.refresh(); });
+        setInterval(function () { if (!document.hidden && !selecting()) self.refresh(); }, EVERY_MS);
+        document.addEventListener('visibilitychange', function () { if (!document.hidden && !selecting()) self.refresh(); });
       },
 
       refresh: function () {
@@ -112,8 +122,8 @@
         body.querySelectorAll('tr[data-id]').forEach(function (tr) {
           if (ids[tr.getAttribute('data-id')] || tr.classList.contains('row-ended')) return;
           tr.classList.add('row-ended');
-          setTimeout(function () { if (tr.classList.contains('row-ended')) tr.remove(); }, ENDED_MS);
         });
+        setTimeout(sweepEnded, ENDED_MS);
         syncBulk();
         if (!list.length && !body.querySelector('tr')) {
           var none = document.createElement('tr');

@@ -127,7 +127,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	}
 	for _, r := range logs {
 		when := words.span(now.Unix()-r.CreatedAt) + " " + s.catalog.T(s.language(), "ago")
-		w.Logs = append(w.Logs, logRow{Action: r.Action, Description: r.Description, When: when})
+		w.Logs = append(w.Logs, logRow{Label: s.actionLabel(r.Action), Actor: s.actorLabel(ctx, r.ActorType, r.ActorID), Description: r.Description, When: when})
 	}
 	return
 }
@@ -138,9 +138,9 @@ const dashListLimit = 50
 // dashLogLimit is how many activity log rows the dashboard card shows; the See all link opens the rest.
 const dashLogLimit = 5
 
-// logRow is one row of the Activity Log card: the action, when it happened ago, and the full description (the tooltip).
+// logRow is one row of the Activity Log card: the translated action, who did it, the description and when it happened ago.
 type logRow struct {
-	Action, Description, When string
+	Label, Actor, Description, When string
 }
 
 // usageTopN is how many heaviest users the Usage card lists.

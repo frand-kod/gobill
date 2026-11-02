@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -17,14 +18,22 @@ import (
 type dashData struct {
 	Warn                     string
 	IncomeToday, IncomeMonth int64
+	ResetDay                 int // the income month starts on this day (reset_day, 2 to 28); 0 = the calendar month
 	ActiveSubs, ExpiredSubs  int64
 	Customers                int64
 	OnlineNow                int64 // open RADIUS sessions, the tile links to the live page
 	Year                     int
 	Labels, Regs, Sales      string // JSON arrays for the charts
 	SalesTotal               int64  // Sales summed over the 12 months
+	MoneyPrefix, MoneySep    string // money's currency prefix and group separator, for the chart axis
+	ListLimit                int    // dashListLimit: the Customers tabs show "N+" at this many rows
 	Network                  netCard
 	dashWidgets
+}
+
+// moneyFormat is the currency prefix and digit group separator that money uses.
+func moneyFormat() (prefix, sep string) {
+	return strings.TrimSuffix(money(0), "0"), groupSep()
 }
 
 // attnItem is one admin bell row: Kind is its English label (the template translates it), Count how many,
@@ -71,6 +80,7 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 	start := month
 	if st, e := s.loadSettings(ctx); e == nil {
 		if rd, _ := strconv.Atoi(st["reset_day"]); rd > 1 && rd <= 28 {
+			d.ResetDay = rd
 			start = month.AddDate(0, 0, rd-1)
 			if now.Day() < rd {
 				start = start.AddDate(0, -1, 0)
@@ -99,6 +109,8 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 		return
 	}
 	d.Year = now.Year()
+	d.ListLimit = dashListLimit
+	d.MoneyPrefix, d.MoneySep = moneyFormat()
 	labels, regs, sales := make([]string, 12), make([]int64, 12), make([]int64, 12)
 	// rolling window: the last 12 months, oldest first, ending with the current month
 	for m := 0; m < 12; m++ {

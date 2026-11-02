@@ -19,7 +19,7 @@
     <span class="text-info-fg">{{icon "banknote"}}</span>
   </a>
   <a href="/admin/transactions" class="stat py-3">
-    <div><p class="stat-label">{{T "Income This Month"}}</p><p class="stat-num" id="tile-month">{{money .IncomeMonth}}</p></div>
+    <div><p class="stat-label">{{if .ResetDay}}{{printf (T "Income this period (since day %d)") .ResetDay}}{{else}}{{T "Income This Month"}}{{end}}</p><p class="stat-num" id="tile-month">{{money .IncomeMonth}}</p></div>
     <span class="text-ok-fg">{{icon "circle-dollar-sign"}}</span>
   </a>
   <div class="stat stat-split">
@@ -36,7 +36,7 @@
     </div>
   </div>
   {{if $mgr}}<a href="/admin/radius/sessions" class="stat py-3">
-    <div><p class="stat-label">{{T "Online"}}</p><p class="stat-num" id="tile-online">{{.OnlineNow}}</p></div>
+    <div><p class="stat-label">{{T "Online (RADIUS)"}}</p><p class="stat-num" id="tile-online">{{.OnlineNow}}</p></div>
     <span class="text-ok-fg">{{icon "wifi"}}</span>
   </a>
   <a href="/admin/routers" class="stat py-3{{if .Network.Offline}} border-err-fg{{end}}">
@@ -48,14 +48,14 @@
 <div class="flex min-w-0 flex-col gap-4 xl:col-span-3">
 {{/* Customers: the expiring and the expired lists. The tab and the day filter are Alpine state (gbCustomers in dashboard.js);
      the URL hash #customers-expiring-0 or #customers-expired-3 sets them, and the admin bell links there. */}}
-<section class="card flex flex-col overflow-hidden" id="customers" aria-labelledby="customers-title" data-collapse="customers" x-data="gbCustomers()" x-init="read()" @hashchange.window="read()">
+<section class="card flex flex-col overflow-hidden" id="customers" aria-labelledby="customers-title" data-collapse="customers" data-limit="{{.ListLimit}}" x-data="gbCustomers()" x-init="read()" @hashchange.window="read()">
   <h2 class="card-title flex min-h-14 flex-wrap items-center justify-between gap-2" id="customers-title"><span>{{T "Customers"}}</span>
     <span class="flex items-center gap-3"><a class="link" href="/admin/subscriptions?status=active&sort=expires&dir=asc" x-show="tab === 'expiring'">{{T "See all"}}</a>{{template "collapse" "customers"}}</span></h2>
   <div id="customers-body" data-collapse-body>
   <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
     <div class="flex flex-wrap gap-2" role="tablist" aria-label="{{T "Customers"}}">
-      <button type="button" role="tab" id="customers-tab-expiring" aria-controls="customers-expiring" class="btn btn-sm" :aria-selected="tab === 'expiring' ? 'true' : 'false'" :tabindex="tab === 'expiring' ? 0 : -1" @click="tab = 'expiring'">{{T "Expiring soon"}} (<span x-text="count('expiring')">{{len .Expiring}}</span>)</button>
-      <button type="button" role="tab" id="customers-tab-expired" aria-controls="customers-expired" class="btn btn-sm" :aria-selected="tab === 'expired' ? 'true' : 'false'" :tabindex="tab === 'expired' ? 0 : -1" @click="tab = 'expired'">{{T "Expired"}} (<span x-text="count('expired')">{{len .Recent}}</span>)</button>
+      <button type="button" role="tab" id="customers-tab-expiring" aria-controls="customers-expiring" class="btn btn-sm" :aria-selected="tab === 'expiring' ? 'true' : 'false'" :tabindex="tab === 'expiring' ? 0 : -1" @click="tab = 'expiring'">{{T "Expiring soon"}} (<span x-text="label('expiring')">{{len .Expiring}}{{if ge (len .Expiring) .ListLimit}}+{{end}}</span>)</button>
+      <button type="button" role="tab" id="customers-tab-expired" aria-controls="customers-expired" class="btn btn-sm" :aria-selected="tab === 'expired' ? 'true' : 'false'" :tabindex="tab === 'expired' ? 0 : -1" @click="tab = 'expired'">{{T "Expired"}} (<span x-text="label('expired')">{{len .Recent}}{{if ge (len .Recent) .ListLimit}}+{{end}}</span>)</button>
     </div>
     <div class="flex flex-wrap gap-2">
       <button type="button" class="btn btn-sm" :aria-pressed="f === 0 ? 'true' : 'false'" @click="f = 0">{{T "Today"}}</button>
@@ -89,7 +89,7 @@
       <button type="button" role="tab" id="sales-tab-sales" aria-controls="sales-panel-sales" class="btn btn-sm" :aria-selected="t === 'sales' ? 'true' : 'false'" :tabindex="t === 'sales' ? 0 : -1" @click="show('sales')">{{T "Sales"}}</button>
       <button type="button" role="tab" id="sales-tab-regs" aria-controls="sales-panel-regs" class="btn btn-sm" :aria-selected="t === 'regs' ? 'true' : 'false'" :tabindex="t === 'regs' ? 0 : -1" @click="show('regs')">{{T "New customers"}}</button>
     </div>
-    <div class="mt-3 h-36" role="tabpanel" id="sales-panel-sales" aria-labelledby="sales-tab-sales" x-show="t === 'sales'"><canvas data-chart="bar" data-money="1" data-label="{{T "Sales"}}" data-labels="{{.Labels}}" data-values="{{.Sales}}" role="img" aria-label="{{T "Sales per month"}}"></canvas></div>
+    <div class="mt-3 h-36" role="tabpanel" id="sales-panel-sales" aria-labelledby="sales-tab-sales" x-show="t === 'sales'"><canvas data-chart="bar" data-money="1" data-money-prefix="{{.MoneyPrefix}}" data-money-sep="{{.MoneySep}}" data-label="{{T "Sales"}}" data-labels="{{.Labels}}" data-values="{{.Sales}}" role="img" aria-label="{{T "Sales per month"}}"></canvas></div>
     <p class="mt-2 text-sm tabular-nums" x-show="t === 'sales'">{{T "Total 12 months"}}: {{money .SalesTotal}}</p>
     <div class="mt-3 h-36" role="tabpanel" id="sales-panel-regs" aria-labelledby="sales-tab-regs" x-show="t === 'regs'"><canvas data-chart="bar" data-label="{{T "Customer"}}" data-labels="{{.Labels}}" data-values="{{.Regs}}" role="img" aria-label="{{T "New customers per month"}}"></canvas></div>
   </div>
@@ -116,7 +116,7 @@
   <div id="logs-body" data-collapse-body><div class="max-h-[22rem] overflow-auto"><table class="table">
     <thead><tr><th>{{T "Action"}}</th><th>{{T "Date"}}</th></tr></thead>
     <tbody>
-    {{range .Logs}}<tr title="{{.Description}}"><td>{{.Action}}</td><td class="whitespace-nowrap text-ink-2">{{.When}}</td></tr>{{else}}<tr><td colspan="2">{{T "No data"}}</td></tr>{{end}}
+    {{range .Logs}}<tr><td class="min-w-0 break-words"><span class="block">{{.Label}}</span><span class="block text-xs text-ink-2">{{.Actor}}{{with .Description}} · {{.}}{{end}}</span></td><td class="whitespace-nowrap text-ink-2">{{.When}}</td></tr>{{else}}<tr><td colspan="2">{{T "No data"}}</td></tr>{{end}}
     </tbody>
   </table></div></div>
 </section>
@@ -155,7 +155,7 @@
   </span></td>
   <td class="whitespace-nowrap font-medium{{if eq .Days 0}} text-warn-fg{{end}}" title="{{.Expires}}">{{.When}}</td>
   <td class="whitespace-nowrap text-end">
-    {{if .WA}}<a class="btn btn-icon tip-end text-[#25D366]" href="{{.WA}}" target="_blank" rel="noopener" aria-label="WhatsApp" data-tip="WhatsApp">{{icon "message-circle"}}</a>{{end}}
-    <a class="btn btn-icon tip-end" href="/admin/customers/{{.CustomerID}}" aria-label="{{T "Recharge"}}" data-tip="{{T "Recharge"}}">{{icon "wallet"}}</a>
+    {{if .WA}}<a class="btn btn-icon tip-end text-[#25D366]" href="{{.WA}}" target="_blank" rel="noopener" aria-label="WhatsApp {{.Username}}" data-tip="WhatsApp">{{icon "message-circle"}}</a>{{end}}
+    <a class="btn btn-icon tip-end" href="/admin/recharge?customer={{urlquery .Username}}" aria-label="{{T "Recharge"}} {{.Username}}" data-tip="{{T "Recharge"}}">{{icon "wallet"}}</a>
   </td>
 </tr>{{end}}{{end}}

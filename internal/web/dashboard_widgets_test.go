@@ -128,7 +128,7 @@ func TestDashboardCustomersCard(t *testing.T) {
 	for _, want := range []string{
 		`id="customers"`, `x-data="gbCustomers()"`, `role="tablist"`,
 		`role="tab" id="customers-tab-expiring"`, `role="tab" id="customers-tab-expired"`,
-		`count('expiring')">1</span>`, `count('expired')">1</span>`, // tab counts before Alpine runs
+		`label('expiring')">1</span>`, `label('expired')">1</span>`, // tab counts before Alpine runs
 		`data-days="2"`, `data-days="1"`, // ends in two days; ended yesterday
 		`@click="f = 0"`, `@click="f = 3"`, `@click="f = 7"`,
 		`href="/admin/customers/` + strconv.FormatInt(e.cust.ID, 10) + `">u1<`,

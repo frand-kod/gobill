@@ -3,6 +3,7 @@ package web
 // Activity, RADIUS and message logs: views, CSV export and cleanup.
 
 import (
+	"context"
 	"encoding/csv"
 	"log/slog"
 	"net/http"
@@ -36,8 +37,73 @@ func (s *Server) logClean(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.logActivity(r, "logs.clean", fmt.Sprintf("%s older than %d days: %d deleted", kind, days, n))
-	s.sessions.Put(r.Context(), "flash", fmt.Sprintf("%s %d: %d", s.catalog.T(s.language(), "Deleted logs older than (days)"), days, n))
+	s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.catalog.T(s.language(), "%d logs deleted"), n))
 	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+// actionLabels names the activity log actions (the key stored in activity_logs.action). Values are English
+// keys translated by T; an action not listed here is shown as its key.
+var actionLabels = map[string]string{
+	"agent_batch.return":            "Agent batch returned",
+	"coupon.toggle":                 "Coupon switched",
+	"customer.delete":               "Customer deleted",
+	"customer.recharge":             "Customer recharged",
+	"customer.recharge.bulk":        "Bulk recharge",
+	"customer.impersonate":          "Signed in as customer",
+	"customer.delete_router_failed": "Customer removed, router removal failed",
+	"customer.sync_failed":          "Customer sync failed",
+	"daily_summary.send":            "Daily summary sent",
+	"integration.test":              "Integration test",
+	"logs.clean":                    "Logs cleaned",
+	"message.bulk":                  "Bulk message sent",
+	"message.send":                  "Message sent",
+	"metrics.token_new":             "Metrics token created",
+	"metrics.token_off":             "Metrics token turned off",
+	"page.update":                   "Page updated",
+	"plan.sync_failed":              "Plan sync failed",
+	"pool.sync_failed":              "Pool sync failed",
+	"promo.delete":                  "Promo deleted",
+	"radius.disconnect":             "Session disconnected",
+	"radius.disconnect_many":        "Sessions disconnected",
+	"radius.test_login":             "Test login",
+	"router.radius_disable_local":   "Router RADIUS disabled locally",
+	"router.radius_rollback":        "Router RADIUS rolled back",
+	"router.radius_switch":          "Router RADIUS switched",
+	"router.radius_test":            "Router RADIUS tested",
+	"router.reconcile":              "Router reconciled",
+	"router.sync":                   "Router synced",
+	"router.wg.provision":           "WireGuard provisioned",
+	"router.wg.reset":               "WireGuard reset",
+	"settings.key.download":         "Settings key downloaded",
+	"settings.key.saved":            "Settings key saved",
+	"settings.reset":                "Settings reset",
+	"settings.save":                 "Settings saved",
+	"theme.default":                 "Default theme changed",
+	"users.create":                  "User created",
+	"users.delete":                  "User deleted",
+	"users.password":                "Password changed",
+	"users.password.reset":          "Password reset",
+	"users.update":                  "User updated",
+	"voucher.generate":              "Vouchers generated",
+	"wa.test":                       "WhatsApp test",
+}
+
+// actionLabel is the UI text of an activity log action key.
+func (s *Server) actionLabel(action string) string {
+	if l, ok := actionLabels[action]; ok {
+		return s.catalog.T(s.language(), l)
+	}
+	return action
+}
+
+// actorLabel names who did a logged action: the admin's username, or "type #id" when there is no such admin.
+func (s *Server) actorLabel(ctx context.Context, typ string, id int64) string {
+	if typ == "admin" {
+		if a, err := s.queries.GetAdmin(ctx, id); err == nil {
+			return a.Username
+		}
+	}
+	return fmt.Sprint(typ, " #", id)
 }
 
 func (s *Server) logList(w http.ResponseWriter, r *http.Request) {
@@ -49,10 +115,10 @@ func (s *Server) logList(w http.ResponseWriter, r *http.Request) {
 	}
 	lp := listPage{Heading: "Logs", Base: "/admin/logs", Q: q, Searchable: true,
 		Cols:  []string{"Date", "Actor", "Action", "Description", "IP"},
-		Clean: "/admin/logs/clean/activity", Links: []option{{"/admin/logs/radius", "Radius Logs"}, {"/admin/logs/messages", "Message Logs"}}}
+		Clean: "/admin/logs/clean/activity", Links: []option{{"/admin/logs/radius", "Radius Logs"}, {"/admin/logs/auth", "Login attempts"}, {"/admin/logs/messages", "Message Logs"}}}
 	for _, l := range rows {
 		when := time.Unix(l.CreatedAt, 0).In(s.location()).Format("2006-01-02 15:04:05")
-		lp.Rows = append(lp.Rows, listRow{l.ID, []string{when, fmt.Sprint(l.ActorType, " #", l.ActorID), l.Action, l.Description, l.Ip}})
+		lp.Rows = append(lp.Rows, listRow{l.ID, []string{when, s.actorLabel(r.Context(), l.ActorType, l.ActorID), s.actionLabel(l.Action), l.Description, l.Ip}})
 	}
 	total, err := s.queries.CountActivityLogs(r.Context(), q)
 	if err != nil {

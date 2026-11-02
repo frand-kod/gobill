@@ -66,7 +66,7 @@ func TestExpiringSoonWindow(t *testing.T) {
 	}
 
 	body := do(e.h, "GET", "/admin", nil, e.c).Body.String()
-	if !strings.Contains(body, `data-collapse="customers"`) || !strings.Contains(body, `data-list="expired"`) || !strings.Contains(body, `count('expired')">3</span>`) {
+	if !strings.Contains(body, `data-collapse="customers"`) || !strings.Contains(body, `data-list="expired"`) || !strings.Contains(body, `label('expired')">3</span>`) {
 		t.Fatal("expired list of the customers card missing")
 	}
 }
