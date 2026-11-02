@@ -51,6 +51,9 @@ PHPNuxBill kini sumber data, bukan sumber perilaku. Perilaku lama yang salah dip
 - Admin: deposit punya langkah konfirmasi dan menolak paket + nominal sekaligus; "Hapus tetap" tampil di halaman pelanggan setelah router gagal; restore/impor tidak kehilangan pratinjau saat password/2FA salah.
 - Form menampilkan ringkasan kolom yang salah; kolom tersembunyi tidak ikut dikirim; daftar membedakan "kosong" dan "tidak ada hasil filter"; halaman 403/404 bergaya aplikasi.
 - Aksesibilitas: tab bisa dengan panah keyboard, skip link, menu atas dan drawer ramah keyboard, level status tampil sebagai teks, penghapusan router tertunda menaikkan level status.
+- Portal: bantuan di lupa password, petunjuk registrasi, "Kurang Rp X" saat saldo kurang, kupon dilipat, kembali dari invoice dan QRIS, pesan jelas untuk akun nonaktif (hanya setelah password benar).
+- Admin: tanda wajib bersyarat di form paket dan router, contoh jadwal yang bisa diketuk, TLS memindah port ke 8729, bulk bar menghitung pilihan, konfirmasi untuk token metrics, reset 2FA, reset peer WireGuard, mematikan isolir dan mode akses PHPNuxBill; kode pemulihan 2FA bisa disalin/diunduh; tes Duitku memakai kunci Duitku.
+- Pemantauan: halaman status tidak memuat ulang saat dipakai dan bisa dijeda, IP lookup berupa tabel, log aktivitas berlabel dengan nama admin, grafik penjualan berformat uang, sesi online tidak hilang saat dipilih.
 - Istilah Indonesia diseragamkan (Berakhir/Kedaluwarsa, Tambah Saldo, Pelanggan, Ubah, Masuk/Keluar) dan puluhan pesan yang masih berbahasa Inggris diterjemahkan.
 - Garis tepi kolom input lebih tegas (kontras minimal 3:1, WCAG 1.4.11), garis kartu sedikit lebih gelap.
 - Panic di job latar belakang tidak lagi mematikan proses (RADIUS, UI, WireGuard).
