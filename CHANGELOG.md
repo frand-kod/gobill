@@ -8,6 +8,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-02
+
 Hasil audit menyeluruh (uang, siklus langganan, router, keamanan, operasional) beserta perbaikannya, ditambah fitur RADIUS baru. Migrasi `0029` sampai `0039`.
 
 ### Penting sebelum upgrade
