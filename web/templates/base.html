@@ -199,17 +199,21 @@ gbBind(document);
 // <dialog>; {field} is replaced by the form input of that name. Submit buttons are then locked against double taps.
 (function () {
   var dlg = document.getElementById('confirm-dlg'), ok = document.getElementById('confirm-ok'), okText = ok.textContent;
-  function lock(f) {
+  function lock(f, sb) {
     var bs = f.querySelectorAll('[type=submit],button:not([type])');
     // a disabled button is not sent, so lock after the browser has collected the form data
     setTimeout(function () {
-      bs.forEach(function (b) { if (b.disabled) return; b.disabled = true; b.dataset.locked = '1'; });
+      bs.forEach(function (b) { if (b.disabled) return; b.disabled = true; b.dataset.locked = '1'; if (b.dataset.busyLabel && b === sb) { b.dataset.idle = b.textContent; b.textContent = b.dataset.busyLabel; } });
       f.setAttribute('aria-busy', 'true');
     });
   }
   document.addEventListener('submit', function (e) {
-    var f = e.target, sb = e.submitter, t = (sb && sb.dataset.confirm) || f.dataset.confirm;
+    var f = e.target, sb = e.submitter, t = (sb && sb.dataset.confirm) || f.dataset.confirm, warned = false;
     if (f.method === 'dialog') return;
+    // a select with data-warn asks first when it was changed to data-warn-to (a saved "no" or "strict" stays quiet)
+    if (!t && !f.dataset.ok) Array.prototype.forEach.call(f.querySelectorAll('select[data-warn]'), function (s) {
+      if (!t && s.value === s.dataset.warnTo && s.selectedIndex >= 0 && !s.options[s.selectedIndex].defaultSelected) { t = s.dataset.warn; warned = true; }
+    });
     if (t && !f.dataset.ok) {
       e.preventDefault();
       t = t.replace('{n}', document.querySelectorAll('input[name=ids]:checked').length);
@@ -218,17 +222,17 @@ gbBind(document);
       if (!dlg || !dlg.showModal) { if (confirm(t)) go(); return; }
       document.getElementById('confirm-msg').textContent = t;
       ok.textContent = (sb && sb.dataset.confirmOk) || f.dataset.confirmOk || okText;
-      ok.className = 'btn min-h-10 ' + ((sb && 'confirmDanger' in sb.dataset) || 'confirmDanger' in f.dataset ? 'btn-danger-solid' : 'btn-primary');
+      ok.className = 'btn min-h-10 ' + (warned || (sb && 'confirmDanger' in sb.dataset) || 'confirmDanger' in f.dataset ? 'btn-danger-solid' : 'btn-primary');
       dlg.returnValue = '';
       dlg.onclose = function () { if (dlg.returnValue === 'ok') go(); };
       dlg.showModal();
       return;
     }
-    if (!e.defaultPrevented) lock(f);
+    if (!e.defaultPrevented) lock(f, sb);
   });
   // back/forward cache restores the page with locked buttons
   addEventListener('pageshow', function (e) {
-    if (e.persisted) document.querySelectorAll('[data-locked]').forEach(function (b) { b.disabled = false; delete b.dataset.locked; b.form && b.form.removeAttribute('aria-busy'); });
+    if (e.persisted) document.querySelectorAll('[data-locked]').forEach(function (b) { b.disabled = false; delete b.dataset.locked; if (b.dataset.idle) b.textContent = b.dataset.idle; b.form && b.form.removeAttribute('aria-busy'); });
   });
 })();
 </script>

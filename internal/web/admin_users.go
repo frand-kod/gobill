@@ -81,6 +81,7 @@ func (s *Server) adminFields(r *http.Request, target *db.Admin, v, e map[string]
 	if !self {
 		pw := text("password", "Password", v, e).as("password")
 		pw.Value = "" // never rendered back
+		pw.Hint = "10 to 72 characters"
 		cp := text("cpassword", "Confirm Password", v, e).as("password")
 		cp.Value = ""
 		if target == nil {
@@ -110,7 +111,8 @@ func (s *Server) adminFields(r *http.Request, target *db.Admin, v, e map[string]
 			}
 			if actor.Role == "SuperAdmin" && !self && target.TotpEnabled == 1 {
 				acc = append(acc, field{Name: "reset2fa", Label: "Two-factor login", Type: "formbtn", Hint: "Use when the admin lost the authenticator and recovery codes.",
-					Value: "/admin/users/" + strconv.FormatInt(target.ID, 10) + "/2fa/reset", Btn: "Reset 2FA"})
+					Value: "/admin/users/" + strconv.FormatInt(target.ID, 10) + "/2fa/reset", Btn: "Reset 2FA",
+					Confirm: "Reset this admin's two-factor login? They can sign in with the password alone until they set it up again."})
 			}
 		}
 	}
@@ -333,18 +335,32 @@ func (s *Server) adminDelete(w http.ResponseWriter, r *http.Request) {
 
 // ---- change own password ----
 
-func pwFields(e map[string]string) []field {
-	return append(section([]field{
-		text("current", "Current Password", nil, e).as("password").req(),
-		text("password", "New Password", nil, e).as("password").req(),
-		text("cpassword", "Confirm New Password", nil, e).as("password").req(),
-	}, "", ""), section([]field{
+func pwFields(e map[string]string, forced bool) []field {
+	cur := text("current", "Current Password", nil, e).as("password").req()
+	cur.Cur = true
+	var top []field
+	if forced { // imported sha1 hash: auth.go sends every page here until the password is changed
+		top = []field{{Name: "legacy", Type: "alert", Label: "Your password is from the old system and is stored in a weak format. Choose a new one to continue. You cannot open other pages until you do."}}
+	}
+	return append(section(append(top, cur,
+		text("password", "New Password", nil, e).as("password").req().hint("10 to 72 characters"),
+		text("cpassword", "Confirm New Password", nil, e).as("password").req()), "", ""), section([]field{
 		{Name: "2fa", Label: "Two-factor login", Type: "link", Value: "/admin/2fa", Btn: "Manage 2FA"},
 	}, "Two-factor login", "")...)
 }
 
+// pwPage is the change-password form; while the password is the imported sha1 one, Cancel (which loops back here) is Logout.
+func (s *Server) pwPage(a *db.Admin, e map[string]string) formPage {
+	forced := a.LegacySha1 != ""
+	cancel := "/admin"
+	if forced {
+		cancel = "/logout"
+	}
+	return formPage{"Change Password", "/admin/password", cancel, pwFields(e, forced)}
+}
+
 func (s *Server) passwordForm(w http.ResponseWriter, r *http.Request) {
-	s.renderForm(w, r, 200, formPage{"Change Password", "/admin/password", "/admin", pwFields(nil)})
+	s.renderForm(w, r, 200, s.pwPage(adminFrom(r), nil))
 }
 
 func (s *Server) passwordSave(w http.ResponseWriter, r *http.Request) {
@@ -352,7 +368,7 @@ func (s *Server) passwordSave(w http.ResponseWriter, r *http.Request) {
 	cur, pass, cpass := r.PostFormValue("current"), r.PostFormValue("password"), r.PostFormValue("cpassword")
 	e := map[string]string{}
 	again := func(status int) {
-		s.renderForm(w, r, status, formPage{"Change Password", "/admin/password", "/admin", pwFields(e)})
+		s.renderForm(w, r, status, s.pwPage(actor, e))
 	}
 	// The current password is a guess target for a hijacked session: share the login throttle.
 	ip := clientIP(r)

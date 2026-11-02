@@ -275,9 +275,11 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		return append(out, section([]field{
 			sec("metrics_token", "Token /metrics"),
 			{Name: "metrics_new", Label: "Create new token", Type: "formbtn", Value: "/admin/settings/integrations/metrics-token", Btn: "Create new token",
-				Hint: "Replaces the current token. Old scrapers stop working until they get the new one"},
+				Hint:    "Replaces the current token. Old scrapers stop working until they get the new one",
+				Confirm: "Create a new token? Old scrapers stop working until they get the new one."},
 			{Name: "metrics_off", Label: "Disable", Type: "formbtn", Value: "/admin/settings/integrations/metrics-token/disable", Btn: "Disable",
-				Hint: "Clears the token: /metrics returns 404"},
+				Hint:    "Clears the token: /metrics returns 404",
+				Confirm: "Disable the /metrics token? /metrics will return 404."},
 		}, "Prometheus /metrics", "")...)
 	case "payment":
 		f := sel("payment_gateway", "Payment Gateway", option{"", "Disabled"}, option{"tripay", "Tripay"}, option{"duitku", "Duitku"})
@@ -295,7 +297,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			text("duitku_merchant_code", "Duitku Merchant Code", v, e),
 			sel("duitku_mode", "Duitku Mode", option{"sandbox", "Sandbox"}, option{"production", "Production"}),
 			text("duitku_channel", "Default Channel", v, e).hint("Optional payment method code, e.g. VC"),
-			{Name: "duitku_test", Label: "Test connection", Type: "test", Value: "/admin/settings/payment/tripay-test", Btn: "Check connection",
+			{Name: "duitku_test", Label: "Test connection", Type: "test", Value: "/admin/settings/payment/duitku-test", Btn: "Check connection",
 				Hint: "Save first. Checks the saved key and merchant code with Duitku's payment method list"},
 		}, "Duitku", "")...)
 		qris := field{Name: "qris_payload", Label: "Static QRIS", Type: "qris", Value: v["qris_payload"], Error: e["qris_payload"],
@@ -313,7 +315,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		return append(out, section([]field{qris}, "QRIS", "")...)
 	case "isolir":
 		out := section([]field{
-			sel("isolir_enabled", "Isolation enabled", settingsYesNo...).hint("A RADIUS customer whose plan expires is isolated instead of disconnected, unless the plan has its own expired plan. The router needs setup, see the MikroTik router setup section below"),
+			sel("isolir_enabled", "Isolation enabled", settingsYesNo...).hint("A RADIUS customer whose plan expires is isolated instead of disconnected, unless the plan has its own expired plan. The router needs setup, see the MikroTik router setup section below. Switching to No ends all running isolations when you save").warn("Turn isolation off? Every customer now isolated is released when you save.", "no"),
 			{Name: "isolir_plan_name", Label: "Plan name", Type: "pre", Value: v["isolir_plan_name"],
 				Hint: "System plan: not sold on the portal and cannot be given manually. Created the first time Isolation is enabled"},
 			text("isolir_rate_down", "Download speed", v, e).hint("Example 64k or 2M. Saved to the bandwidth profile of the Isolation plan"),
@@ -432,7 +434,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			text("radius_interim_interval", "Accounting update interval (seconds)", v, e).as("number").hint("Sent to the NAS in every Access-Accept as Acct-Interim-Interval. Default 300. 0 = do not send, the NAS uses its own"),
 		}, "FreeRADIUS", "")...)
 		out = append(out, section([]field{
-			sel("role_access_mode", "Role access", option{"strict", "Strict"}, option{"phpnuxbill", "PHPNuxBill compatible"}).hint("Strict: only SuperAdmin and Admin can add balance, use Recharge Zero and generate vouchers, and the Report role sees reports only. PHPNuxBill compatible: Agent and Sales can add balance, use Recharge Zero and generate vouchers, and every role reads transactions and customer exports"),
+			sel("role_access_mode", "Role access", option{"strict", "Strict"}, option{"phpnuxbill", "PHPNuxBill compatible"}).hint("Strict: only SuperAdmin and Admin can add balance, use Recharge Zero and generate vouchers, and the Report role sees reports only. PHPNuxBill compatible: Agent and Sales can add balance, use Recharge Zero and generate vouchers, and every role reads transactions and customer exports. A change applies immediately on save").warn("Switch to PHPNuxBill compatible? Agent and Sales can then add balance, use Recharge Zero and generate vouchers, and every role can read transactions and customer exports. This applies immediately.", "phpnuxbill"),
 		}, "Access", "")...)
 		out = append(out, section([]field{
 			sel("hs_auth_method", "Hotspot Auth Method", option{"pap", "PAP"}, option{"chap", "CHAP"}),

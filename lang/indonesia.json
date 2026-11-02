@@ -2824,4 +2824,17 @@
     "The page you opened does not exist or was moved.": "Halaman yang Anda buka tidak ada atau sudah dipindahkan.",
     "Method not allowed": "Metode tidak diizinkan",
     "This address does not accept that kind of request.": "Alamat ini tidak menerima jenis permintaan itu.",
-    "Run test": "Jalankan tes"}
+    "Run test": "Jalankan tes",
+    "Create a new token? Old scrapers stop working until they get the new one.": "Buat token baru? Scraper lama berhenti sampai diberi token baru.",
+    "Disable the /metrics token? /metrics will return 404.": "Nonaktifkan token /metrics? /metrics akan mengembalikan 404.",
+    "Reset this admin's two-factor login? They can sign in with the password alone until they set it up again.": "Reset login dua langkah admin ini? Admin bisa masuk hanya dengan kata sandi sampai menyiapkannya lagi.",
+    "Reset the peer session? The tunnel drops and reconnects.": "Reset sesi peer? Tunnel terputus lalu tersambung kembali.",
+    "A RADIUS customer whose plan expires is isolated instead of disconnected, unless the plan has its own expired plan. The router needs setup, see the MikroTik router setup section below. Switching to No ends all running isolations when you save": "Pelanggan RADIUS yang paketnya kedaluwarsa diisolir, bukan diputus, kecuali paket punya paket kedaluwarsa sendiri. Router perlu setup, lihat bagian Setup router MikroTik di bawah. Mengubah ke Tidak mengakhiri semua isolasi yang berjalan saat Anda menyimpan",
+    "Turn isolation off? Every customer now isolated is released when you save.": "Matikan isolasi? Semua pelanggan yang sedang diisolir dilepas saat Anda menyimpan.",
+    "Strict: only SuperAdmin and Admin can add balance, use Recharge Zero and generate vouchers, and the Report role sees reports only. PHPNuxBill compatible: Agent and Sales can add balance, use Recharge Zero and generate vouchers, and every role reads transactions and customer exports. A change applies immediately on save": "Ketat: hanya SuperAdmin dan Admin yang bisa Tambah Saldo, memakai Recharge Zero dan membuat voucher, dan peran Report hanya melihat laporan. Kompatibel PHPNuxBill: Agent dan Sales bisa Tambah Saldo, memakai Recharge Zero dan membuat voucher, dan semua peran membaca transaksi dan ekspor pelanggan. Perubahan berlaku langsung saat disimpan",
+    "Switch to PHPNuxBill compatible? Agent and Sales can then add balance, use Recharge Zero and generate vouchers, and every role can read transactions and customer exports. This applies immediately.": "Ubah ke Kompatibel PHPNuxBill? Agent dan Sales lalu bisa Tambah Saldo, memakai Recharge Zero dan membuat voucher, dan semua peran bisa membaca transaksi dan ekspor pelanggan. Berlaku langsung.",
+    "10 to 72 characters": "10 sampai 72 karakter",
+    "Your password is from the old system and is stored in a weak format. Choose a new one to continue. You cannot open other pages until you do.": "Kata sandi Anda berasal dari sistem lama dan disimpan dalam format yang lemah. Pilih yang baru untuk melanjutkan. Halaman lain tidak bisa dibuka sebelum Anda menggantinya.",
+    "Sending…": "Mengirim…",
+    "Checking…": "Memeriksa…",
+    "I have saved them": "Saya sudah menyimpannya"}

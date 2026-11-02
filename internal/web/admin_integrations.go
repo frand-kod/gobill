@@ -166,8 +166,13 @@ func (s *Server) integrationTest(w http.ResponseWriter, r *http.Request) {
 	s.testResult(w, r, kind, ok, err)
 }
 
-// tripayTest checks the saved Tripay keys with the payment channel list, the cheapest authenticated call.
-func (s *Server) tripayTest(w http.ResponseWriter, r *http.Request) {
+func (s *Server) tripayTest(w http.ResponseWriter, r *http.Request) { s.gatewayTest(w, r, "tripay") }
+
+func (s *Server) duitkuTest(w http.ResponseWriter, r *http.Request) { s.gatewayTest(w, r, "duitku") }
+
+// gatewayTest checks the saved keys of the gateway the button names (not the active one) with the
+// payment channel list, the cheapest authenticated call.
+func (s *Server) gatewayTest(w http.ResponseWriter, r *http.Request, which string) {
 	if !s.testAllow(adminFrom(r).ID) {
 		s.testResult(w, r, "tripay", "", errTestLimit)
 		return
@@ -180,16 +185,15 @@ func (s *Server) tripayTest(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
 	var ok string
+	st["payment_gateway"] = which
 	g, err := s.gateway(st)
 	switch {
 	case err != nil:
-	case g == nil:
-		err = errors.New(s.catalog.T(s.language(), "Choose Tripay or Duitku as the Payment Gateway and save first"))
 	default:
 		var chans []payment.Channel
 		if chans, err = g.Channels(ctx); err == nil {
 			name, mode := "Tripay", st["tripay_mode"]
-			if st["payment_gateway"] == "duitku" {
+			if which == "duitku" {
 				name, mode = "Duitku", st["duitku_mode"]
 			}
 			if mode != "production" {

@@ -24,6 +24,8 @@ type field struct {
 	Numeric                               bool         // number input: digit keypad on phones (inputmode=numeric)
 	Balance                               bool         // customer picker lists each customer's balance
 	Btn                                   string       // link field: button text, default "Download backup"
+	Warn, WarnTo                          string       // select: confirm text asked on save when the value was changed to WarnTo
+	Cur                                   bool         // password input holds the current password (autocomplete=current-password)
 	Confirm                               string       // formbtn field: browser confirm text shown before the submit
 	Snippet                               string       // tokenshow field: text shown in a code block
 	Img                                   template.URL // qris field: preview of the stored code (data: URI)
@@ -170,6 +172,8 @@ func (f field) show(c string) field { f.Show = c; return f }
 func (f field) bind() field { f.Bind = true; return f }
 
 func (f field) hint(h string) field { f.Hint = h; return f }
+
+func (f field) warn(text, to string) field { f.Warn, f.WarnTo = text, to; return f }
 
 func (f field) wide() field { f.Wide = true; return f }
 

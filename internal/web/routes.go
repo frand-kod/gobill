@@ -348,6 +348,7 @@ func (s *Server) Handler() http.Handler {
 	s.setupRoutes(mux, superAdmin)
 	mux.Handle("POST /admin/settings/integrations/test/{kind}", superAdmin(http.HandlerFunc(s.integrationTest)))
 	mux.Handle("POST /admin/settings/payment/tripay-test", superAdmin(http.HandlerFunc(s.tripayTest)))
+	mux.Handle("POST /admin/settings/payment/duitku-test", superAdmin(http.HandlerFunc(s.duitkuTest)))
 	mux.Handle("POST /admin/settings/integrations/metrics-token", superAdmin(http.HandlerFunc(s.metricsTokenNew)))
 	mux.Handle("POST /admin/settings/integrations/metrics-token/disable", superAdmin(http.HandlerFunc(s.metricsTokenOff)))
 	mux.Handle("GET /admin/settings/isolir/preview", superAdmin(http.HandlerFunc(s.isolirPreview)))

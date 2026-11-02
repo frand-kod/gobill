@@ -693,6 +693,6 @@ func (s *Server) routerWGFields(ctx context.Context, rt db.Router, once, port st
 	return append(out,
 		btn("wg_check", "Check tunnel", "check", ""),
 		btn("wg_provision", "Provision again", "provision", "A new key is made and the old one stops working. The router must be given the new line"),
-		btn("wg_reset", "Reset peer session", "reset", ""),
+		btn("wg_reset", "Reset peer session", "reset", "Reset the peer session? The tunnel drops and reconnects."),
 		btn("wg_revoke", "Revoke", "revoke", "Revoke the tunnel? The router is cut off from gobill at once"))
 }

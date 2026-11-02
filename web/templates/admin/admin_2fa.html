@@ -8,7 +8,14 @@
   <h2 class="card-title">{{T "Recovery codes"}}</h2>
   <div class="card-body space-y-3">
     <p>{{T "Each code works once when you cannot use your authenticator app. Store them somewhere safe. They are shown only now."}}</p>
-    <ul class="grid grid-cols-2 gap-2 font-mono text-lg">{{range .Codes}}<li>{{.}}</li>{{end}}</ul>
+    <ul id="rc-codes" class="grid grid-cols-2 gap-2 font-mono text-lg">{{range .Codes}}<li>{{.}}</li>{{end}}</ul>
+    <div class="flex flex-wrap items-center gap-2" x-data="{ done: false, saved: false, txt() { return Array.from(document.querySelectorAll('#rc-codes li'), l => l.textContent).join('\n') + '\n' } }">
+      <button type="button" class="btn btn-ghost" @click="navigator.clipboard.writeText(txt()).then(() => { done = true; setTimeout(() => done = false, 2000) })">{{T "Copy"}}</button>
+      <button type="button" class="btn btn-ghost" @click="const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt()], { type: 'text/plain' })); a.download = 'gobill-recovery-codes.txt'; a.click(); URL.revokeObjectURL(a.href)">{{T "Download"}} (.txt)</button>
+      <span class="text-sm text-ok-fg" aria-live="polite" x-text="done ? '{{T "Copied"}}' : ''"></span>
+      <label class="flex basis-full items-center gap-2 text-sm font-medium"><input type="checkbox" class="size-4 rounded accent-brand-500" x-model="saved"> {{T "I have saved them"}}</label>
+      <a class="btn btn-primary" href="/admin" x-show="saved" x-cloak>{{T "Continue"}}</a>
+    </div>
   </div>
 </section>
 {{end}}
