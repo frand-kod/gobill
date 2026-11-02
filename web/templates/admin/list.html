@@ -14,7 +14,8 @@
   <input class="input w-32" type="number" name="keep" min="1" required placeholder="{{T "Keep logs (days)"}}" aria-label="{{T "Keep logs (days)"}}">
   <button class="btn btn-danger" type="submit">{{icon "trash-2"}}<span>{{T "Clean Logs"}}</span></button>
 </form>{{end}}
-<div data-list>
+<p id="list-status" class="sr-only" role="status" aria-live="polite"></p>
+<div data-list data-count="{{.Nav.Total}} {{T "results"}}">
 <div class="card overflow-hidden">
   {{if .Searchable}}
   <form class="flex flex-wrap items-center gap-2 border-b border-line p-3" method="get" action="{{.Base}}" role="search" data-live>
@@ -38,9 +39,11 @@
   <div class="flex justify-end border-b border-line p-3"><a class="btn btn-ghost btn-icon tip-end" href="{{.Base}}" aria-label="{{T "Reset filter"}}" data-tip="{{T "Reset filter"}}">{{icon "x"}}</a></div>
   {{end}}
   <div class="list-results">
-    {{if .Bulk}}<form id="bulk" method="post" class="bulk-bar">
+    {{if .Bulk}}<form id="bulk" method="post" class="bulk-bar"{{if .BulkAll}} data-all{{end}}>
       <span class="mr-auto text-sm text-ink-2"><span data-bulk-count>0</span> {{T "selected"}}</span>
-      {{range .Bulk}}<button class="btn {{if .Danger}}btn-danger{{else}}btn-ghost{{end}}" type="submit" formaction="{{$d.Base}}/{{.Path}}"{{if not .Page}} data-confirm="{{T .Label}}{{if not .All}} ({n}){{end}}?"{{if .Danger}} data-confirm-danger{{end}}{{end}}>{{if .Danger}}{{icon "trash-2"}}{{end}}<span>{{T .Label}}</span></button>{{end}}
+      {{range .Bulk}}{{if not .All}}<button class="btn {{if .Danger}}btn-danger{{else}}btn-ghost{{end}}" type="submit" data-needs-sel formaction="{{$d.Base}}/{{.Path}}"{{if not .Page}} data-confirm="{{T .Label}} ({n})?"{{if .Danger}} data-confirm-danger{{end}}{{end}}>{{if .Danger}}{{icon "trash-2"}}{{end}}<span>{{T .Label}}<span data-bulk-n></span></span></button>{{end}}{{end}}
+      {{if .BulkAll}}<span class="mx-1 h-6 border-s border-line" aria-hidden="true"></span>
+      {{range .Bulk}}{{if .All}}<button class="btn {{if .Danger}}btn-danger{{else}}btn-ghost{{end}}" type="submit" formaction="{{$d.Base}}/{{.Path}}"{{if not .Page}} data-confirm="{{T .Label}}: {{T "applies to all matching rows, not only the selected ones"}}. {{T "Continue"}}?"{{if .Danger}} data-confirm-danger{{end}}{{end}}>{{if .Danger}}{{icon "trash-2"}}{{end}}<span>{{T .Label}}</span></button>{{end}}{{end}}{{end}}
     </form>{{end}}
     <div class="table-scroll">
       <table class="table">

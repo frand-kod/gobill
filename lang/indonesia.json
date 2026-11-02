@@ -2841,4 +2841,12 @@
     "Enter the code sent to %s": "Masukkan kode yang dikirim ke %s",
     "No plan yet": "Belum ada paket",
     "No purchases yet": "Belum ada pembelian",
-    "No messages yet": "Belum ada pesan"}
+    "No messages yet": "Belum ada pesan",
+    "Day of month, 1-31. Required for postpaid plans. Empty on a Period plan: day 20": "Tanggal dalam bulan, 1-31. Wajib untuk paket pascabayar. Kosong pada paket Periode: tanggal 20",
+    "Unknown day name: use Mon, Tue, Wed, Thu, Fri, Sat, Sun": "Nama hari tidak dikenal: pakai Mon, Tue, Wed, Thu, Fri, Sat, Sun",
+    "Invalid time: use HH:MM-HH:MM, from 00:00 to 24:00, start and end different": "Jam tidak valid: pakai HH:MM-HH:MM, dari 00:00 sampai 24:00, awal dan akhir harus berbeda",
+    "Invalid rule: use DAYS HH:MM-HH:MM, e.g. Mon-Fri 08:00-17:00": "Aturan tidak valid: pakai HARI HH:MM-HH:MM, mis. Mon-Fri 08:00-17:00",
+    "When customers of this plan may log in, in the app time zone. Day names are English: Mon, Tue, Wed, Thu, Fri, Sat, Sun. Separate rules with ;. A window past midnight is fine: 22:00-06:00. Empty = always. The session is cut at the end of the window. RADIUS (gobill) only.": "Kapan pelanggan paket ini boleh masuk, dalam zona waktu aplikasi. Nama hari memakai bahasa Inggris: Mon, Tue, Wed, Thu, Fri, Sat, Sun. Pisahkan aturan dengan ;. Jendela melewati tengah malam boleh: 22:00-06:00. Kosong = selalu. Sesi diputus di akhir jendela. Hanya RADIUS (gobill).",
+    "Plain API sends the password unencrypted: use it only on a LAN or VPN, and API-SSL across the internet.": "API biasa mengirim kata sandi tanpa enkripsi: pakai hanya di LAN atau VPN, dan API-SSL lewat internet.",
+    "applies to all matching rows, not only the selected ones": "berlaku untuk semua baris yang cocok, bukan hanya yang dipilih",
+    "results": "hasil"}

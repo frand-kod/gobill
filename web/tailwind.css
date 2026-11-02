@@ -290,7 +290,7 @@
   }
   /* selection bar: hidden, shown above the table only while a row is checked */
   .bulk-bar { display: none; }
-  .list-results:has(input[name=ids]:checked) > .bulk-bar { @apply flex flex-wrap items-center justify-end gap-2 border-b border-line bg-surface-2 px-3 py-2; }
+  .list-results:has(input[name=ids]:checked) > .bulk-bar, .bulk-bar[data-all] { @apply flex flex-wrap items-center justify-end gap-2 border-b border-line bg-surface-2 px-3 py-2; }
   /* compact status badge in tables: dot + short text */
   .table .badge { @apply gap-1 px-1.5 py-0 leading-5; }
   /* list filters: on phones the panel opens from the Filter button (data-open, see list.js); from sm it always shows */
