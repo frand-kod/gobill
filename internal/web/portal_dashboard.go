@@ -21,6 +21,7 @@ import (
 
 // pTrxPage is one page of the customer's orders or activations.
 type pTrxPage struct {
+	Pay  *db.PaymentRequest // the unpaid, unexpired online payment, nil when none
 	Rows []db.Transaction
 	Nav  pageNav
 }
@@ -114,8 +115,9 @@ type pDashData struct {
 	Voucher   bool
 	Company   string // operator contact from Settings
 	Phone     string
-	WA        string           // wa.me link of Phone, "" when it is not a usable number
-	Trx       []db.Transaction // latest 3 orders, "See all" opens /portal/orders
+	WA        string             // wa.me link of Phone, "" when it is not a usable number
+	Trx       []db.Transaction   // latest 3 orders, "See all" opens /portal/orders
+	Pay       *db.PaymentRequest // the unpaid, unexpired online payment, nil when none
 }
 
 // pWords are the countdown and duration words, translated. The Alpine ticker gets the same ones.
@@ -273,6 +275,7 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		s.fail(w, "portal dashboard orders", err)
 		return
 	}
+	d.Pay = s.pendingPay(ctx, c.ID)
 	if d.Outage, err = billing.MassDropNow(ctx, s.queries, st, c.Username, time.Unix(now, 0)); err != nil {
 		s.fail(w, "portal outage", err)
 		return
@@ -339,7 +342,9 @@ func (s *Server) pOrders(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "count portal orders", err)
 		return
 	}
-	s.prender(w, r, 200, "p_orders", Page{Title: "Order History", Data: pageOf(trx, pg, total, "/portal/orders")})
+	data := pageOf(trx, pg, total, "/portal/orders")
+	data.Pay = s.pendingPay(r.Context(), customerFrom(r).ID)
+	s.prender(w, r, 200, "p_orders", Page{Title: "Order History", Data: data})
 }
 
 // pInvoice shows the invoice only for the customer's own transaction.

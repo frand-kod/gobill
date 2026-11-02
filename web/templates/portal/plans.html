@@ -1,6 +1,7 @@
 {{define "content"}}
 <h1 class="page-title mb-4">{{T "Order Package"}}</h1>
 {{if .Data.Balance}}<p class="mb-4 text-sm text-ink-2">{{T "Your balance"}}: <b class="text-ink">{{money .Customer.Balance}}</b></p>{{end}}
+{{if and .Data.HowToPay .Data.Plans}}<div class="alert alert-warn mb-4" role="status">{{icon "circle-alert"}}<div><p>{{T "Online payment is not available. To pay, ask the admin to top up your balance or use a voucher."}}</p><p class="mt-2 flex flex-wrap gap-3">{{with .Brand.wa}}<a class="link" href="{{.}}" target="_blank" rel="noopener">{{T "Chat on WhatsApp"}}</a>{{else}}{{with .Brand.phone}}<a class="link" href="tel:{{.}}">{{.}}</a>{{end}}{{end}}{{if .Data.Voucher}}<a class="link" href="/portal/voucher">{{T "Voucher Activation"}} ›</a>{{end}}</p></div></div>{{end}}
 <div class="grid gap-4 sm:grid-cols-2">
 {{$bal := .Data.Balance}}{{$ch := .Data.Channels}}
 {{range .Data.Plans}}
@@ -12,7 +13,7 @@
   {{if or $bal $ch}}<form method="post" action="/portal/plans/{{.ID}}/{{if $ch}}pay{{else}}balance{{end}}" class="mt-auto space-y-2"><input class="input" type="text" name="coupon" maxlength="50" placeholder="{{T "Coupon Code"}}" aria-label="{{T "Coupon Code"}}">{{if $ch}}<select class="input" name="channel" required aria-label="{{T "Payment Gateway"}}">{{range $ch}}<option value="{{.Code}}">{{.Name}}</option>{{end}}</select><button class="btn w-full sm:w-auto" type="submit">{{T "Pay Now"}}</button>{{end}}{{if $bal}}<button class="btn w-full sm:w-auto" type="submit" formaction="/portal/plans/{{.ID}}/balance" data-confirm="{{printf (T "Pay %s %s from balance %s?") .Name (money .Price) (money $.Customer.Balance)}}"{{if lt $.Customer.Balance .Price}} disabled{{end}}>{{T "Pay with Balance"}}</button>{{if lt $.Customer.Balance .Price}}<p class="hint">{{T "Insufficient balance for this package"}} {{if and $.Data.Custom $ch}}<a class="link" href="#topup">{{T "Top up balance"}}</a>{{else if $.Brand.wa}}<a class="link" href="{{$.Brand.wa}}" target="_blank" rel="noopener">{{T "Ask the admin to top up"}}</a>{{else if $.Brand.phone}}<a class="link" href="tel:{{$.Brand.phone}}">{{T "Ask the admin to top up"}}</a>{{end}}</p>{{end}}{{end}}</form>{{end}}
   {{if $bal}}<a class="btn btn-ghost" href="/portal/plans/{{.ID}}/friend">{{T "Buy for friend"}}</a>{{end}}
 </div></div>
-{{else}}<p>{{T "No data"}}</p>{{end}}
+{{else}}<p>{{T "No plans for sale yet"}}</p>{{end}}
 </div>
 {{if and .Data.Custom $ch}}<form class="card mt-4" id="topup" method="post" action="/portal/topup"><h2 class="card-title">{{T "Custom Balance"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">
   <div><label class="label" for="ta">{{T "Input Desired Amount"}}</label><input class="input" id="ta" name="amount" type="number" min="1" inputmode="numeric" required></div>

@@ -1,5 +1,6 @@
 {{define "content"}}
 <h1 class="page-title mb-4">{{T "Order History"}}</h1>
+{{with .Data.Pay}}<div class="alert alert-warn mb-4" role="status">{{icon "clock"}}<span class="flex-1">{{T "Payment pending"}} - {{money .Amount}}</span><a class="btn btn-primary btn-sm" href="/portal/payments/{{.ID}}">{{T "Continue payment"}}</a></div>{{end}}
 <nav class="mb-4 flex gap-1 border-b border-line" aria-label="{{T "History"}}">
   <a class="border-b-2 px-3 py-2 text-sm border-brand-500 font-semibold text-accent-fg" href="/portal/orders" aria-current="page">{{T "Order History"}}</a>
   <a class="border-b-2 px-3 py-2 text-sm border-transparent text-ink-2 hover:text-ink" href="/portal/activation">{{T "Activation History"}}</a>

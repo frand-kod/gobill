@@ -2754,5 +2754,18 @@
     "Boost hours": "Jam boost",
     "Same format as Login hours, e.g. * 00:00-06:00 for a night boost. Online customers are switched within a minute.": "Format sama dengan Jam login, misalnya * 00:00-06:00 untuk boost malam. Pelanggan yang online dipindah dalam satu menit.",
     "Invalid schedule: use Mon-Fri 08:00-17:00; Sat 09:00-12:00": "Jadwal tidak valid: pakai Mon-Fri 08:00-17:00; Sat 09:00-12:00",
-    "Set both the boost bandwidth and the boost hours, or neither": "Isi bandwidth boost dan jam boost sekaligus, atau kosongkan keduanya"
+    "Set both the boost bandwidth and the boost hours, or neither": "Isi bandwidth boost dan jam boost sekaligus, atau kosongkan keduanya",
+    "Pay / extend package": "Bayar / perpanjang paket",
+    "Payment received. Your package is active.": "Pembayaran diterima. Paket Anda aktif.",
+    "Go to Dashboard": "Ke Dasbor",
+    "This payment has expired. If you already paid, contact the admin.": "Pembayaran ini sudah kedaluwarsa. Jika sudah membayar, hubungi admin.",
+    "This payment failed. No money was taken, you can order again.": "Pembayaran ini gagal. Tidak ada dana yang terpotong, Anda bisa memesan lagi.",
+    "Back to plans": "Kembali ke paket",
+    "Online payment is not available. To pay, ask the admin to top up your balance or use a voucher.": "Pembayaran online belum tersedia. Untuk membayar, minta admin mengisi saldo Anda atau pakai voucher.",
+    "No plans for sale yet": "Belum ada paket yang dijual",
+    "Payment pending": "Pembayaran menunggu",
+    "Continue payment": "Lanjutkan pembayaran",
+    "Wait %d seconds before asking for a new code": "Tunggu %d detik sebelum meminta kode lagi",
+    "Code sent to the registered number, valid for 10 minutes": "Kode dikirim ke nomor terdaftar, berlaku 10 menit",
+    "Customer login address, where the package is paid or extended": "Alamat login pelanggan, tempat paket dibayar atau diperpanjang"
 }

@@ -29,7 +29,7 @@ const isolirCSP = "sandbox allow-scripts allow-forms allow-popups allow-popups-t
 // isolirVoucherForm is the voucher box; it posts without a session (see routes: CSRF bypass).
 func (s *Server) isolirVoucherForm() template.HTML {
 	t := func(text string) string { return s.catalog.T(s.language(), text) }
-	return template.HTML(`<form method="post" action="/isolir/voucher" autocomplete="off"><input name="code" placeholder="` + t("Voucher code") + `" autocapitalize="characters" required><p><button class="btn" type="submit">` + t("Activate voucher") + `</button></p></form>`)
+	return template.HTML(`<form method="post" action="/isolir/voucher" autocomplete="off"><label for="isolir-code" class="muted">` + t("Voucher code") + `</label><input id="isolir-code" name="code" placeholder="` + t("Voucher code") + `" autocapitalize="characters" required><p><button class="btn" type="submit">` + t("Activate voucher") + `</button></p></form>`)
 }
 
 // isolirView is what the page shows. Known is false for a client IP with no open session.
@@ -42,6 +42,7 @@ type isolirView struct {
 	ExpiredAt   string
 	Amount      string
 	WAAdmin     string
+	PortalURL   string // customer login, where the package is paid or extended
 	LogoutURL   string // hotspot logout link, "" when isolir_hotspot_url is not set
 	Title       string
 	Message     string
@@ -201,6 +202,7 @@ func (s *Server) writeIsolir(w http.ResponseWriter, r *http.Request, st map[stri
 	v.Promos = s.promoBlocks(r.Context(), "isolir")
 	v.WAAdmin = isolirWALink(v, isolir.Value(st, "isolir_wa"))
 	v.LogoutURL = isolirLogoutURL(st)
+	v.PortalURL = isolirPortalURL(st)
 
 	custom := isolir.Value(st, "isolir_mode") == "custom" && strings.TrimSpace(st["isolir_html"]) != ""
 	s.emitIsolir(w, st, v, status, custom, st["isolir_html"])
@@ -256,7 +258,7 @@ func renderIsolirCustom(src string, v isolirView) string {
 	vals := map[string]string{
 		"company_name": v.Company, "logo_url": v.Logo, "username": v.Username, "name": v.Name,
 		"plan_name": v.PlanName, "expired_at": v.ExpiredAt, "amount": v.Amount,
-		"wa_admin_link": v.WAAdmin, "voucher_form": string(v.VoucherForm), "promos": string(v.Promos),
+		"wa_admin_link": v.WAAdmin, "portal_url": v.PortalURL, "voucher_form": string(v.VoucherForm), "promos": string(v.Promos),
 		"known": known, "title": v.Title, "message": v.Message, "notice": v.Notice, "logout_url": v.LogoutURL,
 	}
 	return isolirTokenRe.ReplaceAllStringFunc(src, func(m string) string {
@@ -279,7 +281,7 @@ main{max-width:440px;margin:0 auto;padding:16px}
 .card{background:#fff;border:1px solid #e4e4e7;border-radius:12px;padding:16px;margin:0 0 12px}
 h1{font-size:1.3rem;margin:.2rem 0 .5rem}h2{font-size:1.05rem;margin:0 0 .5rem}
 p{margin:.4rem 0}.muted{color:#52525b;font-size:.9rem}
-.btn{display:block;box-sizing:border-box;width:100%;text-align:center;background:#16a34a;color:#fff;text-decoration:none;border:0;border-radius:8px;padding:12px;margin:8px 0;font:600 1rem system-ui,sans-serif;cursor:pointer}
+.btn{display:block;box-sizing:border-box;width:100%;text-align:center;background:#15803d;color:#fff;text-decoration:none;border:0;border-radius:8px;padding:12px;margin:8px 0;font:600 1rem system-ui,sans-serif;cursor:pointer}
 .btn-ghost{background:#fff;color:#18181b;border:1px solid #d4d4d8}
 input{display:block;box-sizing:border-box;width:100%;padding:10px;border:1px solid #d4d4d8;border-radius:8px;font:1rem system-ui,sans-serif}
 img.logo{display:block;max-height:48px;max-width:180px;margin-bottom:8px}
@@ -288,7 +290,8 @@ img.logo{display:block;max-height:48px;max-width:180px;margin-bottom:8px}
 {{if .Notice}}<div class="card"><p>{{T .Notice}}</p></div>{{end}}
 <div class="card"><h1>{{.Title}}</h1>
 {{if .Known}}<p>{{T "Hello"}} <b>{{.Name}}</b></p><p class="muted">{{T "Last plan"}}: {{.PlanName}}<br>{{T "Ends"}}: {{.ExpiredAt}}</p>{{end}}
-<p>{{.Message}}</p></div>
+<p>{{.Message}}</p>{{if and .Known .Amount}}<p><b>{{T "Package price"}}: {{.Amount}}</b></p>{{end}}</div>
+<a class="btn" href="{{.PortalURL}}" rel="noopener">{{T "Pay / extend package"}}</a>
 {{if .WAAdmin}}<a class="btn" href="{{.WAAdmin}}" rel="noopener">{{T "Contact admin"}}</a>{{end}}
 {{if .LogoutURL}}<a class="btn btn-ghost" href="{{.LogoutURL}}" rel="noopener">{{T "Log out / use another account"}}</a>{{end}}
 {{if .ShowVoucher}}<div class="card"><h2>{{T "Have a voucher?"}}</h2>{{.VoucherForm}}</div>{{end}}
@@ -320,6 +323,7 @@ func (s *Server) isolirPreview(w http.ResponseWriter, r *http.Request) {
 	v.Promos = s.promoBlocks(r.Context(), "isolir")
 	v.WAAdmin = isolirWALink(v, isolir.Value(st, "isolir_wa"))
 	v.LogoutURL = isolirLogoutURL(st)
+	v.PortalURL = isolirPortalURL(st)
 	v.Notice = "Sample view. Customer data is not real."
 	s.emitIsolir(w, st, v, http.StatusOK, strings.TrimSpace(st["isolir_html"]) != "", st["isolir_html"])
 }
@@ -364,6 +368,7 @@ var isolirVarList = []notify.Var{
 	{Name: "expired_at", Desc: "Expiry date and time"},
 	{Name: "amount", Desc: "Price of the package"},
 	{Name: "logout_url", Desc: "Hotspot logout address, empty when the Hotspot address is not set"},
+	{Name: "portal_url", Desc: "Customer login address, where the package is paid or extended"},
 	{Name: "wa_admin_link", Desc: "WhatsApp link to the admin"},
 	{Name: "voucher_form", Desc: "Voucher form, rendered by gobill"},
 	{Name: "promos", Desc: "Promotions, rendered by gobill"},
@@ -446,4 +451,9 @@ func lanIPv4() string {
 		}
 	}
 	return "<IP-LAN-GOBILL>"
+}
+
+// isolirPortalURL is where an isolated customer pays: the login page, on the app URL when it is set.
+func isolirPortalURL(st map[string]string) string {
+	return strings.TrimRight(st["app_url"], "/") + "/login"
 }

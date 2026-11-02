@@ -24,7 +24,7 @@
   <p class="mt-2 text-base">{{with $.Data.PlanEnded}}{{.}}{{else}}{{T "You have no active plan yet."}}{{end}}</p>
   {{end}}
   {{with $.Data.Extend}}<form class="mt-4" method="post" action="/portal/extend/{{.ID}}" data-confirm="{{T "Extend"}} {{.Plan}}?"><button class="btn btn-primary min-h-12 w-full px-6 text-base" type="submit">{{icon "calendar-plus"}}<span>{{T "Extend"}} {{.Plan}}</span></button></form>
-  {{else}}{{if $.Data.Buy}}<a class="btn btn-primary mt-4 min-h-12 w-full px-6 text-base" href="/portal/plans">{{icon "wallet"}}<span>{{T "Buy / Extend"}}</span></a>{{end}}{{end}}
+  {{else}}{{if $.Data.Buy}}<a class="btn btn-primary mt-4 min-h-12 w-full px-6 text-base" href="/portal/plans">{{icon "wallet"}}<span>{{T "Buy / Extend"}}</span></a>{{else}}<div class="mt-4 text-sm"><p>{{T "Online payment is not available. To pay, ask the admin to top up your balance or use a voucher."}}</p><p class="mt-2 flex flex-wrap gap-3">{{with .Data.WA}}<a class="link" href="{{.}}" target="_blank" rel="noopener">{{T "Chat on WhatsApp"}}</a>{{else}}{{with $.Data.Phone}}<a class="link" href="tel:{{.}}">{{.}}</a>{{end}}{{end}}{{if .Data.Voucher}}<a class="link" href="/portal/voucher">{{T "Voucher Activation"}} ›</a>{{end}}</p></div>{{end}}{{end}}
   <p class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-ink-2">
     <span>{{T "Balance"}}: <span class="font-medium text-ink">{{money .Customer.Balance}}</span></span>
     {{if .Data.Voucher}}<a class="link" href="/portal/voucher">{{T "Voucher Activation"}} ›</a>{{end}}

@@ -8,6 +8,10 @@ UPDATE payment_requests SET gateway_ref = ?, pay_url = ? WHERE id = ?;
 -- name: GetPaymentRequest :one
 SELECT * FROM payment_requests WHERE id = ?;
 
+-- name: GetPendingPaymentRequestByCustomer :one
+-- The customer's newest unpaid request that has not expired yet (now = unix seconds).
+SELECT * FROM payment_requests WHERE customer_id = ? AND status = 'pending' AND expires_at > ? ORDER BY id DESC LIMIT 1;
+
 -- name: GetPaymentRequestByRef :one
 SELECT * FROM payment_requests WHERE ref = ?;
 

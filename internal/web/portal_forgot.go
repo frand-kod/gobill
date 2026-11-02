@@ -9,10 +9,10 @@ import (
 
 	"context"
 	"errors"
+	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
 	"golang.org/x/crypto/bcrypt"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -103,12 +103,18 @@ func (s *Server) pForgotUser(w http.ResponseWriter, r *http.Request) {
 
 const (
 	otpTTL   = 10 * time.Minute
+	otpGap   = 60 * time.Second // a new code can be asked for this long after the last one
 	otpTries = 5
 )
 
+// otpWait is the seconds left before a new code may be sent, 0 when it may be sent now.
+func otpWait(sentAt, now int64) int64 {
+	return max(sentAt+int64(otpGap/time.Second)-now, 0)
+}
+
 // forgotClear drops the whole forgot-password state.
 func (s *Server) forgotClear(r *http.Request) {
-	for _, k := range []string{"forgot_user", "forgot_hash", "forgot_exp", "forgot_tries", "forgot_ok"} {
+	for _, k := range []string{"forgot_user", "forgot_hash", "forgot_exp", "forgot_tries", "forgot_ok", "forgot_at"} {
 		s.sessions.Remove(r.Context(), k)
 	}
 }
@@ -156,9 +162,8 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 		s.forgotRender(w, r, http.StatusOK, "", "Verification code is not available right now")
 		return
 	}
-	if s.sessions.GetString(ctx, "forgot_user") == username && time.Now().Unix() < s.sessions.GetInt64(ctx, "forgot_exp") {
-		wait := s.sessions.GetInt64(ctx, "forgot_exp") - time.Now().Unix()
-		s.forgotRender(w, r, http.StatusOK, "", "Verification Code already sent, please wait "+strconv.FormatInt(wait, 10)+" seconds.")
+	if wait := otpWait(s.sessions.GetInt64(ctx, "forgot_at"), time.Now().Unix()); s.sessions.GetString(ctx, "forgot_user") == username && time.Now().Unix() < s.sessions.GetInt64(ctx, "forgot_exp") && wait > 0 {
+		s.forgotRender(w, r, http.StatusOK, "", fmt.Sprintf(s.catalog.T(s.language(), "Wait %d seconds before asking for a new code"), wait))
 		return
 	}
 	otp, err := newOTP()
@@ -175,6 +180,7 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 	s.sessions.Put(ctx, "forgot_hash", string(hash))
 	s.sessions.Put(ctx, "forgot_exp", time.Now().Add(otpTTL).Unix())
 	s.sessions.Put(ctx, "forgot_tries", otpTries)
+	s.sessions.Put(ctx, "forgot_at", time.Now().Unix())
 	s.sessions.Remove(ctx, "forgot_ok")
 
 	c, err := s.queries.GetCustomerByUsername(ctx, username)

@@ -6,7 +6,7 @@
   <dl class="grid gap-2 sm:grid-cols-[12rem_1fr]">
     <dt class="font-medium">{{T "Package Name"}}</dt><dd>{{.Plan}}</dd>
     <dt class="font-medium">{{T "Total"}}</dt><dd>{{money $p.Amount}}</dd>
-    <dt class="font-medium">{{T "Payment Method"}}</dt><dd>{{$p.Channel}}</dd>
+    <dt class="font-medium">{{T "Payment Method"}}</dt><dd>{{.Channel}}</dd>
     <dt class="font-medium">{{T "Status"}}</dt><dd><span class="badge {{badge $p.Status}}">{{T $p.Status}}</span></dd>
     <dt class="font-medium">{{T "Created On"}}</dt><dd>{{ts $p.CreatedAt}}</dd>
     <dt class="font-medium">{{T "Expires On"}}</dt><dd>{{ts $p.ExpiresAt}}</dd>
@@ -17,6 +17,12 @@
     {{if $p.PayUrl}}<a class="btn btn-primary" href="{{$p.PayUrl}}" rel="noopener">{{T "Pay Now"}}</a>{{end}}
     <form method="post" action="/portal/payments/{{$p.ID}}/check"><button class="btn btn-ghost" type="submit">{{T "Check for Payment"}}</button></form>
   </div>
+  {{else if eq $p.Status "paid"}}
+  <p class="alert alert-ok" role="status">{{icon "circle-check"}}<span>{{T "Payment received. Your package is active."}}</span></p>
+  <a class="btn btn-primary" href="/portal">{{T "Go to Dashboard"}}</a>
+  {{else}}
+  <p class="alert alert-warn" role="status">{{icon "circle-alert"}}<span>{{if eq $p.Status "expired"}}{{T "This payment has expired. If you already paid, contact the admin."}}{{else}}{{T "This payment failed. No money was taken, you can order again."}}{{end}}</span></p>
+  <a class="btn btn-primary" href="/portal/plans">{{T "Back to plans"}}</a>
   {{end}}
 </div></div>
 {{end}}

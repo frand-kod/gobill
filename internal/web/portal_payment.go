@@ -3,6 +3,7 @@ package web
 // Customer payment checkout and status check.
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
@@ -181,9 +182,34 @@ func (s *Server) pPayView(w http.ResponseWriter, r *http.Request) {
 		pl.Name = "Custom Balance"
 	}
 	s.prender(w, r, 200, "p_payment", Page{Title: "Order Details", Data: struct {
-		P    db.PaymentRequest
-		Plan string
-	}{pr, pl.Name}})
+		P       db.PaymentRequest
+		Plan    string
+		Channel string
+	}{pr, pl.Name, s.channelName(pr.Channel)}})
+}
+
+// pendingPay is the customer's newest unpaid payment that has not expired, nil when there is none.
+func (s *Server) pendingPay(ctx context.Context, customerID int64) *db.PaymentRequest {
+	pr, err := s.queries.GetPendingPaymentRequestByCustomer(ctx, db.GetPendingPaymentRequestByCustomerParams{CustomerID: sql.NullInt64{Int64: customerID, Valid: true}, ExpiresAt: time.Now().Unix()})
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			slog.Error("pending payment", "err", err)
+		}
+		return nil
+	}
+	return &pr
+}
+
+// channelName is the gateway's name for a channel code, from the cached list; the code itself when unknown.
+func (s *Server) channelName(code string) string {
+	s.chanCache.mu.Lock()
+	defer s.chanCache.mu.Unlock()
+	for _, ch := range s.chanCache.list {
+		if ch.Code == code && ch.Name != "" {
+			return ch.Name
+		}
+	}
+	return code
 }
 
 // pPayCheck asks the gateway for the status, for when the callback did not arrive.

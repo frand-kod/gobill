@@ -26,6 +26,8 @@ type plansData struct {
 	Balance  bool
 	Channels []payment.Channel // online gateway channels; empty = gateway off
 	Custom   bool              // allow_balance_custom with a gateway: custom top-up form
+	HowToPay bool              // no gateway and the balance cannot buy any plan: say how to pay
+	Voucher  bool              // vouchers are on: link them in the how-to-pay note
 }
 
 func (s *Server) pPlans(w http.ResponseWriter, r *http.Request) {
@@ -66,6 +68,15 @@ func (s *Server) plansPage(w http.ResponseWriter, r *http.Request, code int, err
 	if g, err := s.gateway(st); g != nil && err == nil {
 		if pd.Channels, err = s.activeChannels(r.Context(), g); err != nil {
 			slog.Error("portal plans: channels", "err", err)
+		}
+	}
+	pd.Voucher = st["disable_voucher"] != "yes"
+	if len(pd.Channels) == 0 {
+		pd.HowToPay = true
+		for _, p := range plans {
+			if pd.Balance && c.Balance >= p.Price {
+				pd.HowToPay = false
+			}
 		}
 	}
 	s.prender(w, r, code, "p_plans", Page{Title: "Order Package", Error: errMsg, Data: pd})
