@@ -26,6 +26,7 @@ type rechargeConfirm struct {
 	Price, Expiry, Extends string
 	Balance, After         string
 	Insufficient           bool
+	Zero                   bool // Recharge Zero: recorded as Rp 0, the warning shows
 	Fragment               bool // the card alone, for the recharge dialog (X-Fragment: 1)
 	Token                  string
 }
@@ -81,7 +82,7 @@ func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 		d.Expiry = pv.Expiry.In(s.location()).Format("2006-01-02 15:04")
 	}
 	if method == methodZero {
-		pv.Price, d.Price = 0, money(0)
+		pv.Price, d.Price, d.Zero = 0, money(0), true
 	}
 	if pv.Plan.Type == "Balance" {
 		d.After = money(c.Balance + pv.Price)

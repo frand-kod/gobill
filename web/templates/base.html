@@ -22,7 +22,7 @@ document.querySelectorAll('[data-pw]').forEach(function (b) {
   <p>{{with .From}}{{printf (T "Showing %d–%d of %d") $.From $.To $.Total}}{{end}}</p>
   <div class="flex flex-wrap items-center gap-2">
     <span>{{T "Per page"}}</span>
-    {{range .Sizes}}<a class="btn btn-sm{{if .On}} btn-primary{{else}} btn-ghost{{end}}" href="{{.Href}}"{{if .On}} aria-current="true"{{end}}>{{.N}}</a>{{end}}
+    {{range .Sizes}}<a class="btn btn-sm btn-ghost" href="{{.Href}}"{{if .On}} aria-current="page"{{end}}>{{.N}}</a>{{end}}
     {{if .Prev}}<a class="btn btn-ghost" href="{{.Prev}}">{{T "Previous"}}</a>{{end}}
     {{if .Next}}<a class="btn btn-ghost" href="{{.Next}}">{{T "Next"}}</a>{{end}}
   </div>

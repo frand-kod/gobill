@@ -3,6 +3,7 @@ package web
 // Plan CRUD and router sync.
 
 import (
+	"cmp"
 	"database/sql"
 	"log/slog"
 	"net/http"
@@ -205,7 +206,7 @@ func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	lp := listPage{Heading: "Service Plan", Base: "/admin/plans", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
-		Cols: []string{"Plan Name", "Type", "Plan Price", "Plan Validity", "Router", "Audience", "Status"}}
+		Cols: []string{"Plan Name", "Type", "Plan Price", "Plan Validity", "Router", "Audience", "Features", "Status"}}
 	if isoPlan != 0 {
 		lp.Note, lp.NoteLink = "The Isolir plan is managed in Settings > Isolir", "/admin/settings/isolir"
 	}
@@ -217,8 +218,18 @@ func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
 		if p.Audience == "admin" {
 			aud = "Admin only"
 		}
+		var feats []string // schedule, idle timeout and FUP: shown as badges
+		if p.LoginWindow != "" || p.BoostWindow != "" {
+			feats = append(feats, "Schedule")
+		}
+		if p.IdleTimeout.Int64 > 0 {
+			feats = append(feats, "Idle timeout")
+		}
+		if p.FupBandwidthID.Valid {
+			feats = append(feats, "FUP")
+		}
 		lp.Rows = append(lp.Rows, listRow{p.ID, []string{p.Name, p.Type + " / " + p.Billing, money(p.Price),
-			fmt.Sprint(p.Validity, " ", p.ValidityUnit), routers[p.RouterID.Int64], aud, st}})
+			fmt.Sprint(p.Validity, " ", p.ValidityUnit), routers[p.RouterID.Int64], aud, strings.Join(feats, ", "), st}})
 	}
 	total, err := s.queries.CountPlans(r.Context(), db.CountPlansParams{Term: q, HiddenID: isoPlan})
 	if err != nil {
@@ -346,7 +357,7 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 	}
 	price, err := strconv.ParseInt(v["price"], 10, 64)
 	if err != nil || price < 0 {
-		e["price"] = "Enter a number of 0 or more"
+		e["price"] = cmp.Or(wholeErr(v["price"]), "Enter a number of 0 or more")
 	}
 	balance := v["type"] == "Balance"
 	validity, ok := posInt(v["validity"])
@@ -354,7 +365,7 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 		if balance && v["validity"] == "" {
 			validity, v["validity_unit"] = 1, "Months" // unused for top-ups, the column is NOT NULL
 		} else {
-			e["validity"] = "Enter a number greater than 0"
+			e["validity"] = cmp.Or(wholeErr(v["validity"]), "Enter a number greater than 0")
 		}
 	}
 	p := db.CreatePlanParams{Name: v["name"], Type: v["type"], Billing: v["billing"], Price: price, Validity: validity,

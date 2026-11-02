@@ -14,6 +14,7 @@
       <dt class="text-ink-2">{{T "Balance"}}</dt><dd>{{.Balance}}</dd>
       <dt class="text-ink-2">{{T "Balance after"}}</dt><dd id="balance-after">{{.After}}</dd>
     </dl>
+    {{if .Zero}}<p class="alert alert-warn">{{T "Recorded as Rp 0, no income"}}</p>{{end}}
     {{if .Insufficient}}<div class="alert alert-warn flex-wrap" role="alert"><span class="flex-1">{{T "The customer's balance is not enough. Add balance first, or choose Cash."}}</span><a class="btn btn-ghost btn-sm" href="/admin/deposit?customer={{.C.Username}}">{{icon "banknote"}}<span>{{T "Add Balance"}}</span></a></div>{{end}}
     <div class="flex flex-wrap gap-2">
       <button class="btn btn-primary" type="submit"{{if .Insufficient}} disabled{{end}}>{{icon "wallet"}}<span>{{T "Recharge"}}</span></button>

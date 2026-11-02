@@ -166,6 +166,14 @@ func (f field) PickConfig() string {
 	return jsonStr(map[string]any{"value": f.Value, "balance": f.Balance})
 }
 
+// wholeErr is the message for a whole-number field given a decimal ("12.5", "12,5"); "" for anything else.
+func wholeErr(v string) string {
+	if strings.ContainsAny(v, ".,") {
+		return "Use whole numbers without dots or commas"
+	}
+	return ""
+}
+
 func (f field) as(typ string) field { f.Type = typ; return f }
 
 func (f field) req() field { f.Required = true; return f }

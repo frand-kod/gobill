@@ -10,7 +10,7 @@
     <button type="button" class="btn btn-ghost min-h-10" @click="change()">{{T "Change customer"}}</button>
   </div>
   <div x-show="!username || editing" x-cloak>
-    <input class="input" id="{{.Name}}" type="text" autocomplete="off" x-ref="q" x-model="q" placeholder="{{T "Search customers"}}"
+    <input class="input" :id="'{{.Name}}'" type="text" autocomplete="off" x-ref="q" x-model="q" placeholder="{{T "Search customers"}}"
       @focus="openList()" @click="openList()" @input.debounce.250ms="find()"
       @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.enter="enter($event)" @keydown.escape="close()"
       role="combobox" aria-autocomplete="list" aria-controls="{{.Name}}-list" :aria-expanded="open" :aria-activedescendant="active >= 0 ? '{{.Name}}-opt-' + active : false"
@@ -30,6 +30,7 @@
       <li x-show="!items.length" role="option" aria-disabled="true" class="px-4 py-2 text-sm text-ink-2">{{T "No customers found"}}</li>
     </ul>
   </div>
+  <p class="sr-only" aria-live="polite" data-results="{{T "results"}}" x-text="open ? items.length + ' ' + $el.dataset.results : ''"></p>
 </div>
 <script src="{{asset "/static/customer-pick.js"}}"></script>
 {{end}}

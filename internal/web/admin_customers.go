@@ -31,6 +31,7 @@ var (
 
 func custFields(v, e map[string]string, editing bool) []field {
 	pw := text("password", "Password", v, e).as("password")
+	pw.Gen = true
 	sec := text("secret", "Router Secret", v, e).as("password").hint("Hotspot/PPPoE password on the router. Leave empty to use the Password above (or keep the current one when no new password is entered).")
 	ar := text("auto_renewal", "Auto Renewal", v, e).as("checkbox")
 	ar.Checked = v["auto_renewal"] == "1"
@@ -42,7 +43,7 @@ func custFields(v, e map[string]string, editing bool) []field {
 	}
 	acct := section(append(fs, pw, text("fullname", "Full Name", v, e).req(), text("status", "Status", v, e).opts(custStatuses...)), "Account", "")
 	contact := section([]field{
-		text("phone", "Phone Number", v, e),
+		text("phone", "Phone Number", v, e).as("tel"),
 		text("email", "Email", v, e).as("email"),
 		text("address", "Address", v, e),
 		text("coordinates", "Coordinates", v, e).as("coords").hint("lat,lng, e.g. -6.2,106.8. Optional; shown on the customer map."),
@@ -510,7 +511,7 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 	if v["billing_day"] != "" {
 		n, err := strconv.ParseInt(v["billing_day"], 10, 64)
 		if err != nil || n < 1 || n > 31 {
-			e["billing_day"] = "Enter a day between 1 and 31"
+			e["billing_day"] = cmp.Or(wholeErr(v["billing_day"]), "Enter a day between 1 and 31")
 		}
 		bday = sql.NullInt64{Int64: n, Valid: true}
 	}

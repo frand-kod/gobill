@@ -2919,4 +2919,11 @@
     "Your password is from the old system and is stored in a weak format. Choose a new one to continue. You cannot open other pages until you do.": "Kata sandi Anda berasal dari sistem lama dan disimpan dalam format yang lemah. Pilih yang baru untuk melanjutkan. Halaman lain tidak bisa dibuka sebelum Anda menggantinya.",
     "Sending…": "Mengirim…",
     "Checking…": "Memeriksa…",
-    "I have saved them": "Saya sudah menyimpannya"}
+    "I have saved them": "Saya sudah menyimpannya",
+    "Delete logs older than {keep} days?": "Hapus log lebih dari {keep} hari?",
+    "Use whole numbers without dots or commas": "Gunakan angka bulat tanpa titik/koma",
+    "Recorded as Rp 0, no income": "Dicatat Rp 0, tidak ada pemasukan",
+    "Contacting router…": "Menghubungi router…",
+    "Features": "Fitur",
+    "Idle timeout": "Batas diam",
+    "FUP": "FUP"}

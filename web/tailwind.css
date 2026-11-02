@@ -217,6 +217,8 @@
   .btn-sm { min-height: var(--ctl-h-sm); @apply px-2 text-xs; }
   /* icon-only row action: square, tap target = control height (>=40px on phones); icon is 18px via --icon */
   .btn-icon { width: var(--ctl-h-sm); min-height: var(--ctl-h-sm); @apply px-0; }
+  /* busy label on an icon button (data-busy-label, see base.html): the text needs the room the icon had */
+  .btn-icon[data-busy-label][data-locked] { width: auto; @apply px-3 whitespace-nowrap; }
   .btn[aria-current="page"], .btn[aria-pressed="true"], .btn[aria-selected="true"] { @apply border-brand-500 bg-brand-50 text-accent-fg; }
 
   .label { @apply mb-1 block text-sm font-medium text-ink; }
@@ -259,7 +261,7 @@
   /* !important: the xl:flex-1 utilities of the last card would otherwise win over this component rule */
   @media (min-width: 80rem) { .card:has(> [data-collapse-body][hidden]) { flex: none !important; } }
 
-  .table { line-height: var(--lh-table); @apply w-full text-left text-sm; }
+  .table { line-height: var(--lh-table); @apply w-full text-start text-sm; }
   /* header: tinted with the neutral tokens, sticky inside .table-scroll; sort arrows dim when unsorted, accent when active */
   .table th { font-size: var(--fs-small); padding: var(--sp-2) var(--sp-4); font-weight: var(--fw-medium); @apply whitespace-nowrap border-b border-line text-ink-2; background: color-mix(in srgb, var(--surface-2) 60%, var(--border)); }
   .table thead th { position: sticky; top: 0; z-index: 1; }
@@ -300,11 +302,13 @@
   /* controls of the phone "more actions" menu of a row */
   .menu-item { @apply flex min-h-10 w-full items-center gap-3 px-3 py-2 text-start text-sm text-ink hover:bg-surface-2; }
 
-  /* tooltip for icon-only buttons: text from data-tip, on hover, keyboard focus and touch (:active). No JS. */
+  /* tooltip for icon-only buttons: text from data-tip, on hover and keyboard focus. No JS. Hover and press only on
+     hover-capable pointers: a tap would otherwise flash the tip (the label is still in aria-label). */
   [data-tip] { position: relative; }
   [data-tip]::after { content: attr(data-tip); @apply pointer-events-none absolute bottom-full start-1/2 z-20 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-sm bg-ink px-2 py-1 text-xs font-medium text-bg opacity-0 transition-opacity; }
   [data-tip].tip-end::after { @apply start-auto end-0 translate-x-0; }
-  [data-tip]:hover::after, [data-tip]:focus-visible::after, [data-tip]:active::after { @apply opacity-100; }
+  [data-tip]:focus-visible::after { @apply opacity-100; }
+  @media (hover: hover) { [data-tip]:hover::after, [data-tip]:active::after { @apply opacity-100; } }
 
   .badge { @apply inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-xs font-medium; }
   .badge::before { content: ""; @apply size-1.5 rounded-full bg-current; }
