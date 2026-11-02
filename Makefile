@@ -32,7 +32,7 @@ sign:
 	printf 'VERSION %s\n' "$(TAG)" >> dist/sign/SHA256SUMS
 	go run ./tools/releasesign sign "$(RELEASE_KEY)" dist/sign/SHA256SUMS
 	go run ./tools/releasesign verify dist/sign/SHA256SUMS
-	gh release upload "$(TAG)" dist/sign/SHA256SUMS.sig --clobber
+	gh release upload "$(TAG)" dist/sign/SHA256SUMS dist/sign/SHA256SUMS.sig --clobber # SHA256SUMS changed: it now has the VERSION line
 	gh release edit "$(TAG)" --draft=false --latest
 
 .PHONY: build test fuzz css sign
