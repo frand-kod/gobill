@@ -80,7 +80,7 @@ func (s *Server) login2FASubmit(w http.ResponseWriter, r *http.Request) {
 			s.sessions.Remove(ctx, "pending_2fa")
 			s.sessions.Remove(ctx, "pending_2fa_until")
 			s.sessions.Remove(ctx, "pending_2fa_tries")
-			s.render(w, r, http.StatusOK, "login", Page{Title: "Sign in", Error: "Too many wrong codes. Sign in again."})
+			s.render(w, r, http.StatusOK, "login", Page{Title: "Admin sign in", Error: "Too many wrong codes. Sign in again."})
 			return
 		} else {
 			s.sessions.Put(ctx, "pending_2fa_tries", tries)

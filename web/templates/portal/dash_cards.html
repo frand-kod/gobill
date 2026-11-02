@@ -13,7 +13,7 @@
   <div class="flex flex-wrap items-start justify-between gap-2">
     <h2 id="c-plan" class="text-lg font-semibold">{{with .Data.Plan}}{{.Name}}{{else}}{{T "Active Plan"}}{{end}}</h2>
     {{if or .Data.Plan .Data.Live.Online}}<span class="badge badge-ok" x-show="live.online"{{if not .Data.Live.Online}} style="display: none"{{end}}>{{T "Online"}}</span>
-    <span class="badge badge-warn" x-show="!live.online"{{if .Data.Live.Online}} style="display: none"{{end}}>{{T "Offline"}}</span>{{else}}<span class="badge">{{T "No plan yet"}}</span>{{end}}
+    <span class="badge badge-warn" x-show="!live.online"{{if .Data.Live.Online}} style="display: none"{{end}}>{{T "Not connected"}}</span>{{else}}<span class="badge">{{T "No plan yet"}}</span>{{end}}
   </div>
   {{with .Data.Plan}}
   {{if .Pending}}<p class="mt-2 text-3xl font-semibold text-ink">{{.Left}}</p>

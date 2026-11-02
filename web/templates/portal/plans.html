@@ -15,9 +15,9 @@
 </div></div>
 {{else}}<p>{{T "No plans for sale yet"}}</p>{{end}}
 </div>
-{{if and .Data.Custom $ch}}<form class="card mt-4" id="topup" method="post" action="/portal/topup"><h2 class="card-title">{{T "Custom Balance"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">
+{{if and .Data.Custom $ch}}<form class="card mt-4" id="topup" method="post" action="/portal/topup"><h2 class="card-title">{{T "Other amount"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">
   <div><label class="label" for="ta">{{T "Input Desired Amount"}}</label><input class="input" id="ta" name="amount" type="number" min="1" inputmode="numeric" required></div>
-  <div><label class="label" for="tc">{{T "Payment Gateway"}}</label><select class="input" id="tc" name="channel" required>{{range $ch}}<option value="{{.Code}}">{{.Name}}</option>{{end}}</select></div>
+  <div><label class="label" for="tc">{{T "Pay via"}}</label><select class="input" id="tc" name="channel" required>{{range $ch}}<option value="{{.Code}}">{{.Name}}</option>{{end}}</select></div>
   <div class="self-end"><button class="btn" type="submit">{{T "Buy"}}</button></div>
 </div></form>{{end}}
 {{end}}

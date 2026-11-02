@@ -2935,4 +2935,15 @@
     "Contacting router…": "Menghubungi router…",
     "Features": "Fitur",
     "Idle timeout": "Batas diam",
-    "FUP": "FUP"}
+    "FUP": "FUP",
+    "Not connected": "Tidak terhubung",
+    "Other amount": "Nominal lain",
+    "Check code": "Cek kode",
+    "Please choose how to pay": "Pilih cara bayar",
+    "Wait %d seconds before checking again": "Tunggu %d detik sebelum memeriksa lagi",
+    "Sent %s to %s (%s)": "Saldo %s terkirim ke %s (%s)",
+    "Admin sign in": "Masuk Admin",
+    "Customer sign in": "Masuk Pelanggan",
+    "Notifications, %d unread": "Notifikasi, %d belum dibaca",
+    "User not found": "Pengguna tidak ditemukan",
+    "Send {balance} to {name} ({username})?": "Kirim Rp {balance} ke {name} ({username})?"}

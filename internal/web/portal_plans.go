@@ -4,6 +4,7 @@ package web
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/frand-kod/gobill/internal/payment"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type planRow struct {
@@ -157,7 +159,10 @@ func (s *Server) pTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	amount, _ := strconv.ParseInt(strings.TrimSpace(r.PostFormValue("balance")), 10, 64)
-	err := s.Billing.TransferBalance(r.Context(), customerFrom(r).ID, strings.TrimSpace(r.PostFormValue("username")), amount)
+	username := strings.TrimSpace(r.PostFormValue("username"))
+	// the recipient's name for the flash, read before the transfer (an unknown user just leaves the name empty)
+	to, _ := s.queries.GetCustomerByUsername(r.Context(), username)
+	err := s.Billing.TransferBalance(r.Context(), customerFrom(r).ID, username, amount)
 	for _, e := range []error{billing.ErrSelfTransfer, billing.ErrTargetNotFound, billing.ErrBelowMinimum, billing.ErrTransferDisabled, billing.ErrInsufficientBalance, billing.ErrInactive} {
 		if errors.Is(err, e) {
 			msg := s.catalog.T(s.language(), e.Error())
@@ -174,7 +179,36 @@ func (s *Server) pTransfer(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal transfer", err)
 		return
 	}
-	s.flashTo(w, r, "/portal/profile", s.catalog.T(s.language(), "Sending balance success")+": "+money(amount)+" -> "+strings.TrimSpace(r.PostFormValue("username")))
+	s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.catalog.T(s.language(), "Sent %s to %s (%s)"), money(amount), to.Fullname, username))
+	http.Redirect(w, r, "/portal/profile", http.StatusSeeOther)
+}
+
+// pTransferLookup names the recipient for the confirm dialog. 404 when the username is unknown or transfers are off.
+func (s *Server) pTransferLookup(w http.ResponseWriter, r *http.Request) {
+	st, err := s.loadSettings(r.Context())
+	if err != nil {
+		s.fail(w, "portal transfer lookup", err)
+		return
+	}
+	if st["enable_balance"] == "no" || st["allow_balance_transfer"] != "yes" {
+		http.NotFound(w, r)
+		return
+	}
+	if !s.lookupAllow(customerFrom(r).ID) {
+		http.Error(w, "too many lookups", http.StatusTooManyRequests)
+		return
+	}
+	c, err := s.queries.GetCustomerByUsername(r.Context(), strings.TrimSpace(r.URL.Query().Get("username")))
+	if errors.Is(err, sql.ErrNoRows) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		s.fail(w, "portal transfer lookup", err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"name": maskName(c.Fullname)})
 }
 
 // ---- self extend ----
@@ -196,4 +230,35 @@ func (s *Server) pExtend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.flashTo(w, r, "/portal", s.catalog.T(s.language(), "Extend until")+" "+until.Format("2006-01-02"))
+}
+
+// maskName keeps the first word and the initials of the rest ("Budi Santoso" -> "Budi S."):
+// enough for the sender to recognise the recipient, without handing any customer full names.
+func maskName(full string) string {
+	w := strings.Fields(full)
+	for i := 1; i < len(w); i++ {
+		w[i] = string([]rune(w[i])[:1]) + "."
+	}
+	return strings.Join(w, " ")
+}
+
+// lookupAllow caps recipient lookups at 30 per customer per 15 minutes (shares the OTP map and lock).
+func (s *Server) lookupAllow(id int64) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.otpSent == nil {
+		s.otpSent = map[string][]time.Time{}
+	}
+	k, now := fmt.Sprint("lk:", id), time.Now()
+	var l []time.Time
+	for _, t := range s.otpSent[k] {
+		if now.Sub(t) < 15*time.Minute {
+			l = append(l, t)
+		}
+	}
+	if len(l) >= 30 {
+		return false
+	}
+	s.otpSent[k] = append(l, now)
+	return true
 }

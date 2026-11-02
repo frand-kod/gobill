@@ -502,3 +502,6 @@
 
 /* the admin top bar is sticky: in-page anchors (the skip link to #main) stop below it */
 html { scroll-padding-top: 4.5rem; }
+
+/* print: the admin shell, toasts and the controls marked no-print stay off paper */
+@media print { #gb-sidebar, #gb-topbar, footer, #toasts, .no-print { display: none } }

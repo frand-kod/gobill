@@ -64,20 +64,18 @@ func groupSep() string {
 }
 
 // money formats rupiah with dot thousands separators: Rp 1.234.000.
+// A negative amount keeps the sign in front of the currency: -Rp 1.000.
 func money(n int64) string {
-	neg := n < 0
-	if neg {
-		n = -n
+	sign := ""
+	if n < 0 {
+		sign, n = "-", -n
 	}
 	d := strconv.FormatInt(n, 10)
 	sep := groupSep()
 	for i := len(d) - 3; i > 0; i -= 3 {
 		d = d[:i] + sep + d[i:]
 	}
-	if neg {
-		d = "-" + d
-	}
-	return "Rp " + d
+	return sign + "Rp " + d
 }
 
 // badge maps a status value to its badge colour class.
