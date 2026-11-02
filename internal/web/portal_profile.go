@@ -233,7 +233,7 @@ func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
 	s.sessions.Put(ctx, "ct_hash", string(hash))
 	s.sessions.Put(ctx, "ct_exp", time.Now().Add(otpTTL).Unix())
 	s.sessions.Put(ctx, "ct_tries", otpTries)
-	s.flashTo(w, r, "/portal/profile", "Verification code sent")
+	s.flashTo(w, r, "/portal/profile#verify", "Verification code sent")
 }
 
 func (s *Server) pContactVerify(w http.ResponseWriter, r *http.Request) {

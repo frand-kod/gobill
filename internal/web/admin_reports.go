@@ -214,6 +214,7 @@ type invoiceData struct {
 	T                        db.Transaction
 	Customer                 db.Customer
 	Company, Address, Footer string
+	Portal                   bool // opened by the customer: back link and paid line
 }
 
 // invoice renders one transaction as a printable invoice (admin and portal share it).
@@ -231,7 +232,7 @@ func (s *Server) invoice(w http.ResponseWriter, r *http.Request, t db.Transactio
 		s.fail(w, "invoice settings", err)
 		return
 	}
-	s.render(w, r, 200, "invoice", Page{Title: "Invoice", Data: invoiceData{t, c, set["company_name"], set["address"], set["note"]}})
+	s.render(w, r, 200, "invoice", Page{Title: "Invoice", Data: invoiceData{t, c, set["company_name"], set["address"], set["note"], strings.HasPrefix(r.URL.Path, "/portal/")}})
 }
 
 func (s *Server) trxInvoice(w http.ResponseWriter, r *http.Request) {

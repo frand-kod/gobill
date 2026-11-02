@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/frand-kod/gobill/internal/payment"
 	"github.com/makiuchi-d/gozxing"
@@ -74,7 +75,8 @@ func qrisFromImage(b []byte) (string, error) {
 }
 
 type qrisData struct {
-	Card template.HTML // the QRIS card, see qrisCard
+	Card    template.HTML // the QRIS card, see qrisCard
+	Expired bool          // the package period of this invoice is over: no QR, nothing to pay
 }
 
 func (s *Server) qrisPage(w http.ResponseWriter, r *http.Request) {
@@ -91,6 +93,10 @@ func (s *Server) qrisPage(w http.ResponseWriter, r *http.Request) {
 	t, err := s.queries.GetTransaction(r.Context(), id)
 	if err != nil || st["qris_payload"] == "" || t.Price <= 0 {
 		http.NotFound(w, r)
+		return
+	}
+	if t.PeriodEnd > 0 && t.PeriodEnd < time.Now().Unix() {
+		s.render(w, r, 200, "p_qris", Page{Title: "Pay via QRIS", Data: qrisData{Expired: true}})
 		return
 	}
 	code, err := payment.QRISAmount(st["qris_payload"], t.Price)

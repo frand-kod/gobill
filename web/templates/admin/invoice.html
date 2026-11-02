@@ -15,7 +15,7 @@ th, td { border-bottom: 1px solid #ccc; padding: 6px; text-align: start; }
 </head>
 <body>
 {{with .Data}}{{$t := .T}}
-<p class="noprint"><button onclick="window.print()">{{T "Print"}}</button></p>
+<p class="noprint"><button onclick="window.print()">{{T "Print"}}</button>{{if .Portal}} <a href="/portal/orders">{{T "Back to history"}}</a>{{end}}</p>
 <h2>{{.Company}}</h2>
 <div style="white-space:pre-line">{{.Address}}</div>
 <h3>{{T "Invoice"}} {{$t.Invoice}}</h3>
@@ -27,6 +27,7 @@ th, td { border-bottom: 1px solid #ccc; padding: 6px; text-align: start; }
 <tr><th>{{T "Expires On"}}</th><td>{{ts $t.PeriodEnd}}</td></tr>
 <tr><th>{{T "Method"}}</th><td>{{$t.Method}}</td></tr>
 <tr><th>{{T "Plan Price"}}</th><td><strong>{{money $t.Price}}</strong></td></tr>
+{{if .Portal}}<tr><th>{{T "Status"}}</th><td>{{T "Paid"}}</td></tr>{{end}}
 </table>
 <p style="white-space:pre-line">{{.Footer}}</p>
 {{end}}

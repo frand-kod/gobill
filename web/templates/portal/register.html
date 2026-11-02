@@ -7,20 +7,22 @@
       {{if .Flash}}<p class="alert alert-ok" role="status">{{icon "circle-check"}}<span>{{.Flash}}</span></p>{{end}}
       {{if .Error}}<p class="alert alert-error" role="alert">{{icon "circle-alert"}}<span>{{T .Error}}</span></p>{{end}}
       {{with .Data}}
-      <div><label class="label" for="username">{{T "Username"}}</label><input class="input" id="username" name="username" autocapitalize="none" autocomplete="username" required value="{{.Username}}"></div>
+      <div><label class="label" for="username">{{T "Username"}}</label><input class="input" id="username" name="username" autocapitalize="none" autocomplete="username" required aria-describedby="uhint" pattern="[a-z0-9]{4,32}" minlength="4" maxlength="32" value="{{.Username}}"><p class="hint" id="uhint">{{T "4 to 32 characters, lowercase letters and digits only"}}</p></div>
       <div><label class="label" for="password">{{T "Password"}}</label>
         <div class="pw-wrap">
           <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="{{$.Brand.pass_min}}" required>
           <button class="pw-toggle" type="button" hidden data-pw="password" data-show="{{T "Show"}}" data-hide="{{T "Hide"}}" aria-pressed="false" aria-controls="password">{{T "Show"}}</button>
         </div>
         <p class="hint">{{printf (T "At least %s characters") $.Brand.pass_min}}</p></div>
-      <div><label class="label" for="phone_number">{{T "WhatsApp Number"}}</label><input class="input" id="phone_number" name="phone_number" type="tel" inputmode="tel" required value="{{.Phone}}"></div>
+      <div><label class="label" for="phone_number">{{T "WhatsApp Number"}}</label><input class="input" id="phone_number" name="phone_number" type="tel" inputmode="tel" required aria-describedby="phint" placeholder="08xxxxxxxxxx" value="{{.Phone}}"><p class="hint" id="phint">{{T "Starts with 08 or 62, for example 081234567890"}}</p></div>
       {{if .OTP}}
       <div><label class="label" for="otp_code">{{T "Verification Code"}}</label><input class="input" id="otp_code" name="otp_code" inputmode="numeric"></div>
       {{end}}
       {{end}}
-      <button class="btn btn-primary w-full" type="submit">{{T "Register"}}</button>
-      {{with .Data}}{{if .OTP}}<button class="btn btn-ghost w-full" type="submit" name="send_otp" value="1">{{T "Request OTP"}}</button>{{end}}{{end}}
+      {{if and .Data.OTP (not .Flash)}}<button class="btn btn-primary w-full" type="submit" name="send_otp" value="1" formnovalidate>{{T "Send code"}}</button>
+      <button class="btn btn-ghost w-full" type="submit">{{T "Register"}}</button>
+      {{else}}<button class="btn btn-primary w-full" type="submit">{{T "Register"}}</button>
+      {{if .Data.OTP}}<button class="btn btn-ghost w-full" type="submit" name="send_otp" value="1">{{T "Send code"}}</button>{{end}}{{end}}
       <a class="btn btn-ghost w-full" href="/login">{{T "Cancel"}}</a>
     </div>
   </form>

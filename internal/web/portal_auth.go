@@ -85,7 +85,12 @@ func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
 		hash = []byte(c.PasswordHash)
 	}
 	ok := bcrypt.CompareHashAndPassword(hash, []byte(r.PostFormValue("password"))) == nil
-	if err != nil || !ok || c.Status == "Banned" || c.Status == "Disabled" {
+	if err == nil && ok && (c.Status == "Banned" || c.Status == "Disabled") {
+		// only after a correct password, so this does not reveal which usernames exist
+		s.prender(w, r, 200, "p_login", Page{Title: "Sign in", Error: "This account cannot be used, contact the admin", Data: username})
+		return
+	}
+	if err != nil || !ok {
 		metrics.Inc("login_failures_total", "scope", "portal")
 		s.loginFailed(ip, username)
 		s.recordFailure(uk)

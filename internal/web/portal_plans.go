@@ -19,6 +19,9 @@ import (
 type planRow struct {
 	db.Plan
 	Bandwidth string // shown when show_bandwidth_plan == yes
+	Kind      string // friendly service type
+	Duration  string // "30 Hari": validity with the translated unit
+	Short     int64  // price minus balance when the balance is too low, else 0
 }
 
 type plansData struct {
@@ -55,7 +58,11 @@ func (s *Server) plansPage(w http.ResponseWriter, r *http.Request, code int, err
 		isoPlan, _ := s.isolirIDs(r.Context())
 		for _, p := range l {
 			if p.Billing == "prepaid" && p.ID != isoPlan {
-				row := planRow{Plan: p}
+				t := func(x string) string { return s.catalog.T(s.language(), x) }
+				row := planRow{Plan: p, Kind: p.Type, Duration: fmt.Sprintf("%d %s", p.Validity, t(p.ValidityUnit)), Short: max(p.Price-c.Balance, 0)}
+				if p.Type == "PPPoE" {
+					row.Kind = t("Home internet")
+				}
 				if bw, err := s.queries.GetBandwidth(r.Context(), p.BandwidthID.Int64); st["show_bandwidth_plan"] == "yes" && p.BandwidthID.Valid && err == nil {
 					row.Bandwidth = bw.Name
 				}

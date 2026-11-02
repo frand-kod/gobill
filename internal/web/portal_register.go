@@ -193,7 +193,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "register", err)
 		return
 	}
-	s.sessions.Put(ctx, "flash", s.catalog.T(s.language(), "Register Success! You can login now"))
+	s.sessions.Put(ctx, "flash", s.catalog.T(s.language(), "Registration successful. Welcome!"))
 	http.Redirect(w, r, "/portal", http.StatusSeeOther)
 }
 

@@ -169,6 +169,7 @@ func TestPortalConnectionOnlineOffline(t *testing.T) {
 	portalCust(t, e, 0)
 	c, _ := custLogin(t, e, "u1", "pw12345")
 	now := time.Now().Unix()
+	dashPlan(t, e, "Data_Limit", 0, 100, now+86400) // the Online/Offline badge needs a plan
 	dashSess(t, e, "u1", "open", "10.0.0.5", "CE:33:AA:BB:2A:AA", now-600, 0, 1, 2)
 	body := portalGet(t, e, c, "/portal")
 	for _, want := range []string{"10.0.0.5", "CE:33:••:••:2A:AA", "badge-ok"} {

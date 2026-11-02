@@ -15,8 +15,8 @@
   <div><label class="label" for="nphone">{{T "New Number"}}</label><input class="input" id="nphone" name="value" inputmode="tel" required></div>
   <div class="self-end"><button class="btn" type="submit">{{T "Request OTP"}}</button></div>
 </div></form>
-{{if eq .Data.Pending "phone"}}<form class="card mb-4" method="post" action="/portal/contact/phone/verify"><div class="card-body flex flex-wrap gap-4">
-  <div><label class="label" for="potp">{{T "OTP"}} ({{.Data.Value}})</label><input class="input" id="potp" name="otp" inputmode="numeric" required></div>
+{{if eq .Data.Pending "phone"}}<form class="card mb-4" id="verify" method="post" action="/portal/contact/phone/verify"><h2 class="card-title">{{printf (T "Enter the code sent to %s") .Data.Value}}</h2><div class="card-body flex flex-wrap gap-4">
+  <div><label class="label" for="potp">{{T "OTP"}} ({{.Data.Value}})</label><input class="input" id="potp" name="otp" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
   <div class="self-end"><button class="btn" type="submit">{{T "Update"}}</button></div>
 </div></form>{{end}}{{end}}
 {{if .Data.OTPEmail}}
@@ -24,8 +24,8 @@
   <div><label class="label" for="nemail">{{T "New Email"}}</label><input class="input" id="nemail" name="value" type="email" required></div>
   <div class="self-end"><button class="btn" type="submit">{{T "Request OTP"}}</button></div>
 </div></form>
-{{if eq .Data.Pending "email"}}<form class="card mb-4" method="post" action="/portal/contact/email/verify"><div class="card-body flex flex-wrap gap-4">
-  <div><label class="label" for="eotp">{{T "OTP"}} ({{.Data.Value}})</label><input class="input" id="eotp" name="otp" inputmode="numeric" required></div>
+{{if eq .Data.Pending "email"}}<form class="card mb-4" id="verify" method="post" action="/portal/contact/email/verify"><h2 class="card-title">{{printf (T "Enter the code sent to %s") .Data.Value}}</h2><div class="card-body flex flex-wrap gap-4">
+  <div><label class="label" for="eotp">{{T "OTP"}} ({{.Data.Value}})</label><input class="input" id="eotp" name="otp" inputmode="numeric" autocomplete="one-time-code" required autofocus></div>
   <div class="self-end"><button class="btn" type="submit">{{T "Update"}}</button></div>
 </div></form>{{end}}{{end}}
 <form class="card" id="password" method="post" action="/portal/password"><h2 class="card-title">{{T "Change Password"}}</h2><div class="card-body grid gap-4 md:grid-cols-3">

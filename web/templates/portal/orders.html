@@ -8,6 +8,6 @@
 <div class="card"><div class="overflow-x-auto"><table class="table">
 <thead><tr><th>{{T "Invoice"}}</th><th>{{T "Package Name"}}</th><th class="hidden sm:table-cell">{{T "Payment Method"}}</th><th>{{T "Package Price"}}</th><th>{{T "Created On"}}</th><th class="hidden sm:table-cell">{{T "Expires On"}}</th></tr></thead>
 <tbody>{{range .Data.Rows}}<tr><td><a class="underline" href="/portal/orders/{{.ID}}/invoice">{{.Invoice}}</a></td><td>{{.PlanName}}</td><td class="hidden sm:table-cell">{{.Method}}</td><td>{{money .Price}}</td><td>{{ts .CreatedAt}}</td><td class="hidden sm:table-cell">{{ts .PeriodEnd}}</td></tr>
-{{else}}<tr><td class="py-8 text-center text-ink-2" colspan="6">{{T "No data"}}</td></tr>{{end}}</tbody></table></div></div>
+{{else}}<tr><td class="py-8 text-center text-ink-2" colspan="6">{{T "No purchases yet"}}</td></tr>{{end}}</tbody></table></div></div>
 {{template "pager" .Data.Nav}}
 {{end}}
