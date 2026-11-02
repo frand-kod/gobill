@@ -281,7 +281,7 @@ func (s *Server) requireAdmin(roles ...string) func(http.Handler) http.Handler {
 				return
 			}
 			if len(roles) > 0 && !contains(roles, admin.Role) {
-				http.Error(w, "Forbidden", http.StatusForbidden)
+				s.deny(w, r, http.StatusForbidden)
 				return
 			}
 			ctx := context.WithValue(r.Context(), ctxKey{}, &admin)

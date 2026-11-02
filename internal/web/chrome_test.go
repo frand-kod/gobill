@@ -42,7 +42,7 @@ func TestToastRolesAndTimers(t *testing.T) {
 	out := b.String()
 	for _, want := range []string{
 		`role="status" data-toast="4000"`, `saved-msg`,
-		`role="status" data-toast="8000"`, `warn-msg`,
+		`role="alert">`, `warn-msg`,
 		`role="alert">`, `error-msg`, `sql detail`,
 		`aria-label="Tutup"`,
 	} {

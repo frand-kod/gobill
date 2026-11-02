@@ -200,7 +200,7 @@ func (s *Server) adminSave(w http.ResponseWriter, r *http.Request) {
 	case actor.Role == "Agent":
 		role = "Sales"
 	case !oneOf(role, assignable(actor)...):
-		http.Error(w, "Forbidden", http.StatusForbidden)
+		s.deny(w, r, http.StatusForbidden)
 		return
 	}
 	if t == nil {

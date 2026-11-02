@@ -193,8 +193,8 @@ func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 		CanCreate: oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), CanEdit: oneOf(role, "SuperAdmin", "Admin"),
 		Cols:     []string{"Username", "Full Name", "Balance", "Package", "Service Type", "PPPoE Username", "Ends On", "Status"},
 		SortKeys: []string{"username", "fullname", "balance", "", "", "", "expires", "status"}, Sort: sort, Dir: dir,
-		Filters: []filter{{"service_type", p.ServiceType, anyOpts("Service Type", "Hotspot", "PPPoE", "Others")},
-			{"status", p.Status, anyOpts("Status", custStatuses...)}}}
+		Filters: []filter{{"service_type", p.ServiceType, anyOpts("Service Type", "Hotspot", "PPPoE", "Others"), "Service Type"},
+			{"status", p.Status, anyOpts("Status", custStatuses...), "Status"}}}
 	if oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales") {
 		lp.Bulk = []bulkAction{{"message", "Send message to selected", false, false, false},
 			{"recharge", "Recharge same plan", false, false, true}}

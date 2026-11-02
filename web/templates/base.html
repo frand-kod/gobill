@@ -30,8 +30,8 @@ document.querySelectorAll('[data-pw]').forEach(function (b) {
 {{end}}{{end}}
 {{define "toastx"}}<button type="button" class="btn btn-sm shrink-0 border-transparent bg-transparent px-2" data-toast-close aria-label="{{T "Close"}}">{{icon "x"}}</button>{{end}}
 {{define "toasts"}}{{if or .Flash .Warn .Error}}<div id="toasts" class="fixed inset-x-4 top-4 z-[60] flex flex-col gap-2 sm:inset-x-auto sm:end-4 sm:w-[420px] sm:max-w-[calc(100vw-2rem)]">
-  {{with .Flash}}<div class="alert alert-ok toast" role="status" data-toast="4000">{{icon "circle-check"}}<span class="min-w-0 flex-1">{{.}}</span>{{template "toastx"}}</div>{{end}}
-  {{with .Warn}}<div class="alert alert-warn toast" role="status" data-toast="8000">{{icon "triangle-alert"}}<span class="min-w-0 flex-1">{{.}}</span>{{template "toastx"}}</div>{{end}}
+  {{with .Flash}}<div class="alert alert-ok toast" role="status"{{if not $.Sticky}} data-toast="4000"{{end}}>{{icon "circle-check"}}<span class="min-w-0 flex-1">{{.}}</span>{{template "toastx"}}</div>{{end}}
+  {{with .Warn}}<div class="alert alert-warn toast" role="alert">{{icon "triangle-alert"}}<span class="min-w-0 flex-1">{{.}}</span>{{template "toastx"}}</div>{{end}}
   {{with .Error}}<div class="alert alert-error toast" role="alert">{{icon "circle-alert"}}<span class="min-w-0 flex-1">{{T .}}{{with $.Detail}}<details class="mt-1 text-xs opacity-80"><summary class="cursor-pointer">{{T "Technical details"}}</summary><code class="break-all">{{.}}</code></details>{{end}}</span>{{with $.ErrLink}}<a class="btn btn-ghost btn-sm" href="{{.}}">{{icon "wallet"}}<span>{{T "Add Balance"}}</span></a>{{end}}{{template "toastx"}}</div>{{end}}
 </div>{{end}}{{end}}
 {{define "base"}}<!doctype html>
@@ -198,7 +198,7 @@ gbBind(document);
 // Forms work without JS. With JS: data-confirm="text {field}" (on form or submit button) asks first in the
 // <dialog>; {field} is replaced by the form input of that name. Submit buttons are then locked against double taps.
 (function () {
-  var dlg = document.getElementById('confirm-dlg'), ok = document.getElementById('confirm-ok');
+  var dlg = document.getElementById('confirm-dlg'), ok = document.getElementById('confirm-ok'), okText = ok.textContent;
   function lock(f) {
     var bs = f.querySelectorAll('[type=submit],button:not([type])');
     // a disabled button is not sent, so lock after the browser has collected the form data
@@ -217,6 +217,7 @@ gbBind(document);
       var go = function () { f.dataset.ok = '1'; f.requestSubmit(sb); delete f.dataset.ok; };
       if (!dlg || !dlg.showModal) { if (confirm(t)) go(); return; }
       document.getElementById('confirm-msg').textContent = t;
+      ok.textContent = (sb && sb.dataset.confirmOk) || f.dataset.confirmOk || okText;
       ok.className = 'btn min-h-10 ' + ((sb && 'confirmDanger' in sb.dataset) || 'confirmDanger' in f.dataset ? 'btn-danger-solid' : 'btn-primary');
       dlg.returnValue = '';
       dlg.onclose = function () { if (dlg.returnValue === 'ok') go(); };

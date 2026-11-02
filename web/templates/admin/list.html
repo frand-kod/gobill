@@ -26,7 +26,7 @@
     <button type="button" class="btn sm:hidden" data-filter-toggle aria-expanded="false" aria-controls="list-filters">{{icon "funnel"}}<span>{{T "Filter"}}{{with .FilterCount}} ({{.}}){{end}}</span></button>
     <div id="list-filters" class="filter-panel w-full flex-wrap items-center gap-2 sm:flex sm:w-auto" data-filter-panel>
     {{if .Dates}}<input class="input w-full sm:w-auto" type="date" name="from" value="{{.From}}" aria-label="{{T "From"}}"><input class="input w-full sm:w-auto" type="date" name="to" value="{{.To}}" aria-label="{{T "To"}}">{{end}}
-    {{range .Filters}}{{$cur := .Val}}<select class="input w-full sm:w-auto" name="{{.Name}}" aria-label="{{T .Name}}">{{range .Opts}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{T .Label}}</option>{{end}}</select>{{end}}
+    {{range .Filters}}{{$cur := .Val}}<select class="input w-full sm:w-auto" name="{{.Name}}" aria-label="{{T (or .Label .Name)}}">{{range .Opts}}<option value="{{.Value}}"{{if eq .Value $cur}} selected{{end}}>{{T .Label}}</option>{{end}}</select>{{end}}
     </div>
     {{end}}
     {{if .Sort}}<input type="hidden" name="sort" value="{{.Sort}}"><input type="hidden" name="dir" value="{{.Dir}}">{{end}}
@@ -44,7 +44,7 @@
     </form>{{end}}
     <div class="table-scroll">
       <table class="table">
-        <thead><tr>{{if .Bulk}}<th class="w-10"><label class="flex size-10 items-center justify-center"><input type="checkbox" class="size-4 accent-brand-500" aria-label="{{T "Select all"}}" data-select-all></label></th>{{end}}{{range $i, $c := .Cols}}<th{{with $d.ColClass $i}} class="{{.}}"{{end}}>{{with $d.SortKey $i}}<a class="sort-link" href="{{$d.SortURL .}}"{{if eq $d.Sort .}} aria-sort="{{if eq $d.Dir "asc"}}ascending{{else}}descending{{end}}"{{end}}>{{T $c}}<span class="sort-ic{{if eq $d.Sort .}} sort-on{{end}}" aria-hidden="true">{{if and (eq $d.Sort .) (eq $d.Dir "desc")}}{{icon "arrow-down"}}{{else if eq $d.Sort .}}{{icon "arrow-up"}}{{else}}{{icon "arrow-up-down"}}{{end}}</span></a>{{else}}{{T $c}}{{end}}</th>{{end}}{{if .CanEdit}}<th></th>{{end}}</tr></thead>
+        <thead><tr>{{if .Bulk}}<th class="w-10"><label class="flex size-10 items-center justify-center"><input type="checkbox" class="size-4 accent-brand-500" aria-label="{{T "Select all"}}" data-select-all></label></th>{{end}}{{range $i, $c := .Cols}}{{$sk := $d.SortKey $i}}<th{{with $d.ColClass $i}} class="{{.}}"{{end}}{{if and $sk (eq $d.Sort $sk)}} aria-sort="{{if eq $d.Dir "asc"}}ascending{{else}}descending{{end}}"{{end}}>{{with $sk}}<a class="sort-link" href="{{$d.SortURL .}}">{{T $c}}<span class="sort-ic{{if eq $d.Sort .}} sort-on{{end}}" aria-hidden="true">{{if and (eq $d.Sort .) (eq $d.Dir "desc")}}{{icon "arrow-down"}}{{else if eq $d.Sort .}}{{icon "arrow-up"}}{{else}}{{icon "arrow-up-down"}}{{end}}</span></a>{{else}}{{T $c}}{{end}}</th>{{end}}{{if .CanEdit}}<th><span class="sr-only">{{T "Actions"}}</span></th>{{end}}</tr></thead>
         <tbody>
         {{range $r := .Rows}}
           <tr>
@@ -71,7 +71,7 @@
             </td>{{end}}
           </tr>
         {{else}}
-          <tr><td class="py-8 text-center text-ink-2" colspan="99"><p>{{T "Nothing here yet."}}</p>{{if .CanCreate}}<a class="btn mt-3" href="{{.Base}}/new">{{icon "plus"}}<span>{{T "Add"}}</span></a>{{end}}</td></tr>
+          <tr><td class="py-8 text-center text-ink-2" colspan="99">{{if .Filtered}}<p>{{T "No results for this filter"}}</p><a class="btn mt-3" href="{{.Base}}">{{T "Reset filter"}}</a>{{else}}<p>{{T "Nothing here yet."}}</p>{{end}}{{if and .CanCreate (not .Filtered)}}<a class="btn mt-3" href="{{.Base}}/new">{{icon "plus"}}<span>{{T "Add"}}</span></a>{{end}}</td></tr>
         {{end}}
         </tbody>
       </table>
@@ -85,13 +85,13 @@
 {{end}}
 {{/* row controls in the action cell: inline on desktop and on phones when the row has at most two */}}
 {{define "rowItem"}}{{if eq .Kind "edit"}}<a class="btn btn-ghost btn-icon tip-end" href="{{.Href}}" aria-label="{{T .Label}}" data-tip="{{T .Label}}">{{icon .Icon}}</a>
-{{else if eq .Kind "delete"}}<form method="post" action="{{.Href}}" data-confirm="{{T "Delete"}} {{.Name}}?" data-confirm-danger>
+{{else if eq .Kind "delete"}}<form method="post" action="{{.Href}}" data-confirm="{{T "Delete"}} {{.Name}}?" data-confirm-ok="{{T "Delete"}}" data-confirm-danger>
   <button class="btn btn-danger btn-icon tip-end" type="submit" aria-label="{{T "Delete"}}" data-tip="{{T "Delete"}}">{{icon .Icon}}</button>
 </form>
 {{else}}<form class="flex items-center gap-1" method="post" action="{{.Href}}"{{if .Confirm}} data-confirm="{{T .Label}} {{.Name}}{{with .Field}} (+{{printf "{%s}" .}} {{T "days"}}){{end}}?"{{if .Danger}} data-confirm-danger{{end}}{{end}}>{{with .Field}}<input class="input input-sm w-16" type="number" name="{{.}}" value="7" min="1" aria-label="{{T .}}"><span class="text-xs text-ink-2">{{T "days"}}</span>{{end}}<button class="btn btn-ghost btn-icon tip-end" type="submit" aria-label="{{T .Label}}" data-tip="{{T .Label}}">{{icon .Icon}}</button></form>{{end}}{{end}}
 {{/* the same controls in the phone "more actions" menu; the extend days input moves in here */}}
 {{define "rowMenuItem"}}{{if eq .Kind "edit"}}<a class="menu-item" role="menuitem" href="{{.Href}}">{{icon .Icon}}<span>{{T .Label}}</span></a>
-{{else if eq .Kind "delete"}}<form method="post" action="{{.Href}}" data-confirm="{{T "Delete"}} {{.Name}}?" data-confirm-danger>
+{{else if eq .Kind "delete"}}<form method="post" action="{{.Href}}" data-confirm="{{T "Delete"}} {{.Name}}?" data-confirm-ok="{{T "Delete"}}" data-confirm-danger>
   <button class="menu-item text-err-fg" role="menuitem" type="submit">{{icon .Icon}}<span>{{T "Delete"}}</span></button>
 </form>
 {{else if .Field}}<form class="flex flex-wrap items-center gap-2 px-3 py-2" method="post" action="{{.Href}}"{{if .Confirm}} data-confirm="{{T .Label}} {{.Name}} (+{{printf "{%s}" .Field}} {{T "days"}})?"{{if .Danger}} data-confirm-danger{{end}}{{end}}>

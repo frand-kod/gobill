@@ -50,7 +50,7 @@ func TestListSortIndicator(t *testing.T) {
 	if !strings.Contains(body, `sort-ic sort-on`) || !strings.Contains(body, `aria-sort="descending"`) {
 		t.Error("active sort arrow missing")
 	}
-	if !strings.Contains(body, `<th class="num">`) {
+	if !strings.Contains(body, `<th class="num"`) {
 		t.Error("Balance header not right-aligned")
 	}
 }
@@ -62,7 +62,7 @@ func TestListSecondaryColumns(t *testing.T) {
 	body := do(h, "GET", "/admin/customers", nil, c).Body.String()
 	for _, re := range []string{
 		`<th class="max-sm:hidden"><a class="sort-link" href="[^"]*sort=fullname`, // Full Name: secondary
-		`<th class="num">`, // Balance: amount, stays on phones
+		`<th class="num"`, // Balance: amount, stays on phones
 		`<th><a class="sort-link" href="[^"]*sort=username`,
 		`<td class="max-sm:hidden">`,
 	} {

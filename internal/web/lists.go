@@ -69,6 +69,7 @@ func listSort(r *http.Request, allowed ...string) (sort, dir, param string) {
 type filter struct {
 	Name, Val string
 	Opts      []option
+	Label     string // translated; the select's accessible name
 }
 
 // rowAction is a per-row POST button to Base/ID/Path; Field adds a number input of that name.

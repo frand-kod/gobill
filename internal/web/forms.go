@@ -32,6 +32,7 @@ type field struct {
 	Wide                                  bool         // spans both columns of the card grid
 	Parts                                 []field      // row: the controls on one line under the row's label
 	Class                                 string       // row part: extra classes on its control (width)
+	Gate                                  string       // JS condition under which the field is submitted; set by Groups, "" = always
 }
 
 type option struct{ Value, Label string }
@@ -74,7 +75,50 @@ func (fp formPage) Groups() []group {
 		}
 		gs[len(gs)-1].Fields = append(gs[len(gs)-1].Fields, f)
 	}
+	// a field hidden by its condition (or its card's) is not submitted; one with an error, or in a card with one, stays visible
+	for i := range gs {
+		if gs[i].Open() {
+			gs[i].Show = ""
+		}
+		for j := range gs[i].Fields {
+			f := &gs[i].Fields[j]
+			var c []string
+			if gs[i].Show != "" {
+				c = append(c, "("+gs[i].Show+")")
+			}
+			if f.Show != "" && f.Error == "" {
+				c = append(c, "("+f.Show+")")
+			}
+			f.Gate = strings.Join(c, " && ")
+			if f.Error != "" {
+				f.Show = ""
+			}
+		}
+	}
 	return gs
+}
+
+// Errors lists the fields with an error, for the summary at the top of the form.
+func (fp formPage) Errors() []field {
+	var out []field
+	for _, f := range fp.Fields {
+		if f.Error != "" && f.Type != "hidden" {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// Describe is the id list for aria-describedby: the hint and the error, when present.
+func (f field) Describe() string {
+	var ids []string
+	if f.Hint != "" {
+		ids = append(ids, f.Name+"-hint")
+	}
+	if f.Error != "" {
+		ids = append(ids, f.Name+"-err")
+	}
+	return strings.Join(ids, " ")
 }
 
 // XData is the Alpine state: the current value of every Bind field.

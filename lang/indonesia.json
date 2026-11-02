@@ -2754,5 +2754,14 @@
     "Boost hours": "Jam boost",
     "Same format as Login hours, e.g. * 00:00-06:00 for a night boost. Online customers are switched within a minute.": "Format sama dengan Jam login, misalnya * 00:00-06:00 untuk boost malam. Pelanggan yang online dipindah dalam satu menit.",
     "Invalid schedule: use Mon-Fri 08:00-17:00; Sat 09:00-12:00": "Jadwal tidak valid: pakai Mon-Fri 08:00-17:00; Sat 09:00-12:00",
-    "Set both the boost bandwidth and the boost hours, or neither": "Isi bandwidth boost dan jam boost sekaligus, atau kosongkan keduanya"
+    "Set both the boost bandwidth and the boost hours, or neither": "Isi bandwidth boost dan jam boost sekaligus, atau kosongkan keduanya",
+    "fields need fixing": "kolom perlu diperbaiki",
+    "No results for this filter": "Tidak ada hasil untuk filter ini",
+    "Actions": "Aksi",
+    "Forbidden": "Akses ditolak",
+    "You do not have access to this page.": "Anda tidak punya akses ke halaman ini.",
+    "Page not found": "Halaman tidak ditemukan",
+    "The page you opened does not exist or was moved.": "Halaman yang Anda buka tidak ada atau sudah dipindahkan.",
+    "Method not allowed": "Metode tidak diizinkan",
+    "This address does not accept that kind of request.": "Alamat ini tidak menerima jenis permintaan itu."
 }

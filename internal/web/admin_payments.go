@@ -59,7 +59,7 @@ func (s *Server) pgAudit(w http.ResponseWriter, r *http.Request) {
 	}
 	from, to, _, _ := s.dateRange(r)
 	lp := listPage{Heading: "Payment Audit", Base: "/admin/payment-gateway/audit", Q: q, Searchable: true, Dates: true, From: from, To: to,
-		Cols: pgAuditCols, ViewLink: true, Filters: []filter{{"status", p.Status, pgStatuses}}}
+		Cols: pgAuditCols, ViewLink: true, Filters: []filter{{"status", p.Status, pgStatuses, "Status"}}}
 	for i, c := range s.pgAuditRows(rs) {
 		lp.Rows = append(lp.Rows, listRow{rs[i].ID, c})
 	}

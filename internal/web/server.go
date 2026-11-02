@@ -119,6 +119,7 @@ type Page struct {
 	Bell          []bellItem   // portal bell items
 	BellUnread    int          // how many of them are unread
 	Flash         string
+	Sticky        bool // the flash carries a money result: no auto-dismiss
 	Error         string
 	Warn          string   // yellow alert: the action worked but needs a follow-up
 	Detail        string   // raw technical text of Error, shown in a small <details>

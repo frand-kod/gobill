@@ -65,8 +65,8 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 		DeleteOnly: !oneOf(adminFrom(r).Role, "SuperAdmin", "Admin"), // Agent/Sales get Extend only (PHP plan/extend has no role check)
 		Cols:       []string{"Username", "Plan Name", "Type", "Created On", "Expires On", "Method", "Location", "Status"},
 		SortKeys:   []string{"username", "plan", "", "created", "expires", "", "", ""}, Sort: sort, Dir: dir,
-		Filters: []filter{{"status", p.Status, []option{{"", "Status"}, {"active", "active"}, {"expired", "expired"}}},
-			{"type", p.Type, anyOpts("Type", "Hotspot", "PPPoE")}, {"router", g("router"), routers}, {"plan", g("plan"), plans}},
+		Filters: []filter{{"status", p.Status, []option{{"", "Status"}, {"active", "active"}, {"expired", "expired"}}, "Status"},
+			{"type", p.Type, anyOpts("Type", "Hotspot", "PPPoE"), "Type"}, {"router", g("router"), routers, "Router"}, {"plan", g("plan"), plans, "Plan"}},
 		Actions: []rowAction{{"extend", "Extend", "days", true}, {"deactivate", "Deactivate", "", true}, {"sync", "Sync", "", false}}}
 	if lp.DeleteOnly {
 		lp.Actions = lp.Actions[:1]
@@ -231,7 +231,7 @@ func (s *Server) canExtend(r *http.Request) bool {
 
 func (s *Server) subExtend(w http.ResponseWriter, r *http.Request) {
 	if !s.canExtend(r) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+		s.deny(w, r, http.StatusForbidden)
 		return
 	}
 	days, err := strconv.Atoi(r.PostFormValue("days"))

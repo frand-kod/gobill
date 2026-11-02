@@ -261,7 +261,7 @@ func (s *Server) trxList(w http.ResponseWriter, r *http.Request) {
 		if c, err := s.queries.GetCustomer(r.Context(), cid); err == nil {
 			label = c.Username
 		}
-		lp.Filters = []filter{{"customer", strconv.FormatInt(cid, 10), []option{{strconv.FormatInt(cid, 10), label}}}}
+		lp.Filters = []filter{{"customer", strconv.FormatInt(cid, 10), []option{{strconv.FormatInt(cid, 10), label}}, "Customer"}}
 	}
 	for _, t := range rows {
 		lp.Rows = append(lp.Rows, listRow{t.ID, []string{t.Invoice, s.ts(t.CreatedAt), t.Username, t.PlanName, t.Type, t.Method, money(t.Price)}})
