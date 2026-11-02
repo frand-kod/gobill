@@ -74,7 +74,7 @@ func qrisFromImage(b []byte) (string, error) {
 }
 
 type qrisData struct {
-	Card    template.HTML // the QRIS card, see qrisCard
+	Card template.HTML // the QRIS card, see qrisCard
 }
 
 func (s *Server) qrisPage(w http.ResponseWriter, r *http.Request) {
