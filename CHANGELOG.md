@@ -47,6 +47,11 @@ PHPNuxBill kini sumber data, bukan sumber perilaku. Perilaku lama yang salah dip
 
 - Pengaturan Ya/Tidak yang belum pernah disimpan kini tampil sesuai perilaku sebenarnya. Sebelumnya tampil "Ya", sehingga sekali Simpan menyalakan isolir, trust proxy, nonaktif voucher, dan lainnya tanpa disadari. Periksa tab Pengaturan bila pernah menyimpannya di versi lama.
 - Tombol "Impor dari PHPNuxBill" di wizard setup tidak lagi 404.
+- Portal: halaman isolir punya tombol bayar/perpanjang; pembayaran yang menunggu tampil di dasbor dan riwayat; halaman pembayaran memberi langkah lanjut per status; pelanggan tanpa gateway diberi cara bayar; kode lupa password bisa diminta ulang setelah 60 detik.
+- Admin: deposit punya langkah konfirmasi dan menolak paket + nominal sekaligus; "Hapus tetap" tampil di halaman pelanggan setelah router gagal; restore/impor tidak kehilangan pratinjau saat password/2FA salah.
+- Form menampilkan ringkasan kolom yang salah; kolom tersembunyi tidak ikut dikirim; daftar membedakan "kosong" dan "tidak ada hasil filter"; halaman 403/404 bergaya aplikasi.
+- Aksesibilitas: tab bisa dengan panah keyboard, skip link, menu atas dan drawer ramah keyboard, level status tampil sebagai teks, penghapusan router tertunda menaikkan level status.
+- Istilah Indonesia diseragamkan (Berakhir/Kedaluwarsa, Tambah Saldo, Pelanggan, Ubah, Masuk/Keluar) dan puluhan pesan yang masih berbahasa Inggris diterjemahkan.
 - Garis tepi kolom input lebih tegas (kontras minimal 3:1, WCAG 1.4.11), garis kartu sedikit lebih gelap.
 - Panic di job latar belakang tidak lagi mematikan proses (RADIUS, UI, WireGuard).
 - Rollback `gobill update` memulihkan database secara atomik dan tidak menjalankan service bila pemulihan gagal.

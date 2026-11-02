@@ -60,7 +60,7 @@ func TestCustomerListEndsOn(t *testing.T) {
 	}
 
 	body := do(h, "GET", "/admin/customers", nil, c).Body.String()
-	for _, want := range []string{"Tanggal habis", "Hari ini", "—"} {
+	for _, want := range []string{"Tanggal berakhir", "Hari ini", "—"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("list lacks %q", want)
 		}

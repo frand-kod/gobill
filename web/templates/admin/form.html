@@ -9,10 +9,10 @@
   {{with $.Help.Summary}}<p class="mb-4 text-sm font-medium text-ink-2" aria-live="polite" x-text="{{.}}"></p>{{end}}
   {{template "formgroups" .}}
   {{if $.Help.Sticky}}<div class="sticky bottom-0 z-10 flex gap-2 border-t border-line bg-surface py-3">
-    <button class="btn btn-primary" type="submit">{{T "Save"}}</button>
+    <button class="btn btn-primary" type="submit">{{T .Submit}}</button>
     <a class="btn btn-ghost" href="{{.Cancel}}">{{T "Cancel"}}</a>
   </div>{{else}}<div class="flex gap-2">
-    <button class="btn btn-primary" type="submit">{{T "Save"}}</button>
+    <button class="btn btn-primary" type="submit">{{T .Submit}}</button>
     <a class="btn btn-ghost" href="{{.Cancel}}">{{T "Cancel"}}</a>
   </div>{{end}}
 </form>

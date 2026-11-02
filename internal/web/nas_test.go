@@ -26,7 +26,7 @@ func TestNASSecretStrength(t *testing.T) {
 	wantCode(t, post("/admin/nas", "10.1.0.1", strong), 303, "strong")
 	w := post("/admin/nas", "10.1.0.2", strong)
 	wantCode(t, w, 422, "duplicate")
-	if !strings.Contains(w.Body.String(), "already used") {
+	if !strings.Contains(w.Body.String(), "sudah dipakai NAS lain") {
 		t.Fatal("no duplicate message")
 	}
 	// editing the same NAS with its own secret is not a duplicate

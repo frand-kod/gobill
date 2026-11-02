@@ -151,6 +151,7 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 				msg = fmt.Sprintf(s.catalog.T(s.language(), "Balance +%s, now %s"), money(nc.Balance-c.Balance), money(nc.Balance))
 			}
 			s.sessions.Put(r.Context(), "flash", msg+": "+c.Username)
+			s.sessions.Put(r.Context(), "flash_sticky", "1") // the receipt for money moved: no auto-dismiss
 			http.Redirect(w, r, fmt.Sprint("/admin/customers/", c.ID), http.StatusSeeOther)
 			return
 		}

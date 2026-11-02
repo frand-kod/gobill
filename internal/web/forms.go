@@ -201,6 +201,17 @@ func (s *Server) renderForm(w http.ResponseWriter, r *http.Request, status int, 
 	s.render(w, r, status, "form", Page{Title: fp.Heading, Data: fp})
 }
 
+// Submit is the submit button label: lookup and test pages run an action instead of saving.
+func (fp formPage) Submit() string {
+	switch fp.Action {
+	case "/admin/radius/ip-lookup":
+		return "Search"
+	case "/admin/radius/test-login":
+		return "Run test"
+	}
+	return "Save"
+}
+
 // HasVars reports whether a field has variable chips, so the form loads their script.
 func (fp formPage) HasVars() bool {
 	for _, f := range fp.Fields {
