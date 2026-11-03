@@ -24,19 +24,55 @@ Login, masa aktif, dan putus sesi berjalan di semua tipe.
 
 ## CoovaChilli di OpenWrt
 
-Pasang paket `coova-chilli`. Isi `/etc/config/chilli`:
+Diuji dengan OpenWrt 25.12.6 dan CoovaChilli 1.7.
 
-```
-option radiusserver1 <IP gobill>
-option radiusserver2 <IP gobill>
-option radiussecret  <secret NAS di gobill>
-option radiusnasid   <nama NAS>
-option coaport       3799
-option uamallowed    <IP gobill>
-```
+1. Pasang paket. OpenWrt 25 memakai nftables, sedangkan skrip Chilli memanggil `iptables`, jadi pasang juga `iptables-nft`:
 
-- `coaport` membuat Chilli menerima CoA dan Disconnect. FUP, boost, dan tombol putus sesi butuh ini.
-- Chilli hanya menerima CoA dari `radiusserver1`. Jika gobill mengirim dari IP lain, tambahkan `option coanoipcheck`.
-- `uamallowed` membuka halaman portal dan bayar gobill sebelum login.
+   ```
+   apk add coova-chilli iptables-nft
+   ```
 
-Daftarkan IP OpenWrt di **Jaringan > NAS** dengan tipe **WISPr**.
+2. Serahkan LAN ke Chilli. LAN tidak punya IP, dan DHCP OpenWrt di LAN dimatikan. Chilli memberi IP ke klien sendiri.
+
+   ```
+   uci set network.lan.proto=none
+   uci delete network.lan.ipaddr
+   uci set dhcp.lan.ignore=1
+   uci add_list firewall.@zone[0].device=tun0
+   uci commit
+   ```
+
+   Zona `lan` harus berisi `tun0`. Tanpa itu, klien yang sudah login tidak bisa keluar ke internet.
+
+3. Isi `/etc/config/chilli`:
+
+   ```
+   config chilli
+       option disabled      0
+       option dhcpif        br-lan
+       option net           10.1.0.0/24
+       option uamlisten     10.1.0.1
+       option uamserver     <URL halaman login>
+       option uamsecret     <rahasia UAM>
+       option radiusserver1 <IP gobill>
+       option radiusserver2 <IP gobill>
+       option radiussecret  <secret NAS di gobill>
+       option radiusnasid   <nama NAS>
+       option coaport       3799
+       option uamallowed    <IP gobill>
+   ```
+
+   - `coaport` membuat Chilli menerima CoA dan Disconnect. FUP, boost, dan tombol putus sesi butuh ini.
+   - Chilli hanya menerima CoA dari `radiusserver1`. Jika gobill mengirim dari IP lain, tambahkan `option coanoipcheck 1`.
+   - `uamallowed` membuka halaman portal dan bayar gobill sebelum login.
+
+4. Jalankan `/etc/init.d/network reload`, lalu `/etc/init.d/chilli enable` dan `/etc/init.d/chilli restart`.
+
+Daftarkan IP OpenWrt di **Jaringan > NAS** dengan tipe **WISPr**. Cek sesi dengan `chilli_query list`. Dua kolom terakhir sebelum URL adalah limit up dan down dalam bit per detik.
+
+## Hasil uji lab
+
+- Login, accounting, Disconnect, dan isolir berjalan.
+- CoA mengubah kecepatan tanpa memutus sesi.
+- Kuota: Chilli memutus sesi setelah `CoovaChilli-Max-Total-Octets` habis.
+- Kecepatan: Chilli membatasi dengan membuang paket. Unduhan TCP mendapat sekitar 60 sampai 95 persen dari limit, dan kadang tersendat beberapa detik. Ini perilaku Chilli, bukan gobill.

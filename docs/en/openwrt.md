@@ -24,19 +24,55 @@ Login, validity, and disconnect work with every type.
 
 ## CoovaChilli on OpenWrt
 
-Install the `coova-chilli` package. Set in `/etc/config/chilli`:
+Tested with OpenWrt 25.12.6 and CoovaChilli 1.7.
 
-```
-option radiusserver1 <gobill IP>
-option radiusserver2 <gobill IP>
-option radiussecret  <NAS secret in gobill>
-option radiusnasid   <NAS name>
-option coaport       3799
-option uamallowed    <gobill IP>
-```
+1. Install the packages. OpenWrt 25 uses nftables, and the Chilli scripts call `iptables`, so install `iptables-nft` too:
 
-- `coaport` makes Chilli accept CoA and Disconnect. FUP, boost, and the disconnect button need it.
-- Chilli accepts CoA only from `radiusserver1`. If gobill sends from another IP, add `option coanoipcheck`.
-- `uamallowed` opens the gobill portal and payment pages before login.
+   ```
+   apk add coova-chilli iptables-nft
+   ```
 
-Add the OpenWrt IP under **Network > NAS** with type **WISPr**.
+2. Hand the LAN to Chilli. The LAN has no IP, and OpenWrt DHCP on the LAN is off. Chilli gives clients their IP.
+
+   ```
+   uci set network.lan.proto=none
+   uci delete network.lan.ipaddr
+   uci set dhcp.lan.ignore=1
+   uci add_list firewall.@zone[0].device=tun0
+   uci commit
+   ```
+
+   The `lan` zone must hold `tun0`. Without it, a logged-in client cannot reach the internet.
+
+3. Set `/etc/config/chilli`:
+
+   ```
+   config chilli
+       option disabled      0
+       option dhcpif        br-lan
+       option net           10.1.0.0/24
+       option uamlisten     10.1.0.1
+       option uamserver     <login page URL>
+       option uamsecret     <UAM secret>
+       option radiusserver1 <gobill IP>
+       option radiusserver2 <gobill IP>
+       option radiussecret  <NAS secret in gobill>
+       option radiusnasid   <NAS name>
+       option coaport       3799
+       option uamallowed    <gobill IP>
+   ```
+
+   - `coaport` makes Chilli accept CoA and Disconnect. FUP, boost, and the disconnect button need it.
+   - Chilli accepts CoA only from `radiusserver1`. If gobill sends from another IP, add `option coanoipcheck 1`.
+   - `uamallowed` opens the gobill portal and payment pages before login.
+
+4. Run `/etc/init.d/network reload`, then `/etc/init.d/chilli enable` and `/etc/init.d/chilli restart`.
+
+Add the OpenWrt IP under **Network > NAS** with type **WISPr**. Check sessions with `chilli_query list`. The last two columns before the URL are the up and down limits in bits per second.
+
+## Lab results
+
+- Login, accounting, Disconnect, and isolation work.
+- CoA changes the speed without dropping the session.
+- Quota: Chilli ends the session once `CoovaChilli-Max-Total-Octets` is used.
+- Speed: Chilli limits by dropping packets. A TCP download gets about 60 to 95 percent of the limit, and sometimes stalls for a few seconds. This is Chilli behaviour, not gobill.
