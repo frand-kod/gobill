@@ -79,7 +79,7 @@ func (q *Queries) CloseStaleRadiusSessions(ctx context.Context, updatedAt int64)
 }
 
 const createNAS = `-- name: CreateNAS :one
-INSERT INTO nas (name, ip, secret_enc, description, require_message_auth) VALUES (?, ?, ?, ?, ?) RETURNING id, name, ip, secret_enc, description, require_message_auth, ma_seen
+INSERT INTO nas (name, ip, secret_enc, description, require_message_auth) VALUES (?, ?, ?, ?, ?) RETURNING id, name, ip, secret_enc, description, require_message_auth, ma_seen, type
 `
 
 type CreateNASParams struct {
@@ -107,6 +107,7 @@ func (q *Queries) CreateNAS(ctx context.Context, arg CreateNASParams) (Na, error
 		&i.Description,
 		&i.RequireMessageAuth,
 		&i.MaSeen,
+		&i.Type,
 	)
 	return i, err
 }
@@ -222,7 +223,7 @@ func (q *Queries) GetIsolirPlan(ctx context.Context, planID int64) (GetIsolirPla
 }
 
 const getNAS = `-- name: GetNAS :one
-SELECT id, name, ip, secret_enc, description, require_message_auth, ma_seen FROM nas WHERE id = ?
+SELECT id, name, ip, secret_enc, description, require_message_auth, ma_seen, type FROM nas WHERE id = ?
 `
 
 func (q *Queries) GetNAS(ctx context.Context, id int64) (Na, error) {
@@ -236,6 +237,7 @@ func (q *Queries) GetNAS(ctx context.Context, id int64) (Na, error) {
 		&i.Description,
 		&i.RequireMessageAuth,
 		&i.MaSeen,
+		&i.Type,
 	)
 	return i, err
 }
@@ -691,7 +693,7 @@ func (q *Queries) ListFUPSessions(ctx context.Context) ([]RadiusSession, error) 
 }
 
 const listNAS = `-- name: ListNAS :many
-SELECT id, name, ip, secret_enc, description, require_message_auth, ma_seen FROM nas ORDER BY name
+SELECT id, name, ip, secret_enc, description, require_message_auth, ma_seen, type FROM nas ORDER BY name
 `
 
 func (q *Queries) ListNAS(ctx context.Context) ([]Na, error) {
@@ -711,6 +713,7 @@ func (q *Queries) ListNAS(ctx context.Context) ([]Na, error) {
 			&i.Description,
 			&i.RequireMessageAuth,
 			&i.MaSeen,
+			&i.Type,
 		); err != nil {
 			return nil, err
 		}
@@ -1132,6 +1135,20 @@ func (q *Queries) SearchRadiusLogs(ctx context.Context, arg SearchRadiusLogsPara
 		return nil, err
 	}
 	return items, nil
+}
+
+const setNASType = `-- name: SetNASType :exec
+UPDATE nas SET type = ? WHERE id = ?
+`
+
+type SetNASTypeParams struct {
+	Type string
+	ID   int64
+}
+
+func (q *Queries) SetNASType(ctx context.Context, arg SetNASTypeParams) error {
+	_, err := q.db.ExecContext(ctx, setNASType, arg.Type, arg.ID)
+	return err
 }
 
 const stopRadiusSession = `-- name: StopRadiusSession :exec

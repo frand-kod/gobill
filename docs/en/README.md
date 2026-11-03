@@ -24,6 +24,7 @@ This document is the index of the operator guide in English. The guide is also a
 
 - [MikroTik setup](mikrotik.md): API mode and built-in RADIUS mode, access points behind the router, and lessons from field testing.
 - [FreeRADIUS over REST](freeradius-rest.md): keep using an existing FreeRADIUS.
+- [OpenWrt and WISPr NAS](openwrt.md): CoovaChilli, WISPr controllers, and other NAS.
 
 ## Operations
 

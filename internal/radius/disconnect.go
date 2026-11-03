@@ -13,7 +13,6 @@ import (
 	"layeh.com/radius"
 	"layeh.com/radius/rfc2865"
 	"layeh.com/radius/rfc2866"
-	"layeh.com/radius/vendors/mikrotik"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/secret"
@@ -80,9 +79,9 @@ func CoA(ctx context.Context, q *db.Queries, key []byte, port string, s db.Radiu
 	} else if ok, left := windowLeft(lr.LoginWindow, now); ok && left > 0 && (timeout <= 0 || left < timeout) {
 		timeout = left // keep the cap Access-Accept set at the end of the login window
 	}
-	return request(ctx, q, key, port, s, radius.CodeCoARequest, func(p *radius.Packet) {
+	return request(ctx, q, key, port, s, radius.CodeCoARequest, func(p *radius.Packet, nasType string) {
 		if rate != "" {
-			mikrotik.MikrotikRateLimit_SetString(p, rate)
+			setRate(p, nasType, rate)
 		}
 		if timeout > 0 {
 			rfc2865.SessionTimeout_Set(p, rfc2865.SessionTimeout(min(timeout, 1<<32-1)))
@@ -91,7 +90,7 @@ func CoA(ctx context.Context, q *db.Queries, key []byte, port string, s db.Radiu
 }
 
 // request sends a Disconnect- or CoA-Request for s, set adds the request's own attributes.
-func request(ctx context.Context, q *db.Queries, key []byte, port string, s db.RadiusSession, code radius.Code, set func(*radius.Packet)) error {
+func request(ctx context.Context, q *db.Queries, key []byte, port string, s db.RadiusSession, code radius.Code, set func(p *radius.Packet, nasType string)) error {
 	what, ack := "disconnect", radius.CodeDisconnectACK
 	if code == radius.CodeCoARequest {
 		what, ack = "CoA", radius.CodeCoAACK
@@ -127,7 +126,7 @@ func request(ctx context.Context, q *db.Queries, key []byte, port string, s db.R
 			rfc2865.FramedIPAddress_Set(p, ip.To4())
 		}
 		if set != nil {
-			set(p)
+			set(p, n.Type)
 		}
 		addMA(p)
 		ctx, cancel := context.WithTimeout(ctx, 3*time.Second)

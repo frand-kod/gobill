@@ -10,6 +10,9 @@ SELECT * FROM nas WHERE id = ?;
 -- name: UpdateNAS :exec
 UPDATE nas SET name = ?, ip = ?, secret_enc = ?, description = ?, require_message_auth = ? WHERE id = ?;
 
+-- name: SetNASType :exec
+UPDATE nas SET type = ? WHERE id = ?;
+
 -- name: DeleteNAS :exec
 DELETE FROM nas WHERE id = ?;
 
