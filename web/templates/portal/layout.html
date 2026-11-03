@@ -14,7 +14,7 @@
   <div class="fiber-stripe" aria-hidden="true"></div>
   <div class="mx-auto flex max-w-4xl items-center gap-3 px-4 py-2">
     <a href="/portal" class="flex min-w-0 items-center gap-2 font-semibold text-ink">{{template "logoA" .Brand}}</a>
-    <div class="relative ms-auto" x-data="{o:false, seen:{{if .BellUnread}}false{{else}}true{{end}}, toggle(){ this.o=!this.o; if(this.o && !this.seen){ this.seen=true; fetch('/portal/bell/seen',{method:'POST',credentials:'same-origin'}).catch(function(){}) } }}" @click.outside="o=false" @keydown.escape.window="if(o){ o=false; $refs.bell.focus() }">
+    <div class="relative ms-auto" data-seen="{{range .Bell}}{{if .Unread}}{{.Key}}:{{.Ver}} {{end}}{{end}}" x-data="{o:false, seen:{{if .BellUnread}}false{{else}}true{{end}}, toggle(){ this.o=!this.o; if(this.o && !this.seen){ this.seen=true; fetch('/portal/bell/seen',{method:'POST',credentials:'same-origin',body:new URLSearchParams(this.$root.dataset.seen.trim().split(' ').filter(Boolean).map(function(v){return ['seen',v]}))}).catch(function(){}) } }}" @click.outside="o=false" @keydown.escape.window="if(o){ o=false; $refs.bell.focus() }">
       <button type="button" class="btn relative" x-ref="bell" @click="toggle()" :aria-expanded="o ? 'true' : 'false'" aria-controls="gb-bell"{{if .BellUnread}} :aria-label="seen ? '{{T "Notifications"}}' : '{{printf (T "Notifications, %d unread") .BellUnread}}'"{{else}} aria-label="{{T "Notifications"}}"{{end}}>{{icon "bell"}}
         {{if .BellUnread}}<span x-show="!seen" class="absolute -end-1 -top-1 flex min-w-5 justify-center rounded-full bg-warn-bg px-1.5 text-xs font-semibold leading-5 tabular-nums text-warn-fg ring-1 ring-warn-fg">{{.BellUnread}}</span>{{end}}
       </button>

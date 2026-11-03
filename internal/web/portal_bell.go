@@ -4,9 +4,13 @@ package web
 
 import (
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -53,15 +57,29 @@ func (s *Server) portalBell(r *http.Request, c *db.Customer) ([]bellItem, error)
 		}
 	}
 	if sub != nil {
-		p, _ := s.queries.GetPlan(ctx, sub.PlanID)
-		if sub.ExpiresAt-now <= 3*86400 {
-			items = append(items, bellItem{Key: "expiry", Ver: verOf(sub.ID, sub.ExpiresAt), Title: t("Plan ends soon"),
-				Text: fmt.Sprintf(t("%s ends on %s"), p.Name, s.ts(sub.ExpiresAt)), Href: "/portal/plans"})
+		if p, err := s.queries.GetPlan(ctx, sub.PlanID); err != nil {
+			slog.Warn("portal bell plan", "err", err) // no plan name: skip these two items
+		} else {
+			if sub.ExpiresAt-now <= 3*86400 {
+				items = append(items, bellItem{Key: "expiry", Ver: verOf(sub.ID, sub.ExpiresAt), Title: t("Plan ends soon"),
+					Text: fmt.Sprintf(t("%s ends on %s"), p.Name, s.ts(sub.ExpiresAt)), Href: "/portal/plans"})
+			}
+			q := s.planQuota(ctx, *c, *sub, p)
+			if (q.HasData && q.Data >= q.DataLim) || (q.HasTime && q.Time >= q.TimeLim) {
+				items = append(items, bellItem{Key: "quota", Ver: verOf(sub.ID, sub.StartedAt, 100), Title: t("Quota used up"),
+					Text: t("Buy or extend a plan to keep using the service"), Href: "/portal/plans"})
+			} else if (q.HasData && q.Data*100 > q.DataLim*80) || (q.HasTime && q.Time*100 > q.TimeLim*80) {
+				items = append(items, bellItem{Key: "quota", Ver: verOf(sub.ID, sub.StartedAt, 80), Title: t("Quota almost used up"),
+					Text: t("Buy or extend a plan before it runs out"), Href: "/portal/plans"})
+			}
 		}
-		if q := s.planQuota(ctx, *c, *sub, p); (q.HasData && q.Data*100 > q.DataLim*80) || (q.HasTime && q.Time*100 > q.TimeLim*80) {
-			items = append(items, bellItem{Key: "quota", Ver: verOf(sub.ID, sub.StartedAt), Title: t("Quota almost used up"),
-				Text: t("Buy or extend a plan before it runs out"), Href: "/portal/plans"})
-		}
+	}
+	// the newest payment attempt that ended in the last 7 days
+	if pr, err := s.queries.GetLatestFinishedPaymentByCustomer(ctx, db.GetLatestFinishedPaymentByCustomerParams{CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, CreatedAt: now - 7*86400}); err == nil {
+		title := map[string]string{"paid": "Payment received", "failed": "Payment failed", "expired": "Payment expired"}[pr.Status]
+		items = append(items, bellItem{Key: "payment", Ver: verOf(pr.ID, pr.Status), Title: t(title), Text: pr.Ref, Href: "/portal/payments/" + strconv.FormatInt(pr.ID, 10)})
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
 	}
 	seen, err := s.queries.ListPortalSeen(ctx, c.ID)
 	if err != nil {
@@ -91,16 +109,26 @@ func oneLine(s string) string {
 	return s
 }
 
-// pBellSeen marks every current bell item as seen (POST /portal/bell/seen).
+// pBellSeen marks the items the page showed (form values "key:ver") as seen, if they are still current.
+// An admin viewing as the customer (impersonating) never changes the customer's read state.
 func (s *Server) pBellSeen(w http.ResponseWriter, r *http.Request) {
+	if s.sessions.GetInt64(r.Context(), "impersonator") != 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	c := customerFrom(r)
+	_ = r.ParseForm()
+	shown := map[string]bool{}
+	for _, v := range r.PostForm["seen"] {
+		shown[v] = true
+	}
 	items, err := s.portalBell(r, c)
 	if err != nil {
 		s.fail(w, "portal bell", err)
 		return
 	}
 	for _, it := range items {
-		if !it.Unread {
+		if !it.Unread || !shown[it.Key+":"+it.Ver] {
 			continue
 		}
 		if err := s.queries.UpsertPortalSeen(r.Context(), db.UpsertPortalSeenParams{CustomerID: c.ID, Item: it.Key, Version: it.Ver}); err != nil {

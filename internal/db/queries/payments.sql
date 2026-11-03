@@ -43,3 +43,7 @@ ORDER BY p.id DESC LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 -- name: GetPaymentAudit :one
 SELECT p.*, CAST(COALESCE(pl.name, 'Custom Balance') AS TEXT) AS plan_name FROM payment_requests p
 LEFT JOIN plans pl ON pl.id = p.plan_id WHERE p.id = ?;
+
+-- name: GetLatestFinishedPaymentByCustomer :one
+-- The customer's newest paid, failed or expired request created since the cutoff (unix seconds); for the portal bell.
+SELECT * FROM payment_requests WHERE customer_id = ? AND status IN ('paid', 'failed', 'expired') AND created_at >= ? ORDER BY id DESC LIMIT 1;
