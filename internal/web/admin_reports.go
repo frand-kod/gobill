@@ -26,12 +26,19 @@ type reportData struct {
 	PlanID                         string
 	Types, Routers, Plans          []option
 	Rows                           []db.Transaction
-	Count                          int
+	Count, RowCount                int // RowCount: transaction rows (pager); Count adds the agent deposits
 	Sum                            int64
 	ByType, ByMethod               []repTotal
 	Company, Query, Base           string
 	Nav                            pageNav // row table pager
 	Truncated                      bool    // print: rows capped at reportPrintCap
+}
+
+const agentDepositMethod = "Agent - Deposit"
+
+// wantsDeposits: deposits have no type, router or plan, so those filters hide them.
+func wantsDeposits(d reportData, a db.ReportTransactionsParams) bool {
+	return d.Type == "" && d.Router == "" && a.PlanID == 0 && (d.Method == "" || d.Method == agentDepositMethod)
 }
 
 // reportPrintCap bounds the print view; the CSV export still has every row.
@@ -82,7 +89,7 @@ func (s *Server) reportLoad(r *http.Request, period bool) (reportData, db.Report
 	if err != nil {
 		return d, a, err
 	}
-	d.Count, d.Sum = int(tot.Cnt), tot.Total
+	d.Count, d.RowCount, d.Sum = int(tot.Cnt), int(tot.Cnt), tot.Total
 	bt, err := s.queries.ReportTotalsByType(ctx, db.ReportTotalsByTypeParams(a))
 	if err != nil {
 		return d, a, err
@@ -96,6 +103,19 @@ func (s *Server) reportLoad(r *http.Request, period bool) (reportData, db.Report
 	}
 	for _, x := range bm {
 		d.ByMethod = append(d.ByMethod, repTotal{Name: x.Name, Count: int(x.Cnt), Sum: x.Total})
+	}
+	// Agent consignment deposits are income of their own (the codes they sold are excluded from the rows).
+	// They have no type, router or plan, so those filters hide them.
+	if wantsDeposits(d, a) {
+		ap, err := s.queries.ReportAgentPayments(ctx, db.ReportAgentPaymentsParams{FromTs: a.FromTs, ToTs: a.ToTs})
+		if err != nil {
+			return d, a, err
+		}
+		if ap.Cnt > 0 {
+			x := repTotal{Name: agentDepositMethod, Count: int(ap.Cnt), Sum: ap.Total}
+			d.ByType, d.ByMethod = append(d.ByType, x), append(d.ByMethod, x)
+			d.Count, d.Sum = d.Count+x.Count, d.Sum+x.Sum
+		}
 	}
 	if set, err := s.loadSettings(ctx); err == nil {
 		d.Company = set["company_name"]
@@ -131,7 +151,7 @@ func (s *Server) reportPage(period bool) http.HandlerFunc {
 			rows = rows[:pg.Per]
 		}
 		// d.Count is the number of rows the filter matches (the totals are computed over all of them)
-		d.Nav = newPageNav(pg, int64(d.Count), len(rows), more, func(page, per int) string {
+		d.Nav = newPageNav(pg, int64(d.RowCount), len(rows), more, func(page, per int) string {
 			href := d.Base + "?" + d.Query + "&page=" + strconv.Itoa(page)
 			if per != perPage {
 				href += "&per=" + strconv.Itoa(per)
@@ -198,12 +218,24 @@ func (s *Server) reportExport(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "report export", err)
 		return
 	}
+	var pays []db.ListAgentPaymentsRow
+	if wantsDeposits(d, a) {
+		if pays, err = s.queries.ListAgentPayments(r.Context(), db.ListAgentPaymentsParams{FromTs: a.FromTs, ToTs: a.ToTs}); err != nil {
+			s.fail(w, "report export deposits", err)
+			return
+		}
+	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="report-`+d.From+`_`+d.To+`.csv"`)
 	cw := csv.NewWriter(w)
 	cw.Write([]string{"Invoice", "Username", "Plan Name", "Type", "Plan Price", "Method", "Routers", "Created On", "Expires On"})
 	for _, t := range rows {
 		rec := []string{t.Invoice, t.Username, t.PlanName, t.Type, strconv.FormatInt(t.Price, 10), t.Method, t.RouterName, s.ts(t.CreatedAt), s.ts(t.PeriodEnd)}
+		csvSafe(rec)
+		cw.Write(rec)
+	}
+	for _, p := range pays { // agent deposits, so the file adds up to the report total
+		rec := []string{"AGENT-" + strconv.FormatInt(p.ID, 10), p.AgentName, "", "", strconv.FormatInt(p.Amount, 10), agentDepositMethod, "", s.ts(p.CreatedAt), ""}
 		csvSafe(rec)
 		cw.Write(rec)
 	}

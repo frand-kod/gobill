@@ -9,6 +9,30 @@ import (
 	"context"
 )
 
+const reportAgentPayments = `-- name: ReportAgentPayments :one
+SELECT COUNT(*) AS cnt, CAST(COALESCE(SUM(amount), 0) AS INTEGER) AS total
+FROM agent_ledger
+WHERE kind = 'payment' AND created_at >= ?1 AND created_at < ?2
+`
+
+type ReportAgentPaymentsParams struct {
+	FromTs int64
+	ToTs   int64
+}
+
+type ReportAgentPaymentsRow struct {
+	Cnt   int64
+	Total int64
+}
+
+// Agent consignment deposits received in the period: their own income line, no transactions row.
+func (q *Queries) ReportAgentPayments(ctx context.Context, arg ReportAgentPaymentsParams) (ReportAgentPaymentsRow, error) {
+	row := q.db.QueryRowContext(ctx, reportAgentPayments, arg.FromTs, arg.ToTs)
+	var i ReportAgentPaymentsRow
+	err := row.Scan(&i.Cnt, &i.Total)
+	return i, err
+}
+
 const reportTotals = `-- name: ReportTotals :one
 SELECT COUNT(*) AS cnt, CAST(COALESCE(SUM(price), 0) AS INTEGER) AS total
 FROM transactions
@@ -18,6 +42,8 @@ WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
   AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
+  -- redeeming a consignment voucher is the agent's sale; the operator's income is the deposit (ReportAgentPayments)
+  AND NOT (method LIKE 'Voucher - %' AND EXISTS (SELECT 1 FROM vouchers v JOIN agent_batch_vouchers bv ON bv.voucher_id = v.id WHERE v.code = substr(transactions.method, 11)))
 `
 
 type ReportTotalsParams struct {
@@ -58,6 +84,8 @@ WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
   AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
+  -- redeeming a consignment voucher is the agent's sale; the operator's income is the deposit (ReportAgentPayments)
+  AND NOT (method LIKE 'Voucher - %' AND EXISTS (SELECT 1 FROM vouchers v JOIN agent_batch_vouchers bv ON bv.voucher_id = v.id WHERE v.code = substr(transactions.method, 11)))
 GROUP BY method
 ORDER BY method
 `
@@ -116,6 +144,8 @@ WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
   AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
+  -- redeeming a consignment voucher is the agent's sale; the operator's income is the deposit (ReportAgentPayments)
+  AND NOT (method LIKE 'Voucher - %' AND EXISTS (SELECT 1 FROM vouchers v JOIN agent_batch_vouchers bv ON bv.voucher_id = v.id WHERE v.code = substr(transactions.method, 11)))
 GROUP BY type
 ORDER BY type
 `
@@ -174,6 +204,8 @@ WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
   -- income = SumTransactionsBetween: purchases paid from balance (the top-up already counted) and gifts are not income
   AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
+  -- redeeming a consignment voucher is the agent's sale; the operator's income is the deposit (ReportAgentPayments)
+  AND NOT (method LIKE 'Voucher - %' AND EXISTS (SELECT 1 FROM vouchers v JOIN agent_batch_vouchers bv ON bv.voucher_id = v.id WHERE v.code = substr(transactions.method, 11)))
 ORDER BY created_at, id
 `
 
@@ -241,6 +273,8 @@ WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
   AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
+  -- redeeming a consignment voucher is the agent's sale; the operator's income is the deposit (ReportAgentPayments)
+  AND NOT (method LIKE 'Voucher - %' AND EXISTS (SELECT 1 FROM vouchers v JOIN agent_batch_vouchers bv ON bv.voucher_id = v.id WHERE v.code = substr(transactions.method, 11)))
 ORDER BY created_at, id
 LIMIT ?8 OFFSET ?7
 `

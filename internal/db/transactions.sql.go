@@ -373,18 +373,22 @@ func (q *Queries) SearchTransactions(ctx context.Context, arg SearchTransactions
 }
 
 const sumTransactionsBetween = `-- name: SumTransactionsBetween :one
-SELECT CAST(COALESCE(SUM(price), 0) AS INTEGER) FROM transactions WHERE created_at >= ? AND created_at < ?
+SELECT CAST(COALESCE(SUM(price), 0) AS INTEGER) + CAST((SELECT COALESCE(SUM(amount), 0) FROM agent_ledger
+    WHERE kind = 'payment' AND agent_ledger.created_at >= ?1 AND agent_ledger.created_at < ?2) AS INTEGER)
+FROM transactions WHERE transactions.created_at >= ?1 AND transactions.created_at < ?2
   AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
+  AND NOT (method LIKE 'Voucher - %' AND EXISTS (SELECT 1 FROM vouchers v JOIN agent_batch_vouchers bv ON bv.voucher_id = v.id WHERE v.code = substr(transactions.method, 11)))
 `
 
 type SumTransactionsBetweenParams struct {
-	CreatedAt   int64
-	CreatedAt_2 int64
+	FromTs int64
+	ToTs   int64
 }
 
 // Income: like PHP top_widget, purchases paid from balance are not income (the top-up already was).
+// Agent consignment: redeeming one of its codes is the agent's sale; the deposits (agent_ledger payments) are the income.
 func (q *Queries) SumTransactionsBetween(ctx context.Context, arg SumTransactionsBetweenParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, sumTransactionsBetween, arg.CreatedAt, arg.CreatedAt_2)
+	row := q.db.QueryRowContext(ctx, sumTransactionsBetween, arg.FromTs, arg.ToTs)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err

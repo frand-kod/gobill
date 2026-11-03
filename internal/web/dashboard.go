@@ -90,7 +90,7 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 		}
 	}
 	sum := func(from, to time.Time) (int64, error) {
-		return s.queries.SumTransactionsBetween(ctx, db.SumTransactionsBetweenParams{CreatedAt: from.Unix(), CreatedAt_2: to.Unix()})
+		return s.queries.SumTransactionsBetween(ctx, db.SumTransactionsBetweenParams{FromTs: from.Unix(), ToTs: to.Unix()})
 	}
 	if d.IncomeToday, err = sum(day, day.AddDate(0, 0, 1)); err != nil {
 		return

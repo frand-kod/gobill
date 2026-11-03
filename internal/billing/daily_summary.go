@@ -20,7 +20,7 @@ func (s *Service) DailySummaryText(ctx context.Context, now time.Time) (string, 
 	y, m, d := now.Date()
 	today := time.Date(y, m, d, 0, 0, 0, 0, now.Location())
 	yday := today.AddDate(0, 0, -1)
-	income, err := s.Q.SumTransactionsBetween(ctx, db.SumTransactionsBetweenParams{CreatedAt: yday.Unix(), CreatedAt_2: today.Unix()})
+	income, err := s.Q.SumTransactionsBetween(ctx, db.SumTransactionsBetweenParams{FromTs: yday.Unix(), ToTs: today.Unix()})
 	if err != nil {
 		return "", err
 	}

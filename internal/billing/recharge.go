@@ -204,6 +204,14 @@ func (s *Service) recharge(ctx context.Context, q *db.Queries, customerID, planI
 				}
 			}
 		}
+		if osub, ofrom, ok := emergencyFrom(ctx, q, c, plan, now, active, found, extend); osub.ID != 0 {
+			if err := q.UpsertSetting(ctx, db.UpsertSettingParams{Key: extendOrigKey(osub.ID), Value: ""}); err != nil { // settled
+				return nil, err
+			}
+			if ok {
+				from, fromExpiry = ofrom, true
+			}
+		}
 		exp := NewExpiry(from, int(plan.Validity), Unit(plan.ValidityUnit), Options{Extend: fromExpiry, BillingDay: billingDay(c, plan)})
 		trx.PeriodStart, trx.PeriodEnd = start, exp.Unix()
 		// PHP: only the very first Period activation (never had a recharge row, active or not) is
@@ -390,7 +398,11 @@ func (s *Service) Preview(ctx context.Context, customerID, planID int64) (Rechar
 	if pv.Extends = found && active.PlanID == plan.ID && setting(ctx, s.Q, "extend_expiry") != "no"; pv.Extends {
 		from = time.Unix(active.ExpiresAt, 0).In(from.Location())
 	}
-	pv.Expiry = NewExpiry(from, int(plan.Validity), Unit(plan.ValidityUnit), Options{Extend: pv.Extends, BillingDay: billingDay(c, plan)})
+	ext := pv.Extends
+	if _, ofrom, ok := emergencyFrom(ctx, s.Q, c, plan, s.now(), active, found, pv.Extends); ok {
+		from, ext = ofrom, true
+	}
+	pv.Expiry = NewExpiry(from, int(plan.Validity), Unit(plan.ValidityUnit), Options{Extend: ext, BillingDay: billingDay(c, plan)})
 	qt, err := quote(ctx, s.Q, customerID, plan, nil)
 	if err != nil {
 		return pv, err
