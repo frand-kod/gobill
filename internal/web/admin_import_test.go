@@ -187,3 +187,14 @@ func TestImportConfirmBacksUpReplacesAndEndsSession(t *testing.T) {
 		t.Fatal("login page has no import flash")
 	}
 }
+
+// The preview lists what gobill does not import, and only the ignored settings the backup has.
+func TestImportPreviewListsUnsupported(t *testing.T) {
+	_, h, c := importApp(t)
+	backup := `{"tbl_appconfig": [{"id":"1","setting":"timezone","value":"Asia/Jakarta"},{"id":"2","setting":"enable_coupons","value":"yes"}]}`
+	w := importUpload(t, h, c, map[string]string{"backup": backup})
+	wantCode(t, w, 200, "preview")
+	if body := w.Body.String(); !strings.Contains(body, "coupons, ODP, inbox, enable_coupons</p>") {
+		t.Fatalf("unsupported list missing or wrong: %s", body)
+	}
+}

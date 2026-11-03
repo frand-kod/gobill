@@ -9,6 +9,7 @@ import (
 	"net"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,8 +41,19 @@ type Table struct {
 
 func (t *Table) skip(id any, why any) { t.Skips = append(t.Skips, fmt.Sprintf("id %v: %v", id, why)) }
 
-// Report is the whole import result.
-type Report struct{ Tables []*Table }
+// Report is the whole import result. Unsupported lists what PHPNuxBill has that gobill does not
+// import or use, so the admin knows what was skipped.
+type Report struct {
+	Tables      []*Table
+	Unsupported []string
+}
+
+// unsupportedFeatures are PHPNuxBill data gobill never imports.
+var unsupportedFeatures = []string{"coupons", "ODP", "inbox"}
+
+// unsupportedSettings are PHPNuxBill settings that change behaviour there but gobill never reads (paritas IM2).
+// They are copied as they are, and reported only when the backup has them.
+var unsupportedSettings = []string{"enable_coupons", "frrest_interim_update"}
 
 // Print writes the report; at most 10 skip reasons per table.
 func (r *Report) Print(w io.Writer) {
@@ -58,7 +70,9 @@ func (r *Report) Print(w io.Writer) {
 			fmt.Fprintf(w, "    note %s\n", n)
 		}
 	}
-	fmt.Fprintln(w, "not imported yet: coupons, ODP, inbox")
+	if len(r.Unsupported) > 0 {
+		fmt.Fprintln(w, "not supported: "+strings.Join(r.Unsupported, ", "))
+	}
 }
 
 type row []string
@@ -200,7 +214,7 @@ func Run(ctx context.Context, my, lite *sql.DB, o Options) (*Report, error) {
 			return nil, err
 		}
 	}
-	m := &imp{my: my, tx: tx, ctx: ctx, o: o, rep: &Report{},
+	m := &imp{my: my, tx: tx, ctx: ctx, o: o, rep: &Report{Unsupported: slices.Clone(unsupportedFeatures)},
 		routers: map[string]int64{}, pools: map[string]int64{}, plans: map[string]int64{},
 		customers: map[string]int64{}, admins: map[int64]bool{}, custIDs: map[int64]bool{}}
 	for _, step := range []func() error{m.settings, m.notifications, m.admin, m.router, m.bandwidth, m.pool, m.plan,
@@ -230,6 +244,9 @@ func (m *imp) table(name string) *Table {
 func (m *imp) settings() error {
 	t := m.table("settings")
 	return m.each(t, "SELECT setting, COALESCE(value,'') FROM tbl_appconfig ORDER BY id", 2, func(r row) {
+		if slices.Contains(unsupportedSettings, r[0]) {
+			m.rep.Unsupported = append(m.rep.Unsupported, r[0])
+		}
 		m.put(t, r[0], "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", r[0], db.SealSettingWith(m.o.Key, r[0], r[1]))
 	})
 }

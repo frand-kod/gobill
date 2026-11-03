@@ -34,7 +34,7 @@
     {{end}}
     </tbody>
   </table></div>
-  <p class="hint">{{T "Not imported yet: coupons, ODP, inbox."}}</p>
+  <p class="hint">{{T "Not supported by gobill (not imported or not used)"}}: {{range $i, $x := .Unsupported}}{{if $i}}, {{end}}{{$x}}{{end}}</p>
   <div class="flex flex-wrap gap-2">
     {{if .Filled}}
     <button class="btn btn-primary" type="button" @click="$refs.dlg.showModal()">{{T "Import now"}}</button>
