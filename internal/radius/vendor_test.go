@@ -121,7 +121,7 @@ func TestCoAWISPr(t *testing.T) {
 	}
 	setNASType(t, e, NASWISPr)
 	port, got := fakeNAS(t, radius.CodeCoAACK)
-	sess := db.RadiusSession{Username: "alice", SessionID: "s1", NasIp: "127.0.0.1"}
+	sess := db.RadiusSession{Username: "alice", SessionID: "s1", NasIp: "127.0.0.1", FramedIp: "10.1.1.5", NasIpAttr: "192.168.77.2", NasIdentifier: "ap1"}
 	if err := CoA(t.Context(), e.q, e.s.Key, port, sess, "", e.now); err != nil {
 		t.Fatal(err)
 	}
@@ -131,6 +131,11 @@ func TestCoAWISPr(t *testing.T) {
 	}
 	if rfc2865.UserName_GetString(p) != "alice" || len(mikrotik.MikrotikRateLimit_Get(p)) != 0 {
 		t.Fatal("CoA lacks User-Name or carries Mikrotik-Rate-Limit")
+	}
+	// uspot NAKs Framed-IP-Address and a Message-Authenticator it was never sent
+	if p.Get(rfc2865.FramedIPAddress_Type) != nil || p.Get(80) != nil || p.Get(rfc2865.NASIPAddress_Type) != nil ||
+		rfc2865.NASIdentifier_GetString(p) != "ap1" {
+		t.Fatal("CoA to a wispr NAS: want NAS-Identifier only, no Framed-IP-Address, NAS-IP-Address or Message-Authenticator")
 	}
 	if down, ok := vsa(p, vendorWISPr, wisprBandwidthMaxDn); !ok || down != 5000000 {
 		t.Fatalf("CoA WISPr down %d %v", down, ok)

@@ -116,19 +116,26 @@ func request(ctx context.Context, q *db.Queries, key []byte, port string, s db.R
 		rfc2866.AcctSessionID_SetString(p, s.SessionID)
 		// Identify the session to the NAS as it knows itself (RFC 5176 §3): the NAS-IP-Address
 		// attribute it reported, which may differ from the packet source IP. Unknown = omit.
-		if ip := net.ParseIP(s.NasIpAttr); ip != nil && ip.To4() != nil {
+		// Other NAS types get only what every NAS can match: uspot requires each attribute to equal its
+		// Access-Request, which holds NAS-Identifier but not NAS-IP-Address, and NAKs Framed-IP-Address.
+		mt := n.Type == "" || n.Type == NASMikrotik
+		if ip := net.ParseIP(s.NasIpAttr); ip != nil && ip.To4() != nil && (mt || s.NasIdentifier == "") {
 			rfc2865.NASIPAddress_Set(p, ip.To4())
 		}
 		if s.NasIdentifier != "" {
 			rfc2865.NASIdentifier_SetString(p, s.NasIdentifier)
 		}
-		if ip := net.ParseIP(s.FramedIp); ip != nil && ip.To4() != nil {
+		if ip := net.ParseIP(s.FramedIp); ip != nil && ip.To4() != nil && mt {
 			rfc2865.FramedIPAddress_Set(p, ip.To4())
 		}
 		if set != nil {
 			set(p, n.Type)
 		}
-		addMA(p)
+		if maRequired(n.RequireMessageAuth, n.MaSeen) {
+			// A NAS that never sent one may not take one: uspot NAKs a request holding any attribute it
+			// does not know, Message-Authenticator included. RFC 5176 makes it optional here.
+			addMA(p)
+		}
 		ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
 		resp, err := exchange(ctx, p, net.JoinHostPort(s.NasIp, port))
@@ -165,7 +172,9 @@ func ProbeCoA(ctx context.Context, q *db.Queries, key []byte, ip string) error {
 		p := radius.New(radius.CodeDisconnectRequest, sec)
 		rfc2865.UserName_SetString(p, "gobill-probe")
 		rfc2866.AcctSessionID_SetString(p, "gobill-probe")
-		addMA(p)
+		if maRequired(n.RequireMessageAuth, n.MaSeen) {
+			addMA(p)
+		}
 		ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
 		resp, err := exchange(ctx, p, net.JoinHostPort(ip, CoAPort))

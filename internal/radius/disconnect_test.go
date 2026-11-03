@@ -15,6 +15,7 @@ import (
 	"layeh.com/radius"
 	"layeh.com/radius/rfc2865"
 	"layeh.com/radius/rfc2866"
+	"layeh.com/radius/rfc2869"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/secret"
@@ -54,12 +55,25 @@ func TestDisconnectRequest(t *testing.T) {
 	e := setup(t)
 	// the NAS row of setup() is 10.0.0.0/24; add the loopback fake
 	sealed, _ := secret.Seal(e.s.Key, nasSecret)
-	if _, err := e.q.CreateNAS(t.Context(), db.CreateNASParams{Name: "lo", Ip: "127.0.0.1", SecretEnc: sealed}); err != nil {
+	lo, err := e.q.CreateNAS(t.Context(), db.CreateNASParams{Name: "lo", Ip: "127.0.0.1", SecretEnc: sealed})
+	if err != nil {
 		t.Fatal(err)
 	}
 	sess := db.RadiusSession{Username: "alice", SessionID: "abc123", NasIp: "127.0.0.1", NasIpAttr: "192.168.99.1", FramedIp: "10.1.1.5"}
 
+	// a NAS that never sent a Message-Authenticator gets none (uspot NAKs one)
 	port, got := fakeNAS(t, radius.CodeDisconnectACK)
+	if err := Disconnect(t.Context(), e.q, e.s.Key, port, sess); err != nil {
+		t.Fatal(err)
+	}
+	if p, _ := radius.Parse(<-got, nasSecret); p.Get(rfc2869.MessageAuthenticator_Type) != nil {
+		t.Fatal("Message-Authenticator sent to a NAS that never sent one")
+	}
+	if err := e.q.MarkNASMASeen(t.Context(), lo.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	port, got = fakeNAS(t, radius.CodeDisconnectACK)
 	if err := Disconnect(t.Context(), e.q, e.s.Key, port, sess); err != nil {
 		t.Fatal(err)
 	}
