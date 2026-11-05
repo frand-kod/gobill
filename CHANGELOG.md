@@ -8,6 +8,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-05
+
 Dukungan NAS non-MikroTik, perbaikan laporan dan backup, serta RADIUS accounting yang lebih cepat. Migrasi `0040`.
 
 ### Penting sebelum upgrade
