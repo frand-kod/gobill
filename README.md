@@ -56,7 +56,7 @@ PHPNuxBill 2025.3.20 dan gobill diuji berdampingan. Keduanya memakai data yang s
 
 Latensi p50 login RADIUS turun dari 101 ms menjadi 25 ms, dan p99 dari 270 ms menjadi 73 ms.
 
-**Perangkat kecil.** Server RADIUS UDP bawaan gobill diuji dengan [bench/radius](bench/README.md#radius-udp-benchradius): 1 core, database di disk, 5.000 pelanggan. Hasilnya 1.000 login/s dan 1.000 paket accounting/s (2026-11-05). Angka ini sedikit lebih rendah dari Oktober karena log login dan pemakaian per hari. Dengan batas memori 48 MB, gobill tetap berjalan (diuji 2026-10-14). PHPNuxBill tidak punya server RADIUS sendiri, jadi bagian ini tidak dibandingkan.
+**Perangkat kecil.** Server RADIUS UDP bawaan gobill diuji dengan [bench/radius](bench/README.md#radius-udp-benchradius): 1 core, database di disk, 5.000 pelanggan. Hasilnya 1.000 login/s dan 1.200 paket accounting/s (2026-11-05). Angka ini sedikit lebih rendah dari Oktober karena log login dan pemakaian per hari. Dengan batas memori 48 MB, gobill tetap berjalan (diuji 2026-10-14). PHPNuxBill tidak punya server RADIUS sendiri, jadi bagian ini tidak dibandingkan.
 
 Yang perlu Anda ketahui:
 

@@ -23,7 +23,9 @@ type acctJob struct {
 // Without DB (tests, the REST fallback server) the write runs directly on Q.
 func (s *Server) commit(ctx context.Context, write func(q *db.Queries) error) error {
 	if s.DB == nil {
-		return write(s.Q)
+		err := write(s.Q)
+		s.octs.done(err == nil)
+		return err
 	}
 	s.acctOnce.Do(func() {
 		s.acctQ = make(chan acctJob, acctBatchMax)
@@ -70,7 +72,8 @@ func (s *Server) acctWriter() {
 	}
 }
 
-func (s *Server) writeBatch(batch []acctJob) error {
+func (s *Server) writeBatch(batch []acctJob) (err error) {
+	defer func() { s.octs.done(err == nil) }()
 	ctx := context.Background()
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {

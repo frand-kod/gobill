@@ -177,9 +177,9 @@ Server dibatasi 1 core dan 256 MB. DB di ext4 pada NVMe, bukan di `tmpfs`: di `t
 | Ramp | v0.1.14 | 2026-10-14 | 2026-11-05 (`195272a`) |
 |---|---:|---:|---:|
 | Login | 200/s | 1100/s | 1000/s |
-| Accounting interim (`-acct`) | 150/s | 1500/s | 1000/s |
+| Accounting interim (`-acct`) | 150/s | 1500/s | 1200/s |
 
-Penurunan sejak 2026-10-14 berasal dari dua fitur baru. Setiap login sekarang ditulis ke log login, sekitar 16% CPU. Setiap interim membaca counter lama untuk pemakaian per hari, sekitar 17% CPU. Keduanya terlihat di profil CPU pada 700/s. Dengan 1000 pelanggan, `dbd96d6` mencapai 1200 login/s dan 1400 interim/s, sedangkan `195272a` mencapai 1000/s dan 1200/s.
+Penurunan sejak 2026-10-14 berasal dari dua fitur baru. Setiap login sekarang ditulis ke log login, sekitar 16% CPU. Setiap interim juga menghitung pemakaian per hari. Awalnya ini butuh satu SELECT counter lama per interim, sekitar 17% CPU, dan accounting turun ke 1000/s. Sekarang counter terakhir per sesi disimpan di memori, sehingga accounting naik lagi ke 1200/s dan p99 di 1000/s turun dari 535 ms ke 144 ms. Keduanya terlihat di profil CPU pada 700/s. Dengan 1000 pelanggan, `dbd96d6` mencapai 1200 login/s dan 1400 interim/s, sedangkan `195272a` mencapai 1000/s dan 1200/s.
 
 Faktor terbesar di accounting adalah group commit dan `GOMAXPROCS` minimal 2. Dengan satu P, setiap `fsync` (sekitar 5 ms di NVMe ini) menghentikan seluruh proses. Pembatasan IOPS lewat cgroup (`IOWriteIOPSMax` 1000 dan 200) hampir tidak mengubah hasil. Efektivitas pembatasan itu belum diverifikasi, jadi angka untuk SD card tetap perkiraan sampai diuji di perangkat ARM.
 

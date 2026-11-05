@@ -68,6 +68,7 @@ type Server struct {
 	busy            atomic.Int64         // packets being handled, see shed
 	acctOnce        sync.Once            // starts acctWriter
 	acctQ           chan acctJob         // accounting writes waiting for the next commit
+	octs            octCache             // last counters per open session, for usage deltas
 	nasMu           sync.Mutex
 	nasRows         []nasEntry        // listNAS cache
 	nasAt           time.Time         // when nasRows was read; zero = never
@@ -1034,14 +1035,15 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 		return s.commit(ctx, func(q *db.Queries) error {
 			// The counters only grow (MAX in the upsert), so the growth since the last packet is what
 			// moved today. A session the NAS restarted has a new session_id and counts from 0.
-			old, err := q.GetRadiusSessionOctets(ctx, db.GetRadiusSessionOctetsParams{NasIp: arg.NasIp, SessionID: arg.SessionID})
-			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			old, err := s.octs.get(ctx, q, arg.NasIp, arg.SessionID)
+			if err != nil {
 				return err
 			}
 			if err := q.UpsertRadiusSession(ctx, arg); err != nil {
 				return err
 			}
-			in, out := max(arg.InputOctets-old.InputOctets, 0), max(arg.OutputOctets-old.OutputOctets, 0)
+			s.octs.put(arg.NasIp, arg.SessionID, octets{in: max(arg.InputOctets, old.in), out: max(arg.OutputOctets, old.out), gone: arg.StoppedAt.Valid})
+			in, out := max(arg.InputOctets-old.in, 0), max(arg.OutputOctets-old.out, 0)
 			if in == 0 && out == 0 {
 				return nil
 			}
