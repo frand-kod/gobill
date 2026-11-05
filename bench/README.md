@@ -170,14 +170,16 @@ Host yang sama dengan hasil di atas. Server dibatasi 2 CPU dengan `taskset`, gen
 
 Di 8000/s server sudah melewati kapasitasnya. Serangan sebesar itu butuh shared secret NAS. Paket dengan secret salah di-drop di read loop dan tidak terhitung beban. Sebelum ada pemotongan beban, setiap jawaban terlambat melewati 3 detik, sehingga tidak ada yang bisa masuk.
 
-### Hasil 2026-10-14: 1 core, disk sungguhan
+### Hasil 1 core, disk sungguhan
 
 Server dibatasi 1 core dan 256 MB. DB di ext4 pada NVMe, bukan di `tmpfs`: di `tmpfs`, `fsync` tidak melakukan apa-apa, sehingga biaya tulis tidak terlihat. 5000 pelanggan, 50 NAS. Ramp sampai ada paket tanpa balasan di atas 0,1% atau p99 di atas 1 detik.
 
-| Ramp | v0.1.14 | Sesudah |
-|---|---:|---:|
-| Login | 200/s | 1100/s |
-| Accounting interim (`-acct`) | 150/s | 1500/s |
+| Ramp | v0.1.14 | 2026-10-14 | 2026-11-05 (`195272a`) |
+|---|---:|---:|---:|
+| Login | 200/s | 1100/s | 1000/s |
+| Accounting interim (`-acct`) | 150/s | 1500/s | 1000/s |
+
+Penurunan sejak 2026-10-14 berasal dari dua fitur baru. Setiap login sekarang ditulis ke log login, sekitar 16% CPU. Setiap interim membaca counter lama untuk pemakaian per hari, sekitar 17% CPU. Keduanya terlihat di profil CPU pada 700/s. Dengan 1000 pelanggan, `dbd96d6` mencapai 1200 login/s dan 1400 interim/s, sedangkan `195272a` mencapai 1000/s dan 1200/s.
 
 Faktor terbesar di accounting adalah group commit dan `GOMAXPROCS` minimal 2. Dengan satu P, setiap `fsync` (sekitar 5 ms di NVMe ini) menghentikan seluruh proses. Pembatasan IOPS lewat cgroup (`IOWriteIOPSMax` 1000 dan 200) hampir tidak mengubah hasil. Efektivitas pembatasan itu belum diverifikasi, jadi angka untuk SD card tetap perkiraan sampai diuji di perangkat ARM.
 
