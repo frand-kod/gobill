@@ -30,6 +30,7 @@ type Backup struct {
 	Dir     string
 	Mirror  string // optional; must already exist, so an unmounted disk fails instead of creating a folder on the SD card
 	Trusted func() bool
+	KeyFP   string           // fingerprint of the encryption key, stored in each backup (never the key itself)
 	Now     func() time.Time // injectable for tests; nil = time.Now
 }
 
@@ -61,6 +62,9 @@ func (b *Backup) Run(ctx context.Context) error {
 	}
 	tmp := final + ".tmp"
 	os.Remove(tmp)
+	if b.KeyFP != "" {
+		b.set(ctx, "key_fp", b.KeyFP) // before VACUUM, so the copy carries it
+	}
 	if _, err := b.Conn.ExecContext(ctx, "VACUUM INTO ?", tmp); err != nil {
 		os.Remove(tmp)
 		return err

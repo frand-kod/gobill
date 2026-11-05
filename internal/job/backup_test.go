@@ -27,7 +27,7 @@ func TestBackupWritesRotatesAndSkips(t *testing.T) {
 	backupDir := filepath.Join(dir, "backup")
 	at := func(day int, hour int) time.Time { return time.Date(2026, 10, day, hour, 0, 0, 0, time.Local) }
 	trusted := true
-	b := &Backup{Conn: conn, Q: q, Dir: backupDir, Trusted: func() bool { return trusted }}
+	b := &Backup{Conn: conn, Q: q, Dir: backupDir, Trusted: func() bool { return trusted }, KeyFP: "0a1b2c3d"}
 
 	// Untrusted clock at 02:00: nothing is written.
 	trusted = false
@@ -80,6 +80,12 @@ func TestBackupWritesRotatesAndSkips(t *testing.T) {
 	defer copyConn.Close()
 	if _, err := db.New(copyConn).CountCustomers(ctx); err != nil {
 		t.Fatalf("backup is not usable: %v", err)
+	}
+
+	// The copy carries the key fingerprint, not the key.
+	var fp string
+	if err := copyConn.QueryRowContext(ctx, "SELECT value FROM settings WHERE key = 'key_fp'").Scan(&fp); err != nil || fp != "0a1b2c3d" {
+		t.Fatalf("backup key_fp = %q, %v", fp, err)
 	}
 
 	// Today's file already exists: the run must not overwrite it.

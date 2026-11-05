@@ -30,10 +30,16 @@ func nasFields(v, e map[string]string, editing bool) []field {
 		ma.Value = "0"
 	}
 	ma.Hint = "Auto: once this NAS has sent a valid Message-Authenticator, requests without one are dropped. RouterOS 6.49.18+ and 7.15+ send it; add /radius set require-message-auth=yes-for-request-resp on the router too"
+	typ := text("type", "NAS type", v, e).as("select")
+	typ.Options = []option{{"mikrotik", "MikroTik"}, {"wispr", "WISPr (CoovaChilli, OpenWrt)"}, {"standard", "Standard (no speed or quota attributes)"}}
+	if typ.Value == "" {
+		typ.Value = "mikrotik"
+	}
+	typ.Hint = "Which speed and quota attributes this NAS gets. WISPr and Standard cannot isolate: isolated customers are rejected"
 	out := section([]field{
 		text("name", "NAS Name", v, e).req(),
 		text("ip", "IP / CIDR", v, e).req(),
-		text("description", "Description", v, e), ma,
+		text("description", "Description", v, e), typ, ma,
 	}, "NAS", "")
 	return append(out, section([]field{pw}, "RADIUS secret", "")...)
 }
@@ -118,13 +124,13 @@ func (s *Server) nasEdit(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "get nas", err)
 		return
 	}
-	v := map[string]string{"name": n.Name, "ip": n.Ip, "description": n.Description, "require_message_auth": fmt.Sprint(n.RequireMessageAuth)}
+	v := map[string]string{"name": n.Name, "ip": n.Ip, "description": n.Description, "require_message_auth": fmt.Sprint(n.RequireMessageAuth), "type": n.Type}
 	s.renderForm(w, r, 200, formPage{"Edit NAS", fmt.Sprint("/admin/nas/", id), "/admin/nas", nasFields(v, nil, true)})
 }
 
 func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
-	v := formVals(r, "name", "ip", "description", "require_message_auth")
+	v := formVals(r, "name", "ip", "description", "require_message_auth", "type")
 	pass := r.PostFormValue("secret")
 	v["secret"] = pass
 	e := map[string]string{}
@@ -132,6 +138,13 @@ func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
 		if v[k] == "" {
 			e[k] = "This field is required"
 		}
+	}
+	switch v["type"] {
+	case "":
+		v["type"] = "mikrotik"
+	case "mikrotik", "wispr", "standard":
+	default:
+		e["type"] = "Choose a NAS type"
 	}
 	if v["ip"] != "" && !validNASAddr(v["ip"]) {
 		e["ip"] = "Enter a valid IP address or CIDR"
@@ -173,10 +186,16 @@ func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
 		if p := v["require_message_auth"]; p == "1" || p == "2" {
 			rma, _ = strconv.ParseInt(p, 10, 64)
 		}
+		nid := id
 		if id == 0 {
-			_, err = s.queries.CreateNAS(r.Context(), db.CreateNASParams{Name: v["name"], Ip: v["ip"], SecretEnc: enc, Description: v["description"], RequireMessageAuth: rma})
+			var n db.Na
+			n, err = s.queries.CreateNAS(r.Context(), db.CreateNASParams{Name: v["name"], Ip: v["ip"], SecretEnc: enc, Description: v["description"], RequireMessageAuth: rma})
+			nid = n.ID
 		} else {
 			err = s.queries.UpdateNAS(r.Context(), db.UpdateNASParams{Name: v["name"], Ip: v["ip"], SecretEnc: enc, Description: v["description"], RequireMessageAuth: rma, ID: id})
+		}
+		if err == nil {
+			err = s.queries.SetNASType(r.Context(), db.SetNASTypeParams{Type: v["type"], ID: nid})
 		}
 		switch {
 		case isUnique(err):

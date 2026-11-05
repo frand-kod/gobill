@@ -195,7 +195,7 @@ func run() error {
 	alerts := &billing.AlertJob{S: svc, DBPath: dbPath, Free: func() (int64, error) { return job.DiskFreeMB(filepath.Dir(dbPath)) }}
 	go job.Run(ctx, "alert", time.Minute, alerts.Run)
 	go job.Run(ctx, "daily_summary", time.Minute, svc.DailySummaryJob(guard.Trusted))
-	backup := &job.Backup{Conn: conn, Q: db.New(conn), Trusted: guard.Trusted, Dir: backupDir,
+	backup := &job.Backup{Conn: conn, Q: db.New(conn), Trusted: guard.Trusted, Dir: backupDir, KeyFP: web.KeyFingerprint(key),
 		Mirror: env("GOBILL_BACKUP_MIRROR", "")}
 	go job.Run(ctx, "backup", time.Minute, backup.Run)
 	app.BackupDir, app.BackupMirror = backup.Dir, backup.Mirror

@@ -68,6 +68,7 @@ type Server struct {
 	busy            atomic.Int64         // packets being handled, see shed
 	acctOnce        sync.Once            // starts acctWriter
 	acctQ           chan acctJob         // accounting writes waiting for the next commit
+	octs            octCache             // last counters per open session, for usage deltas
 	nasMu           sync.Mutex
 	nasRows         []nasEntry        // listNAS cache
 	nasAt           time.Time         // when nasRows was read; zero = never
@@ -299,6 +300,7 @@ type AuthRequest struct {
 	FramedIP string
 	MAC      string
 	NAS      string // NAS address, for the voucher-guess limiter
+	NASType  string // nas.type of the NAS, "" = mikrotik
 	PortID   string // NAS-Port-Id as the NAS reports it, "" = not sent
 	PortType string // NAS-Port-Type by name ("Virtual", "Wireless-802.11"...), "" = the NAS did not send one
 	DryRun   bool   // read-only decision (router migration test): no pending start, no session kick
@@ -336,6 +338,9 @@ func (s *Server) Authorize(ctx context.Context, rq AuthRequest) Decision {
 		return Decision{Reject: "Too many attempts, try again later"}
 	}
 	d := s.decide(ctx, rq)
+	if d.Reject == "" && d.AddressList != "" && rq.NASType != "" && rq.NASType != NASMikrotik {
+		d.Reject = msgIsolated // only MikroTik has the address list that sends isolated customers to the isolir page
+	}
 	s.logAuth(ctx, rq, d)
 	switch d.Reject {
 	case "":
@@ -364,6 +369,8 @@ func rejectReason(msg string) string {
 		return "expired"
 	case strings.HasPrefix(msg, "Port type"):
 		return "port_type"
+	case msg == msgIsolated:
+		return "isolated"
 	case strings.HasPrefix(msg, msgOutsideWindow):
 		return "window"
 	case strings.HasPrefix(msg, "Account locked"):
@@ -415,6 +422,9 @@ func portMismatch(planType, portType string) string {
 
 // msgOutsideWindow starts the reject message of a login outside the plan's login window.
 const msgOutsideWindow = "Login not allowed at this time"
+
+// msgIsolated rejects an isolated customer on a NAS without the MikroTik isolir address list.
+const msgIsolated = "Account isolated, please pay to reconnect"
 
 // Reject messages of the per-customer binding.
 const (
@@ -868,7 +878,7 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 		s.NoteNAS(ip.String())
 	}
 	user := rfc2865.UserName_GetString(r.Packet)
-	rq := AuthRequest{User: user, NAS: addrIP(r.RemoteAddr).String(), MAC: rfc2865.CallingStationID_GetString(r.Packet),
+	rq := AuthRequest{User: user, NAS: addrIP(r.RemoteAddr).String(), NASType: n.Type, MAC: rfc2865.CallingStationID_GetString(r.Packet),
 		Check: func(pw []byte) (bool, string) { return checkPassword(r.Packet, user, pw) }}
 	if ip := rfc2865.FramedIPAddress_Get(r.Packet); ip != nil {
 		rq.FramedIP = ip.String()
@@ -896,15 +906,13 @@ func (s *Server) handleAuth(w radius.ResponseWriter, r *radius.Request) {
 		}
 	}
 	if d.Rate != "" {
-		mikrotik.MikrotikRateLimit_SetString(p, d.Rate)
+		setRate(p, n.Type, d.Rate)
 	}
 	if d.AddressList != "" {
 		mikrotik.MikrotikAddressList_AddString(p, d.AddressList)
 	}
 	if d.HasTotal {
-		rem := uint64(d.TotalLeft)
-		mikrotik.MikrotikTotalLimit_Set(p, mikrotik.MikrotikTotalLimit(uint32(rem)))
-		mikrotik.MikrotikTotalLimitGigawords_Set(p, mikrotik.MikrotikTotalLimitGigawords(rem>>32))
+		setTotal(p, n.Type, uint64(d.TotalLeft))
 	}
 	if d.Timeout > 0 {
 		rfc2865.SessionTimeout_Set(p, rfc2865.SessionTimeout(d.Timeout))
@@ -1027,14 +1035,15 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 		return s.commit(ctx, func(q *db.Queries) error {
 			// The counters only grow (MAX in the upsert), so the growth since the last packet is what
 			// moved today. A session the NAS restarted has a new session_id and counts from 0.
-			old, err := q.GetRadiusSessionOctets(ctx, db.GetRadiusSessionOctetsParams{NasIp: arg.NasIp, SessionID: arg.SessionID})
-			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			old, err := s.octs.get(ctx, q, arg.NasIp, arg.SessionID)
+			if err != nil {
 				return err
 			}
 			if err := q.UpsertRadiusSession(ctx, arg); err != nil {
 				return err
 			}
-			in, out := max(arg.InputOctets-old.InputOctets, 0), max(arg.OutputOctets-old.OutputOctets, 0)
+			s.octs.put(arg.NasIp, arg.SessionID, octets{in: max(arg.InputOctets, old.in), out: max(arg.OutputOctets, old.out), gone: arg.StoppedAt.Valid})
+			in, out := max(arg.InputOctets-old.in, 0), max(arg.OutputOctets-old.out, 0)
 			if in == 0 && out == 0 {
 				return nil
 			}

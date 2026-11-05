@@ -21,7 +21,7 @@ import (
 )
 
 // guideSlugs is the whitelist of guides, in index order. Each slug exists in docs/id and docs/en.
-var guideSlugs = []string{"README", "installation", "quick-setup", "upgrade", "migration-phpnuxbill", "configuration", "integrations", "security", "mikrotik", "freeradius-rest", "monitoring", "backup-restore", "promotions", "isolation", "agent-batches"}
+var guideSlugs = []string{"README", "installation", "quick-setup", "upgrade", "migration-phpnuxbill", "configuration", "integrations", "security", "mikrotik", "freeradius-rest", "openwrt", "monitoring", "backup-restore", "promotions", "isolation", "agent-batches"}
 
 // docsLangs are the guide languages: the folder under docs/ and the value of ?lang=.
 var docsLangs = []string{"id", "en"}
@@ -32,14 +32,14 @@ var guideGroups = map[string][]guideGroup{
 		{"Indeks", []string{"README"}},
 		{"Getting started", []string{"installation", "quick-setup", "upgrade", "migration-phpnuxbill"}},
 		{"Konfigurasi", []string{"configuration", "integrations", "security", "promotions"}},
-		{"Network", []string{"mikrotik", "freeradius-rest"}},
+		{"Network", []string{"mikrotik", "freeradius-rest", "openwrt"}},
 		{"Operasional", []string{"monitoring", "backup-restore", "isolation", "agent-batches"}},
 	},
 	"en": {
 		{"Index", []string{"README"}},
 		{"Getting started", []string{"installation", "quick-setup", "upgrade", "migration-phpnuxbill"}},
 		{"Configuration", []string{"configuration", "integrations", "security", "promotions"}},
-		{"Network", []string{"mikrotik", "freeradius-rest"}},
+		{"Network", []string{"mikrotik", "freeradius-rest", "openwrt"}},
 		{"Operations", []string{"monitoring", "backup-restore", "isolation", "agent-batches"}},
 	},
 }

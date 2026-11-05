@@ -34,8 +34,12 @@ ORDER BY
 
 -- name: SumTransactionsBetween :one
 -- Income: like PHP top_widget, purchases paid from balance are not income (the top-up already was).
-SELECT CAST(COALESCE(SUM(price), 0) AS INTEGER) FROM transactions WHERE created_at >= ? AND created_at < ?
-  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%';
+-- Agent consignment: redeeming one of its codes is the agent's sale; the deposits (agent_ledger payments) are the income.
+SELECT CAST(COALESCE(SUM(price), 0) AS INTEGER) + CAST((SELECT COALESCE(SUM(amount), 0) FROM agent_ledger
+    WHERE kind = 'payment' AND agent_ledger.created_at >= sqlc.arg(from_ts) AND agent_ledger.created_at < sqlc.arg(to_ts)) AS INTEGER)
+FROM transactions WHERE transactions.created_at >= sqlc.arg(from_ts) AND transactions.created_at < sqlc.arg(to_ts)
+  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
+  AND NOT (method LIKE 'Voucher - %' AND EXISTS (SELECT 1 FROM vouchers v JOIN agent_batch_vouchers bv ON bv.voucher_id = v.id WHERE v.code = substr(transactions.method, 11)));
 
 -- name: ListActivationsByCustomer :many
 -- Plan purchases and activations of the customer; balance moves are not activations.

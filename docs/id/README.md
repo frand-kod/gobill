@@ -24,6 +24,7 @@ Dokumen ini adalah indeks panduan operator dalam Bahasa Indonesia. Panduan ini j
 
 - [Setup MikroTik](mikrotik.md): mode API dan RADIUS bawaan, AP di belakang router, serta pelajaran dari uji lapangan.
 - [FreeRADIUS lewat REST](freeradius-rest.md): tetap memakai FreeRADIUS yang sudah ada.
+- [NAS OpenWrt dan WISPr](openwrt.md): CoovaChilli, controller WISPr, dan NAS lain.
 
 ## Operasional
 

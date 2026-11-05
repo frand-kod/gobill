@@ -115,6 +115,39 @@ func (q *Queries) ExpirePaymentRequests(ctx context.Context, expiresAt int64) (i
 	return result.RowsAffected()
 }
 
+const getLatestFinishedPaymentByCustomer = `-- name: GetLatestFinishedPaymentByCustomer :one
+SELECT id, ref, gateway, gateway_ref, customer_id, username, plan_id, amount, coupon, channel, pay_url, status, created_at, paid_at, expires_at FROM payment_requests WHERE customer_id = ? AND status IN ('paid', 'failed', 'expired') AND created_at >= ? ORDER BY id DESC LIMIT 1
+`
+
+type GetLatestFinishedPaymentByCustomerParams struct {
+	CustomerID sql.NullInt64
+	CreatedAt  int64
+}
+
+// The customer's newest paid, failed or expired request created since the cutoff (unix seconds); for the portal bell.
+func (q *Queries) GetLatestFinishedPaymentByCustomer(ctx context.Context, arg GetLatestFinishedPaymentByCustomerParams) (PaymentRequest, error) {
+	row := q.db.QueryRowContext(ctx, getLatestFinishedPaymentByCustomer, arg.CustomerID, arg.CreatedAt)
+	var i PaymentRequest
+	err := row.Scan(
+		&i.ID,
+		&i.Ref,
+		&i.Gateway,
+		&i.GatewayRef,
+		&i.CustomerID,
+		&i.Username,
+		&i.PlanID,
+		&i.Amount,
+		&i.Coupon,
+		&i.Channel,
+		&i.PayUrl,
+		&i.Status,
+		&i.CreatedAt,
+		&i.PaidAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
 const getPaymentAudit = `-- name: GetPaymentAudit :one
 SELECT p.id, p.ref, p.gateway, p.gateway_ref, p.customer_id, p.username, p.plan_id, p.amount, p.coupon, p.channel, p.pay_url, p.status, p.created_at, p.paid_at, p.expires_at, CAST(COALESCE(pl.name, 'Custom Balance') AS TEXT) AS plan_name FROM payment_requests p
 LEFT JOIN plans pl ON pl.id = p.plan_id WHERE p.id = ?
@@ -190,18 +223,12 @@ func (q *Queries) GetPaymentRequest(ctx context.Context, id int64) (PaymentReque
 	return i, err
 }
 
-const getPendingPaymentRequestByCustomer = `-- name: GetPendingPaymentRequestByCustomer :one
-SELECT id, ref, gateway, gateway_ref, customer_id, username, plan_id, amount, coupon, channel, pay_url, status, created_at, paid_at, expires_at FROM payment_requests WHERE customer_id = ? AND status = 'pending' AND expires_at > ? ORDER BY id DESC LIMIT 1
+const getPaymentRequestByRef = `-- name: GetPaymentRequestByRef :one
+SELECT id, ref, gateway, gateway_ref, customer_id, username, plan_id, amount, coupon, channel, pay_url, status, created_at, paid_at, expires_at FROM payment_requests WHERE ref = ?
 `
 
-type GetPendingPaymentRequestByCustomerParams struct {
-	CustomerID sql.NullInt64
-	ExpiresAt  int64
-}
-
-// The customer's newest unpaid request that has not expired yet (now = unix seconds).
-func (q *Queries) GetPendingPaymentRequestByCustomer(ctx context.Context, arg GetPendingPaymentRequestByCustomerParams) (PaymentRequest, error) {
-	row := q.db.QueryRowContext(ctx, getPendingPaymentRequestByCustomer, arg.CustomerID, arg.ExpiresAt)
+func (q *Queries) GetPaymentRequestByRef(ctx context.Context, ref string) (PaymentRequest, error) {
+	row := q.db.QueryRowContext(ctx, getPaymentRequestByRef, ref)
 	var i PaymentRequest
 	err := row.Scan(
 		&i.ID,
@@ -223,12 +250,18 @@ func (q *Queries) GetPendingPaymentRequestByCustomer(ctx context.Context, arg Ge
 	return i, err
 }
 
-const getPaymentRequestByRef = `-- name: GetPaymentRequestByRef :one
-SELECT id, ref, gateway, gateway_ref, customer_id, username, plan_id, amount, coupon, channel, pay_url, status, created_at, paid_at, expires_at FROM payment_requests WHERE ref = ?
+const getPendingPaymentRequestByCustomer = `-- name: GetPendingPaymentRequestByCustomer :one
+SELECT id, ref, gateway, gateway_ref, customer_id, username, plan_id, amount, coupon, channel, pay_url, status, created_at, paid_at, expires_at FROM payment_requests WHERE customer_id = ? AND status = 'pending' AND expires_at > ? ORDER BY id DESC LIMIT 1
 `
 
-func (q *Queries) GetPaymentRequestByRef(ctx context.Context, ref string) (PaymentRequest, error) {
-	row := q.db.QueryRowContext(ctx, getPaymentRequestByRef, ref)
+type GetPendingPaymentRequestByCustomerParams struct {
+	CustomerID sql.NullInt64
+	ExpiresAt  int64
+}
+
+// The customer's newest unpaid request that has not expired yet (now = unix seconds).
+func (q *Queries) GetPendingPaymentRequestByCustomer(ctx context.Context, arg GetPendingPaymentRequestByCustomerParams) (PaymentRequest, error) {
+	row := q.db.QueryRowContext(ctx, getPendingPaymentRequestByCustomer, arg.CustomerID, arg.ExpiresAt)
 	var i PaymentRequest
 	err := row.Scan(
 		&i.ID,

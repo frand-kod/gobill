@@ -247,7 +247,7 @@ func TestPortalPromoCard(t *testing.T) {
 
 	insertPromo(t, q, db.CreatePromoParams{Title: "Kopi Dadi", Body: "Diantar", ShowPortal: 1, Active: 1, Position: 1})
 	insertPromo(t, q, db.CreatePromoParams{Title: "Laundry Kilat", ShowPortal: 1, Active: 1, Position: 2})
-	if body := portalGet(t, e, c, "/portal"); !strings.Contains(body, "Kopi Dadi") || strings.Contains(body, "gb-promo-") {
+	if body := portalGet(t, e, c, "/portal"); !strings.Contains(body, "Kopi Dadi") || strings.Count(body, "gb-promo-") != strings.Count(body, ":gb-promo-") { // the bell data-seen list holds key:gb-promo-…
 		t.Fatal("first portal promo missing from the bell, or the old card is back")
 	}
 }

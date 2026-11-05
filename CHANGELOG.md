@@ -8,6 +8,32 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+Dukungan NAS non-MikroTik, perbaikan laporan dan backup, serta RADIUS accounting yang lebih cepat. Migrasi `0040`.
+
+### Penting sebelum upgrade
+
+- **Pemasukan agen dihitung ulang.** Setoran agen masuk pemasukan, penukaran kode agen tidak. Total laporan, dashboard, ringkasan harian, dan CSV bisa berubah untuk periode yang sudah lewat.
+- **Restore memeriksa kunci enkripsi.** Backup baru membawa sidik jari kunci. Restore ditolak jika kuncinya berbeda dan backup berisi nilai terenkripsi.
+
+### Fitur
+
+- **Tipe NAS**: `mikrotik` (bawaan), `wispr` (kecepatan WISPr, kuota CoovaChilli), dan `standard` (atribut RFC saja).
+- **Panduan OpenWrt**: uspot sebagai NAS yang disarankan, CoovaChilli sebagai alternatif. Langkahnya diuji di lab.
+- **Lab OpenWrt**: `lab/openwrt.sh up|test|down` menjalankan OpenWrt dan uspot di qemu. Lab ini menguji login, kecepatan WISPr, accounting, CoA, Disconnect, kuota, dan isolir.
+- **Lonceng portal**: hasil pembayaran terakhir dan kuota habis. Item tidak ditandai dibaca saat admin masuk sebagai pelanggan.
+- **Preview impor** menampilkan data PHPNuxBill yang tidak diimpor atau tidak dipakai gobill.
+
+### Perbaikan
+
+- **Disconnect dan CoA**: Message-Authenticator hanya dikirim ke NAS yang juga mengirimnya. NAS selain MikroTik tidak menerima `Framed-IP-Address` dan mendapat `NAS-Identifier`, bukan `NAS-IP-Address`.
+- **Perpanjangan darurat** dihitung dari tanggal kedaluwarsa asli.
+- **Tooltip "More actions"** di tabel tidak lagi terpotong di tepi card.
+
+### Performa
+
+- **RADIUS accounting**: counter terakhir setiap sesi disimpan di memori, jadi interim tidak lagi membaca `radius_sessions` sebelum upsert. Dengan 1 core dan 5.000 pelanggan, accounting naik dari 1.000/s ke 1.200/s, dan p99 di 1.000/s turun dari 535 ms ke 144 ms.
+- Angka benchmark RADIUS di README diperbarui (2026-11-05).
+
 ## [0.3.0] - 2026-11-02
 
 Hasil audit menyeluruh (uang, siklus langganan, router, keamanan, operasional) beserta perbaikannya, ditambah fitur RADIUS baru. Migrasi `0029` sampai `0039`.

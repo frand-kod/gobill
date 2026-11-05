@@ -164,6 +164,44 @@ func TestRestoreRefusesOtherKey(t *testing.T) {
 	}
 }
 
+// A backup stamped with another key fingerprint is refused when it holds sealed values, and the page
+// names both fingerprints. Without sealed values it is accepted with a warning naming both.
+func TestRestoreRefusesOtherKeyFingerprint(t *testing.T) {
+	s, h, c := restoreApp(t)
+	mine := keyFingerprint(s.SecretKey)
+	stamp := func(fp string, sealed bool) []byte {
+		return backupFile(t, s, func(b *sql.DB) {
+			if _, err := b.Exec("INSERT OR REPLACE INTO settings (key, value) VALUES ('key_fp', ?)", fp); err != nil {
+				t.Fatal(err)
+			}
+			if sealed {
+				enc, err := secret.Seal(bytes.Repeat([]byte{9}, 32), []byte("router-pass"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := b.Exec("INSERT INTO routers (name, host, username, password_enc) VALUES ('r1', '10.0.0.1', 'api', ?)", enc); err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
+	}
+	w := restoreUpload(t, h, c, stamp("deadbeef", true))
+	wantCode(t, w, 422, "sealed, other fingerprint")
+	if !strings.Contains(w.Body.String(), "deadbeef") || !strings.Contains(w.Body.String(), mine) {
+		t.Fatalf("fingerprints not shown: %s", w.Body.String())
+	}
+	w = restoreUpload(t, h, c, stamp("deadbeef", false))
+	wantCode(t, w, 200, "nothing sealed, other fingerprint")
+	if !strings.Contains(w.Body.String(), "deadbeef") || !strings.Contains(w.Body.String(), mine) || !strings.Contains(w.Body.String(), "alert-error") {
+		t.Fatalf("warning not shown: %s", w.Body.String())
+	}
+	w = restoreUpload(t, h, c, stamp(mine, false))
+	wantCode(t, w, 200, "same fingerprint")
+	if strings.Contains(w.Body.String(), "alert-error") {
+		t.Fatal("warning shown for the same fingerprint")
+	}
+}
+
 func TestRestoreConfirmStagesBacksUpAndRestarts(t *testing.T) {
 	s, h, c := restoreApp(t)
 	restarts := 0

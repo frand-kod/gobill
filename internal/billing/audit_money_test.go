@@ -74,7 +74,7 @@ func TestAuditMoney5_ReportDoubleCountsBalance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dash, err := e.q.SumTransactionsBetween(ctx, db.SumTransactionsBetweenParams{CreatedAt: 0, CreatedAt_2: 1 << 40})
+	dash, err := e.q.SumTransactionsBetween(ctx, db.SumTransactionsBetweenParams{FromTs: 0, ToTs: 1 << 40})
 	if err != nil {
 		t.Fatal(err)
 	}

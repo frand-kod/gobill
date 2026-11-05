@@ -175,6 +175,9 @@ func chartBars(days []dayUse) []dayBar {
 		// the stack is rounded as a whole, so the busiest day comes to exactly 100
 		downPct := int(d.Down * 100 / top)
 		tick := d.Label
+		if t, err := time.Parse("2006-01-02", d.Label); err == nil {
+			tick = t.Format("02/01") // a full date per bar does not fit a phone; the tooltip keeps it
+		}
 		if len(days) > 10 && i%5 != 0 && i != len(days)-1 {
 			tick = ""
 		}

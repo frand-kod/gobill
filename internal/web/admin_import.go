@@ -52,6 +52,8 @@ type importView struct {
 	Current importCounts
 	Filled  bool // gobill has data: confirm asks first
 	TOTP    bool // the confirm asks for a 2FA code too
+	// Unsupported lists the PHPNuxBill data and settings gobill does not import or use.
+	Unsupported []string
 }
 
 func countImportRows(ctx context.Context, conn *sql.DB) (importCounts, error) {
@@ -211,7 +213,7 @@ func (s *Server) renderImport(w http.ResponseWriter, r *http.Request, status int
 func (s *Server) importAgain(w http.ResponseWriter, r *http.Request, token string, files map[string]string, cur importCounts, msg string) {
 	v := importView{}
 	if rep, err := s.runImport(r.Context(), files, true); err == nil {
-		v = importView{Token: token, Rows: importRows(rep), Current: cur, Filled: cur.filled()}
+		v = importView{Token: token, Rows: importRows(rep), Current: cur, Filled: cur.filled(), Unsupported: rep.Unsupported}
 	}
 	s.renderImport(w, r, http.StatusUnprocessableEntity, v, msg, "")
 }
@@ -260,7 +262,7 @@ func (s *Server) importPreview(w http.ResponseWriter, r *http.Request) {
 	s.sessions.Put(ctx, "import_token", token)
 	s.sessions.Put(ctx, "import_json", files["backup"])
 	s.sessions.Put(ctx, "import_notif", files["notifications"])
-	s.renderImport(w, r, http.StatusOK, importView{Token: token, Rows: importRows(rep), Current: cur, Filled: cur.filled()}, "", "")
+	s.renderImport(w, r, http.StatusOK, importView{Token: token, Rows: importRows(rep), Current: cur, Filled: cur.filled(), Unsupported: rep.Unsupported}, "", "")
 }
 
 // importConfirm backs up the database, imports for real, then ends the session: the admins were replaced.

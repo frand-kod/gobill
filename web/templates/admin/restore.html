@@ -21,6 +21,7 @@
 {{if .Token}}
 <div x-data>
 <section class="card mb-4"><h2 class="card-title">{{T "Check result"}}</h2><div class="card-body space-y-4">
+  {{if .Warning}}<p class="alert alert-error" role="alert">{{.Warning}}</p>{{end}}
   <p class="text-sm">{{T "File size"}}: {{.Size}} {{T "bytes"}}</p>
   <div class="overflow-x-auto"><table class="table">
     <thead><tr><th>{{T "Table"}}</th><th>{{T "In backup"}}</th><th>{{T "Current data"}}</th></tr></thead>

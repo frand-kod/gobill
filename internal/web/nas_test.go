@@ -42,3 +42,26 @@ func TestNASSecretStrength(t *testing.T) {
 		t.Fatal("weak badge missing or on strong row")
 	}
 }
+
+// The NAS form saves the NAS type; an unknown type is refused and the default is mikrotik.
+func TestNASType(t *testing.T) {
+	_, h, q, c := crudApp(t)
+	sec := "Zx9-kq2!Lm4@Vb7#Np"
+	post := func(path, ip, typ string) *httptest.ResponseRecorder {
+		return do(h, "POST", path, url.Values{"name": {"n" + ip}, "ip": {ip}, "secret": {sec + ip}, "type": {typ}}, c)
+	}
+	wantCode(t, post("/admin/nas", "10.2.0.1", "wispr"), 303, "wispr")
+	wantCode(t, post("/admin/nas", "10.2.0.2", ""), 303, "default")
+	wantCode(t, post("/admin/nas", "10.2.0.3", "cisco"), 422, "unknown type")
+	rows, err := q.ListNAS(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, n := range rows {
+		got[n.Ip] = n.Type
+	}
+	if got["10.2.0.1"] != "wispr" || got["10.2.0.2"] != "mikrotik" || got["10.2.0.3"] != "" {
+		t.Fatalf("types %v", got)
+	}
+}

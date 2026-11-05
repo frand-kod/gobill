@@ -107,7 +107,7 @@ func TestListPhoneControls(t *testing.T) {
 	for _, want := range []string{
 		`data-filter-toggle`, `aria-controls="list-filters"`, `data-filter-panel`, `(1)</span>`,
 		`class="me-1.5 inline-flex align-middle sm:hidden"`, `<span class="sr-only">`, `bg-ok-fg`,
-		`role="menu"`, `class="btn btn-ghost btn-icon" x-ref="t"`, `name="days"`,
+		`role="menu"`, `class="btn btn-ghost btn-icon tip-end" x-ref="t"`, `name="days"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("subscriptions list missing %q", want)

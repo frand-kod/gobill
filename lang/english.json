@@ -1579,5 +1579,17 @@
     "%s ends on %s": "%s ends on %s",
     "Quota almost used up": "Quota almost used up",
     "Buy or extend a plan before it runs out": "Buy or extend a plan before it runs out",
-    "Nothing new": "Nothing new"
+    "Nothing new": "Nothing new",
+    "Quota used up": "Quota used up",
+    "Buy or extend a plan to keep using the service": "Buy or extend a plan to keep using the service",
+    "Payment received": "Payment received",
+    "Payment failed": "Payment failed",
+    "Payment expired": "Payment expired",
+    "This backup was made with another encryption key. It holds no encrypted values now, but you need that key to enter router passwords and API keys again. Key fingerprint of this app: %s. Key fingerprint of this backup: %s.": "This backup was made with another encryption key. It holds no encrypted values now, but you need that key to enter router passwords and API keys again. Key fingerprint of this app: %s. Key fingerprint of this backup: %s.",
+    "Not supported by gobill (not imported or not used)": "Not supported by gobill (not imported or not used)",
+    "NAS type": "NAS type",
+    "WISPr (CoovaChilli, OpenWrt)": "WISPr (CoovaChilli, OpenWrt)",
+    "Standard (no speed or quota attributes)": "Standard (no speed or quota attributes)",
+    "Which speed and quota attributes this NAS gets. WISPr and Standard cannot isolate: isolated customers are rejected": "Which speed and quota attributes this NAS gets. WISPr and Standard cannot isolate: isolated customers are rejected",
+    "Choose a NAS type": "Choose a NAS type"
 }

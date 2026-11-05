@@ -998,5 +998,7 @@
     "Move to RADIUS": "Pasar a RADIUS",
     "Migrate to RADIUS": "Migrar a RADIUS",
     "RADIUS migration": "Migración a RADIUS",
-    "Test a RADIUS login, turn on use-radius, then disable the local accounts. Can be rolled back.": "Prueba un acceso RADIUS, activa use-radius y luego desactiva las cuentas locales. Se puede revertir."
+    "Test a RADIUS login, turn on use-radius, then disable the local accounts. Can be rolled back.": "Prueba un acceso RADIUS, activa use-radius y luego desactiva las cuentas locales. Se puede revertir.",
+    "Not supported by gobill (not imported or not used)": "No compatible con gobill (no importado o no usado)",
+    "There is an outage in your area, being handled": "Hay una interrupción en su zona, ya se está atendiendo"
 }

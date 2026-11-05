@@ -1865,7 +1865,7 @@
     "Will import": "Akan diimpor",
     "Skipped": "Dilewati",
     "more skipped": "lainnya dilewati",
-    "Not imported yet: coupons, ODP, inbox.": "Belum diimpor: kupon, ODP, inbox.",
+    "Not supported by gobill (not imported or not used)": "Tidak didukung gobill (tidak diimpor atau tidak dipakai)",
     "Import now": "Impor sekarang",
     "Overwrite existing data?": "Timpa data yang ada?",
     "Existing data will be OVERWRITTEN:": "Data yang ada akan DITIMPA:",
@@ -2934,5 +2934,16 @@
     "Notifications, %d unread": "Notifikasi, %d belum dibaca",
     "User not found": "Pengguna tidak ditemukan",
     "Send {balance} to {name} ({username})?": "Kirim Rp {balance} ke {name} ({username})?",
-    "When customers of this plan may log in, in the app time zone. Day names are English: Mon, Tue, Wed, Thu, Fri, Sat, Sun. Separate rules with ;. A window past midnight is fine: 22:00-06:00. Empty = always. The session is cut at the end of the window. RADIUS (gobill) only.": "Kapan pelanggan paket ini boleh masuk, dalam zona waktu aplikasi. Nama hari memakai bahasa Inggris: Mon, Tue, Wed, Thu, Fri, Sat, Sun. Pisahkan aturan dengan ;. Jendela melewati tengah malam boleh: 22:00-06:00. Kosong = selalu. Sesi diputus di akhir jendela. Hanya RADIUS (gobill)."
+    "When customers of this plan may log in, in the app time zone. Day names are English: Mon, Tue, Wed, Thu, Fri, Sat, Sun. Separate rules with ;. A window past midnight is fine: 22:00-06:00. Empty = always. The session is cut at the end of the window. RADIUS (gobill) only.": "Kapan pelanggan paket ini boleh masuk, dalam zona waktu aplikasi. Nama hari memakai bahasa Inggris: Mon, Tue, Wed, Thu, Fri, Sat, Sun. Pisahkan aturan dengan ;. Jendela melewati tengah malam boleh: 22:00-06:00. Kosong = selalu. Sesi diputus di akhir jendela. Hanya RADIUS (gobill).",
+    "Quota used up": "Kuota habis",
+    "Buy or extend a plan to keep using the service": "Beli atau perpanjang paket agar layanan tetap berjalan",
+    "Payment received": "Pembayaran diterima",
+    "Payment failed": "Pembayaran gagal",
+    "Payment expired": "Pembayaran kedaluwarsa",
+    "This backup was made with another encryption key. It holds no encrypted values now, but you need that key to enter router passwords and API keys again. Key fingerprint of this app: %s. Key fingerprint of this backup: %s.": "Backup ini dibuat dengan kunci enkripsi lain. Saat ini tidak berisi data terenkripsi, tetapi Anda butuh kunci itu untuk memasukkan lagi password router dan API key. Sidik jari kunci aplikasi ini: %s. Sidik jari kunci backup ini: %s.",
+    "NAS type": "Tipe NAS",
+    "WISPr (CoovaChilli, OpenWrt)": "WISPr (CoovaChilli, OpenWrt)",
+    "Standard (no speed or quota attributes)": "Standar (tanpa atribut kecepatan dan kuota)",
+    "Which speed and quota attributes this NAS gets. WISPr and Standard cannot isolate: isolated customers are rejected": "Atribut kecepatan dan kuota yang dikirim ke NAS ini. WISPr dan Standar tidak bisa mengisolir: pelanggan yang diisolir ditolak",
+    "Choose a NAS type": "Pilih tipe NAS"
 }

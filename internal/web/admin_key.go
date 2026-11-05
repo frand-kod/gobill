@@ -21,6 +21,9 @@ func keyFingerprint(key []byte) string {
 	return hex.EncodeToString(h[:4])
 }
 
+// KeyFingerprint is keyFingerprint for the backup job, which stores it in the backup.
+func KeyFingerprint(key []byte) string { return keyFingerprint(key) }
+
 // keyWarning is the SuperAdmin warning shown until the key is marked saved for the current
 // fingerprint. A new key (new fingerprint) shows it again. Empty for other roles.
 func (s *Server) keyWarning(r *http.Request) string {

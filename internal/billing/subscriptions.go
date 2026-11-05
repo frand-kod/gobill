@@ -184,6 +184,14 @@ func (s *Service) ExtendExpired(ctx context.Context, customerID, subID int64) (t
 		if !SellablePlan(plan) {
 			return ErrAdminOnlyPlan
 		}
+		// The emergency days are free, but the next purchase counts from the expiry the customer had
+		// (see emergencyFrom). An unsettled earlier mark is older, so it stays.
+		// ponytail: one settings row per extended subscription, cleared (set "") when settled; a column once a migration is justified.
+		if setting(ctx, q, extendOrigKey(sub.ID)) == "" {
+			if err = q.UpsertSetting(ctx, db.UpsertSettingParams{Key: extendOrigKey(sub.ID), Value: strconv.FormatInt(sub.ExpiresAt, 10)}); err != nil {
+				return err
+			}
+		}
 		until = now.AddDate(0, 0, days)
 		if err = q.UpdateSubscription(ctx, db.UpdateSubscriptionParams{PlanID: sub.PlanID, RouterID: sub.RouterID, Type: sub.Type,
 			ExpiresAt: until.Unix(), Status: "active", AdminID: sub.AdminID, ID: sub.ID}); err != nil {
@@ -218,6 +226,42 @@ func (s *Service) ExtendExpired(ctx context.Context, customerID, subID int64) (t
 	}
 	s.telegram(fmt.Sprintf("#u%s (%s) #id%d #extend #%s \n%s\nNew Expired: %s", p.cust.Username, p.cust.Fullname, p.cust.ID, p.plan.Type, p.plan.Name, until.Format("2006-01-02 15:04:05")))
 	return until, nil
+}
+
+func extendOrigKey(id int64) string { return fmt.Sprint("extend_orig_", id) }
+
+// emergencyFrom is the expiry a purchase counts from after a portal emergency extension (ExtendExpired,
+// which is free and leaves extend_orig_<sub> = the real expiry). osub is the marked subscription of the
+// plan's router and type (ID 0: none), which the caller clears once the purchase is made. ok says the
+// purchase counts from that original expiry instead of from now or from the emergency end.
+// Rules: only the same plan on the same subscription (or on its expired row) counts, and not when
+// extend_expiry is "no"; a different plan or a later new row just settles the mark and starts from now.
+// Floor: if the period counted from the original expiry would end less than 24h from now (the
+// customer has been out too long), count from now as usual so a paid period is never nearly used up.
+// The admin ExtendSubscription sets no mark and is not affected.
+func emergencyFrom(ctx context.Context, q *db.Queries, c db.Customer, plan db.Plan, now time.Time, active db.Subscription, found, extend bool) (osub db.Subscription, from time.Time, ok bool) {
+	subs, err := q.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 1000})
+	if err != nil {
+		return
+	}
+	var orig int64
+	for _, sub := range subs {
+		if sub.RouterID == plan.RouterID && sub.Type == plan.Type {
+			if o, _ := strconv.ParseInt(setting(ctx, q, extendOrigKey(sub.ID)), 10, 64); o > 0 {
+				osub, orig = sub, o
+				break
+			}
+		}
+	}
+	if orig == 0 || setting(ctx, q, "extend_expiry") == "no" || osub.PlanID != plan.ID ||
+		(found && !(extend && osub.ID == active.ID)) || (!found && osub.Status == "active") {
+		return
+	}
+	from = time.Unix(orig, 0).In(now.Location())
+	if !NewExpiry(from, int(plan.Validity), Unit(plan.ValidityUnit), Options{Extend: true, BillingDay: billingDay(c, plan)}).After(now.Add(24 * time.Hour)) {
+		return osub, time.Time{}, false
+	}
+	return osub, from, true
 }
 
 // pendingStartText is what the customer and the recharge message show instead of a date while

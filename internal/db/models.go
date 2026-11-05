@@ -185,6 +185,7 @@ type Na struct {
 	Description        string
 	RequireMessageAuth int64
 	MaSeen             int64
+	Type               string
 }
 
 type Odp struct {
