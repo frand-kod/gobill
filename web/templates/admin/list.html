@@ -66,7 +66,7 @@
               <div class="flex flex-nowrap justify-end gap-1">
                 {{range $items}}{{if or (not $many) .Primary}}{{template "rowItem" .}}{{else}}<span class="hidden sm:contents">{{template "rowItem" .}}</span>{{end}}{{end}}
                 {{if $many}}<div class="relative sm:hidden" x-data="{o:false}" @click.outside="o=false" @keydown.escape.stop="o=false;$refs.t.focus()">
-                  <button type="button" class="btn btn-ghost btn-icon" x-ref="t" @click="o=!o;if(o)$nextTick(function(){$refs.m.querySelector('a,button')?.focus()})" :aria-expanded="o" aria-haspopup="menu" aria-label="{{T "More actions"}}" data-tip="{{T "More actions"}}">{{icon "ellipsis"}}</button>
+                  <button type="button" class="btn btn-ghost btn-icon tip-end" x-ref="t" @click="o=!o;if(o)$nextTick(function(){$refs.m.querySelector('a,button')?.focus()})" :aria-expanded="o" aria-haspopup="menu" aria-label="{{T "More actions"}}" data-tip="{{T "More actions"}}">{{icon "ellipsis"}}</button>
                   <div x-show="o" x-cloak x-ref="m" role="menu" class="absolute end-0 top-full z-30 mt-1 w-64 max-w-[85vw] rounded-lg border border-line bg-surface py-1 shadow-lg">
                     {{range $items}}{{if not .Primary}}{{template "rowMenuItem" .}}{{end}}{{end}}
                   </div>
