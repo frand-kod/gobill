@@ -2945,5 +2945,13 @@
     "WISPr (CoovaChilli, OpenWrt)": "WISPr (CoovaChilli, OpenWrt)",
     "Standard (no speed or quota attributes)": "Standar (tanpa atribut kecepatan dan kuota)",
     "Which speed and quota attributes this NAS gets. WISPr and Standard cannot isolate: isolated customers are rejected": "Atribut kecepatan dan kuota yang dikirim ke NAS ini. WISPr dan Standar tidak bisa mengisolir: pelanggan yang diisolir ditolak",
-    "Choose a NAS type": "Pilih tipe NAS"
+    "Choose a NAS type": "Pilih tipe NAS",
+    "Recount usage": "Hitung ulang pemakaian",
+    "Usage recounted from the session log": "Pemakaian dihitung ulang dari log sesi",
+    "Usage log": "Log pemakaian",
+    "Behind": "Tertinggal",
+    "The session log holds more used data or time than the plan counts": "Log sesi mencatat data atau waktu terpakai lebih banyak dari hitungan paket",
+    "The session log holds more used data or time than the plan counts: use More > Recount usage": "Log sesi mencatat data atau waktu terpakai lebih banyak dari hitungan paket: pakai Lainnya > Hitung ulang pemakaian",
+    "Raise used data and time to what the session log holds? Counters are never lowered.": "Naikkan data dan waktu terpakai ke angka di log sesi? Counter tidak pernah diturunkan.",
+    "paid for an unknown payment, check the logs": "dibayar untuk pembayaran yang tidak dikenal, cek log"
 }

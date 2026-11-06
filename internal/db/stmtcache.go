@@ -80,3 +80,50 @@ func (c *stmtCache) QueryRowContext(ctx context.Context, query string, args ...a
 	}
 	return st.QueryRowContext(ctx, args...)
 }
+
+// WithTxCached is WithTx that reuses the cached prepared statements inside the transaction
+// (tx.StmtContext binds them to the transaction's connection, which keeps its own prepared copy),
+// so a hot transaction does not parse every query again. Without a cache it is WithTx.
+func (q *Queries) WithTxCached(tx *sql.Tx) *Queries {
+	if c, ok := q.db.(*stmtCache); ok {
+		return New(&txStmts{tx: tx, c: c})
+	}
+	return q.WithTx(tx)
+}
+
+type txStmts struct {
+	tx *sql.Tx
+	c  *stmtCache
+}
+
+func (t *txStmts) stmt(ctx context.Context, query string) *sql.Stmt {
+	if st, err := t.c.stmt(ctx, query); err == nil && st != nil {
+		return t.tx.StmtContext(ctx, st)
+	}
+	return nil
+}
+
+func (t *txStmts) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	if st := t.stmt(ctx, query); st != nil {
+		return st.ExecContext(ctx, args...)
+	}
+	return t.tx.ExecContext(ctx, query, args...)
+}
+
+func (t *txStmts) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
+	return t.tx.PrepareContext(ctx, query)
+}
+
+func (t *txStmts) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	if st := t.stmt(ctx, query); st != nil {
+		return st.QueryContext(ctx, args...)
+	}
+	return t.tx.QueryContext(ctx, query, args...)
+}
+
+func (t *txStmts) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	if st := t.stmt(ctx, query); st != nil {
+		return st.QueryRowContext(ctx, args...)
+	}
+	return t.tx.QueryRowContext(ctx, query, args...)
+}

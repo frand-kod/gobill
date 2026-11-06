@@ -3,7 +3,10 @@ package device
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
+
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 type MikrotikHotspot struct{ ex execFunc }
@@ -49,11 +52,8 @@ func (d *MikrotikHotspot) AddCustomer(ctx context.Context, c Customer, p Plan) e
 			}
 		}
 		if t == "Data_Limit" || t == "Both_Limit" {
-			if p.DataUnit == "GB" {
-				s = append(s, "=limit-bytes-total="+itoa(p.DataLimit)+"000000000")
-			} else {
-				s = append(s, "=limit-bytes-total="+itoa(p.DataLimit)+"000000")
-			}
+			// the same bytes RADIUS sends as Total-Limit: binary MB and GB (db.QuotaBytes)
+			s = append(s, "=limit-bytes-total="+strconv.FormatInt(db.QuotaBytes(int64(p.DataLimit), p.DataUnit, 0), 10))
 		}
 	}
 	_, err = d.ex(ctx, s)

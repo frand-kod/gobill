@@ -107,6 +107,7 @@ func TestCustomerRadiusUsage(t *testing.T) {
 	}
 	sess := func(sid string, start, in, out int64) {
 		q.UpsertRadiusSession(ctx, db.UpsertRadiusSessionParams{SessionID: sid, Username: "bob", NasIp: "10.0.0.1", StartedAt: start, UpdatedAt: start, InputOctets: in, OutputOctets: out})
+		q.RecountSubscriptionUsage(ctx, 0) // what accounting would have counted
 	}
 	sess("a", now-500, 1<<20, 2<<20)  // 3 MB
 	sess("b", now-100, 1<<20, 1<<20)  // 2 MB

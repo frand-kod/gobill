@@ -17,6 +17,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/metrics"
 	"github.com/frand-kod/gobill/internal/notify"
 	"github.com/frand-kod/gobill/internal/payment"
 )
@@ -195,9 +196,13 @@ func TestTripayCallbackFailedAndUnknown(t *testing.T) {
 	if e.pending(t).Status != "failed" || e.trxCount(t) != 0 {
 		t.Fatal("failed not marked")
 	}
+	before := metrics.Value("payment_callbacks_total", "result", "unknown_paid")
 	unk := `{"merchant_ref":"NOPE","status":"PAID"}`
 	if w := postCallback(e.h, unk, signed(unk)); w.Code != 200 {
 		t.Fatalf("unknown ref: %d", w.Code)
+	}
+	if metrics.Value("payment_callbacks_total", "result", "unknown_paid") != before+1 {
+		t.Fatal("PAID for an unknown reference is not counted for the status page")
 	}
 }
 

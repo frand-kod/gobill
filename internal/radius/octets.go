@@ -14,9 +14,15 @@ import (
 // ponytail: drop-all at the cap; an LRU if a NAS park ever holds more open sessions than this.
 const octCacheMax = 50000
 
+// octets is a session row as the upsert leaves it: counters, start, stop (0 = open) and the online
+// time the quota counts, COALESCE(stopped_at, updated_at) - started_at. found is false for a session
+// not written yet.
 type octets struct {
-	in, out int64
-	gone    bool // pending only: the session stopped, forget it after commit
+	in, out          int64
+	started, stopped int64
+	secs             int64
+	found            bool
+	gone             bool // pending only: the session stopped, forget it after commit
 }
 
 // octCache holds the last counters written for each open session, so an interim does not read
@@ -47,7 +53,39 @@ func (c *octCache) get(ctx context.Context, q *db.Queries, nas, sid string) (oct
 	if errors.Is(err, sql.ErrNoRows) {
 		return octets{}, nil
 	}
-	return octets{in: r.InputOctets, out: r.OutputOctets}, err
+	if err != nil {
+		return octets{}, err
+	}
+	end := r.UpdatedAt
+	if r.StoppedAt.Valid {
+		end = r.StoppedAt.Int64
+	}
+	return octets{in: r.InputOctets, out: r.OutputOctets, started: r.StartedAt, stopped: r.StoppedAt.Int64, secs: end - r.StartedAt, found: true}, nil
+}
+
+// next is the row after an upsert of a packet with these counters, mirroring UpsertRadiusSession:
+// counters only grow, started_at and stopped_at keep their first value.
+func (o octets) next(in, out, started, updated int64, stopped sql.NullInt64) octets {
+	n := octets{in: max(o.in, in), out: max(o.out, out), started: started, found: true}
+	if o.found {
+		n.started, n.stopped = o.started, o.stopped
+	}
+	if n.stopped == 0 && stopped.Valid {
+		n.stopped = stopped.Int64
+	}
+	end := updated
+	if n.stopped != 0 {
+		end = n.stopped
+	}
+	n.secs, n.gone = end-n.started, n.stopped != 0
+	return n
+}
+
+// reset forgets every session, for writes that change sessions behind the cache (Accounting-On/Off).
+func (c *octCache) reset() {
+	c.mu.Lock()
+	c.m = nil
+	c.mu.Unlock()
 }
 
 // put records counters already written in the current transaction.

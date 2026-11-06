@@ -19,6 +19,9 @@ var LogKinds = []string{"activity", "radius", "messages", "auth"}
 // LogKeepDefault is the retention when log_keep_days is not set; "0" still means keep forever.
 const LogKeepDefault = 90
 
+// pendingPaymentDays is the least a pending payment request is kept, whatever log_keep_days says.
+const pendingPaymentDays = 7
+
 // unreadInboxDays is how long an unread customer message is kept, whatever log_keep_days says.
 const unreadInboxDays = 180
 
@@ -82,7 +85,9 @@ func (s *Service) LogCleanJob(trusted func() bool) func(context.Context) error {
 			if err := drainBatches(func() (int64, error) { return s.Q.DeleteEndedIsolationsBefore(ctx, cut) }); err != nil {
 				return err
 			}
-			if err := drainBatches(func() (int64, error) { return s.Q.DeleteUnpaidPaymentRequestsBefore(ctx, cut) }); err != nil {
+			pend := min(cut, s.now().AddDate(0, 0, -pendingPaymentDays).Unix())
+			arg := db.DeleteUnpaidPaymentRequestsBeforeParams{Before: cut, PendingBefore: pend}
+			if err := drainBatches(func() (int64, error) { return s.Q.DeleteUnpaidPaymentRequestsBefore(ctx, arg) }); err != nil {
 				return err
 			}
 		}

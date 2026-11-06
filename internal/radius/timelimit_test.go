@@ -23,6 +23,9 @@ func TestTimeLimitCumulative(t *testing.T) {
 		if _, err := e.conn.Exec("INSERT INTO radius_sessions (session_id, username, nas_ip, started_at, updated_at, stopped_at) VALUES (?, 'alice', '10.0.0.1', ?, ?, ?)", id, from, to, to); err != nil {
 			t.Fatal(err)
 		}
+		if _, err := e.q.RecountSubscriptionUsage(t.Context(), 0); err != nil {
+			t.Fatal(err)
+		}
 	}
 	sess("a", now-3000, now-1800) // 1200s used
 	r = e.auth(t, pap("alice", "pw"))

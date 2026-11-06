@@ -1591,5 +1591,13 @@
     "WISPr (CoovaChilli, OpenWrt)": "WISPr (CoovaChilli, OpenWrt)",
     "Standard (no speed or quota attributes)": "Standard (no speed or quota attributes)",
     "Which speed and quota attributes this NAS gets. WISPr and Standard cannot isolate: isolated customers are rejected": "Which speed and quota attributes this NAS gets. WISPr and Standard cannot isolate: isolated customers are rejected",
-    "Choose a NAS type": "Choose a NAS type"
+    "Choose a NAS type": "Choose a NAS type",
+    "Recount usage": "Recount usage",
+    "Usage recounted from the session log": "Usage recounted from the session log",
+    "Usage log": "Usage log",
+    "Behind": "Behind",
+    "The session log holds more used data or time than the plan counts": "The session log holds more used data or time than the plan counts",
+    "The session log holds more used data or time than the plan counts: use More > Recount usage": "The session log holds more used data or time than the plan counts: use More > Recount usage",
+    "Raise used data and time to what the session log holds? Counters are never lowered.": "Raise used data and time to what the session log holds? Counters are never lowered.",
+    "paid for an unknown payment, check the logs": "paid for an unknown payment, check the logs"
 }

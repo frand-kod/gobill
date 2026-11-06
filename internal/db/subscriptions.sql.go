@@ -32,7 +32,7 @@ func (q *Queries) ClaimExpiryNotice(ctx context.Context, arg ClaimExpiryNoticePa
 const createSubscription = `-- name: CreateSubscription :one
 INSERT INTO subscriptions (customer_id, plan_id, router_id, type, started_at, expires_at, method, admin_id, pending_start)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-RETURNING id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds
+RETURNING id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds, used_in_octets, used_out_octets, used_seconds
 `
 
 type CreateSubscriptionParams struct {
@@ -75,6 +75,9 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		&i.ExpiredNotifiedAt,
 		&i.QuotaCarryBytes,
 		&i.QuotaCarrySeconds,
+		&i.UsedInOctets,
+		&i.UsedOutOctets,
+		&i.UsedSeconds,
 	)
 	return i, err
 }
@@ -207,7 +210,7 @@ func (q *Queries) FilterSubscriptions(ctx context.Context, arg FilterSubscriptio
 }
 
 const getSubscription = `-- name: GetSubscription :one
-SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds FROM subscriptions WHERE id = ?
+SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds, used_in_octets, used_out_octets, used_seconds FROM subscriptions WHERE id = ?
 `
 
 func (q *Queries) GetSubscription(ctx context.Context, id int64) (Subscription, error) {
@@ -228,12 +231,15 @@ func (q *Queries) GetSubscription(ctx context.Context, id int64) (Subscription, 
 		&i.ExpiredNotifiedAt,
 		&i.QuotaCarryBytes,
 		&i.QuotaCarrySeconds,
+		&i.UsedInOctets,
+		&i.UsedOutOctets,
+		&i.UsedSeconds,
 	)
 	return i, err
 }
 
 const listActiveExpiringBetween = `-- name: ListActiveExpiringBetween :many
-SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expires_at >= ?1 AND expires_at < ?2 ORDER BY expires_at
+SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds, used_in_octets, used_out_octets, used_seconds FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expires_at >= ?1 AND expires_at < ?2 ORDER BY expires_at
 `
 
 type ListActiveExpiringBetweenParams struct {
@@ -265,6 +271,9 @@ func (q *Queries) ListActiveExpiringBetween(ctx context.Context, arg ListActiveE
 			&i.ExpiredNotifiedAt,
 			&i.QuotaCarryBytes,
 			&i.QuotaCarrySeconds,
+			&i.UsedInOctets,
+			&i.UsedOutOctets,
+			&i.UsedSeconds,
 		); err != nil {
 			return nil, err
 		}
@@ -356,7 +365,7 @@ func (q *Queries) ListActiveSubscriptionsWithPlan(ctx context.Context, customerI
 }
 
 const listExpiredActiveSubscriptions = `-- name: ListExpiredActiveSubscriptions :many
-SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expires_at <= ?1 ORDER BY expires_at
+SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds, used_in_octets, used_out_octets, used_seconds FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expires_at <= ?1 ORDER BY expires_at
 `
 
 func (q *Queries) ListExpiredActiveSubscriptions(ctx context.Context, now int64) ([]Subscription, error) {
@@ -383,6 +392,9 @@ func (q *Queries) ListExpiredActiveSubscriptions(ctx context.Context, now int64)
 			&i.ExpiredNotifiedAt,
 			&i.QuotaCarryBytes,
 			&i.QuotaCarrySeconds,
+			&i.UsedInOctets,
+			&i.UsedOutOctets,
+			&i.UsedSeconds,
 		); err != nil {
 			return nil, err
 		}
@@ -398,7 +410,7 @@ func (q *Queries) ListExpiredActiveSubscriptions(ctx context.Context, now int64)
 }
 
 const listSubscriptionsByCustomer = `-- name: ListSubscriptionsByCustomer :many
-SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds FROM subscriptions WHERE customer_id = ? ORDER BY id DESC LIMIT ? OFFSET ?
+SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds, used_in_octets, used_out_octets, used_seconds FROM subscriptions WHERE customer_id = ? ORDER BY id DESC LIMIT ? OFFSET ?
 `
 
 type ListSubscriptionsByCustomerParams struct {
@@ -431,6 +443,9 @@ func (q *Queries) ListSubscriptionsByCustomer(ctx context.Context, arg ListSubsc
 			&i.ExpiredNotifiedAt,
 			&i.QuotaCarryBytes,
 			&i.QuotaCarrySeconds,
+			&i.UsedInOctets,
+			&i.UsedOutOctets,
+			&i.UsedSeconds,
 		); err != nil {
 			return nil, err
 		}
@@ -446,7 +461,7 @@ func (q *Queries) ListSubscriptionsByCustomer(ctx context.Context, arg ListSubsc
 }
 
 const listSubscriptionsExpiringUnnotified = `-- name: ListSubscriptionsExpiringUnnotified :many
-SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expired_notified_at IS NULL AND expires_at > ?1 AND expires_at <= ?2 ORDER BY expires_at
+SELECT id, customer_id, plan_id, router_id, type, started_at, expires_at, status, method, admin_id, pending_start, expired_notified_at, quota_carry_bytes, quota_carry_seconds, used_in_octets, used_out_octets, used_seconds FROM subscriptions WHERE status = 'active' AND pending_start = 0 AND expired_notified_at IS NULL AND expires_at > ?1 AND expires_at <= ?2 ORDER BY expires_at
 `
 
 type ListSubscriptionsExpiringUnnotifiedParams struct {
@@ -479,6 +494,9 @@ func (q *Queries) ListSubscriptionsExpiringUnnotified(ctx context.Context, arg L
 			&i.ExpiredNotifiedAt,
 			&i.QuotaCarryBytes,
 			&i.QuotaCarrySeconds,
+			&i.UsedInOctets,
+			&i.UsedOutOctets,
+			&i.UsedSeconds,
 		); err != nil {
 			return nil, err
 		}
@@ -491,6 +509,31 @@ func (q *Queries) ListSubscriptionsExpiringUnnotified(ctx context.Context, arg L
 		return nil, err
 	}
 	return items, nil
+}
+
+const recountSubscriptionUsage = `-- name: RecountSubscriptionUsage :execrows
+UPDATE subscriptions SET
+  used_in_octets = MAX(used_in_octets, (SELECT COALESCE(SUM(r.input_octets), 0) FROM radius_sessions r, customers c
+    WHERE c.id = subscriptions.customer_id AND r.started_at >= subscriptions.started_at
+      AND (r.username = c.username OR (c.pppoe_username <> '' AND c.pppoe_username <> c.username AND r.username = c.pppoe_username)))),
+  used_out_octets = MAX(used_out_octets, (SELECT COALESCE(SUM(r.output_octets), 0) FROM radius_sessions r, customers c
+    WHERE c.id = subscriptions.customer_id AND r.started_at >= subscriptions.started_at
+      AND (r.username = c.username OR (c.pppoe_username <> '' AND c.pppoe_username <> c.username AND r.username = c.pppoe_username)))),
+  used_seconds = MAX(used_seconds, (SELECT COALESCE(SUM(COALESCE(r.stopped_at, r.updated_at) - r.started_at), 0) FROM radius_sessions r, customers c
+    WHERE c.id = subscriptions.customer_id AND r.started_at >= subscriptions.started_at
+      AND (r.username = c.username OR (c.pppoe_username <> '' AND c.pppoe_username <> c.username AND r.username = c.pppoe_username))))
+WHERE status = 'active' AND (CAST(?1 AS INTEGER) = 0 OR id = CAST(?1 AS INTEGER))
+`
+
+// Raises the used counters to what the sessions still in the log hold, the sum quota used before
+// v0.3.2 (admin "recount usage", after a downgrade that missed accounting). Never lowers them: the
+// log may be pruned, the counters are the record. id 0 = every active subscription.
+func (q *Queries) RecountSubscriptionUsage(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, recountSubscriptionUsage, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const releaseExpiryNotice = `-- name: ReleaseExpiryNotice :exec
@@ -509,9 +552,13 @@ func (q *Queries) ReleaseExpiryNotice(ctx context.Context, arg ReleaseExpiryNoti
 }
 
 const renewSubscription = `-- name: RenewSubscription :exec
-UPDATE subscriptions SET plan_id = ?, router_id = ?, type = ?, started_at = ?, expires_at = ?,
-    status = 'active', method = ?, admin_id = ?, pending_start = ?, expired_notified_at = NULL, quota_carry_bytes = ?, quota_carry_seconds = ?
-WHERE id = ?
+UPDATE subscriptions SET plan_id = ?1, router_id = ?2, type = ?3, started_at = ?4, expires_at = ?5,
+    status = 'active', method = ?6, admin_id = ?7, pending_start = ?8, expired_notified_at = NULL,
+    quota_carry_bytes = ?9, quota_carry_seconds = ?10,
+    used_in_octets = CASE WHEN started_at = ?4 THEN used_in_octets ELSE 0 END,
+    used_out_octets = CASE WHEN started_at = ?4 THEN used_out_octets ELSE 0 END,
+    used_seconds = CASE WHEN started_at = ?4 THEN used_seconds ELSE 0 END
+WHERE id = ?11
 `
 
 type RenewSubscriptionParams struct {
@@ -528,6 +575,7 @@ type RenewSubscriptionParams struct {
 	ID                int64
 }
 
+// A new started_at is a new usage window: the used counters start again at 0 (SET reads the old row).
 func (q *Queries) RenewSubscription(ctx context.Context, arg RenewSubscriptionParams) error {
 	_, err := q.db.ExecContext(ctx, renewSubscription,
 		arg.PlanID,
@@ -546,7 +594,7 @@ func (q *Queries) RenewSubscription(ctx context.Context, arg RenewSubscriptionPa
 }
 
 const restartSubscription = `-- name: RestartSubscription :exec
-UPDATE subscriptions SET started_at = ?, quota_carry_bytes = 0, quota_carry_seconds = 0, expired_notified_at = NULL WHERE id = ?
+UPDATE subscriptions SET started_at = ?, quota_carry_bytes = 0, quota_carry_seconds = 0, used_in_octets = 0, used_out_octets = 0, used_seconds = 0, expired_notified_at = NULL WHERE id = ?
 `
 
 type RestartSubscriptionParams struct {
@@ -561,7 +609,7 @@ func (q *Queries) RestartSubscription(ctx context.Context, arg RestartSubscripti
 }
 
 const startPendingSubscription = `-- name: StartPendingSubscription :execrows
-UPDATE subscriptions SET pending_start = 0, started_at = ?1, expires_at = ?2, expired_notified_at = NULL WHERE id = ?3 AND pending_start = 1
+UPDATE subscriptions SET pending_start = 0, started_at = ?1, used_in_octets = 0, used_out_octets = 0, used_seconds = 0, expires_at = ?2, expired_notified_at = NULL WHERE id = ?3 AND pending_start = 1
 `
 
 type StartPendingSubscriptionParams struct {

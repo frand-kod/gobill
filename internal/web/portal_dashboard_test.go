@@ -53,6 +53,9 @@ func dashSess(t *testing.T, e *billEnv, user, sid, ip, mac string, start, stop, 
 		StartedAt: start, UpdatedAt: upd, StoppedAt: sql.NullInt64{Int64: stop, Valid: stop != 0}, InputOctets: in, OutputOctets: out}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := e.q.RecountSubscriptionUsage(t.Context(), 0); err != nil { // what accounting would have counted
+		t.Fatal(err)
+	}
 }
 
 // otherCust is a second customer whose data must never show up for u1.

@@ -31,9 +31,14 @@ UPDATE subscriptions SET expired_notified_at = NULL WHERE id = sqlc.arg(id) AND 
 UPDATE subscriptions SET status = 'expired' WHERE id = sqlc.arg(id) AND status = 'active' AND pending_start = 0 AND expires_at <= sqlc.arg(now);
 
 -- name: RenewSubscription :exec
-UPDATE subscriptions SET plan_id = ?, router_id = ?, type = ?, started_at = ?, expires_at = ?,
-    status = 'active', method = ?, admin_id = ?, pending_start = ?, expired_notified_at = NULL, quota_carry_bytes = ?, quota_carry_seconds = ?
-WHERE id = ?;
+-- A new started_at is a new usage window: the used counters start again at 0 (SET reads the old row).
+UPDATE subscriptions SET plan_id = sqlc.arg(plan_id), router_id = sqlc.arg(router_id), type = sqlc.arg(type), started_at = sqlc.arg(started_at), expires_at = sqlc.arg(expires_at),
+    status = 'active', method = sqlc.arg(method), admin_id = sqlc.arg(admin_id), pending_start = sqlc.arg(pending_start), expired_notified_at = NULL,
+    quota_carry_bytes = sqlc.arg(quota_carry_bytes), quota_carry_seconds = sqlc.arg(quota_carry_seconds),
+    used_in_octets = CASE WHEN started_at = sqlc.arg(started_at) THEN used_in_octets ELSE 0 END,
+    used_out_octets = CASE WHEN started_at = sqlc.arg(started_at) THEN used_out_octets ELSE 0 END,
+    used_seconds = CASE WHEN started_at = sqlc.arg(started_at) THEN used_seconds ELSE 0 END
+WHERE id = sqlc.arg(id);
 
 -- name: FilterSubscriptions :many
 -- Empty status/type and router_id/plan_id 0 = any.
@@ -77,12 +82,28 @@ UPDATE subscriptions SET status = 'expired', quota_carry_bytes = 0, quota_carry_
 
 -- name: RestartSubscription :exec
 -- A dead subscription brought back to life starts a new usage window (data limit counts from started_at).
-UPDATE subscriptions SET started_at = ?, quota_carry_bytes = 0, quota_carry_seconds = 0, expired_notified_at = NULL WHERE id = ?;
+UPDATE subscriptions SET started_at = ?, quota_carry_bytes = 0, quota_carry_seconds = 0, used_in_octets = 0, used_out_octets = 0, used_seconds = 0, expired_notified_at = NULL WHERE id = ?;
 
 -- name: StartPendingSubscription :execrows
 -- First RADIUS login of a start_on_first_login subscription: the usage window and expiry start now. 0 rows = already started.
-UPDATE subscriptions SET pending_start = 0, started_at = sqlc.arg(started_at), expires_at = sqlc.arg(expires_at), expired_notified_at = NULL WHERE id = sqlc.arg(id) AND pending_start = 1;
+UPDATE subscriptions SET pending_start = 0, started_at = sqlc.arg(started_at), used_in_octets = 0, used_out_octets = 0, used_seconds = 0, expires_at = sqlc.arg(expires_at), expired_notified_at = NULL WHERE id = sqlc.arg(id) AND pending_start = 1;
 
 -- name: ListActiveSubscriptionIDsByRouter :many
 -- Bulk push to a router: every active subscription held on it.
 SELECT id FROM subscriptions WHERE router_id = ? AND status = 'active' ORDER BY id;
+
+-- name: RecountSubscriptionUsage :execrows
+-- Raises the used counters to what the sessions still in the log hold, the sum quota used before
+-- v0.3.2 (admin "recount usage", after a downgrade that missed accounting). Never lowers them: the
+-- log may be pruned, the counters are the record. id 0 = every active subscription.
+UPDATE subscriptions SET
+  used_in_octets = MAX(used_in_octets, (SELECT COALESCE(SUM(r.input_octets), 0) FROM radius_sessions r, customers c
+    WHERE c.id = subscriptions.customer_id AND r.started_at >= subscriptions.started_at
+      AND (r.username = c.username OR (c.pppoe_username <> '' AND c.pppoe_username <> c.username AND r.username = c.pppoe_username)))),
+  used_out_octets = MAX(used_out_octets, (SELECT COALESCE(SUM(r.output_octets), 0) FROM radius_sessions r, customers c
+    WHERE c.id = subscriptions.customer_id AND r.started_at >= subscriptions.started_at
+      AND (r.username = c.username OR (c.pppoe_username <> '' AND c.pppoe_username <> c.username AND r.username = c.pppoe_username)))),
+  used_seconds = MAX(used_seconds, (SELECT COALESCE(SUM(COALESCE(r.stopped_at, r.updated_at) - r.started_at), 0) FROM radius_sessions r, customers c
+    WHERE c.id = subscriptions.customer_id AND r.started_at >= subscriptions.started_at
+      AND (r.username = c.username OR (c.pppoe_username <> '' AND c.pppoe_username <> c.username AND r.username = c.pppoe_username))))
+WHERE status = 'active' AND (CAST(sqlc.arg(id) AS INTEGER) = 0 OR id = CAST(sqlc.arg(id) AS INTEGER));

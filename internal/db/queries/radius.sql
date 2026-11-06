@@ -25,7 +25,7 @@ WHERE (username = sqlc.arg(name) OR (pppoe_username <> '' AND pppoe_username = s
 LIMIT 1;
 
 -- name: GetRadiusPlan :one
-SELECT s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
+SELECT s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.used_in_octets, s.used_out_octets, s.used_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users, p.idle_timeout, p.login_window, p.boost_window,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        fb.rate_down AS fup_rate_down, fb.rate_down_unit AS fup_rate_down_unit, fb.rate_up AS fup_rate_up, fb.rate_up_unit AS fup_rate_up_unit, fb.burst AS fup_burst,
@@ -44,7 +44,7 @@ ORDER BY s.expires_at DESC LIMIT 1;
 -- name: GetRadiusLogin :one
 -- GetCustomerForRadius and GetRadiusPlan in one statement for the common case, an active customer with
 -- an active plan: one read transaction per login instead of two. No row: use the two queries.
-SELECT sqlc.embed(c), s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
+SELECT sqlc.embed(c), s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.used_in_octets, s.used_out_octets, s.used_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users, p.idle_timeout, p.login_window, p.boost_window,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        fb.rate_down AS fup_rate_down, fb.rate_down_unit AS fup_rate_down_unit, fb.rate_up AS fup_rate_up, fb.rate_up_unit AS fup_rate_up_unit, fb.burst AS fup_burst,
@@ -159,7 +159,15 @@ WHERE s.status = 'active'
 ORDER BY s.expires_at DESC;
 
 -- name: GetRadiusSessionOctets :one
-SELECT input_octets, output_octets FROM radius_sessions WHERE nas_ip = ? AND session_id = ?;
+SELECT input_octets, output_octets, started_at, updated_at, stopped_at FROM radius_sessions WHERE nas_ip = ? AND session_id = ?;
+
+-- name: AddSubscriptionUsage :exec
+-- Adds a session's growth to every active subscription of the login whose usage window holds the
+-- session (it started at or after the window), like the old sum over radius_sessions.
+UPDATE subscriptions SET used_in_octets = used_in_octets + sqlc.arg(in_octets), used_out_octets = used_out_octets + sqlc.arg(out_octets),
+    used_seconds = used_seconds + sqlc.arg(seconds)
+WHERE status = 'active' AND started_at <= sqlc.arg(session_started)
+  AND customer_id IN (SELECT c.id FROM customers c WHERE c.username = sqlc.arg(name) OR (c.pppoe_username <> '' AND c.pppoe_username = sqlc.arg(name)));
 
 -- name: AddRadiusUsageDaily :exec
 -- Adds the growth of a session's counters to its user's day (YYYY-MM-DD in the app time zone).

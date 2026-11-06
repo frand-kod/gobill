@@ -22,6 +22,9 @@ func TestLimitCountsBothLoginNames(t *testing.T) {
 		now-5000, now-3000, now-2000, now-2000, now-1500, now-1000, now-1000)); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := e.q.RecountSubscriptionUsage(t.Context(), 0); err != nil {
+		t.Fatal(err)
+	}
 	// time: 1800+600 total, 1000+500 used = 900 left; data: 1048576-500000 left
 	for _, login := range []string{"alice", "alice-ppp"} {
 		r := e.auth(t, pap(login, "pw"))

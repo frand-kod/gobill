@@ -43,3 +43,54 @@ func TestStmtCacheReusesAndBounds(t *testing.T) {
 		t.Fatal("want an error for a bad query")
 	}
 }
+
+// WithTxCached runs the cached statements inside the transaction: writes and reads see the
+// transaction, a rollback undoes them, a commit keeps them, and the statements stay cached.
+func TestWithTxCached(t *testing.T) {
+	conn, err := Open(filepath.Join(t.TempDir(), "c.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	if err := Migrate(conn); err != nil {
+		t.Fatal(err)
+	}
+	q, ctx := NewCached(conn), t.Context()
+	set := func(commit bool, v string) {
+		t.Helper()
+		tx, err := conn.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		tq := q.WithTxCached(tx)
+		if _, ok := tq.db.(*txStmts); !ok {
+			t.Fatal("not the cached transaction")
+		}
+		if err := tq.UpsertSetting(ctx, UpsertSettingParams{Key: "k", Value: v}); err != nil {
+			t.Fatal(err)
+		}
+		if got, err := tq.GetSetting(ctx, "k"); err != nil || got != v {
+			t.Fatalf("inside the transaction: %q %v", got, err)
+		}
+		if commit {
+			err = tx.Commit()
+		} else {
+			err = tx.Rollback()
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	set(true, "a")
+	set(false, "b")
+	if got, _ := q.GetSetting(ctx, "k"); got != "a" {
+		t.Fatalf("after commit a, rollback b: %q", got)
+	}
+	set(true, "c")
+	if got, _ := q.GetSetting(ctx, "k"); got != "c" {
+		t.Fatalf("second commit: %q", got)
+	}
+	if n := len(q.db.(*stmtCache).m); n < 2 {
+		t.Fatalf("%d statements cached", n)
+	}
+}

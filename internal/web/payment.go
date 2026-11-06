@@ -177,7 +177,18 @@ func (s *Server) tripayCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	pr, err := s.queries.GetPaymentRequestByRef(r.Context(), ref)
 	if err != nil {
-		slog.Warn("tripay callback: unknown reference", "ref", ref, "err", err)
+		if status == payment.Paid { // money arrived for a request we do not have: someone must settle it by hand
+			metrics.Inc("payment_callbacks_total", "result", "unknown_paid")
+			slog.Error("payment callback: PAID for an unknown reference, settle it by hand", "ref", ref, "amount", amount, "err", err)
+			if s.Billing != nil {
+				msg := fmt.Sprintf("Pembayaran diterima untuk referensi yang tidak dikenal: perlu cek dan recharge manual\nRef: %s\nJumlah: %s", ref, money(amount))
+				if err := s.Billing.Alert(r.Context(), msg); err != nil {
+					slog.Error("operator alert", "ref", ref, "err", err)
+				}
+			}
+		} else {
+			slog.Warn("payment callback: unknown reference", "ref", ref, "err", err)
+		}
 	} else if (amount != 0 || status == payment.Paid) && amount != pr.Amount { // paid without an amount is refused too
 		metrics.Inc("payment_callbacks_total", "result", "amount_mismatch")
 		slog.Warn("tripay callback: amount mismatch", "ref", ref, "got", amount, "want", pr.Amount)

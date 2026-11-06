@@ -416,10 +416,7 @@ func (s *Service) Preview(ctx context.Context, customerID, planID int64) (Rechar
 // max(0, old remaining) + limit. Time does not: the time already used is carried, so exactly the full
 // time limit is left (like a usage-limit reset).
 func rolloverQuota(ctx context.Context, q *db.Queries, c db.Customer, plan db.Plan, sub db.Subscription) (carryBytes, carrySeconds int64, err error) {
-	used, secs, err := db.LoginUsage(ctx, q, c, sub.StartedAt)
-	if err != nil {
-		return 0, 0, err
-	}
+	used, secs := sub.UsedInOctets+sub.UsedOutOctets, sub.UsedSeconds
 	lt := plan.LimitType.String
 	if plan.DataLimit.Valid && (lt == "Data_Limit" || lt == "Both_Limit") {
 		limit := db.QuotaBytes(plan.DataLimit.Int64, plan.DataUnit.String, 0)

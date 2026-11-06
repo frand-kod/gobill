@@ -346,6 +346,18 @@ type Router struct {
 	Tls         int64
 }
 
+type RouterPending struct {
+	ID        int64
+	RouterID  int64
+	Kind      string
+	Username  string
+	Payload   string
+	Attempts  int64
+	LastError string
+	CreatedAt int64
+	TriedAt   int64
+}
+
 type Session struct {
 	Token  string
 	Data   []byte
@@ -372,6 +384,9 @@ type Subscription struct {
 	ExpiredNotifiedAt sql.NullInt64
 	QuotaCarryBytes   int64
 	QuotaCarrySeconds int64
+	UsedInOctets      int64
+	UsedOutOctets     int64
+	UsedSeconds       int64
 }
 
 type Transaction struct {
@@ -419,16 +434,4 @@ type WgToken struct {
 	ExpiresAt int64
 	UsedAt    int64
 	UsedIp    string
-}
-
-type RouterPending struct {
-	ID        int64
-	RouterID  int64
-	Kind      string
-	Username  string
-	Payload   string
-	Attempts  int64
-	LastError string
-	CreatedAt int64
-	TriedAt   int64
 }

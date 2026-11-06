@@ -96,3 +96,28 @@ func (s *Server) welcome(ctx context.Context, c db.Customer, vias []string, pass
 	}
 	slog.Error("welcome notify", "err", err)
 }
+
+// custRecountUsage raises the used data and time of the customer's active subscriptions to what the
+// sessions still in the log hold: for after a downgrade to a version without the counters, when the
+// diagnosis shows the log ahead. It never lowers a counter, so a pruned log cannot give quota back.
+func (s *Server) custRecountUsage(w http.ResponseWriter, r *http.Request) {
+	c, ok := s.custGet(w, r)
+	if !ok {
+		return
+	}
+	subs, err := s.queries.ListSubscriptionsByCustomer(r.Context(), db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 100})
+	if err != nil {
+		s.fail(w, "usage recount", err)
+		return
+	}
+	for _, sub := range subs {
+		if sub.Status != "active" {
+			continue
+		}
+		if _, err := s.queries.RecountSubscriptionUsage(r.Context(), sub.ID); err != nil {
+			s.fail(w, "usage recount", err)
+			return
+		}
+	}
+	s.done(w, r, fmt.Sprint("/admin/customers/", c.ID), "Usage recounted from the session log", "customer.usage_recount", c.Username)
+}

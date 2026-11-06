@@ -70,7 +70,7 @@ func TestUsageDailyZone(t *testing.T) {
 // add up to the highest counter: the octet cache never counts a rolled-back write.
 func TestUsageDailyCacheRollback(t *testing.T) {
 	e := setup(t)
-	e.s.DB = e.conn
+	e.s.DB, e.s.Q = e.conn, db.NewCached(e.conn) // as in production: cached statements inside the batch
 	e.s.Loc = func() *time.Location { return time.UTC }
 	e.now = time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC)
 	bad := errors.New("bad write")
@@ -91,9 +91,15 @@ func TestUsageDailyCacheRollback(t *testing.T) {
 	if in, out := e.usageDay(t, "alice", "2026-10-13"); in != 399 || out != 3990 {
 		t.Fatalf("usage %d/%d, want 399/3990", in, out)
 	}
+	if in, out, _ := e.used(t); in != 399 || out != 3990 {
+		t.Fatalf("subscription used %d/%d, want 399/3990", in, out)
+	}
 	e.s.octs = octCache{} // restart: counters come from the database again
 	e.interim(t, "s1", 500, 5000)
 	if in, out := e.usageDay(t, "alice", "2026-10-13"); in != 500 || out != 5000 {
 		t.Fatalf("after restart %d/%d", in, out)
+	}
+	if in, out, _ := e.used(t); in != 500 || out != 5000 {
+		t.Fatalf("subscription after restart %d/%d", in, out)
 	}
 }
