@@ -91,12 +91,21 @@ func (q *Queries) CreatePaymentRequest(ctx context.Context, arg CreatePaymentReq
 }
 
 const deleteUnpaidPaymentRequestsBefore = `-- name: DeleteUnpaidPaymentRequestsBefore :execrows
-DELETE FROM payment_requests WHERE rowid IN (SELECT p.rowid FROM payment_requests p WHERE p.status IN ('pending', 'expired', 'failed') AND p.created_at < ? LIMIT 5000)
+DELETE FROM payment_requests WHERE rowid IN (SELECT p.rowid FROM payment_requests p
+  WHERE (p.status = 'failed' AND p.created_at < ?1) OR (p.status IN ('pending', 'expired') AND p.created_at < ?2) LIMIT 5000)
 `
 
-// One batch of unpaid requests; the caller loops until 0 rows. Paid rows are kept (accounting).
-func (q *Queries) DeleteUnpaidPaymentRequestsBefore(ctx context.Context, createdAt int64) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteUnpaidPaymentRequestsBefore, createdAt)
+type DeleteUnpaidPaymentRequestsBeforeParams struct {
+	Before        int64
+	PendingBefore int64
+}
+
+// One batch of unpaid requests; the caller loops until 0 rows. Paid rows are kept (accounting). A
+// pending or expired request is kept until pending_before (at least a week), whatever the log
+// retention: the gateway may still report it paid, and a callback for a deleted request finds
+// nothing to settle.
+func (q *Queries) DeleteUnpaidPaymentRequestsBefore(ctx context.Context, arg DeleteUnpaidPaymentRequestsBeforeParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteUnpaidPaymentRequestsBefore, arg.Before, arg.PendingBefore)
 	if err != nil {
 		return 0, err
 	}

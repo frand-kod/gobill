@@ -575,6 +575,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 	havePlan := err == nil
 	if havePlan {
 		c, pl = lr.Customer, db.GetRadiusPlanRow{StartedAt: lr.StartedAt, QuotaCarryBytes: lr.QuotaCarryBytes, QuotaCarrySeconds: lr.QuotaCarrySeconds, ExpiresAt: lr.ExpiresAt, PendingStart: lr.PendingStart,
+			UsedInOctets: lr.UsedInOctets, UsedOutOctets: lr.UsedOutOctets, UsedSeconds: lr.UsedSeconds,
 			PlanID: lr.PlanID, PlanName: lr.PlanName, PlanType: lr.PlanType, Limited: lr.Limited, LimitType: lr.LimitType,
 			TimeLimit: lr.TimeLimit, TimeUnit: lr.TimeUnit, DataLimit: lr.DataLimit, DataUnit: lr.DataUnit, SharedUsers: lr.SharedUsers, IdleTimeout: lr.IdleTimeout, LoginWindow: lr.LoginWindow, BoostWindow: lr.BoostWindow,
 			RateDown: lr.RateDown, RateDownUnit: lr.RateDownUnit, RateUp: lr.RateUp, RateUpUnit: lr.RateUpUnit, Burst: lr.Burst, PoolName: lr.PoolName, BindMac: lr.BindMac, BindPortID: lr.BindPortID,
@@ -686,12 +687,8 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 		hasTime := (lt == "Time_Limit" || lt == "Both_Limit") && pl.TimeLimit.Valid
 		hasData := (lt == "Data_Limit" || lt == "Both_Limit") && pl.DataLimit.Valid
 		if hasTime || hasData {
-			// both login names count, from started_at: a session open across a renewal keeps counting
-			bytes, secs, err := db.LoginUsage(ctx, s.Q, c, pl.StartedAt)
-			if err != nil { // fail closed: an unknown usage must not count as zero
-				slog.Error("radius: sum usage", "user", user, "err", err)
-				return Decision{Reject: "Login invalid......"}
-			}
+			// the subscription's counters: both login names, sessions started inside the usage window
+			bytes, secs := pl.UsedInOctets+pl.UsedOutOctets, pl.UsedSeconds
 			if hasTime {
 				// Max-All-Session: the limit is the total online time since activation, not per login.
 				t := db.QuotaSeconds(pl.TimeLimit.Int64, pl.TimeUnit.String, pl.QuotaCarrySeconds) - secs
@@ -1017,7 +1014,9 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 		// that raced this packet (both are sent together), so it stays open.
 		// ponytail: fixed window; a pre-reboot interim inside it is left to CloseStaleRadiusSessions.
 		arg := db.CloseRadiusSessionsByNASParams{StoppedAt: sql.NullInt64{Int64: now, Valid: true}, NasIp: a.NAS, UpdatedAt: now - acctOnWindow}
-		return s.commit(ctx, func(q *db.Queries) error { return q.CloseRadiusSessionsByNAS(ctx, arg) })
+		err := s.commit(ctx, func(q *db.Queries) error { return q.CloseRadiusSessionsByNAS(ctx, arg) })
+		s.octs.reset() // the closed sessions changed behind the cache
+		return err
 	case rfc2866.AcctStatusType_Value_Start, rfc2866.AcctStatusType_Value_InterimUpdate, rfc2866.AcctStatusType_Value_Stop:
 		// gigawords << 32 goes negative from 2^31 GB up, and a REST value can be negative. Clamp, do not
 		// refuse: a dropped Stop would leave the session open. MAX() in the upsert keeps the old value.
@@ -1034,7 +1033,8 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 		day := s.now().In(s.loc()).Format("2006-01-02")
 		return s.commit(ctx, func(q *db.Queries) error {
 			// The counters only grow (MAX in the upsert), so the growth since the last packet is what
-			// moved today. A session the NAS restarted has a new session_id and counts from 0.
+			// moved today and what the subscription used. A session the NAS restarted has a new
+			// session_id and counts from 0.
 			old, err := s.octs.get(ctx, q, arg.NasIp, arg.SessionID)
 			if err != nil {
 				return err
@@ -1042,12 +1042,18 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 			if err := q.UpsertRadiusSession(ctx, arg); err != nil {
 				return err
 			}
-			s.octs.put(arg.NasIp, arg.SessionID, octets{in: max(arg.InputOctets, old.in), out: max(arg.OutputOctets, old.out), gone: arg.StoppedAt.Valid})
-			in, out := max(arg.InputOctets-old.in, 0), max(arg.OutputOctets-old.out, 0)
-			if in == 0 && out == 0 {
+			cur := old.next(arg.InputOctets, arg.OutputOctets, arg.StartedAt, arg.UpdatedAt, arg.StoppedAt)
+			s.octs.put(arg.NasIp, arg.SessionID, cur)
+			in, out, secs := cur.in-old.in, cur.out-old.out, max(cur.secs-old.secs, 0)
+			if in > 0 || out > 0 {
+				if err := q.AddRadiusUsageDaily(ctx, db.AddRadiusUsageDailyParams{Username: arg.Username, Day: day, InputOctets: in, OutputOctets: out}); err != nil {
+					return err
+				}
+			}
+			if in == 0 && out == 0 && secs == 0 {
 				return nil
 			}
-			return q.AddRadiusUsageDaily(ctx, db.AddRadiusUsageDailyParams{Username: arg.Username, Day: day, InputOctets: in, OutputOctets: out})
+			return q.AddSubscriptionUsage(ctx, db.AddSubscriptionUsageParams{InOctets: in, OutOctets: out, Seconds: secs, SessionStarted: cur.started, Name: arg.Username})
 		})
 	}
 	return nil

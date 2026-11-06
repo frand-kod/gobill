@@ -228,13 +228,8 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		if sub.PendingStart == 1 {
 			d.Plan.Pending, d.Plan.Left, d.Plan.Pct = true, s.catalog.T(s.language(), "Starts on first login"), 0
 		}
-		oct, err := s.queries.SumRadiusOctetsByUsers(ctx, db.SumRadiusOctetsByUsersParams{Name1: n1, Name2: n2, StartedAt: sub.StartedAt})
-		if err != nil {
-			s.fail(w, "portal usage", err)
-			return
-		}
-		d.Period = pTotal{Down: humanBytes(oct.Output), Up: humanBytes(oct.Input)}
-		d.Usage = s.pUsage(ctx, *c, *sub, p, d.Words, oct.Input+oct.Output)
+		d.Period = pTotal{Down: humanBytes(sub.UsedOutOctets), Up: humanBytes(sub.UsedInOctets)}
+		d.Usage = s.pUsage(ctx, *c, *sub, p, d.Words, sub.UsedInOctets+sub.UsedOutOctets)
 	} else {
 		d.Usage.Note = s.catalog.T(s.language(), "No active plan")
 		if len(subs) > 0 { // only finished plans: say which one ended
@@ -380,7 +375,7 @@ func (s *Server) radiusUsage(ctx context.Context, c db.Customer) (*radiusUsage, 
 	u := &radiusUsage{}
 	var total int64
 	if p, err := s.queries.GetRadiusPlan(ctx, c.ID); err == nil {
-		total, _ = s.queries.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: c.Username, StartedAt: p.StartedAt})
+		total = p.UsedInOctets + p.UsedOutOctets
 	}
 	u.Total, u.Unit = humanBytesParts(total)
 	now, loc := time.Now().Unix(), s.location()

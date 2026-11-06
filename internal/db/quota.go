@@ -22,10 +22,11 @@ func QuotaSeconds(limit int64, unit string, carry int64) int64 {
 	return t + carry
 }
 
-// LoginUsage is the data (bytes) and online time (seconds) a customer used since a subscription
-// started, over both RADIUS login names (username and pppoe_username). RADIUS authorize, renewal
-// and the admin/portal quota views all use it so they always agree.
-func LoginUsage(ctx context.Context, q *Queries, c Customer, since int64) (bytes, seconds int64, err error) {
+// LogUsage is the data (bytes) and online time (seconds) the sessions still in radius_sessions hold
+// since a subscription started, over both RADIUS login names (username and pppoe_username). Quota
+// does not use it: log retention prunes closed sessions. It is the cross-check for the counters on
+// subscriptions (used_in_octets, used_out_octets, used_seconds), see RecountSubscriptionUsage.
+func LogUsage(ctx context.Context, q *Queries, c Customer, since int64) (bytes, seconds int64, err error) {
 	names := []string{c.Username}
 	if c.PppoeUsername != "" && c.PppoeUsername != c.Username {
 		names = append(names, c.PppoeUsername)

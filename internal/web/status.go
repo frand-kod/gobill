@@ -48,6 +48,7 @@ type statusData struct {
 	Notify        []notifyRow  `json:"notifications"`
 	PayOK         float64      `json:"payment_callbacks_ok"`
 	PayFailed     float64      `json:"payment_callbacks_failed"`
+	PayUnknown    float64      `json:"payment_callbacks_unknown_paid"`
 	PayLast       string       `json:"payment_last_callback"`
 	Sec           secRow       `json:"security"`
 	Backup        backupRow    `json:"backup"`
@@ -148,6 +149,7 @@ func (s *Server) statusData(r *http.Request) (statusData, error) {
 		Rejected24h: metrics.Recent("radius_auth_rejected_total", 1440),
 		PayOK:       metrics.Value("payment_callbacks_total", "result", "ok"),
 		PayFailed:   metrics.Value("payment_callbacks_total", "result", "failed"),
+		PayUnknown:  metrics.Value("payment_callbacks_total", "result", "unknown_paid"),
 		RadiusAcc:   newSpark(metrics.Series("radius_auth_accepted_total"), now, loc),
 		RadiusRej:   newSpark(metrics.Series("radius_auth_rejected_total"), now, loc),
 		NotifyErr:   newSpark(metrics.Series("notifications_failed_total"), now, loc),
@@ -389,6 +391,9 @@ func levelsOf(d statusData, now time.Time) statusLevels {
 	}
 	if d.PayFailed > 0 {
 		l.Pay = levelWarn
+	}
+	if d.PayUnknown > 0 { // paid money that settled nothing
+		l.Pay = levelBad
 	}
 	return l
 }

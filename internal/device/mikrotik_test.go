@@ -83,7 +83,7 @@ func TestHotspotAddCustomerLimitsAndExpired(t *testing.T) {
 	f.check(t,
 		"/ip/hotspot/user/print =.proplist=.id ?name=bob",
 		"/ip/hotspot/active/print =.proplist=.id ?user=bob",
-		"/ip/hotspot/user/add =name=bob =profile=Gold =password=pw =comment=Bob B | Gold, Silver =email=b@x =limit-uptime=5:00:00 =limit-bytes-total=2000000000")
+		"/ip/hotspot/user/add =name=bob =profile=Gold =password=pw =comment=Bob B | Gold, Silver =email=b@x =limit-uptime=5:00:00 =limit-bytes-total=2147483648")
 }
 
 func TestHotspotRemoveCustomer(t *testing.T) {

@@ -26,8 +26,12 @@ UPDATE payment_requests SET status = ? WHERE ref = ? AND status = 'pending';
 UPDATE payment_requests SET status = 'expired' WHERE status = 'pending' AND expires_at < ?;
 
 -- name: DeleteUnpaidPaymentRequestsBefore :execrows
--- One batch of unpaid requests; the caller loops until 0 rows. Paid rows are kept (accounting).
-DELETE FROM payment_requests WHERE rowid IN (SELECT p.rowid FROM payment_requests p WHERE p.status IN ('pending', 'expired', 'failed') AND p.created_at < ? LIMIT 5000);
+-- One batch of unpaid requests; the caller loops until 0 rows. Paid rows are kept (accounting). A
+-- pending or expired request is kept until pending_before (at least a week), whatever the log
+-- retention: the gateway may still report it paid, and a callback for a deleted request finds
+-- nothing to settle.
+DELETE FROM payment_requests WHERE rowid IN (SELECT p.rowid FROM payment_requests p
+  WHERE (p.status = 'failed' AND p.created_at < sqlc.arg(before)) OR (p.status IN ('pending', 'expired') AND p.created_at < sqlc.arg(pending_before)) LIMIT 5000);
 
 -- name: SearchPaymentRequests :many
 -- status '' = any; created_at range: from_ts/to_ts 0 = open. page_limit -1 = all (CSV).

@@ -208,6 +208,7 @@ func TestDiagnose(t *testing.T) {
 	qc := newCust(t, q, "quota1", "Quota", "", "", "Active")
 	sub(qc, qa, "active", now-5000, now+86400)
 	q.UpsertRadiusSession(ctx, db.UpsertRadiusSessionParams{SessionID: "c", Username: "quota1", NasIp: "10.0.0.1", StartedAt: now - 4000, UpdatedAt: now - 3280, StoppedAt: sql.NullInt64{Int64: now - 3280, Valid: true}, InputOctets: 1 << 20})
+	q.RecountSubscriptionUsage(ctx, 0) // the usage accounting would have counted
 	d = diag(qc)
 	if level(d, "Quota") != "badge-bad" || !has(d, tr("Quota used up: press Recharge for a new plan")) {
 		t.Errorf("quota: %+v / %q", d.Items, d.Advice)

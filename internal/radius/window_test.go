@@ -98,6 +98,9 @@ func TestBoostJobSendsCoAAtWindowEnd(t *testing.T) {
 		time.Now().Unix()+3600, e.now.Unix()-50, e.now.Unix())); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := e.q.RecountSubscriptionUsage(t.Context(), 0); err != nil {
+		t.Fatal(err)
+	}
 	port, got := fakeNAS(t, radius.CodeCoAACK)
 	run := BoostJob(e.q, e.s.Key, port)
 	for i := 0; i < 2; i++ {

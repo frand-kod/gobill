@@ -19,9 +19,12 @@ func TestReviveRestartsUsageWindow(t *testing.T) {
 		StartedAt: e.now.Unix(), UpdatedAt: e.now.Unix(), InputOctets: 700, OutputOctets: 300}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := e.q.RecountSubscriptionUsage(ctx, 0); err != nil {
+		t.Fatal(err)
+	}
 	used := func() int64 {
-		n, _ := e.q.SumRadiusUsage(ctx, db.SumRadiusUsageParams{Username: e.cust.Username, StartedAt: e.sub(t).StartedAt})
-		return n
+		sub := e.sub(t)
+		return sub.UsedInOctets + sub.UsedOutOctets
 	}
 	sub := e.sub(t)
 	if used() != 1000 {
@@ -69,15 +72,14 @@ func TestLimitedRenewalCarriesUnusedQuota(t *testing.T) {
 			StartedAt: e.now.Unix(), UpdatedAt: e.now.Unix(), InputOctets: n}); err != nil {
 			t.Fatal(err)
 		}
+		if _, err := e.q.RecountSubscriptionUsage(ctx, 0); err != nil {
+			t.Fatal(err)
+		}
 	}
 	left := func() int64 {
 		t.Helper()
 		sub := e.sub(t)
-		used, _, err := db.LoginUsage(ctx, e.q, e.cust, sub.StartedAt)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return db.QuotaBytes(100, "GB", sub.QuotaCarryBytes) - used
+		return db.QuotaBytes(100, "GB", sub.QuotaCarryBytes) - sub.UsedInOctets - sub.UsedOutOctets
 	}
 	recharge()
 	started := e.sub(t).StartedAt
@@ -156,16 +158,15 @@ func TestLimitedRenewalTimeDoesNotRollOver(t *testing.T) {
 	remaining := func() int64 {
 		t.Helper()
 		sub := e.sub(t)
-		_, secs, err := db.LoginUsage(ctx, e.q, e.cust, sub.StartedAt)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return db.QuotaSeconds(60, "Mins", sub.QuotaCarrySeconds) - secs
+		return db.QuotaSeconds(60, "Mins", sub.QuotaCarrySeconds) - sub.UsedSeconds
 	}
 	recharge()
 	start := e.now.Unix()
 	if err := e.q.UpsertRadiusSession(ctx, db.UpsertRadiusSessionParams{SessionID: "t1", Username: e.cust.Username, NasIp: "1.1.1.1",
 		StartedAt: start, UpdatedAt: start + 40*60}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.q.RecountSubscriptionUsage(ctx, 0); err != nil {
 		t.Fatal(err)
 	}
 	if got := remaining(); got != 20*60 {
@@ -182,6 +183,9 @@ func TestLimitedRenewalTimeDoesNotRollOver(t *testing.T) {
 	// the open session keeps counting after the renewal
 	if err := e.q.UpsertRadiusSession(ctx, db.UpsertRadiusSessionParams{SessionID: "t1", Username: e.cust.Username, NasIp: "1.1.1.1",
 		StartedAt: start, UpdatedAt: start + 50*60}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.q.RecountSubscriptionUsage(ctx, 0); err != nil {
 		t.Fatal(err)
 	}
 	if got := remaining(); got != 50*60 {

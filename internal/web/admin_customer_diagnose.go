@@ -190,6 +190,10 @@ func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscrip
 		if quotaOut && !expired {
 			tip("Quota used up: press Recharge for a new plan")
 		}
+		if (q.HasTime || q.HasData) && s.usageLogAhead(ctx, c, *sub) {
+			add("Usage log", "warn", t("Behind"), t("The session log holds more used data or time than the plan counts"))
+			tip("The session log holds more used data or time than the plan counts: use More > Recount usage")
+		}
 	}
 
 	// router
@@ -252,7 +256,7 @@ func (s *Server) planQuota(ctx context.Context, c db.Customer, sub db.Subscripti
 	q.HasTime = (lt == "Time_Limit" || lt == "Both_Limit") && plan.TimeLimit.Valid
 	q.HasData = (lt == "Data_Limit" || lt == "Both_Limit") && plan.DataLimit.Valid
 	if q.HasTime || q.HasData {
-		q.Data, q.Time, _ = db.LoginUsage(ctx, s.queries, c, sub.StartedAt)
+		q.Data, q.Time = sub.UsedInOctets+sub.UsedOutOctets, sub.UsedSeconds
 	}
 	if q.HasTime {
 		q.TimeLim = db.QuotaSeconds(plan.TimeLimit.Int64, plan.TimeUnit.String, sub.QuotaCarrySeconds)
@@ -272,4 +276,17 @@ func quotaLevel(used, lim int64) string {
 		return "warn"
 	}
 	return "ok"
+}
+
+// usageLogAhead reports whether the session log holds more data or time than the subscription's
+// counters, which Recount usage fixes (accounting missed, e.g. under an older version). The other way
+// round is normal: retention and manual cleaning prune the log, never the counters. Small gaps are
+// tolerated.
+func (s *Server) usageLogAhead(ctx context.Context, c db.Customer, sub db.Subscription) bool {
+	bytes, secs, err := db.LogUsage(ctx, s.queries, c, sub.StartedAt)
+	if err != nil {
+		return false
+	}
+	used := sub.UsedInOctets + sub.UsedOutOctets
+	return (bytes-used > 1<<20 && (bytes-used)*100 > bytes) || secs-sub.UsedSeconds > 600
 }

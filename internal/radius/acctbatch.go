@@ -80,7 +80,7 @@ func (s *Server) writeBatch(batch []acctJob) (err error) {
 		return err
 	}
 	defer tx.Rollback()
-	q := s.Q.WithTx(tx)
+	q := s.Q.WithTxCached(tx)
 	for _, j := range batch {
 		if err := j.write(q); err != nil {
 			return err

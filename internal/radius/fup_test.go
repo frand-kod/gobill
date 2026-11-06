@@ -29,6 +29,9 @@ func fupSetup(t *testing.T, device string, fup bool, used int) *env {
 		device, fb, e.now.Unix()-50, e.now.Unix()-10, e.now.Unix()-10, used)); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := e.q.RecountSubscriptionUsage(t.Context(), 0); err != nil {
+		t.Fatal(err)
+	}
 	return e
 }
 

@@ -48,6 +48,34 @@ func (q *Queries) AddRadiusUsageDaily(ctx context.Context, arg AddRadiusUsageDai
 	return err
 }
 
+const addSubscriptionUsage = `-- name: AddSubscriptionUsage :exec
+UPDATE subscriptions SET used_in_octets = used_in_octets + ?1, used_out_octets = used_out_octets + ?2,
+    used_seconds = used_seconds + ?3
+WHERE status = 'active' AND started_at <= ?4
+  AND customer_id IN (SELECT c.id FROM customers c WHERE c.username = ?5 OR (c.pppoe_username <> '' AND c.pppoe_username = ?5))
+`
+
+type AddSubscriptionUsageParams struct {
+	InOctets       int64
+	OutOctets      int64
+	Seconds        int64
+	SessionStarted int64
+	Name           string
+}
+
+// Adds a session's growth to every active subscription of the login whose usage window holds the
+// session (it started at or after the window), like the old sum over radius_sessions.
+func (q *Queries) AddSubscriptionUsage(ctx context.Context, arg AddSubscriptionUsageParams) error {
+	_, err := q.db.ExecContext(ctx, addSubscriptionUsage,
+		arg.InOctets,
+		arg.OutOctets,
+		arg.Seconds,
+		arg.SessionStarted,
+		arg.Name,
+	)
+	return err
+}
+
 const closeRadiusSessionsByNAS = `-- name: CloseRadiusSessionsByNAS :exec
 UPDATE radius_sessions SET stopped_at = ? WHERE nas_ip = ? AND stopped_at IS NULL AND updated_at < ?
 `
@@ -271,7 +299,7 @@ func (q *Queries) GetOpenRadiusSessionByFramedIP(ctx context.Context, framedIp s
 }
 
 const getRadiusLogin = `-- name: GetRadiusLogin :one
-SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, c.session_version, c.coordinates, s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
+SELECT c.id, c.username, c.password_hash, c.fullname, c.address, c.phone, c.email, c.balance, c.service_type, c.pppoe_username, c.pppoe_ip, c.secret_enc, c.billing_day, c.auto_renewal, c.status, c.created_by, c.created_at, c.last_login_at, c.session_version, c.coordinates, s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.used_in_octets, s.used_out_octets, s.used_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users, p.idle_timeout, p.login_window, p.boost_window,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        fb.rate_down AS fup_rate_down, fb.rate_down_unit AS fup_rate_down_unit, fb.rate_up AS fup_rate_up, fb.rate_up_unit AS fup_rate_up_unit, fb.burst AS fup_burst,
@@ -294,6 +322,9 @@ type GetRadiusLoginRow struct {
 	StartedAt         int64
 	QuotaCarryBytes   int64
 	QuotaCarrySeconds int64
+	UsedInOctets      int64
+	UsedOutOctets     int64
+	UsedSeconds       int64
 	ExpiresAt         int64
 	PendingStart      int64
 	PlanID            int64
@@ -358,6 +389,9 @@ func (q *Queries) GetRadiusLogin(ctx context.Context, name string) (GetRadiusLog
 		&i.StartedAt,
 		&i.QuotaCarryBytes,
 		&i.QuotaCarrySeconds,
+		&i.UsedInOctets,
+		&i.UsedOutOctets,
+		&i.UsedSeconds,
 		&i.ExpiresAt,
 		&i.PendingStart,
 		&i.PlanID,
@@ -396,7 +430,7 @@ func (q *Queries) GetRadiusLogin(ctx context.Context, name string) (GetRadiusLog
 }
 
 const getRadiusPlan = `-- name: GetRadiusPlan :one
-SELECT s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
+SELECT s.started_at, s.quota_carry_bytes, s.quota_carry_seconds, s.used_in_octets, s.used_out_octets, s.used_seconds, s.expires_at, s.pending_start, s.plan_id, p.name AS plan_name, p.type AS plan_type, p.limited, p.limit_type,
        p.time_limit, p.time_unit, p.data_limit, p.data_unit, p.shared_users, p.idle_timeout, p.login_window, p.boost_window,
        b.rate_down, b.rate_down_unit, b.rate_up, b.rate_up_unit, b.burst,
        fb.rate_down AS fup_rate_down, fb.rate_down_unit AS fup_rate_down_unit, fb.rate_up AS fup_rate_up, fb.rate_up_unit AS fup_rate_up_unit, fb.burst AS fup_burst,
@@ -417,6 +451,9 @@ type GetRadiusPlanRow struct {
 	StartedAt         int64
 	QuotaCarryBytes   int64
 	QuotaCarrySeconds int64
+	UsedInOctets      int64
+	UsedOutOctets     int64
+	UsedSeconds       int64
 	ExpiresAt         int64
 	PendingStart      int64
 	PlanID            int64
@@ -459,6 +496,9 @@ func (q *Queries) GetRadiusPlan(ctx context.Context, customerID int64) (GetRadiu
 		&i.StartedAt,
 		&i.QuotaCarryBytes,
 		&i.QuotaCarrySeconds,
+		&i.UsedInOctets,
+		&i.UsedOutOctets,
+		&i.UsedSeconds,
 		&i.ExpiresAt,
 		&i.PendingStart,
 		&i.PlanID,
@@ -524,7 +564,7 @@ func (q *Queries) GetRadiusSession(ctx context.Context, id int64) (RadiusSession
 }
 
 const getRadiusSessionOctets = `-- name: GetRadiusSessionOctets :one
-SELECT input_octets, output_octets FROM radius_sessions WHERE nas_ip = ? AND session_id = ?
+SELECT input_octets, output_octets, started_at, updated_at, stopped_at FROM radius_sessions WHERE nas_ip = ? AND session_id = ?
 `
 
 type GetRadiusSessionOctetsParams struct {
@@ -535,12 +575,21 @@ type GetRadiusSessionOctetsParams struct {
 type GetRadiusSessionOctetsRow struct {
 	InputOctets  int64
 	OutputOctets int64
+	StartedAt    int64
+	UpdatedAt    int64
+	StoppedAt    sql.NullInt64
 }
 
 func (q *Queries) GetRadiusSessionOctets(ctx context.Context, arg GetRadiusSessionOctetsParams) (GetRadiusSessionOctetsRow, error) {
 	row := q.db.QueryRowContext(ctx, getRadiusSessionOctets, arg.NasIp, arg.SessionID)
 	var i GetRadiusSessionOctetsRow
-	err := row.Scan(&i.InputOctets, &i.OutputOctets)
+	err := row.Scan(
+		&i.InputOctets,
+		&i.OutputOctets,
+		&i.StartedAt,
+		&i.UpdatedAt,
+		&i.StoppedAt,
+	)
 	return i, err
 }
 

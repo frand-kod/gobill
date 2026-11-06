@@ -15,9 +15,8 @@ func fupRate(ctx context.Context, q *db.Queries, lr db.GetRadiusLoginRow) (strin
 	if fup == "" || lr.Limited != 1 || !lr.DataLimit.Valid || (lr.LimitType.String != "Data_Limit" && lr.LimitType.String != "Both_Limit") {
 		return "", nil
 	}
-	bytes, _, err := db.LoginUsage(ctx, q, lr.Customer, lr.StartedAt)
-	if err != nil || bytes < db.QuotaBytes(lr.DataLimit.Int64, lr.DataUnit.String, lr.QuotaCarryBytes) {
-		return "", err
+	if lr.UsedInOctets+lr.UsedOutOctets < db.QuotaBytes(lr.DataLimit.Int64, lr.DataUnit.String, lr.QuotaCarryBytes) {
+		return "", nil
 	}
 	return fup, nil
 }

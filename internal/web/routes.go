@@ -53,6 +53,7 @@ func isPrefetch(r *http.Request) bool {
 func (s *Server) extraRoutes(mux *http.ServeMux, managers func(http.Handler) http.Handler) {
 	mux.Handle("POST /admin/customers/{id}/deactivate", managers(http.HandlerFunc(s.custDeactivate)))
 	mux.Handle("POST /admin/customers/{id}/sync", managers(http.HandlerFunc(s.custSync)))
+	mux.Handle("POST /admin/customers/{id}/usage-recount", managers(http.HandlerFunc(s.custRecountUsage)))
 	mux.Handle("POST /admin/customers/{id}/login", managers(http.HandlerFunc(s.custLoginAs)))
 	mux.Handle("POST /admin/logs/clean/{kind}", managers(http.HandlerFunc(s.logClean)))
 

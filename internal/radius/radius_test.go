@@ -445,6 +445,9 @@ func TestDataLimit(t *testing.T) {
 	if _, err := e.conn.Exec("UPDATE radius_sessions SET input_octets = 1048576"); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := e.q.RecountSubscriptionUsage(t.Context(), 0); err != nil {
+		t.Fatal(err)
+	}
 	if r := e.auth(t, pap("alice", "pw")); r.Code != radius.CodeAccessReject {
 		t.Fatal("over limit must reject")
 	}
@@ -514,16 +517,23 @@ func TestEmptySecretRejected(t *testing.T) {
 	}
 }
 
-func TestDataLimitQueryErrorRejects(t *testing.T) {
-	e := setup(t)
-	if _, err := e.conn.Exec("UPDATE plans SET limited=1, limit_type='Data_Limit', data_limit=1, data_unit='MB'"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.conn.Exec("DROP TABLE radius_sessions"); err != nil {
-		t.Fatal(err)
-	}
-	if r := e.auth(t, pap("alice", "pw")); r.Code != radius.CodeAccessReject {
-		t.Fatalf("usage query failed but code %v: quota must fail closed", r.Code)
+// Quota lives on the subscription, not in the session log: pruning (here: the whole table) changes
+// nothing, a used-up data or time quota still rejects.
+func TestQuotaSurvivesLogLoss(t *testing.T) {
+	for name, c := range map[string]struct{ plan, used, want string }{
+		"data": {"limit_type='Data_Limit', data_limit=1, data_unit='MB'", "used_in_octets = 1048576", "You have exceeded your data limit."},
+		"time": {"limit_type='Time_Limit', time_limit=1, time_unit='Hrs'", "used_seconds = 3600", "You have exceeded your time limit."},
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := setup(t)
+			if _, err := e.conn.Exec("UPDATE plans SET limited=1, " + c.plan + "; UPDATE subscriptions SET " + c.used + "; DROP TABLE radius_sessions"); err != nil {
+				t.Fatal(err)
+			}
+			r := e.auth(t, pap("alice", "pw"))
+			if msg, _ := rfc2865.ReplyMessage_LookupString(r); r.Code != radius.CodeAccessReject || msg != c.want {
+				t.Fatalf("code %v reply %q", r.Code, msg)
+			}
+		})
 	}
 }
 
@@ -574,19 +584,6 @@ func TestDataLimitGigawords(t *testing.T) {
 	e.conn.QueryRow("SELECT input_octets, stopped_at FROM radius_sessions WHERE session_id='s1'").Scan(&in, &stopped)
 	if in != 1<<32 || !stopped.Valid {
 		t.Fatalf("after clamped Stop: input %d stopped %v", in, stopped.Valid)
-	}
-}
-
-func TestTimeLimitQueryErrorRejects(t *testing.T) {
-	e := setup(t)
-	if _, err := e.conn.Exec("UPDATE plans SET limited=1, limit_type='Time_Limit', time_limit=1, time_unit='Hrs'"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := e.conn.Exec("DROP TABLE radius_sessions"); err != nil {
-		t.Fatal(err)
-	}
-	if r := e.auth(t, pap("alice", "pw")); r.Code != radius.CodeAccessReject {
-		t.Fatalf("time usage query failed but code %v: time limit must fail closed", r.Code)
 	}
 }
 

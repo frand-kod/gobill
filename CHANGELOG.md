@@ -8,6 +8,31 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-06
+
+Log hanya catatan: kuota dan pembayaran tidak lagi bergantung pada tabel yang dibersihkan retensi. Migrasi `0041`.
+
+### Penting sebelum upgrade
+
+- **Kuota disimpan di langganan.** Data dan waktu terpakai kini dihitung di `subscriptions`, bukan dijumlahkan dari log sesi RADIUS. Sebelumnya, membersihkan log (otomatis setelah `log_keep_days` atau manual) menurunkan kuota terpakai, sehingga sisa kuota membengkak. Paling terasa pada perpanjangan dini berulang yang jendelanya lebih panjang dari retensi.
+- **Migrasi mengisi angka awal dari log yang masih ada.** Pemakaian yang lognya sudah terhapus tidak bisa dikembalikan, jadi sisa kuota yang sudah membengkak tetap. Mulai versi ini tidak membengkak lagi.
+- **Kuota GB dan MB di mode API router kini biner**, sama dengan RADIUS: 1 GB = 1024³ byte (dulu 10⁹). Berlaku saat user hotspot disinkron ulang ke router.
+
+### Fitur
+
+- **Hitung ulang pemakaian** (menu Lainnya di halaman pelanggan): menaikkan data dan waktu terpakai ke angka di log sesi, misalnya setelah sempat rollback ke versi lama. Counter tidak pernah diturunkan.
+- **Diagnosa pelanggan** memberi tanda "Log pemakaian: Tertinggal" jika log sesi mencatat lebih banyak dari hitungan paket.
+
+### Perbaikan
+
+- **Pembayaran pending dan expired disimpan minimal 7 hari**, berapa pun `log_keep_days`. Callback "Paid" untuk referensi yang sudah terhapus dulu hanya dicatat sebagai peringatan, dan uangnya tidak tercatat di mana pun.
+- **Callback Paid untuk referensi tidak dikenal** kini dicatat sebagai error, dikirim sebagai alert ke operator, dan ditandai merah di Status Sistem.
+- **Halaman penggunaan portal** menghitung kedua nama login (username dan PPPoE), sama dengan penegakan kuota.
+
+### Performa
+
+- Batch accounting memakai ulang prepared statement di dalam transaksi, sehingga query tidak di-parse ulang per paket. Ini menutup biaya update counter per interim.
+
 ## [0.3.1] - 2026-11-05
 
 Dukungan NAS non-MikroTik, perbaikan laporan dan backup, serta RADIUS accounting yang lebih cepat. Migrasi `0040`.

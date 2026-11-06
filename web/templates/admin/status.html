@@ -25,7 +25,7 @@
   </a>
   <a href="#st-pay" class="stat flex-col items-start gap-1 hover:bg-surface-2">
     <span class="flex items-center gap-2 text-sm font-medium">{{template "statusDot" .Levels.Pay}}{{T "Payments"}}</span>
-    <span class="text-xs text-ink-2">{{printf "%.0f" .PayOK}} {{T "callbacks OK"}} · {{printf "%.0f" .PayFailed}} {{T "callbacks failed"}} ({{T "since app start"}})</span>
+    <span class="text-xs text-ink-2">{{printf "%.0f" .PayOK}} {{T "callbacks OK"}} · {{printf "%.0f" .PayFailed}} {{T "callbacks failed"}}{{if .PayUnknown}} · <span class="text-err-fg">{{printf "%.0f" .PayUnknown}} {{T "paid for an unknown payment, check the logs"}}</span>{{end}} ({{T "since app start"}})</span>
   </a>
   <a href="#st-sec" class="stat flex-col items-start gap-1 hover:bg-surface-2">
     <span class="flex items-center gap-2 text-sm font-medium">{{template "statusDot" .Levels.Sec}}{{T "Security"}}</span>

@@ -82,3 +82,36 @@ func TestLogCleanRetentionIsolationsAndUnreadInbox(t *testing.T) {
 		}
 	}
 }
+
+// With log_keep_days at 1, failed payment requests go after a day, but pending and expired ones stay
+// a week: the gateway may still report them paid. Paid ones always stay.
+func TestLogCleanKeepsOpenPaymentsAWeek(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	if err := e.q.UpsertSetting(ctx, db.UpsertSettingParams{Key: "log_keep_days", Value: "1"}); err != nil {
+		t.Fatal(err)
+	}
+	add := func(ref, status string, daysAgo int) {
+		t.Helper()
+		at := e.now.AddDate(0, 0, -daysAgo).Unix()
+		if _, err := e.conn.ExecContext(ctx, "INSERT INTO payment_requests (ref, amount, status, created_at, expires_at) VALUES (?, 1000, ?, ?, ?)", ref, status, at, at+86400); err != nil {
+			t.Fatal(err)
+		}
+	}
+	add("pend3", "pending", 3)
+	add("exp3", "expired", 3)
+	add("fail3", "failed", 3)
+	add("paid30", "paid", 30)
+	add("exp8", "expired", 8)
+	e.s.Now = func() time.Time { return e.now }
+	if err := e.s.LogCleanJob(nil)(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for ref, want := range map[string]bool{"pend3": true, "exp3": true, "fail3": false, "paid30": true, "exp8": false} {
+		var n int
+		e.conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM payment_requests WHERE ref = ?", ref).Scan(&n)
+		if (n == 1) != want {
+			t.Errorf("%s kept=%v, want %v", ref, n == 1, want)
+		}
+	}
+}

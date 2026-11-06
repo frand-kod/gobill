@@ -12,6 +12,7 @@
         {{if .CanEdit}}<a class="menu-item" role="menuitem" href="/admin/customers/{{.C.ID}}/edit">{{icon "pencil"}}<span>{{T "Edit"}}</span></a>{{end}}
         {{if .Manage}}
         <form method="post" action="/admin/customers/{{.C.ID}}/sync"><button class="menu-item" role="menuitem" type="submit">{{icon "network"}}<span>{{T "Sync"}}</span></button></form>
+        <form method="post" action="/admin/customers/{{.C.ID}}/usage-recount" data-confirm="{{T "Raise used data and time to what the session log holds? Counters are never lowered."}}"><button class="menu-item" role="menuitem" type="submit">{{icon "activity"}}<span>{{T "Recount usage"}}</span></button></form>
         <form method="post" action="/admin/customers/{{.C.ID}}/login" data-confirm="{{T "Login as Customer"}} {{.C.Username}}?"><button class="menu-item" role="menuitem" type="submit">{{icon "user-round"}}<span>{{T "Login as Customer"}}</span></button></form>
         <form method="post" action="/admin/customers/{{.C.ID}}/deactivate" data-confirm="{{T "Deactivate"}} {{.C.Username}}?" data-confirm-danger><button class="menu-item text-err-fg" role="menuitem" type="submit">{{icon "x"}}<span>{{T "Deactivate"}}</span></button></form>
         {{end}}
