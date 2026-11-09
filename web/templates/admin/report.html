@@ -17,7 +17,7 @@
     <input class="input w-auto" type="date" name="date" value="{{.From}}" aria-label="{{T "Date"}}">
     {{end}}
     <select class="input w-auto" name="type" aria-label="{{T "Type"}}">{{range .Types}}<option value="{{.Value}}"{{if eq .Value $d.Type}} selected{{end}}>{{T .Label}}</option>{{end}}</select>
-    <input class="input w-auto" type="text" name="method" value="{{.Method}}" placeholder="{{T "Method"}}" aria-label="{{T "Method"}}">
+    <select class="input w-auto" name="method" aria-label="{{T "Method"}}">{{range .Methods}}<option value="{{.Value}}"{{if eq .Value $d.Method}} selected{{end}}>{{T .Label}}</option>{{end}}</select>
     <select class="input w-auto" name="router" aria-label="{{T "Routers"}}">{{range .Routers}}<option value="{{.Value}}"{{if eq .Value $d.Router}} selected{{end}}>{{T .Label}}</option>{{end}}</select>
     <select class="input w-auto" name="plan" aria-label="{{T "Plan"}}">{{range .Plans}}<option value="{{.Value}}"{{if eq .Value $d.PlanID}} selected{{end}}>{{T .Label}}</option>{{end}}</select>
     <button class="btn btn-primary" type="submit">{{T "Show"}}</button>
@@ -43,7 +43,7 @@
     <table class="table">
       <thead><tr><th>{{T "Invoice"}}</th><th>{{T "Username"}}</th><th>{{T "Plan Name"}}</th><th>{{T "Type"}}</th><th>{{T "Plan Price"}}</th><th>{{T "Method"}}</th><th>{{T "Routers"}}</th><th>{{T "Created On"}}</th><th>{{T "Expires On"}}</th></tr></thead>
       <tbody>
-      {{range .Rows}}<tr><td><a class="link" href="/admin/transactions/{{.ID}}/invoice">{{.Invoice}}</a></td><td>{{.Username}}</td><td>{{.PlanName}}</td><td>{{.Type}}</td><td>{{money .Price}}</td><td>{{.Method}}</td><td>{{.RouterName}}</td><td>{{ts .CreatedAt}}</td><td>{{ts .PeriodEnd}}</td></tr>
+      {{range .Rows}}<tr><td>{{if $d.CanInvoice}}<a class="link" href="/admin/transactions/{{.ID}}/invoice">{{.Invoice}}</a>{{else}}{{.Invoice}}{{end}}</td><td>{{.Username}}</td><td>{{.PlanName}}</td><td>{{.Type}}</td><td>{{money .Price}}</td><td>{{.Method}}</td><td>{{if .RouterName}}{{.RouterName}}{{else}}RADIUS{{end}}</td><td>{{ts .CreatedAt}}</td><td>{{ts .PeriodEnd}}</td></tr>
       {{else}}<tr><td class="py-8 text-center text-ink-2" colspan="9">{{T "No data"}}</td></tr>{{end}}
       </tbody>
     </table>

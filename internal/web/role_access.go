@@ -38,3 +38,9 @@ func ctxIsManager(ctx context.Context) bool {
 	a, _ := ctx.Value(ctxKey{}).(*db.Admin)
 	return a != nil && oneOf(a.Role, "SuperAdmin", "Admin")
 }
+
+// canOpenInvoices matches the invoice route (noReport): strict mode keeps the Report role out.
+func (s *Server) canOpenInvoices(ctx context.Context) bool {
+	a, _ := ctx.Value(ctxKey{}).(*db.Admin)
+	return a != nil && (!s.strictAccess(ctx) || oneOf(a.Role, "SuperAdmin", "Admin", "Agent", "Sales"))
+}

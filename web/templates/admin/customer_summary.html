@@ -30,6 +30,7 @@
           <template x-for="s in d.subscriptions" :key="s.plan + s.expires_at">
             <div class="text-sm" :class="warn(s) ? 'alert alert-warn mb-0' : 'rounded-lg border border-line px-3 py-2'">
               <span x-text="warn(s) || line(s)"></span>
+              <span class="block text-xs" :class="s.quota_out ? 'font-semibold text-err-fg' : 'text-ink-2'" x-show="s.usage" x-text="s.usage"></span>
             </div>
           </template>
         </div>

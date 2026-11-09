@@ -93,3 +93,21 @@ func TestPortalInvoiceIsolation(t *testing.T) {
 	}
 	wantCode(t, do(e.h, "GET", "/portal/orders/"+itoa(theirs.ID)+"/invoice", nil, cc), 404, "other customer's invoice")
 }
+
+// The Print, Export and usage CSV links keep the period: html/template must not escape the query's = and &.
+func TestReportLinksKeepPeriod(t *testing.T) {
+	_, h, _, c := crudApp(t)
+	page := do(h, "GET", "/admin/reports/period?from=2026-03-01&to=2026-03-10", nil, c).Body.String()
+	for _, want := range []string{
+		`href="/admin/reports/print?from=2026-03-01&amp;`,
+		`href="/admin/reports/export?from=2026-03-01&amp;`,
+		`href="/admin/reports/usage.csv?from=2026-03-01&amp;to=2026-03-10"`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("link missing %q", want)
+		}
+	}
+	if p := do(h, "GET", "/admin/reports/print?from=2026-03-01&to=2026-03-10", nil, c).Body.String(); !strings.Contains(p, "01/03/2026 - 10/03/2026") {
+		t.Error("print does not show the period")
+	}
+}

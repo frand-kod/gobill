@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"golang.org/x/crypto/bcrypt"
@@ -185,5 +186,24 @@ func TestRechargeSummaryPanel(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("recharge page: missing %q", want)
 		}
+	}
+}
+
+// The recharge panel shows each active plan's usage from the subscription counters: data of the limit,
+// and "Quota used up" with quota_out once the limit is reached.
+func TestCustomerSummaryUsage(t *testing.T) {
+	e := englishApp(t)
+	now := time.Now().Unix()
+	dashPlan(t, e, "Data_Limit", 0, 100, now+86400)
+	dashSess(t, e, "u1", "a", "10.1.0.1", "", now-3600, now-60, 20<<20, 20<<20) // 40 of 100 MB
+	target := "/admin/customers/" + itoa(e.cust.ID) + "/summary"
+	subs := subsOf(t, func() map[string]any { m, _ := summaryOf(t, e.h, e.c, target); return m }())
+	if len(subs) != 1 || subs[0]["usage"] != "Data used: 40.00 MB of 100.00 MB" || subs[0]["quota_out"] != false {
+		t.Fatalf("40 MB: %+v", subs)
+	}
+	dashSess(t, e, "u1", "b", "10.1.0.1", "", now-1800, now-30, 40<<20, 40<<20) // now 120 MB
+	subs = subsOf(t, func() map[string]any { m, _ := summaryOf(t, e.h, e.c, target); return m }())
+	if u, _ := subs[0]["usage"].(string); !strings.HasPrefix(u, "Quota used up · Data used: 120.00 MB") || subs[0]["quota_out"] != true {
+		t.Fatalf("120 MB: %+v", subs)
 	}
 }

@@ -4,11 +4,14 @@ package web
 // transactions of the chosen customer, plus the double-charge guard data.
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -23,6 +26,8 @@ type summarySub struct {
 	ExpiresAt string `json:"expires_at"`
 	DaysLeft  int    `json:"days_left"`
 	Effect    string `json:"effect"`
+	Usage     string `json:"usage"`     // data or time used of the limit, from the subscription counters
+	QuotaOut  bool   `json:"quota_out"` // a limit is used up: recharging is what brings the customer back
 }
 
 type summaryTrx struct {
@@ -103,6 +108,10 @@ func (s *Server) custSummary(w http.ResponseWriter, r *http.Request) {
 		exp := time.Unix(sb.ExpiresAt, 0).In(loc)
 		row := summarySub{Plan: sb.PlanName, Type: sb.Type, ExpiresAt: exp.Format("2006-01-02 15:04"),
 			DaysLeft: max(0, int(math.Ceil(exp.Sub(now).Hours()/24)))}
+		if row.Usage, row.QuotaOut, err = s.summaryUsage(ctx, c, sb.ID, sb.PlanID); err != nil {
+			s.fail(w, "customer summary", err)
+			return
+		}
 		if sb.PendingStart == 1 {
 			row.ExpiresAt, row.DaysLeft = s.subExpiry(1, 0), 0 // no date until the first login
 		}
@@ -130,6 +139,38 @@ func (s *Server) custSummary(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	json.NewEncoder(w).Encode(out)
+}
+
+// summaryUsage is the usage line of one active subscription: data and time used of the plan limit
+// (planQuota, the numbers the RADIUS check enforces), or the data used since the plan started when it has
+// no limit. full: a limit is used up.
+func (s *Server) summaryUsage(ctx context.Context, c db.Customer, subID, planID int64) (line string, full bool, err error) {
+	sub, err := s.queries.GetSubscription(ctx, subID)
+	if err != nil {
+		return "", false, err
+	}
+	plan, err := s.queries.GetPlan(ctx, planID)
+	if err != nil {
+		return "", false, err
+	}
+	t := func(k string) string { return s.catalog.T(s.language(), k) }
+	q := s.planQuota(ctx, c, sub, plan)
+	var parts []string
+	if q.HasData {
+		parts = append(parts, fmt.Sprintf(t("Data used: %s of %s"), humanBytes(q.Data), humanBytes(q.DataLim)))
+		full = full || q.Data >= q.DataLim
+	}
+	if q.HasTime {
+		parts = append(parts, fmt.Sprintf(t("Time used: %s of %s"), humanDur(q.Time), humanDur(q.TimeLim)))
+		full = full || q.Time >= q.TimeLim
+	}
+	if len(parts) == 0 {
+		parts = append(parts, fmt.Sprintf(t("Used since plan start: %s"), humanBytes(sub.UsedInOctets+sub.UsedOutOctets)))
+	}
+	if full {
+		parts = append([]string{t("Quota used up")}, parts...)
+	}
+	return strings.Join(parts, " · "), full, nil
 }
 
 // summaryLabels are the summary panel's strings in the page language; the script only fills values in.

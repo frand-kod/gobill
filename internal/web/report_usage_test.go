@@ -62,8 +62,8 @@ func TestReportUsageMatchesDashboard(t *testing.T) {
 	if want := `class="stat-num">` + n + `<span class="ms-1 text-sm font-medium text-ink-2">` + u + `</span>`; !strings.Contains(day, want) {
 		t.Errorf("one day range: want %q", want)
 	}
-	// a range with no usage says so; a backwards range too
-	for _, q := range []string{"from=2020-01-01&to=2020-01-31", "from=2026-03-15&to=2026-03-01"} {
+	// a range with no usage says so (a backwards range is swapped, see TestReportBackwardsRangeSwaps)
+	for _, q := range []string{"from=2020-01-01&to=2020-01-31"} {
 		if b := do(e.h, "GET", "/admin/reports/period?"+q, nil, e.c).Body.String(); !strings.Contains(b, "No usage recorded yet") {
 			t.Errorf("%s: empty usage not shown", q)
 		}

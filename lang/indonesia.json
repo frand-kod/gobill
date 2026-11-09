@@ -1,4 +1,8 @@
 {
+    "Data used: %s of %s": "Data terpakai: %s dari %s",
+    "Time used: %s of %s": "Waktu terpakai: %s dari %s",
+    "Used since plan start: %s": "Terpakai sejak paket dimulai: %s",
+    "Quota used up": "Kuota habis",
     "More": "Lainnya",
     "Settings saved": "Pengaturan disimpan",
     "Two-factor login (2FA)": "Verifikasi dua langkah (2FA)",
@@ -2955,5 +2959,17 @@
     "Raise used data and time to what the session log holds? Counters are never lowered.": "Naikkan data dan waktu terpakai ke angka di log sesi? Counter tidak pernah diturunkan.",
     "paid for an unknown payment, check the logs": "dibayar untuk pembayaran yang tidak dikenal, cek log",
     "Export usage CSV": "Ekspor CSV pemakaian",
-    "Counts RADIUS sessions only. The type, method, router and plan filters do not apply.": "Hanya menghitung sesi RADIUS. Filter tipe, metode, router, dan paket tidak berlaku."
+    "Counts RADIUS sessions only. The type, method, router and plan filters do not apply.": "Hanya menghitung sesi RADIUS. Filter tipe, metode, router, dan paket tidak berlaku.",
+    "RADIUS (no router)": "RADIUS (tanpa router)",
+    "All types": "Semua tipe",
+    "All methods": "Semua metode",
+    "All routers": "Semua router",
+    "All plans": "Semua paket",
+    "Printed at": "Dicetak pada",
+    "Printed by": "Dicetak oleh",
+    "Total income": "Total pendapatan",
+    "Average": "Rata-rata",
+    "By type": "Per tipe",
+    "By method": "Per metode",
+    "Approved by": "Disetujui oleh"
 }
