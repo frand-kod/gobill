@@ -3,6 +3,7 @@
     "Time used: %s of %s": "Waktu terpakai: %s dari %s",
     "Used since plan start: %s": "Terpakai sejak paket dimulai: %s",
     "Quota used up": "Kuota habis",
+    "Data: %s": "Data: %s",
     "More": "Lainnya",
     "Settings saved": "Pengaturan disimpan",
     "Two-factor login (2FA)": "Verifikasi dua langkah (2FA)",

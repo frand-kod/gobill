@@ -8,6 +8,13 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-11-09
+
+### Perbaikan
+
+- **Panel Recharge tidak lagi menampilkan "0 B" untuk paket MikroTik.** Pemakaian hanya dicatat lewat accounting RADIUS. Untuk paket non-RADIUS, baris pemakaian kini disembunyikan.
+- **Paket dengan batas waktu saja kini juga menampilkan data terpakai** di panel Recharge.
+
 ## [0.3.4] - 2026-11-09
 
 ### Perbaikan

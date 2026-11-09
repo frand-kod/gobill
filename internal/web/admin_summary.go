@@ -143,7 +143,7 @@ func (s *Server) custSummary(w http.ResponseWriter, r *http.Request) {
 
 // summaryUsage is the usage line of one active subscription: data and time used of the plan limit
 // (planQuota, the numbers the RADIUS check enforces), or the data used since the plan started when it has
-// no limit. full: a limit is used up.
+// no limit; a time-only limit also shows the data. "" for a non-RADIUS plan. full: a limit is used up.
 func (s *Server) summaryUsage(ctx context.Context, c db.Customer, subID, planID int64) (line string, full bool, err error) {
 	sub, err := s.queries.GetSubscription(ctx, subID)
 	if err != nil {
@@ -152,6 +152,9 @@ func (s *Server) summaryUsage(ctx context.Context, c db.Customer, subID, planID 
 	plan, err := s.queries.GetPlan(ctx, planID)
 	if err != nil {
 		return "", false, err
+	}
+	if plan.Device != "Radius" {
+		return "", false, nil // only RADIUS accounting fills the counters: a MikroTik plan would always read 0 B
 	}
 	t := func(k string) string { return s.catalog.T(s.language(), k) }
 	q := s.planQuota(ctx, c, sub, plan)
@@ -164,8 +167,11 @@ func (s *Server) summaryUsage(ctx context.Context, c db.Customer, subID, planID 
 		parts = append(parts, fmt.Sprintf(t("Time used: %s of %s"), humanDur(q.Time), humanDur(q.TimeLim)))
 		full = full || q.Time >= q.TimeLim
 	}
-	if len(parts) == 0 {
+	switch {
+	case len(parts) == 0:
 		parts = append(parts, fmt.Sprintf(t("Used since plan start: %s"), humanBytes(sub.UsedInOctets+sub.UsedOutOctets)))
+	case !q.HasData: // a time limit only: the data is still worth seeing
+		parts = append(parts, fmt.Sprintf(t("Data: %s"), humanBytes(sub.UsedInOctets+sub.UsedOutOctets)))
 	}
 	if full {
 		parts = append([]string{t("Quota used up")}, parts...)

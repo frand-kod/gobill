@@ -207,3 +207,27 @@ func TestCustomerSummaryUsage(t *testing.T) {
 		t.Fatalf("120 MB: %+v", subs)
 	}
 }
+
+// A time-only limit still shows the data used; a non-RADIUS plan shows no usage line, since its
+// counters are never filled and would read 0 B.
+func TestCustomerSummaryUsageTimeAndMikrotik(t *testing.T) {
+	e := englishApp(t)
+	now := time.Now().Unix()
+	dashPlan(t, e, "Time_Limit", 30, 0, now+86400)
+	dashSess(t, e, "u1", "a", "10.1.0.1", "", now-3600, now, 1<<20, 1<<20)
+	target := "/admin/customers/" + itoa(e.cust.ID) + "/summary"
+	get := func() []map[string]any { m, _ := summaryOf(t, e.h, e.c, target); return subsOf(t, m) }
+	if u, _ := get()[0]["usage"].(string); !strings.HasPrefix(u, "Time used: ") || !strings.HasSuffix(u, " · Data: 2.00 MB") {
+		t.Fatalf("time only: %q", u)
+	}
+
+	e2 := englishApp(t)
+	home := e2.plan(t, "Home", "PPPoE", 1000) // a MikroTik plan, not RADIUS
+	if err := e2.s.Billing.Recharge(t.Context(), e2.cust.ID, home.ID, "Cash", 0); err != nil {
+		t.Fatal(err)
+	}
+	m, _ := summaryOf(t, e2.h, e2.c, "/admin/customers/"+itoa(e2.cust.ID)+"/summary")
+	if subs := subsOf(t, m); len(subs) != 1 || subs[0]["usage"] != "" {
+		t.Fatalf("mikrotik plan shows usage: %+v", subs)
+	}
+}
