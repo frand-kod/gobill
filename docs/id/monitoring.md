@@ -156,6 +156,17 @@ Ringkasan harian dikirim ke operator, bukan ke pelanggan. Pengaturannya ada di *
 
 Ringkasan dikirim sekali sehari. Tanggal terakhir disimpan di `daily_summary_last`, sehingga aman saat restart. Ringkasan ditunda jika jam sistem tidak tepercaya. Tombol "Kirim ringkasan sekarang" di **Pengaturan > Notifikasi** dipakai untuk uji coba.
 
+## Laporan
+
+**Reports > Period Report** menampilkan pendapatan untuk rentang tanggal. Tanpa rentang, halaman membuka periode pendapatan dashboard: dari tanggal 1 bulan ini, atau dari `reset_day` jika diisi, sampai hari ini. Card Income this period di dashboard menampilkan angka yang sama.
+
+SuperAdmin dan Admin juga melihat bagian **Usage** di Period Report. Isinya unduh dan unggah untuk rentang itu, satu batang per hari, dan 20 pengguna teratas. **Export usage CSV** memberi satu baris per pengguna per hari dengan byte unduh, unggah, dan total.
+
+- Usage hanya dari counter harian RADIUS. Log sesi tidak dibaca, jadi membersihkan log tidak mengubahnya.
+- Filter tipe, metode, router, dan paket tidak berlaku untuk usage.
+- Grafik dan CSV memuat paling banyak 366 hari terakhir dari rentang.
+- Role Report hanya melihat pendapatan, bukan usage.
+
 ## Lihat juga
 
 - [Integrasi](integrations.md): kanal Telegram, WhatsApp, dan uji koneksi.

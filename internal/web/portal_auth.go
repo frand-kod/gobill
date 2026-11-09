@@ -74,7 +74,7 @@ func (s *Server) pLoginForm(w http.ResponseWriter, r *http.Request) {
 func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.PostFormValue("username"))
 	ip, uk := "c:"+clientIP(r), "cu:"+strings.ToLower(username)
-	if s.loginLocked(ip, username) {
+	if !s.loginReserve(ip, username) {
 		s.prender(w, r, http.StatusTooManyRequests, "p_login", Page{Title: "Customer sign in", Error: "Too many failed attempts. Try again in 15 minutes."})
 		return
 	}
@@ -87,16 +87,17 @@ func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
 	ok := bcrypt.CompareHashAndPassword(hash, []byte(r.PostFormValue("password"))) == nil
 	if err == nil && ok && (c.Status == "Banned" || c.Status == "Disabled") {
 		// only after a correct password, so this does not reveal which usernames exist
+		s.loginForgive(ip, username)
 		s.prender(w, r, 200, "p_login", Page{Title: "Customer sign in", Error: "This account cannot be used, contact the admin", Data: username})
 		return
 	}
 	if err != nil || !ok {
 		metrics.Inc("login_failures_total", "scope", "portal")
-		s.loginFailed(ip, username)
 		s.recordFailure(uk)
 		s.prender(w, r, 200, "p_login", Page{Title: "Customer sign in", Error: "Invalid Username or Password", Data: username})
 		return
 	}
+	s.loginForgive(ip, username)
 	s.clearFailures(loginKey(ip, username))
 	s.clearFailures(uk)
 	if err := s.portalSignIn(r, c); err != nil {

@@ -14,3 +14,15 @@
   <div class="mt-1 flex gap-1 text-xs text-ink-2">{{range .Bars}}<span class="flex min-w-0 flex-1 justify-center whitespace-nowrap">{{.Tick}}</span>{{end}}</div>
 </div>
 {{end}}
+{{define "usage-win"}}<div class="card-body pt-3">
+  {{if .Empty}}<p class="text-sm text-ink-2">{{T "No usage recorded yet"}}</p>{{else}}
+  <p class="flex flex-wrap items-baseline justify-between gap-2"><span class="stat-num">{{.TotalNum}}<span class="ms-1 text-sm font-medium text-ink-2">{{.TotalUnit}}</span></span><span class="text-sm tabular-nums text-ink-2"><span aria-hidden="true">↓</span><span class="sr-only"> {{T "Download traffic"}}</span> {{.Down}} · <span aria-hidden="true">↑</span><span class="sr-only"> {{T "Upload traffic"}}</span> {{.Up}}</span></p>
+  {{template "barchart" dict "Bars" .Bars "Default" "" "Label" (T "Usage")}}
+  <h3 class="mt-4 text-sm font-medium">{{T "Top users"}}</h3>
+  <ul class="mt-1 divide-y divide-line">{{range .Top}}{{$u := .}}<li class="flex items-center gap-3 py-2 text-sm">
+    <span class="min-w-0 flex-1 truncate">{{if $u.Href}}<a class="link" href="{{$u.Href}}">{{$u.Name}}</a>{{else}}{{$u.Name}}{{end}}</span>
+    <span class="shrink-0 tabular-nums">{{$u.Total}}</span>
+    <span class="block h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-surface-2" aria-hidden="true"><span class="block h-full bg-info-fg" style="width: {{$u.Pct}}%"></span></span>
+  </li>{{end}}</ul>
+  {{end}}
+</div>{{end}}

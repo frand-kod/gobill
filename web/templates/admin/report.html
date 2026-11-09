@@ -29,6 +29,16 @@
     <table class="table"><thead><tr><th>{{T "Method"}}</th><th>{{T "Count"}}</th><th>{{T "Total"}}</th></tr></thead><tbody>
       {{range .ByMethod}}<tr><td>{{.Name}}</td><td>{{.Count}}</td><td>{{money .Sum}}</td></tr>{{end}}</tbody></table>
   </div>
+  {{if .ShowUsage}}
+  <section class="border-t border-line" aria-labelledby="usage-title">
+    <div class="flex flex-wrap items-center justify-between gap-2 px-3 pt-3">
+      <h2 class="card-title" id="usage-title">{{T "Usage"}}</h2>
+      <a class="btn btn-ghost" href="/admin/reports/usage.csv?{{.UsageQuery}}">{{T "Export usage CSV"}}</a>
+    </div>
+    <p class="px-3 pt-2 text-sm text-ink-2">{{T "Counts RADIUS sessions only. The type, method, router and plan filters do not apply."}}</p>
+    {{if .UsageErr}}<p class="px-3 py-3 text-sm text-ink-2">{{T "Data could not be loaded"}}</p>{{else}}{{template "usage-win" .Usage}}{{end}}
+  </section>
+  {{end}}
   <div class="overflow-x-auto">
     <table class="table">
       <thead><tr><th>{{T "Invoice"}}</th><th>{{T "Username"}}</th><th>{{T "Plan Name"}}</th><th>{{T "Type"}}</th><th>{{T "Plan Price"}}</th><th>{{T "Method"}}</th><th>{{T "Routers"}}</th><th>{{T "Created On"}}</th><th>{{T "Expires On"}}</th></tr></thead>

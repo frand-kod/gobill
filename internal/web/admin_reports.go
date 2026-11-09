@@ -5,6 +5,7 @@ package web
 import (
 	"context"
 	"encoding/csv"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -32,7 +33,14 @@ type reportData struct {
 	Company, Query, Base           string
 	Nav                            pageNav // row table pager
 	Truncated                      bool    // print: rows capped at reportPrintCap
+	// Usage section of the Period Report, managers only (like the dashboard Usage card)
+	ShowUsage, UsageErr bool
+	Usage               usageWin
+	UsageQuery          string // from and to for the usage CSV link
 }
+
+// reportUsageTop is how many heaviest users the Period Report lists.
+const reportUsageTop = 20
 
 const agentDepositMethod = "Agent - Deposit"
 
@@ -55,11 +63,12 @@ func parseDay(s string, loc *time.Location, def time.Time) time.Time {
 func (s *Server) reportFilter(r *http.Request, period bool) (reportData, db.ReportTransactionsParams) {
 	q := r.URL.Query()
 	loc := s.location()
-	today := time.Now().In(loc)
-	today = time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, loc)
+	now := s.now().In(loc)
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	from, to := parseDay(q.Get("date"), loc, today), time.Time{}
 	if period {
-		from = parseDay(q.Get("from"), loc, today.AddDate(0, 0, -30))
+		start, _ := s.cycleStart(r.Context(), now) // the dashboard's income period, so the numbers match
+		from = parseDay(q.Get("from"), loc, start)
 		to = parseDay(q.Get("to"), loc, today)
 	} else {
 		to = from
@@ -78,6 +87,7 @@ func (s *Server) reportFilter(r *http.Request, period bool) (reportData, db.Repo
 		v.Set("date", d.From)
 	}
 	d.Query = v.Encode()
+	d.UsageQuery = url.Values{"from": {d.From}, "to": {d.To}}.Encode()
 	return d, db.ReportTransactionsParams{FromTs: from.Unix(), ToTs: to.AddDate(0, 0, 1).Unix(), Type: d.Type, Method: d.Method, RouterName: d.Router, PlanID: planID}
 }
 
@@ -125,8 +135,31 @@ func (s *Server) reportLoad(r *http.Request, period bool) (reportData, db.Report
 
 // reportRows reads rows of the filtered report in date order.
 func (s *Server) reportRows(ctx context.Context, a db.ReportTransactionsParams, limit, offset int64) ([]db.Transaction, error) {
-	return s.queries.ReportTransactionsPage(ctx, db.ReportTransactionsPageParams{FromTs: a.FromTs, ToTs: a.ToTs, Type: a.Type,
+	rows, err := s.queries.ReportTransactionsPage(ctx, db.ReportTransactionsPageParams{FromTs: a.FromTs, ToTs: a.ToTs, Type: a.Type,
 		Method: a.Method, RouterName: a.RouterName, PlanID: a.PlanID, PageLimit: limit, PageOffset: offset})
+	out := make([]db.Transaction, len(rows)) // the view's row type has the same fields
+	for i, x := range rows {
+		out[i] = db.Transaction(x)
+	}
+	return out, err
+}
+
+// maxUsageDays caps the usage range: one bar per day. ponytail: a longer range shows its last 366 days;
+// aggregate by week or month if anyone needs years.
+const maxUsageDays = 366
+
+// usageBounds is the first and last day of the usage section for the report range (d.From, d.To).
+// ok is false when the range is backwards.
+func (s *Server) usageBounds(d reportData) (from, to time.Time, ok bool) {
+	loc := s.location()
+	from, to = parseDay(d.From, loc, time.Time{}), parseDay(d.To, loc, time.Time{})
+	if to.Before(from) {
+		return from, to, false
+	}
+	if first := to.AddDate(0, 0, -(maxUsageDays - 1)); from.Before(first) {
+		from = first
+	}
+	return from, to, true
 }
 
 func isPeriod(r *http.Request) bool {
@@ -178,6 +211,16 @@ func (s *Server) reportPage(period bool) http.HandlerFunc {
 		title := "Daily Report"
 		if period {
 			title = "Period Report"
+			// RADIUS usage over the range, managers only like the dashboard Usage card. The router, plan,
+			// type and method filters do not apply: radius_usage_daily has no such columns.
+			if d.ShowUsage = ctxIsManager(r.Context()); d.ShowUsage {
+				if from, to, ok := s.usageBounds(d); !ok {
+					d.Usage = usageWin{Empty: true}
+				} else if d.Usage, err = s.usageRange(r.Context(), from, to, s.location(), reportUsageTop); err != nil {
+					slog.Error("report usage", "err", err)
+					d.UsageErr = true
+				}
+			}
 		}
 		s.render(w, r, 200, "report", Page{Title: title, Data: d})
 	}
@@ -236,6 +279,31 @@ func (s *Server) reportExport(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, p := range pays { // agent deposits, so the file adds up to the report total
 		rec := []string{"AGENT-" + strconv.FormatInt(p.ID, 10), p.AgentName, "", "", strconv.FormatInt(p.Amount, 10), agentDepositMethod, "", s.ts(p.CreatedAt), ""}
+		csvSafe(rec)
+		cw.Write(rec)
+	}
+	cw.Flush()
+}
+
+// usageExport is the usage CSV: one row per user per day in the Period Report range (radius_usage_daily).
+// Managers only, like the dashboard Usage card.
+func (s *Server) usageExport(w http.ResponseWriter, r *http.Request) {
+	d, _ := s.reportFilter(r, true)
+	from, to, ok := s.usageBounds(d)
+	var rows []db.ListRadiusUsageDailyRangeRow
+	if ok {
+		var err error
+		if rows, err = s.queries.ListRadiusUsageDailyRange(r.Context(), db.ListRadiusUsageDailyRangeParams{Since: from.Format("2006-01-02"), Until: to.Format("2006-01-02")}); err != nil {
+			s.fail(w, "usage export", err)
+			return
+		}
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="usage-`+d.From+`_`+d.To+`.csv"`)
+	cw := csv.NewWriter(w)
+	cw.Write([]string{"Day", "Username", "Download bytes", "Upload bytes", "Total bytes"})
+	for _, x := range rows {
+		rec := []string{x.Day, x.Username, strconv.FormatInt(x.OutputOctets, 10), strconv.FormatInt(x.InputOctets, 10), strconv.FormatInt(x.InputOctets+x.OutputOctets, 10)}
 		csvSafe(rec)
 		cw.Write(rec)
 	}

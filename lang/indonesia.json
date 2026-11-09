@@ -2953,5 +2953,7 @@
     "The session log holds more used data or time than the plan counts": "Log sesi mencatat data atau waktu terpakai lebih banyak dari hitungan paket",
     "The session log holds more used data or time than the plan counts: use More > Recount usage": "Log sesi mencatat data atau waktu terpakai lebih banyak dari hitungan paket: pakai Lainnya > Hitung ulang pemakaian",
     "Raise used data and time to what the session log holds? Counters are never lowered.": "Naikkan data dan waktu terpakai ke angka di log sesi? Counter tidak pernah diturunkan.",
-    "paid for an unknown payment, check the logs": "dibayar untuk pembayaran yang tidak dikenal, cek log"
+    "paid for an unknown payment, check the logs": "dibayar untuk pembayaran yang tidak dikenal, cek log",
+    "Export usage CSV": "Ekspor CSV pemakaian",
+    "Counts RADIUS sessions only. The type, method, router and plan filters do not apply.": "Hanya menghitung sesi RADIUS. Filter tipe, metode, router, dan paket tidak berlaku."
 }

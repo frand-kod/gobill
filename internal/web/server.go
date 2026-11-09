@@ -99,6 +99,7 @@ type Server struct {
 	// admin bell counts, cached for noticeCacheFor, see bellItems
 	noticeMu    sync.Mutex
 	noticeAt    time.Time
+	clock       func() time.Time // tests set it; nil is the wall clock, see now
 	noticeItems []attnItem
 
 	idle      atomic.Int64 // admin idle timeout in ns, see ReloadSessionSettings
@@ -187,6 +188,14 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 }
 
 // location is the billing zone; UTC until a billing service is set.
+// now is the current time; tests set s.clock to fix it.
+func (s *Server) now() time.Time {
+	if s.clock != nil {
+		return s.clock()
+	}
+	return time.Now()
+}
+
 func (s *Server) location() *time.Location {
 	if s.Billing != nil {
 		return s.Billing.Location()

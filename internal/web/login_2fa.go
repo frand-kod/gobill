@@ -53,7 +53,7 @@ func (s *Server) login2FASubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	// Same throttle keys as the password step: 2FA guesses count against the IP and the account.
 	ip, uk := clientIP(r), "u:"+strings.ToLower(admin.Username)
-	if s.loginLocked(ip, admin.Username) {
+	if !s.loginReserve(ip, admin.Username) {
 		s.render(w, r, http.StatusTooManyRequests, "login_2fa", Page{
 			Title: "Two-factor login",
 			Error: "Too many failed attempts. Try again in 15 minutes.",
@@ -73,7 +73,6 @@ func (s *Server) login2FASubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	if !ok {
 		metrics.Inc("login_failures_total", "scope", "2fa")
-		s.loginFailed(ip, admin.Username)
 		s.recordFailure(uk)
 		s.recordFailure(ak)
 		if tries := s.sessions.GetInt64(ctx, "pending_2fa_tries") + 1; tries >= max2FAPerLogin {
@@ -88,6 +87,7 @@ func (s *Server) login2FASubmit(w http.ResponseWriter, r *http.Request) {
 		s.render(w, r, http.StatusOK, "login_2fa", Page{Title: "Two-factor login", Error: "Invalid code"})
 		return
 	}
+	s.loginForgive(ip, admin.Username)
 	s.clearFailures(loginKey(ip, admin.Username))
 	s.clearFailures(uk)
 	s.clearFailures(ak)

@@ -30,7 +30,8 @@ const unreadInboxDays = 180
 const radiusStaleAfter = time.Hour
 
 // CleanLog deletes rows of one log kind older than days and returns how many. For radius only
-// CLOSED sessions are removed: open ones are live data. days <= 0 does nothing.
+// CLOSED sessions are removed: open ones are live data. radius_usage_daily is app data, not a log, and is
+// never touched here. days <= 0 does nothing.
 func (s *Service) CleanLog(ctx context.Context, kind string, days int) (int64, error) {
 	if days <= 0 {
 		return 0, nil
@@ -40,9 +41,6 @@ func (s *Service) CleanLog(ctx context.Context, kind string, days int) (int64, e
 	case "activity":
 		return s.Q.DeleteActivityLogsBefore(ctx, cut)
 	case "radius":
-		if _, err := s.Q.DeleteRadiusUsageDailyBefore(ctx, time.Unix(cut, 0).In(s.Location()).Format("2006-01-02")); err != nil {
-			return 0, err
-		}
 		return s.Q.DeleteRadiusSessionsClosedBefore(ctx, sql.NullInt64{Int64: cut, Valid: true})
 	case "messages":
 		return s.Q.DeleteMessageLogsBefore(ctx, cut)

@@ -154,6 +154,17 @@ The daily summary is sent to the operator, not to customers. Its settings are in
 
 The summary is sent once a day. The last date is stored in `daily_summary_last`, so restarts are safe. The summary is postponed if the system clock is not trusted. The button "Send summary now" in **Settings > Notifications** is used for test runs.
 
+## Reports
+
+**Reports > Period Report** shows income for a date range. Without a range it opens on the dashboard income period: from the first day of the month, or from `reset_day` when set, up to today. The dashboard card Income this period shows the same number.
+
+SuperAdmin and Admin also see a **Usage** section on the Period Report. It shows download and upload for the range, a bar per day and the top 20 users. **Export usage CSV** gives one row per user per day with download, upload and total bytes.
+
+- Usage comes from the daily RADIUS counters only. It does not read the session log, so cleaning the log does not change it.
+- The type, method, router and plan filters do not apply to usage.
+- The chart and CSV cover at most the last 366 days of the range.
+- The Report role sees income only, not usage.
+
 ## See also
 
 - [Integrations](integrations.md): Telegram and WhatsApp channels, and connection tests.

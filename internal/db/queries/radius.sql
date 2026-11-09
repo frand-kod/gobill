@@ -183,24 +183,22 @@ WHERE (username = sqlc.arg(name1) OR username = sqlc.arg(name2)) AND day >= sqlc
 GROUP BY day;
 
 -- name: SumRadiusUsageDailyByDay :many
--- All users' octets per day since day.
+-- All users' octets per day from since to until (YYYY-MM-DD, both included).
 SELECT day, CAST(SUM(input_octets) AS INTEGER) AS input, CAST(SUM(output_octets) AS INTEGER) AS output FROM radius_usage_daily
-WHERE day >= sqlc.arg(since)
+WHERE day >= sqlc.arg(since) AND day <= sqlc.arg(until)
 GROUP BY day ORDER BY day;
 
 -- name: TopRadiusUsageDaily :many
--- The users with the most octets (up + down) since day.
+-- The users with the most octets (up + down) from since to until.
 SELECT username, CAST(SUM(input_octets) AS INTEGER) AS input, CAST(SUM(output_octets) AS INTEGER) AS output FROM radius_usage_daily
-WHERE day >= sqlc.arg(since)
+WHERE day >= sqlc.arg(since) AND day <= sqlc.arg(until)
 GROUP BY username ORDER BY SUM(input_octets + output_octets) DESC LIMIT sqlc.arg(row_limit);
 
--- name: DeleteRadiusUsageDailyBefore :execrows
-DELETE FROM radius_usage_daily WHERE day < ?;
-
--- name: SumRadiusOctetsByUsers :one
--- Upload (input) and download (output) octets of the customer's login names since started_at.
-SELECT CAST(COALESCE(SUM(input_octets), 0) AS INTEGER) AS input, CAST(COALESCE(SUM(output_octets), 0) AS INTEGER) AS output FROM radius_sessions
-WHERE (username = sqlc.arg(name1) OR username = sqlc.arg(name2)) AND started_at >= sqlc.arg(started_at);
+-- name: ListRadiusUsageDailyRange :many
+-- One row per user per day from since to until, for the usage CSV.
+SELECT day, username, input_octets, output_octets FROM radius_usage_daily
+WHERE day >= sqlc.arg(since) AND day <= sqlc.arg(until)
+ORDER BY day, username;
 
 -- name: GetIsolirPlan :one
 -- The isolir plan as a RADIUS plan (its profile and pool). The isolation window comes from isolations.

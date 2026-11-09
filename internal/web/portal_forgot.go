@@ -114,7 +114,7 @@ func otpWait(sentAt, now int64) int64 {
 
 // forgotClear drops the whole forgot-password state.
 func (s *Server) forgotClear(r *http.Request) {
-	for _, k := range []string{"forgot_user", "forgot_hash", "forgot_exp", "forgot_tries", "forgot_ok", "forgot_at"} {
+	for _, k := range []string{"forgot_user", "forgot_hash", "forgot_exp", "forgot_ok", "forgot_at"} {
 		s.sessions.Remove(r.Context(), k)
 	}
 }
@@ -179,7 +179,6 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 	s.sessions.Put(ctx, "forgot_user", username)
 	s.sessions.Put(ctx, "forgot_hash", string(hash))
 	s.sessions.Put(ctx, "forgot_exp", time.Now().Add(otpTTL).Unix())
-	s.sessions.Put(ctx, "forgot_tries", otpTries)
 	s.sessions.Put(ctx, "forgot_at", time.Now().Unix())
 	s.sessions.Remove(ctx, "forgot_ok")
 
@@ -225,28 +224,31 @@ func (s *Server) pForgotVerify(w http.ResponseWriter, r *http.Request) {
 		s.forgotRender(w, r, http.StatusOK, "", "Verification code is not available right now")
 		return
 	}
-	if s.tooManyFailures(ip) {
+	if s.reserve(ip, maxFailedLogins) < 0 {
 		s.forgotRender(w, r, http.StatusTooManyRequests, "", "Too many failed attempts. Try again in 15 minutes.")
 		return
 	}
 	if s.sessions.GetString(ctx, "forgot_user") == "" || time.Now().Unix() > s.sessions.GetInt64(ctx, "forgot_exp") {
+		s.unreserve(ip)
 		s.forgotClear(r)
 		s.forgotRender(w, r, http.StatusOK, "", "Invalid Username or Verification Code")
 		return
 	}
+	hash := s.sessions.GetString(ctx, "forgot_hash")
+	// The try count is per issued code and kept on the server: a session counter loses decrements
+	// when requests run in parallel.
+	left := s.reserve("otp:"+hash, otpTries)
 	code := strings.TrimSpace(r.PostFormValue("otp_code"))
-	if bcrypt.CompareHashAndPassword([]byte(s.sessions.GetString(ctx, "forgot_hash")), []byte(code)) != nil {
-		s.recordFailure(ip)
-		tries := s.sessions.GetInt(ctx, "forgot_tries") - 1
-		if tries <= 0 {
+	if left < 0 || bcrypt.CompareHashAndPassword([]byte(hash), []byte(code)) != nil {
+		if left <= 0 {
 			s.forgotClear(r)
 			s.forgotRender(w, r, http.StatusOK, "", "Too many invalid attempts, please request a new Verification Code")
 			return
 		}
-		s.sessions.Put(ctx, "forgot_tries", tries)
 		s.forgotRender(w, r, http.StatusOK, "", "Invalid Username or Verification Code")
 		return
 	}
+	s.clearFailures("otp:" + hash)
 	s.clearFailures(ip)
 	s.sessions.Put(ctx, "forgot_ok", true)
 	s.forgotRender(w, r, http.StatusOK, s.catalog.T(s.language(), "Verification Code Valid"), "")

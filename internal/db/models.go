@@ -152,6 +152,24 @@ type CustomersInbox struct {
 	CreatedAt  int64
 }
 
+type IncomeTransaction struct {
+	ID          int64
+	Invoice     string
+	CustomerID  sql.NullInt64
+	PlanID      sql.NullInt64
+	Username    string
+	PlanName    string
+	RouterName  string
+	Type        string
+	Price       int64
+	Method      string
+	Note        string
+	AdminID     sql.NullInt64
+	CreatedAt   int64
+	PeriodStart int64
+	PeriodEnd   int64
+}
+
 type InvoiceSeq struct {
 	ID int64
 	N  int64

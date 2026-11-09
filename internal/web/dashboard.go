@@ -72,23 +72,33 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// cycleStart is the first day of the income period containing now: the 1st of the month, or reset_day
+// (2 to 28) when set, as PHP dashboard.php:29-35. resetDay is 0 for the calendar month. The dashboard and the
+// Period Report both start here, so their numbers match.
+func (s *Server) cycleStart(ctx context.Context, now time.Time) (start time.Time, resetDay int) {
+	loc := s.location()
+	now = now.In(loc)
+	start = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+	if st, err := s.loadSettings(ctx); err == nil {
+		if rd, _ := strconv.Atoi(st["reset_day"]); rd > 1 && rd <= 28 {
+			resetDay = rd
+			start = start.AddDate(0, 0, rd-1)
+			if now.Day() < rd {
+				start = start.AddDate(0, -1, 0)
+			}
+		}
+	}
+	return
+}
+
 // dashboardData gathers the tiles and the per-month series of the last 12 months in the app location.
 func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, err error) {
 	loc := s.location()
 	now = now.In(loc)
 	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	month := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
-	// PHP dashboard.php:29-35: the "month" income runs from reset_day (default 1) to today.
-	start := month
-	if st, e := s.loadSettings(ctx); e == nil {
-		if rd, _ := strconv.Atoi(st["reset_day"]); rd > 1 && rd <= 28 {
-			d.ResetDay = rd
-			start = month.AddDate(0, 0, rd-1)
-			if now.Day() < rd {
-				start = start.AddDate(0, -1, 0)
-			}
-		}
-	}
+	start, rd := s.cycleStart(ctx, now)
+	d.ResetDay = rd
 	sum := func(from, to time.Time) (int64, error) {
 		return s.queries.SumTransactionsBetween(ctx, db.SumTransactionsBetweenParams{FromTs: from.Unix(), ToTs: to.Unix()})
 	}

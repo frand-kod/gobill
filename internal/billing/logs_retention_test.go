@@ -115,3 +115,23 @@ func TestLogCleanKeepsOpenPaymentsAWeek(t *testing.T) {
 		}
 	}
 }
+
+// Cleaning the RADIUS log removes old sessions only; the daily usage table is app data and stays.
+func TestCleanRadiusLogKeepsUsageDaily(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	old := e.now.AddDate(0, 0, -20).Format("2006-01-02")
+	if _, err := e.conn.ExecContext(ctx, `INSERT INTO radius_usage_daily (username, day, input_octets, output_octets) VALUES ('u', ?, 1, 2)`, old); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.s.CleanLog(ctx, "radius", 10); err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err := e.conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM radius_usage_daily").Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("usage rows = %d after radius log clean, want 1", n)
+	}
+}
