@@ -8,6 +8,8 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-11-09
+
 ### Perbaikan
 
 - **Membersihkan log RADIUS tidak lagi menghapus data usage.** Sebelumnya `radius_usage_daily` ikut terhapus dengan cutoff yang sama, jadi card Usage dan grafik usage berkurang. Kini pembersihan log hanya menghapus session yang sudah ditutup. Usage harian adalah data aplikasi dan disimpan terus. Data yang sudah terhapus tidak bisa dihitung ulang; pulihkan dari backup jika perlu.
