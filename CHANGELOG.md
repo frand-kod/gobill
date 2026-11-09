@@ -8,6 +8,10 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Perbaikan
+
+- **Print dan Export CSV di laporan kini memakai periode yang dipilih.** Sebelumnya tanda `=` dan `&` di link ikut di-escape. Akibatnya filter hilang, dan Print selalu menampilkan laporan harian hari ini. Link Export usage CSV juga diperbaiki.
+
 ## [0.3.3] - 2026-11-09
 
 ### Fitur

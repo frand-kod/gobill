@@ -5,6 +5,7 @@ package web
 import (
 	"context"
 	"encoding/csv"
+	"html/template"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -30,13 +31,16 @@ type reportData struct {
 	Count, RowCount                int // RowCount: transaction rows (pager); Count adds the agent deposits
 	Sum                            int64
 	ByType, ByMethod               []repTotal
-	Company, Query, Base           string
-	Nav                            pageNav // row table pager
-	Truncated                      bool    // print: rows capped at reportPrintCap
+	Company, Base                  string
+	// Query reproduces this report for the export, print and page links. template.URL: it is url.Values.Encode
+	// output, and html/template would otherwise escape its = and & so the links lose the filter.
+	Query     template.URL
+	Nav       pageNav // row table pager
+	Truncated bool    // print: rows capped at reportPrintCap
 	// Usage section of the Period Report, managers only (like the dashboard Usage card)
 	ShowUsage, UsageErr bool
 	Usage               usageWin
-	UsageQuery          string // from and to for the usage CSV link
+	UsageQuery          template.URL // from and to for the usage CSV link
 }
 
 // reportUsageTop is how many heaviest users the Period Report lists.
@@ -86,8 +90,8 @@ func (s *Server) reportFilter(r *http.Request, period bool) (reportData, db.Repo
 	} else {
 		v.Set("date", d.From)
 	}
-	d.Query = v.Encode()
-	d.UsageQuery = url.Values{"from": {d.From}, "to": {d.To}}.Encode()
+	d.Query = template.URL(v.Encode())
+	d.UsageQuery = template.URL(url.Values{"from": {d.From}, "to": {d.To}}.Encode())
 	return d, db.ReportTransactionsParams{FromTs: from.Unix(), ToTs: to.AddDate(0, 0, 1).Unix(), Type: d.Type, Method: d.Method, RouterName: d.Router, PlanID: planID}
 }
 
@@ -185,7 +189,7 @@ func (s *Server) reportPage(period bool) http.HandlerFunc {
 		}
 		// d.Count is the number of rows the filter matches (the totals are computed over all of them)
 		d.Nav = newPageNav(pg, int64(d.RowCount), len(rows), more, func(page, per int) string {
-			href := d.Base + "?" + d.Query + "&page=" + strconv.Itoa(page)
+			href := d.Base + "?" + string(d.Query) + "&page=" + strconv.Itoa(page)
 			if per != perPage {
 				href += "&per=" + strconv.Itoa(per)
 			}
