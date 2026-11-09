@@ -149,18 +149,6 @@ func (q *Queries) DeleteNAS(ctx context.Context, id int64) error {
 	return err
 }
 
-const deleteRadiusUsageDailyBefore = `-- name: DeleteRadiusUsageDailyBefore :execrows
-DELETE FROM radius_usage_daily WHERE day < ?
-`
-
-func (q *Queries) DeleteRadiusUsageDailyBefore(ctx context.Context, day string) (int64, error) {
-	result, err := q.db.ExecContext(ctx, deleteRadiusUsageDailyBefore, day)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
 const getCustomerForRadius = `-- name: GetCustomerForRadius :one
 SELECT id, username, password_hash, fullname, address, phone, email, balance, service_type, pppoe_username, pppoe_ip, secret_enc, billing_day, auto_renewal, status, created_by, created_at, last_login_at, session_version, coordinates FROM customers
 WHERE (username = ?1 OR (pppoe_username <> '' AND pppoe_username = ?1)) AND status = 'Active'
@@ -1020,6 +1008,53 @@ func (q *Queries) ListRadiusUsageDaily(ctx context.Context, arg ListRadiusUsageD
 	return items, nil
 }
 
+const listRadiusUsageDailyRange = `-- name: ListRadiusUsageDailyRange :many
+SELECT day, username, input_octets, output_octets FROM radius_usage_daily
+WHERE day >= ?1 AND day <= ?2
+ORDER BY day, username
+`
+
+type ListRadiusUsageDailyRangeParams struct {
+	Since string
+	Until string
+}
+
+type ListRadiusUsageDailyRangeRow struct {
+	Day          string
+	Username     string
+	InputOctets  int64
+	OutputOctets int64
+}
+
+// One row per user per day from since to until, for the usage CSV.
+func (q *Queries) ListRadiusUsageDailyRange(ctx context.Context, arg ListRadiusUsageDailyRangeParams) ([]ListRadiusUsageDailyRangeRow, error) {
+	rows, err := q.db.QueryContext(ctx, listRadiusUsageDailyRange, arg.Since, arg.Until)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRadiusUsageDailyRangeRow
+	for rows.Next() {
+		var i ListRadiusUsageDailyRangeRow
+		if err := rows.Scan(
+			&i.Day,
+			&i.Username,
+			&i.InputOctets,
+			&i.OutputOctets,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRecentRadiusSessionsByUser = `-- name: ListRecentRadiusSessionsByUser :many
 SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets, terminate_cause, nas_port_id FROM radius_sessions WHERE username = ? ORDER BY started_at DESC LIMIT 10
 `
@@ -1214,30 +1249,6 @@ func (q *Queries) StopRadiusSession(ctx context.Context, arg StopRadiusSessionPa
 	return err
 }
 
-const sumRadiusOctetsByUsers = `-- name: SumRadiusOctetsByUsers :one
-SELECT CAST(COALESCE(SUM(input_octets), 0) AS INTEGER) AS input, CAST(COALESCE(SUM(output_octets), 0) AS INTEGER) AS output FROM radius_sessions
-WHERE (username = ?1 OR username = ?2) AND started_at >= ?3
-`
-
-type SumRadiusOctetsByUsersParams struct {
-	Name1     string
-	Name2     string
-	StartedAt int64
-}
-
-type SumRadiusOctetsByUsersRow struct {
-	Input  int64
-	Output int64
-}
-
-// Upload (input) and download (output) octets of the customer's login names since started_at.
-func (q *Queries) SumRadiusOctetsByUsers(ctx context.Context, arg SumRadiusOctetsByUsersParams) (SumRadiusOctetsByUsersRow, error) {
-	row := q.db.QueryRowContext(ctx, sumRadiusOctetsByUsers, arg.Name1, arg.Name2, arg.StartedAt)
-	var i SumRadiusOctetsByUsersRow
-	err := row.Scan(&i.Input, &i.Output)
-	return i, err
-}
-
 const sumRadiusSessionTime = `-- name: SumRadiusSessionTime :one
 SELECT CAST(COALESCE(SUM(COALESCE(stopped_at, updated_at) - started_at), 0) AS INTEGER) FROM radius_sessions
 WHERE username = ? AND started_at >= ?
@@ -1275,9 +1286,14 @@ func (q *Queries) SumRadiusUsage(ctx context.Context, arg SumRadiusUsageParams) 
 
 const sumRadiusUsageDailyByDay = `-- name: SumRadiusUsageDailyByDay :many
 SELECT day, CAST(SUM(input_octets) AS INTEGER) AS input, CAST(SUM(output_octets) AS INTEGER) AS output FROM radius_usage_daily
-WHERE day >= ?1
+WHERE day >= ?1 AND day <= ?2
 GROUP BY day ORDER BY day
 `
+
+type SumRadiusUsageDailyByDayParams struct {
+	Since string
+	Until string
+}
 
 type SumRadiusUsageDailyByDayRow struct {
 	Day    string
@@ -1285,9 +1301,9 @@ type SumRadiusUsageDailyByDayRow struct {
 	Output int64
 }
 
-// All users' octets per day since day.
-func (q *Queries) SumRadiusUsageDailyByDay(ctx context.Context, since string) ([]SumRadiusUsageDailyByDayRow, error) {
-	rows, err := q.db.QueryContext(ctx, sumRadiusUsageDailyByDay, since)
+// All users' octets per day from since to until (YYYY-MM-DD, both included).
+func (q *Queries) SumRadiusUsageDailyByDay(ctx context.Context, arg SumRadiusUsageDailyByDayParams) ([]SumRadiusUsageDailyByDayRow, error) {
+	rows, err := q.db.QueryContext(ctx, sumRadiusUsageDailyByDay, arg.Since, arg.Until)
 	if err != nil {
 		return nil, err
 	}
@@ -1311,12 +1327,13 @@ func (q *Queries) SumRadiusUsageDailyByDay(ctx context.Context, since string) ([
 
 const topRadiusUsageDaily = `-- name: TopRadiusUsageDaily :many
 SELECT username, CAST(SUM(input_octets) AS INTEGER) AS input, CAST(SUM(output_octets) AS INTEGER) AS output FROM radius_usage_daily
-WHERE day >= ?1
-GROUP BY username ORDER BY SUM(input_octets + output_octets) DESC LIMIT ?2
+WHERE day >= ?1 AND day <= ?2
+GROUP BY username ORDER BY SUM(input_octets + output_octets) DESC LIMIT ?3
 `
 
 type TopRadiusUsageDailyParams struct {
 	Since    string
+	Until    string
 	RowLimit int64
 }
 
@@ -1326,9 +1343,9 @@ type TopRadiusUsageDailyRow struct {
 	Output   int64
 }
 
-// The users with the most octets (up + down) since day.
+// The users with the most octets (up + down) from since to until.
 func (q *Queries) TopRadiusUsageDaily(ctx context.Context, arg TopRadiusUsageDailyParams) ([]TopRadiusUsageDailyRow, error) {
-	rows, err := q.db.QueryContext(ctx, topRadiusUsageDaily, arg.Since, arg.RowLimit)
+	rows, err := q.db.QueryContext(ctx, topRadiusUsageDaily, arg.Since, arg.Until, arg.RowLimit)
 	if err != nil {
 		return nil, err
 	}

@@ -154,11 +154,12 @@ func (s *Server) docsRoutes(mux *http.ServeMux, all func(http.Handler) http.Hand
 	mux.Handle("GET /admin/docs/{slug}", all(http.HandlerFunc(s.docsPage)))
 }
 
-func (s *Server) reportRoutes(mux *http.ServeMux, all, noReport func(http.Handler) http.Handler) {
+func (s *Server) reportRoutes(mux *http.ServeMux, all, noReport, managers func(http.Handler) http.Handler) {
 	mux.Handle("GET /admin/reports", all(s.reportPage(false)))
 	mux.Handle("GET /admin/reports/period", all(s.reportPage(true)))
 	mux.Handle("GET /admin/reports/print", all(http.HandlerFunc(s.reportPrint)))
 	mux.Handle("GET /admin/reports/export", all(http.HandlerFunc(s.reportExport)))
+	mux.Handle("GET /admin/reports/usage.csv", managers(http.HandlerFunc(s.usageExport)))
 	mux.Handle("GET /admin/transactions/{id}/invoice", noReport(http.HandlerFunc(s.trxInvoice)))
 }
 
@@ -317,7 +318,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /admin/maps/odp/data", managers(http.HandlerFunc(s.mapODPData)))
 
 	// reports and logs
-	s.reportRoutes(mux, all, noReport)
+	s.reportRoutes(mux, all, noReport, managers)
 	s.docsRoutes(mux, all)
 	mux.Handle("GET /admin/logs", managers(http.HandlerFunc(s.logList)))
 	mux.Handle("GET /admin/logs/radius", managers(http.HandlerFunc(s.radiusLog)))

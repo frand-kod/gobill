@@ -35,15 +35,12 @@ func (q *Queries) ReportAgentPayments(ctx context.Context, arg ReportAgentPaymen
 
 const reportTotals = `-- name: ReportTotals :one
 SELECT COUNT(*) AS cnt, CAST(COALESCE(SUM(price), 0) AS INTEGER) AS total
-FROM transactions
+FROM income_transactions
 WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?3 AS TEXT) = '' OR type = ?3)
   AND (CAST(?4 AS TEXT) = '' OR method = ?4)
   AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
-  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
-  -- redeeming a consignment voucher is the agent's sale; the operator's income is the deposit (ReportAgentPayments)
-  AND NOT (method LIKE 'Voucher - %' AND EXISTS (SELECT 1 FROM vouchers v JOIN agent_batch_vouchers bv ON bv.voucher_id = v.id WHERE v.code = substr(transactions.method, 11)))
 `
 
 type ReportTotalsParams struct {
@@ -77,15 +74,12 @@ func (q *Queries) ReportTotals(ctx context.Context, arg ReportTotalsParams) (Rep
 
 const reportTotalsByMethod = `-- name: ReportTotalsByMethod :many
 SELECT method AS name, COUNT(*) AS cnt, CAST(COALESCE(SUM(price), 0) AS INTEGER) AS total
-FROM transactions
+FROM income_transactions
 WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?3 AS TEXT) = '' OR type = ?3)
   AND (CAST(?4 AS TEXT) = '' OR method = ?4)
   AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
-  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
-  -- redeeming a consignment voucher is the agent's sale; the operator's income is the deposit (ReportAgentPayments)
-  AND NOT (method LIKE 'Voucher - %' AND EXISTS (SELECT 1 FROM vouchers v JOIN agent_batch_vouchers bv ON bv.voucher_id = v.id WHERE v.code = substr(transactions.method, 11)))
 GROUP BY method
 ORDER BY method
 `
@@ -137,15 +131,12 @@ func (q *Queries) ReportTotalsByMethod(ctx context.Context, arg ReportTotalsByMe
 
 const reportTotalsByType = `-- name: ReportTotalsByType :many
 SELECT type AS name, COUNT(*) AS cnt, CAST(COALESCE(SUM(price), 0) AS INTEGER) AS total
-FROM transactions
+FROM income_transactions
 WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?3 AS TEXT) = '' OR type = ?3)
   AND (CAST(?4 AS TEXT) = '' OR method = ?4)
   AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
-  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
-  -- redeeming a consignment voucher is the agent's sale; the operator's income is the deposit (ReportAgentPayments)
-  AND NOT (method LIKE 'Voucher - %' AND EXISTS (SELECT 1 FROM vouchers v JOIN agent_batch_vouchers bv ON bv.voucher_id = v.id WHERE v.code = substr(transactions.method, 11)))
 GROUP BY type
 ORDER BY type
 `
@@ -196,16 +187,12 @@ func (q *Queries) ReportTotalsByType(ctx context.Context, arg ReportTotalsByType
 }
 
 const reportTransactions = `-- name: ReportTransactions :many
-SELECT id, invoice, customer_id, plan_id, username, plan_name, router_name, type, price, method, note, admin_id, created_at, period_start, period_end FROM transactions
+SELECT id, invoice, customer_id, plan_id, username, plan_name, router_name, type, price, method, note, admin_id, created_at, period_start, period_end FROM income_transactions
 WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?3 AS TEXT) = '' OR type = ?3)
   AND (CAST(?4 AS TEXT) = '' OR method = ?4)
   AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
-  -- income = SumTransactionsBetween: purchases paid from balance (the top-up already counted) and gifts are not income
-  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
-  -- redeeming a consignment voucher is the agent's sale; the operator's income is the deposit (ReportAgentPayments)
-  AND NOT (method LIKE 'Voucher - %' AND EXISTS (SELECT 1 FROM vouchers v JOIN agent_batch_vouchers bv ON bv.voucher_id = v.id WHERE v.code = substr(transactions.method, 11)))
 ORDER BY created_at, id
 `
 
@@ -218,8 +205,9 @@ type ReportTransactionsParams struct {
 	PlanID     int64
 }
 
+// Reads income_transactions (migration 0042): balance moves, gifts and consignment redemptions are not income.
 // Empty / zero filter args match everything. Used by the CSV export (all rows).
-func (q *Queries) ReportTransactions(ctx context.Context, arg ReportTransactionsParams) ([]Transaction, error) {
+func (q *Queries) ReportTransactions(ctx context.Context, arg ReportTransactionsParams) ([]IncomeTransaction, error) {
 	rows, err := q.db.QueryContext(ctx, reportTransactions,
 		arg.FromTs,
 		arg.ToTs,
@@ -232,9 +220,9 @@ func (q *Queries) ReportTransactions(ctx context.Context, arg ReportTransactions
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Transaction
+	var items []IncomeTransaction
 	for rows.Next() {
-		var i Transaction
+		var i IncomeTransaction
 		if err := rows.Scan(
 			&i.ID,
 			&i.Invoice,
@@ -266,15 +254,12 @@ func (q *Queries) ReportTransactions(ctx context.Context, arg ReportTransactions
 }
 
 const reportTransactionsPage = `-- name: ReportTransactionsPage :many
-SELECT id, invoice, customer_id, plan_id, username, plan_name, router_name, type, price, method, note, admin_id, created_at, period_start, period_end FROM transactions
+SELECT id, invoice, customer_id, plan_id, username, plan_name, router_name, type, price, method, note, admin_id, created_at, period_start, period_end FROM income_transactions
 WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?3 AS TEXT) = '' OR type = ?3)
   AND (CAST(?4 AS TEXT) = '' OR method = ?4)
   AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
-  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
-  -- redeeming a consignment voucher is the agent's sale; the operator's income is the deposit (ReportAgentPayments)
-  AND NOT (method LIKE 'Voucher - %' AND EXISTS (SELECT 1 FROM vouchers v JOIN agent_batch_vouchers bv ON bv.voucher_id = v.id WHERE v.code = substr(transactions.method, 11)))
 ORDER BY created_at, id
 LIMIT ?8 OFFSET ?7
 `
@@ -291,7 +276,7 @@ type ReportTransactionsPageParams struct {
 }
 
 // Same filter and exclusions as ReportTransactions, one page of rows for the report table and print.
-func (q *Queries) ReportTransactionsPage(ctx context.Context, arg ReportTransactionsPageParams) ([]Transaction, error) {
+func (q *Queries) ReportTransactionsPage(ctx context.Context, arg ReportTransactionsPageParams) ([]IncomeTransaction, error) {
 	rows, err := q.db.QueryContext(ctx, reportTransactionsPage,
 		arg.FromTs,
 		arg.ToTs,
@@ -306,9 +291,9 @@ func (q *Queries) ReportTransactionsPage(ctx context.Context, arg ReportTransact
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Transaction
+	var items []IncomeTransaction
 	for rows.Next() {
-		var i Transaction
+		var i IncomeTransaction
 		if err := rows.Scan(
 			&i.ID,
 			&i.Invoice,

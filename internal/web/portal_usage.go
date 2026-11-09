@@ -135,13 +135,19 @@ type dayTotal struct {
 
 // dailyUsage lays the rows out as the last n days, today last.
 func dailyUsage(rows []dayTotal, n int, now int64, loc *time.Location) []dayUse {
-	first := dayStart(now, loc)
+	days := dailyRange(rows, dayStart(now, loc).AddDate(0, 0, -(n-1)), n)
+	days[n-1].Today = true
+	return days
+}
+
+// dailyRange lays the rows out as n days from first (a local midnight).
+func dailyRange(rows []dayTotal, first time.Time, n int) []dayUse {
 	days := make([]dayUse, n)
 	idx := make(map[string]int, n)
 	for i := range days {
-		d := first.AddDate(0, 0, i-(n-1))
-		days[i] = dayUse{Label: d.Format("2006-01-02"), Today: i == n-1}
-		idx[d.Format("2006-01-02")] = i
+		d := first.AddDate(0, 0, i).Format("2006-01-02")
+		days[i] = dayUse{Label: d}
+		idx[d] = i
 	}
 	for _, x := range rows {
 		if i, ok := idx[x.Day]; ok {

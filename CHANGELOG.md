@@ -10,6 +10,17 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [0.3.3] - 2026-11-09
 
+### Fitur
+
+- **Period Report punya bagian Usage.** Total unduh dan unggah untuk rentang tanggal, grafik per hari, dan 20 pengguna teratas. Datanya hanya dari `radius_usage_daily`, jadi tidak terpengaruh filter tipe, metode, router, dan paket, dan tidak terpengaruh pembersihan log. Hanya SuperAdmin dan Admin yang melihatnya, sama seperti card Usage di dashboard.
+- **Ekspor CSV usage** di `/admin/reports/usage.csv`: satu baris per pengguna per hari. Hanya untuk SuperAdmin dan Admin. Rentang dibatasi 366 hari terakhir.
+
+### Perubahan
+
+- **Period Report tanpa rentang kini mengikuti periode pendapatan dashboard.** Mulai dari tanggal 1 bulan ini atau `reset_day`, sampai hari ini. Dulu 30 hari terakhir.
+- **Definisi pendapatan ada di satu tempat.** View `income_transactions` (migrasi `0042`) dipakai dashboard dan semua query laporan. Hasilnya tidak berubah.
+- Query `DeleteRadiusUsageDailyBefore` dan `SumRadiusOctetsByUsers` yang tidak terpakai dihapus.
+
 ### Perbaikan
 
 - **Membersihkan log RADIUS tidak lagi menghapus data usage.** Sebelumnya `radius_usage_daily` ikut terhapus dengan cutoff yang sama, jadi card Usage dan grafik usage berkurang. Kini pembersihan log hanya menghapus session yang sudah ditutup. Usage harian adalah data aplikasi dan disimpan terus. Data yang sudah terhapus tidak bisa dihitung ulang; pulihkan dari backup jika perlu.

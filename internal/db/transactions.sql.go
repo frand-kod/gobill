@@ -375,9 +375,7 @@ func (q *Queries) SearchTransactions(ctx context.Context, arg SearchTransactions
 const sumTransactionsBetween = `-- name: SumTransactionsBetween :one
 SELECT CAST(COALESCE(SUM(price), 0) AS INTEGER) + CAST((SELECT COALESCE(SUM(amount), 0) FROM agent_ledger
     WHERE kind = 'payment' AND agent_ledger.created_at >= ?1 AND agent_ledger.created_at < ?2) AS INTEGER)
-FROM transactions WHERE transactions.created_at >= ?1 AND transactions.created_at < ?2
-  AND method <> 'Customer - Balance' AND method NOT LIKE 'Balance - Gift from%'
-  AND NOT (method LIKE 'Voucher - %' AND EXISTS (SELECT 1 FROM vouchers v JOIN agent_batch_vouchers bv ON bv.voucher_id = v.id WHERE v.code = substr(transactions.method, 11)))
+FROM income_transactions WHERE income_transactions.created_at >= ?1 AND income_transactions.created_at < ?2
 `
 
 type SumTransactionsBetweenParams struct {

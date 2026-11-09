@@ -158,8 +158,16 @@ const usageTopN = 3
 
 // usageWindow reads the RADIUS octets of all users over the last n days (radius_usage_daily).
 func (s *Server) usageWindow(ctx context.Context, now time.Time, loc *time.Location, n int) (usageWin, error) {
-	since := dayStart(now.Unix(), loc).AddDate(0, 0, -(n - 1)).Format("2006-01-02")
-	sums, err := s.queries.SumRadiusUsageDailyByDay(ctx, since)
+	today := dayStart(now.Unix(), loc)
+	return s.usageRange(ctx, today.AddDate(0, 0, -(n-1)), today, loc, usageTopN)
+}
+
+// usageRange reads the RADIUS octets of all users from the local day from to the local day to, both included
+// (radius_usage_daily only, never radius_sessions): the totals, a bar per day and the top heaviest users.
+func (s *Server) usageRange(ctx context.Context, from, to time.Time, loc *time.Location, top int) (usageWin, error) {
+	since, until := from.Format("2006-01-02"), to.Format("2006-01-02")
+	n := int(dayIndex(to, loc)-dayIndex(from, loc)) + 1
+	sums, err := s.queries.SumRadiusUsageDailyByDay(ctx, db.SumRadiusUsageDailyByDayParams{Since: since, Until: until})
 	if err != nil {
 		return usageWin{}, err
 	}
@@ -175,17 +183,17 @@ func (s *Server) usageWindow(ctx context.Context, now time.Time, loc *time.Locat
 	}
 	num, unit := humanBytesParts(down + up)
 	w := usageWin{Total: num + " " + unit, TotalNum: num, TotalUnit: unit, Down: humanBytes(down), Up: humanBytes(up),
-		Bars: chartBars(dailyUsage(totals, n, now.Unix(), loc))}
-	top, err := s.queries.TopRadiusUsageDaily(ctx, db.TopRadiusUsageDailyParams{Since: since, RowLimit: usageTopN})
+		Bars: chartBars(dailyRange(totals, from, n))}
+	rows, err := s.queries.TopRadiusUsageDaily(ctx, db.TopRadiusUsageDailyParams{Since: since, Until: until, RowLimit: int64(top)})
 	if err != nil {
 		return usageWin{}, err
 	}
 	// the query orders by total, so the first row is the heaviest user and fills the thin bars
 	peak := int64(1)
-	if len(top) > 0 {
-		peak = max(peak, top[0].Input+top[0].Output)
+	if len(rows) > 0 {
+		peak = max(peak, rows[0].Input+rows[0].Output)
 	}
-	for _, t := range top {
+	for _, t := range rows {
 		sum := t.Input + t.Output
 		u := usageTop{Name: t.Username, Total: humanBytes(sum), Pct: int(sum * 100 / peak)}
 		c, err := s.queries.GetCustomerByUsername(ctx, t.Username)
