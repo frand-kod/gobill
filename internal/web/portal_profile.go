@@ -121,7 +121,7 @@ func (s *Server) profilePage(w http.ResponseWriter, r *http.Request, code int, e
 }
 
 func (s *Server) contactClear(r *http.Request) {
-	for _, k := range []string{"ct_kind", "ct_val", "ct_hash", "ct_exp", "ct_tries"} {
+	for _, k := range []string{"ct_kind", "ct_val", "ct_hash", "ct_exp"} {
 		s.sessions.Remove(r.Context(), k)
 	}
 }
@@ -232,7 +232,6 @@ func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
 	s.sessions.Put(ctx, "ct_val", val)
 	s.sessions.Put(ctx, "ct_hash", string(hash))
 	s.sessions.Put(ctx, "ct_exp", time.Now().Add(otpTTL).Unix())
-	s.sessions.Put(ctx, "ct_tries", otpTries)
 	s.flashTo(w, r, "/portal/profile#verify", "Verification code sent")
 }
 
@@ -250,17 +249,20 @@ func (s *Server) pContactVerify(w http.ResponseWriter, r *http.Request) {
 		s.profilePage(w, r, 200, "Verification code expired")
 		return
 	}
-	if bcrypt.CompareHashAndPassword([]byte(s.sessions.GetString(ctx, "ct_hash")), []byte(strings.TrimSpace(r.PostFormValue("otp")))) != nil {
-		tries := s.sessions.GetInt(ctx, "ct_tries") - 1
-		if tries <= 0 {
+	// The try count is per issued code and kept on the server: a session counter loses decrements
+	// when requests run in parallel.
+	hash := s.sessions.GetString(ctx, "ct_hash")
+	left := s.reserve("otp:"+hash, otpTries)
+	if left < 0 || bcrypt.CompareHashAndPassword([]byte(hash), []byte(strings.TrimSpace(r.PostFormValue("otp")))) != nil {
+		if left <= 0 {
 			s.contactClear(r)
 			s.profilePage(w, r, 200, "Too many invalid attempts, please request a new Verification Code")
 			return
 		}
-		s.sessions.Put(ctx, "ct_tries", tries)
 		s.profilePage(w, r, 200, "Wrong Verification code")
 		return
 	}
+	s.clearFailures("otp:" + hash)
 	val := s.sessions.GetString(ctx, "ct_val")
 	s.contactClear(r)
 	phone, email := c.Phone, c.Email

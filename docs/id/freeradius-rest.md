@@ -39,7 +39,7 @@ Jika kedua pengaturan kosong, semua request ditolak dengan 403 dan gobill mencat
 
 Untuk mengirim secret dari FreeRADIUS 3, tambahkan header pada panggilan `rest`, misalnya di `sites-enabled/default`: `update control { REST-HTTP-Header += "X-Gobill-Secret: <secret>" }` sebelum `rest` di `authorize`, `post-auth`, dan `accounting`. Cocokkan sintaksnya dengan dokumentasi `rlm_rest` versi FreeRADIUS Anda. Jika header tidak bisa diatur, pakai `radius_rest_allow`.
 
-`X-Forwarded-For` hanya dipercaya jika `trust_proxy` = `yes` dan koneksi langsung datang dari loopback atau dari `trusted_proxies`. Allow-list selalu memakai alamat koneksi asli.
+`X-Forwarded-For` hanya dipercaya jika `trust_proxy` = `yes` dan koneksi langsung datang dari loopback atau dari `trusted_proxies`. Allow-list selalu memakai alamat koneksi asli. Request yang membawa `X-Forwarded-For`, `X-Real-IP`, `Forwarded` atau `CF-Connecting-IP` tidak pernah lolos allow-list. Alasannya, reverse proxy di host yang sama membuat semua klien internet terlihat sebagai 127.0.0.1. Jika FreeRADIUS lewat proxy, pakai `radius_rest_secret`.
 
 Endpoint ini tidak memakai CSRF karena dipanggil oleh mesin. Allow-list atau secret adalah pengamannya.
 

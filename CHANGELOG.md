@@ -8,6 +8,16 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Perbaikan
+
+- **Membersihkan log RADIUS tidak lagi menghapus data usage.** Sebelumnya `radius_usage_daily` ikut terhapus dengan cutoff yang sama, jadi card Usage dan grafik usage berkurang. Kini pembersihan log hanya menghapus session yang sudah ditutup. Usage harian adalah data aplikasi dan disimpan terus. Data yang sudah terhapus tidak bisa dihitung ulang; pulihkan dari backup jika perlu.
+
+### Keamanan
+
+- **`/radius.php` menolak request lewat proxy di jalur allow-list.** Reverse proxy di host yang sama (Nginx, Caddy, cloudflared) membuat semua klien internet terlihat sebagai `127.0.0.1`. Dengan `radius_rest_allow = 127.0.0.1`, siapa pun bisa menebak password customer, me-redeem voucher, dan menulis accounting palsu. Request yang membawa `X-Forwarded-For`, `X-Real-IP`, `Forwarded` atau `CF-Connecting-IP` kini ditolak di jalur allow-list. Jika FreeRADIUS lewat proxy, pakai `radius_rest_secret`.
+- **Gigaword dari `/radius.php` dibatasi** sebelum digeser 32 bit, jadi angka besar tidak wrap.
+- **Batas percobaan login dan OTP tahan request paralel.** Percobaan dihitung sebelum bcrypt, bukan sesudahnya. Batas OTP lupa password dan verifikasi kontak kini disimpan di server per kode, bukan di session. Berlaku untuk login admin, 2FA admin, login portal, OTP lupa password, dan OTP kontak.
+
 ## [0.3.2] - 2026-11-06
 
 Log hanya catatan: kuota dan pembayaran tidak lagi bergantung pada tabel yang dibersihkan retensi. Migrasi `0041`.

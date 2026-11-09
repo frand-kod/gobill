@@ -31,7 +31,7 @@ type loginData struct{ Username string }
 func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.PostFormValue("username"))
 	ip, uk := clientIP(r), "u:"+strings.ToLower(username)
-	if s.loginLocked(ip, username) {
+	if !s.loginReserve(ip, username) {
 		s.render(w, r, http.StatusTooManyRequests, "login", Page{
 			Title: "Admin sign in",
 			Error: "Too many failed attempts. Try again in 15 minutes.",
@@ -51,7 +51,6 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	passOK = passOK || (err == nil && s.legacyLogin(r.Context(), admin.ID, password))
 	if err != nil || !passOK || admin.Status != "Active" {
 		metrics.Inc("login_failures_total", "scope", "admin")
-		s.loginFailed(ip, username)
 		s.recordFailure(uk)
 		s.render(w, r, http.StatusOK, "login", Page{
 			Title: "Admin sign in",
@@ -61,6 +60,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.loginForgive(ip, username)
 	if admin.TotpEnabled == 1 {
 		// Failures are counted in the second step. Clearing them here would let a correct password reset the count.
 		if err := s.sessions.RenewToken(r.Context()); err != nil {
@@ -158,18 +158,49 @@ func (s *Server) tooManyFailures(ip string) bool {
 // per-IP cap ("~"+ip, never cleared by a success) still stops one IP spraying many usernames.
 func loginKey(ip, user string) string { return ip + "|" + strings.ToLower(strings.TrimSpace(user)) }
 
-func (s *Server) loginLocked(ip, user string) bool {
-	if s.tooManyFailures(loginKey(ip, user)) {
-		return true
-	}
+// reserve counts one attempt against key before the check runs and returns how many are left after it,
+// or -1 when key is already at limit. Check and count happen under one lock, so parallel requests
+// cannot all pass a check that a later recordFailure would have failed. A success that must not count
+// calls unreserve.
+func (s *Server) reserve(key string, limit int) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return len(s.recent("~"+ip)) >= maxFailedPerIP
+	n := len(s.recent(key))
+	if n >= limit {
+		return -1
+	}
+	s.failed[key] = append(s.failed[key], time.Now())
+	return limit - n - 1
 }
 
-func (s *Server) loginFailed(ip, user string) {
-	s.recordFailure(loginKey(ip, user))
-	s.recordFailure("~" + ip)
+// unreserve takes back the newest attempt reserve counted.
+func (s *Server) unreserve(key string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if l := s.recent(key); len(l) > 0 {
+		s.failed[key] = l[:len(l)-1]
+	}
+}
+
+// loginReserve counts one login attempt against ip|user and the loose per-IP cap, and says false when
+// either is over its limit. A correct password calls loginForgive, a wrong one leaves both counted.
+func (s *Server) loginReserve(ip, user string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	k, pk := loginKey(ip, user), "~"+ip
+	if len(s.recent(k)) >= maxFailedLogins || len(s.recent(pk)) >= maxFailedPerIP {
+		return false
+	}
+	now := time.Now()
+	s.failed[k] = append(s.failed[k], now)
+	s.failed[pk] = append(s.failed[pk], now)
+	return true
+}
+
+// loginForgive takes back the attempt loginReserve counted, for a correct password.
+func (s *Server) loginForgive(ip, user string) {
+	s.unreserve(loginKey(ip, user))
+	s.unreserve("~" + ip)
 }
 
 // userDelay slows guessing against one username, whatever the client IP, by loginDelayStep per recent
@@ -199,7 +230,7 @@ func (s *Server) lockedCount() int {
 	defer s.mu.Unlock()
 	n := 0
 	for k := range s.failed {
-		if !strings.HasPrefix(k, "u:") && !strings.HasPrefix(k, "~") && !strings.HasPrefix(k, "cu:") && len(s.recent(k)) >= maxFailedLogins {
+		if !strings.HasPrefix(k, "u:") && !strings.HasPrefix(k, "~") && !strings.HasPrefix(k, "cu:") && !strings.HasPrefix(k, "otp:") && len(s.recent(k)) >= maxFailedLogins {
 			n++
 		}
 	}

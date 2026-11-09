@@ -38,6 +38,13 @@ func radiusRestAllowed(r *http.Request, m map[string]string) bool {
 	if allow == "" {
 		return false
 	}
+	// A reverse proxy on this host makes every internet client look like 127.0.0.1. FreeRADIUS sends
+	// no proxy headers, so a request that carries one was relayed and must use the secret instead.
+	for _, h := range []string{"X-Forwarded-For", "X-Real-IP", "Forwarded", "CF-Connecting-IP"} {
+		if r.Header.Get(h) != "" {
+			return false
+		}
+	}
 	a, ok := peerAddr(originalPeer(r))
 	if !ok {
 		return false
@@ -53,6 +60,12 @@ func radiusRestAllowed(r *http.Request, m map[string]string) bool {
 		}
 	}
 	return false
+}
+
+// restOctets folds a gigaword and octet pair from the form into one counter. Both are 32-bit on the
+// wire; clamping them first keeps gigawords<<32 from wrapping int64.
+func restOctets(giga, oct int64) int64 {
+	return min(max(giga, 0), 1<<31-1)<<32 | min(max(oct, 0), 1<<32-1)
 }
 
 func jsonOut(w http.ResponseWriter, code int, v any) {
@@ -149,8 +162,8 @@ func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
 		}
 		err := rs.Account(r.Context(), radius.AcctRequest{Type: typ, NAS: nas, NASIPAttr: r.FormValue("nasIpAddress"), NASID: r.FormValue("nasid"), SessionID: r.FormValue("acctSessionId"), NASPortID: r.FormValue("nasPortId"), User: user,
 			MAC: r.FormValue("macAddr"), FramedIP: r.FormValue("framedIPAddress"), SessionTime: n("acctSessionTime"),
-			InOctets:  n("acctInputGigawords")<<32 | n("acctInputOctets"),
-			OutOctets: n("acctOutputGigawords")<<32 | n("acctOutputOctets"), TerminateCause: terminateCause(r.FormValue("acctTerminateCause"))})
+			InOctets:  restOctets(n("acctInputGigawords"), n("acctInputOctets")),
+			OutOctets: restOctets(n("acctOutputGigawords"), n("acctOutputOctets")), TerminateCause: terminateCause(r.FormValue("acctTerminateCause"))})
 		if err != nil {
 			slog.Error("radius rest: accounting", "err", err)
 			jsonOut(w, 500, nil)

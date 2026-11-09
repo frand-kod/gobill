@@ -39,7 +39,7 @@ If neither setting is set, every request is refused with 403, and gobill writes 
 
 To send the secret from FreeRADIUS 3, add the header in the `rest` call, for example in `sites-enabled/default`: `update control { REST-HTTP-Header += "X-Gobill-Secret: <the secret>" }` before `rest` in `authorize`, `post-auth` and `accounting`. Check the syntax against your FreeRADIUS version's `rlm_rest` documentation. If you cannot set a header, use `radius_rest_allow` instead.
 
-`X-Forwarded-For` is trusted only if `trust_proxy` = `yes` and the direct connection comes from loopback or from `trusted_proxies`. The allow-list always uses the real connection address.
+`X-Forwarded-For` is trusted only if `trust_proxy` = `yes` and the direct connection comes from loopback or from `trusted_proxies`. The allow-list always uses the real connection address. A request that carries `X-Forwarded-For`, `X-Real-IP`, `Forwarded` or `CF-Connecting-IP` never passes the allow-list, because a reverse proxy on the same host makes every internet client look like 127.0.0.1. If FreeRADIUS reaches gobill through a proxy, use `radius_rest_secret`.
 
 This endpoint does not use CSRF protection, because machines call it. The allow-list is its protection.
 

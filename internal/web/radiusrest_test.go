@@ -216,8 +216,9 @@ func TestRadiusRestAllowList(t *testing.T) {
 	if c := spoof("8.8.8.8:1", "127.0.0.1"); c != 403 {
 		t.Fatalf("spoofed XFF 127.0.0.1 from a non-loopback peer accepted: %d", c)
 	}
-	if c := spoof("127.0.0.1:1", "8.8.8.8"); c != 200 {
-		t.Fatalf("loopback peer (FreeRADIUS via local proxy) refused: %d", c)
+	// a request relayed by a same-host proxy carries proxy headers: the allow-list refuses it, use the secret
+	if c := spoof("127.0.0.1:1", "8.8.8.8"); c != 403 {
+		t.Fatalf("proxied request passed the loopback allow-list: %d", c)
 	}
 }
 
@@ -275,8 +276,15 @@ func TestRadiusRestClosedByDefault(t *testing.T) {
 	if radiusRestAllowed(req("8.8.8.8:1", "X-Gobill-Secret", ""), map[string]string{}) {
 		t.Error("empty secret header matched an unset secret")
 	}
-	if !radiusRestAllowed(req("127.0.0.1:1", "X-Forwarded-For", "203.0.113.9"), map[string]string{"radius_rest_allow": "127.0.0.1"}) {
-		t.Error("an explicit allow-list keeps checking the TCP peer only")
+	// a same-host reverse proxy makes every client 127.0.0.1: a relayed request must not pass the allow-list
+	for _, h := range []string{"X-Forwarded-For", "X-Real-IP", "Forwarded", "CF-Connecting-IP"} {
+		if radiusRestAllowed(req("127.0.0.1:1", h, "203.0.113.9"), map[string]string{"radius_rest_allow": "127.0.0.1"}) {
+			t.Errorf("%s: proxied request passed the loopback allow-list", h)
+		}
+	}
+	// the secret still works through a proxy
+	if !radiusRestAllowed(req("127.0.0.1:1", "X-Forwarded-For", "203.0.113.9", "X-Gobill-Secret", "s3cret"), m) {
+		t.Error("secret refused behind a proxy")
 	}
 }
 
