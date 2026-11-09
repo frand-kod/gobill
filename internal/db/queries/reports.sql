@@ -1,11 +1,11 @@
 -- name: ReportTransactions :many
 -- Reads income_transactions (migration 0042): balance moves, gifts and consignment redemptions are not income.
--- Empty / zero filter args match everything. Used by the CSV export (all rows).
+-- The router arg '-radius' matches router_name '' (RADIUS plans have no router). Empty / zero filter args match everything. Used by the CSV export (all rows).
 SELECT * FROM income_transactions
 WHERE created_at >= sqlc.arg(from_ts) AND created_at < sqlc.arg(to_ts)
   AND (CAST(sqlc.arg(type) AS TEXT) = '' OR type = sqlc.arg(type))
   AND (CAST(sqlc.arg(method) AS TEXT) = '' OR method = sqlc.arg(method))
-  AND (CAST(sqlc.arg(router_name) AS TEXT) = '' OR router_name = sqlc.arg(router_name))
+  AND (CAST(sqlc.arg(router_name) AS TEXT) = '' OR router_name = CASE WHEN CAST(sqlc.arg(router_name) AS TEXT) = '-radius' THEN '' ELSE CAST(sqlc.arg(router_name) AS TEXT) END)
   AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR plan_id = sqlc.arg(plan_id))
 ORDER BY created_at, id;
 
@@ -15,7 +15,7 @@ SELECT * FROM income_transactions
 WHERE created_at >= sqlc.arg(from_ts) AND created_at < sqlc.arg(to_ts)
   AND (CAST(sqlc.arg(type) AS TEXT) = '' OR type = sqlc.arg(type))
   AND (CAST(sqlc.arg(method) AS TEXT) = '' OR method = sqlc.arg(method))
-  AND (CAST(sqlc.arg(router_name) AS TEXT) = '' OR router_name = sqlc.arg(router_name))
+  AND (CAST(sqlc.arg(router_name) AS TEXT) = '' OR router_name = CASE WHEN CAST(sqlc.arg(router_name) AS TEXT) = '-radius' THEN '' ELSE CAST(sqlc.arg(router_name) AS TEXT) END)
   AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR plan_id = sqlc.arg(plan_id))
 ORDER BY created_at, id
 LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
@@ -27,7 +27,7 @@ FROM income_transactions
 WHERE created_at >= sqlc.arg(from_ts) AND created_at < sqlc.arg(to_ts)
   AND (CAST(sqlc.arg(type) AS TEXT) = '' OR type = sqlc.arg(type))
   AND (CAST(sqlc.arg(method) AS TEXT) = '' OR method = sqlc.arg(method))
-  AND (CAST(sqlc.arg(router_name) AS TEXT) = '' OR router_name = sqlc.arg(router_name))
+  AND (CAST(sqlc.arg(router_name) AS TEXT) = '' OR router_name = CASE WHEN CAST(sqlc.arg(router_name) AS TEXT) = '-radius' THEN '' ELSE CAST(sqlc.arg(router_name) AS TEXT) END)
   AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR plan_id = sqlc.arg(plan_id));
 
 -- name: ReportTotalsByType :many
@@ -36,7 +36,7 @@ FROM income_transactions
 WHERE created_at >= sqlc.arg(from_ts) AND created_at < sqlc.arg(to_ts)
   AND (CAST(sqlc.arg(type) AS TEXT) = '' OR type = sqlc.arg(type))
   AND (CAST(sqlc.arg(method) AS TEXT) = '' OR method = sqlc.arg(method))
-  AND (CAST(sqlc.arg(router_name) AS TEXT) = '' OR router_name = sqlc.arg(router_name))
+  AND (CAST(sqlc.arg(router_name) AS TEXT) = '' OR router_name = CASE WHEN CAST(sqlc.arg(router_name) AS TEXT) = '-radius' THEN '' ELSE CAST(sqlc.arg(router_name) AS TEXT) END)
   AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR plan_id = sqlc.arg(plan_id))
 GROUP BY type
 ORDER BY type;
@@ -47,7 +47,7 @@ FROM income_transactions
 WHERE created_at >= sqlc.arg(from_ts) AND created_at < sqlc.arg(to_ts)
   AND (CAST(sqlc.arg(type) AS TEXT) = '' OR type = sqlc.arg(type))
   AND (CAST(sqlc.arg(method) AS TEXT) = '' OR method = sqlc.arg(method))
-  AND (CAST(sqlc.arg(router_name) AS TEXT) = '' OR router_name = sqlc.arg(router_name))
+  AND (CAST(sqlc.arg(router_name) AS TEXT) = '' OR router_name = CASE WHEN CAST(sqlc.arg(router_name) AS TEXT) = '-radius' THEN '' ELSE CAST(sqlc.arg(router_name) AS TEXT) END)
   AND (CAST(sqlc.arg(plan_id) AS INTEGER) = 0 OR plan_id = sqlc.arg(plan_id))
 GROUP BY method
 ORDER BY method;
@@ -57,3 +57,7 @@ ORDER BY method;
 SELECT COUNT(*) AS cnt, CAST(COALESCE(SUM(amount), 0) AS INTEGER) AS total
 FROM agent_ledger
 WHERE kind = 'payment' AND created_at >= sqlc.arg(from_ts) AND created_at < sqlc.arg(to_ts);
+
+-- name: ReportMethods :many
+-- Payment methods seen in income, for the report's method filter.
+SELECT DISTINCT method FROM income_transactions WHERE method <> '' ORDER BY method;

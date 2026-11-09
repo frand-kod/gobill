@@ -6,29 +6,68 @@
 <title>{{T .Title}}</title>
 <style>
 @page { size: A4; margin: 12mm; }
-body { font-family: sans-serif; font-size: 12px; margin: 1rem; }
-table { border-collapse: collapse; width: 100%; margin-bottom: 1rem; }
-th, td { border: 1px solid #999; padding: 3px 6px; text-align: start; }
+* { box-sizing: border-box; }
+body { font-family: sans-serif; font-size: 11px; color: #000; background: #fff; margin: 1rem auto; max-width: 210mm; }
+h1 { font-size: 18px; margin: 0; }
+h2 { font-size: 14px; margin: 2px 0 0; }
+p { margin: 2px 0; }
+.head { text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 6px; }
+.meta { display: flex; justify-content: space-between; gap: 1rem; margin: 4px 0; }
+.boxes { display: flex; gap: 8px; margin: 8px 0; }
+.box { flex: 1; border: 1px solid #000; padding: 4px 8px; }
+.box b { display: block; font-size: 15px; }
+.pair { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 8px; }
+.pair > div { flex: 1; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #000; padding: 2px 5px; text-align: start; }
+th { background: #eee; }
+.r { text-align: end; }
+thead { display: table-header-group; }
+tfoot { display: table-footer-group; }
+tr { break-inside: avoid; }
+.sign { margin-top: 28px; display: flex; justify-content: space-between; }
+.sign span { display: inline-block; min-width: 200px; border-bottom: 1px solid #000; }
 .noprint button { margin-bottom: 1rem; }
-@media print { .noprint { display: none; } body { margin: 0; } }
+@media print { .noprint { display: none; } body { margin: 0; max-width: none; } }
 </style>
 </head>
 <body>
 {{with .Data}}
 <p class="noprint"><button onclick="window.print()">{{T "Print"}}</button></p>
-<h2>{{.Company}}</h2>
-<p>{{if .Period}}{{.From}} - {{.To}}{{else}}{{.From}}{{end}}</p>
-<table><thead><tr><th>{{T "Invoice"}}</th><th>{{T "Username"}}</th><th>{{T "Plan Name"}}</th><th>{{T "Type"}}</th><th>{{T "Plan Price"}}</th><th>{{T "Method"}}</th><th>{{T "Routers"}}</th><th>{{T "Created On"}}</th><th>{{T "Expires On"}}</th></tr></thead>
+<div class="head">
+<h1>{{.Company}}</h1>
+{{if .Address}}<p>{{.Address}}</p>{{end}}
+<h2>{{if .Period}}{{T "Period Report"}}{{else}}{{T "Daily Report"}}{{end}}</h2>
+<p>{{if .Period}}{{.FromDMY}} - {{.ToDMY}}{{else}}{{.FromDMY}}{{end}}</p>
+</div>
+<div class="meta">
+<span>{{T "Type"}}: {{if .Type}}{{.Type}}{{else}}{{T "All types"}}{{end}} |
+{{T "Method"}}: {{if .Method}}{{.Method}}{{else}}{{T "All methods"}}{{end}} |
+{{T "Router"}}: {{if eq .Router ""}}{{T "All routers"}}{{else if eq .Router "-radius"}}RADIUS{{else if eq .Router "balance"}}{{T "Balance"}}{{else}}{{.Router}}{{end}} |
+{{T "Plan"}}: {{if .PlanName}}{{.PlanName}}{{else}}{{T "All plans"}}{{end}}</span>
+<span>{{T "Printed at"}}: {{.PrintedAt}}{{if .PrintedBy}} | {{T "Printed by"}}: {{.PrintedBy}}{{end}}</span>
+</div>
+<div class="boxes">
+<div class="box">{{T "Total income"}}<b>{{money .Sum}}</b></div>
+<div class="box">{{T "Transactions"}}<b>{{.Count}}</b></div>
+<div class="box">{{T "Average"}}<b>{{money .Avg}}</b></div>
+</div>
+<div class="pair">
+<div><table><thead><tr><th>{{T "By type"}}</th><th class="r">{{T "Count"}}</th><th class="r">{{T "Amount"}}</th></tr></thead><tbody>
+{{range .ByType}}<tr><td>{{.Name}}</td><td class="r">{{.Count}}</td><td class="r">{{money .Sum}}</td></tr>{{end}}</tbody></table></div>
+<div><table><thead><tr><th>{{T "By method"}}</th><th class="r">{{T "Count"}}</th><th class="r">{{T "Amount"}}</th></tr></thead><tbody>
+{{range .ByMethod}}<tr><td>{{.Name}}</td><td class="r">{{.Count}}</td><td class="r">{{money .Sum}}</td></tr>{{end}}</tbody></table></div>
+</div>
+<table>
+<thead><tr><th>{{T "Date"}}</th><th>{{T "Invoice"}}</th><th>{{T "Username"}}</th><th>{{T "Plan"}}</th><th>{{T "Type"}}</th><th>{{T "Method"}}</th><th>{{T "Router"}}</th><th class="r">{{T "Amount"}}</th></tr></thead>
 <tbody>
-{{range .Rows}}<tr><td>{{.Invoice}}</td><td>{{.Username}}</td><td>{{.PlanName}}</td><td>{{.Type}}</td><td>{{money .Price}}</td><td>{{.Method}}</td><td>{{.RouterName}}</td><td>{{ts .CreatedAt}}</td><td>{{ts .PeriodEnd}}</td></tr>
-{{else}}<tr><td colspan="9">{{T "No data"}}</td></tr>{{end}}
-</tbody></table>
-{{if .Truncated}}<p>{{T "Print shows the first 5000 rows only. Export CSV for all rows."}}</p>{{end}}
-<table style="width:auto">
-{{range .ByType}}<tr><th>{{.Name}}</th><td>{{.Count}}</td><td>{{money .Sum}}</td></tr>{{end}}
-{{range .ByMethod}}<tr><th>{{.Name}}</th><td>{{.Count}}</td><td>{{money .Sum}}</td></tr>{{end}}
-<tr><th>{{T "Total"}}</th><th>{{.Count}}</th><th>{{money .Sum}}</th></tr>
+{{range .Rows}}<tr><td>{{ts .CreatedAt}}</td><td>{{.Invoice}}</td><td>{{.Username}}</td><td>{{.PlanName}}</td><td>{{.Type}}</td><td>{{.Method}}</td><td>{{if .RouterName}}{{.RouterName}}{{else}}RADIUS{{end}}</td><td class="r">{{money .Price}}</td></tr>
+{{else}}<tr><td colspan="8">{{T "No data"}}</td></tr>{{end}}
+</tbody>
+<tfoot><tr><th colspan="7" class="r">{{T "Total"}}</th><th class="r">{{money .Sum}}</th></tr></tfoot>
 </table>
+{{if .Truncated}}<p>{{T "Print shows the first 5000 rows only. Export CSV for all rows."}}</p>{{end}}
+<div class="sign"><p>{{T "Approved by"}}: <span></span></p><p>{{T "Printed at"}}: {{.PrintedAt}}</p></div>
 {{end}}
 </body>
 </html>

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -32,6 +33,11 @@ type reportData struct {
 	Sum                            int64
 	ByType, ByMethod               []repTotal
 	Company, Base                  string
+	Methods                        []option // method filter: distinct income methods
+	CanInvoice                     bool     // viewer may open invoices (the Report role may not)
+	// print header and footer
+	Address, PrintedAt, PrintedBy, FromDMY, ToDMY, PlanName string
+	Avg                                                     int64
 	// Query reproduces this report for the export, print and page links. template.URL: it is url.Values.Encode
 	// output, and html/template would otherwise escape its = and & so the links lose the filter.
 	Query     template.URL
@@ -74,6 +80,9 @@ func (s *Server) reportFilter(r *http.Request, period bool) (reportData, db.Repo
 		start, _ := s.cycleStart(r.Context(), now) // the dashboard's income period, so the numbers match
 		from = parseDay(q.Get("from"), loc, start)
 		to = parseDay(q.Get("to"), loc, today)
+		if to.Before(from) {
+			from, to = to, from
+		}
 	} else {
 		to = from
 	}
@@ -131,10 +140,29 @@ func (s *Server) reportLoad(r *http.Request, period bool) (reportData, db.Report
 			d.Count, d.Sum = d.Count+x.Count, d.Sum+x.Sum
 		}
 	}
-	if set, err := s.loadSettings(ctx); err == nil {
-		d.Company = set["company_name"]
+	if d.Count > 0 {
+		d.Avg = d.Sum / int64(d.Count)
 	}
+	if set, err := s.loadSettings(ctx); err == nil {
+		d.Company, d.Address = set["company_name"], set["address"]
+	}
+	d.CanInvoice = s.canOpenInvoices(ctx)
 	return d, a, nil
+}
+
+// reportMethodOpts fills the method filter: the methods seen in income, the deposit pseudo-method, and the
+// requested one even when it matches nothing (old ?method= links keep working).
+func (s *Server) reportMethodOpts(ctx context.Context, d *reportData) error {
+	ms, err := s.queries.ReportMethods(ctx)
+	if err != nil {
+		return err
+	}
+	ms = append(ms, agentDepositMethod)
+	if d.Method != "" && !slices.Contains(ms, d.Method) {
+		ms = append(ms, d.Method)
+	}
+	d.Methods = anyOpts("Method", ms...)
+	return nil
 }
 
 // reportRows reads rows of the filtered report in date order.
@@ -197,7 +225,7 @@ func (s *Server) reportPage(period bool) http.HandlerFunc {
 		})
 		d.Rows = rows
 		d.Types = anyOpts("Type", "Hotspot", "PPPoE", "Balance")
-		d.Routers = anyOpts("Routers")
+		d.Routers = append(anyOpts("Routers"), option{"-radius", "RADIUS (no router)"}, option{"balance", "Balance"})
 		rs, err := s.queries.ListRouters(r.Context(), db.ListRoutersParams{Limit: 1000})
 		if err != nil {
 			s.fail(w, "report routers", err)
@@ -209,6 +237,10 @@ func (s *Server) reportPage(period bool) http.HandlerFunc {
 		opts, _, err := s.planOptions(r, false)
 		if err != nil {
 			s.fail(w, "report plans", err)
+			return
+		}
+		if err := s.reportMethodOpts(r.Context(), &d); err != nil {
+			s.fail(w, "report methods", err)
 			return
 		}
 		d.Plans = append([]option{{"", "Plan"}}, opts...)
@@ -246,7 +278,26 @@ func (s *Server) reportPrint(w http.ResponseWriter, r *http.Request) {
 		d.Truncated = true
 	}
 	d.Rows = rows
-	s.render(w, r, 200, "report_print", Page{Title: "Reports", Data: d})
+	loc := s.location()
+	now := s.now().In(loc)
+	d.PrintedAt = now.Format("02/01/2006 15:04")
+	if a := adminFrom(r); a != nil {
+		d.PrintedBy = a.Fullname
+		if d.PrintedBy == "" {
+			d.PrintedBy = a.Username
+		}
+	}
+	d.FromDMY, d.ToDMY = parseDay(d.From, loc, now).Format("02/01/2006"), parseDay(d.To, loc, now).Format("02/01/2006")
+	if id, _ := strconv.ParseInt(d.PlanID, 10, 64); id > 0 {
+		if p, err := s.queries.GetPlan(r.Context(), id); err == nil {
+			d.PlanName = p.Name
+		}
+	}
+	title := "Daily Report"
+	if d.Period {
+		title = "Period Report"
+	}
+	s.render(w, r, 200, "report_print", Page{Title: title, Data: d})
 }
 
 // csvSafe defuses spreadsheet formula injection.

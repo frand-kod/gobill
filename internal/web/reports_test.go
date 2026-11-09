@@ -107,7 +107,7 @@ func TestReportLinksKeepPeriod(t *testing.T) {
 			t.Errorf("link missing %q", want)
 		}
 	}
-	if p := do(h, "GET", "/admin/reports/print?from=2026-03-01&to=2026-03-10", nil, c).Body.String(); !strings.Contains(p, "2026-03-01 - 2026-03-10") {
+	if p := do(h, "GET", "/admin/reports/print?from=2026-03-01&to=2026-03-10", nil, c).Body.String(); !strings.Contains(p, "01/03/2026 - 10/03/2026") {
 		t.Error("print does not show the period")
 	}
 }

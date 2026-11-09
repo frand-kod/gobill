@@ -33,13 +33,41 @@ func (q *Queries) ReportAgentPayments(ctx context.Context, arg ReportAgentPaymen
 	return i, err
 }
 
+const reportMethods = `-- name: ReportMethods :many
+SELECT DISTINCT method FROM income_transactions WHERE method <> '' ORDER BY method
+`
+
+// Payment methods seen in income, for the report's method filter.
+func (q *Queries) ReportMethods(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, reportMethods)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var method string
+		if err := rows.Scan(&method); err != nil {
+			return nil, err
+		}
+		items = append(items, method)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const reportTotals = `-- name: ReportTotals :one
 SELECT COUNT(*) AS cnt, CAST(COALESCE(SUM(price), 0) AS INTEGER) AS total
 FROM income_transactions
 WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?3 AS TEXT) = '' OR type = ?3)
   AND (CAST(?4 AS TEXT) = '' OR method = ?4)
-  AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
+  AND (CAST(?5 AS TEXT) = '' OR router_name = CASE WHEN CAST(?5 AS TEXT) = '-radius' THEN '' ELSE CAST(?5 AS TEXT) END)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
 `
 
@@ -78,7 +106,7 @@ FROM income_transactions
 WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?3 AS TEXT) = '' OR type = ?3)
   AND (CAST(?4 AS TEXT) = '' OR method = ?4)
-  AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
+  AND (CAST(?5 AS TEXT) = '' OR router_name = CASE WHEN CAST(?5 AS TEXT) = '-radius' THEN '' ELSE CAST(?5 AS TEXT) END)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
 GROUP BY method
 ORDER BY method
@@ -135,7 +163,7 @@ FROM income_transactions
 WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?3 AS TEXT) = '' OR type = ?3)
   AND (CAST(?4 AS TEXT) = '' OR method = ?4)
-  AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
+  AND (CAST(?5 AS TEXT) = '' OR router_name = CASE WHEN CAST(?5 AS TEXT) = '-radius' THEN '' ELSE CAST(?5 AS TEXT) END)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
 GROUP BY type
 ORDER BY type
@@ -191,7 +219,7 @@ SELECT id, invoice, customer_id, plan_id, username, plan_name, router_name, type
 WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?3 AS TEXT) = '' OR type = ?3)
   AND (CAST(?4 AS TEXT) = '' OR method = ?4)
-  AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
+  AND (CAST(?5 AS TEXT) = '' OR router_name = CASE WHEN CAST(?5 AS TEXT) = '-radius' THEN '' ELSE CAST(?5 AS TEXT) END)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
 ORDER BY created_at, id
 `
@@ -206,7 +234,7 @@ type ReportTransactionsParams struct {
 }
 
 // Reads income_transactions (migration 0042): balance moves, gifts and consignment redemptions are not income.
-// Empty / zero filter args match everything. Used by the CSV export (all rows).
+// The router arg '-radius' matches router_name ” (RADIUS plans have no router). Empty / zero filter args match everything. Used by the CSV export (all rows).
 func (q *Queries) ReportTransactions(ctx context.Context, arg ReportTransactionsParams) ([]IncomeTransaction, error) {
 	rows, err := q.db.QueryContext(ctx, reportTransactions,
 		arg.FromTs,
@@ -258,7 +286,7 @@ SELECT id, invoice, customer_id, plan_id, username, plan_name, router_name, type
 WHERE created_at >= ?1 AND created_at < ?2
   AND (CAST(?3 AS TEXT) = '' OR type = ?3)
   AND (CAST(?4 AS TEXT) = '' OR method = ?4)
-  AND (CAST(?5 AS TEXT) = '' OR router_name = ?5)
+  AND (CAST(?5 AS TEXT) = '' OR router_name = CASE WHEN CAST(?5 AS TEXT) = '-radius' THEN '' ELSE CAST(?5 AS TEXT) END)
   AND (CAST(?6 AS INTEGER) = 0 OR plan_id = ?6)
 ORDER BY created_at, id
 LIMIT ?8 OFFSET ?7

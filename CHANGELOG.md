@@ -8,9 +8,21 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-11-09
+
 ### Perbaikan
 
 - **Print dan Export CSV di laporan kini memakai periode yang dipilih.** Sebelumnya tanda `=` dan `&` di link ikut di-escape. Akibatnya filter hilang, dan Print selalu menampilkan laporan harian hari ini. Link Export usage CSV juga diperbaiki.
+- **Laporan bisa difilter ke transaksi RADIUS dan Balance.** Transaksi RADIUS tidak punya router, jadi dulu tidak bisa dipilih. Filter router kini punya "RADIUS (tanpa router)" dan "Balance". Di tabel, router kosong tampil sebagai RADIUS.
+- **Role Report tidak lagi melihat link invoice yang berujung 403.** Nomor invoice tampil sebagai teks biasa.
+- **Rentang tanggal terbalik di Period Report ditukar otomatis.** Dulu hasilnya kosong.
+- **Filter metode di laporan kini berupa pilihan.** Isinya metode yang pernah tercatat, ditambah Agent - Deposit. Link lama dengan `?method=` tetap jalan.
+
+### Perubahan
+
+- **Tampilan cetak laporan dirancang ulang untuk A4 hitam putih.** Ada nama dan alamat perusahaan, periode, filter yang aktif, waktu dan nama pencetak, ringkasan (total, jumlah, rata-rata), rekap per tipe dan metode, lalu rincian dengan baris total dan kolom tanda tangan. Kolom Expires On dihapus. Judul tabel diulang di tiap halaman.
+- **Panel ringkasan di halaman Recharge menampilkan pemakaian paket aktif.** Isinya data atau waktu yang terpakai dari batas paket. Angkanya sama dengan yang dipakai RADIUS untuk memblokir. Paket tanpa batas menampilkan pemakaian sejak paket dimulai. Jika kuota habis, tertulis "Kuota habis".
+- **Tombol Recharge di atas halaman customer kini hanya tampil di layar kecil.** Di desktop, kotak Recharge Account sudah terlihat di halaman yang sama.
 
 ## [0.3.3] - 2026-11-09
 
