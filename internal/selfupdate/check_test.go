@@ -1,4 +1,4 @@
-package job
+package selfupdate
 
 import (
 	"net/http"
@@ -30,7 +30,7 @@ func TestUpdateCheckParsesReleaseOnSchedule(t *testing.T) {
 
 	start := time.Date(2026, 10, 12, 8, 0, 0, 0, time.UTC)
 	now := start
-	c := &UpdateCheck{Q: db.New(conn), URL: srv.URL, Client: srv.Client(), Now: func() time.Time { return now }}
+	c := &Check{Q: db.New(conn), URL: srv.URL, Client: srv.Client(), Now: func() time.Time { return now }}
 
 	if err := c.Run(ctx); err != nil || hits.Load() != 0 {
 		t.Fatalf("first tick checked too early: %d requests, %v", hits.Load(), err)
@@ -68,7 +68,7 @@ func TestUpdateCheckOffDropsAnswer(t *testing.T) {
 	defer srv.Close()
 
 	now := time.Date(2026, 10, 12, 8, 0, 0, 0, time.UTC)
-	c := &UpdateCheck{Q: q, URL: srv.URL, Client: srv.Client(), Now: func() time.Time { return now }}
+	c := &Check{Q: q, URL: srv.URL, Client: srv.Client(), Now: func() time.Time { return now }}
 	if err := q.UpsertSetting(ctx, db.UpsertSettingParams{Key: "update_check", Value: "no"}); err != nil {
 		t.Fatal(err)
 	}

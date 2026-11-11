@@ -8,6 +8,11 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Perubahan
+
+- **`gobill update` menolak file unduhan di atas 200 MiB.** Biner rilis hanya sekitar 20 MiB.
+- **Variabel baru `GOBILL_JOBS`.** Isi `0` untuk mematikan job latar di satu proses.
+
 ## [0.3.5] - 2026-11-09
 
 ### Perbaikan

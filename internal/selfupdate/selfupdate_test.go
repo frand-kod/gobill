@@ -1,4 +1,4 @@
-package main
+package selfupdate
 
 import (
 	"bufio"
@@ -69,10 +69,10 @@ func sumsFor(bin []byte) string {
 	return hex.EncodeToString(h[:]) + "  " + name + "\n"
 }
 
-// testUpdater builds an updater over a temp install: a binary "old", a migrated database and a
+// testUpdater builds an Updater over a temp install: a binary "old", a migrated database and a
 // fake systemctl that records its calls.
 type testUpdater struct {
-	*updater
+	*Updater
 	calls  *[]string
 	health *error
 }
@@ -95,7 +95,7 @@ func newTestUpdater(t *testing.T, api, input string) testUpdater {
 	}
 	var calls []string
 	var health error
-	u := &updater{
+	u := &Updater{
 		bin:         bin,
 		dbPath:      dbPath,
 		backupDir:   filepath.Join(dir, "backup"),
@@ -109,13 +109,13 @@ func newTestUpdater(t *testing.T, api, input string) testUpdater {
 		systemctl:   func(action string) error { calls = append(calls, action); return nil },
 		waitHealthy: func(string, time.Duration) error { return health },
 	}
-	return testUpdater{updater: u, calls: &calls, health: &health}
+	return testUpdater{Updater: u, calls: &calls, health: &health}
 }
 
 func TestUpdateAlreadyUpToDate(t *testing.T) {
 	srv := fakeGitHub(t, "v0.2.0", []byte("new"), sumsFor([]byte("new")), true)
 	tu := newTestUpdater(t, srv.URL, "")
-	if err := tu.update(t.Context(), "v0.2.0", "", true); err != nil {
+	if err := tu.Update(t.Context(), "v0.2.0", "", true); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(tu.out.(*bytes.Buffer).String(), "already up to date") || len(*tu.calls) != 0 {
@@ -126,7 +126,7 @@ func TestUpdateAlreadyUpToDate(t *testing.T) {
 func TestUpdateDevBuildNeedsVersion(t *testing.T) {
 	srv := fakeGitHub(t, "v0.2.0", []byte("new"), sumsFor([]byte("new")), true)
 	tu := newTestUpdater(t, srv.URL, "")
-	if err := tu.update(t.Context(), "v0.1.6-3-gabc", "", true); err == nil || !strings.Contains(err.Error(), "--version") {
+	if err := tu.Update(t.Context(), "v0.1.6-3-gabc", "", true); err == nil || !strings.Contains(err.Error(), "--version") {
 		t.Fatalf("dev build without --version: %v", err)
 	}
 }
@@ -134,7 +134,7 @@ func TestUpdateDevBuildNeedsVersion(t *testing.T) {
 func TestUpdateRefusesBadChecksum(t *testing.T) {
 	srv := fakeGitHub(t, "v0.2.0", []byte("new"), sumsFor([]byte("other")), true)
 	tu := newTestUpdater(t, srv.URL, "")
-	if err := tu.update(t.Context(), "v0.1.6", "", true); err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
+	if err := tu.Update(t.Context(), "v0.1.6", "", true); err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
 		t.Fatalf("bad checksum accepted: %v", err)
 	}
 	if b, _ := os.ReadFile(tu.bin); string(b) != "old" || len(*tu.calls) != 0 {
@@ -149,7 +149,7 @@ func TestUpdateRefusesWrongSigner(t *testing.T) {
 	srv := fakeGitHub(t, "v0.2.0", []byte("new"), sumsFor([]byte("new")), true)
 	tu := newTestUpdater(t, srv.URL, "")
 	tu.pubKey, _, _ = ed25519.GenerateKey(nil) // valid checksums, signed by someone else
-	if err := tu.update(t.Context(), "v0.1.6", "", true); err == nil || !strings.Contains(err.Error(), "not signed") {
+	if err := tu.Update(t.Context(), "v0.1.6", "", true); err == nil || !strings.Contains(err.Error(), "not signed") {
 		t.Fatalf("release signed by another key accepted: %v", err)
 	}
 	if b, _ := os.ReadFile(tu.bin); string(b) != "old" || len(*tu.calls) != 0 {
@@ -160,7 +160,7 @@ func TestUpdateRefusesWrongSigner(t *testing.T) {
 func TestUpdateRefusesMissingChecksumFile(t *testing.T) {
 	srv := fakeGitHub(t, "v0.2.0", []byte("new"), "", false)
 	tu := newTestUpdater(t, srv.URL, "")
-	if err := tu.update(t.Context(), "v0.1.6", "", true); err == nil || !strings.Contains(err.Error(), "SHA256SUMS") {
+	if err := tu.Update(t.Context(), "v0.1.6", "", true); err == nil || !strings.Contains(err.Error(), "SHA256SUMS") {
 		t.Fatalf("release without SHA256SUMS accepted: %v", err)
 	}
 }
@@ -168,7 +168,7 @@ func TestUpdateRefusesMissingChecksumFile(t *testing.T) {
 func TestUpdateSuccess(t *testing.T) {
 	srv := fakeGitHub(t, "v0.2.0", []byte("new"), sumsFor([]byte("new")), true)
 	tu := newTestUpdater(t, srv.URL, "")
-	if err := tu.update(t.Context(), "v0.1.6", "v0.2.0", true); err != nil {
+	if err := tu.Update(t.Context(), "v0.1.6", "v0.2.0", true); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(tu.bin); string(b) != "new" {
@@ -193,7 +193,7 @@ func TestUpdateRevertsWhenUnhealthy(t *testing.T) {
 	srv := fakeGitHub(t, "v0.2.0", []byte("new"), sumsFor([]byte("new")), true)
 	tu := newTestUpdater(t, srv.URL, "")
 	*tu.health = os.ErrDeadlineExceeded
-	if err := tu.update(t.Context(), "v0.1.6", "v0.2.0", true); err == nil || !strings.Contains(err.Error(), "reverted") {
+	if err := tu.Update(t.Context(), "v0.1.6", "v0.2.0", true); err == nil || !strings.Contains(err.Error(), "reverted") {
 		t.Fatalf("unhealthy update: %v", err)
 	}
 	if b, _ := os.ReadFile(tu.bin); string(b) != "old" {
@@ -227,7 +227,7 @@ func TestRollbackSwapsAndRestoresOnConfirm(t *testing.T) {
 	if err := writeInfo(tu.infoPath, updateInfo{From: "v0.1.6", To: "v0.2.0", Backup: backup}); err != nil {
 		t.Fatal(err)
 	}
-	if err := tu.rollback(); err != nil {
+	if err := tu.Rollback(); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(tu.bin); string(b) != "old" {
@@ -255,7 +255,7 @@ func TestRollbackKeepsDatabaseWithoutConfirm(t *testing.T) {
 	if err := writeInfo(tu.infoPath, updateInfo{To: "v0.2.0", Backup: backup}); err != nil {
 		t.Fatal(err)
 	}
-	if err := tu.rollback(); err != nil {
+	if err := tu.Rollback(); err != nil {
 		t.Fatal(err)
 	}
 	if after, _ := os.ReadFile(tu.dbPath); !bytes.Equal(before, after) {
@@ -268,7 +268,7 @@ func TestRollbackKeepsDatabaseWithoutConfirm(t *testing.T) {
 
 func TestRollbackNeedsPrevBinary(t *testing.T) {
 	tu := newTestUpdater(t, "", "")
-	if err := tu.rollback(); err == nil || !strings.Contains(err.Error(), "nothing to roll back") {
+	if err := tu.Rollback(); err == nil || !strings.Contains(err.Error(), "nothing to roll back") {
 		t.Fatalf("rollback without .prev: %v", err)
 	}
 	if len(*tu.calls) != 0 {
