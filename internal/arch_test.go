@@ -37,6 +37,8 @@ func TestImportRules(t *testing.T) {
 		// web sub-packages stand beside each other and never import web or a sibling (httpx and view are the shared leaves)
 		{"web/httpx", []string{"web"}},
 		{"web/view", []string{"web"}},
+		// M9: DTOs are the API contract and see only the db models
+		{"api/dto", []string{"web", "service", "billing", "radius"}},
 		// kernel packages import nothing internal
 		{"money", []string{""}},
 		{"clock", []string{""}},
