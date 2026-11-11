@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/service/diagnose"
 	"strconv"
 	"strings"
 	"time"
@@ -327,7 +328,7 @@ type custDetail struct {
 	Custom       []field // custom fields with this customer's values
 	Online       string  // "" unless check_customer_online is yes; else Online, Offline or Error
 	Iso          string  // end of the running isolation, "" when none
-	Diag         diagnosis
+	Diag         diagnose.Diagnosis
 	RouterFailed bool // a delete was refused because the router could not remove the customer: offer "Delete anyway"
 }
 

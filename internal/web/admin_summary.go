@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/service/diagnose"
 )
 
 // summarySub is an active subscription in the customer summary. Effect says what recharging the
@@ -156,7 +157,7 @@ func (s *Server) summaryUsage(ctx context.Context, c db.Customer, subID, planID 
 	if plan.Device != "Radius" {
 		return "", false, nil // only RADIUS accounting fills the counters: a MikroTik plan would always read 0 B
 	}
-	q := s.planQuota(ctx, c, sub, plan)
+	q := diagnose.PlanQuota(sub, plan)
 	var parts []string
 	if q.HasData {
 		parts = append(parts, fmt.Sprintf(s.t("Data used: %s of %s"), humanBytes(q.Data), humanBytes(q.DataLim)))

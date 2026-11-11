@@ -22,6 +22,8 @@ func TestImportRules(t *testing.T) {
 		{"payment", []string{"web"}},
 		{"isolir", []string{"web", "billing", "radius"}},
 		{"importer", []string{"web"}},
+		// services take plain inputs and never see HTTP
+		{"service", []string{"web"}},
 		// device drivers and the WireGuard manager stand beside the RADIUS server, not on it
 		{"device", []string{"web", "radius"}},
 		{"wg", []string{"web", "radius"}},

@@ -15,6 +15,7 @@ import (
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/radius"
+	"github.com/frand-kod/gobill/internal/service/diagnose"
 )
 
 // ---- portal ----
@@ -291,7 +292,7 @@ func (s *Server) pUsage(ctx context.Context, c db.Customer, sub db.Subscription,
 	if p.Limited == 1 && p.Device != "Radius" {
 		return pUsage{Note: s.t("Usage is not recorded for this plan")}
 	}
-	q := s.planQuota(ctx, c, sub, p)
+	q := diagnose.PlanQuota(sub, p)
 	u := pUsage{}
 	u.TotalNum, u.TotalUnit = humanBytesParts(used)
 	if q.HasData {

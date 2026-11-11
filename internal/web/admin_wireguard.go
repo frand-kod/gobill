@@ -5,16 +5,13 @@ package web
 
 import (
 	"context"
-	"crypto/rand"
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/settings"
 	"net"
 	"net/http"
-	"net/netip"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +19,7 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/radius"
 	"github.com/frand-kod/gobill/internal/secret"
+	"github.com/frand-kod/gobill/internal/service/provision"
 	"github.com/frand-kod/gobill/internal/wg"
 )
 
@@ -159,65 +157,6 @@ func (s *Server) wgWarning(ctx context.Context) string {
 	return s.t("WireGuard: ") + s.t(msg)
 }
 
-// wgBlock holds what the RouterOS script of one peer names.
-type wgBlock struct {
-	Private, ServerPub, Endpoint, Secret, APIPass string
-	Port                                          int
-	Self, Peer                                    netip.Addr
-	Bits                                          int
-}
-
-// Names the script owns on the router: it removes them before adding them again, so running it twice
-// leaves one copy.
-const (
-	provIface = "wg-gobill"
-	provUser  = "gobill"
-	provGroup = "gobill-api"
-	provTag   = "gobill"
-)
-
-// script is the RouterOS 7 script of one router, served once through /provision/<token>. It stops on
-// RouterOS 6, removes what an earlier run made, then adds the tunnel, NTP (a router whose clock restarts
-// at its factory date is refused by WireGuard), RADIUS from the tunnel address, the firewall holes for
-// CoA and the API from gobill's tunnel address only, and the API user in a group of its own. The text
-// depends only on the router and its stored keys.
-func (b wgBlock) script() string {
-	ep := b.Endpoint
-	if ep == "" {
-		ep = "<DOMAIN-OR-IP-GOBILL>"
-	}
-	var w strings.Builder
-	w.WriteString("# gobill router provisioning. Safe to run again.\n")
-	w.WriteString(":local v [/system resource get version]\n")
-	w.WriteString(":if ([:tonum [:pick $v 0 [:find $v \".\"]]] < 7) do={ :error \"gobill: RouterOS 7 is required, this router runs $v. RouterOS 6 has no WireGuard: use L2TP/IPsec or SSTP, see the gobill docs\" }\n")
-	fmt.Fprintf(&w, "/user remove [find name=%s]\n", provUser)
-	fmt.Fprintf(&w, "/user group remove [find name=%s]\n", provGroup)
-	fmt.Fprintf(&w, "/radius remove [find comment=%s]\n", provTag)
-	fmt.Fprintf(&w, "/radius remove [find address=%s]\n", b.Self)
-	fmt.Fprintf(&w, "/ip firewall filter remove [find comment=%s]\n", provTag)
-	fmt.Fprintf(&w, "/ip address remove [find interface=%s]\n", provIface)
-	fmt.Fprintf(&w, "/interface wireguard peers remove [find interface=%s]\n", provIface)
-	fmt.Fprintf(&w, "/interface wireguard remove [find name=%s]\n", provIface)
-	fmt.Fprintf(&w, "/interface wireguard add name=%s private-key=%q mtu=1420\n", provIface, b.Private)
-	fmt.Fprintf(&w, "/interface wireguard peers add interface=%s public-key=%q endpoint-address=%s endpoint-port=%d allowed-address=%s/32 persistent-keepalive=25s\n", provIface, b.ServerPub, ep, b.Port, b.Self)
-	fmt.Fprintf(&w, "/ip address add address=%s/%d interface=%s\n", b.Peer, b.Bits, provIface)
-	w.WriteString("/system ntp client set enabled=yes servers=pool.ntp.org\n")
-	fmt.Fprintf(&w, "/radius add service=hotspot,ppp address=%s secret=%q authentication-port=1812 accounting-port=1813 timeout=1s src-address=%s comment=%s\n", b.Self, b.Secret, b.Peer, provTag)
-	w.WriteString("/radius incoming set accept=yes\n")
-	// place-before=0 fails with "no such item" on an empty table and, after the cleanup above, on a stale index;
-	// the first rule is looked up by id, and a plain add is used when the table is empty.
-	const first = "[:pick [/ip firewall filter find] 0]"
-	for _, r := range []string{"protocol=udp dst-port=3799", "protocol=tcp dst-port=8728"} {
-		add := fmt.Sprintf("/ip firewall filter add chain=input in-interface=%s src-address=%s %s action=accept", provIface, b.Self, r)
-		fmt.Fprintf(&w, ":if ([:len [/ip firewall filter find]] = 0) do={ %s comment=%s } else={ %s place-before=%s comment=%s }\n", add, provTag, add, first, provTag)
-	}
-	fmt.Fprintf(&w, "/user group add name=%s policy=api,read,write,test\n", provGroup)
-	fmt.Fprintf(&w, "/user add name=%s group=%s password=%q address=%s/32\n", provUser, provGroup, b.APIPass, b.Self)
-	fmt.Fprintf(&w, "/ip service set api address=%s/32 disabled=no\n", b.Self)
-	w.WriteString("/file remove [find name=gobill.rsc]\n")
-	return w.String()
-}
-
 // wgUsable loads the tunnel config, failing when WireGuard is not on for provisioning.
 func (s *Server) wgUsable(ctx context.Context) (wg.Config, map[string]string, error) {
 	if s.WG == nil || wgOff() != "" {
@@ -259,84 +198,18 @@ func (s *Server) routerWGProvision(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
-	priv, pub := wg.GenKey()
-	sealed, err := secret.Seal(s.SecretKey, []byte(priv))
-	if err != nil {
-		s.fail(w, "seal wireguard key", err)
+	res, err := s.prov().Provision(r.Context(), rt, cfg)
+	var ae *provision.AddressError
+	if errors.As(err, &ae) {
+		s.sessions.Put(r.Context(), "error", s.t(ae.Error()))
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	} else if err != nil {
+		s.fail(w, "provision wireguard peer", err)
 		return
 	}
-	tx, err := s.conn.BeginTx(r.Context(), nil)
-	if err != nil {
-		s.fail(w, "begin", err)
-		return
-	}
-	defer tx.Rollback()
-	q := s.queries.WithTx(tx)
-	peers, err := q.ListWgPeers(r.Context())
-	if err != nil {
-		s.fail(w, "list wireguard peers", err)
-		return
-	}
-	var old *db.WgPeer
-	var used []string
-	for i, p := range peers {
-		if p.RouterID == id {
-			old = &peers[i]
-		} else {
-			used = append(used, p.Ip)
-		}
-	}
-	var ip netip.Addr
-	if old != nil { // keep the address when it still fits the subnet
-		if a, err := netip.ParseAddr(old.Ip); err == nil && cfg.Subnet.Contains(a) && a != cfg.Self() {
-			ip = a
-		}
-	}
-	if !ip.IsValid() {
-		if ip, err = wg.AllocIP(cfg.Subnet, used); err != nil {
-			s.sessions.Put(r.Context(), "error", s.t(err.Error()))
-			http.Redirect(w, r, back, http.StatusSeeOther)
-			return
-		}
-	}
-	if old != nil && old.Ip != ip.String() { // the old address and its secret are not kept
-		if err := s.wgDropNAS(r.Context(), q, old.Ip); err != nil {
-			s.fail(w, "wireguard nas", err)
-			return
-		}
-	}
-	if _, err := s.wgNAS(r.Context(), q, rt, ip.String()); err != nil {
-		s.fail(w, "wireguard nas", err)
-		return
-	}
-	if err := q.UpsertWgPeer(r.Context(), db.UpsertWgPeerParams{RouterID: id, Ip: ip.String(), PublicKey: pub, PrivateEnc: sealed, ProvisionedAt: time.Now().Unix()}); err != nil {
-		s.fail(w, "save wireguard peer", err)
-		return
-	}
-	// the router is reached through the tunnel as the API user the script creates, with a new password
-	apiEnc, err := secret.Seal(s.SecretKey, []byte(secret.RandomPassword(24)))
-	if err != nil {
-		s.fail(w, "seal api password", err)
-		return
-	}
-	// The router keeps its stored credentials until the script is fetched (provisionScript switches them then).
-	if err := q.UpsertSettingRaw(r.Context(), db.UpsertSettingRawParams{Key: wgPendingKey(id), Value: base64.StdEncoding.EncodeToString(apiEnc)}); err != nil {
-		s.fail(w, "save pending router api user", err)
-		return
-	}
-	rnd := make([]byte, 32)
-	rand.Read(rnd) // never returns an error in Go 1.24+
-	token := fmt.Sprintf("%d-%x", id, rnd)
-	if err := q.SetWgToken(r.Context(), db.SetWgTokenParams{RouterID: id, TokenHash: tokenHash(token), ExpiresAt: time.Now().Add(provisionTTL).Unix()}); err != nil {
-		s.fail(w, "save provision token", err)
-		return
-	}
-	if err := tx.Commit(); err != nil {
-		s.fail(w, "commit", err)
-		return
-	}
-	if old != nil {
-		if err := s.WG.RemovePeer(old.PublicKey); err != nil {
+	if res.Old != nil {
+		if err := s.WG.RemovePeer(res.Old.PublicKey); err != nil {
 			s.fail(w, "wireguard remove old peer", err)
 			return
 		}
@@ -350,36 +223,8 @@ func (s *Server) routerWGProvision(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "wireguard add peer", err)
 		return
 	}
-	s.sessions.Put(r.Context(), "wg_once", fetchLine(baseURL(r)+"/provision/"+token))
+	s.sessions.Put(r.Context(), "wg_once", fetchLine(baseURL(r)+"/provision/"+res.Token))
 	s.done(w, r, back, "WireGuard peer is ready. Paste the line into the router", "router.wg.provision", rt.Name)
-}
-
-// wgNAS makes sure a NAS row covers the tunnel address of a router and returns its RADIUS secret.
-// An existing row for that address keeps its secret; a new one gets its own.
-func (s *Server) wgNAS(ctx context.Context, q *db.Queries, rt db.Router, ip string) (string, error) {
-	rows, err := q.ListNAS(ctx)
-	if err != nil {
-		return "", err
-	}
-	for _, n := range rows {
-		if n.Ip == ip {
-			b, err := secret.Open(s.SecretKey, n.SecretEnc)
-			return string(b), err
-		}
-	}
-	sec := secret.RandomPassword(24)
-	enc, err := secret.Seal(s.SecretKey, []byte(sec))
-	if err != nil {
-		return "", err
-	}
-	name := "wg-" + rt.Name
-	for _, n := range rows {
-		if n.Name == name {
-			name = fmt.Sprintf("wg-%s-%d", rt.Name, rt.ID)
-		}
-	}
-	_, err = q.CreateNAS(ctx, db.CreateNASParams{Name: name, Ip: ip, SecretEnc: enc, Description: "WireGuard tunnel of router " + rt.Name})
-	return sec, err
 }
 
 // wgRevoke drops the peer of a router at once, and the NAS row made for its tunnel address so the next
@@ -394,9 +239,9 @@ func (s *Server) wgRevoke(ctx context.Context, id int64) error {
 	if err := s.wgRelease(ctx, p); err != nil {
 		return err
 	}
-	pending := settings.Get(ctx, s.queries, wgPendingKey(id))
+	pending := settings.Get(ctx, s.queries, provision.PendingKey(id))
 	if pending != "" { // the script was never fetched: nothing was switched for it
-		if err := s.queries.UpsertSettingRaw(ctx, db.UpsertSettingRawParams{Key: wgPendingKey(id)}); err != nil {
+		if err := s.queries.UpsertSettingRaw(ctx, db.UpsertSettingRawParams{Key: provision.PendingKey(id)}); err != nil {
 			return err
 		}
 	}
@@ -407,14 +252,14 @@ func (s *Server) wgRevoke(ctx context.Context, id int64) error {
 	up := db.UpdateRouterParams{Name: rt.Name, Host: rt.Host, Port: rt.Port, Username: rt.Username, PasswordEnc: rt.PasswordEnc,
 		Description: rt.Description, Enabled: rt.Enabled, Coordinates: rt.Coordinates, Coverage: rt.Coverage, CertPin: rt.CertPin, ID: id}
 	var restoreTLS *int64
-	if prev := settings.Get(ctx, s.queries, wgPrevKey(id)); prev != "" {
-		var c wgCreds // back to the credentials the router had before the tunnel
+	if prev := settings.Get(ctx, s.queries, provision.PrevKey(id)); prev != "" {
+		var c provision.Creds // back to the credentials the router had before the tunnel
 		if err := json.Unmarshal([]byte(prev), &c); err != nil {
 			return err
 		}
 		up.Host, up.Port, up.Username, up.PasswordEnc = c.Host, c.Port, c.User, c.Pass
 		restoreTLS = &c.TLS
-		if err := s.queries.UpsertSettingRaw(ctx, db.UpsertSettingRawParams{Key: wgPrevKey(id)}); err != nil {
+		if err := s.queries.UpsertSettingRaw(ctx, db.UpsertSettingRawParams{Key: provision.PrevKey(id)}); err != nil {
 			return err
 		}
 	} else if pending == "" {
@@ -449,17 +294,6 @@ func fetchLine(u string) string {
 	return fmt.Sprintf("/tool fetch url=%q%s dst-path=gobill.rsc; /import gobill.rsc", u, opts)
 }
 
-// wgCreds is what a router's API credentials were before the tunnel took them over (setting wg_prev_<id>).
-type wgCreds struct {
-	Host, User string
-	Port       int64
-	TLS        int64
-	Pass       []byte
-}
-
-func wgPendingKey(id int64) string { return fmt.Sprint("wg_pending_", id) } // base64 sealed API password, until the script is fetched
-func wgPrevKey(id int64) string    { return fmt.Sprint("wg_prev_", id) }
-
 // wgRelease cuts the peer from the tunnel and deletes the NAS row of its address.
 func (s *Server) wgRelease(ctx context.Context, p db.WgPeer) error {
 	if s.WG != nil {
@@ -467,23 +301,7 @@ func (s *Server) wgRelease(ctx context.Context, p db.WgPeer) error {
 			return err
 		}
 	}
-	return s.wgDropNAS(ctx, s.queries, p.Ip)
-}
-
-// wgDropNAS deletes the NAS row of a tunnel address.
-func (s *Server) wgDropNAS(ctx context.Context, q *db.Queries, ip string) error {
-	rows, err := q.ListNAS(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range rows {
-		if n.Ip == ip {
-			if err := q.DeleteNAS(ctx, n.ID); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return provision.DropNAS(ctx, s.queries, p.Ip)
 }
 
 func (s *Server) routerWGRevoke(w http.ResponseWriter, r *http.Request) {

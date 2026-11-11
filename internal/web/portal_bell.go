@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/service/diagnose"
 )
 
 // bellItem is one line of the portal bell. Ver changes when the content does, which makes it unread again.
@@ -63,7 +64,7 @@ func (s *Server) portalBell(r *http.Request, c *db.Customer) ([]bellItem, error)
 				items = append(items, bellItem{Key: "expiry", Ver: verOf(sub.ID, sub.ExpiresAt), Title: s.t("Plan ends soon"),
 					Text: fmt.Sprintf(s.t("%s ends on %s"), p.Name, s.ts(sub.ExpiresAt)), Href: "/portal/plans"})
 			}
-			q := s.planQuota(ctx, *c, *sub, p)
+			q := diagnose.PlanQuota(*sub, p)
 			if (q.HasData && q.Data >= q.DataLim) || (q.HasTime && q.Time >= q.TimeLim) {
 				items = append(items, bellItem{Key: "quota", Ver: verOf(sub.ID, sub.StartedAt, 100), Title: s.t("Quota used up"),
 					Text: s.t("Buy or extend a plan to keep using the service"), Href: "/portal/plans"})
