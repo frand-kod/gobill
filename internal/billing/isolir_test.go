@@ -262,3 +262,89 @@ func TestIsolirExpirySendsNoNotice(t *testing.T) {
 		t.Fatalf("isolir expiry notified: %v", reqs)
 	}
 }
+
+// isolate skips a customer who still has an active subscription, but EnsurePlan already ran: the
+// isolir plan and isolir_plan_id exist even though no isolation started.
+func TestIsolateSkipsOtherActivePlanButEnsuresPlan(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	enableIsolir(t, e, "5")
+	radiusPlans(t, e)
+	if err := e.s.Recharge(ctx, e.cust.ID, e.day.ID, "Admin - Cash", 0); err != nil {
+		t.Fatal(err)
+	}
+	day, _ := e.q.GetPlan(ctx, e.day.ID)
+	cust, _ := e.q.GetCustomer(ctx, e.cust.ID)
+	if err := e.s.isolate(ctx, e.q, day, cust); err != nil {
+		t.Fatal(err)
+	}
+	notIsolated(t, e)
+	v, err := e.q.GetSetting(ctx, "isolir_plan_id")
+	if err != nil || isolir.PlanID(v) == 0 {
+		t.Fatalf("isolir_plan_id = %q, %v; want the plan created anyway", v, err)
+	}
+}
+
+// A second isolate while one runs adds no row. An isolation past ends_at that the job has not ended
+// yet does not count as running, so isolate starts a new one next to it.
+func TestIsolateNoDuplicateButStaleRowDoesNotBlock(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	enableIsolir(t, e, "5")
+	radiusPlans(t, e)
+	day, _ := e.q.GetPlan(ctx, e.day.ID)
+	cust, _ := e.q.GetCustomer(ctx, e.cust.ID)
+	for range 2 {
+		if err := e.s.isolate(ctx, e.q, day, cust); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if rows := isolationRows(t, e); len(rows) != 1 {
+		t.Fatalf("want 1 isolation, got %+v", rows)
+	}
+	e.now = e.now.AddDate(0, 0, 6) // past ends_at, endDueIsolations not run
+	if err := e.s.isolate(ctx, e.q, day, cust); err != nil {
+		t.Fatal(err)
+	}
+	if rows := isolationRows(t, e); len(rows) != 2 || rows[0].EndedAt != 0 {
+		t.Fatalf("want the stale row left open and a new one, got %+v", rows)
+	}
+}
+
+// endIsolation ends every open row of the customer, also one past ends_at, and reports it.
+func TestEndIsolationReportsAndEndsAll(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	if ok, err := endIsolation(ctx, e.q, e.now.Unix(), e.cust.ID, "paid"); ok || err != nil {
+		t.Fatalf("no isolation: ok=%v err=%v", ok, err)
+	}
+	for _, ends := range []int64{e.now.Unix() - 10, e.now.Unix() + 100} {
+		if _, err := e.q.CreateIsolation(ctx, db.CreateIsolationParams{CustomerID: e.cust.ID, StartedAt: e.now.Unix() - 50, EndsAt: ends}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if ok, err := endIsolation(ctx, e.q, e.now.Unix(), e.cust.ID, "paid"); !ok || err != nil {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	for _, r := range isolationRows(t, e) {
+		if r.EndedAt != e.now.Unix() || r.EndReason != "paid" {
+			t.Fatalf("row not ended as paid: %+v", r)
+		}
+	}
+}
+
+// isolirPlan reads the raw setting: unset or 0 never matches.
+func TestIsolirPlanLookup(t *testing.T) {
+	ctx, e := context.Background(), setup(t)
+	if isolirPlan(ctx, e.q, 0) || isolirPlan(ctx, e.q, e.day.ID) {
+		t.Fatal("matched with no isolir plan")
+	}
+	e.q.UpsertSetting(ctx, db.UpsertSettingParams{Key: "isolir_plan_id", Value: "0"})
+	if isolirPlan(ctx, e.q, 0) {
+		t.Fatal("plan 0 matched")
+	}
+	id, err := isolir.EnsurePlan(ctx, e.q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !isolirPlan(ctx, e.q, id) || isolirPlan(ctx, e.q, e.day.ID) {
+		t.Fatal("lookup wrong")
+	}
+}
