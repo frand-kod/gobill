@@ -6,10 +6,8 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
-	"net"
 	"regexp"
 	"runtime"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,13 +45,6 @@ type Report struct {
 	Tables      []*Table
 	Unsupported []string
 }
-
-// unsupportedFeatures are PHPNuxBill data gobill never imports.
-var unsupportedFeatures = []string{"coupons", "ODP", "inbox"}
-
-// unsupportedSettings are PHPNuxBill settings that change behaviour there but gobill never reads (paritas IM2).
-// They are copied as they are, and reported only when the backup has them.
-var unsupportedSettings = []string{"enable_coupons", "frrest_interim_update"}
 
 // Print writes the report; at most 10 skip reasons per table.
 func (r *Report) Print(w io.Writer) {
@@ -156,101 +147,6 @@ func orNil(id int64, ok bool) any {
 	return nil
 }
 
-var dataTables = []string{"activity_logs", "vouchers", "transactions", "subscriptions", "customers",
-	"plans", "pools", "bandwidths", "routers", "nas", "admins", "settings"}
-
-// Trigger SQL copied verbatim from migrations/0022_agent_batches.sql; wipeAgent recreates them.
-const (
-	agentLedgerNoUpdate = `CREATE TRIGGER agent_ledger_no_update BEFORE UPDATE OF batch_id, kind, amount, voucher_id, note, created_at ON agent_ledger
-BEGIN SELECT RAISE(ABORT, 'agent_ledger is append-only'); END;`
-	agentLedgerNoDelete = `CREATE TRIGGER agent_ledger_no_delete BEFORE DELETE ON agent_ledger
-BEGIN SELECT RAISE(ABORT, 'agent_ledger is append-only'); END;`
-)
-
-// wipeAgent empties the agent tables, which hold RESTRICT foreign keys into vouchers, admins and
-// plans. agent_ledger is append-only (its triggers abort DELETE), so they are dropped for this
-// transaction only and recreated before returning. A rollback restores them too.
-func wipeAgent(ctx context.Context, tx *sql.Tx) error {
-	for _, q := range []string{
-		"DROP TRIGGER agent_ledger_no_update",
-		"DROP TRIGGER agent_ledger_no_delete",
-		"DELETE FROM agent_ledger",
-		"DELETE FROM agent_batch_vouchers",
-		"DELETE FROM agent_batches",
-		agentLedgerNoUpdate,
-		agentLedgerNoDelete,
-	} {
-		if _, err := tx.ExecContext(ctx, q); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Run imports everything in one SQLite transaction.
-func Run(ctx context.Context, my, lite *sql.DB, o Options) (*Report, error) {
-	tx, err := lite.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-	if o.Force {
-		if err := wipeAgent(ctx, tx); err != nil {
-			return nil, err
-		}
-	}
-	for _, t := range dataTables {
-		var n int
-		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM "+t).Scan(&n); err != nil {
-			return nil, err
-		}
-		if n == 0 {
-			continue
-		}
-		if !o.Force {
-			return nil, fmt.Errorf("target is not empty (%s has %d rows); use --force to wipe it", t, n)
-		}
-		if _, err := tx.ExecContext(ctx, "DELETE FROM "+t); err != nil {
-			return nil, err
-		}
-	}
-	m := &imp{my: my, tx: tx, ctx: ctx, o: o, rep: &Report{Unsupported: slices.Clone(unsupportedFeatures)},
-		routers: map[string]int64{}, pools: map[string]int64{}, plans: map[string]int64{},
-		customers: map[string]int64{}, admins: map[int64]bool{}, custIDs: map[int64]bool{}}
-	for _, step := range []func() error{m.settings, m.notifications, m.admin, m.router, m.bandwidth, m.pool, m.plan,
-		m.customer, m.fields, m.subscription, m.transaction, m.voucher, m.logs, m.nas} {
-		if err := step(); err != nil {
-			return nil, err
-		}
-	}
-	if o.DryRun {
-		return m.rep, nil
-	}
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-	// Fresh planner stats for the imported row counts; without them RADIUS auth scans every
-	// active subscription. A failure only costs speed: the data is already committed.
-	lite.ExecContext(ctx, "ANALYZE")
-	return m.rep, nil
-}
-
-func (m *imp) table(name string) *Table {
-	t := &Table{Name: name}
-	m.rep.Tables = append(m.rep.Tables, t)
-	return t
-}
-
-func (m *imp) settings() error {
-	t := m.table("settings")
-	return m.each(t, "SELECT setting, COALESCE(value,'') FROM tbl_appconfig ORDER BY id", 2, func(r row) {
-		if slices.Contains(unsupportedSettings, r[0]) {
-			m.rep.Unsupported = append(m.rep.Unsupported, r[0])
-		}
-		m.put(t, r[0], "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", r[0], db.SealSettingWith(m.o.Key, r[0], r[1]))
-	})
-}
-
 var sha1Hex = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
 
 func (m *imp) admin() error {
@@ -284,25 +180,6 @@ func (m *imp) admin() error {
 	})
 }
 
-func (m *imp) router() error {
-	t := m.table("routers")
-	return m.each(t, "SELECT id, name, ip_address, username, password, COALESCE(description,''), enabled FROM tbl_routers ORDER BY id", 7, func(r row) {
-		host, port := r[2], "8728"
-		if h, p, err := net.SplitHostPort(r[2]); err == nil {
-			host, port = h, p
-		}
-		enc, err := secret.Seal(m.o.Key, []byte(r[4]))
-		if err != nil {
-			t.skip(r[0], err)
-			return
-		}
-		if m.put(t, r[0], `INSERT INTO routers (id, name, host, port, username, password_enc, description, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			r.i(0), r[1], host, port, r[3], enc, r[5], r.i(6) != 0) {
-			m.routers[r[1]] = r.i(0)
-		}
-	})
-}
-
 func (m *imp) bandwidth() error {
 	t := m.table("bandwidths")
 	return m.each(t, "SELECT id, name_bw, rate_down, rate_down_unit, rate_up, rate_up_unit, COALESCE(burst,'') FROM tbl_bandwidth ORDER BY id", 7, func(r row) {
@@ -324,8 +201,6 @@ func (m *imp) pool() error {
 		}
 	})
 }
-
-var devices = map[string]bool{"MikrotikHotspot": true, "MikrotikPppoe": true, "Dummy": true, "Radius": true}
 
 func (m *imp) plan() error {
 	t := m.table("plans")
@@ -497,13 +372,6 @@ func hashAll(pws []string) ([]string, []error) {
 	return hashes, errs
 }
 
-func (m *imp) routerID(name string) (any, bool) {
-	if id, ok := m.routers[name]; ok {
-		return id, true
-	}
-	return nil, name == "" || strings.EqualFold(name, "radius")
-}
-
 func (m *imp) subscription() error {
 	t := m.table("subscriptions")
 	return m.each(t, `SELECT id, customer_id, plan_id, recharged_on, recharged_time, expiration, time, status, method, routers, type, admin_id
@@ -612,25 +480,4 @@ func (m *imp) logs() error {
 		m.put(t, r[0], `INSERT INTO activity_logs (id, actor_type, actor_id, action, description, ip, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			r.i(0), actor, r.i(4), r[2], r[3], r[5], at)
 	})
-}
-
-func (m *imp) nas() error {
-	t := m.table("nas")
-	return m.each(t, "SELECT id, nasname, COALESCE(NULLIF(shortname,''), nasname), secret, COALESCE(description,'') FROM nas ORDER BY id", 5, func(r row) {
-		enc, err := secret.Seal(m.o.Key, []byte(r[3]))
-		if err != nil {
-			t.skip(r[0], err)
-			return
-		}
-		m.put(t, r[0], `INSERT INTO nas (id, name, ip, secret_enc, description) VALUES (?, ?, ?, ?, ?)`, r.i(0), r[2], r[1], enc, r[4])
-	})
-}
-
-// Timezone returns the old appconfig timezone, or Asia/Jakarta.
-func Timezone(ctx context.Context, my *sql.DB) string {
-	var tz string
-	if my.QueryRowContext(ctx, "SELECT value FROM tbl_appconfig WHERE setting = 'timezone'").Scan(&tz) != nil || tz == "" {
-		return "Asia/Jakarta"
-	}
-	return tz
 }
