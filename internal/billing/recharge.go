@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/money"
 	"github.com/frand-kod/gobill/internal/notify"
 	"github.com/frand-kod/gobill/internal/payment"
 	"strconv"
@@ -327,9 +328,9 @@ func (s *Service) notifyRecharge(p *pending) {
 	}
 	vars := map[string]string{"invoice": p.trx.Invoice, "date": time.Unix(p.trx.PeriodStart, 0).In(loc).Format(layout),
 		"payment_gateway": gw, "payment_channel": ch, "type": p.trx.Type, "plan_name": p.plan.Name,
-		"plan_price": notify.Money(p.trx.Price), "price": notify.Money(p.trx.Price), "expired_date": expired,
+		"plan_price": money.Message(p.trx.Price), "price": money.Message(p.trx.Price), "expired_date": expired,
 		"trx_date": time.Unix(p.trx.PeriodStart, 0).In(loc).Format(layout), "note": p.trx.Note,
-		"bills": p.trx.Note + "Total : " + notify.Money(p.trx.Price) + "\n", "invoice_link": fmt.Sprintf("/portal/orders/%d/invoice", p.trxID)}
+		"bills": p.trx.Note + "Total : " + money.Message(p.trx.Price) + "\n", "invoice_link": fmt.Sprintf("/portal/orders/%d/invoice", p.trxID)}
 	vars["qris_link"] = s.qrisLink(p, n)
 	data := map[string]any{"invoice": p.trx.Invoice, "username": p.cust.Username, "plan": p.plan.Name, "type": p.trx.Type,
 		"price": p.trx.Price, "method": p.trx.Method, "router": p.trx.RouterName, "expires_at": p.expiry.Unix()}
@@ -340,11 +341,11 @@ func (s *Service) notifyRecharge(p *pending) {
 		}
 		s.telegram(fmt.Sprintf("#u%s %s %s #%s \n%s\nRouter: %s\nGateway: %s\nChannel: %s\nExpired: %s\nPrice: %s\nNote:\n%s",
 			p.cust.Username, p.cust.Fullname, tag, p.plan.Type, p.plan.Name, p.trx.RouterName, gw, ch,
-			p.expiry.In(loc).Format(layout), notify.Money(p.trx.Price), p.trx.Note))
+			p.expiry.In(loc).Format(layout), money.Message(p.trx.Price), p.trx.Note))
 	}
 	if p.plan.Type == "Balance" { // Package.php #rechargeBalance: a top-up sends the balance invoice, not the paid one
-		vars["balance_before"] = notify.Money(p.cust.Balance)
-		vars["balance"] = notify.Money(p.cust.Balance + p.trx.Price)
+		vars["balance_before"] = money.Message(p.cust.Balance)
+		vars["balance"] = money.Message(p.cust.Balance + p.trx.Price)
 		n.Go("recharge", func(ctx context.Context) error { return n.RechargeBalance(ctx, p.cust, vars) })
 	} else {
 		n.Go("recharge", func(ctx context.Context) error { return n.RechargeSuccess(ctx, p.cust, vars) })

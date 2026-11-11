@@ -8,10 +8,10 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	moneyfmt "github.com/frand-kod/gobill/internal/money"
 )
 
 // ---- dashboard ----
@@ -31,11 +31,6 @@ type dashData struct {
 	Network                  netCard
 	NetErr                   bool // the network card query failed: the tile shows "Data could not be loaded"
 	dashWidgets
-}
-
-// moneyFormat is the currency prefix and digit group separator that money uses.
-func moneyFormat() (prefix, sep string) {
-	return strings.TrimSuffix(money(0), "0"), groupSep()
 }
 
 // attnItem is one admin bell row: Kind is its English label (the template translates it), Count how many,
@@ -122,7 +117,7 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 	}
 	d.Year = now.Year()
 	d.ListLimit = dashListLimit
-	d.MoneyPrefix, d.MoneySep = moneyFormat()
+	d.MoneyPrefix, d.MoneySep = moneyfmt.Prefix, groupSep()
 	labels, regs, sales := make([]string, 12), make([]int64, 12), make([]int64, 12)
 	// rolling window: the last 12 months, oldest first, ending with the current month
 	for m := 0; m < 12; m++ {

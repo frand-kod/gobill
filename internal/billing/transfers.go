@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/notify"
+	"github.com/frand-kod/gobill/internal/money"
 	"strconv"
 )
 
@@ -84,10 +84,10 @@ func (s *Service) SendPlan(ctx context.Context, fromID int64, friend string, pla
 	}
 	s.apply(ctx, p) // friend: router + "recharge success" message
 	if n := s.notifier(); n != nil {
-		price := notify.Money(p.trx.Price)
+		price := money.Message(p.trx.Price)
 		n.Go("balance_send", func(c context.Context) error {
 			return n.Custom(c, from, "balance_send", "Balance Notification", map[string]string{"name": to.Fullname + " (" + to.Username + ")",
-				"balance": price, "current_balance": notify.Money(from.Balance)})
+				"balance": price, "current_balance": money.Message(from.Balance)})
 		})
 	}
 	return nil
@@ -150,12 +150,12 @@ func (s *Service) TransferBalance(ctx context.Context, fromID int64, toUsername 
 		return err
 	}
 	if n := s.notifier(); n != nil {
-		bal := notify.Money(amount)
+		bal := money.Message(amount)
 		n.Go("balance_send", func(c context.Context) error {
-			return n.Custom(c, from, "balance_send", "Balance Notification", map[string]string{"name": to.Fullname + " (" + to.Username + ")", "balance": bal, "current_balance": notify.Money(from.Balance)})
+			return n.Custom(c, from, "balance_send", "Balance Notification", map[string]string{"name": to.Fullname + " (" + to.Username + ")", "balance": bal, "current_balance": money.Message(from.Balance)})
 		})
 		n.Go("balance_received", func(c context.Context) error {
-			return n.Custom(c, to, "balance_received", "Balance Notification", map[string]string{"name": from.Fullname + " (" + from.Username + ")", "balance": bal, "current_balance": notify.Money(to.Balance)})
+			return n.Custom(c, to, "balance_received", "Balance Notification", map[string]string{"name": from.Fullname + " (" + from.Username + ")", "balance": bal, "current_balance": money.Message(to.Balance)})
 		})
 		s.telegram(fmt.Sprintf("#u%s send balance to #u%s \n%d", from.Username, to.Username, amount))
 	}
