@@ -11,6 +11,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"github.com/frand-kod/gobill/internal/settings"
 	"html"
 	"html/template"
 	"net/http"
@@ -124,13 +125,8 @@ func (s *Server) wizLoad(ctx context.Context) (wizState, error) {
 	if ws.st, err = s.loadSettings(ctx); err != nil {
 		return ws, err
 	}
-	rows, err := s.queries.ListSettings(ctx)
-	if err != nil {
+	if ws.raw, err = s.Settings.All(ctx); err != nil {
 		return ws, err
-	}
-	ws.raw = make(map[string]string, len(rows))
-	for _, r := range rows {
-		ws.raw[r.Key] = r.Value
 	}
 	ws.mode, ws.router = ws.raw[setupModeKey], ws.raw[setupRouter]
 	return ws, nil
@@ -288,7 +284,7 @@ func (s *Server) setupShow(w http.ResponseWriter, r *http.Request) {
 // setupStart answers the first-run dialog. to is "new" (Mulai baru), "import" or "" (Mulai setup cepat).
 func (s *Server) setupStart(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	cur, _ := s.queries.GetSetting(ctx, setupKey)
+	cur := settings.Get(ctx, s.queries, setupKey)
 	if cur == "" {
 		if err := s.queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupKey, Value: "started"}); err != nil {
 			s.fail(w, "setup start", err)
@@ -442,9 +438,7 @@ func (s *Server) wizPut(ctx context.Context, kv map[string]string) error {
 			return err
 		}
 	}
-	if s.SettingsChanged != nil {
-		s.SettingsChanged(ctx)
-	}
+	s.settingsSaved(ctx)
 	return nil
 }
 
@@ -753,7 +747,7 @@ func (s *Server) wizSaveVoucher(r *http.Request) (wizResult, error) {
 		}
 		return wizResult{}, err
 	}
-	if cur, _ := s.queries.GetSetting(ctx, setupVoucher); cur != "" {
+	if cur := settings.Get(ctx, s.queries, setupVoucher); cur != "" {
 		if _, err := s.queries.GetVoucherByCode(ctx, cur); err == nil {
 			return wizResult{next: true}, nil
 		}

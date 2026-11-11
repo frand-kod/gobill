@@ -7,6 +7,7 @@ package billing
 import (
 	"context"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/settings"
 	"log/slog"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -51,8 +52,7 @@ func (s *Service) isolate(ctx context.Context, q *db.Queries, plan db.Plan, c db
 // isolirPlan reports whether planID is the isolir plan. The isolir plan is a system plan: it is never
 // recharged or assigned by hand, and no subscription uses it.
 func isolirPlan(ctx context.Context, q *db.Queries, planID int64) bool {
-	v, err := q.GetSetting(ctx, "isolir_plan_id")
-	return err == nil && planID != 0 && isolir.PlanID(v) == planID
+	return planID != 0 && isolir.PlanID(settings.Get(ctx, q, "isolir_plan_id")) == planID
 }
 
 // endIsolation ends the customer's running isolation because a plan was bought (reason "paid"). It

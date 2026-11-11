@@ -5,7 +5,9 @@ package web
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/settings"
 	"html/template"
+	"maps"
 	"net/http"
 	"net/netip"
 	"sync/atomic"
@@ -41,8 +43,10 @@ var (
 
 // Server wires the database, sessions, translations and templates together.
 type Server struct {
-	conn      *sql.DB
-	queries   *db.Queries
+	conn    *sql.DB
+	queries *db.Queries
+	// Settings caches the settings table, shared with the other packages by internal/app.
+	Settings  *settings.Store
 	sessions  *scs.SessionManager
 	catalog   i18n.Catalog
 	templates map[string]*template.Template
@@ -172,11 +176,12 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 		dummyHash: dummy,
 		failed:    map[string][]time.Time{},
 	}
-	settings, err := s.loadSettings(context.Background())
+	s.Settings = settings.New(s.queries)
+	st, err := s.loadSettings(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	s.lang.Store(settings["language"])
+	s.lang.Store(st["language"])
 	s.ReloadSessionSettings(context.Background())
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
@@ -224,7 +229,7 @@ func (s *Server) t(key string) string { return s.catalog.T(s.language(), key) }
 
 // loadSettings returns all settings with defaults filled in.
 func (s *Server) loadSettings(ctx context.Context) (map[string]string, error) {
-	rows, err := s.queries.ListSettings(ctx)
+	rows, err := s.Settings.All(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -235,9 +240,7 @@ func (s *Server) loadSettings(ctx context.Context) (map[string]string, error) {
 		"currency_code": "Rp",
 		"reminder_hour": "7",
 	}
-	for _, row := range rows {
-		m[row.Key] = row.Value
-	}
+	maps.Copy(m, rows)
 	setThousandsSep(m["thousands_sep"]) // money reads it; loaded at start and on each settings page
 	return m, nil
 }
@@ -334,26 +337,8 @@ func peerAddr(remote string) (netip.Addr, bool) {
 }
 
 // parseTrustedProxies parses a comma-separated list of IPs and CIDRs. ok is false if any entry is invalid.
-func parseTrustedProxies(spec string) (ps []netip.Prefix, ok bool) {
-	ok = true
-	for _, e := range strings.Split(spec, ",") {
-		if e = strings.TrimSpace(e); e == "" {
-			continue
-		}
-		if p, err := netip.ParsePrefix(e); err == nil {
-			// a catch-all range would let any client spoof X-Forwarded-For
-			if p.Bits() < 8 && p.Addr().Is4() || p.Bits() < 32 && !p.Addr().Is4() {
-				ok = false
-				continue
-			}
-			ps = append(ps, p)
-		} else if a, err := netip.ParseAddr(e); err == nil {
-			ps = append(ps, netip.PrefixFrom(a, a.BitLen()))
-		} else {
-			ok = false
-		}
-	}
-	return ps, ok
+func parseTrustedProxies(spec string) ([]netip.Prefix, bool) {
+	return settings.ParseTrustedProxies(spec)
 }
 
 // clientIP is the host part of RemoteAddr.

@@ -219,7 +219,7 @@ func Run(cfg config.Config, version string) error {
 	}
 
 	errCh := make(chan error, 2)
-	rs := &radius.Server{Q: db.NewCached(conn), DB: conn, Key: key, Loc: svc.Location, Trusted: guard.Trusted, Redeem: svc.RedeemVoucher, Start: svc.StartPending}
+	rs := &radius.Server{Settings: app.Settings, Q: db.NewCached(conn), DB: conn, Key: key, Loc: svc.Location, Trusted: guard.Trusted, Redeem: svc.RedeemVoucher, Start: svc.StartPending}
 	radius.AppLoc = svc.Location
 	app.Radius = rs // shared with /radius.php so throttles and dedup state are common
 	if ra := cfg.RadiusAddr; cfg.RadiusOn {

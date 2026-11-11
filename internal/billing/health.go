@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/settings"
 	"log/slog"
 	"os"
 	"slices"
@@ -66,9 +67,7 @@ func (a *AlertJob) Run(ctx context.Context) error {
 	if a.active == nil {
 		a.active, a.seen = map[string]bool{}, map[string]bool{}
 		var keys []string
-		if v, err := a.S.Q.GetSetting(ctx, activeKey); err == nil {
-			_ = json.Unmarshal([]byte(v), &keys)
-		}
+		_ = json.Unmarshal([]byte(settings.Get(ctx, a.S.Q, activeKey)), &keys)
 		for _, k := range keys {
 			a.active[k] = true
 		}

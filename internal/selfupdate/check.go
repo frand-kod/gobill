@@ -2,6 +2,7 @@ package selfupdate
 
 import (
 	"context"
+	"github.com/frand-kod/gobill/internal/settings"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -36,17 +37,11 @@ func (c *Check) Run(ctx context.Context) error {
 	if c.Now != nil {
 		now = c.Now()
 	}
-	rows, err := c.Q.ListSettings(ctx)
+	st, err := settings.List(ctx, c.Q)
 	if err != nil {
 		return err
 	}
-	enabled := true
-	for _, r := range rows {
-		if r.Key == "update_check" {
-			enabled = r.Value != "no"
-		}
-	}
-	if !enabled {
+	if st["update_check"] == "no" {
 		c.set("", "")
 		return nil
 	}

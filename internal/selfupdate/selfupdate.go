@@ -56,7 +56,6 @@ type Updater struct {
 	waitHealthy                                 func(url string, timeout time.Duration) error
 }
 
-
 // CheckHealth returns nil when url answers 200.
 func CheckHealth(url string) error {
 	resp, err := (&http.Client{Timeout: 4 * time.Second}).Get(url)

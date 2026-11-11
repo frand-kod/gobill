@@ -2,6 +2,7 @@ package job
 
 import (
 	"context"
+	"github.com/frand-kod/gobill/internal/settings"
 	"log/slog"
 	"strconv"
 	"sync/atomic"
@@ -43,19 +44,11 @@ func (g *ClockGuard) Reason() string {
 
 // Check runs one tick: update the verdict and, if trusted, move last_seen_at forward.
 func (g *ClockGuard) Check(ctx context.Context) error {
-	settings, err := g.Q.ListSettings(ctx)
+	st, err := settings.List(ctx, g.Q)
 	if err != nil {
 		return err
 	}
-	var guard, last string
-	for _, s := range settings {
-		switch s.Key {
-		case keyGuard:
-			guard = s.Value
-		case keyLastSeen:
-			last = s.Value
-		}
-	}
+	guard, last := st[keyGuard], st[keyLastSeen]
 	if guard == "off" {
 		g.state.Store(nil)
 		return nil

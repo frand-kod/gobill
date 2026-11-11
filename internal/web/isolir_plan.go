@@ -6,9 +6,7 @@ package web
 import (
 	"context"
 	"fmt"
-	"regexp"
-	"strconv"
-	"strings"
+	"github.com/frand-kod/gobill/internal/settings"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/isolir"
@@ -16,7 +14,7 @@ import (
 
 // isolirIDs are the isolir plan and its bandwidth, 0 while the plan is not set up.
 func (s *Server) isolirIDs(ctx context.Context) (planID, bwID int64) {
-	v, _ := s.queries.GetSetting(ctx, "isolir_plan_id")
+	v := settings.Get(ctx, s.queries, "isolir_plan_id")
 	if planID = isolir.PlanID(v); planID == 0 {
 		return 0, 0
 	}
@@ -47,20 +45,8 @@ func (s *Server) isolirSpeed(ctx context.Context) (name, down, up string) {
 const isolirDefaultRate = "64k"
 
 // rateRe is a rate typed in the Isolir settings: kbps with k, Mbps with M. A bare number is kbps.
-var rateRe = regexp.MustCompile(`^([1-9][0-9]{0,6})\s*([kKmM]?)$`)
-
 // parseRate reads "64k" or "2M" as the number and the unit the bandwidth table stores.
-func parseRate(x string) (n int64, unit string, ok bool) {
-	m := rateRe.FindStringSubmatch(strings.TrimSpace(x))
-	if m == nil {
-		return 0, "", false
-	}
-	n, _ = strconv.ParseInt(m[1], 10, 64)
-	if strings.EqualFold(m[2], "m") {
-		return n, "Mbps", true
-	}
-	return n, "Kbps", true
-}
+func parseRate(x string) (int64, string, bool) { return settings.ParseRate(x) }
 
 // rateSetting writes a bandwidth rate back the way the settings take it: "64k" or "2M".
 func rateSetting(n int64, unit string) string {
@@ -73,7 +59,7 @@ func rateSetting(n int64, unit string) string {
 // saveIsolirRates writes the typed rates to the isolir bandwidth row when the plan exists. A missing
 // or invalid rate is left alone; settingsErrors has already rejected invalid ones.
 func saveIsolirRates(ctx context.Context, q *db.Queries, v map[string]string) error {
-	raw, _ := q.GetSetting(ctx, "isolir_plan_id")
+	raw := settings.Get(ctx, q, "isolir_plan_id")
 	p, err := q.GetPlan(ctx, isolir.PlanID(raw))
 	if err != nil || !p.BandwidthID.Valid {
 		return nil // no plan yet: it is made the next time Isolir is turned on

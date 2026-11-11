@@ -11,10 +11,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/settings"
 	"net"
 	"net/http"
 	"net/netip"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -24,9 +24,6 @@ import (
 	"github.com/frand-kod/gobill/internal/secret"
 	"github.com/frand-kod/gobill/internal/wg"
 )
-
-// wgEndpointRe is a host name or an IPv4 address, without a port.
-var wgEndpointRe = regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$`)
 
 // wgDefaults fills the tunnel settings and the switch with their defaults.
 func wgDefaults(st map[string]string) map[string]string {
@@ -48,21 +45,6 @@ func wgOff() string {
 		return "WireGuard is switched off by GOBILL_WG=off, which overrides this setting"
 	}
 	return ""
-}
-
-// wgErrors checks the posted WireGuard settings.
-func wgErrors(v, e map[string]string) {
-	if x, ok := v["wg_port"]; ok && !inRange(x, 1, 65535) {
-		e["wg_port"] = "Enter a port between 1 and 65535"
-	}
-	if x, ok := v["wg_subnet"]; ok {
-		if _, err := wg.ParseSubnet(x); err != nil {
-			e["wg_subnet"] = "Use a private IPv4 range from /16 to /29, e.g. 10.99.0.0/24"
-		}
-	}
-	if x := v["wg_endpoint"]; x != "" && !wgEndpointRe.MatchString(x) {
-		e["wg_endpoint"] = "Enter a domain or an IP address without a port, e.g. vpn.example.com"
-	}
 }
 
 // wgImpact tells what saving v changes for the routers that already have a tunnel: n is how many, and
@@ -412,7 +394,7 @@ func (s *Server) wgRevoke(ctx context.Context, id int64) error {
 	if err := s.wgRelease(ctx, p); err != nil {
 		return err
 	}
-	pending, _ := s.queries.GetSetting(ctx, wgPendingKey(id))
+	pending := settings.Get(ctx, s.queries, wgPendingKey(id))
 	if pending != "" { // the script was never fetched: nothing was switched for it
 		if err := s.queries.UpsertSettingRaw(ctx, db.UpsertSettingRawParams{Key: wgPendingKey(id)}); err != nil {
 			return err
@@ -425,7 +407,7 @@ func (s *Server) wgRevoke(ctx context.Context, id int64) error {
 	up := db.UpdateRouterParams{Name: rt.Name, Host: rt.Host, Port: rt.Port, Username: rt.Username, PasswordEnc: rt.PasswordEnc,
 		Description: rt.Description, Enabled: rt.Enabled, Coordinates: rt.Coordinates, Coverage: rt.Coverage, CertPin: rt.CertPin, ID: id}
 	var restoreTLS *int64
-	if prev, _ := s.queries.GetSetting(ctx, wgPrevKey(id)); prev != "" {
+	if prev := settings.Get(ctx, s.queries, wgPrevKey(id)); prev != "" {
 		var c wgCreds // back to the credentials the router had before the tunnel
 		if err := json.Unmarshal([]byte(prev), &c); err != nil {
 			return err

@@ -3,6 +3,7 @@ package job
 import (
 	"context"
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/settings"
 	"io"
 	"log/slog"
 	"os"
@@ -173,15 +174,7 @@ func pruneSnapshots(dir string, now time.Time) error {
 
 // settings returns all settings as a map.
 func (b *Backup) settings(ctx context.Context) (map[string]string, error) {
-	rows, err := b.Q.ListSettings(ctx)
-	if err != nil {
-		return nil, err
-	}
-	m := make(map[string]string, len(rows))
-	for _, s := range rows {
-		m[s.Key] = s.Value
-	}
-	return m, nil
+	return settings.List(ctx, b.Q)
 }
 
 // set stores a backup status value for the admin UI. A failure is logged, not returned.

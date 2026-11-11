@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/settings"
 	"math"
 	"strconv"
 	"strings"
@@ -31,15 +32,7 @@ func WithTax(st map[string]string, price int64) int64 {
 
 // settingsMap returns the error: a failed read must not price a recharge without tax.
 func settingsMap(ctx context.Context, q *db.Queries) (map[string]string, error) {
-	rows, err := q.ListSettings(ctx)
-	if err != nil {
-		return nil, err
-	}
-	m := make(map[string]string, len(rows))
-	for _, r := range rows {
-		m[r.Key] = r.Value
-	}
-	return m, nil
+	return settings.List(ctx, q)
 }
 
 type quoted struct {
