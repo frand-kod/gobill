@@ -221,7 +221,7 @@ func (s *Server) adminSave(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) admins() *admin.Service {
-	return &admin.Service{Q: s.Queries, Cost: bcryptCost}
+	return &admin.Service{Q: s.Queries, Cost: core.BcryptCost}
 }
 
 func (s *Server) adminDelete(w http.ResponseWriter, r *http.Request) {
@@ -307,7 +307,7 @@ func (s *Server) passwordSave(w http.ResponseWriter, r *http.Request) {
 		again(422)
 		return
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(pass), bcryptCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(pass), core.BcryptCost)
 	if err != nil {
 		s.Fail(w, "hash password", err)
 		return
@@ -343,7 +343,7 @@ func (s *Server) adminPasswordReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pw := secret.RandomPassword(16)
-	hash, err := bcrypt.GenerateFromPassword([]byte(pw), bcryptCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(pw), core.BcryptCost)
 	if err != nil {
 		s.Fail(w, "hash password", err)
 		return

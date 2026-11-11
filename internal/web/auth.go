@@ -196,6 +196,3 @@ func adminFrom(r *http.Request) *db.Admin {
 	a, _ := r.Context().Value(ctxKey{}).(*db.Admin)
 	return a
 }
-
-// bcryptCost is lowered by tests; bcrypt at the default cost dominates test time under -race.
-var bcryptCost = bcrypt.DefaultCost

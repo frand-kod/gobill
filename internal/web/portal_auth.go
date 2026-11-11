@@ -137,14 +137,6 @@ func (s *Server) keepSession(r *http.Request, id int64) error {
 	return nil
 }
 
-// customerLoginURL is the customer login address for messages: app_url plus /login, or "" without app_url.
-func customerLoginURL(st map[string]string) string {
-	if u := strings.TrimRight(st["app_url"], "/"); u != "" {
-		return u + "/login"
-	}
-	return ""
-}
-
 func (s *Server) pLogout(w http.ResponseWriter, r *http.Request) {
 	s.Sessions.Remove(r.Context(), "customer_id")
 	s.Sessions.Remove(r.Context(), "impersonator")
@@ -194,7 +186,7 @@ func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	c, err := s.Queries.GetCustomerByUsername(ctx, username)
 	if err != nil {
-		hash, herr := bcrypt.GenerateFromPassword([]byte(code), bcryptCost)
+		hash, herr := bcrypt.GenerateFromPassword([]byte(code), core.BcryptCost)
 		enc, serr := secret.Seal(s.SecretKey, []byte(code))
 		if herr != nil || serr != nil {
 			s.Fail(w, "voucher login", errors.Join(herr, serr))

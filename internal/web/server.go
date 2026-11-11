@@ -116,7 +116,7 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	dummy, err := bcrypt.GenerateFromPassword([]byte("not-a-real-password"), bcryptCost)
+	dummy, err := bcrypt.GenerateFromPassword([]byte("not-a-real-password"), core.BcryptCost)
 	if err != nil {
 		return nil, err
 	}

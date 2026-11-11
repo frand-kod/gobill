@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"github.com/frand-kod/gobill/internal/billing"
@@ -68,7 +69,7 @@ func (s *Server) routerReconcile(w http.ResponseWriter, r *http.Request) {
 	base := fmt.Sprint("/admin/routers/", x.ID, "/reconcile")
 	if post && r.PostFormValue("confirm") == "1" {
 		hash := func(pw string) (string, error) {
-			b, err := bcrypt.GenerateFromPassword([]byte(pw), bcryptCost)
+			b, err := bcrypt.GenerateFromPassword([]byte(pw), core.BcryptCost)
 			return string(b), err
 		}
 		res, err := s.Billing.ReconApply(r.Context(), x.ID, adminFrom(r).ID, choose, hash)

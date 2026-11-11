@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -85,7 +86,7 @@ func TestMoneyNegativeAndDayLabels(t *testing.T) {
 	}
 	loc := time.UTC
 	now := time.Date(2026, 10, 12, 10, 0, 0, 0, loc).Unix()
-	days := dailyUsage(nil, 7, now, loc)
+	days := core.DailyUsage(nil, 7, now, loc)
 	if days[0].Label != "2026-10-06" || days[6].Label != "2026-10-12" {
 		t.Fatalf("day labels %q .. %q", days[0].Label, days[6].Label)
 	}

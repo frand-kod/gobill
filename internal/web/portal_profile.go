@@ -74,7 +74,7 @@ func (s *Server) pPassword(w http.ResponseWriter, r *http.Request) {
 	if bcrypt.CompareHashAndPassword([]byte(c.PasswordHash), []byte(r.PostFormValue("password"))) != nil {
 		s.RecordFailure(pwKey)
 		msg = "Incorrect current password"
-	} else if msg = s.customerPasswordErr(st, c.Username, npass); msg == "" && npass != r.PostFormValue("cnpass") {
+	} else if msg = s.CustomerPasswordErr(st, c.Username, npass); msg == "" && npass != r.PostFormValue("cnpass") {
 		msg = "Passwords does not match"
 	}
 	if msg != "" {
@@ -196,7 +196,7 @@ func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
 	otp, err := core.NewOTP()
 	var hash []byte
 	if err == nil {
-		hash, err = bcrypt.GenerateFromPassword([]byte(otp), bcryptCost)
+		hash, err = bcrypt.GenerateFromPassword([]byte(otp), core.BcryptCost)
 	}
 	if err != nil {
 		s.Fail(w, "portal contact otp", err)

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 // /portal/usage.json is the logged-in customer's own live card: another customer's session never shows.
@@ -58,15 +60,15 @@ func TestPortalUsageJSONIsolationAndRate(t *testing.T) {
 func TestDailyUsageAggregation(t *testing.T) {
 	loc := time.UTC
 	now := time.Date(2026, 10, 12, 10, 0, 0, 0, loc).Unix()
-	rows := []dayTotal{
+	rows := []core.DayTotal{
 		{Day: "2026-10-12", Input: 11, Output: 22},
 		{Day: "2026-10-06", Input: 100, Output: 200},   // first day of the chart
 		{Day: "2026-10-05", Input: 1000, Output: 2000}, // before the chart: dropped
 	}
-	if got := weekSince(now, loc); got != "2026-10-06" {
+	if got := core.WeekSince(now, loc); got != "2026-10-06" {
 		t.Fatalf("weekSince = %s, want six days back", got)
 	}
-	days := dailyUsage(rows, 7, now, loc)
+	days := core.DailyUsage(rows, 7, now, loc)
 	if len(days) != 7 || !days[6].Today || days[6].Down != 22 || days[6].Up != 11 {
 		t.Fatalf("today: %+v", days[6])
 	}
@@ -78,7 +80,7 @@ func TestDailyUsageAggregation(t *testing.T) {
 			t.Fatalf("day %d should be empty: %+v", i, days[i])
 		}
 	}
-	bars := chartBars(days)
+	bars := core.ChartBars(days)
 	if top := bars[0]; top.DownPct+top.UpPct != 100 || top.DownPct != 66 {
 		t.Fatalf("busiest bar does not fill the chart or does not stack: %+v", top)
 	}

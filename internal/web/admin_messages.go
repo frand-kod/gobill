@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"context"
@@ -31,7 +32,7 @@ func channelField(v, e map[string]string) field {
 // messageFor fills a message the way the automated ones are filled (notify.Fill): the customer's
 // fields plus company, company_name, url and payment_link. Package and price placeholders stay empty.
 func messageFor(n *notify.Notifier, c db.Customer, st map[string]string, tpl string) string {
-	return n.Fill(tpl, c, map[string]string{"phone": c.Phone, "company": st["company_name"], "company_name": st["company_name"], "url": customerLoginURL(st)})
+	return n.Fill(tpl, c, map[string]string{"phone": c.Phone, "company": st["company_name"], "company_name": st["company_name"], "url": core.CustomerLoginURL(st)})
 }
 
 // deliver sends one message on one channel. Gateways that are not configured are an error, not a silent no-op.

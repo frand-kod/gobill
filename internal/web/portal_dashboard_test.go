@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/view"
 )
 
@@ -305,7 +306,7 @@ func TestMaskMAC(t *testing.T) {
 }
 
 func TestPwordsCountdownText(t *testing.T) {
-	w := pWords{Days: "hari", Hours: "jam", Minutes: "menit", Left: "lagi", Done: "Sudah habis"}
+	w := core.PWords{Days: "hari", Hours: "jam", Minutes: "menit", Left: "lagi", Done: "Sudah habis"}
 	for sec, want := range map[int64]string{
 		3*86400 + 4*3600 + 59: "3 hari 4 jam lagi",
 		86400:                 "1 hari lagi",
@@ -316,7 +317,7 @@ func TestPwordsCountdownText(t *testing.T) {
 		0:                     "Sudah habis",
 		-5:                    "Sudah habis",
 	} {
-		if got := w.countdown(sec); got != want {
+		if got := w.Countdown(sec); got != want {
 			t.Errorf("countdown(%d) = %q, want %q", sec, got, want)
 		}
 	}

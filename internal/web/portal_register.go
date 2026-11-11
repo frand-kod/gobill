@@ -28,34 +28,6 @@ type regData struct {
 	OTP             bool // OTP field shown
 }
 
-// commonPasswords are refused for every customer password (compared lower case).
-var commonPasswords = map[string]bool{"1234": true, "12345": true, "123456": true, "0000": true, "1111": true, "2222": true,
-	"1212": true, "4321": true, "abcd": true, "qwer": true, "asdf": true, "password": true, "admin": true, "1q2w": true,
-	"aaaa": true, "qwerty": true, "123123": true, "112233": true}
-
-// customerPasswordMin is the setting customer_password_min (4 by default, 4 to 64).
-func customerPasswordMin(st map[string]string) int {
-	if n, err := strconv.Atoi(st["customer_password_min"]); err == nil && n >= 4 && n <= 64 {
-		return n
-	}
-	return 4
-}
-
-// customerPasswordErr returns why pass cannot be a customer password, or "". It applies to every
-// customer password path. Equal to the username is refused because RADIUS treats it as a voucher login.
-func (s *Server) customerPasswordErr(st map[string]string, username, pass string) string {
-	if n := customerPasswordMin(st); len(pass) < n || len(pass) > 64 {
-		return fmt.Sprintf(s.T("Password should be between %d to 64 characters"), n)
-	}
-	if strings.EqualFold(pass, username) {
-		return "Password must not be the same as the username"
-	}
-	if commonPasswords[strings.ToLower(pass)] {
-		return "Password is too easy to guess"
-	}
-	return ""
-}
-
 // validRegUsername: 4 to 32 lower case letters or digits.
 func validRegUsername(u string) bool {
 	if len(u) < 4 || len(u) > 32 {
@@ -111,7 +83,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		show("Invalid phone number format")
 		return
 	}
-	if msg := s.customerPasswordErr(st, d.Username, f("password")); msg != "" {
+	if msg := s.CustomerPasswordErr(st, d.Username, f("password")); msg != "" {
 		show(msg)
 		return
 	}
@@ -175,7 +147,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		s.prender(w, r, http.StatusTooManyRequests, "p_register", Page{Title: "Register", Data: d, Error: "Too many registrations from this address. Try again later."})
 		return
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(f("password")), bcryptCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(f("password")), core.BcryptCost)
 	var enc []byte
 	if err == nil {
 		enc, err = secret.Seal(s.SecretKey, []byte(f("password")))
@@ -207,7 +179,7 @@ func (s *Server) registered(ctx context.Context, st map[string]string, c db.Cust
 		return
 	}
 	n.Go("welcome", func(ctx context.Context) error {
-		return n.Custom(ctx, c, "welcome_message", "Welcome", map[string]string{"company": st["company_name"], "Username": c.Username, "url": customerLoginURL(st), "Password": "********"})
+		return n.Custom(ctx, c, "welcome_message", "Welcome", map[string]string{"company": st["company_name"], "Username": c.Username, "url": core.CustomerLoginURL(st), "Password": "********"})
 	})
 	if st["reg_nofify_admin"] == "yes" && s.Billing != nil { // operator alert: follows alert_channel
 		n.Go("alert", func(ctx context.Context) error {

@@ -112,7 +112,7 @@ func (s *Server) admin2FAConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, c := range codes {
-		h, err := bcrypt.GenerateFromPassword([]byte(strings.ReplaceAll(c, "-", "")), bcryptCost)
+		h, err := bcrypt.GenerateFromPassword([]byte(strings.ReplaceAll(c, "-", "")), core.BcryptCost)
 		if err != nil {
 			s.Fail(w, "hash recovery code", err)
 			return

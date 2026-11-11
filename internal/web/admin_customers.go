@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/service/customer"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/view"
 
@@ -327,7 +328,7 @@ type custDetail struct {
 	Plans        []option
 	Methods      []option // payment methods offered on the recharge form
 	Subs         []subRow
-	Usage        *radiusUsage
+	Usage        *core.RadiusUsage
 	Trx          []db.Transaction
 	Custom       []field // custom fields with this customer's values
 	Online       string  // "" unless check_customer_online is yes; else Online, Offline or Error
@@ -364,7 +365,7 @@ func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "list transactions", err)
 		return
 	}
-	if d.Usage, err = s.radiusUsage(ctx, c); err != nil {
+	if d.Usage, err = s.RadiusUsage(ctx, c); err != nil {
 		s.Fail(w, "customer usage", err)
 		return
 	}
@@ -443,7 +444,7 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 			s.Fail(w, "customer password", err)
 			return
 		}
-		if msg := s.customerPasswordErr(st, v["username"], pass); msg != "" {
+		if msg := s.CustomerPasswordErr(st, v["username"], pass); msg != "" {
 			e["password"] = msg
 		}
 	}

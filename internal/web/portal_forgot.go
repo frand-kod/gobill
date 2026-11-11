@@ -175,7 +175,7 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "forgot otp", err)
 		return
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(otp), bcryptCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(otp), core.BcryptCost)
 	if err != nil {
 		s.Fail(w, "forgot hash", err)
 		return
@@ -273,7 +273,7 @@ func (s *Server) pForgotReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	npass := r.PostFormValue("npass")
-	msg := s.customerPasswordErr(st, user, npass)
+	msg := s.CustomerPasswordErr(st, user, npass)
 	if msg == "" && npass != r.PostFormValue("cnpass") {
 		msg = "Passwords does not match"
 	}

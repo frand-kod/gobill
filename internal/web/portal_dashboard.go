@@ -5,7 +5,6 @@ package web
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -110,11 +109,11 @@ type pDashData struct {
 	Extend    *pExtend // no active plan and extend_expired is on: renew the last ended plan
 	Buy       bool     // the customer can pay here (a gateway, or balance to spend): show the buy button
 	Usage     pUsage
-	Live      pLive    // the live card: online now, else last seen
-	Days      []dayBar // the 7-day usage chart
-	Today     pTotal   // today's usage
-	Period    pTotal   // usage since the plan started
-	Words     pWords
+	Live      pLive         // the live card: online now, else last seen
+	Days      []core.DayBar // the 7-day usage chart
+	Today     pTotal        // today's usage
+	Period    pTotal        // usage since the plan started
+	Words     core.PWords
 	Now       int64
 	Outage    bool // a mass drop covers this customer: the banner "outage in your area"
 	Voucher   bool
@@ -125,52 +124,6 @@ type pDashData struct {
 	Pay       *db.PaymentRequest // the unpaid, unexpired online payment, nil when none
 }
 
-// pWords are the countdown and duration words, translated. The Alpine ticker gets the same ones.
-type pWords struct {
-	Days, Hours, Minutes, Left, Done string
-}
-
-func (s *Server) pTexts() pWords {
-	return pWords{s.T("days"), s.T("hours"), s.T("minutes"), s.T("left"), s.T("Ended")}
-}
-
-// JSON is the words as a JSON object for the ticker's x-data.
-func (w pWords) JSON() string {
-	b, _ := json.Marshal(map[string]string{"days": w.Days, "hours": w.Hours, "minutes": w.Minutes, "left": w.Left, "done": w.Done})
-	return string(b)
-}
-
-// span: "3 hari 4 jam", "2 jam 15 menit", "45 menit". The ticker's gbSpan in usage.js does the same.
-func (w pWords) span(sec int64) string {
-	if sec < 0 {
-		sec = 0
-	}
-	d, h, m := sec/86400, sec%86400/3600, sec%3600/60
-	switch {
-	case d > 0:
-		if h > 0 {
-			return fmt.Sprintf("%d %s %d %s", d, w.Days, h, w.Hours)
-		}
-		return fmt.Sprintf("%d %s", d, w.Days)
-	case h > 0:
-		if m > 0 {
-			return fmt.Sprintf("%d %s %d %s", h, w.Hours, m, w.Minutes)
-		}
-		return fmt.Sprintf("%d %s", h, w.Hours)
-	case sec > 0 && m == 0:
-		m = 1 // under a minute still reads as one minute
-	}
-	return fmt.Sprintf("%d %s", m, w.Minutes)
-}
-
-// countdown: "3 hari 4 jam lagi", or the done word once the time is up.
-func (w pWords) countdown(sec int64) string {
-	if sec <= 0 {
-		return w.Done
-	}
-	return w.span(sec) + " " + w.Left
-}
-
 // maskMAC keeps the vendor part and the last two octets: CE:33:••:••:2A:AA. "" when it is not a MAC.
 func maskMAC(mac string) string {
 	p := strings.FieldsFunc(mac, func(r rune) bool { return r == ':' || r == '-' })
@@ -179,20 +132,6 @@ func maskMAC(mac string) string {
 	}
 	p[2], p[3] = "••", "••"
 	return strings.Join(p, ":")
-}
-
-// loginNames: the RADIUS user names of the customer (username, and the PPPoE name when it differs).
-func loginNames(c db.Customer) []string {
-	names := []string{c.Username}
-	if c.PppoeUsername != "" && c.PppoeUsername != c.Username {
-		names = append(names, c.PppoeUsername)
-	}
-	return names
-}
-
-// names2 are the two login names the queries take: the same name twice when there is only one.
-func names2(names []string) (string, string) {
-	return names[0], names[len(names)-1]
 }
 
 func (s *Server) pDashboard(w http.ResponseWriter, r *http.Request) { s.pDash(w, r, 200, "") }
@@ -211,9 +150,9 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		return
 	}
 	now := time.Now().Unix()
-	names := loginNames(*c)
-	n1, n2 := names2(names)
-	d := pDashData{Words: s.pTexts(), Now: now, Voucher: st["disable_voucher"] != "yes",
+	names := core.LoginNames(*c)
+	n1, n2 := core.Names2(names)
+	d := pDashData{Words: s.PTexts(), Now: now, Voucher: st["disable_voucher"] != "yes",
 		Company: st["company_name"], Phone: st["phone"], WA: view.WaLink(st["phone"], st["country_code_phone"]),
 		Buy: st["payment_gateway"] != "" || st["enable_balance"] != "no" && c.Balance > 0}
 
@@ -227,7 +166,7 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 	if sub != nil {
 		p, _ := s.Queries.GetPlan(ctx, sub.PlanID)
 		left := sub.ExpiresAt - now
-		d.Plan = &pPlan{Name: p.Name, Ends: s.SubExpiry(sub.PendingStart, sub.ExpiresAt), Expires: sub.ExpiresAt, Left: d.Words.countdown(left),
+		d.Plan = &pPlan{Name: p.Name, Ends: s.SubExpiry(sub.PendingStart, sub.ExpiresAt), Expires: sub.ExpiresAt, Left: d.Words.Countdown(left),
 			Pct: validityPct(sub.StartedAt, sub.ExpiresAt, now)}
 		if sub.PendingStart == 1 {
 			d.Plan.Pending, d.Plan.Left, d.Plan.Pct = true, s.T("Starts on first login"), 0
@@ -256,17 +195,17 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		return
 	}
 	// the chart: the last 7 days; today is the last bar
-	rows, err := s.Queries.ListRadiusUsageDaily(ctx, db.ListRadiusUsageDailyParams{Name1: n1, Name2: n2, Since: weekSince(now, s.Location())})
+	rows, err := s.Queries.ListRadiusUsageDaily(ctx, db.ListRadiusUsageDailyParams{Name1: n1, Name2: n2, Since: core.WeekSince(now, s.Location())})
 	if err != nil {
 		s.Fail(w, "portal usage chart", err)
 		return
 	}
-	totals := make([]dayTotal, len(rows))
+	totals := make([]core.DayTotal, len(rows))
 	for i, x := range rows {
-		totals[i] = dayTotal{Day: x.Day, Input: x.Input, Output: x.Output}
+		totals[i] = core.DayTotal{Day: x.Day, Input: x.Input, Output: x.Output}
 	}
-	days := dailyUsage(totals, 7, now, s.Location())
-	d.Days = chartBars(days)
+	days := core.DailyUsage(totals, 7, now, s.Location())
+	d.Days = core.ChartBars(days)
 	d.Today = pTotal{Down: view.HumanBytes(days[len(days)-1].Down), Up: view.HumanBytes(days[len(days)-1].Up)}
 
 	d.Trx, err = s.Queries.ListTransactionsByCustomer(ctx, db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, Limit: 3})
@@ -292,7 +231,7 @@ func validityPct(start, end, now int64) int {
 
 // pUsage: data and time used since the subscription started, the same sums the RADIUS login check uses.
 // used is the data octets of the same period; it is shown when the plan has no data limit.
-func (s *Server) pUsage(ctx context.Context, c db.Customer, sub db.Subscription, p db.Plan, w pWords, used int64) pUsage {
+func (s *Server) pUsage(ctx context.Context, c db.Customer, sub db.Subscription, p db.Plan, w core.PWords, used int64) pUsage {
 	if p.Limited == 1 && p.Device != "Radius" {
 		return pUsage{Note: s.T("Usage is not recorded for this plan")}
 	}
@@ -306,7 +245,7 @@ func (s *Server) pUsage(ctx context.Context, c db.Customer, sub db.Subscription,
 	}
 	if q.HasTime {
 		u.HasTime = true
-		u.Time = meter(q.Time, q.TimeLim, w.span)
+		u.Time = meter(q.Time, q.TimeLim, w.Span)
 	}
 	return u
 }
@@ -318,12 +257,12 @@ func meter(used, lim int64, text func(int64) string) pMeter {
 }
 
 // pSession maps one RADIUS session to a history row; the duration of an open session runs to now.
-func (s *Server) pSession(x db.RadiusSession, now int64, w pWords) pSess {
+func (s *Server) pSession(x db.RadiusSession, now int64, w core.PWords) pSess {
 	end := now
 	if x.StoppedAt.Valid {
 		end = x.StoppedAt.Int64
 	}
-	return pSess{Start: s.TS(x.StartedAt), For: w.span(end - x.StartedAt), Up: view.HumanBytes(x.InputOctets), Down: view.HumanBytes(x.OutputOctets),
+	return pSess{Start: s.TS(x.StartedAt), For: w.Span(end - x.StartedAt), Up: view.HumanBytes(x.InputOctets), Down: view.HumanBytes(x.OutputOctets),
 		MAC: maskMAC(x.Mac), Open: !x.StoppedAt.Valid && now-x.UpdatedAt <= radius.StaleFor(x.NasIp)}
 }
 
@@ -354,64 +293,4 @@ func (s *Server) pInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Invoice(w, r, t)
-}
-
-// useWin is one window of the customer's daily usage chart: its total and its bars.
-type useWin struct {
-	Total string
-	Bars  []dayBar
-}
-
-// useLast is the newest session in one line: start, duration and the sum of both directions.
-type useLast struct{ Start, For, Total string }
-
-type radiusUsage struct {
-	Total, Unit string         // data since the plan started, the big number and its unit
-	Empty       bool           // no daily usage and no session recorded
-	Week, Month useWin         // the 7 and 30 day charts, built from one query
-	Last        *useLast       // nil when there is no session
-	Rows        []core.SessRow // the last 10 sessions, under Session history
-}
-
-// radiusUsage: bytes since the active subscription started, the daily chart for 7 and 30 days, and the
-// last 10 sessions.
-func (s *Server) radiusUsage(ctx context.Context, c db.Customer) (*radiusUsage, error) {
-	u := &radiusUsage{}
-	var total int64
-	if p, err := s.Queries.GetRadiusPlan(ctx, c.ID); err == nil {
-		total = p.UsedInOctets + p.UsedOutOctets
-	}
-	u.Total, u.Unit = view.HumanBytesParts(total)
-	now, loc := time.Now().Unix(), s.Location()
-	n1, n2 := names2(loginNames(c))
-	rows, err := s.Queries.ListRadiusUsageDaily(ctx, db.ListRadiusUsageDailyParams{Name1: n1, Name2: n2, Since: dayStart(now, loc).AddDate(0, 0, -29).Format("2006-01-02")})
-	if err != nil {
-		return nil, err
-	}
-	ss, err := s.Queries.ListRecentRadiusSessionsByUser(ctx, c.Username)
-	if err != nil {
-		return nil, err
-	}
-	u.Empty = len(rows) == 0 && len(ss) == 0
-	totals := make([]dayTotal, len(rows))
-	for i, x := range rows {
-		totals[i] = dayTotal{Day: x.Day, Input: x.Input, Output: x.Output}
-	}
-	u.Week = useWindow(dailyUsage(totals, 7, now, loc))
-	u.Month = useWindow(dailyUsage(totals, 30, now, loc))
-	if len(ss) > 0 {
-		r := s.SessRows(ss[:1], now)[0]
-		u.Last = &useLast{Start: r.Start, For: r.For, Total: view.HumanBytes(ss[0].InputOctets + ss[0].OutputOctets)}
-	}
-	u.Rows = s.SessRows(ss, now)
-	return u, nil
-}
-
-// useWindow sums one window of the daily chart and lays out its bars.
-func useWindow(days []dayUse) useWin {
-	var n int64
-	for _, d := range days {
-		n += d.Down + d.Up
-	}
-	return useWin{Total: view.HumanBytes(n), Bars: chartBars(days)}
 }

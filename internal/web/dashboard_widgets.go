@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -35,7 +36,7 @@ type usageCard struct {
 type usageWin struct {
 	Total, Down, Up     string
 	TotalNum, TotalUnit string // Total split for the big number
-	Bars                []dayBar
+	Bars                []core.DayBar
 	Top                 []usageTop
 	Empty               bool
 }
@@ -79,7 +80,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	// the lists cover whole calendar days: today and the six after it (expiring), the six before it (recent)
 	nextWeek := time.Date(y, m, d+7, 0, 0, 0, 0, loc).Unix() - 1
 	weekStart := time.Date(y, m, d-6, 0, 0, 0, 0, loc).Unix()
-	words := s.pTexts()
+	words := s.PTexts()
 	// each card's query is independent: a failure sets its Err flag and leaves its rows empty
 	soon, err := s.Queries.ListExpiringSubscriptions(ctx, db.ListExpiringSubscriptionsParams{
 		Since: now.Unix(), Until: nextWeek, PageLimit: dashListLimit})
@@ -90,7 +91,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	for _, r := range soon {
 		x := s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.Balance, r.LastSeenAt, r.ExpiresAt)
 		x.Days = int(dayIndex(time.Unix(r.ExpiresAt, 0), loc) - today)
-		x.When = words.span(r.ExpiresAt-now.Unix()) + " " + words.Left
+		x.When = words.Span(r.ExpiresAt-now.Unix()) + " " + words.Left
 		w.Expiring = append(w.Expiring, x)
 	}
 	ended, err := s.Queries.ListRecentlyExpiredSubscriptions(ctx, db.ListRecentlyExpiredSubscriptionsParams{
@@ -102,7 +103,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	for _, r := range ended {
 		x := s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.Balance, r.LastSeenAt, r.ExpiresAt)
 		x.Days = int(today - dayIndex(time.Unix(r.ExpiresAt, 0), loc))
-		x.When = words.span(now.Unix()-r.ExpiresAt) + " " + s.T("ago")
+		x.When = words.Span(now.Unix()-r.ExpiresAt) + " " + s.T("ago")
 		w.Recent = append(w.Recent, x)
 	}
 	week, errWeek := s.usageWindow(ctx, now, loc, 7)
@@ -119,7 +120,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 		w.LogsErr = true
 	}
 	for _, r := range logs {
-		when := words.span(now.Unix()-r.CreatedAt) + " " + s.T("ago")
+		when := words.Span(now.Unix()-r.CreatedAt) + " " + s.T("ago")
 		w.Logs = append(w.Logs, logRow{Label: s.actionLabel(r.Action), Actor: s.actorLabel(ctx, r.ActorType, r.ActorID), Description: r.Description, When: when})
 	}
 	// card errors are flagged above, not returned: only the settings read (before any card) fails the page
@@ -142,7 +143,7 @@ const usageTopN = 3
 
 // usageWindow reads the RADIUS octets of all users over the last n days (radius_usage_daily).
 func (s *Server) usageWindow(ctx context.Context, now time.Time, loc *time.Location, n int) (usageWin, error) {
-	today := dayStart(now.Unix(), loc)
+	today := core.DayStart(now.Unix(), loc)
 	return s.usageRange(ctx, today.AddDate(0, 0, -(n-1)), today, loc, usageTopN)
 }
 
@@ -158,16 +159,16 @@ func (s *Server) usageRange(ctx context.Context, from, to time.Time, loc *time.L
 	if len(sums) == 0 {
 		return usageWin{Empty: true}, nil
 	}
-	totals := make([]dayTotal, len(sums))
+	totals := make([]core.DayTotal, len(sums))
 	var down, up int64
 	for i, x := range sums {
-		totals[i] = dayTotal{Day: x.Day, Input: x.Input, Output: x.Output}
+		totals[i] = core.DayTotal{Day: x.Day, Input: x.Input, Output: x.Output}
 		down += x.Output
 		up += x.Input
 	}
 	num, unit := view.HumanBytesParts(down + up)
 	w := usageWin{Total: num + " " + unit, TotalNum: num, TotalUnit: unit, Down: view.HumanBytes(down), Up: view.HumanBytes(up),
-		Bars: chartBars(dailyRange(totals, from, n))}
+		Bars: core.ChartBars(core.DailyRange(totals, from, n))}
 	rows, err := s.Queries.TopRadiusUsageDaily(ctx, db.TopRadiusUsageDailyParams{Since: since, Until: until, RowLimit: int64(top)})
 	if err != nil {
 		return usageWin{}, err

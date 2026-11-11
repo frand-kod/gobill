@@ -45,11 +45,11 @@ func (l pLive) JSON() string {
 
 // pLiveOf reads the customer's open session. The speed uses the same samples, plan limits and meter as the
 // admin live page (liveMonitor, speedOf).
-func (s *Server) pLiveOf(ctx context.Context, c db.Customer, now int64, w pWords) (pLive, error) {
+func (s *Server) pLiveOf(ctx context.Context, c db.Customer, now int64, w core.PWords) (pLive, error) {
 	l := pLive{Down: "—", Up: "—", Label: "—", Bars: core.SpeedMeter{}.Bars()}
 	var open []db.RadiusSession
 	var last *db.RadiusSession
-	for _, n := range loginNames(c) {
+	for _, n := range core.LoginNames(c) {
 		ss, err := s.Queries.ListOpenRadiusSessionsByUser(ctx, n)
 		if err != nil {
 			return pLive{}, err
@@ -77,7 +77,7 @@ func (s *Server) pLiveOf(ctx context.Context, c db.Customer, now int64, w pWords
 	}
 	l.Online = true
 	l.IP, l.Device = cur.FramedIp, maskMAC(cur.Mac)
-	l.Since, l.For = s.TS(cur.StartedAt), w.span(now-cur.StartedAt)
+	l.Since, l.For = s.TS(cur.StartedAt), w.Span(now-cur.StartedAt)
 	l.Used = view.HumanBytes(cur.InputOctets + cur.OutputOctets)
 	var plan core.PlanSpeed
 	if pl, err := s.Queries.GetRadiusPlan(ctx, c.ID); err == nil {
@@ -99,7 +99,7 @@ func (s *Server) pLiveOf(ctx context.Context, c db.Customer, now int64, w pWords
 
 // pUsageJSON is the live card as JSON. Only the logged-in customer's sessions are read.
 func (s *Server) pUsageJSON(w http.ResponseWriter, r *http.Request) {
-	l, err := s.pLiveOf(r.Context(), *customerFrom(r), time.Now().Unix(), s.pTexts())
+	l, err := s.pLiveOf(r.Context(), *customerFrom(r), time.Now().Unix(), s.PTexts())
 	if err != nil {
 		slog.Error("portal usage json", "err", err)
 		http.Error(w, "usage unavailable", http.StatusInternalServerError)
@@ -110,90 +110,6 @@ func (s *Server) pUsageJSON(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(l); err != nil {
 		slog.Error("portal usage json", "err", err)
 	}
-}
-
-// dayStart is local midnight of the day of now.
-func dayStart(now int64, loc *time.Location) time.Time {
-	t := time.Unix(now, 0).In(loc)
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
-}
-
-// weekSince is the first day of the chart: six days before today.
-func weekSince(now int64, loc *time.Location) string {
-	return dayStart(now, loc).AddDate(0, 0, -6).Format("2006-01-02")
-}
-
-// dayUse is one day of the chart: the octets moved that day (radius_usage_daily).
-type dayUse struct {
-	Label    string
-	Down, Up int64 // Down: octets sent to the customer; Up: octets the customer sent
-	Today    bool
-}
-
-// dayTotal is one day's octets (radius_usage_daily, summed over the users shown). Day is YYYY-MM-DD.
-type dayTotal struct {
-	Day           string
-	Input, Output int64
-}
-
-// dailyUsage lays the rows out as the last n days, today last.
-func dailyUsage(rows []dayTotal, n int, now int64, loc *time.Location) []dayUse {
-	days := dailyRange(rows, dayStart(now, loc).AddDate(0, 0, -(n-1)), n)
-	days[n-1].Today = true
-	return days
-}
-
-// dailyRange lays the rows out as n days from first (a local midnight).
-func dailyRange(rows []dayTotal, first time.Time, n int) []dayUse {
-	days := make([]dayUse, n)
-	idx := make(map[string]int, n)
-	for i := range days {
-		d := first.AddDate(0, 0, i).Format("2006-01-02")
-		days[i] = dayUse{Label: d}
-		idx[d] = i
-	}
-	for _, x := range rows {
-		if i, ok := idx[x.Day]; ok {
-			days[i].Down += x.Output
-			days[i].Up += x.Input
-		}
-	}
-	return days
-}
-
-// dayBar is one column of the usage chart: the upload stacked on the download. DownPct and UpPct are
-// percentages (0..100) of the busiest day's total, so the busiest day fills the chart.
-type dayBar struct {
-	Label    string
-	Tick     string // axis label, "" where the axis has none
-	Down, Up string // the day's totals, shown on hover or tap
-	DownPct  int
-	UpPct    int
-	Today    bool
-}
-
-// chartBars scales the days to the chart: the busiest day is 100%. Up to 10 days label every bar; more
-// days label every fifth day and the last one.
-func chartBars(days []dayUse) []dayBar {
-	var top int64 = 1
-	for _, d := range days {
-		top = max(top, d.Down+d.Up)
-	}
-	out := make([]dayBar, len(days))
-	for i, d := range days {
-		// the stack is rounded as a whole, so the busiest day comes to exactly 100
-		downPct := int(d.Down * 100 / top)
-		tick := d.Label
-		if t, err := time.Parse("2006-01-02", d.Label); err == nil {
-			tick = t.Format("02/01") // a full date per bar does not fit a phone; the tooltip keeps it
-		}
-		if len(days) > 10 && i%5 != 0 && i != len(days)-1 {
-			tick = ""
-		}
-		out[i] = dayBar{Label: d.Label, Tick: tick, Down: view.HumanBytes(d.Down), Up: view.HumanBytes(d.Up),
-			DownPct: downPct, UpPct: int((d.Down+d.Up)*100/top) - downPct, Today: d.Today}
-	}
-	return out
 }
 
 // pConnDay is one day of the connection history: its sessions, newest first, and the day's totals on this page.
@@ -216,8 +132,8 @@ type pConnPage struct {
 func (s *Server) pConnHistory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	_, pg := view.Paging(r)
-	names := loginNames(*customerFrom(r))
-	n1, n2 := names2(names)
+	names := core.LoginNames(*customerFrom(r))
+	n1, n2 := core.Names2(names)
 	ss, err := s.Queries.ListRadiusSessionsByUsers(ctx, db.ListRadiusSessionsByUsersParams{Name1: n1, Name2: n2, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
 		s.Fail(w, "portal connection history", err)
@@ -232,7 +148,7 @@ func (s *Server) pConnHistory(w http.ResponseWriter, r *http.Request) {
 	if more {
 		ss = ss[:pg.Per]
 	}
-	now, loc, w2 := time.Now().Unix(), s.Location(), s.pTexts()
+	now, loc, w2 := time.Now().Unix(), s.Location(), s.PTexts()
 	var out pConnPage
 	for _, x := range ss {
 		key := time.Unix(x.StartedAt, 0).In(loc).Format("2006-01-02")

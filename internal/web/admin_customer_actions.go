@@ -13,6 +13,7 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 // ---- customer detail actions ----
@@ -90,7 +91,7 @@ func (s *Server) welcome(ctx context.Context, c db.Customer, vias []string, pass
 			}
 			n.Go("welcome", func(ctx context.Context) error {
 				return n.CustomOn(ctx, c, vias, "welcome_message", "Welcome", map[string]string{"company": st["company_name"],
-					"Username": c.Username, "url": customerLoginURL(st), "Password": pw})
+					"Username": c.Username, "url": core.CustomerLoginURL(st), "Password": pw})
 			})
 			return
 		}

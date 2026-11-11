@@ -9,7 +9,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	bcryptCost = bcrypt.MinCost
+	core.BcryptCost = bcrypt.MinCost
 	core.LoginDelayStep = 0 // the per-username delay would only slow the suite
 	os.Exit(m.Run())
 }
