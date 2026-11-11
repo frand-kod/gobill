@@ -86,11 +86,11 @@ func dayIndex(t time.Time, loc *time.Location) int64 {
 
 // widgetData gathers the dashboard cards.
 func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, err error) {
-	settings, err := s.loadSettings(ctx)
+	settings, err := s.LoadSettings(ctx)
 	if err != nil {
 		return
 	}
-	loc := s.location()
+	loc := s.Location()
 	today := dayIndex(now, loc)
 	y, m, d := now.In(loc).Date()
 	// the lists cover whole calendar days: today and the six after it (expiring), the six before it (recent)
@@ -98,7 +98,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	weekStart := time.Date(y, m, d-6, 0, 0, 0, 0, loc).Unix()
 	words := s.pTexts()
 	// each card's query is independent: a failure sets its Err flag and leaves its rows empty
-	soon, err := s.queries.ListExpiringSubscriptions(ctx, db.ListExpiringSubscriptionsParams{
+	soon, err := s.Queries.ListExpiringSubscriptions(ctx, db.ListExpiringSubscriptionsParams{
 		Since: now.Unix(), Until: nextWeek, PageLimit: dashListLimit})
 	if err != nil {
 		slog.Error("dashboard expiring", "err", err)
@@ -110,7 +110,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 		x.When = words.span(r.ExpiresAt-now.Unix()) + " " + words.Left
 		w.Expiring = append(w.Expiring, x)
 	}
-	ended, err := s.queries.ListRecentlyExpiredSubscriptions(ctx, db.ListRecentlyExpiredSubscriptionsParams{
+	ended, err := s.Queries.ListRecentlyExpiredSubscriptions(ctx, db.ListRecentlyExpiredSubscriptionsParams{
 		Since: weekStart, Until: now.Unix(), PageLimit: dashListLimit})
 	if err != nil {
 		slog.Error("dashboard recent", "err", err)
@@ -119,7 +119,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	for _, r := range ended {
 		x := s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.Balance, r.LastSeenAt, r.ExpiresAt)
 		x.Days = int(today - dayIndex(time.Unix(r.ExpiresAt, 0), loc))
-		x.When = words.span(now.Unix()-r.ExpiresAt) + " " + s.t("ago")
+		x.When = words.span(now.Unix()-r.ExpiresAt) + " " + s.T("ago")
 		w.Recent = append(w.Recent, x)
 	}
 	week, errWeek := s.usageWindow(ctx, now, loc, 7)
@@ -130,13 +130,13 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	} else {
 		w.Usage = usageCard{Week: week, Month: month}
 	}
-	logs, err := s.queries.ListActivityLogs(ctx, db.ListActivityLogsParams{Limit: dashLogLimit})
+	logs, err := s.Queries.ListActivityLogs(ctx, db.ListActivityLogsParams{Limit: dashLogLimit})
 	if err != nil {
 		slog.Error("dashboard activity log", "err", err)
 		w.LogsErr = true
 	}
 	for _, r := range logs {
-		when := words.span(now.Unix()-r.CreatedAt) + " " + s.t("ago")
+		when := words.span(now.Unix()-r.CreatedAt) + " " + s.T("ago")
 		w.Logs = append(w.Logs, logRow{Label: s.actionLabel(r.Action), Actor: s.actorLabel(ctx, r.ActorType, r.ActorID), Description: r.Description, When: when})
 	}
 	// card errors are flagged above, not returned: only the settings read (before any card) fails the page
@@ -168,7 +168,7 @@ func (s *Server) usageWindow(ctx context.Context, now time.Time, loc *time.Locat
 func (s *Server) usageRange(ctx context.Context, from, to time.Time, loc *time.Location, top int) (usageWin, error) {
 	since, until := from.Format("2006-01-02"), to.Format("2006-01-02")
 	n := int(dayIndex(to, loc)-dayIndex(from, loc)) + 1
-	sums, err := s.queries.SumRadiusUsageDailyByDay(ctx, db.SumRadiusUsageDailyByDayParams{Since: since, Until: until})
+	sums, err := s.Queries.SumRadiusUsageDailyByDay(ctx, db.SumRadiusUsageDailyByDayParams{Since: since, Until: until})
 	if err != nil {
 		return usageWin{}, err
 	}
@@ -185,7 +185,7 @@ func (s *Server) usageRange(ctx context.Context, from, to time.Time, loc *time.L
 	num, unit := view.HumanBytesParts(down + up)
 	w := usageWin{Total: num + " " + unit, TotalNum: num, TotalUnit: unit, Down: view.HumanBytes(down), Up: view.HumanBytes(up),
 		Bars: chartBars(dailyRange(totals, from, n))}
-	rows, err := s.queries.TopRadiusUsageDaily(ctx, db.TopRadiusUsageDailyParams{Since: since, Until: until, RowLimit: int64(top)})
+	rows, err := s.Queries.TopRadiusUsageDaily(ctx, db.TopRadiusUsageDailyParams{Since: since, Until: until, RowLimit: int64(top)})
 	if err != nil {
 		return usageWin{}, err
 	}
@@ -197,7 +197,7 @@ func (s *Server) usageRange(ctx context.Context, from, to time.Time, loc *time.L
 	for _, t := range rows {
 		sum := t.Input + t.Output
 		u := usageTop{Name: t.Username, Total: view.HumanBytes(sum), Pct: int(sum * 100 / peak)}
-		c, err := s.queries.GetCustomerByUsername(ctx, t.Username)
+		c, err := s.Queries.GetCustomerByUsername(ctx, t.Username)
 		switch {
 		case err == nil:
 			u.Href = "/admin/customers/" + strconv.FormatInt(c.ID, 10)
@@ -211,13 +211,13 @@ func (s *Server) usageRange(ctx context.Context, from, to time.Time, loc *time.L
 
 // expiringRow builds one dashboard row; the WhatsApp reminder link is set only when the phone number allows one.
 func (s *Server) expiringRow(settings map[string]string, customerID int64, username, fullname, phone, plan string, balance, lastSeen, expiresAt int64) expiringRow {
-	x := expiringRow{CustomerID: customerID, Username: username, Fullname: fullname, Phone: phone, Plan: plan, Expires: s.ts(expiresAt),
+	x := expiringRow{CustomerID: customerID, Username: username, Fullname: fullname, Phone: phone, Plan: plan, Expires: s.TS(expiresAt),
 		Balance: view.Money(balance)}
 	if lastSeen > 0 {
-		x.LastSeen = s.ts(lastSeen)
+		x.LastSeen = s.TS(lastSeen)
 	}
 	if l := waLink(phone, settings["country_code_phone"]); l != "" {
-		x.WA = l + "?text=" + url.QueryEscape(s.t("Hello, your internet plan is about to end. Please renew to stay online."))
+		x.WA = l + "?text=" + url.QueryEscape(s.T("Hello, your internet plan is about to end. Please renew to stay online."))
 	}
 	return x
 }

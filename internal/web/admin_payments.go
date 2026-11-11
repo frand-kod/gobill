@@ -12,9 +12,9 @@ import (
 )
 
 func (s *Server) pgList(w http.ResponseWriter, r *http.Request) {
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "payment gateways", err)
+		s.Fail(w, "payment gateways", err)
 		return
 	}
 	rows := []listRow{{1, []string{"Tripay", "Disabled"}}, {2, []string{"Duitku", "Disabled"}}}
@@ -41,9 +41,9 @@ func (s *Server) pgAuditRows(rs []db.SearchPaymentRequestsRow) [][]string {
 	for _, x := range rs {
 		paid := ""
 		if x.PaidAt.Valid {
-			paid = s.ts(x.PaidAt.Int64)
+			paid = s.TS(x.PaidAt.Int64)
 		}
-		out = append(out, []string{x.Ref, x.GatewayRef, x.Username, x.PlanName, view.Money(x.Amount), x.Channel, x.Status, s.ts(x.CreatedAt), s.ts(x.ExpiresAt), paid})
+		out = append(out, []string{x.Ref, x.GatewayRef, x.Username, x.PlanName, view.Money(x.Amount), x.Channel, x.Status, s.TS(x.CreatedAt), s.TS(x.ExpiresAt), paid})
 	}
 	return out
 }
@@ -54,9 +54,9 @@ func (s *Server) pgAudit(w http.ResponseWriter, r *http.Request) {
 	q, pg := paging(r)
 	p := s.pgAuditParams(r)
 	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
-	rs, err := s.queries.SearchPaymentRequests(r.Context(), p)
+	rs, err := s.Queries.SearchPaymentRequests(r.Context(), p)
 	if err != nil {
-		s.fail(w, "payment audit", err)
+		s.Fail(w, "payment audit", err)
 		return
 	}
 	from, to, _, _ := s.dateRange(r)
@@ -66,9 +66,9 @@ func (s *Server) pgAudit(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{rs[i].ID, c})
 	}
 	lp.Links = []option{{"/admin/payment-gateway/audit/export?" + lp.query().Encode(), "Export CSV"}}
-	total, err := s.queries.CountPaymentRequests(r.Context(), db.CountPaymentRequestsParams{Q: p.Q, Status: p.Status, FromTs: p.FromTs, ToTs: p.ToTs})
+	total, err := s.Queries.CountPaymentRequests(r.Context(), db.CountPaymentRequestsParams{Q: p.Q, Status: p.Status, FromTs: p.FromTs, ToTs: p.ToTs})
 	if err != nil {
-		s.fail(w, "count payments", err)
+		s.Fail(w, "count payments", err)
 		return
 	}
 	lp.finish(pg, total)
@@ -78,26 +78,26 @@ func (s *Server) pgAudit(w http.ResponseWriter, r *http.Request) {
 func (s *Server) pgAuditExport(w http.ResponseWriter, r *http.Request) {
 	p := s.pgAuditParams(r)
 	p.PageLimit = -1
-	rs, err := s.queries.SearchPaymentRequests(r.Context(), p)
+	rs, err := s.Queries.SearchPaymentRequests(r.Context(), p)
 	if err != nil {
-		s.fail(w, "export payment audit", err)
+		s.Fail(w, "export payment audit", err)
 		return
 	}
 	s.writeCSV(w, "payment-audit", pgAuditCols, s.pgAuditRows(rs))
 }
 
 func (s *Server) pgAuditView(w http.ResponseWriter, r *http.Request) {
-	x, err := s.queries.GetPaymentAudit(r.Context(), httpx.PathID(r))
+	x, err := s.Queries.GetPaymentAudit(r.Context(), httpx.PathID(r))
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 	paid := ""
 	if x.PaidAt.Valid {
-		paid = s.ts(x.PaidAt.Int64)
+		paid = s.TS(x.PaidAt.Int64)
 	}
 	rows := [][2]string{{"Transaction ID", x.Ref}, {"Gateway Ref", x.GatewayRef}, {"Username", x.Username}, {"Package Name", x.PlanName},
 		{"Package Price", view.Money(x.Amount)}, {"Coupon Code", x.Coupon}, {"Channel", x.Channel}, {"Payment Link", x.PayUrl}, {"Status", x.Status},
-		{"Created On", s.ts(x.CreatedAt)}, {"Expires On", s.ts(x.ExpiresAt)}, {"Paid Date", paid}}
-	s.render(w, r, 200, "pay_audit", Page{Title: "Payment Audit", Data: rows})
+		{"Created On", s.TS(x.CreatedAt)}, {"Expires On", s.TS(x.ExpiresAt)}, {"Paid Date", paid}}
+	s.Render(w, r, 200, "pay_audit", Page{Title: "Payment Audit", Data: rows})
 }

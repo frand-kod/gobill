@@ -36,7 +36,7 @@ func TestToastRolesAndTimers(t *testing.T) {
 	var b bytes.Buffer
 	p := Page{Title: "Test", Admin: &db.Admin{Role: "SuperAdmin", Username: "alice"}, Brand: s.brand(t.Context()),
 		Flash: "saved-msg", Warn: "warn-msg", Error: "error-msg", Detail: "sql detail"}
-	if err := s.templates["list"].ExecuteTemplate(&b, "base", p); err != nil {
+	if err := s.Templates["list"].ExecuteTemplate(&b, "base", p); err != nil {
 		t.Fatal(err)
 	}
 	out := b.String()

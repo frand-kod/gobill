@@ -49,9 +49,9 @@ func cfFields(v, e map[string]string) []field {
 }
 
 func (s *Server) cfList(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.queries.ListCustomFields(r.Context())
+	rows, err := s.Queries.ListCustomFields(r.Context())
 	if err != nil {
-		s.fail(w, "list custom fields", err)
+		s.Fail(w, "list custom fields", err)
 		return
 	}
 	lp := listPage{Heading: "Custom Fields", Base: "/admin/fields", CanCreate: true, CanEdit: true,
@@ -73,12 +73,12 @@ func (s *Server) cfNew(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) cfEdit(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
-	f, err := s.queries.GetCustomField(r.Context(), id)
+	f, err := s.Queries.GetCustomField(r.Context(), id)
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		s.fail(w, "get custom field", err)
+		s.Fail(w, "get custom field", err)
 		return
 	}
 	v := map[string]string{"name": f.Name, "type": f.Type, "options": f.Options, "sort_order": fmt.Sprint(f.SortOrder)}
@@ -117,17 +117,17 @@ func (s *Server) cfSave(w http.ResponseWriter, r *http.Request) {
 	if len(e) == 0 {
 		var err error
 		if id == 0 {
-			_, err = s.queries.CreateCustomField(r.Context(), db.CreateCustomFieldParams{Name: v["name"], Type: v["type"],
+			_, err = s.Queries.CreateCustomField(r.Context(), db.CreateCustomFieldParams{Name: v["name"], Type: v["type"],
 				Options: v["options"], Required: req, SortOrder: order})
 		} else {
-			err = s.queries.UpdateCustomField(r.Context(), db.UpdateCustomFieldParams{Name: v["name"], Type: v["type"],
+			err = s.Queries.UpdateCustomField(r.Context(), db.UpdateCustomFieldParams{Name: v["name"], Type: v["type"],
 				Options: v["options"], Required: req, SortOrder: order, ID: id})
 		}
 		switch {
 		case httpx.IsUnique(err):
 			e["name"] = "Name already exists"
 		case err != nil:
-			s.fail(w, "save custom field", err)
+			s.Fail(w, "save custom field", err)
 			return
 		default:
 			act, msg := "field.create", "Data Created Successfully"
@@ -147,11 +147,11 @@ func (s *Server) cfSave(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) cfDelete(w http.ResponseWriter, r *http.Request) {
 	name := ""
-	if f, err := s.queries.GetCustomField(r.Context(), httpx.PathID(r)); err == nil {
+	if f, err := s.Queries.GetCustomField(r.Context(), httpx.PathID(r)); err == nil {
 		name = f.Name
 	}
 	s.remove(w, r, "/admin/fields", "field", "Custom field is in use", name, func(id int64) error {
-		return s.queries.DeleteCustomField(r.Context(), id)
+		return s.Queries.DeleteCustomField(r.Context(), id)
 	})
 }
 
@@ -159,13 +159,13 @@ func (s *Server) cfDelete(w http.ResponseWriter, r *http.Request) {
 // (posted values) and, for a saved customer (custID != 0), from the stored values.
 // The same list feeds the customer detail page.
 func (s *Server) cfFormFields(ctx context.Context, custID int64, v, e map[string]string) ([]field, error) {
-	defs, err := s.queries.ListCustomFields(ctx)
+	defs, err := s.Queries.ListCustomFields(ctx)
 	if err != nil {
 		return nil, err
 	}
 	stored := map[int64]string{}
 	if custID != 0 {
-		vals, err := s.queries.ListCustomerFieldValues(ctx, custID)
+		vals, err := s.Queries.ListCustomerFieldValues(ctx, custID)
 		if err != nil {
 			return nil, err
 		}
@@ -191,7 +191,7 @@ func (s *Server) cfFormFields(ctx context.Context, custID int64, v, e map[string
 // cfCheck is the custom-field save hook: it reads and validates the posted values
 // into v and e, and returns what to store. Nothing is written here.
 func (s *Server) cfCheck(ctx context.Context, r *http.Request, v, e map[string]string) ([]customer.CFValue, error) {
-	defs, err := s.queries.ListCustomFields(ctx)
+	defs, err := s.Queries.ListCustomFields(ctx)
 	if err != nil {
 		return nil, err
 	}

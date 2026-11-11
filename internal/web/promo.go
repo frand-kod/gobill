@@ -59,7 +59,7 @@ func promoLive(p db.Promo, now int64) bool {
 
 // promoRows returns the live promos shown at place ("isolir" or "portal"), in list order.
 func (s *Server) promoRows(ctx context.Context, place string) ([]db.Promo, error) {
-	rows, err := s.queries.ListPromos(ctx)
+	rows, err := s.Queries.ListPromos(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (s *Server) promoPortal(ctx context.Context) (*portalPromo, error) {
 		return nil, err
 	}
 	h := sha256.New()
-	pp := &portalPromo{First: promoOf(rows[0]), MoreLabel: s.t("More"), CloseLabel: s.t("Close"), Label: s.t("Promotions")}
+	pp := &portalPromo{First: promoOf(rows[0]), MoreLabel: s.T("More"), CloseLabel: s.T("Close"), Label: s.T("Promotions")}
 	for i, p := range rows {
 		fmt.Fprintf(h, "%d:%d;", p.ID, p.UpdatedAt)
 		if i > 0 {
@@ -132,22 +132,22 @@ func (s *Server) removeUpload(name string) {
 
 // promoSchedule is the Schedule cell: "Always", or the dates the promo is on.
 func (s *Server) promoSchedule(p db.Promo) string {
-	day := func(x sql.NullInt64) string { return time.Unix(x.Int64, 0).In(s.location()).Format("2006-01-02") }
+	day := func(x sql.NullInt64) string { return time.Unix(x.Int64, 0).In(s.Location()).Format("2006-01-02") }
 	switch {
 	case p.StartsAt.Valid && p.EndsAt.Valid:
 		return fmt.Sprintf("%s - %s", day(p.StartsAt), day(p.EndsAt))
 	case p.StartsAt.Valid:
-		return fmt.Sprintf(s.t("From %s"), day(p.StartsAt))
+		return fmt.Sprintf(s.T("From %s"), day(p.StartsAt))
 	case p.EndsAt.Valid:
-		return fmt.Sprintf(s.t("Until %s"), day(p.EndsAt))
+		return fmt.Sprintf(s.T("Until %s"), day(p.EndsAt))
 	}
-	return s.t("Always")
+	return s.T("Always")
 }
 
 func (s *Server) promoList(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.queries.ListPromos(r.Context())
+	rows, err := s.Queries.ListPromos(r.Context())
 	if err != nil {
-		s.fail(w, "list promos", err)
+		s.Fail(w, "list promos", err)
 		return
 	}
 	lp := listPage{Heading: "Promotions", Base: promoBase, CanCreate: true, CanEdit: true,
@@ -156,10 +156,10 @@ func (s *Server) promoList(w http.ResponseWriter, r *http.Request) {
 	for _, p := range rows {
 		var places []string
 		if p.ShowIsolir == 1 {
-			places = append(places, s.t("Isolir page"))
+			places = append(places, s.T("Isolir page"))
 		}
 		if p.ShowPortal == 1 {
-			places = append(places, s.t("Portal dashboard"))
+			places = append(places, s.T("Portal dashboard"))
 		}
 		status := "Inactive"
 		if p.Active == 1 {
@@ -167,8 +167,8 @@ func (s *Server) promoList(w http.ResponseWriter, r *http.Request) {
 		}
 		lp.Rows = append(lp.Rows, listRow{p.ID, []string{p.Title, strings.Join(places, ", "), s.promoSchedule(p), status}})
 	}
-	s.render(w, r, http.StatusOK, "list", Page{Title: "Promotions", Tabs: settingsNav(r), Flash: s.sessions.PopString(r.Context(), "flash"),
-		Error: s.sessions.PopString(r.Context(), "error"), Data: lp})
+	s.Render(w, r, http.StatusOK, "list", Page{Title: "Promotions", Tabs: settingsNav(r), Flash: s.Sessions.PopString(r.Context(), "flash"),
+		Error: s.Sessions.PopString(r.Context(), "error"), Data: lp})
 }
 
 func promoFields(v, e map[string]string, image string) []field {
@@ -200,7 +200,7 @@ func (s *Server) promoForm(w http.ResponseWriter, r *http.Request, status int, i
 		head, action = "Edit Promo", fmt.Sprintf("%s/%d", promoBase, id)
 	}
 	fp := formPage{Heading: head, Action: action, Cancel: promoBase, Fields: promoFields(v, e, image)}
-	s.render(w, r, status, "form", Page{Title: head, Tabs: settingsNav(r), Data: fp})
+	s.Render(w, r, status, "form", Page{Title: head, Tabs: settingsNav(r), Data: fp})
 }
 
 func (s *Server) promoNew(w http.ResponseWriter, r *http.Request) {
@@ -208,19 +208,19 @@ func (s *Server) promoNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) promoEdit(w http.ResponseWriter, r *http.Request) {
-	p, err := s.queries.GetPromo(r.Context(), httpx.PathID(r))
+	p, err := s.Queries.GetPromo(r.Context(), httpx.PathID(r))
 	if errors.Is(err, sql.ErrNoRows) {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		s.fail(w, "get promo", err)
+		s.Fail(w, "get promo", err)
 		return
 	}
 	date := func(x sql.NullInt64) string {
 		if !x.Valid {
 			return ""
 		}
-		return time.Unix(x.Int64, 0).In(s.location()).Format("2006-01-02")
+		return time.Unix(x.Int64, 0).In(s.Location()).Format("2006-01-02")
 	}
 	v := map[string]string{"title": p.Title, "body": p.Body, "link": p.Link, "starts": date(p.StartsAt), "ends": date(p.EndsAt),
 		"show_isolir": fmt.Sprint(p.ShowIsolir), "show_portal": fmt.Sprint(p.ShowPortal), "active": fmt.Sprint(p.Active)}
@@ -238,12 +238,12 @@ func (s *Server) promoSave(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var old db.Promo
 	if id != 0 {
-		p, err := s.queries.GetPromo(ctx, id)
+		p, err := s.Queries.GetPromo(ctx, id)
 		if errors.Is(err, sql.ErrNoRows) {
 			http.NotFound(w, r)
 			return
 		} else if err != nil {
-			s.fail(w, "get promo", err)
+			s.Fail(w, "get promo", err)
 			return
 		}
 		old = p
@@ -284,7 +284,7 @@ func (s *Server) promoSave(w http.ResponseWriter, r *http.Request) {
 		if added != "" {
 			s.removeUpload(added)
 		}
-		s.fail(w, "save promo", err)
+		s.Fail(w, "save promo", err)
 		return
 	}
 	if old.Image != image {
@@ -299,16 +299,16 @@ func (s *Server) promoSave(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) promoDelete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	p, err := s.queries.GetPromo(ctx, httpx.PathID(r))
+	p, err := s.Queries.GetPromo(ctx, httpx.PathID(r))
 	if errors.Is(err, sql.ErrNoRows) {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		s.fail(w, "get promo", err)
+		s.Fail(w, "get promo", err)
 		return
 	}
-	if err := s.queries.DeletePromo(ctx, p.ID); err != nil {
-		s.fail(w, "delete promo", err)
+	if err := s.Queries.DeletePromo(ctx, p.ID); err != nil {
+		s.Fail(w, "delete promo", err)
 		return
 	}
 	s.removeUpload(p.Image)
@@ -320,7 +320,7 @@ func (s *Server) promoMove(dir int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		if err := s.promos().Move(ctx, httpx.PathID(r), dir); err != nil {
-			s.fail(w, "move promo", err)
+			s.Fail(w, "move promo", err)
 			return
 		}
 		http.Redirect(w, r, promoBase, http.StatusSeeOther)
@@ -328,5 +328,5 @@ func (s *Server) promoMove(dir int) http.HandlerFunc {
 }
 
 func (s *Server) promos() *promo.Service {
-	return &promo.Service{DB: s.conn, Q: s.queries, Loc: s.location(), Now: time.Now}
+	return &promo.Service{DB: s.conn, Q: s.Queries, Loc: s.Location(), Now: time.Now}
 }

@@ -17,12 +17,6 @@ import (
 	"github.com/frand-kod/gobill/internal/service/diagnose"
 )
 
-// bellItem is one line of the portal bell. Ver changes when the content does, which makes it unread again.
-type bellItem struct {
-	Key, Ver, Title, Text, Href string
-	Unread                      bool
-}
-
 func verOf(parts ...any) string {
 	h := sha256.Sum256([]byte(fmt.Sprint(parts...)))
 	return hex.EncodeToString(h[:8])
@@ -32,10 +26,10 @@ func verOf(parts ...any) string {
 func (s *Server) portalBell(r *http.Request, c *db.Customer) ([]bellItem, error) {
 	ctx, now := r.Context(), time.Now().Unix()
 	var items []bellItem
-	if ann, err := s.queries.GetPage(ctx, "announcement"); err != nil {
+	if ann, err := s.Queries.GetPage(ctx, "announcement"); err != nil {
 		return nil, err
 	} else if ann.Body != "" {
-		items = append(items, bellItem{Key: "announcement", Ver: verOf(ann.Body), Title: s.t("Announcement"), Text: oneLine(ann.Body), Href: "/portal"})
+		items = append(items, bellItem{Key: "announcement", Ver: verOf(ann.Body), Title: s.T("Announcement"), Text: oneLine(ann.Body), Href: "/portal"})
 	}
 	if pp, err := s.promoPortal(ctx); err != nil {
 		return nil, err
@@ -44,9 +38,9 @@ func (s *Server) portalBell(r *http.Request, c *db.Customer) ([]bellItem, error)
 		if href == "" {
 			href = "/portal"
 		}
-		items = append(items, bellItem{Key: "promo", Ver: pp.Key, Title: s.t("Promotions"), Text: pp.First.Title, Href: href})
+		items = append(items, bellItem{Key: "promo", Ver: pp.Key, Title: s.T("Promotions"), Text: pp.First.Title, Href: href})
 	}
-	subs, err := s.queries.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 50})
+	subs, err := s.Queries.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 50})
 	if err != nil {
 		return nil, err
 	}
@@ -57,31 +51,31 @@ func (s *Server) portalBell(r *http.Request, c *db.Customer) ([]bellItem, error)
 		}
 	}
 	if sub != nil {
-		if p, err := s.queries.GetPlan(ctx, sub.PlanID); err != nil {
+		if p, err := s.Queries.GetPlan(ctx, sub.PlanID); err != nil {
 			slog.Warn("portal bell plan", "err", err) // no plan name: skip these two items
 		} else {
 			if sub.ExpiresAt-now <= 3*86400 {
-				items = append(items, bellItem{Key: "expiry", Ver: verOf(sub.ID, sub.ExpiresAt), Title: s.t("Plan ends soon"),
-					Text: fmt.Sprintf(s.t("%s ends on %s"), p.Name, s.ts(sub.ExpiresAt)), Href: "/portal/plans"})
+				items = append(items, bellItem{Key: "expiry", Ver: verOf(sub.ID, sub.ExpiresAt), Title: s.T("Plan ends soon"),
+					Text: fmt.Sprintf(s.T("%s ends on %s"), p.Name, s.TS(sub.ExpiresAt)), Href: "/portal/plans"})
 			}
 			q := diagnose.PlanQuota(*sub, p)
 			if (q.HasData && q.Data >= q.DataLim) || (q.HasTime && q.Time >= q.TimeLim) {
-				items = append(items, bellItem{Key: "quota", Ver: verOf(sub.ID, sub.StartedAt, 100), Title: s.t("Quota used up"),
-					Text: s.t("Buy or extend a plan to keep using the service"), Href: "/portal/plans"})
+				items = append(items, bellItem{Key: "quota", Ver: verOf(sub.ID, sub.StartedAt, 100), Title: s.T("Quota used up"),
+					Text: s.T("Buy or extend a plan to keep using the service"), Href: "/portal/plans"})
 			} else if (q.HasData && q.Data*100 > q.DataLim*80) || (q.HasTime && q.Time*100 > q.TimeLim*80) {
-				items = append(items, bellItem{Key: "quota", Ver: verOf(sub.ID, sub.StartedAt, 80), Title: s.t("Quota almost used up"),
-					Text: s.t("Buy or extend a plan before it runs out"), Href: "/portal/plans"})
+				items = append(items, bellItem{Key: "quota", Ver: verOf(sub.ID, sub.StartedAt, 80), Title: s.T("Quota almost used up"),
+					Text: s.T("Buy or extend a plan before it runs out"), Href: "/portal/plans"})
 			}
 		}
 	}
 	// the newest payment attempt that ended in the last 7 days
-	if pr, err := s.queries.GetLatestFinishedPaymentByCustomer(ctx, db.GetLatestFinishedPaymentByCustomerParams{CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, CreatedAt: now - 7*86400}); err == nil {
+	if pr, err := s.Queries.GetLatestFinishedPaymentByCustomer(ctx, db.GetLatestFinishedPaymentByCustomerParams{CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, CreatedAt: now - 7*86400}); err == nil {
 		title := map[string]string{"paid": "Payment received", "failed": "Payment failed", "expired": "Payment expired"}[pr.Status]
-		items = append(items, bellItem{Key: "payment", Ver: verOf(pr.ID, pr.Status), Title: s.t(title), Text: pr.Ref, Href: "/portal/payments/" + strconv.FormatInt(pr.ID, 10)})
+		items = append(items, bellItem{Key: "payment", Ver: verOf(pr.ID, pr.Status), Title: s.T(title), Text: pr.Ref, Href: "/portal/payments/" + strconv.FormatInt(pr.ID, 10)})
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
-	seen, err := s.queries.ListPortalSeen(ctx, c.ID)
+	seen, err := s.Queries.ListPortalSeen(ctx, c.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +106,7 @@ func oneLine(s string) string {
 // pBellSeen marks the items the page showed (form values "key:ver") as seen, if they are still current.
 // An admin viewing as the customer (impersonating) never changes the customer's read state.
 func (s *Server) pBellSeen(w http.ResponseWriter, r *http.Request) {
-	if s.sessions.GetInt64(r.Context(), "impersonator") != 0 {
+	if s.Sessions.GetInt64(r.Context(), "impersonator") != 0 {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -124,15 +118,15 @@ func (s *Server) pBellSeen(w http.ResponseWriter, r *http.Request) {
 	}
 	items, err := s.portalBell(r, c)
 	if err != nil {
-		s.fail(w, "portal bell", err)
+		s.Fail(w, "portal bell", err)
 		return
 	}
 	for _, it := range items {
 		if !it.Unread || !shown[it.Key+":"+it.Ver] {
 			continue
 		}
-		if err := s.queries.UpsertPortalSeen(r.Context(), db.UpsertPortalSeenParams{CustomerID: c.ID, Item: it.Key, Version: it.Ver}); err != nil {
-			s.fail(w, "portal bell seen", err)
+		if err := s.Queries.UpsertPortalSeen(r.Context(), db.UpsertPortalSeenParams{CustomerID: c.ID, Item: it.Key, Version: it.Ver}); err != nil {
+			s.Fail(w, "portal bell seen", err)
 			return
 		}
 	}

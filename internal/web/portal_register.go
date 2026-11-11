@@ -12,13 +12,15 @@ import (
 
 	"context"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/notify"
-	"github.com/frand-kod/gobill/internal/secret"
-	"golang.org/x/crypto/bcrypt"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/notify"
+	"github.com/frand-kod/gobill/internal/secret"
+	"github.com/frand-kod/gobill/internal/web/core"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type regData struct {
@@ -43,7 +45,7 @@ func customerPasswordMin(st map[string]string) int {
 // customer password path. Equal to the username is refused because RADIUS treats it as a voucher login.
 func (s *Server) customerPasswordErr(st map[string]string, username, pass string) string {
 	if n := customerPasswordMin(st); len(pass) < n || len(pass) > 64 {
-		return fmt.Sprintf(s.t("Password should be between %d to 64 characters"), n)
+		return fmt.Sprintf(s.T("Password should be between %d to 64 characters"), n)
 	}
 	if strings.EqualFold(pass, username) {
 		return "Password must not be the same as the username"
@@ -68,32 +70,32 @@ func validRegUsername(u string) bool {
 }
 
 func (s *Server) pRegisterForm(w http.ResponseWriter, r *http.Request) {
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "register", err)
+		s.Fail(w, "register", err)
 		return
 	}
 	if st["disable_registration"] != "" && st["disable_registration"] != "no" {
-		s.flashTo(w, r, "/login", "Registration Disabled")
+		s.FlashTo(w, r, "/login", "Registration Disabled")
 		return
 	}
 	s.prender(w, r, 200, "p_register", Page{Title: "Register", Data: regFlags(regData{}, st)})
 }
 
 func regFlags(d regData, st map[string]string) regData {
-	d.OTP = otpEnabled(st)
+	d.OTP = core.OtpEnabled(st)
 	return d
 }
 
 func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	st, err := s.loadSettings(ctx)
+	st, err := s.LoadSettings(ctx)
 	if err != nil {
-		s.fail(w, "register", err)
+		s.Fail(w, "register", err)
 		return
 	}
 	if st["disable_registration"] != "" && st["disable_registration"] != "no" {
-		s.flashTo(w, r, "/login", "Registration Disabled")
+		s.FlashTo(w, r, "/login", "Registration Disabled")
 		return
 	}
 	f := r.PostFormValue
@@ -114,62 +116,62 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// RADIUS logs in by username or pppoe_username, and voucher codes are logins too.
-	if _, err := s.queries.FindLoginNameFold(ctx, d.Username); err == nil {
+	if _, err := s.Queries.FindLoginNameFold(ctx, d.Username); err == nil {
 		show("Username already used")
 		return
 	} else if !errors.Is(err, sql.ErrNoRows) {
-		s.fail(w, "register", err)
+		s.Fail(w, "register", err)
 		return
 	}
-	if _, err := s.queries.FindVoucherCodeFold(ctx, d.Username); err == nil {
+	if _, err := s.Queries.FindVoucherCodeFold(ctx, d.Username); err == nil {
 		show("Username already used")
 		return
 	} else if !errors.Is(err, sql.ErrNoRows) {
-		s.fail(w, "register", err)
+		s.Fail(w, "register", err)
 		return
 	}
 	if taken, err := s.contactTaken(r, "phone", d.Phone, 0); err != nil {
-		s.fail(w, "register", err)
+		s.Fail(w, "register", err)
 		return
 	} else if taken {
 		show(msgPhoneTaken)
 		return
 	}
 	if d.OTP {
-		if otpOff(st) {
+		if core.OtpOff(st) {
 			show("Verification code is not available right now")
 			return
 		}
 		if f("send_otp") != "" {
-			if !s.otpAllow(clientIP(r), d.Phone) {
+			if !s.OtpAllow(core.ClientIP(r), d.Phone) {
 				show("Too many verification code requests, please try again later")
 				return
 			}
 			n, _ := rand.Int(rand.Reader, big.NewInt(900000))
 			otp := strconv.FormatInt(n.Int64()+100000, 10)
-			s.sessions.Put(ctx, "reg_otp", otp)
-			s.sessions.Put(ctx, "reg_otp_phone", d.Phone)
-			s.sessions.Put(ctx, "reg_otp_exp", time.Now().Add(10*time.Minute).Unix())
-			if err := s.sendOTP(ctx, st, d.Phone, "Registration code", otp); err != nil {
+			s.Sessions.Put(ctx, "reg_otp", otp)
+			s.Sessions.Put(ctx, "reg_otp_phone", d.Phone)
+			s.Sessions.Put(ctx, "reg_otp_exp", time.Now().Add(10*time.Minute).Unix())
+			if err := s.SendOTP(ctx, st, d.Phone, "Registration code", otp); err != nil {
 				slog.Error("send otp", "err", err)
 				show("Failed to send verification code")
 				return
 			}
-			s.prender(w, r, 200, "p_register", Page{Title: "Register", Data: d, Flash: s.t("Verification code sent")})
+			s.prender(w, r, 200, "p_register", Page{Title: "Register", Data: d, Flash: s.T("Verification code sent")})
 			return
 		}
-		ip := "c:" + clientIP(r)
-		code := s.sessions.GetString(ctx, "reg_otp")
-		if s.tooManyFailures(ip) || code == "" || f("otp_code") != code ||
-			s.sessions.GetString(ctx, "reg_otp_phone") != d.Phone || time.Now().Unix() > s.sessions.GetInt64(ctx, "reg_otp_exp") {
-			s.recordFailure(ip)
+		ip := "c:" + core.ClientIP(r)
+		code := s.Sessions.GetString(ctx, "reg_otp")
+		if s.TooManyFailures(ip) || code == "" || f("otp_code") != code ||
+			s.Sessions.GetString(ctx, "reg_otp_phone") != d.Phone || time.Now().Unix() > s.Sessions.GetInt64(ctx, "reg_otp_exp") {
+			s.RecordFailure(ip)
 			show("Wrong Verification code")
 			return
 		}
-		s.sessions.Remove(ctx, "reg_otp")
+		s.Sessions.Remove(ctx, "reg_otp")
 	}
 	// per-IP cap on new accounts (same limiter as OTP sends, own key)
-	if !s.otpAllow("reg:"+clientIP(r), "") {
+	if !s.OtpAllow("reg:"+core.ClientIP(r), "") {
 		s.prender(w, r, http.StatusTooManyRequests, "p_register", Page{Title: "Register", Data: d, Error: "Too many registrations from this address. Try again later."})
 		return
 	}
@@ -181,25 +183,25 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 	var nc db.Customer
 	if err == nil {
 		// Active with no plan: the customer buys a plan or redeems a voucher afterwards.
-		nc, err = s.queries.CreateCustomer(ctx, db.CreateCustomerParams{Username: d.Username, PasswordHash: string(hash), SecretEnc: enc,
+		nc, err = s.Queries.CreateCustomer(ctx, db.CreateCustomerParams{Username: d.Username, PasswordHash: string(hash), SecretEnc: enc,
 			Fullname: d.Username, Phone: d.Phone, ServiceType: "Others", AutoRenewal: 1, Status: "Active"})
 	}
 	if err != nil {
-		s.fail(w, "register", err)
+		s.Fail(w, "register", err)
 		return
 	}
 	s.registered(ctx, st, nc)
 	if err := s.portalSignIn(r, nc); err != nil {
-		s.fail(w, "register", err)
+		s.Fail(w, "register", err)
 		return
 	}
-	s.sessions.Put(ctx, "flash", s.t("Registration successful. Welcome!"))
+	s.Sessions.Put(ctx, "flash", s.T("Registration successful. Welcome!"))
 	http.Redirect(w, r, "/portal", http.StatusSeeOther)
 }
 
 // registered sends the welcome message and, when reg_nofify_admin is on, alerts the admin (alert_channel).
 func (s *Server) registered(ctx context.Context, st map[string]string, c db.Customer) {
-	n, err := notify.Load(ctx, s.queries)
+	n, err := notify.Load(ctx, s.Queries)
 	if err != nil {
 		slog.Error("register notify", "err", err)
 		return

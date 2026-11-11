@@ -9,7 +9,7 @@ import (
 // The charts show the last 12 months, oldest first, across a year boundary, with the same income rules as the tiles.
 func TestDashboardRolling12Months(t *testing.T) {
 	s, _ := newTestApp(t)
-	loc := s.location()
+	loc := s.Location()
 	now := time.Date(2026, 2, 10, 12, 0, 0, 0, loc)
 	add := func(method string, price int64, at time.Time) {
 		if _, err := s.conn.Exec(`INSERT INTO transactions (invoice, username, plan_name, router_name, type, price, method, created_at, period_start, period_end)

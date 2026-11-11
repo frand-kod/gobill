@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"html"
 	"html/template"
 	"net"
@@ -17,6 +16,9 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
@@ -29,7 +31,7 @@ const isolirCSP = "sandbox allow-scripts allow-forms allow-popups allow-popups-t
 
 // isolirVoucherForm is the voucher box; it posts without a session (see routes: CSRF bypass).
 func (s *Server) isolirVoucherForm() template.HTML {
-	return template.HTML(`<form method="post" action="/isolir/voucher" autocomplete="off"><label for="isolir-code" class="muted">` + s.t("Voucher code") + `</label><input id="isolir-code" name="code" placeholder="` + s.t("Voucher code") + `" autocapitalize="characters" required><p><button class="btn" type="submit">` + s.t("Activate voucher") + `</button></p></form>`)
+	return template.HTML(`<form method="post" action="/isolir/voucher" autocomplete="off"><label for="isolir-code" class="muted">` + s.T("Voucher code") + `</label><input id="isolir-code" name="code" placeholder="` + s.T("Voucher code") + `" autocapitalize="characters" required><p><button class="btn" type="submit">` + s.T("Activate voucher") + `</button></p></form>`)
 }
 
 // isolirView is what the page shows. Known is false for a client IP with no open session.
@@ -56,25 +58,25 @@ type isolirView struct {
 
 // isolirPage is GET /isolir. Unknown clients get the generic page.
 func (s *Server) isolirPage(w http.ResponseWriter, r *http.Request) {
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "isolir settings", err)
+		s.Fail(w, "isolir settings", err)
 		return
 	}
-	s.writeIsolir(w, r, st, s.isolirFor(r.Context(), clientIP(r), st, ""), http.StatusOK)
+	s.writeIsolir(w, r, st, s.isolirFor(r.Context(), core.ClientIP(r), st, ""), http.StatusOK)
 }
 
 // isolirVoucher is POST /isolir/voucher. It redeems for the customer on this client IP, rate limited
 // per IP like the portal voucher form.
 func (s *Server) isolirVoucher(w http.ResponseWriter, r *http.Request) {
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "isolir settings", err)
+		s.Fail(w, "isolir settings", err)
 		return
 	}
-	ip := clientIP(r)
+	ip := core.ClientIP(r)
 	key := "iso:" + ip
-	if s.tooManyFailures(key) {
+	if s.TooManyFailures(key) {
 		s.writeIsolir(w, r, st, s.isolirFor(r.Context(), ip, st, "Too many attempts. Try again in 15 minutes."), http.StatusTooManyRequests)
 		return
 	}
@@ -84,19 +86,19 @@ func (s *Server) isolirVoucher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.Billing == nil {
-		s.fail(w, "isolir voucher", errors.New("billing not configured"))
+		s.Fail(w, "isolir voucher", errors.New("billing not configured"))
 		return
 	}
 	code := strings.TrimSpace(r.PostFormValue("code"))
 	notice := "Voucher activated. Try opening the internet again."
 	switch err := s.Billing.RedeemVoucher(r.Context(), code, v.CustomerID); {
 	case code == "" || errors.Is(err, billing.ErrVoucherInvalid):
-		s.recordFailure(key)
+		s.RecordFailure(key)
 		notice = "Voucher is not valid."
 	case errors.Is(err, billing.ErrInactive):
 		notice = "Account is not active."
 	case err != nil:
-		s.fail(w, "isolir voucher", err)
+		s.Fail(w, "isolir voucher", err)
 		return
 	}
 	// the page is rebuilt so the plan reflects the redeem
@@ -116,7 +118,7 @@ func (s *Server) isolirFor(ctx context.Context, ip string, st map[string]string,
 	if v.Name == "" {
 		v.Name = c.Username
 	}
-	subs, err := s.queries.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 1000})
+	subs, err := s.Queries.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 1000})
 	if err != nil {
 		return v
 	}
@@ -125,8 +127,8 @@ func (s *Server) isolirFor(ctx context.Context, ip string, st map[string]string,
 		if sub.PlanID == isoID {
 			continue
 		}
-		v.ExpiredAt = time.Unix(sub.ExpiresAt, 0).In(s.location()).Format("2006-01-02 15:04")
-		if p, err := s.queries.GetPlan(ctx, sub.PlanID); err == nil {
+		v.ExpiredAt = time.Unix(sub.ExpiresAt, 0).In(s.Location()).Format("2006-01-02 15:04")
+		if p, err := s.Queries.GetPlan(ctx, sub.PlanID); err == nil {
 			v.PlanName, v.Amount = p.Name, view.Money(p.Price)
 		}
 		break
@@ -137,11 +139,11 @@ func (s *Server) isolirFor(ctx context.Context, ip string, st map[string]string,
 // isolirCustomer finds the customer of a client IP: the owner of the most recent open RADIUS session
 // on that framed IP. ok is false when there is none.
 func (s *Server) isolirCustomer(ctx context.Context, ip string) (c db.Customer, ok bool) {
-	sess, err := s.queries.GetOpenRadiusSessionByFramedIP(ctx, ip)
+	sess, err := s.Queries.GetOpenRadiusSessionByFramedIP(ctx, ip)
 	if err != nil {
 		return c, false
 	}
-	c, err = s.queries.GetCustomerByUsername(ctx, sess.Username)
+	c, err = s.Queries.GetCustomerByUsername(ctx, sess.Username)
 	return c, err == nil
 }
 
@@ -149,7 +151,7 @@ func (s *Server) isolirCustomer(ctx context.Context, ip string) (c db.Customer, 
 func (s *Server) isolirIsolated(ctx context.Context, customerID int64) bool {
 	// M3: kept as-is, see docs/internal/rencana/modularisasi.md (real clock, no isolir_enabled check;
 	// the gate checks the atomic flag instead)
-	return isolir.IsIsolated(ctx, s.queries, customerID, time.Now())
+	return isolir.IsIsolated(ctx, s.Queries, customerID, time.Now())
 }
 
 // isolirGate serves the isolir page to an isolated client for GET and HEAD requests, whatever Host
@@ -161,7 +163,7 @@ func (s *Server) isolirGate(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		c, ok := s.isolirCustomer(r.Context(), clientIP(r))
+		c, ok := s.isolirCustomer(r.Context(), core.ClientIP(r))
 		if !ok || !s.isolirIsolated(r.Context(), c.ID) {
 			next.ServeHTTP(w, r)
 			return
@@ -219,7 +221,7 @@ func (s *Server) emitIsolir(w http.ResponseWriter, st map[string]string, v isoli
 	}
 	w.WriteHeader(status)
 	if err := s.isolirDefault().Execute(w, v); err != nil {
-		s.fail(w, "isolir page", err)
+		s.Fail(w, "isolir page", err)
 	}
 }
 
@@ -301,15 +303,15 @@ img.logo{display:block;max-height:48px;max-width:180px;margin-bottom:8px}
 
 // isolirDefault parses the default layout with T bound to the request language.
 func (s *Server) isolirDefault() *template.Template {
-	return template.Must(template.New("isolir").Funcs(template.FuncMap{"T": func(text string) string { return s.t(text) }}).Parse(isolirDefaultSrc))
+	return template.Must(template.New("isolir").Funcs(template.FuncMap{"T": func(text string) string { return s.T(text) }}).Parse(isolirDefaultSrc))
 }
 
 // isolirPreview is GET /admin/settings/isolir/preview: the page with sample data, in a new tab. The
 // custom HTML is used when it is not blank, so a draft can be checked after saving.
 func (s *Server) isolirPreview(w http.ResponseWriter, r *http.Request) {
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "isolir settings", err)
+		s.Fail(w, "isolir settings", err)
 		return
 	}
 	v := isolirView{Known: true, CustomerID: 0, Name: "Budi", Username: "budi", PlanName: "Plan 10 Mbps",
@@ -346,8 +348,8 @@ func (s *Server) isolirReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for k, v := range set {
-		if err := s.queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: k, Value: v}); err != nil {
-			s.fail(w, "isolir reset "+k, err)
+		if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: k, Value: v}); err != nil {
+			s.Fail(w, "isolir reset "+k, err)
 			return
 		}
 	}
@@ -383,22 +385,22 @@ func (s *Server) isolirSetupFields(st map[string]string) []field {
 	// RADIUS sends "isolir")
 	list := isolir.Value(st, "isolir_address_list")
 	hosts := isolir.HostLines(isolir.Value(st, "isolir_allow_hosts"))
-	sec := s.t("Setup router (MikroTik, RouterOS 6 and 7)")
+	sec := s.T("Setup router (MikroTik, RouterOS 6 and 7)")
 	return []field{
-		{Name: "isolir_cmd_rules", Label: s.t("1. Isolation rules (paste the whole block, in this order)"), Type: "pre", Section: sec,
+		{Name: "isolir_cmd_rules", Label: s.T("1. Isolation rules (paste the whole block, in this order)"), Type: "pre", Section: sec,
 			Value: isolir.RouterRules(list, host, port, hosts),
-			Hint:  s.t("The rules must sit above any general accept rule in the forward chain, or isolated clients are not cut off. Only HTTP on port 80 is redirected to the isolir page. Hosts in Allowed while isolated are reachable; wildcard hosts are learned when the app opens a TLS connection. Changed the allowed hosts? Paste the block again.")},
-		{Name: "isolir_cmd_walled", Label: s.t("2. Walled garden hotspot for gobill"), Type: "pre", Section: sec,
+			Hint:  s.T("The rules must sit above any general accept rule in the forward chain, or isolated clients are not cut off. Only HTTP on port 80 is redirected to the isolir page. Hosts in Allowed while isolated are reachable; wildcard hosts are learned when the app opens a TLS connection. Changed the allowed hosts? Paste the block again.")},
+		{Name: "isolir_cmd_walled", Label: s.T("2. Walled garden hotspot for gobill"), Type: "pre", Section: sec,
 			Value: fmt.Sprintf("/ip hotspot walled-garden ip add dst-address=%s dst-port=%s action=accept", host, port),
-			Hint:  s.t("So the isolir page opens before hotspot login.")},
-		{Name: "isolir_cmd_bypass", Label: s.t("3. Bypass the hotspot for the gobill host"), Type: "pre", Section: sec,
+			Hint:  s.T("So the isolir page opens before hotspot login.")},
+		{Name: "isolir_cmd_bypass", Label: s.T("3. Bypass the hotspot for the gobill host"), Type: "pre", Section: sec,
 			Value: "/ip hotspot ip-binding add mac-address=<MAC-HOST-GOBILL> type=bypassed",
-			Hint:  s.t("Replace <MAC-HOST-GOBILL> with the MAC address of gobill's LAN card. Without this rule, the hotspot can capture gobill's own traffic.")},
-		{Name: "isolir_cmd_test", Label: s.t("Test from the LAN with curl"), Type: "pre", Section: sec,
+			Hint:  s.T("Replace <MAC-HOST-GOBILL> with the MAC address of gobill's LAN card. Without this rule, the hotspot can capture gobill's own traffic.")},
+		{Name: "isolir_cmd_test", Label: s.T("Test from the LAN with curl"), Type: "pre", Section: sec,
 			Value: fmt.Sprintf(`curl -i -H "Host: example.com" http://%s:%s/`, host, port),
-			Hint:  s.t("gobill serves the isolir page to isolated clients at the root and at every other path. Do not test with /tool fetch: RouterOS sends a duplicate Host header and gets 400.")},
-		{Name: "isolir_cmd_note", Label: s.t("Note"), Type: "note", Section: sec,
-			Hint: s.t("The address-list is sent by RADIUS as Mikrotik-Address-List. RouterOS 6 resolves DNS allow-list entries to exact names only, so a host whose CDN address changes may sometimes fail, such as WhatsApp media. Add a bank app by putting its host in Allowed while isolated, then paste the block again.")},
+			Hint:  s.T("gobill serves the isolir page to isolated clients at the root and at every other path. Do not test with /tool fetch: RouterOS sends a duplicate Host header and gets 400.")},
+		{Name: "isolir_cmd_note", Label: s.T("Note"), Type: "note", Section: sec,
+			Hint: s.T("The address-list is sent by RADIUS as Mikrotik-Address-List. RouterOS 6 resolves DNS allow-list entries to exact names only, so a host whose CDN address changes may sometimes fail, such as WhatsApp media. Add a bank app by putting its host in Allowed while isolated, then paste the block again.")},
 	}
 }
 

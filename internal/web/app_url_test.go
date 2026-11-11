@@ -25,17 +25,17 @@ func TestAppURLFillsOnceOnAdminLogin(t *testing.T) {
 	if w := postLogin(h, "alice", "wrong", "evil.test"); w.Code != http.StatusOK {
 		t.Fatalf("failed login: %d", w.Code)
 	}
-	if st, _ := s.loadSettings(t.Context()); st["app_url"] != "" {
+	if st, _ := s.LoadSettings(t.Context()); st["app_url"] != "" {
 		t.Fatalf("failed login set app_url %q", st["app_url"])
 	}
 	if w := postLogin(h, "alice", "secret123", "billing.test"); w.Code != http.StatusSeeOther {
 		t.Fatalf("login: %d", w.Code)
 	}
-	if st, _ := s.loadSettings(t.Context()); st["app_url"] != "https://billing.test" {
+	if st, _ := s.LoadSettings(t.Context()); st["app_url"] != "https://billing.test" {
 		t.Fatalf("app_url = %q", st["app_url"])
 	}
 	postLogin(h, "rita", "secret123", "other.test")
-	if st, _ := s.loadSettings(t.Context()); st["app_url"] != "https://billing.test" {
+	if st, _ := s.LoadSettings(t.Context()); st["app_url"] != "https://billing.test" {
 		t.Fatalf("second login overwrote app_url: %q", st["app_url"])
 	}
 }

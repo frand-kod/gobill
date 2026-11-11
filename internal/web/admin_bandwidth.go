@@ -26,9 +26,9 @@ func bwFields(v, e map[string]string) []field {
 func (s *Server) bwList(w http.ResponseWriter, r *http.Request) {
 	q, pg := paging(r)
 	_, isoBW := s.isolirIDs(r.Context()) // the isolir profile is set in Settings > Isolir
-	rows, err := s.queries.SearchBandwidths(r.Context(), db.SearchBandwidthsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset(), HiddenID: isoBW})
+	rows, err := s.Queries.SearchBandwidths(r.Context(), db.SearchBandwidthsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset(), HiddenID: isoBW})
 	if err != nil {
-		s.fail(w, "list bandwidths", err)
+		s.Fail(w, "list bandwidths", err)
 		return
 	}
 	lp := listPage{Heading: "Bandwidth", Base: "/admin/bandwidth", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
@@ -36,9 +36,9 @@ func (s *Server) bwList(w http.ResponseWriter, r *http.Request) {
 	for _, b := range rows {
 		lp.Rows = append(lp.Rows, listRow{b.ID, []string{b.Name, fmt.Sprint(b.RateDown, " ", b.RateDownUnit), fmt.Sprint(b.RateUp, " ", b.RateUpUnit), b.Burst}})
 	}
-	total, err := s.queries.CountBandwidths(r.Context(), db.CountBandwidthsParams{Term: q, HiddenID: isoBW})
+	total, err := s.Queries.CountBandwidths(r.Context(), db.CountBandwidthsParams{Term: q, HiddenID: isoBW})
 	if err != nil {
-		s.fail(w, "count bandwidths", err)
+		s.Fail(w, "count bandwidths", err)
 		return
 	}
 	lp.finish(pg, total)
@@ -52,12 +52,12 @@ func (s *Server) bwNew(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) bwEdit(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
-	b, err := s.queries.GetBandwidth(r.Context(), id)
+	b, err := s.Queries.GetBandwidth(r.Context(), id)
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		s.fail(w, "get bandwidth", err)
+		s.Fail(w, "get bandwidth", err)
 		return
 	}
 	v := map[string]string{"name": b.Name, "rate_down": fmt.Sprint(b.RateDown), "rate_down_unit": b.RateDownUnit,
@@ -90,17 +90,17 @@ func (s *Server) bwSave(w http.ResponseWriter, r *http.Request) {
 	if len(e) == 0 {
 		var err error
 		if id == 0 {
-			_, err = s.queries.CreateBandwidth(r.Context(), db.CreateBandwidthParams{Name: v["name"], RateDown: down, RateDownUnit: v["rate_down_unit"],
+			_, err = s.Queries.CreateBandwidth(r.Context(), db.CreateBandwidthParams{Name: v["name"], RateDown: down, RateDownUnit: v["rate_down_unit"],
 				RateUp: up, RateUpUnit: v["rate_up_unit"], Burst: v["burst"]})
 		} else {
-			err = s.queries.UpdateBandwidth(r.Context(), db.UpdateBandwidthParams{Name: v["name"], RateDown: down, RateDownUnit: v["rate_down_unit"],
+			err = s.Queries.UpdateBandwidth(r.Context(), db.UpdateBandwidthParams{Name: v["name"], RateDown: down, RateDownUnit: v["rate_down_unit"],
 				RateUp: up, RateUpUnit: v["rate_up_unit"], Burst: v["burst"], ID: id})
 		}
 		switch {
 		case httpx.IsUnique(err):
 			e["name"] = "Name already exists"
 		case err != nil:
-			s.fail(w, "save bandwidth", err)
+			s.Fail(w, "save bandwidth", err)
 			return
 		default:
 			act, msg := "bandwidth.create", "Data Created Successfully"
@@ -120,10 +120,10 @@ func (s *Server) bwSave(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) bwDelete(w http.ResponseWriter, r *http.Request) {
 	name := ""
-	if b, err := s.queries.GetBandwidth(r.Context(), httpx.PathID(r)); err == nil {
+	if b, err := s.Queries.GetBandwidth(r.Context(), httpx.PathID(r)); err == nil {
 		name = b.Name
 	}
 	s.remove(w, r, "/admin/bandwidth", "bandwidth", "Bandwidth is used by a plan", name, func(id int64) error {
-		return s.queries.DeleteBandwidth(r.Context(), id)
+		return s.Queries.DeleteBandwidth(r.Context(), id)
 	})
 }

@@ -17,7 +17,7 @@ import (
 // for the real navigation. Responses vary on Sec-Purpose so a cached prefetch is never served as a navigation.
 // ponytail: a prefetched page can be a few minutes old when shown; acceptable for intent-based prefetch.
 func (s *Server) prefetchSafe(next http.Handler) http.Handler {
-	saved := s.sessions.LoadAndSave(next)
+	saved := s.Sessions.LoadAndSave(next)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Vary", "Sec-Purpose")
 		if !isPrefetch(r) {
@@ -25,10 +25,10 @@ func (s *Server) prefetchSafe(next http.Handler) http.Handler {
 			return
 		}
 		token := ""
-		if c, err := r.Cookie(s.sessions.Cookie.Name); err == nil {
+		if c, err := r.Cookie(s.Sessions.Cookie.Name); err == nil {
 			token = c.Value
 		}
-		ctx, err := s.sessions.Load(r.Context(), token)
+		ctx, err := s.Sessions.Load(r.Context(), token)
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
@@ -143,7 +143,7 @@ func (s *Server) portalRoutes2(mux *http.ServeMux) {
 func (s *Server) radiusRestRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /radius.php", s.radiusRest)
 	mux.HandleFunc("POST /radius/rest", s.radiusRest)
-	if m, err := s.loadSettings(context.Background()); err == nil && strings.TrimSpace(m["radius_rest_allow"]) == "" && m["radius_rest_secret"] == "" {
+	if m, err := s.LoadSettings(context.Background()); err == nil && strings.TrimSpace(m["radius_rest_allow"]) == "" && m["radius_rest_secret"] == "" {
 		slog.Warn("radius.php endpoint refuses ALL requests: neither radius_rest_allow nor radius_rest_secret is set. Before, an empty allow-list meant loopback only. If FreeRADIUS uses this endpoint, set radius_rest_allow (e.g. 127.0.0.1 or its IP) or radius_rest_secret (Settings > System > FreeRADIUS), see docs/en/freeradius-rest.md")
 	}
 }

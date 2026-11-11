@@ -14,7 +14,7 @@ import (
 )
 
 func (s *Server) testLoginFields(r *http.Request, v, e map[string]string, result string) ([]field, error) {
-	nas, err := s.queries.ListNAS(r.Context())
+	nas, err := s.Queries.ListNAS(r.Context())
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ var rejectLabels = map[string]string{
 func (s *Server) testLoginForm(w http.ResponseWriter, r *http.Request) {
 	fs, err := s.testLoginFields(r, nil, nil, "")
 	if err != nil {
-		s.fail(w, "test login", err)
+		s.Fail(w, "test login", err)
 		return
 	}
 	s.renderForm(w, r, 200, formPage{"Test login", "/admin/radius/test-login", "/admin/nas", fs})
@@ -80,23 +80,23 @@ func (s *Server) testLoginRun(w http.ResponseWriter, r *http.Request) {
 		if d.Reject != "" {
 			reject = d.Reject
 			if k, ok := rejectLabels[d.Reject]; ok {
-				reject = s.t(k)
+				reject = s.T(k)
 			}
 		} else {
-			result = fmt.Sprintf("%s\n%s: %s\n%s", s.t("Access-Accept"), s.t("Plan"), d.Plan.PlanName, strings.Join(d.Attrs(), "\n"))
+			result = fmt.Sprintf("%s\n%s: %s\n%s", s.T("Access-Accept"), s.T("Plan"), d.Plan.PlanName, strings.Join(d.Attrs(), "\n"))
 		}
 		s.logActivity(r, "radius.test_login", user)
 	}
 	v["password"] = ""
 	fs, err := s.testLoginFields(r, v, e, result)
 	if err != nil {
-		s.fail(w, "test login", err)
+		s.Fail(w, "test login", err)
 		return
 	}
 	// a reject is an error alert above the form (role=alert), the same as the validation errors
 	page := Page{Title: "Test login", Data: formPage{"Test login", "/admin/radius/test-login", "/admin/nas", fs}}
 	if reject != "" {
-		page.Error = s.t("Access-Reject") + ": " + reject
+		page.Error = s.T("Access-Reject") + ": " + reject
 	}
-	s.render(w, r, http.StatusOK, "form", page)
+	s.Render(w, r, http.StatusOK, "form", page)
 }

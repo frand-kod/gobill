@@ -12,9 +12,9 @@ import (
 )
 
 func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscription, online string) diagnose.Diagnosis {
-	return (&diagnose.Service{Q: s.queries, TS: s.ts, Dur: view.HumanDur, Bytes: view.HumanBytes,
+	return (&diagnose.Service{Q: s.Queries, TS: s.TS, Dur: view.HumanDur, Bytes: view.HumanBytes,
 		T: func(k string, a ...any) string {
-			k = s.t(k)
+			k = s.T(k)
 			if len(a) == 0 {
 				return k
 			}

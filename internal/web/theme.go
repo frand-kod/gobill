@@ -53,8 +53,8 @@ func (s *Server) themeDefault(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for k, v := range map[string]string{"theme_mode": mode, "theme_accent": accent, "theme_density": density, "theme_font": font} {
-		if err := s.queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: k, Value: v}); err != nil {
-			s.fail(w, "save "+k, err)
+		if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: k, Value: v}); err != nil {
+			s.Fail(w, "save "+k, err)
 			return
 		}
 	}

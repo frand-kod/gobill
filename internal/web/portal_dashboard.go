@@ -44,14 +44,14 @@ func pageOf(trx []db.Transaction, pg pager, total int64, base string) pTrxPage {
 func (s *Server) pActivations(w http.ResponseWriter, r *http.Request) {
 	_, pg := paging(r)
 	cust := sql.NullInt64{Int64: customerFrom(r).ID, Valid: true}
-	trx, err := s.queries.ListActivationsByCustomer(r.Context(), db.ListActivationsByCustomerParams{CustomerID: cust, Limit: pg.limit(), Offset: pg.offset()})
+	trx, err := s.Queries.ListActivationsByCustomer(r.Context(), db.ListActivationsByCustomerParams{CustomerID: cust, Limit: pg.limit(), Offset: pg.offset()})
 	if err != nil {
-		s.fail(w, "portal activations", err)
+		s.Fail(w, "portal activations", err)
 		return
 	}
-	total, err := s.queries.CountActivationsByCustomer(r.Context(), cust)
+	total, err := s.Queries.CountActivationsByCustomer(r.Context(), cust)
 	if err != nil {
-		s.fail(w, "count portal activations", err)
+		s.Fail(w, "count portal activations", err)
 		return
 	}
 	s.prender(w, r, 200, "p_activation", Page{Title: "Activation History", Data: pageOf(trx, pg, total, "/portal/activation")})
@@ -129,7 +129,7 @@ type pWords struct {
 }
 
 func (s *Server) pTexts() pWords {
-	return pWords{s.t("days"), s.t("hours"), s.t("minutes"), s.t("left"), s.t("Ended")}
+	return pWords{s.T("days"), s.T("hours"), s.T("minutes"), s.T("left"), s.T("Ended")}
 }
 
 // JSON is the words as a JSON object for the ticker's x-data.
@@ -198,14 +198,14 @@ func (s *Server) pDashboard(w http.ResponseWriter, r *http.Request) { s.pDash(w,
 func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg string) {
 	c := customerFrom(r)
 	ctx := r.Context()
-	st, err := s.loadSettings(ctx)
+	st, err := s.LoadSettings(ctx)
 	if err != nil {
-		s.fail(w, "portal dashboard", err)
+		s.Fail(w, "portal dashboard", err)
 		return
 	}
-	subs, err := s.queries.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 50})
+	subs, err := s.Queries.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 50})
 	if err != nil {
-		s.fail(w, "portal dashboard", err)
+		s.Fail(w, "portal dashboard", err)
 		return
 	}
 	now := time.Now().Unix()
@@ -223,25 +223,25 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		}
 	}
 	if sub != nil {
-		p, _ := s.queries.GetPlan(ctx, sub.PlanID)
+		p, _ := s.Queries.GetPlan(ctx, sub.PlanID)
 		left := sub.ExpiresAt - now
-		d.Plan = &pPlan{Name: p.Name, Ends: s.subExpiry(sub.PendingStart, sub.ExpiresAt), Expires: sub.ExpiresAt, Left: d.Words.countdown(left),
+		d.Plan = &pPlan{Name: p.Name, Ends: s.SubExpiry(sub.PendingStart, sub.ExpiresAt), Expires: sub.ExpiresAt, Left: d.Words.countdown(left),
 			Pct: validityPct(sub.StartedAt, sub.ExpiresAt, now)}
 		if sub.PendingStart == 1 {
-			d.Plan.Pending, d.Plan.Left, d.Plan.Pct = true, s.t("Starts on first login"), 0
+			d.Plan.Pending, d.Plan.Left, d.Plan.Pct = true, s.T("Starts on first login"), 0
 		}
 		d.Period = pTotal{Down: view.HumanBytes(sub.UsedOutOctets), Up: view.HumanBytes(sub.UsedInOctets)}
 		d.Usage = s.pUsage(ctx, *c, *sub, p, d.Words, sub.UsedInOctets+sub.UsedOutOctets)
 	} else {
-		d.Usage.Note = s.t("No active plan")
+		d.Usage.Note = s.T("No active plan")
 		if len(subs) > 0 { // only finished plans: say which one ended
-			p, _ := s.queries.GetPlan(ctx, subs[0].PlanID)
-			d.PlanEnded = fmt.Sprintf(s.t("Plan %s ended on %s"), p.Name, s.ts(subs[0].ExpiresAt))
+			p, _ := s.Queries.GetPlan(ctx, subs[0].PlanID)
+			d.PlanEnded = fmt.Sprintf(s.T("Plan %s ended on %s"), p.Name, s.TS(subs[0].ExpiresAt))
 		}
 		canExtend := (st["extend_expired"] == "1" || st["extend_expired"] == "yes") && c.Status == "Active"
 		for _, x := range subs { // newest first: the last plan that is not active
 			if x.Status != "active" {
-				if p, _ := s.queries.GetPlan(ctx, x.PlanID); canExtend && billing.SellablePlan(p) {
+				if p, _ := s.Queries.GetPlan(ctx, x.PlanID); canExtend && billing.SellablePlan(p) {
 					d.Extend = &pExtend{ID: x.ID, Plan: p.Name}
 				}
 				break
@@ -250,31 +250,31 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 	}
 
 	if d.Live, err = s.pLiveOf(ctx, *c, now, d.Words); err != nil {
-		s.fail(w, "portal connection", err)
+		s.Fail(w, "portal connection", err)
 		return
 	}
 	// the chart: the last 7 days; today is the last bar
-	rows, err := s.queries.ListRadiusUsageDaily(ctx, db.ListRadiusUsageDailyParams{Name1: n1, Name2: n2, Since: weekSince(now, s.location())})
+	rows, err := s.Queries.ListRadiusUsageDaily(ctx, db.ListRadiusUsageDailyParams{Name1: n1, Name2: n2, Since: weekSince(now, s.Location())})
 	if err != nil {
-		s.fail(w, "portal usage chart", err)
+		s.Fail(w, "portal usage chart", err)
 		return
 	}
 	totals := make([]dayTotal, len(rows))
 	for i, x := range rows {
 		totals[i] = dayTotal{Day: x.Day, Input: x.Input, Output: x.Output}
 	}
-	days := dailyUsage(totals, 7, now, s.location())
+	days := dailyUsage(totals, 7, now, s.Location())
 	d.Days = chartBars(days)
 	d.Today = pTotal{Down: view.HumanBytes(days[len(days)-1].Down), Up: view.HumanBytes(days[len(days)-1].Up)}
 
-	d.Trx, err = s.queries.ListTransactionsByCustomer(ctx, db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, Limit: 3})
+	d.Trx, err = s.Queries.ListTransactionsByCustomer(ctx, db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, Limit: 3})
 	if err != nil {
-		s.fail(w, "portal dashboard orders", err)
+		s.Fail(w, "portal dashboard orders", err)
 		return
 	}
 	d.Pay = s.pendingPay(ctx, c.ID)
-	if d.Outage, err = billing.MassDropNow(ctx, s.queries, st, c.Username, time.Unix(now, 0)); err != nil {
-		s.fail(w, "portal outage", err)
+	if d.Outage, err = billing.MassDropNow(ctx, s.Queries, st, c.Username, time.Unix(now, 0)); err != nil {
+		s.Fail(w, "portal outage", err)
 		return
 	}
 	s.prender(w, r, code, "p_dashboard", Page{Title: "Dashboard", Error: errMsg, Data: d})
@@ -292,7 +292,7 @@ func validityPct(start, end, now int64) int {
 // used is the data octets of the same period; it is shown when the plan has no data limit.
 func (s *Server) pUsage(ctx context.Context, c db.Customer, sub db.Subscription, p db.Plan, w pWords, used int64) pUsage {
 	if p.Limited == 1 && p.Device != "Radius" {
-		return pUsage{Note: s.t("Usage is not recorded for this plan")}
+		return pUsage{Note: s.T("Usage is not recorded for this plan")}
 	}
 	q := diagnose.PlanQuota(sub, p)
 	u := pUsage{}
@@ -321,7 +321,7 @@ func (s *Server) pSession(x db.RadiusSession, now int64, w pWords) pSess {
 	if x.StoppedAt.Valid {
 		end = x.StoppedAt.Int64
 	}
-	return pSess{Start: s.ts(x.StartedAt), For: w.span(end - x.StartedAt), Up: view.HumanBytes(x.InputOctets), Down: view.HumanBytes(x.OutputOctets),
+	return pSess{Start: s.TS(x.StartedAt), For: w.span(end - x.StartedAt), Up: view.HumanBytes(x.InputOctets), Down: view.HumanBytes(x.OutputOctets),
 		MAC: maskMAC(x.Mac), Open: !x.StoppedAt.Valid && now-x.UpdatedAt <= radius.StaleFor(x.NasIp)}
 }
 
@@ -329,14 +329,14 @@ func (s *Server) pSession(x db.RadiusSession, now int64, w pWords) pSess {
 func (s *Server) pOrders(w http.ResponseWriter, r *http.Request) {
 	_, pg := paging(r)
 	cust := sql.NullInt64{Int64: customerFrom(r).ID, Valid: true}
-	trx, err := s.queries.ListTransactionsByCustomer(r.Context(), db.ListTransactionsByCustomerParams{CustomerID: cust, Limit: pg.limit(), Offset: pg.offset()})
+	trx, err := s.Queries.ListTransactionsByCustomer(r.Context(), db.ListTransactionsByCustomerParams{CustomerID: cust, Limit: pg.limit(), Offset: pg.offset()})
 	if err != nil {
-		s.fail(w, "portal orders", err)
+		s.Fail(w, "portal orders", err)
 		return
 	}
-	total, err := s.queries.CountTransactionsByCustomer(r.Context(), cust)
+	total, err := s.Queries.CountTransactionsByCustomer(r.Context(), cust)
 	if err != nil {
-		s.fail(w, "count portal orders", err)
+		s.Fail(w, "count portal orders", err)
 		return
 	}
 	data := pageOf(trx, pg, total, "/portal/orders")
@@ -346,7 +346,7 @@ func (s *Server) pOrders(w http.ResponseWriter, r *http.Request) {
 
 // pInvoice shows the invoice only for the customer's own transaction.
 func (s *Server) pInvoice(w http.ResponseWriter, r *http.Request) {
-	t, err := s.queries.GetTransaction(r.Context(), httpx.PathID(r))
+	t, err := s.Queries.GetTransaction(r.Context(), httpx.PathID(r))
 	if err != nil || !t.CustomerID.Valid || t.CustomerID.Int64 != customerFrom(r).ID {
 		http.NotFound(w, r)
 		return
@@ -376,17 +376,17 @@ type radiusUsage struct {
 func (s *Server) radiusUsage(ctx context.Context, c db.Customer) (*radiusUsage, error) {
 	u := &radiusUsage{}
 	var total int64
-	if p, err := s.queries.GetRadiusPlan(ctx, c.ID); err == nil {
+	if p, err := s.Queries.GetRadiusPlan(ctx, c.ID); err == nil {
 		total = p.UsedInOctets + p.UsedOutOctets
 	}
 	u.Total, u.Unit = view.HumanBytesParts(total)
-	now, loc := time.Now().Unix(), s.location()
+	now, loc := time.Now().Unix(), s.Location()
 	n1, n2 := names2(loginNames(c))
-	rows, err := s.queries.ListRadiusUsageDaily(ctx, db.ListRadiusUsageDailyParams{Name1: n1, Name2: n2, Since: dayStart(now, loc).AddDate(0, 0, -29).Format("2006-01-02")})
+	rows, err := s.Queries.ListRadiusUsageDaily(ctx, db.ListRadiusUsageDailyParams{Name1: n1, Name2: n2, Since: dayStart(now, loc).AddDate(0, 0, -29).Format("2006-01-02")})
 	if err != nil {
 		return nil, err
 	}
-	ss, err := s.queries.ListRecentRadiusSessionsByUser(ctx, c.Username)
+	ss, err := s.Queries.ListRecentRadiusSessionsByUser(ctx, c.Username)
 	if err != nil {
 		return nil, err
 	}

@@ -37,6 +37,7 @@ func TestImportRules(t *testing.T) {
 		// web sub-packages stand beside each other and never import web or a sibling (httpx and view are the shared leaves)
 		{"web/httpx", []string{"web"}},
 		{"web/view", []string{"web"}},
+		{"web/core", []string{"web", "web/portal"}},
 		// kernel packages import nothing internal
 		{"money", []string{""}},
 		{"clock", []string{""}},

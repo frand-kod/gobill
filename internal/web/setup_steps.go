@@ -77,7 +77,7 @@ func wizSpeedFields(v, e map[string]string) []field {
 }
 
 func (s *Server) wizPlanFields(ctx context.Context, ws wizState, v, e map[string]string) ([]field, error) {
-	bws, err := s.queries.ListBandwidths(ctx, db.ListBandwidthsParams{Limit: 1000})
+	bws, err := s.Queries.ListBandwidths(ctx, db.ListBandwidthsParams{Limit: 1000})
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (s *Server) wizPlanFields(ctx context.Context, ws wizState, v, e map[string
 	}
 	out := []field{bw}
 	if ws.effectiveRouter() == "api" {
-		routers, err := s.queries.ListRouters(ctx, db.ListRoutersParams{Limit: 1000})
+		routers, err := s.Queries.ListRouters(ctx, db.ListRoutersParams{Limit: 1000})
 		if err != nil {
 			return nil, err
 		}

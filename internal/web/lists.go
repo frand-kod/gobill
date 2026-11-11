@@ -388,10 +388,10 @@ func (lp *listPage) finish(pg pager, total int64) {
 }
 
 func (s *Server) renderList(w http.ResponseWriter, r *http.Request, lp listPage) {
-	s.render(w, r, http.StatusOK, "list", Page{
+	s.Render(w, r, http.StatusOK, "list", Page{
 		Title: lp.Heading,
-		Flash: s.sessions.PopString(r.Context(), "flash"),
-		Error: s.sessions.PopString(r.Context(), "error"),
+		Flash: s.Sessions.PopString(r.Context(), "flash"),
+		Error: s.Sessions.PopString(r.Context(), "error"),
 		Data:  lp,
 	})
 }

@@ -107,7 +107,7 @@ func TestPortalDashboardCards(t *testing.T) {
 	if n := strings.Count(body, "<span>Buy / Extend</span>"); n != 0 {
 		t.Fatalf("Buy / Extend buttons without a way to pay = %d, want 0", n)
 	}
-	if !strings.Contains(body, `data-bar="`+time.Unix(now, 0).In(e.s.location()).Format("2006-01-02")+" · ↓ ") {
+	if !strings.Contains(body, `data-bar="`+time.Unix(now, 0).In(e.s.Location()).Format("2006-01-02")+" · ↓ ") {
 		t.Fatal("today's bar lacks its hover text")
 	}
 	setting(t, e, "payment_gateway", "tripay")

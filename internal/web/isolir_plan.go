@@ -13,10 +13,10 @@ import (
 
 // isolirIDs are the isolir plan and its bandwidth, 0 while the plan is not set up.
 func (s *Server) isolirIDs(ctx context.Context) (planID, bwID int64) {
-	if planID = isolir.StoredPlanID(ctx, s.queries); planID == 0 {
+	if planID = isolir.StoredPlanID(ctx, s.Queries); planID == 0 {
 		return 0, 0
 	}
-	if p, err := s.queries.GetPlan(ctx, planID); err == nil && p.BandwidthID.Valid {
+	if p, err := s.Queries.GetPlan(ctx, planID); err == nil && p.BandwidthID.Valid {
 		bwID = p.BandwidthID.Int64
 	}
 	return planID, bwID
@@ -30,11 +30,11 @@ func (s *Server) isolirSpeed(ctx context.Context) (name, down, up string) {
 	if planID == 0 {
 		return "", down, up
 	}
-	p, err := s.queries.GetPlan(ctx, planID)
+	p, err := s.Queries.GetPlan(ctx, planID)
 	if err != nil {
 		return "", down, up
 	}
-	if b, err := s.queries.GetBandwidth(ctx, bwID); err == nil {
+	if b, err := s.Queries.GetBandwidth(ctx, bwID); err == nil {
 		down, up = rateSetting(b.RateDown, b.RateDownUnit), rateSetting(b.RateUp, b.RateUpUnit)
 	}
 	return p.Name, down, up

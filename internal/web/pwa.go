@@ -41,9 +41,9 @@ func pwaIcon(m map[string]string) string {
 // manifest serves the web app manifest; suffix is appended to the company name ("" or " Admin").
 func (s *Server) manifest(suffix, start, scope string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		st, err := s.loadSettings(r.Context())
+		st, err := s.LoadSettings(r.Context())
 		if err != nil {
-			s.fail(w, "manifest settings", err)
+			s.Fail(w, "manifest settings", err)
 			return
 		}
 		mode, accent, _ := themeDefaults(st)

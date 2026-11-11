@@ -46,20 +46,20 @@ func (s *Server) sweepRestores() {
 
 // dropRestore deletes the staged upload and forgets it.
 func (s *Server) dropRestore(ctx context.Context) {
-	if p := s.sessions.GetString(ctx, "restore_file"); p != "" {
+	if p := s.Sessions.GetString(ctx, "restore_file"); p != "" {
 		os.Remove(p)
 	}
-	s.sessions.Remove(ctx, "restore_file")
-	s.sessions.Remove(ctx, "restore_token")
+	s.Sessions.Remove(ctx, "restore_file")
+	s.Sessions.Remove(ctx, "restore_token")
 }
 
 // pendingRestore returns the staged file when token is the one this session was given and the file is fresh.
 func (s *Server) pendingRestore(ctx context.Context, token string) (string, bool) {
-	want := s.sessions.GetString(ctx, "restore_token")
+	want := s.Sessions.GetString(ctx, "restore_token")
 	if want == "" || subtle.ConstantTimeCompare([]byte(want), []byte(token)) != 1 {
 		return "", false
 	}
-	p := s.sessions.GetString(ctx, "restore_file")
+	p := s.Sessions.GetString(ctx, "restore_file")
 	if fi, err := os.Stat(p); p == "" || err != nil || time.Since(fi.ModTime()) > importTTL {
 		return "", false
 	}
@@ -99,13 +99,13 @@ func (s *Server) saveRestoreUpload(r *http.Request) (string, error) {
 func (s *Server) renderRestore(w http.ResponseWriter, r *http.Request, status int, v restoreView, msg, detail string) {
 	v.TOTP = adminFrom(r).TotpEnabled == 1
 	if app, bak, ok := strings.Cut(v.Warning, " "); ok { // Warning holds the two key fingerprints
-		v.Warning = fmt.Sprintf(s.t("This backup was made with another encryption key. It holds no encrypted values now, but you need that key to enter router passwords and API keys again. Key fingerprint of this app: %s. Key fingerprint of this backup: %s."), app, bak)
+		v.Warning = fmt.Sprintf(s.T("This backup was made with another encryption key. It holds no encrypted values now, but you need that key to enter router passwords and API keys again. Key fingerprint of this app: %s. Key fingerprint of this backup: %s."), app, bak)
 	}
 	p := Page{Title: "Restore database", Data: v, Detail: detail}
 	if msg != "" {
-		p.Error = s.t(msg)
+		p.Error = s.T(msg)
 	}
-	s.render(w, r, status, "restore", p)
+	s.Render(w, r, status, "restore", p)
 }
 
 // restoreAgain re-renders the preview of the staged file with an error (wrong password, missing tick),
@@ -113,7 +113,7 @@ func (s *Server) renderRestore(w http.ResponseWriter, r *http.Request, status in
 func (s *Server) restoreAgain(w http.ResponseWriter, r *http.Request, token, path, msg string) {
 	v := restoreView{}
 	ctx := r.Context()
-	bak, newest, warn, err := restore.Inspect(ctx, path, s.SecretKey, s.location())
+	bak, newest, warn, err := restore.Inspect(ctx, path, s.SecretKey, s.Location())
 	cur, err2 := restore.CountRows(ctx, s.conn)
 	fi, err3 := os.Stat(path)
 	if err == nil && err2 == nil && err3 == nil {
@@ -154,7 +154,7 @@ func (s *Server) restorePreview(w http.ResponseWriter, r *http.Request) {
 			s.renderRestore(w, r, http.StatusUnprocessableEntity, restoreView{}, rf.Msg, rf.Detail)
 			return
 		}
-		s.fail(w, "restore check", err)
+		s.Fail(w, "restore check", err)
 	}
 	token, err := newToken()
 	if err != nil {
@@ -166,7 +166,7 @@ func (s *Server) restorePreview(w http.ResponseWriter, r *http.Request) {
 		fail(err)
 		return
 	}
-	bak, newest, warn, err := restore.Inspect(ctx, path, s.SecretKey, s.location())
+	bak, newest, warn, err := restore.Inspect(ctx, path, s.SecretKey, s.Location())
 	if err != nil {
 		fail(err)
 		return
@@ -176,8 +176,8 @@ func (s *Server) restorePreview(w http.ResponseWriter, r *http.Request) {
 		fail(err)
 		return
 	}
-	s.sessions.Put(ctx, "restore_token", token)
-	s.sessions.Put(ctx, "restore_file", path)
+	s.Sessions.Put(ctx, "restore_token", token)
+	s.Sessions.Put(ctx, "restore_file", path)
 	s.renderRestore(w, r, http.StatusOK, restoreView{Token: token, Size: fi.Size(), Backup: bak, Current: cur, Newest: newest, Warning: warn}, "", "")
 }
 
@@ -197,7 +197,7 @@ func (s *Server) restoreConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 	// replacing the whole database is as sensitive as the key download: ask for the password again
 	if msg, err := s.stepUp(r); err != nil {
-		s.fail(w, "open totp secret", err)
+		s.Fail(w, "open totp secret", err)
 		return
 	} else if msg != "" {
 		s.restoreAgain(w, r, r.PostFormValue("token"), path, msg)
@@ -212,7 +212,7 @@ func (s *Server) restoreConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := os.Rename(path, s.DBPath+".restore"); err != nil {
 		s.dropRestore(ctx)
-		s.fail(w, "restore stage", err)
+		s.Fail(w, "restore stage", err)
 		return
 	}
 	s.dropRestore(ctx) // the file is now staged under its new name; only the session keys go
@@ -228,7 +228,7 @@ func (s *Server) restoreConfirm(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) restoreCancel(w http.ResponseWriter, r *http.Request) {
 	s.dropRestore(r.Context())
-	s.sessions.Put(r.Context(), "flash", s.t("Restore cancelled."))
+	s.Sessions.Put(r.Context(), "flash", s.T("Restore cancelled."))
 	http.Redirect(w, r, restorePage, http.StatusSeeOther)
 }
 

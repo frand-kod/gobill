@@ -51,18 +51,18 @@ func TestCustomerPasswordMinimum(t *testing.T) {
 func TestFailureMapsBounded(t *testing.T) {
 	s, _ := newTestApp(t)
 	stale := time.Now().Add(-2 * time.Hour)
-	s.mu.Lock()
-	s.otpSent = map[string][]time.Time{}
+	s.Mu.Lock()
+	s.OtpSent = map[string][]time.Time{}
 	for i := 0; i < 10001; i++ {
-		s.failed[fmt.Sprint("stale", i)] = []time.Time{stale}
-		s.otpSent[fmt.Sprint("ip:stale", i)] = []time.Time{stale}
+		s.Failed[fmt.Sprint("stale", i)] = []time.Time{stale}
+		s.OtpSent[fmt.Sprint("ip:stale", i)] = []time.Time{stale}
 	}
-	s.mu.Unlock()
-	s.recordFailure("1.2.3.4")
-	s.otpAllow("5.6.7.8", "")
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if len(s.failed) > 10 || len(s.otpSent) > 10 {
-		t.Fatalf("maps not bounded: failed=%d otpSent=%d", len(s.failed), len(s.otpSent))
+	s.Mu.Unlock()
+	s.RecordFailure("1.2.3.4")
+	s.OtpAllow("5.6.7.8", "")
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+	if len(s.Failed) > 10 || len(s.OtpSent) > 10 {
+		t.Fatalf("maps not bounded: failed=%d otpSent=%d", len(s.Failed), len(s.OtpSent))
 	}
 }

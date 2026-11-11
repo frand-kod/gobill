@@ -29,17 +29,17 @@ func (s *Server) logClean(w http.ResponseWriter, r *http.Request) {
 	}
 	days, ok := httpx.PosInt(strings.TrimSpace(r.PostFormValue("keep")))
 	if !ok || days > 36500 || s.Billing == nil {
-		s.sessions.Put(r.Context(), "error", s.t("Enter a number greater than 0"))
+		s.Sessions.Put(r.Context(), "error", s.T("Enter a number greater than 0"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
 	n, err := s.Billing.CleanLog(r.Context(), kind, int(days))
 	if err != nil {
-		s.fail(w, "clean logs", err)
+		s.Fail(w, "clean logs", err)
 		return
 	}
 	s.logActivity(r, "logs.clean", fmt.Sprintf("%s older than %d days: %d deleted", kind, days, n))
-	s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.t("%d logs deleted"), n))
+	s.Sessions.Put(r.Context(), "flash", fmt.Sprintf(s.T("%d logs deleted"), n))
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
@@ -93,7 +93,7 @@ var actionLabels = map[string]string{
 // actionLabel is the UI text of an activity log action key.
 func (s *Server) actionLabel(action string) string {
 	if l, ok := actionLabels[action]; ok {
-		return s.t(l)
+		return s.T(l)
 	}
 	return action
 }
@@ -101,7 +101,7 @@ func (s *Server) actionLabel(action string) string {
 // actorLabel names who did a logged action: the admin's username, or "type #id" when there is no such admin.
 func (s *Server) actorLabel(ctx context.Context, typ string, id int64) string {
 	if typ == "admin" {
-		if a, err := s.queries.GetAdmin(ctx, id); err == nil {
+		if a, err := s.Queries.GetAdmin(ctx, id); err == nil {
 			return a.Username
 		}
 	}
@@ -110,21 +110,21 @@ func (s *Server) actorLabel(ctx context.Context, typ string, id int64) string {
 
 func (s *Server) logList(w http.ResponseWriter, r *http.Request) {
 	q, pg := paging(r)
-	rows, err := s.queries.SearchActivityLogs(r.Context(), db.SearchActivityLogsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
+	rows, err := s.Queries.SearchActivityLogs(r.Context(), db.SearchActivityLogsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
-		s.fail(w, "list logs", err)
+		s.Fail(w, "list logs", err)
 		return
 	}
 	lp := listPage{Heading: "Logs", Base: "/admin/logs", Q: q, Searchable: true,
 		Cols:  []string{"Date", "Actor", "Action", "Description", "IP"},
 		Clean: "/admin/logs/clean/activity", Links: []option{{"/admin/logs/radius", "Radius Logs"}, {"/admin/logs/auth", "Login attempts"}, {"/admin/logs/messages", "Message Logs"}}}
 	for _, l := range rows {
-		when := time.Unix(l.CreatedAt, 0).In(s.location()).Format("2006-01-02 15:04:05")
+		when := time.Unix(l.CreatedAt, 0).In(s.Location()).Format("2006-01-02 15:04:05")
 		lp.Rows = append(lp.Rows, listRow{l.ID, []string{when, s.actorLabel(r.Context(), l.ActorType, l.ActorID), s.actionLabel(l.Action), l.Description, l.Ip}})
 	}
-	total, err := s.queries.CountActivityLogs(r.Context(), q)
+	total, err := s.Queries.CountActivityLogs(r.Context(), q)
 	if err != nil {
-		s.fail(w, "count logs", err)
+		s.Fail(w, "count logs", err)
 		return
 	}
 	lp.finish(pg, total)
@@ -135,7 +135,7 @@ func (s *Server) logList(w http.ResponseWriter, r *http.Request) {
 func (s *Server) dateRange(r *http.Request) (from, to string, fromTS, toTS int64) {
 	parse := func(k string) (string, time.Time, bool) {
 		v := r.URL.Query().Get(k)
-		t, err := time.ParseInLocation("2006-01-02", v, s.location())
+		t, err := time.ParseInLocation("2006-01-02", v, s.Location())
 		return v, t, err == nil
 	}
 	if v, t, ok := parse("from"); ok {
@@ -203,9 +203,9 @@ func (s *Server) radiusLogRows(ss []db.RadiusSession) [][]string {
 	for _, x := range ss {
 		stop, end := "", now
 		if x.StoppedAt.Valid {
-			stop, end = s.ts(x.StoppedAt.Int64), x.StoppedAt.Int64
+			stop, end = s.TS(x.StoppedAt.Int64), x.StoppedAt.Int64
 		}
-		out = append(out, []string{x.Username, x.NasIp, x.FramedIp, x.Mac, s.ts(x.StartedAt), stop, view.HumanDur(end - x.StartedAt),
+		out = append(out, []string{x.Username, x.NasIp, x.FramedIp, x.Mac, s.TS(x.StartedAt), stop, view.HumanDur(end - x.StartedAt),
 			view.HumanBytes(x.InputOctets), view.HumanBytes(x.OutputOctets), x.TerminateCause})
 	}
 	return out
@@ -216,9 +216,9 @@ func (s *Server) radiusLog(w http.ResponseWriter, r *http.Request) {
 	q, pg := paging(r)
 	p := s.radiusLogParams(r)
 	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
-	ss, err := s.queries.SearchRadiusLogs(r.Context(), p)
+	ss, err := s.Queries.SearchRadiusLogs(r.Context(), p)
 	if err != nil {
-		s.fail(w, "radius log", err)
+		s.Fail(w, "radius log", err)
 		return
 	}
 	from, to, _, _ := s.dateRange(r)
@@ -227,9 +227,9 @@ func (s *Server) radiusLog(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{ss[i].ID, c})
 	}
 	lp.Links = []option{{"/admin/logs/radius/export?" + lp.query().Encode(), "Export CSV"}, {"/admin/logs/auth", "Login attempts"}, {"/admin/radius/ip-lookup", "Who had this IP"}}
-	total, err := s.queries.CountRadiusLogs(r.Context(), db.CountRadiusLogsParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
+	total, err := s.Queries.CountRadiusLogs(r.Context(), db.CountRadiusLogsParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
 	if err != nil {
-		s.fail(w, "count radius logs", err)
+		s.Fail(w, "count radius logs", err)
 		return
 	}
 	lp.finish(pg, total)
@@ -240,11 +240,11 @@ func (s *Server) radiusLogExport(w http.ResponseWriter, r *http.Request) {
 	p := s.radiusLogParams(r)
 	err := s.exportCSV(w, "radius-logs", radiusLogCols, func(off int64) ([][]string, error) {
 		p.PageLimit, p.PageOffset = exportChunk, off
-		ss, err := s.queries.SearchRadiusLogs(r.Context(), p)
+		ss, err := s.Queries.SearchRadiusLogs(r.Context(), p)
 		return s.radiusLogRows(ss), err
 	})
 	if err != nil {
-		s.fail(w, "export radius log", err)
+		s.Fail(w, "export radius log", err)
 	}
 }
 
@@ -262,7 +262,7 @@ func (s *Server) msgLogRows(ms []db.MessageLog) [][]string {
 		if m.Error != "" {
 			body = m.Error + " | " + body
 		}
-		out = append(out, []string{s.ts(m.CreatedAt), m.Channel, m.Recipient, m.Subject, m.Status, body})
+		out = append(out, []string{s.TS(m.CreatedAt), m.Channel, m.Recipient, m.Subject, m.Status, body})
 	}
 	return out
 }
@@ -272,9 +272,9 @@ func (s *Server) msgLog(w http.ResponseWriter, r *http.Request) {
 	q, pg := paging(r)
 	p := s.msgLogParams(r)
 	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
-	ms, err := s.queries.SearchMessageLogs(r.Context(), p)
+	ms, err := s.Queries.SearchMessageLogs(r.Context(), p)
 	if err != nil {
-		s.fail(w, "message log", err)
+		s.Fail(w, "message log", err)
 		return
 	}
 	from, to, _, _ := s.dateRange(r)
@@ -283,9 +283,9 @@ func (s *Server) msgLog(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{ms[i].ID, c})
 	}
 	lp.Links = []option{{"/admin/logs/messages/export?" + lp.query().Encode(), "Export CSV"}}
-	total, err := s.queries.CountMessageLogs(r.Context(), db.CountMessageLogsParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
+	total, err := s.Queries.CountMessageLogs(r.Context(), db.CountMessageLogsParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
 	if err != nil {
-		s.fail(w, "count message logs", err)
+		s.Fail(w, "count message logs", err)
 		return
 	}
 	lp.finish(pg, total)
@@ -296,11 +296,11 @@ func (s *Server) msgLogExport(w http.ResponseWriter, r *http.Request) {
 	p := s.msgLogParams(r)
 	err := s.exportCSV(w, "message-logs", msgLogCols, func(off int64) ([][]string, error) {
 		p.PageLimit, p.PageOffset = exportChunk, off
-		ms, err := s.queries.SearchMessageLogs(r.Context(), p)
+		ms, err := s.Queries.SearchMessageLogs(r.Context(), p)
 		return s.msgLogRows(ms), err
 	})
 	if err != nil {
-		s.fail(w, "export message log", err)
+		s.Fail(w, "export message log", err)
 	}
 }
 
@@ -325,12 +325,12 @@ func (s *Server) authLogRows(rows []db.RadiusAuthLog, page bool) [][]string {
 		}
 		if page {
 			if k, ok := rejectLabels[x.Message]; ok {
-				reason = s.t(k)
+				reason = s.T(k)
 			}
 		} else {
-			res = s.t(res)
+			res = s.T(res)
 		}
-		out = append(out, []string{s.ts(x.At), x.Username, x.NasIp, x.Mac, res, reason})
+		out = append(out, []string{s.TS(x.At), x.Username, x.NasIp, x.Mac, res, reason})
 	}
 	return out
 }
@@ -340,9 +340,9 @@ func (s *Server) radiusAuthLog(w http.ResponseWriter, r *http.Request) {
 	q, pg := paging(r)
 	p := s.authLogParams(r)
 	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
-	rows, err := s.queries.SearchRadiusAuthLog(r.Context(), p)
+	rows, err := s.Queries.SearchRadiusAuthLog(r.Context(), p)
 	if err != nil {
-		s.fail(w, "auth log", err)
+		s.Fail(w, "auth log", err)
 		return
 	}
 	from, to, _, _ := s.dateRange(r)
@@ -351,9 +351,9 @@ func (s *Server) radiusAuthLog(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{rows[i].ID, c})
 	}
 	lp.Links = []option{{"/admin/logs/auth/export?" + lp.query().Encode(), "Export CSV"}, {"/admin/logs/radius", "Radius Logs"}}
-	total, err := s.queries.CountRadiusAuthLog(r.Context(), db.CountRadiusAuthLogParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
+	total, err := s.Queries.CountRadiusAuthLog(r.Context(), db.CountRadiusAuthLogParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
 	if err != nil {
-		s.fail(w, "count auth log", err)
+		s.Fail(w, "count auth log", err)
 		return
 	}
 	lp.finish(pg, total)
@@ -364,10 +364,10 @@ func (s *Server) radiusAuthLogExport(w http.ResponseWriter, r *http.Request) {
 	p := s.authLogParams(r)
 	err := s.exportCSV(w, "login-attempts", authLogCols, func(off int64) ([][]string, error) {
 		p.PageLimit, p.PageOffset = exportChunk, off
-		rows, err := s.queries.SearchRadiusAuthLog(r.Context(), p)
+		rows, err := s.Queries.SearchRadiusAuthLog(r.Context(), p)
 		return s.authLogRows(rows, false), err
 	})
 	if err != nil {
-		s.fail(w, "export auth log", err)
+		s.Fail(w, "export auth log", err)
 	}
 }

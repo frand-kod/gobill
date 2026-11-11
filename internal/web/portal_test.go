@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 func custLogin(t *testing.T, e *billEnv, user, pass string) (*http.Cookie, int) {
@@ -122,7 +123,7 @@ func TestPortalBalanceOrderWhenSettingUnset(t *testing.T) {
 	}
 }
 
-// Wrong current passwords are throttled like logins: after maxFailedLogins the right one is refused too.
+// Wrong current passwords are throttled like logins: after core.MaxFailedLogins the right one is refused too.
 func TestPortalPasswordWrongCurrentThrottled(t *testing.T) {
 	e := billApp(t)
 	portalCust(t, e, 0)
@@ -130,7 +131,7 @@ func TestPortalPasswordWrongCurrentThrottled(t *testing.T) {
 	form := func(cur string) url.Values {
 		return url.Values{"password": {cur}, "npass": {"newpass1"}, "cnpass": {"newpass1"}}
 	}
-	for i := 0; i < maxFailedLogins; i++ {
+	for i := 0; i < core.MaxFailedLogins; i++ {
 		do(e.h, "POST", "/portal/password", form("wrong"), c)
 	}
 	w := do(e.h, "POST", "/portal/password", form("pw12345"), c)

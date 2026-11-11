@@ -4,18 +4,21 @@ package web
 
 import (
 	"database/sql"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
+
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
 	"golang.org/x/crypto/bcrypt"
-	"strings"
-	"time"
 )
 
 func (s *Server) pForgotUserForm(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +30,7 @@ func (s *Server) pForgotUserForm(w http.ResponseWriter, r *http.Request) {
 func (s *Server) usernamesFor(ctx context.Context, contact string, isMail bool) ([]string, error) {
 	var names []string
 	if isMail {
-		rows, err := s.queries.SearchCustomers(ctx, db.SearchCustomersParams{Q: contact, PageLimit: 50})
+		rows, err := s.Queries.SearchCustomers(ctx, db.SearchCustomersParams{Q: contact, PageLimit: 50})
 		if err != nil {
 			return nil, err
 		}
@@ -39,7 +42,7 @@ func (s *Server) usernamesFor(ctx context.Context, contact string, isMail bool) 
 		return names, nil
 	}
 	want := db.CanonicalPhone(contact)
-	rows, err := s.queries.ListCustomerPhones(ctx)
+	rows, err := s.Queries.ListCustomerPhones(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -62,33 +65,33 @@ func (s *Server) pForgotUser(w http.ResponseWriter, r *http.Request) {
 		s.prender(w, r, 200, "p_forgot_user", Page{Title: "Forgot Usernames", Error: "Invalid phone number format"})
 		return
 	}
-	if !s.otpAllow(clientIP(r), strings.ToLower(contact)) {
+	if !s.OtpAllow(core.ClientIP(r), strings.ToLower(contact)) {
 		s.prender(w, r, http.StatusTooManyRequests, "p_forgot_user", Page{Title: "Forgot Usernames", Error: "Too many verification code requests, please try again later"})
 		return
 	}
-	st, err := s.loadSettings(ctx)
+	st, err := s.LoadSettings(ctx)
 	if err != nil {
-		s.fail(w, "forgot usernames", err)
+		s.Fail(w, "forgot usernames", err)
 		return
 	}
 	names, err := s.usernamesFor(ctx, contact, isMail)
 	if err != nil {
-		s.fail(w, "forgot usernames", err)
+		s.Fail(w, "forgot usernames", err)
 		return
 	}
 	if len(names) > 0 && !notify.CustomersOff(st) {
-		list, lang := strings.Join(names, ", "), s.language()
+		list, lang := strings.Join(names, ", "), s.Language()
 		go func() {
 			bg, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			var err error
 			if isMail {
 				var n *notify.Notifier
-				if n, err = notify.Load(bg, s.queries); err == nil {
-					err = n.Email(bg, contact, "["+st["company_name"]+"] "+s.catalog.T(lang, "Your usernames"), list)
+				if n, err = notify.Load(bg, s.Queries); err == nil {
+					err = n.Email(bg, contact, "["+st["company_name"]+"] "+s.Catalog.T(lang, "Your usernames"), list)
 				}
 			} else {
-				err = s.sendOTP(bg, st, db.CanonicalPhone(contact), "Your usernames", list)
+				err = s.SendOTP(bg, st, db.CanonicalPhone(contact), "Your usernames", list)
 			}
 			if err != nil {
 				slog.Error("send forgot usernames", "err", err)
@@ -96,7 +99,7 @@ func (s *Server) pForgotUser(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 	s.prender(w, r, 200, "p_forgot_user", Page{Title: "Forgot Usernames",
-		Flash: s.t("If the contact is registered, the usernames have been sent")})
+		Flash: s.T("If the contact is registered, the usernames have been sent")})
 }
 
 // Old forgot.php: OTP by WA/SMS, then a new password. The OTP state lives in the
@@ -116,16 +119,16 @@ func otpWait(sentAt, now int64) int64 {
 // forgotClear drops the whole forgot-password state.
 func (s *Server) forgotClear(r *http.Request) {
 	for _, k := range []string{"forgot_user", "forgot_hash", "forgot_exp", "forgot_ok", "forgot_at"} {
-		s.sessions.Remove(r.Context(), k)
+		s.Sessions.Remove(r.Context(), k)
 	}
 }
 
 // forgotRender shows the step the session is in: user -> code -> reset.
 func (s *Server) forgotRender(w http.ResponseWriter, r *http.Request, status int, flash, msg string) {
 	ctx := r.Context()
-	user := s.sessions.GetString(ctx, "forgot_user")
+	user := s.Sessions.GetString(ctx, "forgot_user")
 	step := "user"
-	if user != "" && s.sessions.GetBool(ctx, "forgot_ok") {
+	if user != "" && s.Sessions.GetBool(ctx, "forgot_ok") {
 		step = "reset"
 	} else if user != "" {
 		step = "code"
@@ -150,42 +153,42 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 		s.forgotRender(w, r, http.StatusOK, "", "This field is required")
 		return
 	}
-	st, err := s.loadSettings(ctx)
+	st, err := s.LoadSettings(ctx)
 	if err != nil {
-		s.fail(w, "forgot settings", err)
+		s.Fail(w, "forgot settings", err)
 		return
 	}
 	if !notify.SMSConfigured(st) && !notify.WAConfigured(st) {
 		s.forgotRender(w, r, http.StatusOK, "", "Password reset is not available, please contact admin")
 		return
 	}
-	if otpOff(st) { // same answer for every username
+	if core.OtpOff(st) { // same answer for every username
 		s.forgotRender(w, r, http.StatusOK, "", "Verification code is not available right now")
 		return
 	}
-	if wait := otpWait(s.sessions.GetInt64(ctx, "forgot_at"), time.Now().Unix()); s.sessions.GetString(ctx, "forgot_user") == username && time.Now().Unix() < s.sessions.GetInt64(ctx, "forgot_exp") && wait > 0 {
-		s.forgotRender(w, r, http.StatusOK, "", fmt.Sprintf(s.t("Wait %d seconds before asking for a new code"), wait))
+	if wait := otpWait(s.Sessions.GetInt64(ctx, "forgot_at"), time.Now().Unix()); s.Sessions.GetString(ctx, "forgot_user") == username && time.Now().Unix() < s.Sessions.GetInt64(ctx, "forgot_exp") && wait > 0 {
+		s.forgotRender(w, r, http.StatusOK, "", fmt.Sprintf(s.T("Wait %d seconds before asking for a new code"), wait))
 		return
 	}
-	otp, err := newOTP()
+	otp, err := core.NewOTP()
 	if err != nil {
-		s.fail(w, "forgot otp", err)
+		s.Fail(w, "forgot otp", err)
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(otp), bcryptCost)
 	if err != nil {
-		s.fail(w, "forgot hash", err)
+		s.Fail(w, "forgot hash", err)
 		return
 	}
-	s.sessions.Put(ctx, "forgot_user", username)
-	s.sessions.Put(ctx, "forgot_hash", string(hash))
-	s.sessions.Put(ctx, "forgot_exp", time.Now().Add(otpTTL).Unix())
-	s.sessions.Put(ctx, "forgot_at", time.Now().Unix())
-	s.sessions.Remove(ctx, "forgot_ok")
+	s.Sessions.Put(ctx, "forgot_user", username)
+	s.Sessions.Put(ctx, "forgot_hash", string(hash))
+	s.Sessions.Put(ctx, "forgot_exp", time.Now().Add(otpTTL).Unix())
+	s.Sessions.Put(ctx, "forgot_at", time.Now().Unix())
+	s.Sessions.Remove(ctx, "forgot_ok")
 
-	c, err := s.queries.GetCustomerByUsername(ctx, username)
+	c, err := s.Queries.GetCustomerByUsername(ctx, username)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		s.fail(w, "forgot customer", err)
+		s.Fail(w, "forgot customer", err)
 		return
 	}
 	found := err == nil && c.Phone != ""
@@ -195,7 +198,7 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 	if found {
 		key = c.Phone
 	}
-	if !s.otpAllow(clientIP(r), key) {
+	if !s.OtpAllow(core.ClientIP(r), key) {
 		s.forgotClear(r)
 		s.forgotRender(w, r, http.StatusTooManyRequests, "", "Too many verification code requests, please try again later")
 		return
@@ -206,39 +209,39 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 		go func() {
 			bg, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			if err := s.sendOTP(bg, st, phone, "Verification code", otp); err != nil {
+			if err := s.SendOTP(bg, st, phone, "Verification code", otp); err != nil {
 				slog.Error("send forgot otp", "err", err)
 			}
 		}()
 	}
-	s.forgotRender(w, r, http.StatusOK, s.t("If your Username is found, Verification Code has been Sent to Your Phone/Email/Whatsapp"), "")
+	s.forgotRender(w, r, http.StatusOK, s.T("If your Username is found, Verification Code has been Sent to Your Phone/Email/Whatsapp"), "")
 }
 
 // pForgotVerify checks the code. Each wrong code uses one of otpTries; the last one drops the flow.
 func (s *Server) pForgotVerify(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	ip := "f:" + clientIP(r)
-	if st, err := s.loadSettings(ctx); err != nil {
-		s.fail(w, "forgot verify settings", err)
+	ip := "f:" + core.ClientIP(r)
+	if st, err := s.LoadSettings(ctx); err != nil {
+		s.Fail(w, "forgot verify settings", err)
 		return
-	} else if otpOff(st) {
+	} else if core.OtpOff(st) {
 		s.forgotRender(w, r, http.StatusOK, "", "Verification code is not available right now")
 		return
 	}
-	if s.reserve(ip, maxFailedLogins) < 0 {
+	if s.Reserve(ip, core.MaxFailedLogins) < 0 {
 		s.forgotRender(w, r, http.StatusTooManyRequests, "", "Too many failed attempts. Try again in 15 minutes.")
 		return
 	}
-	if s.sessions.GetString(ctx, "forgot_user") == "" || time.Now().Unix() > s.sessions.GetInt64(ctx, "forgot_exp") {
-		s.unreserve(ip)
+	if s.Sessions.GetString(ctx, "forgot_user") == "" || time.Now().Unix() > s.Sessions.GetInt64(ctx, "forgot_exp") {
+		s.Unreserve(ip)
 		s.forgotClear(r)
 		s.forgotRender(w, r, http.StatusOK, "", "Invalid Username or Verification Code")
 		return
 	}
-	hash := s.sessions.GetString(ctx, "forgot_hash")
+	hash := s.Sessions.GetString(ctx, "forgot_hash")
 	// The try count is per issued code and kept on the server: a session counter loses decrements
 	// when requests run in parallel.
-	left := s.reserve("otp:"+hash, otpTries)
+	left := s.Reserve("otp:"+hash, otpTries)
 	code := strings.TrimSpace(r.PostFormValue("otp_code"))
 	if left < 0 || bcrypt.CompareHashAndPassword([]byte(hash), []byte(code)) != nil {
 		if left <= 0 {
@@ -249,24 +252,24 @@ func (s *Server) pForgotVerify(w http.ResponseWriter, r *http.Request) {
 		s.forgotRender(w, r, http.StatusOK, "", "Invalid Username or Verification Code")
 		return
 	}
-	s.clearFailures("otp:" + hash)
-	s.clearFailures(ip)
-	s.sessions.Put(ctx, "forgot_ok", true)
-	s.forgotRender(w, r, http.StatusOK, s.t("Verification Code Valid"), "")
+	s.ClearFailures("otp:" + hash)
+	s.ClearFailures(ip)
+	s.Sessions.Put(ctx, "forgot_ok", true)
+	s.forgotRender(w, r, http.StatusOK, s.T("Verification Code Valid"), "")
 }
 
 // pForgotReset sets the new password of the verified customer, then sends them to login.
 func (s *Server) pForgotReset(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	user := s.sessions.GetString(ctx, "forgot_user")
-	if user == "" || !s.sessions.GetBool(ctx, "forgot_ok") || time.Now().Unix() > s.sessions.GetInt64(ctx, "forgot_exp") {
+	user := s.Sessions.GetString(ctx, "forgot_user")
+	if user == "" || !s.Sessions.GetBool(ctx, "forgot_ok") || time.Now().Unix() > s.Sessions.GetInt64(ctx, "forgot_exp") {
 		s.forgotClear(r)
 		s.forgotRender(w, r, http.StatusOK, "", "Invalid Username or Verification Code")
 		return
 	}
-	st, err := s.loadSettings(ctx)
+	st, err := s.LoadSettings(ctx)
 	if err != nil {
-		s.fail(w, "forgot reset", err)
+		s.Fail(w, "forgot reset", err)
 		return
 	}
 	npass := r.PostFormValue("npass")
@@ -278,17 +281,17 @@ func (s *Server) pForgotReset(w http.ResponseWriter, r *http.Request) {
 		s.forgotRender(w, r, http.StatusOK, "", msg)
 		return
 	}
-	c, err := s.queries.GetCustomerByUsername(ctx, user)
+	c, err := s.Queries.GetCustomerByUsername(ctx, user)
 	if err != nil {
-		s.fail(w, "forgot reset", err)
+		s.Fail(w, "forgot reset", err)
 		return
 	}
 	if err = s.setPassword(ctx, c.ID, npass); err != nil {
-		s.fail(w, "forgot reset", err)
+		s.Fail(w, "forgot reset", err)
 		return
 	}
 	s.Billing.SyncCustomer(ctx, c.ID, 0)
 	s.forgotClear(r)
-	s.sessions.Put(ctx, "flash", s.t("Password changed successfully"))
+	s.Sessions.Put(ctx, "flash", s.T("Password changed successfully"))
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }

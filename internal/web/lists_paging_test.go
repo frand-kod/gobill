@@ -22,7 +22,7 @@ func seedBandwidths(t *testing.T, s *Server, n int) {
 
 // showing is the pager's row range text in the app language.
 func showing(s *Server, from, to, total int) string {
-	return fmt.Sprintf(s.catalog.T(s.language(), "Showing %d–%d of %d"), from, to, total)
+	return fmt.Sprintf(s.Catalog.T(s.Language(), "Showing %d–%d of %d"), from, to, total)
 }
 
 // The bandwidth list has one edit link per row, so counting them counts the rows on the page.

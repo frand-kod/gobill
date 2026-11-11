@@ -15,7 +15,7 @@ func TestDashboardIncome(t *testing.T) {
 	if err := q.UpsertSetting(ctx, db.UpsertSettingParams{Key: "reset_day", Value: "15"}); err != nil {
 		t.Fatal(err)
 	}
-	loc := s.location()
+	loc := s.Location()
 	now := time.Date(2025, 3, 20, 12, 0, 0, 0, loc)
 	add := func(method, typ string, price int64, at time.Time) {
 		_, err := s.conn.Exec(`INSERT INTO transactions (invoice, username, plan_name, router_name, type, price, method, created_at, period_start, period_end)

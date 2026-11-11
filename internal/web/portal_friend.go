@@ -18,7 +18,7 @@ type friendData struct {
 }
 
 func (s *Server) friendPage(w http.ResponseWriter, r *http.Request, code int, username, errMsg string) {
-	p, err := s.queries.GetPlan(r.Context(), httpx.PathID(r))
+	p, err := s.Queries.GetPlan(r.Context(), httpx.PathID(r))
 	if err != nil || p.Enabled != 1 || p.Type == "Balance" || p.Billing != "prepaid" {
 		http.NotFound(w, r)
 		return
@@ -27,7 +27,7 @@ func (s *Server) friendPage(w http.ResponseWriter, r *http.Request, code int, us
 }
 
 func (s *Server) pFriendForm(w http.ResponseWriter, r *http.Request) {
-	if p, err := s.queries.GetPlan(r.Context(), httpx.PathID(r)); err != nil || !billing.SellablePlan(p) { // no form for admin-only or Rp 0 plans
+	if p, err := s.Queries.GetPlan(r.Context(), httpx.PathID(r)); err != nil || !billing.SellablePlan(p) { // no form for admin-only or Rp 0 plans
 		http.NotFound(w, r)
 		return
 	}
@@ -36,7 +36,7 @@ func (s *Server) pFriendForm(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) pFriend(w http.ResponseWriter, r *http.Request) {
 	if s.Billing == nil {
-		s.fail(w, "portal friend", errors.New("billing not configured"))
+		s.Fail(w, "portal friend", errors.New("billing not configured"))
 		return
 	}
 	user := strings.TrimSpace(r.PostFormValue("username"))
@@ -44,13 +44,13 @@ func (s *Server) pFriend(w http.ResponseWriter, r *http.Request) {
 	for _, e := range []error{billing.ErrSelfTransfer, billing.ErrTargetNotFound, billing.ErrInsufficientBalance, billing.ErrInactive,
 		billing.ErrTransferDisabled, billing.ErrPlanNotFound, billing.ErrFriendPlanDiffers, billing.ErrAdminOnlyPlan} {
 		if errors.Is(err, e) {
-			s.friendPage(w, r, 200, user, s.t(e.Error()))
+			s.friendPage(w, r, 200, user, s.T(e.Error()))
 			return
 		}
 	}
 	if err != nil {
-		s.fail(w, "portal friend", err)
+		s.Fail(w, "portal friend", err)
 		return
 	}
-	s.flashTo(w, r, "/portal/activation", "Success to send package")
+	s.FlashTo(w, r, "/portal/activation", "Success to send package")
 }

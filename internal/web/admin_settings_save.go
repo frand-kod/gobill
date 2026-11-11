@@ -16,7 +16,7 @@ import (
 )
 
 func (s *Server) settingSaver() *settingsave.Service {
-	return &settingsave.Service{DB: s.conn, Q: s.queries}
+	return &settingsave.Service{DB: s.conn, Q: s.Queries}
 }
 
 func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
@@ -45,9 +45,9 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 		s.renderSettings(w, r, http.StatusUnprocessableEntity, tab, map[string]string{}, e)
 		return
 	}
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "load settings", err)
+		s.Fail(w, "load settings", err)
 		return
 	}
 	v := httpx.FormVals(r, keys...)
@@ -77,11 +77,11 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 	if tab == "wireguard" {
 		n, rewrite, off, err := s.wgImpact(r.Context(), st, v)
 		if err != nil {
-			s.fail(w, "count wireguard peers", err)
+			s.Fail(w, "count wireguard peers", err)
 			return
 		}
 		if n > 0 && (rewrite || off) && v["wg_confirm"] != "yes" {
-			msg := s.t("%d routers have a tunnel and will be cut. Tick the box to confirm")
+			msg := s.T("%d routers have a tunnel and will be cut. Tick the box to confirm")
 			s.renderSettings(w, r, http.StatusUnprocessableEntity, tab, v, map[string]string{"wg_confirm": fmt.Sprintf(msg, n)})
 			return
 		}
@@ -107,12 +107,12 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 	if tab == "wireguard" {
 		var err error
 		if _, rewrite, _, err = s.wgImpact(r.Context(), st, v); err != nil {
-			s.fail(w, "count wireguard peers", err)
+			s.Fail(w, "count wireguard peers", err)
 			return
 		}
 	}
 	if err := s.settingSaver().Save(r.Context(), settingsave.Input{Tab: tab, Keys: keys, V: v, WgRewrite: rewrite}); err != nil {
-		s.fail(w, "save settings", err)
+		s.Fail(w, "save settings", err)
 		return
 	}
 	var replaced []string // images no longer in use: replaced or removed
@@ -133,7 +133,7 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 		s.WG.Reload(r.Context()) // an error shows in the tab's status
 	}
 	if l, ok := v["language"]; ok {
-		s.lang.Store(l)
+		s.Lang.Store(l)
 	}
 	if x, ok := v["thousands_sep"]; ok {
 		view.SetThousandsSep(x)
@@ -150,8 +150,8 @@ func (s *Server) notifReset(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if err := s.queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "notif_" + name, Value: def}); err != nil {
-		s.fail(w, "reset notif "+name, err)
+	if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "notif_" + name, Value: def}); err != nil {
+		s.Fail(w, "reset notif "+name, err)
 		return
 	}
 	s.settingsSaved(r.Context())

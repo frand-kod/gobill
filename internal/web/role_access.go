@@ -16,7 +16,7 @@ func init() { settingsSuperField["role_access_mode"] = true }
 
 // strictAccess reports whether role_access_mode is strict (anything but "phpnuxbill").
 func (s *Server) strictAccess(ctx context.Context) bool {
-	st, err := s.loadSettings(ctx)
+	st, err := s.LoadSettings(ctx)
 	return err != nil || st["role_access_mode"] != "phpnuxbill"
 }
 

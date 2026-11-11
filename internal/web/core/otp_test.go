@@ -1,4 +1,4 @@
-package web
+package core
 
 import (
 	"context"
@@ -29,7 +29,7 @@ func TestDeliverOTPBothFallsBack(t *testing.T) {
 	n := &notify.Notifier{Settings: map[string]string{"wa_url": wa.URL + "/?to=[number]&text=[text]", "sms_url": sms.URL + "/?to=[number]&text=[text]"},
 		HTTP: http.DefaultClient, Timeout: 5 * time.Second}
 
-	if err := deliverOTP(context.Background(), n, "both", "0812345678", "123456"); err != nil {
+	if err := DeliverOTP(context.Background(), n, "both", "0812345678", "123456"); err != nil {
 		t.Fatalf("WhatsApp down, SMS up: got %v, want nil", err)
 	}
 	if waHits.Load() != 1 || smsHits.Load() != 1 {
@@ -37,7 +37,7 @@ func TestDeliverOTPBothFallsBack(t *testing.T) {
 	}
 
 	smsStatus.Store(http.StatusInternalServerError)
-	err := deliverOTP(context.Background(), n, "both", "0812345678", "123456")
+	err := DeliverOTP(context.Background(), n, "both", "0812345678", "123456")
 	joined, ok := err.(interface{ Unwrap() []error })
 	if !ok || len(joined.Unwrap()) != 2 {
 		t.Fatalf("both down: got %v, want both failures joined", err)

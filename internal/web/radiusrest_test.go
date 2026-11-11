@@ -15,6 +15,7 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/radius"
 	"github.com/frand-kod/gobill/internal/secret"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 // The shared-users reject keeps the Auth-Type Accept semantics of the old PHP limit reject.
@@ -291,7 +292,7 @@ func TestRadiusRestClosedByDefault(t *testing.T) {
 func TestRealIPMiddleware(t *testing.T) {
 	s, q := restSetup(t, false)
 	var got string
-	h := s.realIP(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { got = clientIP(r) }))
+	h := s.realIP(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) { got = core.ClientIP(r) }))
 	call := func(peer string) string {
 		r := httptest.NewRequest("GET", "/", nil)
 		r.RemoteAddr = peer

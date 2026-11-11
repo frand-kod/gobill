@@ -5,16 +5,19 @@ package web
 import (
 	"database/sql"
 	"errors"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+
 	"fmt"
+	"strconv"
+
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/secret"
 	"github.com/frand-kod/gobill/internal/service/admin"
 	"golang.org/x/crypto/bcrypt"
-	"strconv"
 )
 
 // Role rules follow the old settings.php users-* cases, but stricter: the old code let an
@@ -95,7 +98,7 @@ func (s *Server) adminFields(r *http.Request, target *db.Admin, v, e map[string]
 		if actor.Role != "Agent" {
 			acc = append(acc, field{Name: "role", Label: "User Type", Type: "select", Value: v["role"], Error: e["role"],
 				Options: roleOptions(assignable(actor)), Bind: true})
-			agents, _ := s.queries.ListAgents(r.Context())
+			agents, _ := s.Queries.ListAgents(r.Context())
 			ro := []option{{"", "-"}}
 			for _, a := range agents {
 				ro = append(ro, option{strconv.FormatInt(a.ID, 10), a.Username})
@@ -124,10 +127,10 @@ func (s *Server) adminFields(r *http.Request, target *db.Admin, v, e map[string]
 func (s *Server) adminList(w http.ResponseWriter, r *http.Request) {
 	actor := adminFrom(r)
 	q, pg := paging(r)
-	rows, err := s.queries.SearchAdmins(r.Context(), db.SearchAdminsParams{
+	rows, err := s.Queries.SearchAdmins(r.Context(), db.SearchAdminsParams{
 		Q: sql.NullString{String: q, Valid: true}, Scope: adminScope(actor), Actor: actor.ID, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
-		s.fail(w, "list admins", err)
+		s.Fail(w, "list admins", err)
 		return
 	}
 	lp := listPage{Heading: "Admin Users", Base: "/admin/users", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
@@ -135,13 +138,13 @@ func (s *Server) adminList(w http.ResponseWriter, r *http.Request) {
 	for _, a := range rows {
 		last := "-"
 		if a.LastLoginAt.Valid {
-			last = s.ts(a.LastLoginAt.Int64)
+			last = s.TS(a.LastLoginAt.Int64)
 		}
 		lp.Rows = append(lp.Rows, listRow{a.ID, []string{a.Username, a.Fullname, a.Role, a.Status, last}})
 	}
-	total, err := s.queries.CountFilteredAdmins(r.Context(), db.CountFilteredAdminsParams{Q: sql.NullString{String: q, Valid: true}, Scope: adminScope(actor), Actor: actor.ID})
+	total, err := s.Queries.CountFilteredAdmins(r.Context(), db.CountFilteredAdminsParams{Q: sql.NullString{String: q, Valid: true}, Scope: adminScope(actor), Actor: actor.ID})
 	if err != nil {
-		s.fail(w, "count admins", err)
+		s.Fail(w, "count admins", err)
 		return
 	}
 	lp.finish(pg, total)
@@ -155,12 +158,12 @@ func (s *Server) adminNew(w http.ResponseWriter, r *http.Request) {
 
 // loadManaged loads the target of {id}; 404 unless the actor may manage it.
 func (s *Server) loadManaged(w http.ResponseWriter, r *http.Request) (db.Admin, bool) {
-	t, err := s.queries.GetAdmin(r.Context(), httpx.PathID(r))
+	t, err := s.Queries.GetAdmin(r.Context(), httpx.PathID(r))
 	if err == sql.ErrNoRows || (err == nil && !canManage(adminFrom(r), t)) {
 		http.NotFound(w, r)
 		return t, false
 	} else if err != nil {
-		s.fail(w, "get admin", err)
+		s.Fail(w, "get admin", err)
 		return t, false
 	}
 	return t, true
@@ -197,7 +200,7 @@ func (s *Server) adminSave(w http.ResponseWriter, r *http.Request) {
 		s.deny(w, r, http.StatusForbidden)
 		return
 	} else if err != nil {
-		s.fail(w, "save admin", err)
+		s.Fail(w, "save admin", err)
 		return
 	}
 	v["role"], v["status"] = res.Role, res.Status
@@ -217,7 +220,7 @@ func (s *Server) adminSave(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) admins() *admin.Service {
-	return &admin.Service{Q: s.queries, Cost: bcryptCost}
+	return &admin.Service{Q: s.Queries, Cost: bcryptCost}
 }
 
 func (s *Server) adminDelete(w http.ResponseWriter, r *http.Request) {
@@ -227,17 +230,17 @@ func (s *Server) adminDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if t.ID == actor.ID {
-		s.sessions.Put(r.Context(), "error", s.t("Sorry You can't delete yourself"))
+		s.Sessions.Put(r.Context(), "error", s.T("Sorry You can't delete yourself"))
 		http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
 		return
 	}
-	n, err := s.queries.DeleteAdmin(r.Context(), t.ID)
+	n, err := s.Queries.DeleteAdmin(r.Context(), t.ID)
 	if err != nil {
-		s.fail(w, "delete admin", err)
+		s.Fail(w, "delete admin", err)
 		return
 	}
 	if n == 0 {
-		s.sessions.Put(r.Context(), "error", s.t("The last active SuperAdmin cannot be deleted"))
+		s.Sessions.Put(r.Context(), "error", s.T("The last active SuperAdmin cannot be deleted"))
 		http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
 		return
 	}
@@ -282,14 +285,14 @@ func (s *Server) passwordSave(w http.ResponseWriter, r *http.Request) {
 		s.renderForm(w, r, status, s.pwPage(actor, e))
 	}
 	// The current password is a guess target for a hijacked session: share the login throttle.
-	ip := clientIP(r)
-	if s.tooManyFailures(ip) {
+	ip := core.ClientIP(r)
+	if s.TooManyFailures(ip) {
 		e["current"] = "Too many failed attempts. Try again in 15 minutes."
 		again(http.StatusTooManyRequests)
 		return
 	}
 	if bcrypt.CompareHashAndPassword([]byte(actor.PasswordHash), []byte(cur)) != nil {
-		s.recordFailure(ip)
+		s.RecordFailure(ip)
 		e["current"] = "Incorrect Current Password"
 		again(422)
 		return
@@ -305,21 +308,21 @@ func (s *Server) passwordSave(w http.ResponseWriter, r *http.Request) {
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(pass), bcryptCost)
 	if err != nil {
-		s.fail(w, "hash password", err)
+		s.Fail(w, "hash password", err)
 		return
 	}
-	sv, err := s.queries.SetAdminPassword(r.Context(), db.SetAdminPasswordParams{PasswordHash: string(hash), ID: actor.ID})
+	sv, err := s.Queries.SetAdminPassword(r.Context(), db.SetAdminPasswordParams{PasswordHash: string(hash), ID: actor.ID})
 	if err != nil {
-		s.fail(w, "set password", err)
+		s.Fail(w, "set password", err)
 		return
 	}
 	// Other sessions of this admin die with the bumped version; this one gets a new token.
-	if err := s.sessions.RenewToken(r.Context()); err != nil {
+	if err := s.Sessions.RenewToken(r.Context()); err != nil {
 		slog.Error("renew session", "err", err)
-		s.errorPage(w, "-")
+		s.ErrorPage(w, "-")
 		return
 	}
-	s.sessions.Put(r.Context(), "sv", sv)
+	s.Sessions.Put(r.Context(), "sv", sv)
 	s.done(w, r, "/admin", "Password changed successfully", "users.password", actor.Username)
 }
 
@@ -335,21 +338,21 @@ func (s *Server) adminPasswordReset(w http.ResponseWriter, r *http.Request) {
 	}
 	back := "/admin/users/" + strconv.FormatInt(t.ID, 10) + "/edit"
 	if t.ID == adminFrom(r).ID {
-		s.flashTo(w, r, back, "Change your own password under Password")
+		s.FlashTo(w, r, back, "Change your own password under Password")
 		return
 	}
 	pw := secret.RandomPassword(16)
 	hash, err := bcrypt.GenerateFromPassword([]byte(pw), bcryptCost)
 	if err != nil {
-		s.fail(w, "hash password", err)
+		s.Fail(w, "hash password", err)
 		return
 	}
-	if _, err := s.queries.SetAdminPassword(r.Context(), db.SetAdminPasswordParams{PasswordHash: string(hash), ID: t.ID}); err != nil {
-		s.fail(w, "reset admin password", err)
+	if _, err := s.Queries.SetAdminPassword(r.Context(), db.SetAdminPasswordParams{PasswordHash: string(hash), ID: t.ID}); err != nil {
+		s.Fail(w, "reset admin password", err)
 		return
 	}
 	s.logActivity(r, "users.password.reset", t.Username)
-	s.render(w, r, 200, "admin_password", Page{Title: "Reset password", Data: adminPasswordPage{Username: t.Username, Password: pw, Back: back}})
+	s.Render(w, r, 200, "admin_password", Page{Title: "Reset password", Data: adminPasswordPage{Username: t.Username, Password: pw, Back: back}})
 }
 
 // adminPasswordPage shows the new password once.

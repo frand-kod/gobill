@@ -81,7 +81,7 @@ func (s *Server) removeUnused(ctx context.Context, names []string) {
 	if len(names) == 0 {
 		return
 	}
-	st, err := s.loadSettings(ctx)
+	st, err := s.LoadSettings(ctx)
 	if err != nil {
 		slog.Error("remove unused uploads", "err", err)
 		return
@@ -114,7 +114,7 @@ func (s *Server) serveUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	dir, err := s.uploadDir()
 	if err != nil {
-		s.fail(w, "uploads dir", err)
+		s.Fail(w, "uploads dir", err)
 		return
 	}
 	w.Header().Set("X-Content-Type-Options", "nosniff")

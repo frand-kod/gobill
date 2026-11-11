@@ -27,7 +27,7 @@ func (s *Server) ipLookupFields(v, e map[string]string, result string) []field {
 
 func (s *Server) ipLookupForm(w http.ResponseWriter, r *http.Request) {
 	s.renderForm(w, r, 200, formPage{"Who had this IP", "/admin/radius/ip-lookup", "/admin/radius/sessions",
-		s.ipLookupFields(map[string]string{"at": time.Now().In(s.location()).Format(dtLocal)}, nil, "")})
+		s.ipLookupFields(map[string]string{"at": time.Now().In(s.Location()).Format(dtLocal)}, nil, "")})
 }
 
 func (s *Server) ipLookupRun(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +39,7 @@ func (s *Server) ipLookupRun(w http.ResponseWriter, r *http.Request) {
 	}
 	at := time.Now()
 	if v["at"] != "" {
-		if at, err = time.ParseInLocation(dtLocal, v["at"], s.location()); err != nil {
+		if at, err = time.ParseInLocation(dtLocal, v["at"], s.Location()); err != nil {
 			e["at"] = "Invalid value"
 		}
 	}
@@ -47,9 +47,9 @@ func (s *Server) ipLookupRun(w http.ResponseWriter, r *http.Request) {
 		s.renderForm(w, r, 200, formPage{"Who had this IP", "/admin/radius/ip-lookup", "/admin/radius/sessions", s.ipLookupFields(v, e, "")})
 		return
 	}
-	rows, err := s.queries.ListRadiusSessionsByIPAt(r.Context(), db.ListRadiusSessionsByIPAtParams{Ip: ip.String(), AtTs: at.Unix()})
+	rows, err := s.Queries.ListRadiusSessionsByIPAt(r.Context(), db.ListRadiusSessionsByIPAtParams{Ip: ip.String(), AtTs: at.Unix()})
 	if err != nil {
-		s.fail(w, "ip lookup", err)
+		s.Fail(w, "ip lookup", err)
 		return
 	}
 	// the result is a list page: one row per session, the table the generic form cannot draw
@@ -58,14 +58,14 @@ func (s *Server) ipLookupRun(w http.ResponseWriter, r *http.Request) {
 	if len(rows) == 0 {
 		lp.Note = "No session had this IP at that time"
 	} else {
-		lp.Note = ip.String() + " · " + s.ts(at.Unix())
+		lp.Note = ip.String() + " · " + s.TS(at.Unix())
 	}
 	for _, x := range rows {
-		stop := s.t("still online")
+		stop := s.T("still online")
 		if x.StoppedAt.Valid {
-			stop = s.ts(x.StoppedAt.Int64)
+			stop = s.TS(x.StoppedAt.Int64)
 		}
-		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Username, x.Mac, x.NasIp, s.ts(x.StartedAt), stop}})
+		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Username, x.Mac, x.NasIp, s.TS(x.StartedAt), stop}})
 	}
 	s.renderList(w, r, lp)
 }

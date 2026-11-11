@@ -25,7 +25,7 @@ func settingsSetup(t *testing.T) (*Server, http.Handler, *db.Queries) {
 	if _, err := q.CreateAdmin(t.Context(), db.CreateAdminParams{Username: "bob", Fullname: "Bob", PasswordHash: string(hash), Role: "Admin"}); err != nil {
 		t.Fatal(err)
 	}
-	s.lang.Store("english") // assertions below match English messages
+	s.Lang.Store("english") // assertions below match English messages
 	return s, s.Handler(), q
 }
 
@@ -314,7 +314,7 @@ func TestUploadsServeRejectsTraversal(t *testing.T) {
 
 func TestDBBackupSuperAdminOnly(t *testing.T) {
 	s, h, _ := settingsSetup(t)
-	backup := s.sessions.LoadAndSave(s.requireAdmin("SuperAdmin", "Admin")(http.HandlerFunc(s.dbBackup)))
+	backup := s.Sessions.LoadAndSave(s.requireAdmin("SuperAdmin", "Admin")(http.HandlerFunc(s.dbBackup)))
 	w := do(backup, "GET", "/backup", nil, login(t, h, "alice"))
 	if w.Code != http.StatusOK || !strings.HasPrefix(w.Body.String(), "SQLite format 3\x00") {
 		t.Fatalf("superadmin: %d", w.Code)

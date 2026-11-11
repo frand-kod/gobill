@@ -21,7 +21,7 @@ import (
 )
 
 func (s *Server) metricsHandler(w http.ResponseWriter, r *http.Request) {
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
 		http.Error(w, "unavailable", http.StatusServiceUnavailable)
 		return
@@ -60,7 +60,7 @@ func (s *Server) computedFamilies(r *http.Request) []metrics.Family {
 		gauge("go_memstats_heap_alloc_bytes", "Bytes of allocated heap objects.", float64(ms.HeapAlloc)),
 		gauge("go_memstats_sys_bytes", "Bytes obtained from the OS.", float64(ms.Sys)),
 		gauge("go_goroutines", "Number of goroutines.", float64(runtime.NumGoroutine())),
-		gauge("login_locked_keys", "Login keys (IPs and usernames) over the failure limit now.", float64(s.lockedCount())),
+		gauge("login_locked_keys", "Login keys (IPs and usernames) over the failure limit now.", float64(s.LockedCount())),
 	}
 	if n, err := s.openRadiusSessions(r); err == nil {
 		fams = append(fams, gauge("radius_open_sessions", "Open RADIUS sessions (updated in the last 10 minutes).", float64(n)))
@@ -78,7 +78,7 @@ func (s *Server) computedFamilies(r *http.Request) []metrics.Family {
 
 // openRadiusSessions counts sessions that are open and were updated within radius.StaleMax().
 func (s *Server) openRadiusSessions(r *http.Request) (int64, error) {
-	return s.queries.CountLiveRadiusSessions(r.Context(), time.Now().Unix()-radius.StaleMax())
+	return s.Queries.CountLiveRadiusSessions(r.Context(), time.Now().Unix()-radius.StaleMax())
 }
 
 // metricsTokenNew makes a new random /metrics token (SuperAdmin). The settings page shows it once.
@@ -86,23 +86,23 @@ func (s *Server) metricsTokenNew(w http.ResponseWriter, r *http.Request) {
 	b := make([]byte, 32)
 	rand.Read(b) // never returns an error in Go 1.24+
 	tok := hex.EncodeToString(b)
-	if err := s.queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "metrics_token", Value: tok}); err != nil {
-		s.fail(w, "metrics token", err)
+	if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "metrics_token", Value: tok}); err != nil {
+		s.Fail(w, "metrics token", err)
 		return
 	}
 	s.logActivity(r, "metrics.token_new", "")
-	s.sessions.Put(r.Context(), "metrics_token_once", tok)
+	s.Sessions.Put(r.Context(), "metrics_token_once", tok)
 	http.Redirect(w, r, "/admin/settings/integrations", http.StatusSeeOther)
 }
 
 // metricsTokenOff clears the token, so /metrics answers 404 (SuperAdmin).
 func (s *Server) metricsTokenOff(w http.ResponseWriter, r *http.Request) {
-	if err := s.queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "metrics_token", Value: ""}); err != nil {
-		s.fail(w, "metrics token off", err)
+	if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "metrics_token", Value: ""}); err != nil {
+		s.Fail(w, "metrics token off", err)
 		return
 	}
 	s.logActivity(r, "metrics.token_off", "")
-	s.flashTo(w, r, "/admin/settings/integrations", "Monitoring /metrics disabled")
+	s.FlashTo(w, r, "/admin/settings/integrations", "Monitoring /metrics disabled")
 }
 
 // fileSize is the size of path in bytes, 0 when it cannot be read.

@@ -70,40 +70,40 @@ func (s *Server) custSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	st, err := s.loadSettings(ctx)
+	st, err := s.LoadSettings(ctx)
 	if err != nil {
-		s.fail(w, "customer summary", err)
+		s.Fail(w, "customer summary", err)
 		return
 	}
-	loc := s.location()
+	loc := s.Location()
 	out := customerSummary{ID: c.ID, Username: c.Username, Fullname: c.Fullname, Status: c.Status,
-		StatusLabel: s.t(c.Status), BlocksRecharge: c.Status != "Active",
+		StatusLabel: s.T(c.Status), BlocksRecharge: c.Status != "Active",
 		Balance: view.Money(c.Balance), Subscriptions: []summarySub{}, Transactions: []summaryTrx{}}
 
-	v, err := s.queries.LastVoucherUsedBy(ctx, sql.NullInt64{Int64: c.ID, Valid: true})
+	v, err := s.Queries.LastVoucherUsedBy(ctx, sql.NullInt64{Int64: c.ID, Valid: true})
 	switch {
 	case err == nil:
 		out.Voucher, out.Fullname = &summaryVoucher{Code: v.Code, Plan: v.PlanName}, ""
 	case !errors.Is(err, sql.ErrNoRows):
-		s.fail(w, "customer summary", err)
+		s.Fail(w, "customer summary", err)
 		return
 	}
 
 	var plan db.Plan
 	hasPlan := false
 	if pid, ok := httpx.PosInt(r.URL.Query().Get("plan")); ok {
-		plan, err = s.queries.GetPlan(ctx, pid)
+		plan, err = s.Queries.GetPlan(ctx, pid)
 		switch {
 		case err == nil:
 			hasPlan = true
 		case !errors.Is(err, sql.ErrNoRows):
-			s.fail(w, "customer summary", err)
+			s.Fail(w, "customer summary", err)
 			return
 		}
 	}
-	subs, err := s.queries.ListActiveSubscriptionsWithPlan(ctx, c.ID)
+	subs, err := s.Queries.ListActiveSubscriptionsWithPlan(ctx, c.ID)
 	if err != nil {
-		s.fail(w, "customer summary", err)
+		s.Fail(w, "customer summary", err)
 		return
 	}
 	now := time.Now()
@@ -112,11 +112,11 @@ func (s *Server) custSummary(w http.ResponseWriter, r *http.Request) {
 		row := summarySub{Plan: sb.PlanName, Type: sb.Type, ExpiresAt: exp.Format("2006-01-02 15:04"),
 			DaysLeft: max(0, int(math.Ceil(exp.Sub(now).Hours()/24)))}
 		if row.Usage, row.QuotaOut, err = s.summaryUsage(ctx, c, sb.ID, sb.PlanID); err != nil {
-			s.fail(w, "customer summary", err)
+			s.Fail(w, "customer summary", err)
 			return
 		}
 		if sb.PendingStart == 1 {
-			row.ExpiresAt, row.DaysLeft = s.subExpiry(1, 0), 0 // no date until the first login
+			row.ExpiresAt, row.DaysLeft = s.SubExpiry(1, 0), 0 // no date until the first login
 		}
 		// billing (activeSub + recharge): the active subscription on the same router and type is renewed
 		if hasPlan && plan.Type != "Balance" && sb.Type == plan.Type && sb.RouterID == plan.RouterID {
@@ -128,10 +128,10 @@ func (s *Server) custSummary(w http.ResponseWriter, r *http.Request) {
 		out.Subscriptions = append(out.Subscriptions, row)
 	}
 
-	trx, err := s.queries.ListTransactionsByCustomer(ctx, db.ListTransactionsByCustomerParams{
+	trx, err := s.Queries.ListTransactionsByCustomer(ctx, db.ListTransactionsByCustomerParams{
 		CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, Limit: 5})
 	if err != nil {
-		s.fail(w, "customer summary", err)
+		s.Fail(w, "customer summary", err)
 		return
 	}
 	for _, t := range trx {
@@ -148,11 +148,11 @@ func (s *Server) custSummary(w http.ResponseWriter, r *http.Request) {
 // (planQuota, the numbers the RADIUS check enforces), or the data used since the plan started when it has
 // no limit; a time-only limit also shows the data. "" for a non-RADIUS plan. full: a limit is used up.
 func (s *Server) summaryUsage(ctx context.Context, c db.Customer, subID, planID int64) (line string, full bool, err error) {
-	sub, err := s.queries.GetSubscription(ctx, subID)
+	sub, err := s.Queries.GetSubscription(ctx, subID)
 	if err != nil {
 		return "", false, err
 	}
-	plan, err := s.queries.GetPlan(ctx, planID)
+	plan, err := s.Queries.GetPlan(ctx, planID)
 	if err != nil {
 		return "", false, err
 	}
@@ -162,21 +162,21 @@ func (s *Server) summaryUsage(ctx context.Context, c db.Customer, subID, planID 
 	q := diagnose.PlanQuota(sub, plan)
 	var parts []string
 	if q.HasData {
-		parts = append(parts, fmt.Sprintf(s.t("Data used: %s of %s"), view.HumanBytes(q.Data), view.HumanBytes(q.DataLim)))
+		parts = append(parts, fmt.Sprintf(s.T("Data used: %s of %s"), view.HumanBytes(q.Data), view.HumanBytes(q.DataLim)))
 		full = full || q.Data >= q.DataLim
 	}
 	if q.HasTime {
-		parts = append(parts, fmt.Sprintf(s.t("Time used: %s of %s"), view.HumanDur(q.Time), view.HumanDur(q.TimeLim)))
+		parts = append(parts, fmt.Sprintf(s.T("Time used: %s of %s"), view.HumanDur(q.Time), view.HumanDur(q.TimeLim)))
 		full = full || q.Time >= q.TimeLim
 	}
 	switch {
 	case len(parts) == 0:
-		parts = append(parts, fmt.Sprintf(s.t("Used since plan start: %s"), view.HumanBytes(sub.UsedInOctets+sub.UsedOutOctets)))
+		parts = append(parts, fmt.Sprintf(s.T("Used since plan start: %s"), view.HumanBytes(sub.UsedInOctets+sub.UsedOutOctets)))
 	case !q.HasData: // a time limit only: the data is still worth seeing
-		parts = append(parts, fmt.Sprintf(s.t("Data: %s"), view.HumanBytes(sub.UsedInOctets+sub.UsedOutOctets)))
+		parts = append(parts, fmt.Sprintf(s.T("Data: %s"), view.HumanBytes(sub.UsedInOctets+sub.UsedOutOctets)))
 	}
 	if full {
-		parts = append([]string{s.t("Quota used up")}, parts...)
+		parts = append([]string{s.T("Quota used up")}, parts...)
 	}
 	return strings.Join(parts, " · "), full, nil
 }
@@ -185,23 +185,23 @@ func (s *Server) summaryUsage(ctx context.Context, c db.Customer, subID, planID 
 // %s and %d placeholders are filled in order by the script.
 func (s *Server) summaryLabels() string {
 	return jsonStr(map[string]string{
-		"empty":     s.t("Select a customer to see the summary"),
-		"error":     s.t("Could not load the summary"),
-		"voucher":   s.t("Voucher account"),
-		"voucherNo": s.t("Voucher code"),
-		"balance":   s.t("Balance"),
-		"active":    s.t("Active subscriptions"),
-		"none":      s.t("No active subscription"),
-		"txns":      s.t("Last 5 transactions"),
-		"noTxns":    s.t("No transactions yet"),
-		"date":      s.t("Date"),
-		"invoice":   s.t("Invoice"),
-		"plan":      s.t("Service Plan"),
-		"price":     s.t("Price"),
-		"view":      s.t("View customer"),
-		"blocked":   s.t("This account is not active. Recharge will be refused until it is turned on."),
-		"still":     s.t("Still active: %s until %s (%d days left)."),
-		"extend":    s.t("Recharging this same plan extends it from that date."),
-		"replace":   s.t("Recharging a different plan replaces it."),
+		"empty":     s.T("Select a customer to see the summary"),
+		"error":     s.T("Could not load the summary"),
+		"voucher":   s.T("Voucher account"),
+		"voucherNo": s.T("Voucher code"),
+		"balance":   s.T("Balance"),
+		"active":    s.T("Active subscriptions"),
+		"none":      s.T("No active subscription"),
+		"txns":      s.T("Last 5 transactions"),
+		"noTxns":    s.T("No transactions yet"),
+		"date":      s.T("Date"),
+		"invoice":   s.T("Invoice"),
+		"plan":      s.T("Service Plan"),
+		"price":     s.T("Price"),
+		"view":      s.T("View customer"),
+		"blocked":   s.T("This account is not active. Recharge will be refused until it is turned on."),
+		"still":     s.T("Still active: %s until %s (%d days left)."),
+		"extend":    s.T("Recharging this same plan extends it from that date."),
+		"replace":   s.T("Recharging a different plan replaces it."),
 	})
 }

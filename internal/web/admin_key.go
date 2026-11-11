@@ -6,8 +6,10 @@ package web
 
 import (
 	"encoding/hex"
-	"github.com/frand-kod/gobill/internal/service/restore"
 	"net/http"
+
+	"github.com/frand-kod/gobill/internal/service/restore"
+	"github.com/frand-kod/gobill/internal/web/core"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"golang.org/x/crypto/bcrypt"
@@ -26,12 +28,12 @@ func (s *Server) keyWarning(r *http.Request) string {
 	if a := adminFrom(r); a == nil || a.Role != "SuperAdmin" {
 		return ""
 	}
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	fp := keyFingerprint(s.SecretKey)
 	if err != nil || st["key_saved_fp"] == fp {
 		return ""
 	}
-	return s.t("The encryption key is not saved outside this server and the backup mirror does not copy it. Without it a restored backup cannot open router passwords and API keys. Open Settings > System & Security > Encryption key. Fingerprint: ") + fp
+	return s.T("The encryption key is not saved outside this server and the backup mirror does not copy it. Without it a restored backup cannot open router passwords and API keys. Open Settings > System & Security > Encryption key. Fingerprint: ") + fp
 }
 
 type keyView struct {
@@ -41,20 +43,20 @@ type keyView struct {
 }
 
 func (s *Server) keyForm(w http.ResponseWriter, r *http.Request) {
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "load settings", err)
+		s.Fail(w, "load settings", err)
 		return
 	}
 	fp := keyFingerprint(s.SecretKey)
-	s.render(w, r, http.StatusOK, "key", Page{Title: "Encryption key", Flash: s.sessions.PopString(r.Context(), "flash"),
+	s.Render(w, r, http.StatusOK, "key", Page{Title: "Encryption key", Flash: s.Sessions.PopString(r.Context(), "flash"),
 		Data: keyView{Fingerprint: fp, Saved: st["key_saved_fp"] == fp, TOTP: adminFrom(r).TotpEnabled == 1}})
 }
 
 func (s *Server) keySaved(w http.ResponseWriter, r *http.Request) {
 	fp := keyFingerprint(s.SecretKey)
-	if err := s.queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "key_saved_fp", Value: fp}); err != nil {
-		s.fail(w, "save key flag", err)
+	if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "key_saved_fp", Value: fp}); err != nil {
+		s.Fail(w, "save key flag", err)
 		return
 	}
 	s.done(w, r, keyPage, "Marked as saved", "settings.key.saved", fp)
@@ -64,8 +66,8 @@ func (s *Server) keySaved(w http.ResponseWriter, r *http.Request) {
 // message to show when the check fails (failures count toward the login throttle), or an error
 // when the 2FA secret cannot be opened.
 func (s *Server) stepUp(r *http.Request) (string, error) {
-	a, ip := adminFrom(r), clientIP(r)
-	if s.tooManyFailures(ip) {
+	a, ip := adminFrom(r), core.ClientIP(r)
+	if s.TooManyFailures(ip) {
 		return "Too many failed attempts. Try again in 15 minutes.", nil
 	}
 	ok := bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte(r.PostFormValue("current"))) == nil
@@ -77,7 +79,7 @@ func (s *Server) stepUp(r *http.Request) (string, error) {
 		ok = s.totpVerify(a.ID, k, cleanCode(r.PostFormValue("code"))) && ok
 	}
 	if !ok {
-		s.recordFailure(ip)
+		s.RecordFailure(ip)
 		return "Incorrect password or code", nil
 	}
 	return "", nil
@@ -87,11 +89,11 @@ func (s *Server) stepUp(r *http.Request) (string, error) {
 func (s *Server) keyDownload(w http.ResponseWriter, r *http.Request) {
 	msg, err := s.stepUp(r)
 	if err != nil {
-		s.fail(w, "open totp secret", err)
+		s.Fail(w, "open totp secret", err)
 		return
 	}
 	if msg != "" {
-		s.flashTo(w, r, keyPage, msg)
+		s.FlashTo(w, r, keyPage, msg)
 		return
 	}
 	s.logActivity(r, "settings.key.download", keyFingerprint(s.SecretKey))

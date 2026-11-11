@@ -48,12 +48,12 @@ func (s *Server) pLiveOf(ctx context.Context, c db.Customer, now int64, w pWords
 	var open []db.RadiusSession
 	var last *db.RadiusSession
 	for _, n := range loginNames(c) {
-		ss, err := s.queries.ListOpenRadiusSessionsByUser(ctx, n)
+		ss, err := s.Queries.ListOpenRadiusSessionsByUser(ctx, n)
 		if err != nil {
 			return pLive{}, err
 		}
 		open = append(open, ss...)
-		recent, err := s.queries.ListRecentRadiusSessionsByUser(ctx, n)
+		recent, err := s.Queries.ListRecentRadiusSessionsByUser(ctx, n)
 		if err != nil {
 			return pLive{}, err
 		}
@@ -62,7 +62,7 @@ func (s *Server) pLiveOf(ctx context.Context, c db.Customer, now int64, w pWords
 		}
 	}
 	if last != nil {
-		l.Seen = s.ts(max(last.UpdatedAt, last.StoppedAt.Int64))
+		l.Seen = s.TS(max(last.UpdatedAt, last.StoppedAt.Int64))
 	}
 	var cur *db.RadiusSession
 	for i := range open {
@@ -75,14 +75,14 @@ func (s *Server) pLiveOf(ctx context.Context, c db.Customer, now int64, w pWords
 	}
 	l.Online = true
 	l.IP, l.Device = cur.FramedIp, maskMAC(cur.Mac)
-	l.Since, l.For = s.ts(cur.StartedAt), w.span(now-cur.StartedAt)
+	l.Since, l.For = s.TS(cur.StartedAt), w.span(now-cur.StartedAt)
 	l.Used = view.HumanBytes(cur.InputOctets + cur.OutputOctets)
 	var plan planSpeed
-	if pl, err := s.queries.GetRadiusPlan(ctx, c.ID); err == nil {
+	if pl, err := s.Queries.GetRadiusPlan(ctx, c.ID); err == nil {
 		plan = newPlanSpeed(pl.PlanName, pl.RateDown.Int64, pl.RateDownUnit.String, pl.RateUp.Int64, pl.RateUpUnit.String)
 	}
-	s.live.observe(*cur, now)
-	down, up, ok := s.live.rate(cur.ID)
+	s.Live.Observe(*cur, now)
+	down, up, ok := s.Live.Rate(cur.ID)
 	var m speedMeter
 	l.Label, m = speedOf(down, up, ok, plan)
 	l.Bars, l.Limit = m.bars(), plan.DownLabel
@@ -216,21 +216,21 @@ func (s *Server) pConnHistory(w http.ResponseWriter, r *http.Request) {
 	_, pg := paging(r)
 	names := loginNames(*customerFrom(r))
 	n1, n2 := names2(names)
-	ss, err := s.queries.ListRadiusSessionsByUsers(ctx, db.ListRadiusSessionsByUsersParams{Name1: n1, Name2: n2, PageLimit: pg.limit(), PageOffset: pg.offset()})
+	ss, err := s.Queries.ListRadiusSessionsByUsers(ctx, db.ListRadiusSessionsByUsersParams{Name1: n1, Name2: n2, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
-		s.fail(w, "portal connection history", err)
+		s.Fail(w, "portal connection history", err)
 		return
 	}
-	total, err := s.queries.CountRadiusSessionsByUsers(ctx, db.CountRadiusSessionsByUsersParams{Name1: n1, Name2: n2})
+	total, err := s.Queries.CountRadiusSessionsByUsers(ctx, db.CountRadiusSessionsByUsersParams{Name1: n1, Name2: n2})
 	if err != nil {
-		s.fail(w, "count portal connection history", err)
+		s.Fail(w, "count portal connection history", err)
 		return
 	}
 	more := len(ss) > pg.Per
 	if more {
 		ss = ss[:pg.Per]
 	}
-	now, loc, w2 := time.Now().Unix(), s.location(), s.pTexts()
+	now, loc, w2 := time.Now().Unix(), s.Location(), s.pTexts()
 	var out pConnPage
 	for _, x := range ss {
 		key := time.Unix(x.StartedAt, 0).In(loc).Format("2006-01-02")

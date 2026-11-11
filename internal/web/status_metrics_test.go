@@ -45,7 +45,7 @@ func TestMetricsEndpointTokenGate(t *testing.T) {
 
 func TestStatusPageAndJSONRoles(t *testing.T) {
 	s, q := newTestApp(t)
-	s.lang.Store("english")
+	s.Lang.Store("english")
 	h := s.Handler()
 	if err := q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: "alert_nas_silent_minutes", Value: "15"}); err != nil {
 		t.Fatal(err)
@@ -103,7 +103,7 @@ func TestStatusLevels(t *testing.T) {
 
 func TestMetricsTokenActions(t *testing.T) {
 	s, q := newTestApp(t)
-	s.lang.Store("english")
+	s.Lang.Store("english")
 	h := s.Handler()
 	alice := login(t, h, "alice")
 	ctx := t.Context()

@@ -38,9 +38,9 @@ func odpFields(v, e map[string]string, routers []db.Router) []field {
 
 func (s *Server) odpList(w http.ResponseWriter, r *http.Request) {
 	q, pg := paging(r)
-	rows, err := s.queries.SearchODPs(r.Context(), db.SearchODPsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
+	rows, err := s.Queries.SearchODPs(r.Context(), db.SearchODPsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
-		s.fail(w, "list odps", err)
+		s.Fail(w, "list odps", err)
 		return
 	}
 	lp := listPage{Heading: "ODP", Base: "/admin/odp", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
@@ -49,9 +49,9 @@ func (s *Server) odpList(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{o.ID, []string{o.Name, fmt.Sprint(o.PortAmount), o.Attenuation, o.Address,
 			fmt.Sprint(o.Coverage), o.Coordinates}})
 	}
-	total, err := s.queries.CountODPs(r.Context(), q)
+	total, err := s.Queries.CountODPs(r.Context(), q)
 	if err != nil {
-		s.fail(w, "count odps", err)
+		s.Fail(w, "count odps", err)
 		return
 	}
 	lp.finish(pg, total)
@@ -59,9 +59,9 @@ func (s *Server) odpList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) odpRouters(w http.ResponseWriter, r *http.Request) ([]db.Router, bool) {
-	rs, err := s.queries.ListRouters(r.Context(), db.ListRoutersParams{Limit: 500})
+	rs, err := s.Queries.ListRouters(r.Context(), db.ListRoutersParams{Limit: 500})
 	if err != nil {
-		s.fail(w, "list routers", err)
+		s.Fail(w, "list routers", err)
 		return nil, false
 	}
 	return rs, true
@@ -77,12 +77,12 @@ func (s *Server) odpNew(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) odpEdit(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
-	o, err := s.queries.GetODP(r.Context(), id)
+	o, err := s.Queries.GetODP(r.Context(), id)
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		s.fail(w, "get odp", err)
+		s.Fail(w, "get odp", err)
 		return
 	}
 	rs, ok := s.odpRouters(w, r)
@@ -128,10 +128,10 @@ func (s *Server) odpSave(w http.ResponseWriter, r *http.Request) {
 	if len(e) == 0 {
 		var err error
 		if id == 0 {
-			_, err = s.queries.CreateODP(r.Context(), db.CreateODPParams{Name: v["name"], Coordinates: coords, Address: v["address"],
+			_, err = s.Queries.CreateODP(r.Context(), db.CreateODPParams{Name: v["name"], Coordinates: coords, Address: v["address"],
 				PortAmount: ports, Attenuation: v["attenuation"], Coverage: cover, Description: v["description"], RouterID: router})
 		} else {
-			err = s.queries.UpdateODP(r.Context(), db.UpdateODPParams{Name: v["name"], Coordinates: coords, Address: v["address"],
+			err = s.Queries.UpdateODP(r.Context(), db.UpdateODPParams{Name: v["name"], Coordinates: coords, Address: v["address"],
 				PortAmount: ports, Attenuation: v["attenuation"], Coverage: cover, Description: v["description"], RouterID: router, ID: id})
 		}
 		switch {
@@ -140,7 +140,7 @@ func (s *Server) odpSave(w http.ResponseWriter, r *http.Request) {
 		case httpx.IsFK(err):
 			e["router_id"] = "Invalid value"
 		case err != nil:
-			s.fail(w, "save odp", err)
+			s.Fail(w, "save odp", err)
 			return
 		default:
 			act, msg := "odp.create", "Data Created Successfully"
@@ -164,11 +164,11 @@ func (s *Server) odpSave(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) odpDelete(w http.ResponseWriter, r *http.Request) {
 	name := ""
-	if o, err := s.queries.GetODP(r.Context(), httpx.PathID(r)); err == nil {
+	if o, err := s.Queries.GetODP(r.Context(), httpx.PathID(r)); err == nil {
 		name = o.Name
 	}
 	s.remove(w, r, "/admin/odp", "odp", "ODP is in use", name, func(id int64) error {
-		return s.queries.DeleteODP(r.Context(), id)
+		return s.Queries.DeleteODP(r.Context(), id)
 	})
 }
 

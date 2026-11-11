@@ -3,16 +3,16 @@ package web
 // Generic CRUD helpers: ID parsing, bulk delete, activity log and error pages.
 
 import (
-	"crypto/rand"
-	"encoding/hex"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+
 	"fmt"
-	"github.com/frand-kod/gobill/internal/db"
-	"html"
 	"strings"
+
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // bulkDelete runs del over the posted ids in ONE transaction, logs once and flashes "N Data Deleted Successfully".
@@ -20,26 +20,26 @@ import (
 func (s *Server) bulkDelete(w http.ResponseWriter, r *http.Request, back, what, inUse string, del func(q *db.Queries, ids []int64) (int64, error)) {
 	ids, ok := httpx.ParseIDs(r)
 	if !ok {
-		s.sessions.Put(r.Context(), "error", s.t("Select at least one row"))
+		s.Sessions.Put(r.Context(), "error", s.T("Select at least one row"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
 	tx, err := s.conn.BeginTx(r.Context(), nil)
 	if err != nil {
-		s.fail(w, "begin bulk delete "+what, err)
+		s.Fail(w, "begin bulk delete "+what, err)
 		return
 	}
 	defer tx.Rollback()
-	n, err := del(s.queries.WithTx(tx), ids)
+	n, err := del(s.Queries.WithTx(tx), ids)
 	if err == nil {
 		err = tx.Commit()
 	}
 	if err != nil {
 		if !httpx.IsFK(err) {
-			s.fail(w, "bulk delete "+what, err)
+			s.Fail(w, "bulk delete "+what, err)
 			return
 		}
-		s.sessions.Put(r.Context(), "error", s.t(inUse))
+		s.Sessions.Put(r.Context(), "error", s.T(inUse))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
@@ -49,57 +49,8 @@ func (s *Server) bulkDelete(w http.ResponseWriter, r *http.Request, back, what, 
 // bulkDone logs one activity entry with the count and flashes "N Data Deleted Successfully".
 func (s *Server) bulkDone(w http.ResponseWriter, r *http.Request, back, action string, n int64) {
 	s.logActivity(r, action, fmt.Sprint(n))
-	s.sessions.Put(r.Context(), "flash", fmt.Sprintf("%d %s", n, s.t("Data Deleted Successfully")))
+	s.Sessions.Put(r.Context(), "flash", fmt.Sprintf("%d %s", n, s.T("Data Deleted Successfully")))
 	http.Redirect(w, r, back, http.StatusSeeOther)
-}
-
-func (s *Server) fail(w http.ResponseWriter, what string, err error) {
-	ref := make([]byte, 4)
-	rand.Read(ref)
-	slog.Error(what, "err", err, "ref", hex.EncodeToString(ref))
-	s.errorPage(w, hex.EncodeToString(ref))
-}
-
-// errorPage is the 500 page: Indonesian text from the catalog, no internal error text, a reference to find the log line.
-func (s *Server) errorPage(w http.ResponseWriter, ref string) {
-	s.errorHTML(w, http.StatusInternalServerError, "Something went wrong", "The request could not be completed. Check the data before trying again.", ref)
-}
-
-// langCode is the html lang attribute for the active language.
-func (s *Server) langCode() string {
-	switch s.language() {
-	case "english":
-		return "en"
-	case "arabic":
-		return "ar"
-	case "spanish":
-		return "es"
-	case "turkish":
-		return "tr"
-	}
-	return "id"
-}
-
-// errorHTML is the shared error page (500, 403, 404, 405). It does not use the page layout because fail has
-// no request (and the failure may be in the layout itself), so it carries its own lang and a small theme script.
-func (s *Server) errorHTML(w http.ResponseWriter, code int, title, msg, ref string) {
-	t := func(k string) string { return html.EscapeString(s.t(k)) }
-	refLine := ""
-	if ref != "" {
-		refLine = `<p class="hint">Ref: ` + html.EscapeString(ref) + `</p>`
-	}
-	dir := "ltr"
-	if s.language() == "arabic" {
-		dir = "rtl"
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(code)
-	fmt.Fprintf(w, `<!doctype html><html lang="%[6]s" dir="%[7]s"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%[1]s</title>`+
-		`<script>try{var t=JSON.parse(localStorage.getItem('gb-theme')||'{}'),m=t.mode||'system',d=document.documentElement;d.classList.toggle('dark',m==='dark'||m==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);if(t.accent==='orange')d.dataset.accent='orange'}catch(e){}</script>`+
-		`<link rel="stylesheet" href="%[5]s"></head>
-<body><main class="mx-auto max-w-md p-4"><div class="card mt-12"><div class="card-body space-y-4" role="alert"><h1 class="text-xl font-semibold">%[1]s</h1><p>%[2]s</p>%[3]s
-<a class="btn btn-primary min-h-10" href="/" onclick="history.back();return false">%[4]s</a></div></div></main></body></html>`,
-		t(title), t(msg), refLine, t("Go back"), s.asset("/static/app.css"), s.langCode(), dir)
 }
 
 // wantsPlain reports a request whose answer is data, not a page: API, JSON, RADIUS and static paths.
@@ -122,7 +73,7 @@ func (s *Server) deny(w http.ResponseWriter, r *http.Request, code int) {
 	case http.StatusMethodNotAllowed:
 		title, msg = "Method not allowed", "This address does not accept that kind of request."
 	}
-	s.errorHTML(w, code, title, msg, "")
+	s.ErrorHTML(w, code, title, msg, "")
 }
 
 // styledNotFound wraps the mux: a request no route matches (404, or 405 for a known path) gets the styled page.
@@ -158,8 +109,8 @@ func (p *statusProbe) WriteHeader(c int)           { p.code = c }
 
 // logActivity records an admin action. A failure is logged, never shown.
 func (s *Server) logActivity(r *http.Request, action, desc string) {
-	err := s.queries.CreateActivityLog(r.Context(), db.CreateActivityLogParams{
-		ActorType: "admin", ActorID: adminFrom(r).ID, Action: action, Description: desc, Ip: clientIP(r),
+	err := s.Queries.CreateActivityLog(r.Context(), db.CreateActivityLogParams{
+		ActorType: "admin", ActorID: adminFrom(r).ID, Action: action, Description: desc, Ip: core.ClientIP(r),
 	})
 	if err != nil {
 		slog.Error("activity log", "err", err)
@@ -169,9 +120,9 @@ func (s *Server) logActivity(r *http.Request, action, desc string) {
 // done flashes a message, logs the action and redirects.
 func (s *Server) done(w http.ResponseWriter, r *http.Request, back, msg, action, desc string) {
 	s.logActivity(r, action, desc)
-	s.sessions.Put(r.Context(), "flash", s.t(msg))
+	s.Sessions.Put(r.Context(), "flash", s.T(msg))
 	if strings.Contains(action, "recharge") || strings.Contains(action, "deposit") { // money results stay until closed
-		s.sessions.Put(r.Context(), "flash_sticky", "1")
+		s.Sessions.Put(r.Context(), "flash_sticky", "1")
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
@@ -180,10 +131,10 @@ func (s *Server) done(w http.ResponseWriter, r *http.Request, back, msg, action,
 func (s *Server) remove(w http.ResponseWriter, r *http.Request, back, what, inUse, name string, del func(id int64) error) {
 	if err := del(httpx.PathID(r)); err != nil {
 		if !httpx.IsFK(err) {
-			s.fail(w, "delete "+what, err)
+			s.Fail(w, "delete "+what, err)
 			return
 		}
-		s.sessions.Put(r.Context(), "error", s.t(inUse))
+		s.Sessions.Put(r.Context(), "error", s.T(inUse))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}

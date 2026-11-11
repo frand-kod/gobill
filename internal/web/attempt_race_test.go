@@ -7,6 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 // Parallel wrong passwords must not get more bcrypt checks than the lock allows: the attempt is
@@ -25,12 +27,12 @@ func TestLoginThrottleHoldsUnderParallelRequests(t *testing.T) {
 		})
 	}
 	wg.Wait()
-	if n := checked.Load(); n > maxFailedLogins {
-		t.Fatalf("%d parallel guesses checked, limit %d", n, maxFailedLogins)
+	if n := checked.Load(); n > core.MaxFailedLogins {
+		t.Fatalf("%d parallel guesses checked, limit %d", n, core.MaxFailedLogins)
 	}
 	// a correct password does not use up the lock
 	good := url.Values{"username": {"alice"}, "password": {"secret123"}}
-	for range maxFailedLogins + 2 {
+	for range core.MaxFailedLogins + 2 {
 		if w := postFrom(h, "203.0.113.5:1", "/admin/login", good); w.Code != http.StatusSeeOther {
 			t.Fatalf("good login refused: %d", w.Code)
 		}

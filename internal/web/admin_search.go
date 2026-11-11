@@ -150,7 +150,7 @@ func (s *Server) matchEntries(role string, es []searchEntry, words []string, lim
 			break
 		}
 		if allowed(e.Roles, role) && matchWords(words, e.Title+" "+e.Syn) {
-			out = append(out, searchItem{Title: s.t(e.Title), Sub: e.Sub, URL: e.URL})
+			out = append(out, searchItem{Title: s.T(e.Title), Sub: e.Sub, URL: e.URL})
 		}
 	}
 	return out
@@ -161,7 +161,7 @@ func (s *Server) addGroup(gs []searchGroup, title string, items []searchItem) []
 	if len(items) == 0 {
 		return gs
 	}
-	return append(gs, searchGroup{Title: s.t(title), Items: items})
+	return append(gs, searchGroup{Title: s.T(title), Items: items})
 }
 
 // settingsEntries lists every settings field of the sub-pages the role may open. The entries come from
@@ -185,11 +185,11 @@ func (s *Server) settingsEntries(role string) []searchEntry {
 			if !isSetting[f.Name] {
 				continue
 			}
-			syn := strings.Join([]string{f.Label, f.Name, strings.ReplaceAll(f.Name, "_", " "), f.Hint, s.t(f.Hint), f.Section, s.t(f.Section), tab.Label, settingsSyn[f.Name]}, " ")
+			syn := strings.Join([]string{f.Label, f.Name, strings.ReplaceAll(f.Name, "_", " "), f.Hint, s.T(f.Hint), f.Section, s.T(f.Section), tab.Label, settingsSyn[f.Name]}, " ")
 			if strings.Contains(f.Name, "reminder") {
 				syn += " pengingat"
 			}
-			out = append(out, searchEntry{Title: f.Label, Sub: joinNonEmpty(" › ", s.t(tab.Label), s.t(f.Section)),
+			out = append(out, searchEntry{Title: f.Label, Sub: joinNonEmpty(" › ", s.T(tab.Label), s.T(f.Section)),
 				URL: "/admin/settings/" + tab.Slug + "#f-" + f.Name, Syn: syn, Roles: roles})
 		}
 	}
@@ -212,7 +212,7 @@ func joinNonEmpty(sep string, parts ...string) string {
 func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searchGroup, error) {
 	const n = 5
 	var out []searchGroup
-	cs, err := s.queries.SearchCustomersContains(ctx, db.SearchCustomersContainsParams{Q: q, Limit: n})
+	cs, err := s.Queries.SearchCustomersContains(ctx, db.SearchCustomersContainsParams{Q: q, Limit: n})
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +223,7 @@ func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searc
 	}
 	out = s.addGroup(out, "Customer", items)
 
-	subs, err := s.queries.SearchSubscriptionsByUsername(ctx, db.SearchSubscriptionsByUsernameParams{Q: q, Limit: n})
+	subs, err := s.Queries.SearchSubscriptionsByUsername(ctx, db.SearchSubscriptionsByUsernameParams{Q: q, Limit: n})
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +234,7 @@ func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searc
 	}
 	out = s.addGroup(out, "Subscriptions", items)
 
-	trx, err := s.queries.SearchTransactionsPrefix(ctx, db.SearchTransactionsPrefixParams{Q: q, Limit: n})
+	trx, err := s.Queries.SearchTransactionsPrefix(ctx, db.SearchTransactionsPrefixParams{Q: q, Limit: n})
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +246,7 @@ func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searc
 	out = s.addGroup(out, "Transactions", items)
 
 	if allowed(roleStaff, a.Role) {
-		vs, err := s.queries.SearchVouchersPrefix(ctx, db.SearchVouchersPrefixParams{Q: q, Viewer: voucherViewer(a), Limit: n})
+		vs, err := s.Queries.SearchVouchersPrefix(ctx, db.SearchVouchersPrefixParams{Q: q, Viewer: voucherViewer(a), Limit: n})
 		if err != nil {
 			return nil, err
 		}
@@ -259,7 +259,7 @@ func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searc
 	}
 	if allowed(roleMgr, a.Role) {
 		isoPlan, _ := s.isolirIDs(ctx) // the isolir plan is a system plan, not listed
-		ps, err := s.queries.SearchPlansContains(ctx, db.SearchPlansContainsParams{Q: q, Limit: n, HiddenID: isoPlan})
+		ps, err := s.Queries.SearchPlansContains(ctx, db.SearchPlansContainsParams{Q: q, Limit: n, HiddenID: isoPlan})
 		if err != nil {
 			return nil, err
 		}
@@ -270,7 +270,7 @@ func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searc
 		}
 		out = s.addGroup(out, "Service Plan", items)
 
-		rs, err := s.queries.SearchRoutersContains(ctx, db.SearchRoutersContainsParams{Q: q, Limit: n})
+		rs, err := s.Queries.SearchRoutersContains(ctx, db.SearchRoutersContainsParams{Q: q, Limit: n})
 		if err != nil {
 			return nil, err
 		}
@@ -280,7 +280,7 @@ func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searc
 		}
 		out = s.addGroup(out, "Routers", items)
 
-		ns, err := s.queries.SearchNASContains(ctx, db.SearchNASContainsParams{Q: q, Limit: n})
+		ns, err := s.Queries.SearchNASContains(ctx, db.SearchNASContainsParams{Q: q, Limit: n})
 		if err != nil {
 			return nil, err
 		}
@@ -319,7 +319,7 @@ func (s *Server) searchGroupsFor(ctx context.Context, a *db.Admin, raw string) (
 func (s *Server) searchJSON(w http.ResponseWriter, r *http.Request) {
 	groups, err := s.searchGroupsFor(r.Context(), adminFrom(r), r.URL.Query().Get("q"))
 	if err != nil {
-		s.fail(w, "search", err)
+		s.Fail(w, "search", err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -332,10 +332,10 @@ func (s *Server) searchPage(w http.ResponseWriter, r *http.Request) {
 	q := searchQuery(r.URL.Query().Get("q"))
 	groups, err := s.searchGroupsFor(r.Context(), adminFrom(r), q)
 	if err != nil {
-		s.fail(w, "search", err)
+		s.Fail(w, "search", err)
 		return
 	}
-	s.render(w, r, http.StatusOK, "search", Page{Title: "Search", Data: searchView{Q: q, Groups: groups}})
+	s.Render(w, r, http.StatusOK, "search", Page{Title: "Search", Data: searchView{Q: q, Groups: groups}})
 }
 
 type searchView struct {

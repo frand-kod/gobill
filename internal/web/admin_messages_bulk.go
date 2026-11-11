@@ -66,7 +66,7 @@ func messageDelay(st map[string]string) time.Duration { return notify.MessageDel
 // runBulk sends to every customer in order in one goroutine, with the delay between messages.
 func (s *Server) runBulk(st map[string]string, cs []db.Customer, channel, from, subject, tpl string) {
 	defer bulk.finish()
-	n, err := notify.Load(context.Background(), s.queries)
+	n, err := notify.Load(context.Background(), s.Queries)
 	if err != nil {
 		for _, c := range cs {
 			bulk.record(c, err)
@@ -99,12 +99,12 @@ func msgBulkFields(v, e map[string]string, routers []db.Router) []field {
 }
 
 func (s *Server) msgBulkPage(w http.ResponseWriter, r *http.Request, code int, v, e map[string]string, errMsg string) {
-	routers, err := s.queries.ListRouters(r.Context(), db.ListRoutersParams{Limit: 500})
+	routers, err := s.Queries.ListRouters(r.Context(), db.ListRoutersParams{Limit: 500})
 	if err != nil {
-		s.fail(w, "bulk routers", err)
+		s.Fail(w, "bulk routers", err)
 		return
 	}
-	s.render(w, r, code, "form", Page{Title: "Bulk Message", Error: errMsg,
+	s.Render(w, r, code, "form", Page{Title: "Bulk Message", Error: errMsg,
 		Data: formPage{"Bulk Message", "/admin/message/bulk", "/admin/message/bulk", msgBulkFields(v, e, routers)}})
 }
 
@@ -144,18 +144,18 @@ func (s *Server) msgBulkStart(w http.ResponseWriter, r *http.Request) {
 	if sub == "all" {
 		sub = ""
 	}
-	cs, err := s.queries.ListMessageRecipients(r.Context(), db.ListMessageRecipientsParams{ServiceType: svc, RouterID: routerID, SubStatus: sub})
+	cs, err := s.Queries.ListMessageRecipients(r.Context(), db.ListMessageRecipientsParams{ServiceType: svc, RouterID: routerID, SubStatus: sub})
 	if err != nil {
-		s.fail(w, "bulk recipients", err)
+		s.Fail(w, "bulk recipients", err)
 		return
 	}
 	if len(cs) == 0 {
 		s.msgBulkPage(w, r, 422, v, nil, "No customers match this filter")
 		return
 	}
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "bulk settings", err)
+		s.Fail(w, "bulk settings", err)
 		return
 	}
 	if !bulk.start(len(cs)) {
@@ -182,7 +182,7 @@ func msgSelectedPage(v, e map[string]string) formPage {
 func (s *Server) custMessageForm(w http.ResponseWriter, r *http.Request) {
 	ids, ok := httpx.ParseIDs(r)
 	if !ok {
-		s.sessions.Put(r.Context(), "error", s.t("Select at least one row"))
+		s.Sessions.Put(r.Context(), "error", s.T("Select at least one row"))
 		http.Redirect(w, r, "/admin/customers", http.StatusSeeOther)
 		return
 	}
@@ -207,7 +207,7 @@ func (s *Server) msgSelectedSend(w http.ResponseWriter, r *http.Request) {
 		ids = append(ids, id)
 	}
 	if len(ids) == 0 {
-		s.sessions.Put(r.Context(), "error", s.t("Select at least one row"))
+		s.Sessions.Put(r.Context(), "error", s.T("Select at least one row"))
 		http.Redirect(w, r, "/admin/customers", http.StatusSeeOther)
 		return
 	}
@@ -221,23 +221,23 @@ func (s *Server) msgSelectedSend(w http.ResponseWriter, r *http.Request) {
 		s.renderForm(w, r, 422, msgSelectedPage(v, e))
 		return
 	}
-	cs, err := s.queries.ListCustomersByIDs(r.Context(), ids)
+	cs, err := s.Queries.ListCustomersByIDs(r.Context(), ids)
 	if err != nil {
-		s.fail(w, "selected recipients", err)
+		s.Fail(w, "selected recipients", err)
 		return
 	}
 	if len(cs) == 0 {
-		s.sessions.Put(r.Context(), "error", s.t("No customers match this filter"))
+		s.Sessions.Put(r.Context(), "error", s.T("No customers match this filter"))
 		http.Redirect(w, r, "/admin/customers", http.StatusSeeOther)
 		return
 	}
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "selected settings", err)
+		s.Fail(w, "selected settings", err)
 		return
 	}
 	if !bulk.start(len(cs)) {
-		s.sessions.Put(r.Context(), "error", s.t("A bulk message is already running"))
+		s.Sessions.Put(r.Context(), "error", s.T("A bulk message is already running"))
 		http.Redirect(w, r, "/admin/message/bulk/status", http.StatusSeeOther)
 		return
 	}

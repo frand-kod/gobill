@@ -46,7 +46,7 @@ func netHref(kind string, id int64) string { return fmt.Sprintf("/admin/network/
 
 // nasStats returns the RADIUS packet stats of every NAS address that ever sent a packet.
 func (s *Server) nasStats(ctx context.Context) (map[string]netStat, error) {
-	rows, err := s.queries.ListNASPacketStats(ctx)
+	rows, err := s.Queries.ListNASPacketStats(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -60,11 +60,11 @@ func (s *Server) nasStats(ctx context.Context) (map[string]netStat, error) {
 // networkCard lists the routers and NAS with their status. now decides whether a NAS is fresh.
 func (s *Server) networkCard(ctx context.Context, now time.Time) (netCard, error) {
 	var c netCard
-	routers, err := s.queries.ListAllRouters(ctx)
+	routers, err := s.Queries.ListAllRouters(ctx)
 	if err != nil {
 		return c, err
 	}
-	nas, err := s.queries.ListNAS(ctx)
+	nas, err := s.Queries.ListNAS(ctx)
 	if err != nil {
 		return c, err
 	}
@@ -120,32 +120,32 @@ func routerStatus(r db.Router) string {
 }
 
 func (s *Server) routerRow(r db.Router) netRow {
-	lang := s.language()
+	lang := s.Language()
 	row := netRow{Kind: "router", Name: r.Name, Type: "Router API", Href: netHref("router", r.ID), Status: routerStatus(r)}
 	switch {
 	case r.Enabled == 0:
-		row.Metric = s.catalog.T(lang, "Disabled, not checked")
+		row.Metric = s.Catalog.T(lang, "Disabled, not checked")
 	case r.LastSeenAt.Valid:
-		row.Metric = fmt.Sprintf(s.catalog.T(lang, "Last online: %s"), s.ts(r.LastSeenAt.Int64))
+		row.Metric = fmt.Sprintf(s.Catalog.T(lang, "Last online: %s"), s.TS(r.LastSeenAt.Int64))
 	default:
-		row.Metric = s.catalog.T(lang, "Never seen online")
+		row.Metric = s.Catalog.T(lang, "Never seen online")
 	}
 	row.Dot = statusDot(row.Status)
 	return row
 }
 
 func (s *Server) nasRow(n db.Na, stats map[string]netStat, now time.Time) netRow {
-	lang := s.language()
+	lang := s.Language()
 	row := netRow{Kind: "nas", Name: n.Name, Type: "NAS RADIUS", Href: netHref("nas", n.ID), Status: "Unknown"}
 	st, ok := stats[n.Ip]
 	if !ok {
-		row.Metric = s.catalog.T(lang, "No packet yet")
+		row.Metric = s.Catalog.T(lang, "No packet yet")
 	} else {
 		key := "%d active sessions, last packet %s"
 		if st.Active == 1 {
 			key = "%d active session, last packet %s"
 		}
-		row.Metric = fmt.Sprintf(s.catalog.T(lang, key), st.Active, s.ts(st.LastSeen))
+		row.Metric = fmt.Sprintf(s.Catalog.T(lang, key), st.Active, s.TS(st.LastSeen))
 		row.Status = "Offline"
 		if now.Sub(time.Unix(st.LastSeen, 0)) <= max(NASFreshFor, time.Duration(radius.StaleFor(n.Ip))*time.Second) {
 			row.Status = "Online"
@@ -198,7 +198,7 @@ func (s *Server) routerPage(x db.Router) netPage {
 
 // nasPage builds the NAS detail from its RADIUS-side data only.
 func (s *Server) nasPage(ctx context.Context, n db.Na, now time.Time) (netPage, error) {
-	lang := s.language()
+	lang := s.Language()
 	stats, err := s.nasStats(ctx)
 	if err != nil {
 		return netPage{}, err
@@ -206,14 +206,14 @@ func (s *Server) nasPage(ctx context.Context, n db.Na, now time.Time) (netPage, 
 	p := netPage{Kind: "nas", Name: n.Name, TypeLabel: "NAS RADIUS", Address: n.Ip, Description: n.Description,
 		Enabled: true, Edit: fmt.Sprint("/admin/nas/", n.ID, "/edit"), Row: s.nasRow(n, stats, now)}
 	if st, ok := stats[n.Ip]; ok {
-		p.Active, p.LastPacket = st.Active, s.ts(st.LastSeen)
+		p.Active, p.LastPacket = st.Active, s.TS(st.LastSeen)
 	} else {
-		p.LastPacket = s.catalog.T(lang, "No packet yet")
+		p.LastPacket = s.Catalog.T(lang, "No packet yet")
 	}
 	if plain, err := secret.Open(s.SecretKey, n.SecretEnc); err != nil {
-		p.SecretMsg = s.catalog.T(lang, "The secret could not be read. Set it again under NAS.")
+		p.SecretMsg = s.Catalog.T(lang, "The secret could not be read. Set it again under NAS.")
 	} else if m := weakSecret(string(plain)); m != "" {
-		p.SecretMsg = s.catalog.T(lang, m)
+		p.SecretMsg = s.Catalog.T(lang, m)
 	} else {
 		p.SecretOK = true
 	}
@@ -222,17 +222,17 @@ func (s *Server) nasPage(ctx context.Context, n db.Na, now time.Time) (netPage, 
 
 // liveView formats a router health reply for the page.
 func (s *Server) liveView(h device.Health) *netLive {
-	lang := s.language()
+	lang := s.Language()
 	const mb = 1 << 20
 	return &netLive{
 		Uptime:  h.Uptime,
 		Version: h.Version,
 		Board:   h.Board,
 		CPU:     fmt.Sprintf("%d%%", h.CPULoad),
-		Memory:  fmt.Sprintf(s.catalog.T(lang, "%d MB free of %d MB"), h.FreeMem/mb, h.TotalMem/mb),
+		Memory:  fmt.Sprintf(s.Catalog.T(lang, "%d MB free of %d MB"), h.FreeMem/mb, h.TotalMem/mb),
 		Hotspot: fmt.Sprint(h.Hotspot),
 		PPP:     fmt.Sprint(h.PPP),
-		At:      s.ts(time.Now().Unix()),
+		At:      s.TS(time.Now().Unix()),
 	}
 }
 
@@ -242,19 +242,19 @@ func (s *Server) networkPage(w http.ResponseWriter, r *http.Request, check bool)
 	var p netPage
 	switch kind {
 	case "router":
-		x, err := s.queries.GetRouter(ctx, id)
+		x, err := s.Queries.GetRouter(ctx, id)
 		if err == sql.ErrNoRows {
 			http.NotFound(w, r)
 			return
 		} else if err != nil {
-			s.fail(w, "get router", err)
+			s.Fail(w, "get router", err)
 			return
 		}
 		p = s.routerPage(x)
 		if check && p.CanCheck && s.liveCheck(ctx, x, &p) {
 			// a successful manual check is a sighting too: the status card must not say "never seen"
 			now := time.Now().Unix()
-			if err := s.queries.SetRouterStatus(ctx, db.SetRouterStatusParams{ID: x.ID,
+			if err := s.Queries.SetRouterStatus(ctx, db.SetRouterStatusParams{ID: x.ID,
 				Online: sql.NullInt64{Int64: 1, Valid: true}, LastSeenAt: sql.NullInt64{Int64: now, Valid: true}}); err != nil {
 				slog.Error("router status", "router", x.Name, "err", err)
 			} else {
@@ -269,37 +269,37 @@ func (s *Server) networkPage(w http.ResponseWriter, r *http.Request, check bool)
 			http.NotFound(w, r)
 			return
 		}
-		n, err := s.queries.GetNAS(ctx, id)
+		n, err := s.Queries.GetNAS(ctx, id)
 		if err == sql.ErrNoRows {
 			http.NotFound(w, r)
 			return
 		} else if err != nil {
-			s.fail(w, "get nas", err)
+			s.Fail(w, "get nas", err)
 			return
 		}
 		if p, err = s.nasPage(ctx, n, time.Now()); err != nil {
-			s.fail(w, "nas health", err)
+			s.Fail(w, "nas health", err)
 			return
 		}
 	default:
 		http.NotFound(w, r)
 		return
 	}
-	s.render(w, r, http.StatusOK, "network", Page{Title: p.Name, Data: p})
+	s.Render(w, r, http.StatusOK, "network", Page{Title: p.Name, Data: p})
 }
 
 // liveCheck asks the router for its health with a short timeout. Errors are mapped to plain text.
 func (s *Server) liveCheck(ctx context.Context, x db.Router, p *netPage) bool {
-	lang := s.language()
+	lang := s.Language()
 	if s.Billing == nil {
-		p.LiveErr = s.catalog.T(lang, "Router connection is not configured")
+		p.LiveErr = s.Catalog.T(lang, "Router connection is not configured")
 		return false
 	}
 	cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	h, err := s.Billing.Health(cctx, x)
 	if err != nil {
-		p.LiveErr = s.catalog.T(lang, routerErr(err, msgRouterOther))
+		p.LiveErr = s.Catalog.T(lang, routerErr(err, msgRouterOther))
 		p.LiveRaw = err.Error()
 		if len(p.LiveRaw) > 300 {
 			p.LiveRaw = p.LiveRaw[:300]

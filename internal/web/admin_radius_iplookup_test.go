@@ -26,7 +26,7 @@ func TestIPLookupFindsSessionAtTime(t *testing.T) {
 	add("b", "late-user", "10.9.0.5", now-3000, 0)
 	add("c", "other-ip", "10.9.0.6", now-7200, 0)
 	at := func(sec int64) string {
-		w := do(h, "POST", "/admin/radius/ip-lookup", url.Values{"ip": {"10.9.0.5"}, "at": {time.Unix(sec, 0).In(s.location()).Format(dtLocal)}}, c)
+		w := do(h, "POST", "/admin/radius/ip-lookup", url.Values{"ip": {"10.9.0.5"}, "at": {time.Unix(sec, 0).In(s.Location()).Format(dtLocal)}}, c)
 		wantCode(t, w, 200, "lookup")
 		return w.Body.String()
 	}

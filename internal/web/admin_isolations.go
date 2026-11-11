@@ -37,9 +37,9 @@ func (s *Server) isoList(w http.ResponseWriter, r *http.Request) {
 	_, pg := paging(r)
 	p := isoQuery(r)
 	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
-	rows, err := s.queries.FilterIsolations(r.Context(), p)
+	rows, err := s.Queries.FilterIsolations(r.Context(), p)
 	if err != nil {
-		s.fail(w, "list isolations", err)
+		s.Fail(w, "list isolations", err)
 		return
 	}
 	lp := listPage{Heading: "Isolations", Base: "/admin/isolations", Q: p.Q, Searchable: true,
@@ -50,13 +50,13 @@ func (s *Server) isoList(w http.ResponseWriter, r *http.Request) {
 	for _, x := range rows {
 		ended := ""
 		if x.EndedAt > 0 {
-			ended = s.ts(x.EndedAt)
+			ended = s.TS(x.EndedAt)
 		}
-		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Username, x.Fullname, s.ts(x.StartedAt), s.ts(x.EndsAt), ended, x.EndReason, isoState(x.EndedAt, x.EndsAt, now)}})
+		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Username, x.Fullname, s.TS(x.StartedAt), s.TS(x.EndsAt), ended, x.EndReason, isoState(x.EndedAt, x.EndsAt, now)}})
 	}
-	total, err := s.queries.CountFilteredIsolations(r.Context(), db.CountFilteredIsolationsParams{Q: p.Q, Status: p.Status})
+	total, err := s.Queries.CountFilteredIsolations(r.Context(), db.CountFilteredIsolationsParams{Q: p.Q, Status: p.Status})
 	if err != nil {
-		s.fail(w, "count isolations", err)
+		s.Fail(w, "count isolations", err)
 		return
 	}
 	lp.finish(pg, total)
@@ -67,9 +67,9 @@ func (s *Server) isoList(w http.ResponseWriter, r *http.Request) {
 func (s *Server) isoExport(w http.ResponseWriter, r *http.Request) {
 	p := isoQuery(r)
 	p.PageLimit = -1
-	rows, err := s.queries.FilterIsolations(r.Context(), p)
+	rows, err := s.Queries.FilterIsolations(r.Context(), p)
 	if err != nil {
-		s.fail(w, "export isolations", err)
+		s.Fail(w, "export isolations", err)
 		return
 	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
@@ -80,9 +80,9 @@ func (s *Server) isoExport(w http.ResponseWriter, r *http.Request) {
 	for _, x := range rows {
 		ended := ""
 		if x.EndedAt > 0 {
-			ended = s.ts(x.EndedAt)
+			ended = s.TS(x.EndedAt)
 		}
-		rec := []string{x.Username, x.Fullname, s.ts(x.StartedAt), s.ts(x.EndsAt), ended, x.EndReason, isoState(x.EndedAt, x.EndsAt, now)}
+		rec := []string{x.Username, x.Fullname, s.TS(x.StartedAt), s.TS(x.EndsAt), ended, x.EndReason, isoState(x.EndedAt, x.EndsAt, now)}
 		httpx.CSVSafe(rec)
 		cw.Write(rec)
 	}

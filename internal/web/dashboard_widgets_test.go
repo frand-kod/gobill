@@ -66,7 +66,7 @@ func TestAdminBell(t *testing.T) {
 		t.Fatal(err)
 	}
 	mkRouter(t, e.q, "core-down", 1, "api", sql.NullInt64{Int64: 0, Valid: true}, sql.NullInt64{})
-	last := time.Now().In(e.srv.location()).Add(-time.Hour).Format(time.DateTime)
+	last := time.Now().In(e.srv.Location()).Add(-time.Hour).Format(time.DateTime)
 	setting(t, e, "expiry_last_run", last)
 
 	// a bell on a non-dashboard page: the router offline, the stalled job and the expired plan (3 items)
@@ -97,7 +97,7 @@ func TestAdminBell(t *testing.T) {
 // Nothing to flag: no badge, and the menu says so.
 func TestAdminBellQuiet(t *testing.T) {
 	e := englishApp(t)
-	setting(t, e, "expiry_last_run", time.Now().In(e.srv.location()).Format(time.DateTime))
+	setting(t, e, "expiry_last_run", time.Now().In(e.srv.Location()).Format(time.DateTime))
 	body := do(e.h, "GET", "/admin/customers", nil, e.c).Body.String()
 	if strings.Contains(body, `id="bell-badge"`) {
 		t.Fatal("bell badge shown with nothing to flag")
@@ -111,7 +111,7 @@ func TestAdminBellQuiet(t *testing.T) {
 func TestDashboardCustomersCard(t *testing.T) {
 	e := englishApp(t)
 	ctx := t.Context()
-	loc := e.srv.location()
+	loc := e.srv.Location()
 	y, m, d := time.Now().In(loc).Date()
 	noon := func(days int) int64 { return time.Date(y, m, d+days, 12, 0, 0, 0, loc).Unix() }
 	p := e.plan(t, "p1", "PPPoE", 25000)
@@ -148,7 +148,7 @@ func TestDashboardCustomersCard(t *testing.T) {
 func TestDashboardUsageCard(t *testing.T) {
 	e := englishApp(t)
 	ctx := t.Context()
-	loc := e.srv.location()
+	loc := e.srv.Location()
 	if body := do(e.h, "GET", "/admin", nil, e.c).Body.String(); !strings.Contains(body, "No usage recorded yet") {
 		t.Fatal("empty usage should say so")
 	}

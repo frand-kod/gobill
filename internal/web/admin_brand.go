@@ -13,7 +13,7 @@ import (
 // disable_registration for the portal's register link.
 func (s *Server) brand(ctx context.Context) map[string]string {
 	out := map[string]string{}
-	m, err := s.loadSettings(ctx)
+	m, err := s.LoadSettings(ctx)
 	if err != nil {
 		slog.Error("load branding", "err", err)
 		return out

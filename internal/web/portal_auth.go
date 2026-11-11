@@ -4,19 +4,22 @@ package web
 
 import (
 	"database/sql"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+
 	"context"
 	"errors"
+	"strings"
+	"unicode"
+
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/metrics"
 	"github.com/frand-kod/gobill/internal/secret"
 	"golang.org/x/crypto/bcrypt"
-	"strings"
-	"unicode"
 )
 
 // Customer portal. The session key "customer_id" is separate from the admin's "admin_id".
@@ -30,14 +33,14 @@ func customerFrom(r *http.Request) *db.Customer {
 
 func (s *Server) requireCustomer(next http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		id := s.sessions.GetInt64(r.Context(), "customer_id")
-		c, err := s.queries.GetCustomer(r.Context(), id)
+		id := s.Sessions.GetInt64(r.Context(), "customer_id")
+		c, err := s.Queries.GetCustomer(r.Context(), id)
 		if id != 0 && err != nil && err != sql.ErrNoRows {
-			s.fail(w, "load customer", err) // a cancelled request or a busy DB keeps the session
+			s.Fail(w, "load customer", err) // a cancelled request or a busy DB keeps the session
 			return
 		}
-		if id == 0 || err != nil || c.Status == "Banned" || c.Status == "Disabled" || c.SessionVersion != s.sessions.GetInt64(r.Context(), "csv") {
-			s.sessions.Remove(r.Context(), "customer_id")
+		if id == 0 || err != nil || c.Status == "Banned" || c.Status == "Disabled" || c.SessionVersion != s.Sessions.GetInt64(r.Context(), "csv") {
+			s.Sessions.Remove(r.Context(), "customer_id")
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
@@ -49,7 +52,7 @@ func (s *Server) prender(w http.ResponseWriter, r *http.Request, status int, nam
 	p.Customer = customerFrom(r)
 	if p.Customer != nil {
 		var err error
-		p.Unread, _ = s.queries.CountUnreadInbox(r.Context(), p.Customer.ID)
+		p.Unread, _ = s.Queries.CountUnreadInbox(r.Context(), p.Customer.ID)
 		if p.Bell, err = s.portalBell(r, p.Customer); err != nil {
 			slog.Warn("portal bell", "err", err)
 		}
@@ -58,12 +61,12 @@ func (s *Server) prender(w http.ResponseWriter, r *http.Request, status int, nam
 				p.BellUnread++
 			}
 		}
-		p.Impersonating = s.sessions.GetInt64(r.Context(), "impersonator") != 0
+		p.Impersonating = s.Sessions.GetInt64(r.Context(), "impersonator") != 0
 	}
 	if p.Flash == "" {
-		p.Flash = s.sessions.PopString(r.Context(), "flash")
+		p.Flash = s.Sessions.PopString(r.Context(), "flash")
 	}
-	s.render(w, r, status, name, p)
+	s.Render(w, r, status, name, p)
 }
 
 // ---- login ----
@@ -74,35 +77,35 @@ func (s *Server) pLoginForm(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.PostFormValue("username"))
-	ip, uk := "c:"+clientIP(r), "cu:"+strings.ToLower(username)
-	if !s.loginReserve(ip, username) {
+	ip, uk := "c:"+core.ClientIP(r), "cu:"+strings.ToLower(username)
+	if !s.LoginReserve(ip, username) {
 		s.prender(w, r, http.StatusTooManyRequests, "p_login", Page{Title: "Customer sign in", Error: "Too many failed attempts. Try again in 15 minutes."})
 		return
 	}
-	s.userDelay(uk)
-	c, err := s.queries.GetCustomerByUsername(r.Context(), username)
-	hash := s.dummyHash
+	s.UserDelay(uk)
+	c, err := s.Queries.GetCustomerByUsername(r.Context(), username)
+	hash := s.DummyHash
 	if err == nil {
 		hash = []byte(c.PasswordHash)
 	}
 	ok := bcrypt.CompareHashAndPassword(hash, []byte(r.PostFormValue("password"))) == nil
 	if err == nil && ok && (c.Status == "Banned" || c.Status == "Disabled") {
 		// only after a correct password, so this does not reveal which usernames exist
-		s.loginForgive(ip, username)
+		s.LoginForgive(ip, username)
 		s.prender(w, r, 200, "p_login", Page{Title: "Customer sign in", Error: "This account cannot be used, contact the admin", Data: username})
 		return
 	}
 	if err != nil || !ok {
 		metrics.Inc("login_failures_total", "scope", "portal")
-		s.recordFailure(uk)
+		s.RecordFailure(uk)
 		s.prender(w, r, 200, "p_login", Page{Title: "Customer sign in", Error: "Invalid Username or Password", Data: username})
 		return
 	}
-	s.loginForgive(ip, username)
-	s.clearFailures(loginKey(ip, username))
-	s.clearFailures(uk)
+	s.LoginForgive(ip, username)
+	s.ClearFailures(core.LoginKey(ip, username))
+	s.ClearFailures(uk)
 	if err := s.portalSignIn(r, c); err != nil {
-		s.fail(w, "renew session", err)
+		s.Fail(w, "renew session", err)
 		return
 	}
 	http.Redirect(w, r, "/portal", http.StatusSeeOther)
@@ -110,12 +113,12 @@ func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
 
 // portalSignIn starts a fresh portal session for the customer.
 func (s *Server) portalSignIn(r *http.Request, c db.Customer) error {
-	if err := s.sessions.RenewToken(r.Context()); err != nil {
+	if err := s.Sessions.RenewToken(r.Context()); err != nil {
 		return err
 	}
-	s.sessions.Put(r.Context(), "customer_id", c.ID)
-	s.sessions.Put(r.Context(), "csv", c.SessionVersion)
-	if err := s.queries.TouchCustomerLogin(r.Context(), c.ID); err != nil {
+	s.Sessions.Put(r.Context(), "customer_id", c.ID)
+	s.Sessions.Put(r.Context(), "csv", c.SessionVersion)
+	if err := s.Queries.TouchCustomerLogin(r.Context(), c.ID); err != nil {
 		slog.Error("touch login", "err", err)
 	}
 	return nil
@@ -123,14 +126,14 @@ func (s *Server) portalSignIn(r *http.Request, c db.Customer) error {
 
 // keepSession re-stamps the acting session with the customer's bumped session_version.
 func (s *Server) keepSession(r *http.Request, id int64) error {
-	c, err := s.queries.GetCustomer(r.Context(), id)
+	c, err := s.Queries.GetCustomer(r.Context(), id)
 	if err != nil {
 		return err
 	}
-	if err := s.sessions.RenewToken(r.Context()); err != nil {
+	if err := s.Sessions.RenewToken(r.Context()); err != nil {
 		return err
 	}
-	s.sessions.Put(r.Context(), "csv", c.SessionVersion)
+	s.Sessions.Put(r.Context(), "csv", c.SessionVersion)
 	return nil
 }
 
@@ -143,11 +146,11 @@ func customerLoginURL(st map[string]string) string {
 }
 
 func (s *Server) pLogout(w http.ResponseWriter, r *http.Request) {
-	s.sessions.Remove(r.Context(), "customer_id")
-	s.sessions.Remove(r.Context(), "impersonator")
-	for _, k := range s.sessions.Keys(r.Context()) { // pending contact-change OTP (ct_*) must not survive logout
+	s.Sessions.Remove(r.Context(), "customer_id")
+	s.Sessions.Remove(r.Context(), "impersonator")
+	for _, k := range s.Sessions.Keys(r.Context()) { // pending contact-change OTP (ct_*) must not survive logout
 		if strings.HasPrefix(k, "ct_") {
-			s.sessions.Remove(r.Context(), k)
+			s.Sessions.Remove(r.Context(), k)
 		}
 	}
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -160,18 +163,18 @@ func (s *Server) pLogout(w http.ResponseWriter, r *http.Request) {
 // An existing customer keeps their password (old PHP overwrote it with the code).
 func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	st, err := s.loadSettings(ctx)
+	st, err := s.LoadSettings(ctx)
 	if err != nil || s.Billing == nil {
-		s.fail(w, "voucher login", errors.Join(err, errors.New("billing not configured")))
+		s.Fail(w, "voucher login", errors.Join(err, errors.New("billing not configured")))
 		return
 	}
 	if st["disable_registration"] != "yes" {
-		s.flashTo(w, r, "/login", "Registration Disabled")
+		s.FlashTo(w, r, "/login", "Registration Disabled")
 		return
 	}
-	ip := "c:" + clientIP(r)
+	ip := "c:" + core.ClientIP(r)
 	bad := func() {
-		s.recordFailure(ip)
+		s.RecordFailure(ip)
 		s.prender(w, r, 200, "p_login", Page{Title: "Customer sign in", Error: "Voucher Not Valid"})
 	}
 	code := strings.TrimSpace(r.PostFormValue("voucher"))
@@ -181,20 +184,20 @@ func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 		}
 		return -1
 	}, r.PostFormValue("username"))
-	if s.tooManyFailures(ip) || code == "" || len(username) < 3 || len(username) > 55 {
+	if s.TooManyFailures(ip) || code == "" || len(username) < 3 || len(username) > 55 {
 		bad()
 		return
 	}
-	if v, err := s.queries.GetVoucherByCode(ctx, code); err != nil || v.Status != "unused" {
+	if v, err := s.Queries.GetVoucherByCode(ctx, code); err != nil || v.Status != "unused" {
 		bad()
 		return
 	}
-	c, err := s.queries.GetCustomerByUsername(ctx, username)
+	c, err := s.Queries.GetCustomerByUsername(ctx, username)
 	if err != nil {
 		hash, herr := bcrypt.GenerateFromPassword([]byte(code), bcryptCost)
 		enc, serr := secret.Seal(s.SecretKey, []byte(code))
 		if herr != nil || serr != nil {
-			s.fail(w, "voucher login", errors.Join(herr, serr))
+			s.Fail(w, "voucher login", errors.Join(herr, serr))
 			return
 		}
 		phone := ""
@@ -202,14 +205,14 @@ func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 			phone = db.CanonicalPhone(username)
 		}
 		if taken, err := s.phoneTaken(ctx, phone, 0); err != nil { // a number another account uses is not taken twice
-			s.fail(w, "voucher login", err)
+			s.Fail(w, "voucher login", err)
 			return
 		} else if taken {
 			phone = ""
 		}
-		if c, err = s.queries.CreateCustomer(ctx, db.CreateCustomerParams{Username: username, PasswordHash: string(hash),
+		if c, err = s.Queries.CreateCustomer(ctx, db.CreateCustomerParams{Username: username, PasswordHash: string(hash),
 			Phone: phone, ServiceType: "Others", SecretEnc: enc, AutoRenewal: 1, Status: "Active"}); err != nil {
-			s.fail(w, "voucher login", err)
+			s.Fail(w, "voucher login", err)
 			return
 		}
 	}
@@ -217,14 +220,14 @@ func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, billing.ErrVoucherInvalid):
 		bad()
 	case errors.Is(err, billing.ErrInactive):
-		s.flashTo(w, r, "/login", "account is not active")
+		s.FlashTo(w, r, "/login", "account is not active")
 	case err != nil:
-		s.fail(w, "voucher login", err)
+		s.Fail(w, "voucher login", err)
 	default:
 		to := "/login"
 		if u := httpx.SafeRedirect(st["voucher_redirect"]); u != "" {
 			to = u
 		}
-		s.flashTo(w, r, to, "Voucher activation success, now you can login")
+		s.FlashTo(w, r, to, "Voucher activation success, now you can login")
 	}
 }

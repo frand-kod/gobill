@@ -7,19 +7,22 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 	"net/netip"
+
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/metrics"
 	"github.com/frand-kod/gobill/internal/radius"
 	"layeh.com/radius/rfc2866"
-	"strconv"
-	"strings"
-	"time"
 )
 
 func isRadiusRest(path string) bool { return path == "/radius.php" || path == "/radius/rest" }
@@ -93,7 +96,7 @@ func rejectBody(msg string) kv {
 }
 
 func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
-	m, err := s.loadSettings(r.Context())
+	m, err := s.LoadSettings(r.Context())
 	if err != nil {
 		jsonOut(w, 500, nil)
 		return
@@ -160,7 +163,7 @@ func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
 		n := func(f string) int64 { v, _ := strconv.ParseInt(r.FormValue(f), 10, 64); return v }
 		nas := r.FormValue("nasIpAddress")
 		if nas == "" {
-			nas = clientIP(r)
+			nas = core.ClientIP(r)
 		}
 		err := rs.Account(r.Context(), radius.AcctRequest{Type: typ, NAS: nas, NASIPAttr: r.FormValue("nasIpAddress"), NASID: r.FormValue("nasid"), SessionID: r.FormValue("acctSessionId"), NASPortID: r.FormValue("nasPortId"), User: user,
 			MAC: r.FormValue("macAddr"), FramedIP: r.FormValue("framedIPAddress"), SessionTime: n("acctSessionTime"),
@@ -195,7 +198,7 @@ func (s *Server) acceptBody(d radius.Decision) kv {
 		b["reply:Ascend-Xmit-Rate"], b["reply:WISPr-Bandwidth-Max-Up"] = up, up
 		b["reply:Ascend-Data-Rate"], b["reply:WISPr-Bandwidth-Max-Down"] = dn, dn
 	}
-	t := time.Unix(d.Expires, 0).In(s.location())
+	t := time.Unix(d.Expires, 0).In(s.Location())
 	b["reply:Mikrotik-Wireless-Comment"] = pl.PlanName + " | " + t.Format("2006-01-02 15:04:05")
 	b["reply:expiration"] = t.Format("02 Jan 2006 15:04:05")
 	b["reply:WISPr-Session-Terminate-Time"] = t.Format("2006-01-02T15:04:05-07:00")
@@ -235,7 +238,7 @@ func (s *Server) radiusServer() *radius.Server {
 		if s.Radius != nil {
 			return
 		}
-		s.Radius = &radius.Server{Q: s.queries, Key: s.SecretKey, Trusted: func() bool { return s.ClockWarning == nil || s.ClockWarning() == "" }}
+		s.Radius = &radius.Server{Q: s.Queries, Key: s.SecretKey, Trusted: func() bool { return s.ClockWarning == nil || s.ClockWarning() == "" }}
 		if s.Billing != nil {
 			s.Radius.Redeem = s.Billing.RedeemVoucher
 			s.Radius.Start = s.Billing.StartPending

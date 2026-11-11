@@ -159,7 +159,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			zones = append(zones, z)
 		}
 		out := section([]field{
-			text("language", "Language", v, e).opts(s.catalog.Languages()...),
+			text("language", "Language", v, e).opts(s.Catalog.Languages()...),
 			text("timezone", "Timezone", v, e).opts(zones...).req(),
 			text("date_format", "Date Format", v, e).opts("Y-m-d", "d-m-Y", "d/m/Y", "d M Y"),
 			text("country_code_phone", "Country Code Phone", v, e).hint("Country code for numbers that start with 0, e.g. 62"),
@@ -288,7 +288,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		qris := field{Name: "qris_payload", Label: "Static QRIS", Type: "qris", Value: v["qris_payload"], Error: e["qris_payload"],
 			Hint: "Upload the merchant's static QRIS photo (PNG/JPG). The system only stores its text"}
 		if m, n := payment.QRISInfo(v["qris_payload"]); m != "" {
-			qris.Hint = s.t("Active") + ": " + m
+			qris.Hint = s.T("Active") + ": " + m
 			if n != "" {
 				qris.Hint += " (NMID " + n + ")"
 			}

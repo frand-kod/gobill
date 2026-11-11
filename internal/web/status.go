@@ -111,16 +111,16 @@ type backupRow struct {
 func (s *Server) statusPage(w http.ResponseWriter, r *http.Request) {
 	d, err := s.statusData(r)
 	if err != nil {
-		s.fail(w, "status", err)
+		s.Fail(w, "status", err)
 		return
 	}
-	s.render(w, r, http.StatusOK, "status", Page{Title: "System Status", Data: d, Warn: strings.TrimSpace(s.proxyWarning(r) + " " + s.keyWarning(r))})
+	s.Render(w, r, http.StatusOK, "status", Page{Title: "System Status", Data: d, Warn: strings.TrimSpace(s.proxyWarning(r) + " " + s.keyWarning(r))})
 }
 
 func (s *Server) statusJSON(w http.ResponseWriter, r *http.Request) {
 	d, err := s.statusData(r)
 	if err != nil {
-		s.fail(w, "status json", err)
+		s.Fail(w, "status json", err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -132,11 +132,11 @@ func (s *Server) statusJSON(w http.ResponseWriter, r *http.Request) {
 // counts are since start unless the label says 24 h.
 func (s *Server) statusData(r *http.Request) (statusData, error) {
 	ctx := r.Context()
-	st, err := s.loadSettings(ctx)
+	st, err := s.LoadSettings(ctx)
 	if err != nil {
 		return statusData{}, err
 	}
-	loc, now := s.location(), time.Now()
+	loc, now := s.Location(), time.Now()
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 	up := now.Sub(metrics.Started())
@@ -161,11 +161,11 @@ func (s *Server) statusData(r *http.Request) (statusData, error) {
 	if t := metrics.Value("payment_callback_last_timestamp"); t > 0 {
 		d.PayLast = time.Unix(int64(t), 0).In(loc).Format(backupLayout)
 	}
-	if d.Open, err = s.queries.CountLiveRadiusSessions(ctx, now.Unix()-radius.StaleMax()); err != nil {
+	if d.Open, err = s.Queries.CountLiveRadiusSessions(ctx, now.Unix()-radius.StaleMax()); err != nil {
 		return d, err
 	}
 
-	if d.RouterPending, err = s.queries.CountRouterPending(ctx); err != nil {
+	if d.RouterPending, err = s.Queries.CountRouterPending(ctx); err != nil {
 		return d, err
 	}
 
@@ -191,7 +191,7 @@ func (s *Server) statusData(r *http.Request) (statusData, error) {
 
 	silent := 15
 	fmt.Sscanf(st["alert_nas_silent_minutes"], "%d", &silent)
-	nas, err := s.queries.ListNAS(ctx)
+	nas, err := s.Queries.ListNAS(ctx)
 	if err != nil {
 		return d, err
 	}
@@ -234,7 +234,7 @@ func (s *Server) statusData(r *http.Request) (statusData, error) {
 		Fail24h:   metrics.Recent("login_failures_total", 1440),
 		Fail10m:   metrics.Recent("login_failures_total", 10),
 		TwoFA:     metrics.Value("login_failures_total", "scope", "2fa"),
-		Locked:    s.lockedCount(),
+		Locked:    s.LockedCount(),
 		Forbidden: metrics.Value("radius_rest_forbidden_total"),
 	}
 

@@ -41,20 +41,20 @@ func (s *Server) sessRows(ss []db.RadiusSession, now int64) []sessRow {
 		}
 		// Input is what the NAS received from the user = upload.
 		out = append(out, sessRow{ID: x.ID, User: x.Username, NAS: x.NasIp, IP: x.FramedIp, MAC: x.Mac,
-			Start: s.ts(x.StartedAt), For: view.HumanDur(end - x.StartedAt),
+			Start: s.TS(x.StartedAt), For: view.HumanDur(end - x.StartedAt),
 			Up: view.HumanBytes(x.InputOctets), Down: view.HumanBytes(x.OutputOctets), Stale: stale})
 	}
 	return out
 }
 
 func (s *Server) radiusDisconnect(w http.ResponseWriter, r *http.Request) {
-	sess, err := s.queries.GetRadiusSession(r.Context(), httpx.PathID(r))
+	sess, err := s.Queries.GetRadiusSession(r.Context(), httpx.PathID(r))
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
-	if err := radius.Disconnect(r.Context(), s.queries, s.SecretKey, s.CoAPort, sess); err != nil {
-		s.putFailure(r, s.t("Disconnect failed")+". "+s.t(routerErr(err, msgNASOther)), err)
+	if err := radius.Disconnect(r.Context(), s.Queries, s.SecretKey, s.CoAPort, sess); err != nil {
+		s.putFailure(r, s.T("Disconnect failed")+". "+s.T(routerErr(err, msgNASOther)), err)
 		http.Redirect(w, r, "/admin/radius/sessions", http.StatusSeeOther)
 		return
 	}
@@ -67,21 +67,21 @@ func (s *Server) radiusDisconnectMany(w http.ResponseWriter, r *http.Request) {
 	const back = "/admin/radius/sessions"
 	ids, ok := httpx.ParseIDs(r)
 	if !ok {
-		s.sessions.Put(r.Context(), "error", s.t("Select at least one row"))
+		s.Sessions.Put(r.Context(), "error", s.T("Select at least one row"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
 	if len(ids) > maxDisconnectMany { // each CoA waits for its NAS, so the request must stay short
-		s.sessions.Put(r.Context(), "error", s.t("Select at most 100 sessions"))
+		s.Sessions.Put(r.Context(), "error", s.T("Select at most 100 sessions"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
 	var okN, failN int
 	var firstErr error
 	for _, id := range ids {
-		sess, err := s.queries.GetRadiusSession(r.Context(), id)
+		sess, err := s.Queries.GetRadiusSession(r.Context(), id)
 		if err == nil {
-			err = radius.Disconnect(r.Context(), s.queries, s.SecretKey, s.CoAPort, sess)
+			err = radius.Disconnect(r.Context(), s.Queries, s.SecretKey, s.CoAPort, sess)
 		}
 		if err != nil {
 			failN++
@@ -93,11 +93,11 @@ func (s *Server) radiusDisconnectMany(w http.ResponseWriter, r *http.Request) {
 		okN++
 	}
 	s.logActivity(r, "radius.disconnect_many", fmt.Sprintf("%d ok, %d failed", okN, failN))
-	msg := fmt.Sprintf(s.t("%d disconnected, %d failed"), okN, failN)
+	msg := fmt.Sprintf(s.T("%d disconnected, %d failed"), okN, failN)
 	if okN == 0 {
 		s.putFailure(r, msg, firstErr)
 	} else {
-		s.sessions.Put(r.Context(), "flash", msg)
+		s.Sessions.Put(r.Context(), "flash", msg)
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }

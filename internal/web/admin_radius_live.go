@@ -13,105 +13,10 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/radius"
 )
-
-// liveSample is the octet counters of a session at one interim update.
-type liveSample struct{ at, in, out int64 }
-
-// liveRate keeps the last two interim updates of an open session. Its rate is the change between them.
-type liveRate struct {
-	n          int // samples seen, at most 2
-	prev, last liveSample
-}
-
-// add records an interim update. An update that is not newer than the last one is not a new sample.
-func (r *liveRate) add(s liveSample) {
-	switch {
-	case r.n == 0:
-		r.last, r.n = s, 1
-	case s.at > r.last.at:
-		r.prev, r.last, r.n = r.last, s, 2
-	}
-}
-
-// bps is the download and upload rate in bits per second between the last two updates. ok is false
-// until two updates exist, or when the counters went backwards.
-func (r *liveRate) bps() (down, up float64, ok bool) {
-	if r.n < 2 {
-		return 0, 0, false
-	}
-	dt := r.last.at - r.prev.at
-	dOut, dIn := r.last.out-r.prev.out, r.last.in-r.prev.in
-	if dt <= 0 || dOut < 0 || dIn < 0 {
-		return 0, 0, false
-	}
-	return float64(dOut) * 8 / float64(dt), float64(dIn) * 8 / float64(dt), true
-}
-
-// liveMonitor is the in-memory state of the live view: the rate samples of the open sessions. The zero
-// value is ready to use.
-type liveMonitor struct {
-	mu    sync.Mutex
-	rates map[int64]*liveRate // open sessions only: refresh drops the rest
-	swept int64               // when observe last swept stale rate entries
-}
-
-// refresh records the counters of the open sessions and forgets the sessions that are no longer open.
-func (m *liveMonitor) refresh(open []db.RadiusSession) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	keep := make(map[int64]*liveRate, len(open))
-	for _, x := range open {
-		r := m.rates[x.ID]
-		if r == nil {
-			r = &liveRate{}
-		}
-		r.add(liveSample{x.UpdatedAt, x.InputOctets, x.OutputOctets})
-		keep[x.ID] = r
-	}
-	m.rates = keep
-}
-
-// observe records the counters of one open session, for the customer's live card. The other sessions keep
-// their samples. Entries of sessions silent for radius.StaleMax() are swept at most once a minute; the admin
-// refresh drops the rest.
-func (m *liveMonitor) observe(x db.RadiusSession, now int64) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.rates == nil {
-		m.rates = map[int64]*liveRate{}
-	}
-	if now-m.swept >= 60 {
-		m.swept = now
-		for id, r := range m.rates {
-			if now-r.last.at > radius.StaleMax() {
-				delete(m.rates, id)
-			}
-		}
-	}
-	r := m.rates[x.ID]
-	if r == nil {
-		r = &liveRate{}
-		m.rates[x.ID] = r
-	}
-	r.add(liveSample{x.UpdatedAt, x.InputOctets, x.OutputOctets})
-}
-
-// rate is the current rate of an open session, see liveRate.bps.
-func (m *liveMonitor) rate(id int64) (down, up float64, ok bool) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	r := m.rates[id]
-	if r == nil {
-		return 0, 0, false
-	}
-	return r.bps()
-}
 
 // speedMeter is the speed meter of a session: lit segments out of five, and their tone.
 type speedMeter struct {
@@ -261,11 +166,11 @@ func (s *Server) liveTilesOf(ctx context.Context, open []db.RadiusSession) (live
 	var t liveTiles
 	var err error
 	t.Online = len(open)
-	if t.ActiveSubs, err = s.queries.CountSubscriptionsByStatus(ctx, "active"); err != nil {
+	if t.ActiveSubs, err = s.Queries.CountSubscriptionsByStatus(ctx, "active"); err != nil {
 		return t, err
 	}
 	for _, x := range open {
-		if down, up, ok := s.live.rate(x.ID); ok {
+		if down, up, ok := s.Live.Rate(x.ID); ok {
 			t.Down += down
 			t.Up += up
 		}
@@ -279,7 +184,7 @@ func (s *Server) liveRows(ss []db.RadiusSession, now int64, plans map[string]pla
 	rows := s.sessRows(ss, now)
 	for i, x := range ss {
 		plan := plans[x.Username]
-		down, up, ok := s.live.rate(x.ID)
+		down, up, ok := s.Live.Rate(x.ID)
 		var m speedMeter
 		rows[i].Plan = plan.Name
 		rows[i].Speed, m = speedOf(down, up, ok, plan)
@@ -294,25 +199,25 @@ func (s *Server) liveLoad(r *http.Request) (liveView, string, error) {
 	q, pg := paging(r)
 	now := time.Now().Unix()
 	// All open sessions: they feed the tiles and the rate samples. The page is a filtered slice of them.
-	open, err := s.queries.SearchOpenRadiusSessions(ctx, db.SearchOpenRadiusSessionsParams{PageLimit: -1})
+	open, err := s.Queries.SearchOpenRadiusSessions(ctx, db.SearchOpenRadiusSessionsParams{PageLimit: -1})
 	if err != nil {
 		return liveView{}, q, err
 	}
-	planRows, err := s.queries.ListActivePlanRates(ctx)
+	planRows, err := s.Queries.ListActivePlanRates(ctx)
 	if err != nil {
 		return liveView{}, q, err
 	}
 	plans := planSpeeds(planRows)
-	s.live.refresh(open)
+	s.Live.Refresh(open)
 	var v liveView
 	if v.Tiles, err = s.liveTilesOf(ctx, open); err != nil {
 		return liveView{}, q, err
 	}
-	ss, err := s.queries.SearchOpenRadiusSessions(ctx, db.SearchOpenRadiusSessionsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
+	ss, err := s.Queries.SearchOpenRadiusSessions(ctx, db.SearchOpenRadiusSessionsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
 	if err != nil {
 		return liveView{}, q, err
 	}
-	total, err := s.queries.CountOpenRadiusSessions(ctx, q)
+	total, err := s.Queries.CountOpenRadiusSessions(ctx, q)
 	if err != nil {
 		return liveView{}, q, err
 	}
@@ -331,15 +236,15 @@ func (s *Server) liveLoad(r *http.Request) (liveView, string, error) {
 func (s *Server) radiusSessions(w http.ResponseWriter, r *http.Request) {
 	v, q, err := s.liveLoad(r)
 	if err != nil {
-		s.fail(w, "list radius sessions", err)
+		s.Fail(w, "list radius sessions", err)
 		return
 	}
 	state, _ := json.Marshal(struct {
 		Tiles liveTiles `json:"tiles"`
 	}{v.Tiles})
 	d := liveData{Q: q, State: string(state), Blank: sessRow{Bars: speedMeter{}.bars()}, liveView: v}
-	s.render(w, r, http.StatusOK, "radius_sessions", Page{Title: "Online Sessions",
-		Flash: s.sessions.PopString(r.Context(), "flash"), Error: s.sessions.PopString(r.Context(), "error"), Data: d})
+	s.Render(w, r, http.StatusOK, "radius_sessions", Page{Title: "Online Sessions",
+		Flash: s.Sessions.PopString(r.Context(), "flash"), Error: s.Sessions.PopString(r.Context(), "error"), Data: d})
 }
 
 // radiusSessionsJSON is the live view as JSON, polled by the page. It needs the same login and takes the same filter.

@@ -119,7 +119,7 @@ func TestUIKeysAreEnglish(t *testing.T) {
 // values such as the default isolir message) and scripts are left out; only the visible text is checked.
 func TestEnglishAdminPagesHaveNoIndonesian(t *testing.T) {
 	s, _ := newTestApp(t)
-	s.lang.Store("english")
+	s.Lang.Store("english")
 	h := s.Handler()
 	cookie := login(t, h, "alice")
 	visible := regexp.MustCompile(`(?s)<textarea.*?</textarea>|<script.*?</script>|<style.*?</style>|<[^>]*>`)

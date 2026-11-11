@@ -34,16 +34,6 @@ type dashData struct {
 	dashWidgets
 }
 
-// attnItem is one admin bell row: Kind is its English label (the template translates it), Count how many,
-// Href where it leads. Err marks a service that is down (red); Mgr hides it below Admin.
-type attnItem struct {
-	Kind  string
-	Count int
-	Href  string
-	Err   bool
-	Mgr   bool
-}
-
 const (
 	lowVoucherStock = 5                // plans with fewer unused vouchers than this are flagged
 	expiryJobStale  = 15 * time.Minute // the expiry job writes expiry_last_run every minute
@@ -55,16 +45,16 @@ const (
 func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 	d, err := s.dashboardData(r.Context(), time.Now())
 	if err != nil {
-		s.fail(w, "dashboard", err)
+		s.Fail(w, "dashboard", err)
 		return
 	}
 	if s.ClockWarning != nil {
 		d.Warn = s.ClockWarning()
 	}
-	s.render(w, r, http.StatusOK, "dashboard", Page{
+	s.Render(w, r, http.StatusOK, "dashboard", Page{
 		Title: "Dashboard",
 		Data:  d,
-		Flash: s.sessions.PopString(r.Context(), "flash"),
+		Flash: s.Sessions.PopString(r.Context(), "flash"),
 	})
 }
 
@@ -72,10 +62,10 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 // (2 to 28) when set, as PHP dashboard.php:29-35. resetDay is 0 for the calendar month. The dashboard and the
 // Period Report both start here, so their numbers match.
 func (s *Server) cycleStart(ctx context.Context, now time.Time) (start time.Time, resetDay int) {
-	loc := s.location()
+	loc := s.Location()
 	now = now.In(loc)
 	start = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
-	if st, err := s.loadSettings(ctx); err == nil {
+	if st, err := s.LoadSettings(ctx); err == nil {
 		if rd, _ := strconv.Atoi(st["reset_day"]); rd > 1 && rd <= 28 {
 			resetDay = rd
 			start = start.AddDate(0, 0, rd-1)
@@ -89,14 +79,14 @@ func (s *Server) cycleStart(ctx context.Context, now time.Time) (start time.Time
 
 // dashboardData gathers the tiles and the per-month series of the last 12 months in the app location.
 func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, err error) {
-	loc := s.location()
+	loc := s.Location()
 	now = now.In(loc)
 	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	month := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
 	start, rd := s.cycleStart(ctx, now)
 	d.ResetDay = rd
 	sum := func(from, to time.Time) (int64, error) {
-		return s.queries.SumTransactionsBetween(ctx, db.SumTransactionsBetweenParams{FromTs: from.Unix(), ToTs: to.Unix()})
+		return s.Queries.SumTransactionsBetween(ctx, db.SumTransactionsBetweenParams{FromTs: from.Unix(), ToTs: to.Unix()})
 	}
 	if d.IncomeToday, err = sum(day, day.AddDate(0, 0, 1)); err != nil {
 		return
@@ -104,16 +94,16 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 	if d.IncomeMonth, err = sum(start, day.AddDate(0, 0, 1)); err != nil {
 		return
 	}
-	if d.ActiveSubs, err = s.queries.CountSubscriptionsByStatus(ctx, "active"); err != nil {
+	if d.ActiveSubs, err = s.Queries.CountSubscriptionsByStatus(ctx, "active"); err != nil {
 		return
 	}
-	if d.ExpiredSubs, err = s.queries.CountSubscriptionsByStatus(ctx, "expired"); err != nil {
+	if d.ExpiredSubs, err = s.Queries.CountSubscriptionsByStatus(ctx, "expired"); err != nil {
 		return
 	}
-	if d.Customers, err = s.queries.CountCustomers(ctx); err != nil {
+	if d.Customers, err = s.Queries.CountCustomers(ctx); err != nil {
 		return
 	}
-	if d.OnlineNow, err = s.queries.CountOpenRadiusSessions(ctx, ""); err != nil {
+	if d.OnlineNow, err = s.Queries.CountOpenRadiusSessions(ctx, ""); err != nil {
 		return
 	}
 	d.Year = now.Year()
@@ -124,8 +114,8 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 	for m := 0; m < 12; m++ {
 		from := month.AddDate(0, m-11, 0)
 		to := from.AddDate(0, 1, 0)
-		labels[m] = s.t(from.Month().String()[:3]) + from.Format(" 06")
-		if regs[m], err = s.queries.CountCustomersBetween(ctx, db.CountCustomersBetweenParams{CreatedAt: from.Unix(), CreatedAt_2: to.Unix()}); err != nil {
+		labels[m] = s.T(from.Month().String()[:3]) + from.Format(" 06")
+		if regs[m], err = s.Queries.CountCustomersBetween(ctx, db.CountCustomersBetweenParams{CreatedAt: from.Unix(), CreatedAt_2: to.Unix()}); err != nil {
 			return
 		}
 		if sales[m], err = sum(from, to); err != nil {
@@ -163,14 +153,14 @@ func (s *Server) bellItems(ctx context.Context, now time.Time) ([]attnItem, erro
 
 // noticeCounts runs the queries behind the bell. An item appears only when its count is above zero.
 func (s *Server) noticeCounts(ctx context.Context, now time.Time) ([]attnItem, error) {
-	loc := s.location()
+	loc := s.Location()
 	now = now.In(loc)
 	y, m, d := now.Date()
 	midnight := time.Date(y, m, d, 0, 0, 0, 0, loc)
 	endToday := midnight.AddDate(0, 0, 1).Unix() - 1
 	// "expired in the last 3 days": today and the two calendar days before it
 	threeDaysAgo := midnight.AddDate(0, 0, -2).Unix()
-	settings, err := s.loadSettings(ctx)
+	settings, err := s.LoadSettings(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -179,15 +169,15 @@ func (s *Server) noticeCounts(ctx context.Context, now time.Time) ([]attnItem, e
 		return nil, err
 	}
 	// ponytail: both lists are capped at dashListLimit rows by their queries, so the counts top out there; a COUNT query is the upgrade.
-	ending, err := s.queries.ListExpiringSubscriptions(ctx, db.ListExpiringSubscriptionsParams{Since: now.Unix(), Until: endToday, PageLimit: dashListLimit})
+	ending, err := s.Queries.ListExpiringSubscriptions(ctx, db.ListExpiringSubscriptionsParams{Since: now.Unix(), Until: endToday, PageLimit: dashListLimit})
 	if err != nil {
 		return nil, err
 	}
-	ended, err := s.queries.ListRecentlyExpiredSubscriptions(ctx, db.ListRecentlyExpiredSubscriptionsParams{Since: threeDaysAgo, Until: now.Unix(), PageLimit: dashListLimit})
+	ended, err := s.Queries.ListRecentlyExpiredSubscriptions(ctx, db.ListRecentlyExpiredSubscriptionsParams{Since: threeDaysAgo, Until: now.Unix(), PageLimit: dashListLimit})
 	if err != nil {
 		return nil, err
 	}
-	vouchers, err := s.queries.VoucherStockByPlan(ctx)
+	vouchers, err := s.Queries.VoucherStockByPlan(ctx)
 	if err != nil {
 		return nil, err
 	}

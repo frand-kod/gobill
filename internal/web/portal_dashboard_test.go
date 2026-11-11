@@ -14,7 +14,7 @@ import (
 // englishApp is billApp with English pages (the test app defaults to Indonesian).
 func englishApp(t *testing.T) *billEnv {
 	e := billApp(t)
-	e.s.lang.Store("english")
+	e.s.Lang.Store("english")
 	return e
 }
 
@@ -285,7 +285,7 @@ func TestPortalLastLoginRecorded(t *testing.T) {
 	if !cu.LastLoginAt.Valid || cu.LastLoginAt.Int64 < before {
 		t.Fatalf("last login not recorded: %+v", cu.LastLoginAt)
 	}
-	if body := portalGet(t, e, c, "/portal/profile"); !strings.Contains(body, "Last Login: "+e.s.ts(cu.LastLoginAt.Int64)) {
+	if body := portalGet(t, e, c, "/portal/profile"); !strings.Contains(body, "Last Login: "+e.s.TS(cu.LastLoginAt.Int64)) {
 		t.Fatal("profile lacks the last login")
 	}
 }

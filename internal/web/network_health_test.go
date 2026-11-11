@@ -61,7 +61,7 @@ func mkSession(t *testing.T, s *Server, nasIP string, updated int64, stopped boo
 
 func TestNetworkCardRowsAndStatus(t *testing.T) {
 	s, _, q, _, _ := healthApp(t, nil)
-	now := time.Date(2026, 10, 10, 12, 0, 0, 0, s.location())
+	now := time.Date(2026, 10, 10, 12, 0, 0, 0, s.Location())
 	on, off := sql.NullInt64{Int64: 1, Valid: true}, sql.NullInt64{Int64: 0, Valid: true}
 	seen := sql.NullInt64{Int64: now.Unix() - 120, Valid: true}
 	mkRouter(t, q, "core", 1, "api", on, seen)
@@ -191,14 +191,14 @@ func TestNetworkLiveCheck(t *testing.T) {
 	if got, _ := q.GetRouter(t.Context(), r.ID); got.Online.Int64 != 1 || !got.LastSeenAt.Valid {
 		t.Fatalf("check not recorded: %+v %+v", got.Online, got.LastSeenAt)
 	}
-	if strings.Contains(body, "Never seen online") || strings.Contains(body, s.catalog.T(s.language(), "Never seen online")) {
+	if strings.Contains(body, "Never seen online") || strings.Contains(body, s.Catalog.T(s.Language(), "Never seen online")) {
 		t.Fatal("status card still says never seen after a successful check")
 	}
 
 	// a timeout is mapped to the plain message; the raw text stays in technical details
 	fail = errors.New("dial tcp 10.1.0.1:8728: i/o timeout")
 	body = do(h, "POST", check, nil, c).Body.String()
-	if !strings.Contains(body, s.catalog.T(s.language(), msgRouterTimeout)) || !strings.Contains(body, "i/o timeout") {
+	if !strings.Contains(body, s.Catalog.T(s.Language(), msgRouterTimeout)) || !strings.Contains(body, "i/o timeout") {
 		t.Fatalf("timeout not mapped: %s", body)
 	}
 	if strings.Contains(body, "7.14.3") {

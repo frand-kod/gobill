@@ -41,7 +41,7 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 	g := r.URL.Query().Get
 	rts, err := s.routerNames(r)
 	if err != nil {
-		s.fail(w, "list routers", err)
+		s.Fail(w, "list routers", err)
 		return
 	}
 	routers := []option{{"", "Router"}}
@@ -50,14 +50,14 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 	}
 	sort, dir, param := listSort(r, "username", "plan", "created", "expires")
 	p.Sort = param
-	rows, err := s.queries.FilterSubscriptions(r.Context(), p)
+	rows, err := s.Queries.FilterSubscriptions(r.Context(), p)
 	if err != nil {
-		s.fail(w, "list subscriptions", err)
+		s.Fail(w, "list subscriptions", err)
 		return
 	}
 	planOpts, _, err := s.planOptions(r, false)
 	if err != nil {
-		s.fail(w, "list plans", err)
+		s.Fail(w, "list plans", err)
 		return
 	}
 	plans := append([]option{{"", "Plan"}}, planOpts...)
@@ -76,12 +76,12 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 		lp.Actions = lp.Actions[1:]
 	}
 	for _, x := range rows {
-		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Username, x.PlanName, x.Type, s.ts(x.StartedAt), s.subExpiry(x.PendingStart, x.ExpiresAt), x.Method, x.RouterName, x.Status}})
+		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Username, x.PlanName, x.Type, s.TS(x.StartedAt), s.SubExpiry(x.PendingStart, x.ExpiresAt), x.Method, x.RouterName, x.Status}})
 	}
 	lp.Links = []option{{"/admin/subscriptions/export?" + lp.query().Encode(), "Export CSV"}}
-	total, err := s.queries.CountFilteredSubscriptions(r.Context(), db.CountFilteredSubscriptionsParams{Q: p.Q, Status: p.Status, Type: p.Type, RouterID: p.RouterID, PlanID: p.PlanID})
+	total, err := s.Queries.CountFilteredSubscriptions(r.Context(), db.CountFilteredSubscriptionsParams{Q: p.Q, Status: p.Status, Type: p.Type, RouterID: p.RouterID, PlanID: p.PlanID})
 	if err != nil {
-		s.fail(w, "count subscriptions", err)
+		s.Fail(w, "count subscriptions", err)
 		return
 	}
 	lp.finish(pg, total)
@@ -92,9 +92,9 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 func (s *Server) subExport(w http.ResponseWriter, r *http.Request) {
 	p := subQuery(r)
 	p.PageLimit = -1
-	rows, err := s.queries.FilterSubscriptions(r.Context(), p)
+	rows, err := s.Queries.FilterSubscriptions(r.Context(), p)
 	if err != nil {
-		s.fail(w, "export subscriptions", err)
+		s.Fail(w, "export subscriptions", err)
 		return
 	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
@@ -102,7 +102,7 @@ func (s *Server) subExport(w http.ResponseWriter, r *http.Request) {
 	cw := csv.NewWriter(w)
 	cw.Write([]string{"Username", "Plan Name", "Type", "Created On", "Expires On", "Method", "Location", "Status"})
 	for _, x := range rows {
-		rec := []string{x.Username, x.PlanName, x.Type, s.ts(x.StartedAt), s.ts(x.ExpiresAt), x.Method, x.RouterName, x.Status}
+		rec := []string{x.Username, x.PlanName, x.Type, s.TS(x.StartedAt), s.TS(x.ExpiresAt), x.Method, x.RouterName, x.Status}
 		httpx.CSVSafe(rec)
 		cw.Write(rec)
 	}
@@ -125,17 +125,17 @@ func (s *Server) subFields(r *http.Request, v, e map[string]string) ([]field, er
 }
 
 func (s *Server) subGet(w http.ResponseWriter, r *http.Request) (sub db.Subscription, username string, ok bool) {
-	sub, err := s.queries.GetSubscription(r.Context(), httpx.PathID(r))
+	sub, err := s.Queries.GetSubscription(r.Context(), httpx.PathID(r))
 	if err == nil {
 		var c db.Customer
-		if c, err = s.queries.GetCustomer(r.Context(), sub.CustomerID); err == nil {
+		if c, err = s.Queries.GetCustomer(r.Context(), sub.CustomerID); err == nil {
 			return sub, c.Username, true
 		}
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		http.NotFound(w, r)
 	} else {
-		s.fail(w, "get subscription", err)
+		s.Fail(w, "get subscription", err)
 	}
 	return sub, "", false
 }
@@ -145,14 +145,14 @@ func (s *Server) subEdit(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	v := map[string]string{"plan": fmt.Sprint(sub.PlanID), "expires_at": time.Unix(sub.ExpiresAt, 0).In(s.location()).Format(localTime)}
+	v := map[string]string{"plan": fmt.Sprint(sub.PlanID), "expires_at": time.Unix(sub.ExpiresAt, 0).In(s.Location()).Format(localTime)}
 	s.subForm(w, r, 200, sub.ID, user, v, nil)
 }
 
 func (s *Server) subForm(w http.ResponseWriter, r *http.Request, code int, id int64, user string, v, e map[string]string) {
 	fs, err := s.subFields(r, v, e)
 	if err != nil {
-		s.fail(w, "subscription form", err)
+		s.Fail(w, "subscription form", err)
 		return
 	}
 	s.renderForm(w, r, code, formPage{"Edit Subscription: " + user, fmt.Sprint("/admin/subscriptions/", id), "/admin/subscriptions", fs})
@@ -168,7 +168,7 @@ func (s *Server) subSave(w http.ResponseWriter, r *http.Request) {
 	if !valid {
 		e["plan"] = "Invalid value"
 	}
-	exp, err := time.ParseInLocation(localTime, v["expires_at"], s.location())
+	exp, err := time.ParseInLocation(localTime, v["expires_at"], s.Location())
 	if err != nil {
 		e["expires_at"] = "Invalid value"
 	} else if exp.Unix() == sub.ExpiresAt-sub.ExpiresAt%60 { // the form shows minutes only: an untouched date keeps its seconds (and the expiry notice)
@@ -176,14 +176,14 @@ func (s *Server) subSave(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(e) == 0 {
 		if s.Billing == nil {
-			s.fail(w, "edit subscription", errors.New("billing service not configured"))
+			s.Fail(w, "edit subscription", errors.New("billing service not configured"))
 			return
 		}
 		if err = s.Billing.EditSubscription(r.Context(), sub.ID, planID, exp, adminFrom(r).ID); err != nil {
 			slog.Error("edit subscription", "id", sub.ID, "err", err)
 			e["expires_at"] = "Could not save, check the plan and the date"
 		} else {
-			s.sessions.Put(r.Context(), "flash", s.t("Data Updated Successfully"))
+			s.Sessions.Put(r.Context(), "flash", s.T("Data Updated Successfully"))
 			http.Redirect(w, r, "/admin/subscriptions", http.StatusSeeOther)
 			return
 		}
@@ -197,7 +197,7 @@ func (s *Server) subAct(w http.ResponseWriter, r *http.Request, do func(id int64
 	back := "/admin/subscriptions"
 	msg := "Data Updated Successfully"
 	if s.Billing == nil {
-		s.fail(w, "subscription action", errors.New("billing service not configured"))
+		s.Fail(w, "subscription action", errors.New("billing service not configured"))
 		return
 	}
 	key := "flash"
@@ -208,13 +208,13 @@ func (s *Server) subAct(w http.ResponseWriter, r *http.Request, do func(id int64
 		slog.Error("subscription action", "path", r.URL.Path, "err", err)
 		key, msg = "error", "Action failed"
 	}
-	s.sessions.Put(r.Context(), key, s.t(msg))
+	s.Sessions.Put(r.Context(), key, s.T(msg))
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
 // canExtend applies the admin_extend setting: who may add free days from the subscriptions list.
 func (s *Server) canExtend(r *http.Request) bool {
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
 		return false
 	}
@@ -237,7 +237,7 @@ func (s *Server) subExtend(w http.ResponseWriter, r *http.Request) {
 	}
 	days, err := strconv.Atoi(r.PostFormValue("days"))
 	if err != nil || days < 1 || days > 3650 {
-		s.sessions.Put(r.Context(), "error", s.t("Enter a number greater than 0"))
+		s.Sessions.Put(r.Context(), "error", s.T("Enter a number greater than 0"))
 		http.Redirect(w, r, "/admin/subscriptions", http.StatusSeeOther)
 		return
 	}

@@ -85,7 +85,7 @@ func TestDashboardTileNamesOfflineRouters(t *testing.T) {
 func TestImportFallbackFormAsksStepUp(t *testing.T) {
 	s, _ := newTestApp(t)
 	// the render reads the session and the admin from the request, as the real handler chain sets them
-	h := s.sessions.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := s.Sessions.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r = r.WithContext(context.WithValue(r.Context(), ctxKey{}, &db.Admin{Role: "SuperAdmin", TotpEnabled: 1}))
 		s.renderImport(w, r, http.StatusOK, importView{Token: "0123456789abcdef0123456789abcdef", Filled: false}, "", "")
 	}))

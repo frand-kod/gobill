@@ -1,8 +1,6 @@
 package web
 
 import (
-	"github.com/frand-kod/gobill/internal/db"
-	"golang.org/x/crypto/bcrypt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -10,6 +8,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/core"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // postFrom posts a form as a TCP peer; hdr are extra request headers.
@@ -29,7 +31,7 @@ func TestAttackerIPCannotLockAdminElsewhere(t *testing.T) {
 	s, _ := newTestApp(t)
 	h := s.Handler()
 	bad := url.Values{"username": {"alice"}, "password": {"wrong"}}
-	for i := 0; i < maxFailedLogins; i++ {
+	for i := 0; i < core.MaxFailedLogins; i++ {
 		postFrom(h, "198.51.100.9:1", "/admin/login", bad)
 	}
 	// same-IP brute force stays blocked, even with the right password
@@ -45,19 +47,19 @@ func TestAttackerIPCannotLockAdminElsewhere(t *testing.T) {
 
 func TestUserDelayGrowsAndCaps(t *testing.T) {
 	s, _ := newTestApp(t)
-	oldStep, oldMax := loginDelayStep, loginDelayMax
-	loginDelayStep, loginDelayMax = 20*time.Millisecond, 50*time.Millisecond
-	t.Cleanup(func() { loginDelayStep, loginDelayMax = oldStep, oldMax })
-	for i := 0; i < maxFailedLogins; i++ {
-		s.recordFailure("u:alice")
+	oldStep, oldMax := core.LoginDelayStep, core.LoginDelayMax
+	core.LoginDelayStep, core.LoginDelayMax = 20*time.Millisecond, 50*time.Millisecond
+	t.Cleanup(func() { core.LoginDelayStep, core.LoginDelayMax = oldStep, oldMax })
+	for i := 0; i < core.MaxFailedLogins; i++ {
+		s.RecordFailure("u:alice")
 	}
 	start := time.Now()
-	s.userDelay("u:alice")
+	s.UserDelay("u:alice")
 	if d := time.Since(start); d < 50*time.Millisecond || d > time.Second {
 		t.Fatalf("delay %v, want the 50ms cap", d)
 	}
-	if s.lockedCount() != 0 {
-		t.Fatalf("username key counted as locked: %d", s.lockedCount())
+	if s.LockedCount() != 0 {
+		t.Fatalf("username key counted as locked: %d", s.LockedCount())
 	}
 }
 
@@ -98,9 +100,9 @@ func portalCGNAT(t *testing.T) (http.Handler, *Server) {
 			t.Fatal(err)
 		}
 	}
-	oldStep := loginDelayStep
-	loginDelayStep = 0
-	t.Cleanup(func() { loginDelayStep = oldStep })
+	oldStep := core.LoginDelayStep
+	core.LoginDelayStep = 0
+	t.Cleanup(func() { core.LoginDelayStep = oldStep })
 	return s.Handler(), s
 }
 
@@ -111,7 +113,7 @@ func plogin(h http.Handler, peer, user, pw string) int {
 func TestPortalLockIsPerUserBehindCGNAT(t *testing.T) {
 	h, s := portalCGNAT(t)
 	const nat = "198.51.100.9:1"
-	for i := 0; i < maxFailedLogins; i++ {
+	for i := 0; i < core.MaxFailedLogins; i++ {
 		plogin(h, nat, " ANN ", "wrong")
 	}
 	// correct password still refused while the window runs (username is normalized)
@@ -123,14 +125,14 @@ func TestPortalLockIsPerUserBehindCGNAT(t *testing.T) {
 		t.Fatalf("innocent user on shared IP got %d", c)
 	}
 	// once the window passes, ann can log in again
-	s.mu.Lock()
-	for k, v := range s.failed {
+	s.Mu.Lock()
+	for k, v := range s.Failed {
 		for i := range v {
-			v[i] = v[i].Add(-loginWindow - time.Second)
+			v[i] = v[i].Add(-core.LoginWindow - time.Second)
 		}
-		s.failed[k] = v
+		s.Failed[k] = v
 	}
-	s.mu.Unlock()
+	s.Mu.Unlock()
 	if c := plogin(h, nat, "ann", "pw123456"); c != http.StatusSeeOther {
 		t.Fatalf("still locked after window: %d", c)
 	}
@@ -139,7 +141,7 @@ func TestPortalLockIsPerUserBehindCGNAT(t *testing.T) {
 func TestPortalPerIPCapStopsSpraying(t *testing.T) {
 	h, _ := portalCGNAT(t)
 	const nat = "198.51.100.9:1"
-	for i := 0; i < maxFailedPerIP; i++ {
+	for i := 0; i < core.MaxFailedPerIP; i++ {
 		plogin(h, nat, "ghost"+strconv.Itoa(i), "wrong")
 	}
 	if c := plogin(h, nat, "bob", "pw123456"); c != http.StatusTooManyRequests {

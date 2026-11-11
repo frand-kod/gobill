@@ -141,7 +141,7 @@ func TestDiagnose(t *testing.T) {
 		subs, _ := q.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 50})
 		return s.diagnose(ctx, c, subs, "")
 	}
-	tr := func(k string) string { return s.catalog.T(s.language(), k) }
+	tr := func(k string) string { return s.Catalog.T(s.Language(), k) }
 	level := func(d diagnose.Diagnosis, label string) string {
 		for _, it := range d.Items {
 			if it.Label == label {

@@ -24,13 +24,13 @@ func migTested(id int64) string { return fmt.Sprint("mig_tested_", id) }
 func (s *Server) migFail(w http.ResponseWriter, r *http.Request, back string, err error) {
 	switch {
 	case errors.Is(err, billing.ErrRadiusRouter):
-		s.sessions.Put(r.Context(), "error", s.t("Router is in RADIUS mode, nothing to migrate"))
+		s.Sessions.Put(r.Context(), "error", s.T("Router is in RADIUS mode, nothing to migrate"))
 	case errors.Is(err, billing.ErrMigNoAccounts):
-		s.sessions.Put(r.Context(), "error", s.t("The router has no local account of a gobill customer to migrate"))
+		s.Sessions.Put(r.Context(), "error", s.T("The router has no local account of a gobill customer to migrate"))
 	case errors.Is(err, billing.ErrMigOrder):
-		s.sessions.Put(r.Context(), "error", s.t("This step is not allowed now. Follow the steps in order"))
+		s.Sessions.Put(r.Context(), "error", s.T("This step is not allowed now. Follow the steps in order"))
 	default:
-		s.putFailure(r, s.t("The router step failed, check the router before going on")+". "+s.t(routerErr(err, msgRouterOther)), err)
+		s.putFailure(r, s.T("The router step failed, check the router before going on")+". "+s.T(routerErr(err, msgRouterOther)), err)
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
@@ -38,27 +38,27 @@ func (s *Server) migFail(w http.ResponseWriter, r *http.Request, back string, er
 // routerMigration is GET /admin/routers/{id}/migration: where the router is, the step 1 test, the
 // buttons that are allowed now and the hotspot walled garden block.
 func (s *Server) routerMigration(w http.ResponseWriter, r *http.Request) {
-	x, err := s.queries.GetRouter(r.Context(), httpx.PathID(r))
+	x, err := s.Queries.GetRouter(r.Context(), httpx.PathID(r))
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 	if s.Billing == nil {
-		s.sessions.Put(r.Context(), "error", s.t("Router connection is not configured"))
+		s.Sessions.Put(r.Context(), "error", s.T("Router connection is not configured"))
 		http.Redirect(w, r, "/admin/routers", http.StatusSeeOther)
 		return
 	}
 	base := fmt.Sprint("/admin/routers/", x.ID, "/migration")
 	st := s.Billing.Migration(r.Context(), x.ID)
-	where := []string{s.t("Not started"), s.t("Step 1 done: login tested"), s.t("Step 2 done: use-radius is on"), s.t("Step 3 done: local accounts are disabled")}[st.Step]
+	where := []string{s.T("Not started"), s.T("Step 1 done: login tested"), s.T("Step 2 done: use-radius is on"), s.T("Step 3 done: local accounts are disabled")}[st.Step]
 	if st.At != 0 {
-		where += " (" + s.ts(st.At) + ")"
+		where += " (" + s.TS(st.At) + ")"
 	}
-	sec1, sec2 := s.t("Step 1: test a login"), s.t("Steps 2 and 3, rollback")
-	out := []field{{Name: "mig_state", Label: s.t("Where this router is"), Type: "pre", Value: x.Name + ": " + where,
+	sec1, sec2 := s.T("Step 1: test a login"), s.T("Steps 2 and 3, rollback")
+	out := []field{{Name: "mig_state", Label: s.T("Where this router is"), Type: "pre", Value: x.Name + ": " + where,
 		Hint: "Local accounts are only disabled, never deleted. Running sessions are not cut: they move to RADIUS when they log in again."}}
-	if res := s.sessions.PopString(r.Context(), "mig_result"); res != "" {
-		out = append(out, field{Name: "mig_result", Label: s.t("Test result"), Type: "pre", Value: res})
+	if res := s.Sessions.PopString(r.Context(), "mig_result"); res != "" {
+		out = append(out, field{Name: "mig_result", Label: s.T("Test result"), Type: "pre", Value: res})
 	}
 	_, accts, err := s.Billing.MigrationAccounts(r.Context(), x.ID)
 	var opts []option
@@ -71,16 +71,16 @@ func (s *Server) routerMigration(w http.ResponseWriter, r *http.Request) {
 		out = append(out, field{Name: "account", Label: "Account to test", Type: "select", Value: opts[0].Value, Options: opts, Section: sec1,
 			Hint: "gobill checks the router's own password of this account through its RADIUS login. The router is not changed. Press Save to run the test."})
 	case errors.Is(err, billing.ErrRadiusRouter):
-		out = append(out, field{Name: "mig_none", Label: s.t("Router is in RADIUS mode, nothing to migrate"), Type: "note", Section: sec1})
+		out = append(out, field{Name: "mig_none", Label: s.T("Router is in RADIUS mode, nothing to migrate"), Type: "note", Section: sec1})
 	case errors.Is(err, billing.ErrMigNoAccounts):
-		out = append(out, field{Name: "mig_none", Label: s.t("The router has no local account of a gobill customer to migrate"), Type: "note", Section: sec1})
+		out = append(out, field{Name: "mig_none", Label: s.T("The router has no local account of a gobill customer to migrate"), Type: "note", Section: sec1})
 	default:
-		out = append(out, field{Name: "mig_none", Label: s.t("Could not read the router, nothing was changed") + ": " + s.t(routerErr(err, msgRouterOther)), Type: "note", Section: sec1})
+		out = append(out, field{Name: "mig_none", Label: s.T("Could not read the router, nothing was changed") + ": " + s.T(routerErr(err, msgRouterOther)), Type: "note", Section: sec1})
 	}
 	btn := func(name, label, act, confirm string) field {
 		return field{Name: name, Type: "formbtn", Section: sec2, Value: base + "/" + act, Btn: label, Confirm: confirm}
 	}
-	tested := s.sessions.GetBool(r.Context(), migTested(x.ID))
+	tested := s.Sessions.GetBool(r.Context(), migTested(x.ID))
 	if st.Step == 1 && tested {
 		out = append(out, btn("mig_switch", "Step 2: turn on use-radius", "switch", ""))
 	}
@@ -90,14 +90,14 @@ func (s *Server) routerMigration(w http.ResponseWriter, r *http.Request) {
 	if st.Step >= 1 {
 		out = append(out, btn("mig_rollback", "Roll back", "rollback", "Turn use-radius off and enable the local accounts again? Nothing is deleted."))
 	}
-	if sets, err := s.loadSettings(r.Context()); err == nil {
+	if sets, err := s.LoadSettings(r.Context()); err == nil {
 		host, port := s.gobillAddr()
 		var b strings.Builder
 		fmt.Fprintf(&b, "/ip hotspot walled-garden ip add dst-address=%s dst-port=%s action=accept", host, port)
 		for _, h := range isolir.HostLines(isolir.Value(sets, "isolir_allow_hosts")) {
 			fmt.Fprintf(&b, "\n/ip hotspot walled-garden add dst-host=%s action=allow", h)
 		}
-		out = append(out, field{Name: "mig_walled", Label: "Hotspot walled garden for the payment and isolir pages", Type: "pre", Section: s.t("Hotspot only"), Value: b.String(),
+		out = append(out, field{Name: "mig_walled", Label: "Hotspot walled garden for the payment and isolir pages", Type: "pre", Section: s.T("Hotspot only"), Value: b.String(),
 			Hint: "Paste this on the router yourself: gobill does not apply it. The payment page and the isolir page are served by gobill at the first line. If customers pay with a payment gateway, also allow the gateway hosts."})
 	}
 	s.renderForm(w, r, 200, formPage{"Migrate router to RADIUS", form, "/admin/routers", out})
@@ -106,7 +106,7 @@ func (s *Server) routerMigration(w http.ResponseWriter, r *http.Request) {
 // routerMigrationAct is POST /admin/routers/{id}/migration/{act} for test, switch, disable and rollback.
 // switch and disable first show what will happen and apply only when that page was confirmed.
 func (s *Server) routerMigrationAct(w http.ResponseWriter, r *http.Request) {
-	x, err := s.queries.GetRouter(r.Context(), httpx.PathID(r))
+	x, err := s.Queries.GetRouter(r.Context(), httpx.PathID(r))
 	if err != nil || s.Billing == nil {
 		http.NotFound(w, r)
 		return
@@ -126,7 +126,7 @@ func (s *Server) routerMigrationAct(w http.ResponseWriter, r *http.Request) {
 		rs := s.radiusServer()
 		reject, err := s.Billing.MigrationTest(ctx, x.ID, key, func(user, pw string) string {
 			if pw == "" || pw == user { // a voucher-style login would redeem a voucher
-				return s.t("This account uses its username as password (voucher style), test another one")
+				return s.T("This account uses its username as password (voucher style), test another one")
 			}
 			d = rs.Authorize(ctx, radius.AuthRequest{User: user, DryRun: true,
 				Check: func(stored []byte) (bool, string) { return subtle.ConstantTimeCompare([]byte(pw), stored) == 1, "" }})
@@ -136,16 +136,16 @@ func (s *Server) routerMigrationAct(w http.ResponseWriter, r *http.Request) {
 			s.migFail(w, r, back, err)
 			return
 		}
-		s.sessions.Remove(ctx, migTested(x.ID))
-		res := s.t("Login test failed") + ": " + reject
+		s.Sessions.Remove(ctx, migTested(x.ID))
+		res := s.T("Login test failed") + ": " + reject
 		if reject == "" {
-			s.sessions.Put(ctx, migTested(x.ID), true)
-			res = fmt.Sprintf("%s: %s, %s %s, %s %s", s.t("Login test passed"), key, s.t("plan"), d.Plan.PlanName, s.t("rate limit"), d.Rate)
+			s.Sessions.Put(ctx, migTested(x.ID), true)
+			res = fmt.Sprintf("%s: %s, %s %s, %s %s", s.T("Login test passed"), key, s.T("plan"), d.Plan.PlanName, s.T("rate limit"), d.Rate)
 		}
 		s.logActivity(r, "router.radius_test", x.Name+" "+key)
-		s.sessions.Put(ctx, "mig_result", res)
+		s.Sessions.Put(ctx, "mig_result", res)
 	case "switch":
-		if !s.sessions.GetBool(ctx, migTested(x.ID)) || s.Billing.Migration(ctx, x.ID).Step != 1 {
+		if !s.Sessions.GetBool(ctx, migTested(x.ID)) || s.Billing.Migration(ctx, x.ID).Step != 1 {
 			s.migFail(w, r, back, billing.ErrMigOrder)
 			return
 		}
@@ -181,27 +181,27 @@ func (s *Server) routerMigrationAct(w http.ResponseWriter, r *http.Request) {
 					n++
 				}
 			}
-			preview(field{Name: "mig_count", Label: fmt.Sprintf("%s %d (%s)", s.t("Local accounts that will be disabled"), n, s.t("secrets and hotspot users of gobill customers; others on the router are left as they are")), Type: "note"},
+			preview(field{Name: "mig_count", Label: fmt.Sprintf("%s %d (%s)", s.T("Local accounts that will be disabled"), n, s.T("secrets and hotspot users of gobill customers; others on the router are left as they are")), Type: "note"},
 				field{Name: "mig_cmd", Label: "RouterOS change for each account (disabled, not removed)", Type: "pre", Value: "/ppp secret set <name> disabled=yes\n/ip hotspot user set <name> disabled=yes"})
 			return
 		}
 		n, err := s.Billing.MigrationDisable(ctx, x.ID, admin.ID)
 		if err != nil {
-			s.sessions.Put(ctx, "flash", fmt.Sprintf("%s: %d", s.t("Local accounts disabled before the failure"), n))
+			s.Sessions.Put(ctx, "flash", fmt.Sprintf("%s: %d", s.T("Local accounts disabled before the failure"), n))
 			s.migFail(w, r, back, err)
 			return
 		}
 		s.logActivity(r, "router.radius_disable_local", x.Name)
-		s.sessions.Put(ctx, "flash", fmt.Sprintf("%s: %d", s.t("Local accounts disabled"), n))
+		s.Sessions.Put(ctx, "flash", fmt.Sprintf("%s: %d", s.T("Local accounts disabled"), n))
 	case "rollback":
 		n, err := s.Billing.MigrationRollback(ctx, x.ID, admin.ID)
 		if err != nil {
 			s.migFail(w, r, back, err)
 			return
 		}
-		s.sessions.Remove(ctx, migTested(x.ID))
+		s.Sessions.Remove(ctx, migTested(x.ID))
 		s.logActivity(r, "router.radius_rollback", x.Name)
-		s.sessions.Put(ctx, "flash", fmt.Sprintf("%s: %d", s.t("Rolled back. Local accounts enabled"), n))
+		s.Sessions.Put(ctx, "flash", fmt.Sprintf("%s: %d", s.T("Rolled back. Local accounts enabled"), n))
 	default:
 		http.NotFound(w, r)
 		return
