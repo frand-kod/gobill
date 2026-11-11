@@ -139,5 +139,5 @@ func (s *Server) msgSend(w http.ResponseWriter, r *http.Request) {
 		s.msgSendPage(w, r, 200, v, nil, "", "Failed to send message: "+err.Error())
 		return
 	}
-	s.msgSendPage(w, r, 200, v, nil, s.catalog.T(s.language(), "Message Sent Successfully"), "")
+	s.msgSendPage(w, r, 200, v, nil, s.t("Message Sent Successfully"), "")
 }

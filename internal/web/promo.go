@@ -110,7 +110,7 @@ func (s *Server) promoPortal(ctx context.Context) (*portalPromo, error) {
 		return nil, err
 	}
 	h := sha256.New()
-	pp := &portalPromo{First: promoOf(rows[0]), MoreLabel: s.catalog.T(s.language(), "More"), CloseLabel: s.catalog.T(s.language(), "Close"), Label: s.catalog.T(s.language(), "Promotions")}
+	pp := &portalPromo{First: promoOf(rows[0]), MoreLabel: s.t("More"), CloseLabel: s.t("Close"), Label: s.t("Promotions")}
 	for i, p := range rows {
 		fmt.Fprintf(h, "%d:%d;", p.ID, p.UpdatedAt)
 		if i > 0 {
@@ -151,17 +151,16 @@ func promoFlag(v string) int64 {
 
 // promoSchedule is the Schedule cell: "Always", or the dates the promo is on.
 func (s *Server) promoSchedule(p db.Promo) string {
-	t := func(k string) string { return s.catalog.T(s.language(), k) }
 	day := func(x sql.NullInt64) string { return time.Unix(x.Int64, 0).In(s.location()).Format("2006-01-02") }
 	switch {
 	case p.StartsAt.Valid && p.EndsAt.Valid:
 		return fmt.Sprintf("%s - %s", day(p.StartsAt), day(p.EndsAt))
 	case p.StartsAt.Valid:
-		return fmt.Sprintf(t("From %s"), day(p.StartsAt))
+		return fmt.Sprintf(s.t("From %s"), day(p.StartsAt))
 	case p.EndsAt.Valid:
-		return fmt.Sprintf(t("Until %s"), day(p.EndsAt))
+		return fmt.Sprintf(s.t("Until %s"), day(p.EndsAt))
 	}
-	return t("Always")
+	return s.t("Always")
 }
 
 func (s *Server) promoList(w http.ResponseWriter, r *http.Request) {
@@ -170,17 +169,16 @@ func (s *Server) promoList(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "list promos", err)
 		return
 	}
-	t := func(k string) string { return s.catalog.T(s.language(), k) }
 	lp := listPage{Heading: "Promotions", Base: promoBase, CanCreate: true, CanEdit: true,
 		Actions: []rowAction{{"up", "Move up", "", false}, {"down", "Move down", "", false}},
 		Cols:    []string{"Title", "Places", "Schedule", "Status"}}
 	for _, p := range rows {
 		var places []string
 		if p.ShowIsolir == 1 {
-			places = append(places, t("Isolir page"))
+			places = append(places, s.t("Isolir page"))
 		}
 		if p.ShowPortal == 1 {
-			places = append(places, t("Portal dashboard"))
+			places = append(places, s.t("Portal dashboard"))
 		}
 		status := "Inactive"
 		if p.Active == 1 {

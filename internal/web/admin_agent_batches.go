@@ -98,9 +98,9 @@ func (s *Server) abView(w http.ResponseWriter, r *http.Request) {
 	manage := batchScope(adminFrom(r)) == 0
 	base := fmt.Sprint(batchBase, "/", b.ID)
 	lp := listPage{Heading: "Agent batch", Base: base, NoDelete: true, DeleteOnly: true,
-		Note: fmt.Sprintf("%s #%d: %s, %s %s, %s %s, %s %s, %s %s, %s %s", s.catalog.T(s.language(), "Batch"), b.ID, c[1],
-			s.catalog.T(s.language(), "Used"), c[6], s.catalog.T(s.language(), "Unused"), c[7],
-			s.catalog.T(s.language(), "Returned"), c[8], s.catalog.T(s.language(), "Price"), c[5], s.catalog.T(s.language(), "Debt"), c[9]),
+		Note: fmt.Sprintf("%s #%d: %s, %s %s, %s %s, %s %s, %s %s, %s %s", s.t("Batch"), b.ID, c[1],
+			s.t("Used"), c[6], s.t("Unused"), c[7],
+			s.t("Returned"), c[8], s.t("Price"), c[5], s.t("Debt"), c[9]),
 		Cols: []string{"Code Voucher", "Status", "Used"}}
 	if manage {
 		lp.Links = []option{{base + "/payment", "Record payment"}, {batchBase, "Agent batches"}}
@@ -179,7 +179,7 @@ func (s *Server) abCreate(w http.ResponseWriter, r *http.Request) {
 		bonus, ok2 = 0, true
 	}
 	if !ok1 || !ok2 || paid+bonus < 1 || paid+bonus > maxVouchers {
-		e["paid"] = fmt.Sprintf(s.catalog.T(s.language(), "Enter a number between 1 and %d"), maxVouchers)
+		e["paid"] = fmt.Sprintf(s.t("Enter a number between 1 and %d"), maxVouchers)
 	}
 	price, ok := nonNeg(v["price"])
 	if !ok || price > 100_000_000 {
@@ -213,7 +213,7 @@ func (s *Server) abPayForm(w http.ResponseWriter, r *http.Request, status int, b
 		s.fail(w, "agent batch debt", err)
 		return
 	}
-	amount := text("amount", "Amount", v, e).as("number").req().hint(fmt.Sprintf("%s %s", s.catalog.T(s.language(), "Debt"), money(debt)))
+	amount := text("amount", "Amount", v, e).as("number").req().hint(fmt.Sprintf("%s %s", s.t("Debt"), money(debt)))
 	back := fmt.Sprint(batchBase, "/", b.ID)
 	s.renderForm(w, r, status, formPage{"Record payment", back + "/payment", back,
 		[]field{amount, text("note", "Note", v, e)}})
@@ -262,15 +262,15 @@ func (s *Server) abReturn(w http.ResponseWriter, r *http.Request) {
 	back := fmt.Sprint(batchBase, "/", b.ID)
 	ids, ok := parseIDs(r)
 	if !ok {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Select at least one row"))
+		s.sessions.Put(r.Context(), "error", s.t("Select at least one row"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
 	switch err := s.Billing.ReturnAgentVouchers(r.Context(), b.ID, ids, adminFrom(r).ID); {
 	case errors.Is(err, billing.ErrReturnLimit):
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Returns are more than the paid vouchers of the batch"))
+		s.sessions.Put(r.Context(), "error", s.t("Returns are more than the paid vouchers of the batch"))
 	case errors.Is(err, billing.ErrNotReturnable):
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Only unused codes of this batch can be returned"))
+		s.sessions.Put(r.Context(), "error", s.t("Only unused codes of this batch can be returned"))
 	case err != nil:
 		s.fail(w, "return agent vouchers", err)
 		return

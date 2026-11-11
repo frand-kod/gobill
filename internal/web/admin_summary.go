@@ -74,7 +74,7 @@ func (s *Server) custSummary(w http.ResponseWriter, r *http.Request) {
 	}
 	loc := s.location()
 	out := customerSummary{ID: c.ID, Username: c.Username, Fullname: c.Fullname, Status: c.Status,
-		StatusLabel: s.catalog.T(s.language(), c.Status), BlocksRecharge: c.Status != "Active",
+		StatusLabel: s.t(c.Status), BlocksRecharge: c.Status != "Active",
 		Balance: money(c.Balance), Subscriptions: []summarySub{}, Transactions: []summaryTrx{}}
 
 	v, err := s.queries.LastVoucherUsedBy(ctx, sql.NullInt64{Int64: c.ID, Valid: true})
@@ -156,25 +156,24 @@ func (s *Server) summaryUsage(ctx context.Context, c db.Customer, subID, planID 
 	if plan.Device != "Radius" {
 		return "", false, nil // only RADIUS accounting fills the counters: a MikroTik plan would always read 0 B
 	}
-	t := func(k string) string { return s.catalog.T(s.language(), k) }
 	q := s.planQuota(ctx, c, sub, plan)
 	var parts []string
 	if q.HasData {
-		parts = append(parts, fmt.Sprintf(t("Data used: %s of %s"), humanBytes(q.Data), humanBytes(q.DataLim)))
+		parts = append(parts, fmt.Sprintf(s.t("Data used: %s of %s"), humanBytes(q.Data), humanBytes(q.DataLim)))
 		full = full || q.Data >= q.DataLim
 	}
 	if q.HasTime {
-		parts = append(parts, fmt.Sprintf(t("Time used: %s of %s"), humanDur(q.Time), humanDur(q.TimeLim)))
+		parts = append(parts, fmt.Sprintf(s.t("Time used: %s of %s"), humanDur(q.Time), humanDur(q.TimeLim)))
 		full = full || q.Time >= q.TimeLim
 	}
 	switch {
 	case len(parts) == 0:
-		parts = append(parts, fmt.Sprintf(t("Used since plan start: %s"), humanBytes(sub.UsedInOctets+sub.UsedOutOctets)))
+		parts = append(parts, fmt.Sprintf(s.t("Used since plan start: %s"), humanBytes(sub.UsedInOctets+sub.UsedOutOctets)))
 	case !q.HasData: // a time limit only: the data is still worth seeing
-		parts = append(parts, fmt.Sprintf(t("Data: %s"), humanBytes(sub.UsedInOctets+sub.UsedOutOctets)))
+		parts = append(parts, fmt.Sprintf(s.t("Data: %s"), humanBytes(sub.UsedInOctets+sub.UsedOutOctets)))
 	}
 	if full {
-		parts = append([]string{t("Quota used up")}, parts...)
+		parts = append([]string{s.t("Quota used up")}, parts...)
 	}
 	return strings.Join(parts, " · "), full, nil
 }
@@ -182,25 +181,24 @@ func (s *Server) summaryUsage(ctx context.Context, c db.Customer, subID, planID 
 // summaryLabels are the summary panel's strings in the page language; the script only fills values in.
 // %s and %d placeholders are filled in order by the script.
 func (s *Server) summaryLabels() string {
-	t := func(k string) string { return s.catalog.T(s.language(), k) }
 	return jsonStr(map[string]string{
-		"empty":     t("Select a customer to see the summary"),
-		"error":     t("Could not load the summary"),
-		"voucher":   t("Voucher account"),
-		"voucherNo": t("Voucher code"),
-		"balance":   t("Balance"),
-		"active":    t("Active subscriptions"),
-		"none":      t("No active subscription"),
-		"txns":      t("Last 5 transactions"),
-		"noTxns":    t("No transactions yet"),
-		"date":      t("Date"),
-		"invoice":   t("Invoice"),
-		"plan":      t("Service Plan"),
-		"price":     t("Price"),
-		"view":      t("View customer"),
-		"blocked":   t("This account is not active. Recharge will be refused until it is turned on."),
-		"still":     t("Still active: %s until %s (%d days left)."),
-		"extend":    t("Recharging this same plan extends it from that date."),
-		"replace":   t("Recharging a different plan replaces it."),
+		"empty":     s.t("Select a customer to see the summary"),
+		"error":     s.t("Could not load the summary"),
+		"voucher":   s.t("Voucher account"),
+		"voucherNo": s.t("Voucher code"),
+		"balance":   s.t("Balance"),
+		"active":    s.t("Active subscriptions"),
+		"none":      s.t("No active subscription"),
+		"txns":      s.t("Last 5 transactions"),
+		"noTxns":    s.t("No transactions yet"),
+		"date":      s.t("Date"),
+		"invoice":   s.t("Invoice"),
+		"plan":      s.t("Service Plan"),
+		"price":     s.t("Price"),
+		"view":      s.t("View customer"),
+		"blocked":   s.t("This account is not active. Recharge will be refused until it is turned on."),
+		"still":     s.t("Still active: %s until %s (%d days left)."),
+		"extend":    s.t("Recharging this same plan extends it from that date."),
+		"replace":   s.t("Recharging a different plan replaces it."),
 	})
 }

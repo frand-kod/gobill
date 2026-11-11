@@ -31,10 +31,10 @@ func (s *Server) custAct(w http.ResponseWriter, r *http.Request, action, okMsg s
 	switch {
 	case err != nil:
 		slog.Error(action, "customer", c.Username, "err", err)
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Action failed"))
+		s.sessions.Put(r.Context(), "error", s.t("Action failed"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 	case n == 0:
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Cannot find active plan"))
+		s.sessions.Put(r.Context(), "error", s.t("Cannot find active plan"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 	default:
 		s.done(w, r, back, okMsg, action, c.Username)

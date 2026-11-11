@@ -200,11 +200,11 @@ func inspectBackup(ctx context.Context, path string, key []byte, loc *time.Locat
 func (s *Server) renderRestore(w http.ResponseWriter, r *http.Request, status int, v restoreView, msg, detail string) {
 	v.TOTP = adminFrom(r).TotpEnabled == 1
 	if app, bak, ok := strings.Cut(v.Warning, " "); ok { // Warning holds the two key fingerprints
-		v.Warning = fmt.Sprintf(s.catalog.T(s.language(), "This backup was made with another encryption key. It holds no encrypted values now, but you need that key to enter router passwords and API keys again. Key fingerprint of this app: %s. Key fingerprint of this backup: %s."), app, bak)
+		v.Warning = fmt.Sprintf(s.t("This backup was made with another encryption key. It holds no encrypted values now, but you need that key to enter router passwords and API keys again. Key fingerprint of this app: %s. Key fingerprint of this backup: %s."), app, bak)
 	}
 	p := Page{Title: "Restore database", Data: v, Detail: detail}
 	if msg != "" {
-		p.Error = s.catalog.T(s.language(), msg)
+		p.Error = s.t(msg)
 	}
 	s.render(w, r, status, "restore", p)
 }
@@ -329,7 +329,7 @@ func (s *Server) restoreConfirm(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) restoreCancel(w http.ResponseWriter, r *http.Request) {
 	s.dropRestore(r.Context())
-	s.sessions.Put(r.Context(), "flash", s.catalog.T(s.language(), "Restore cancelled."))
+	s.sessions.Put(r.Context(), "flash", s.t("Restore cancelled."))
 	http.Redirect(w, r, restorePage, http.StatusSeeOther)
 }
 

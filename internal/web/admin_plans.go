@@ -162,7 +162,7 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 // planHelp is the plan form's extras: the docs link, a live summary and a sticky save bar. The
 // summary is an Alpine expression over the bound fields; its word comes from the catalog.
 func (s *Server) planHelp() formHelp {
-	word := jsonStr(s.catalog.T(s.language(), "device"))
+	word := jsonStr(s.t("device"))
 	sum := `(type === 'Balance' ? [type] : [type,
 		bandwidth_id && $root.bandwidth_id.selectedOptions[0]?.text,
 		validity && validity_unit && validity + ' ' + $root.validity_unit.selectedOptions[0]?.text,
@@ -274,7 +274,7 @@ func (s *Server) isolirManaged(w http.ResponseWriter, r *http.Request, id int64)
 	if iso, _ := s.isolirIDs(r.Context()); iso == 0 || iso != id {
 		return false
 	}
-	s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "The Isolir plan is managed in Settings > Isolir"))
+	s.sessions.Put(r.Context(), "error", s.t("The Isolir plan is managed in Settings > Isolir"))
 	http.Redirect(w, r, "/admin/plans", http.StatusSeeOther)
 	return true
 }
@@ -504,7 +504,7 @@ func (s *Server) syncPlan(r *http.Request, op string, p db.Plan, oldName string)
 	if err := s.Billing.SyncPlan(r.Context(), op, p, oldName); err != nil {
 		slog.Error("sync plan", "op", op, "plan", p.Name, "err", err)
 		s.logActivity(r, "plan.sync_failed", fmt.Sprintf("%s %s: %v", op, p.Name, err))
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Saved, but the router could not be updated")+": "+err.Error())
+		s.sessions.Put(r.Context(), "error", s.t("Saved, but the router could not be updated")+": "+err.Error())
 	}
 }
 

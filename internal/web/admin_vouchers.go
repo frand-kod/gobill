@@ -195,7 +195,7 @@ func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 	count, ok := posInt(v["numbervoucher"])
 	if !ok || count > maxVouchers {
-		e["numbervoucher"] = fmt.Sprintf(s.catalog.T(s.language(), "Enter a number between 1 and %d"), maxVouchers)
+		e["numbervoucher"] = fmt.Sprintf(s.t("Enter a number between 1 and %d"), maxVouchers)
 	}
 	charset := map[string]string{"up": upperChars, "low": lowerChars, "rand": mixedChars, "numbers": digitChars}[v["voucher_format"]]
 	if charset == "" {
@@ -207,7 +207,7 @@ func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 	length, ok := posInt(v["lengthcode"])
 	if !ok || length < minLen || length > 32 {
-		e["lengthcode"] = fmt.Sprintf(s.catalog.T(s.language(), "Enter a number between %d and 32"), minLen)
+		e["lengthcode"] = fmt.Sprintf(s.t("Enter a number between %d and 32"), minLen)
 	}
 	if !prefixRe.MatchString(v["prefix"]) || len(v["prefix"]) > 16 {
 		e["prefix"] = "Invalid value"

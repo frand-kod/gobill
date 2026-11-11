@@ -98,7 +98,7 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 	}
 	confirmed := r.PostFormValue("confirmed") == "1"
 	if confirmed && !takeFormToken(r.PostFormValue("token")) {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), msgFormReplayed))
+		s.sessions.Put(r.Context(), "error", s.t(msgFormReplayed))
 		http.Redirect(w, r, "/admin/deposit?customer="+url.QueryEscape(r.PostFormValue("customer")), http.StatusSeeOther)
 		return
 	}
@@ -131,7 +131,7 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 		}
 		if len(e) == 0 {
 			d := depositConfirm{Customer: c.Username, Plan: v["plan"], Amount: v["amount"], Note: v["note"], Token: r.PostFormValue("token")}
-			d.Summary = fmt.Sprintf(s.catalog.T(s.language(), "Add %s to %s; balance becomes %s"), money(amount), c.Username, money(c.Balance+amount))
+			d.Summary = fmt.Sprintf(s.t("Add %s to %s; balance becomes %s"), money(amount), c.Username, money(c.Balance+amount))
 			s.render(w, r, 200, "deposit_confirm", Page{Title: "Refill Balance", Data: d})
 			return
 		}
@@ -149,9 +149,9 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 			s.fail(w, "deposit", err)
 			return
 		default:
-			msg := s.catalog.T(s.language(), "Refill Balance")
+			msg := s.t("Refill Balance")
 			if nc, err := s.queries.GetCustomer(r.Context(), c.ID); err == nil { // amount = what the balance actually grew by
-				msg = fmt.Sprintf(s.catalog.T(s.language(), "Balance +%s, now %s"), money(nc.Balance-c.Balance), money(nc.Balance))
+				msg = fmt.Sprintf(s.t("Balance +%s, now %s"), money(nc.Balance-c.Balance), money(nc.Balance))
 			}
 			s.sessions.Put(r.Context(), "flash", msg+": "+c.Username)
 			s.sessions.Put(r.Context(), "flash_sticky", "1") // the receipt for money moved: no auto-dismiss

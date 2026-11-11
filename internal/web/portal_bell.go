@@ -30,12 +30,11 @@ func verOf(parts ...any) string {
 // portalBell lists the items of this customer with Unread set from portal_seen.
 func (s *Server) portalBell(r *http.Request, c *db.Customer) ([]bellItem, error) {
 	ctx, now := r.Context(), time.Now().Unix()
-	t := func(k string) string { return s.catalog.T(s.language(), k) }
 	var items []bellItem
 	if ann, err := s.queries.GetPage(ctx, "announcement"); err != nil {
 		return nil, err
 	} else if ann.Body != "" {
-		items = append(items, bellItem{Key: "announcement", Ver: verOf(ann.Body), Title: t("Announcement"), Text: oneLine(ann.Body), Href: "/portal"})
+		items = append(items, bellItem{Key: "announcement", Ver: verOf(ann.Body), Title: s.t("Announcement"), Text: oneLine(ann.Body), Href: "/portal"})
 	}
 	if pp, err := s.promoPortal(ctx); err != nil {
 		return nil, err
@@ -44,7 +43,7 @@ func (s *Server) portalBell(r *http.Request, c *db.Customer) ([]bellItem, error)
 		if href == "" {
 			href = "/portal"
 		}
-		items = append(items, bellItem{Key: "promo", Ver: pp.Key, Title: t("Promotions"), Text: pp.First.Title, Href: href})
+		items = append(items, bellItem{Key: "promo", Ver: pp.Key, Title: s.t("Promotions"), Text: pp.First.Title, Href: href})
 	}
 	subs, err := s.queries.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 50})
 	if err != nil {
@@ -61,23 +60,23 @@ func (s *Server) portalBell(r *http.Request, c *db.Customer) ([]bellItem, error)
 			slog.Warn("portal bell plan", "err", err) // no plan name: skip these two items
 		} else {
 			if sub.ExpiresAt-now <= 3*86400 {
-				items = append(items, bellItem{Key: "expiry", Ver: verOf(sub.ID, sub.ExpiresAt), Title: t("Plan ends soon"),
-					Text: fmt.Sprintf(t("%s ends on %s"), p.Name, s.ts(sub.ExpiresAt)), Href: "/portal/plans"})
+				items = append(items, bellItem{Key: "expiry", Ver: verOf(sub.ID, sub.ExpiresAt), Title: s.t("Plan ends soon"),
+					Text: fmt.Sprintf(s.t("%s ends on %s"), p.Name, s.ts(sub.ExpiresAt)), Href: "/portal/plans"})
 			}
 			q := s.planQuota(ctx, *c, *sub, p)
 			if (q.HasData && q.Data >= q.DataLim) || (q.HasTime && q.Time >= q.TimeLim) {
-				items = append(items, bellItem{Key: "quota", Ver: verOf(sub.ID, sub.StartedAt, 100), Title: t("Quota used up"),
-					Text: t("Buy or extend a plan to keep using the service"), Href: "/portal/plans"})
+				items = append(items, bellItem{Key: "quota", Ver: verOf(sub.ID, sub.StartedAt, 100), Title: s.t("Quota used up"),
+					Text: s.t("Buy or extend a plan to keep using the service"), Href: "/portal/plans"})
 			} else if (q.HasData && q.Data*100 > q.DataLim*80) || (q.HasTime && q.Time*100 > q.TimeLim*80) {
-				items = append(items, bellItem{Key: "quota", Ver: verOf(sub.ID, sub.StartedAt, 80), Title: t("Quota almost used up"),
-					Text: t("Buy or extend a plan before it runs out"), Href: "/portal/plans"})
+				items = append(items, bellItem{Key: "quota", Ver: verOf(sub.ID, sub.StartedAt, 80), Title: s.t("Quota almost used up"),
+					Text: s.t("Buy or extend a plan before it runs out"), Href: "/portal/plans"})
 			}
 		}
 	}
 	// the newest payment attempt that ended in the last 7 days
 	if pr, err := s.queries.GetLatestFinishedPaymentByCustomer(ctx, db.GetLatestFinishedPaymentByCustomerParams{CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, CreatedAt: now - 7*86400}); err == nil {
 		title := map[string]string{"paid": "Payment received", "failed": "Payment failed", "expired": "Payment expired"}[pr.Status]
-		items = append(items, bellItem{Key: "payment", Ver: verOf(pr.ID, pr.Status), Title: t(title), Text: pr.Ref, Href: "/portal/payments/" + strconv.FormatInt(pr.ID, 10)})
+		items = append(items, bellItem{Key: "payment", Ver: verOf(pr.ID, pr.Status), Title: s.t(title), Text: pr.Ref, Href: "/portal/payments/" + strconv.FormatInt(pr.ID, 10)})
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}

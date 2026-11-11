@@ -199,7 +199,7 @@ func (s *Server) gatewayTest(w http.ResponseWriter, r *http.Request, which strin
 			if mode != "production" {
 				mode = "sandbox"
 			}
-			ok = fmt.Sprintf(s.catalog.T(s.language(), name+" connection OK (%s mode, %d payment channels)"), mode, len(chans))
+			ok = fmt.Sprintf(s.t(name+" connection OK (%s mode, %d payment channels)"), mode, len(chans))
 		}
 	}
 	s.testResult(w, r, "tripay", ok, err)

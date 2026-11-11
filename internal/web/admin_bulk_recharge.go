@@ -56,7 +56,7 @@ type bulkRechargePending struct {
 
 // bulkFail sends the user back to the customer list with an error flash.
 func (s *Server) bulkFail(w http.ResponseWriter, r *http.Request, msg string) {
-	s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), msg))
+	s.sessions.Put(r.Context(), "error", s.t(msg))
 	http.Redirect(w, r, "/admin/customers", http.StatusSeeOther)
 }
 
@@ -165,7 +165,7 @@ func (s *Server) bulkRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 		}
 		p.Rows = append(p.Rows, row)
 	}
-	p.Summary = fmt.Sprintf(s.catalog.T(s.language(), "Recharge %d customers, total %s"), len(eligible), money(total))
+	p.Summary = fmt.Sprintf(s.t("Recharge %d customers, total %s"), len(eligible), money(total))
 	if len(eligible) > 0 {
 		tok, err := newBulkToken()
 		if err != nil {
@@ -183,7 +183,7 @@ func (s *Server) bulkRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 func (s *Server) bulkAlreadyDone(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, http.StatusConflict, "bulk_recharge", Page{Title: "Recharge result", Data: bulkRechargePage{
 		Heading: bulkAlreadyHeading, Done: true,
-		Summary: s.catalog.T(s.language(), "This recharge was already processed or the form expired. Nothing was charged. Start again from the customer list."),
+		Summary: s.t("This recharge was already processed or the form expired. Nothing was charged. Start again from the customer list."),
 	}})
 }
 
@@ -227,7 +227,7 @@ func (s *Server) bulkRechargeRun(w http.ResponseWriter, r *http.Request) {
 		}
 		p.Rows = append(p.Rows, row)
 	}
-	p.Summary = fmt.Sprintf(s.catalog.T(s.language(), "%d recharged, %d failed"), okN, failN)
+	p.Summary = fmt.Sprintf(s.t("%d recharged, %d failed"), okN, failN)
 	if b, err := json.Marshal(p); err == nil {
 		s.sessions.Put(ctx, bulkResultKey, string(b))
 	}

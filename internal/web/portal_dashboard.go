@@ -126,8 +126,7 @@ type pWords struct {
 }
 
 func (s *Server) pTexts() pWords {
-	t := func(k string) string { return s.catalog.T(s.language(), k) }
-	return pWords{t("days"), t("hours"), t("minutes"), t("left"), t("Ended")}
+	return pWords{s.t("days"), s.t("hours"), s.t("minutes"), s.t("left"), s.t("Ended")}
 }
 
 // JSON is the words as a JSON object for the ticker's x-data.
@@ -226,15 +225,15 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		d.Plan = &pPlan{Name: p.Name, Ends: s.subExpiry(sub.PendingStart, sub.ExpiresAt), Expires: sub.ExpiresAt, Left: d.Words.countdown(left),
 			Pct: validityPct(sub.StartedAt, sub.ExpiresAt, now)}
 		if sub.PendingStart == 1 {
-			d.Plan.Pending, d.Plan.Left, d.Plan.Pct = true, s.catalog.T(s.language(), "Starts on first login"), 0
+			d.Plan.Pending, d.Plan.Left, d.Plan.Pct = true, s.t("Starts on first login"), 0
 		}
 		d.Period = pTotal{Down: humanBytes(sub.UsedOutOctets), Up: humanBytes(sub.UsedInOctets)}
 		d.Usage = s.pUsage(ctx, *c, *sub, p, d.Words, sub.UsedInOctets+sub.UsedOutOctets)
 	} else {
-		d.Usage.Note = s.catalog.T(s.language(), "No active plan")
+		d.Usage.Note = s.t("No active plan")
 		if len(subs) > 0 { // only finished plans: say which one ended
 			p, _ := s.queries.GetPlan(ctx, subs[0].PlanID)
-			d.PlanEnded = fmt.Sprintf(s.catalog.T(s.language(), "Plan %s ended on %s"), p.Name, s.ts(subs[0].ExpiresAt))
+			d.PlanEnded = fmt.Sprintf(s.t("Plan %s ended on %s"), p.Name, s.ts(subs[0].ExpiresAt))
 		}
 		canExtend := (st["extend_expired"] == "1" || st["extend_expired"] == "yes") && c.Status == "Active"
 		for _, x := range subs { // newest first: the last plan that is not active
@@ -290,7 +289,7 @@ func validityPct(start, end, now int64) int {
 // used is the data octets of the same period; it is shown when the plan has no data limit.
 func (s *Server) pUsage(ctx context.Context, c db.Customer, sub db.Subscription, p db.Plan, w pWords, used int64) pUsage {
 	if p.Limited == 1 && p.Device != "Radius" {
-		return pUsage{Note: s.catalog.T(s.language(), "Usage is not recorded for this plan")}
+		return pUsage{Note: s.t("Usage is not recorded for this plan")}
 	}
 	q := s.planQuota(ctx, c, sub, p)
 	u := pUsage{}

@@ -385,7 +385,7 @@ func (s *Server) setupAct(kind int) http.HandlerFunc {
 			return
 		}
 		if res.next {
-			s.sessions.Put(ctx, "flash", s.catalog.T(s.language(), "Saved"))
+			s.sessions.Put(ctx, "flash", s.t("Saved"))
 			http.Redirect(w, r, wizHref(idx+1), http.StatusSeeOther)
 			return
 		}
@@ -401,7 +401,7 @@ func (s *Server) setupAct(kind int) http.HandlerFunc {
 		status, page := http.StatusOK, Page{Title: "Quick setup", Data: view}
 		if len(res.e) > 0 {
 			status = http.StatusUnprocessableEntity
-			page.Error = s.catalog.T(s.language(), "Please check the highlighted fields")
+			page.Error = s.t("Please check the highlighted fields")
 			if m := res.e[""]; m != "" {
 				page.Error = m
 			}
@@ -526,7 +526,7 @@ func (s *Server) wizSaveRouter(r *http.Request, kind int) (wizResult, error) {
 	if err := s.wizPut(ctx, map[string]string{setupRouter: mode}); err != nil {
 		return wizResult{}, err
 	}
-	s.sessions.Put(ctx, "flash", s.catalog.T(s.language(), "Saved"))
+	s.sessions.Put(ctx, "flash", s.t("Saved"))
 	return res, nil
 }
 

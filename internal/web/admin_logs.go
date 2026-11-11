@@ -27,7 +27,7 @@ func (s *Server) logClean(w http.ResponseWriter, r *http.Request) {
 	}
 	days, ok := posInt(strings.TrimSpace(r.PostFormValue("keep")))
 	if !ok || days > 36500 || s.Billing == nil {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Enter a number greater than 0"))
+		s.sessions.Put(r.Context(), "error", s.t("Enter a number greater than 0"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
@@ -37,7 +37,7 @@ func (s *Server) logClean(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.logActivity(r, "logs.clean", fmt.Sprintf("%s older than %d days: %d deleted", kind, days, n))
-	s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.catalog.T(s.language(), "%d logs deleted"), n))
+	s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.t("%d logs deleted"), n))
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
@@ -91,7 +91,7 @@ var actionLabels = map[string]string{
 // actionLabel is the UI text of an activity log action key.
 func (s *Server) actionLabel(action string) string {
 	if l, ok := actionLabels[action]; ok {
-		return s.catalog.T(s.language(), l)
+		return s.t(l)
 	}
 	return action
 }
@@ -323,10 +323,10 @@ func (s *Server) authLogRows(rows []db.RadiusAuthLog, page bool) [][]string {
 		}
 		if page {
 			if k, ok := rejectLabels[x.Message]; ok {
-				reason = s.catalog.T(s.language(), k)
+				reason = s.t(k)
 			}
 		} else {
-			res = s.catalog.T(s.language(), res)
+			res = s.t(res)
 		}
 		out = append(out, []string{s.ts(x.At), x.Username, x.NasIp, x.Mac, res, reason})
 	}

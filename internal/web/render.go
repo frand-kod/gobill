@@ -19,7 +19,7 @@ import (
 )
 
 func (s *Server) flashTo(w http.ResponseWriter, r *http.Request, to, msg string) {
-	s.sessions.Put(r.Context(), "flash", s.catalog.T(s.language(), msg))
+	s.sessions.Put(r.Context(), "flash", s.t(msg))
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
@@ -56,13 +56,13 @@ func (s *Server) parseTemplates() error {
 		return err
 	}
 	funcs := template.FuncMap{
-		"T": func(text string) string { return s.catalog.T(s.language(), text) },
+		"T": func(text string) string { return s.t(text) },
 		// TT translates the part before ": ", so headings like "Edit Contact: budi" work.
 		"TT": func(text string) string {
 			if head, rest, ok := strings.Cut(text, ": "); ok {
-				return s.catalog.T(s.language(), head) + ": " + rest
+				return s.t(head) + ": " + rest
 			}
-			return s.catalog.T(s.language(), text)
+			return s.t(text)
 		},
 		"hasPrefix": strings.HasPrefix,
 		// dict builds the map a sub-template takes several arguments through: {{template "x" dict "A" 1 "B" .Y}}

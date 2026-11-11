@@ -620,14 +620,14 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 					if serr != nil {
 						slog.Error("customer status router update", "customer", v["username"], "err", serr)
 						s.logActivity(r, "customer.sync_failed", fmt.Sprintf("%s: %v", v["username"], serr))
-						s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Saved, but the router could not be updated")+": "+serr.Error())
+						s.sessions.Put(r.Context(), "error", s.t("Saved, but the router could not be updated")+": "+serr.Error())
 					}
 				}
 				if v["status"] == "Active" && cur.Status == "Active" && (pass != "" || sec != "" || v["username"] != cur.Username || v["pppoe_username"] != cur.PppoeUsername || v["pppoe_ip"] != cur.PppoeIp) && s.Billing != nil {
 					if _, serr := s.Billing.SyncAfterEdit(r.Context(), cur, adminFrom(r).ID); serr != nil {
 						slog.Error("sync customer", "customer", v["username"], "err", serr)
 						s.logActivity(r, "customer.sync_failed", fmt.Sprintf("%s: %v", v["username"], serr))
-						s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Saved, but the router could not be updated")+": "+serr.Error())
+						s.sessions.Put(r.Context(), "error", s.t("Saved, but the router could not be updated")+": "+serr.Error())
 					}
 				}
 			}
@@ -667,13 +667,13 @@ func (s *Server) activateNew(w http.ResponseWriter, r *http.Request, c db.Custom
 	devFailed, err := s.chargePlan(r, c, plan, "Cash", "Cash")
 	if err != nil {
 		s.logActivity(r, act, c.Username)
-		s.sessions.Put(ctx, "error", s.catalog.T(s.language(), "Customer created, but the plan could not be activated")+": "+s.catalog.T(s.language(), rechargeFailMsg(err, c, plan)))
+		s.sessions.Put(ctx, "error", s.t("Customer created, but the plan could not be activated")+": "+s.t(rechargeFailMsg(err, c, plan)))
 		http.Redirect(w, r, fmt.Sprint("/admin/customers/", c.ID), http.StatusSeeOther)
 		return ""
 	}
 	s.logActivity(r, "customer.recharge", c.Username+" ["+plan.Name+"]")
 	if devFailed {
-		s.sessions.Put(ctx, "warn", s.catalog.T(s.language(), msgNotSynced))
+		s.sessions.Put(ctx, "warn", s.t(msgNotSynced))
 	}
 	return "Customer created and plan activated, paid in Cash"
 }
@@ -694,13 +694,13 @@ func (s *Server) custDelete(w http.ResponseWriter, r *http.Request) {
 	if err := s.Billing.DeleteCustomerForce(r.Context(), id, r.FormValue("force") == "1"); err != nil {
 		if _, gerr := s.queries.GetCustomer(r.Context(), id); gerr == nil {
 			slog.Error("delete customer: router", "customer", c.Username, "err", err)
-			s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Not deleted, the router could not remove the customer"))
+			s.sessions.Put(r.Context(), "error", s.t("Not deleted, the router could not remove the customer"))
 			http.Redirect(w, r, "/admin/customers/"+strconv.FormatInt(id, 10)+"?router_failed=1", http.StatusSeeOther)
 			return
 		}
 		slog.Error("delete customer: router", "customer", c.Username, "err", err)
 		s.logActivity(r, "customer.delete_router_failed", fmt.Sprintf("%s: %v", c.Username, err))
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Deleted, but the router could not be updated"))
+		s.sessions.Put(r.Context(), "error", s.t("Deleted, but the router could not be updated"))
 	}
 	s.done(w, r, "/admin/customers", "Data Deleted Successfully", "customer.delete", c.Username)
 }

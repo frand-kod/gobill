@@ -181,7 +181,7 @@ func msgSelectedPage(v, e map[string]string) formPage {
 func (s *Server) custMessageForm(w http.ResponseWriter, r *http.Request) {
 	ids, ok := parseIDs(r)
 	if !ok {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Select at least one row"))
+		s.sessions.Put(r.Context(), "error", s.t("Select at least one row"))
 		http.Redirect(w, r, "/admin/customers", http.StatusSeeOther)
 		return
 	}
@@ -206,7 +206,7 @@ func (s *Server) msgSelectedSend(w http.ResponseWriter, r *http.Request) {
 		ids = append(ids, id)
 	}
 	if len(ids) == 0 {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Select at least one row"))
+		s.sessions.Put(r.Context(), "error", s.t("Select at least one row"))
 		http.Redirect(w, r, "/admin/customers", http.StatusSeeOther)
 		return
 	}
@@ -226,7 +226,7 @@ func (s *Server) msgSelectedSend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(cs) == 0 {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "No customers match this filter"))
+		s.sessions.Put(r.Context(), "error", s.t("No customers match this filter"))
 		http.Redirect(w, r, "/admin/customers", http.StatusSeeOther)
 		return
 	}
@@ -236,7 +236,7 @@ func (s *Server) msgSelectedSend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !bulk.start(len(cs)) {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "A bulk message is already running"))
+		s.sessions.Put(r.Context(), "error", s.t("A bulk message is already running"))
 		http.Redirect(w, r, "/admin/message/bulk/status", http.StatusSeeOther)
 		return
 	}

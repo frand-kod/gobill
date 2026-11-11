@@ -43,7 +43,7 @@ func (s *Server) pFriend(w http.ResponseWriter, r *http.Request) {
 	for _, e := range []error{billing.ErrSelfTransfer, billing.ErrTargetNotFound, billing.ErrInsufficientBalance, billing.ErrInactive,
 		billing.ErrTransferDisabled, billing.ErrPlanNotFound, billing.ErrFriendPlanDiffers, billing.ErrAdminOnlyPlan} {
 		if errors.Is(err, e) {
-			s.friendPage(w, r, 200, user, s.catalog.T(s.language(), e.Error()))
+			s.friendPage(w, r, 200, user, s.t(e.Error()))
 			return
 		}
 	}

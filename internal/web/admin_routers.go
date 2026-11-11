@@ -96,7 +96,7 @@ func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
 	syncs.mu.Unlock()
 	for _, x := range rows {
 		if ran[x.ID] {
-			lp.Links = append(lp.Links, option{fmt.Sprintf("/admin/routers/%d/sync", x.ID), s.catalog.T(s.language(), "Last push") + ": " + x.Name})
+			lp.Links = append(lp.Links, option{fmt.Sprintf("/admin/routers/%d/sync", x.ID), s.t("Last push") + ": " + x.Name})
 		}
 	}
 	slices.SortFunc(lp.Links, func(a, b option) int { return strings.Compare(a.Label, b.Label) })
@@ -365,12 +365,11 @@ func (s *Server) routerSyncStatus(w http.ResponseWriter, r *http.Request) {
 	base := fmt.Sprintf("/admin/routers/%d/sync", x.ID)
 	lp := listPage{Heading: "Push all", Note: x.Name, Base: base, Cols: []string{"Item", "Result"},
 		Links: []option{{base, "Refresh"}, {"/admin/routers", "Routers"}}}
-	t := func(k string) string { return s.catalog.T(s.language(), k) }
-	row := func(k, v string) { lp.Rows = append(lp.Rows, listRow{0, []string{t(k), v}}) }
+	row := func(k, v string) { lp.Rows = append(lp.Rows, listRow{0, []string{s.t(k), v}}) }
 	syncs.mu.Lock()
 	run := syncs.runs[x.ID]
 	if run == nil {
-		row("Progress", t("No push has run yet"))
+		row("Progress", s.t("No push has run yet"))
 	} else {
 		state := "Finished"
 		switch {
@@ -380,7 +379,7 @@ func (s *Server) routerSyncStatus(w http.ResponseWriter, r *http.Request) {
 		case run.stopped != "":
 			state = "Stopped"
 		}
-		row("Push state", t(state))
+		row("Push state", s.t(state))
 		row("Progress", fmt.Sprintf("%d / %d", run.done, run.total))
 		row("Succeeded", strconv.Itoa(run.ok))
 		row("Failed", strconv.Itoa(run.fail))

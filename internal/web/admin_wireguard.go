@@ -130,39 +130,38 @@ func wgLookup(host string) ([]net.IP, error) {
 
 // wgStatusFields is the status card of the tab: the tunnel, the public address and UDP.
 func (s *Server) wgStatusFields(ctx context.Context, st map[string]string) []field {
-	t := func(x string) string { return s.catalog.T(s.language(), x) }
 	d := wgDefaults(st)
-	sec := t("Status")
-	state := t("Off")
+	sec := s.t("Status")
+	state := s.t("Off")
 	switch {
 	case wgOff() != "":
-		state = t(wgOff())
+		state = s.t(wgOff())
 	case s.WG != nil && s.WG.Err() != nil:
-		state = t("Could not start") + ": " + s.WG.Err().Error()
+		state = s.t("Could not start") + ": " + s.WG.Err().Error()
 	case s.WG != nil && s.WG.Running():
-		state = fmt.Sprintf(t("Running, listening on UDP %s"), d["wg_port"])
+		state = fmt.Sprintf(s.t("Running, listening on UDP %s"), d["wg_port"])
 	}
 	n, _ := s.queries.CountWgPeers(ctx)
 	out := []field{
-		{Name: "wg_state", Label: t("Tunnel"), Type: "pre", Section: sec, Value: state + "\n" + fmt.Sprintf(t("Routers with a tunnel: %d"), n)},
+		{Name: "wg_state", Label: s.t("Tunnel"), Type: "pre", Section: sec, Value: state + "\n" + fmt.Sprintf(s.t("Routers with a tunnel: %d"), n)},
 	}
 	msg, ok := wgAddress(d["wg_endpoint"], wgLookup, localIPs())
-	udp := fmt.Sprintf(t("Not confirmed yet. gobill cannot test UDP from inside: it is confirmed when the first router completes a handshake. Make sure UDP port %s is open on the server firewall and at the provider"), d["wg_port"])
+	udp := fmt.Sprintf(s.t("Not confirmed yet. gobill cannot test UDP from inside: it is confirmed when the first router completes a handshake. Make sure UDP port %s is open on the server firewall and at the provider"), d["wg_port"])
 	if s.WG != nil {
 		for _, ps := range s.WG.Stats() {
 			if !ps.Handshake.IsZero() {
-				udp = fmt.Sprintf(t("Confirmed: a router completed a handshake on %s"), s.ts(ps.Handshake.Unix()))
+				udp = fmt.Sprintf(s.t("Confirmed: a router completed a handshake on %s"), s.ts(ps.Handshake.Unix()))
 				break
 			}
 		}
 	}
 	mark := "OK: "
 	if !ok {
-		mark = t("Warning") + ": "
+		mark = s.t("Warning") + ": "
 	}
 	return append(out,
-		field{Name: "wg_addr", Label: t("Public address"), Type: "pre", Section: sec, Value: mark + t(msg)},
-		field{Name: "wg_udp", Label: t("UDP reachability"), Type: "pre", Section: sec, Value: udp})
+		field{Name: "wg_addr", Label: s.t("Public address"), Type: "pre", Section: sec, Value: mark + s.t(msg)},
+		field{Name: "wg_udp", Label: s.t("UDP reachability"), Type: "pre", Section: sec, Value: udp})
 }
 
 // wgWarning is the line the setup wizard shows when WireGuard is on but the server cannot be reached.
@@ -175,7 +174,7 @@ func (s *Server) wgWarning(ctx context.Context) string {
 	if ok {
 		return ""
 	}
-	return s.catalog.T(s.language(), "WireGuard: ") + s.catalog.T(s.language(), msg)
+	return s.t("WireGuard: ") + s.t(msg)
 }
 
 // wgBlock holds what the RouterOS script of one peer names.
@@ -274,7 +273,7 @@ func (s *Server) routerWGProvision(w http.ResponseWriter, r *http.Request) {
 	}
 	cfg, _, err := s.wgUsable(r.Context())
 	if err != nil {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), err.Error()))
+		s.sessions.Put(r.Context(), "error", s.t(err.Error()))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
@@ -313,7 +312,7 @@ func (s *Server) routerWGProvision(w http.ResponseWriter, r *http.Request) {
 	}
 	if !ip.IsValid() {
 		if ip, err = wg.AllocIP(cfg.Subnet, used); err != nil {
-			s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), err.Error()))
+			s.sessions.Put(r.Context(), "error", s.t(err.Error()))
 			http.Redirect(w, r, back, http.StatusSeeOther)
 			return
 		}
@@ -549,52 +548,48 @@ func (st wgStage) String() string {
 
 // wgHandshake and wgRadius are the stages that can be read without calling the router.
 func (s *Server) wgHandshake(p db.WgPeer, port string) wgStage {
-	t := func(x string) string { return s.catalog.T(s.language(), x) }
 	var hs time.Time
 	if s.WG != nil {
 		hs = s.WG.Stats()[p.PublicKey].Handshake
 	}
 	switch {
 	case hs.IsZero() && p.Endpoint != "":
-		return wgStage{false, fmt.Sprintf(t("Handshake: none since gobill started. Last seen at %s"), p.Endpoint)}
+		return wgStage{false, fmt.Sprintf(s.t("Handshake: none since gobill started. Last seen at %s"), p.Endpoint)}
 	case hs.IsZero():
-		return wgStage{false, fmt.Sprintf(t("Handshake: never. Check that UDP port %s reaches this server, and the router clock"), port)}
+		return wgStage{false, fmt.Sprintf(s.t("Handshake: never. Check that UDP port %s reaches this server, and the router clock"), port)}
 	case time.Since(hs) > 3*time.Minute:
-		return wgStage{false, fmt.Sprintf(t("Handshake: last %s ago, the tunnel looks down"), ago(hs))}
+		return wgStage{false, fmt.Sprintf(s.t("Handshake: last %s ago, the tunnel looks down"), ago(hs))}
 	}
-	return wgStage{true, fmt.Sprintf(t("Handshake: OK, %s ago"), ago(hs))}
+	return wgStage{true, fmt.Sprintf(s.t("Handshake: OK, %s ago"), ago(hs))}
 }
 
 func (s *Server) wgRadius(p db.WgPeer) wgStage {
-	t := func(x string) string { return s.catalog.T(s.language(), x) }
 	if s.WG == nil || s.WG.RadiusSeen(p.Ip).IsZero() {
-		return wgStage{false, t("RADIUS: no packet from this router yet")}
+		return wgStage{false, s.t("RADIUS: no packet from this router yet")}
 	}
-	return wgStage{true, fmt.Sprintf(t("RADIUS: last packet %s ago"), ago(s.WG.RadiusSeen(p.Ip)))}
+	return wgStage{true, fmt.Sprintf(s.t("RADIUS: last packet %s ago"), ago(s.WG.RadiusSeen(p.Ip)))}
 }
 
 // wgAPI and wgCoA call the router.
 func (s *Server) wgAPI(ctx context.Context, rt db.Router, p db.WgPeer) wgStage {
-	t := func(x string) string { return s.catalog.T(s.language(), x) }
 	if rt.Host != p.Ip {
-		return wgStage{false, fmt.Sprintf(t("The router Host is %s, not the tunnel address %s: the API does not use the tunnel"), rt.Host, p.Ip)}
+		return wgStage{false, fmt.Sprintf(s.t("The router Host is %s, not the tunnel address %s: the API does not use the tunnel"), rt.Host, p.Ip)}
 	}
 	if s.Billing == nil {
-		return wgStage{false, t("API login failed") + ": " + t("Router connection is not configured")}
+		return wgStage{false, s.t("API login failed") + ": " + s.t("Router connection is not configured")}
 	}
 	ident, err := s.Billing.Ping(ctx, rt)
 	if err != nil {
-		return wgStage{false, t("API login failed") + ": " + t(routerErr(err, msgRouterOther))}
+		return wgStage{false, s.t("API login failed") + ": " + s.t(routerErr(err, msgRouterOther))}
 	}
-	return wgStage{true, t("API login OK") + " (" + ident + ")"}
+	return wgStage{true, s.t("API login OK") + " (" + ident + ")"}
 }
 
 func (s *Server) wgCoA(ctx context.Context, p db.WgPeer) wgStage {
-	t := func(x string) string { return s.catalog.T(s.language(), x) }
 	if err := radius.ProbeCoA(ctx, s.queries, s.SecretKey, p.Ip); err != nil {
-		return wgStage{false, t("CoA failed") + ": " + err.Error()}
+		return wgStage{false, s.t("CoA failed") + ": " + err.Error()}
 	}
-	return wgStage{true, t("CoA reply received")}
+	return wgStage{true, s.t("CoA reply received")}
 }
 
 // routerWGCheck is POST /admin/routers/{id}/wg/check: all four stages, shown on the router page.
@@ -634,51 +629,49 @@ func ago(t time.Time) string {
 
 // wgToken says what happened to the provisioning link of a router: waiting, used (from where, when) or expired.
 func (s *Server) wgToken(ctx context.Context, id int64, hs time.Time) string {
-	t := func(x string) string { return s.catalog.T(s.language(), x) }
 	k, err := s.queries.GetWgToken(ctx, id)
 	if err != nil {
 		return ""
 	}
 	switch {
 	case k.UsedAt != 0:
-		out := fmt.Sprintf(t("Script fetched from %s at %s"), k.UsedIp, s.ts(k.UsedAt))
+		out := fmt.Sprintf(s.t("Script fetched from %s at %s"), k.UsedIp, s.ts(k.UsedAt))
 		if time.Since(time.Unix(k.UsedAt, 0)) > 3*time.Minute && hs.Unix() < k.UsedAt {
-			out += "\n" + t("Warning: no handshake since the script was fetched. If you did not run it, provision again: this makes a new key and cancels the old one")
+			out += "\n" + s.t("Warning: no handshake since the script was fetched. If you did not run it, provision again: this makes a new key and cancels the old one")
 		}
 		return out
 	case time.Now().Unix() > k.ExpiresAt:
-		return t("The provisioning line expired without being used. Provision again to get a new one")
+		return s.t("The provisioning line expired without being used. Provision again to get a new one")
 	}
-	return fmt.Sprintf(t("The provisioning line is valid until %s and has not been used"), s.ts(k.ExpiresAt))
+	return fmt.Sprintf(s.t("The provisioning line is valid until %s and has not been used"), s.ts(k.ExpiresAt))
 }
 
 // routerWGFields is the WireGuard card of the router page: the stages that can be read without calling
 // the router, the last full check, the buttons, and, right after provisioning, the line to paste. port is the tunnel port.
 func (s *Server) routerWGFields(ctx context.Context, rt db.Router, once, port string) []field {
-	t := func(x string) string { return s.catalog.T(s.language(), x) }
-	sec := t("WireGuard tunnel")
+	sec := s.t("WireGuard tunnel")
 	var out []field
 	if once != "" {
-		out = append(out, field{Name: "wg_cmd", Label: t("Paste this one line into the router terminal (RouterOS 7). It works once and expires in 15 minutes"), Type: "pre", Section: sec, Value: once,
-			Hint: t("The key and the RADIUS secret are not in the line: the router fetches them. Provision again to get a new line")})
+		out = append(out, field{Name: "wg_cmd", Label: s.t("Paste this one line into the router terminal (RouterOS 7). It works once and expires in 15 minutes"), Type: "pre", Section: sec, Value: once,
+			Hint: s.t("The key and the RADIUS secret are not in the line: the router fetches them. Provision again to get a new line")})
 	}
 	if off := wgOff(); off != "" {
-		return append(out, field{Name: "wg_status", Label: t("Status"), Type: "pre", Section: sec, Value: t(off)})
+		return append(out, field{Name: "wg_status", Label: s.t("Status"), Type: "pre", Section: sec, Value: s.t(off)})
 	}
 	btn := func(name, label, path, confirm string) field {
 		return field{Name: name, Type: "formbtn", Section: sec, Value: fmt.Sprintf("/admin/routers/%d/wg/%s", rt.ID, path), Btn: label, Confirm: confirm}
 	}
 	p, err := s.queries.GetWgPeer(ctx, rt.ID)
 	if err != nil {
-		return append(out, field{Name: "wg_status", Label: t("Status"), Type: "pre", Section: sec, Value: t("Not provisioned")},
+		return append(out, field{Name: "wg_status", Label: s.t("Status"), Type: "pre", Section: sec, Value: s.t("Not provisioned")},
 			btn("wg_provision", "Provision", "provision", ""))
 	}
-	lines := []string{fmt.Sprintf(t("Tunnel address: %s"), p.Ip)}
+	lines := []string{fmt.Sprintf(s.t("Tunnel address: %s"), p.Ip)}
 	if p.Stale != 0 {
-		lines = append(lines, t("Needs provisioning again: the port, endpoint or subnet changed"))
+		lines = append(lines, s.t("Needs provisioning again: the port, endpoint or subnet changed"))
 	}
 	hs := s.wgHandshake(p, port)
-	lines = append(lines, hs.String(), s.wgRadius(p).String(), t("API login and CoA: use Check tunnel"))
+	lines = append(lines, hs.String(), s.wgRadius(p).String(), s.t("API login and CoA: use Check tunnel"))
 	var hsTime time.Time
 	if s.WG != nil {
 		hsTime = s.WG.Stats()[p.PublicKey].Handshake
@@ -686,9 +679,9 @@ func (s *Server) routerWGFields(ctx context.Context, rt db.Router, once, port st
 	if tok := s.wgToken(ctx, rt.ID, hsTime); tok != "" {
 		lines = append(lines, tok)
 	}
-	out = append(out, field{Name: "wg_status", Label: t("Status"), Type: "pre", Section: sec, Value: strings.Join(lines, "\n")})
+	out = append(out, field{Name: "wg_status", Label: s.t("Status"), Type: "pre", Section: sec, Value: strings.Join(lines, "\n")})
 	if stages := s.sessions.PopString(ctx, "wg_stages"); stages != "" {
-		out = append(out, field{Name: "wg_stages", Label: t("Check result"), Type: "pre", Section: sec, Value: stages})
+		out = append(out, field{Name: "wg_stages", Label: s.t("Check result"), Type: "pre", Section: sec, Value: stages})
 	}
 	return append(out,
 		btn("wg_check", "Check tunnel", "check", ""),

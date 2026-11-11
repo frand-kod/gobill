@@ -123,7 +123,7 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 	for m := 0; m < 12; m++ {
 		from := month.AddDate(0, m-11, 0)
 		to := from.AddDate(0, 1, 0)
-		labels[m] = s.catalog.T(s.language(), from.Month().String()[:3]) + from.Format(" 06")
+		labels[m] = s.t(from.Month().String()[:3]) + from.Format(" 06")
 		if regs[m], err = s.queries.CountCustomersBetween(ctx, db.CountCustomersBetweenParams{CreatedAt: from.Unix(), CreatedAt_2: to.Unix()}); err != nil {
 			return
 		}

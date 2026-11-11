@@ -316,7 +316,7 @@ func (s *Server) adminDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if t.ID == actor.ID {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Sorry You can't delete yourself"))
+		s.sessions.Put(r.Context(), "error", s.t("Sorry You can't delete yourself"))
 		http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
 		return
 	}
@@ -326,7 +326,7 @@ func (s *Server) adminDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if n == 0 {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "The last active SuperAdmin cannot be deleted"))
+		s.sessions.Put(r.Context(), "error", s.t("The last active SuperAdmin cannot be deleted"))
 		http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
 		return
 	}

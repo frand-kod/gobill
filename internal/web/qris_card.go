@@ -73,10 +73,9 @@ type qrisCardData struct {
 // the invoice or customer reference, "" when none. details are the parsed merchant fields of the
 // static code. Sample marks the dummy code of the preview. "" when the card cannot be made.
 func (s *Server) qrisCard(st map[string]string, details payment.QRISDetails, qr template.URL, amount, ref string, sample bool) template.HTML {
-	t := func(text string) string { return s.catalog.T(s.language(), text) }
 	company := strings.TrimSpace(st["company_name"])
 	d := qrisCardData{
-		Title: fmt.Sprintf(t("Payment to %s"), company), Amount: amount, Ref: ref,
+		Title: fmt.Sprintf(s.t("Payment to %s"), company), Amount: amount, Ref: ref,
 		Merchant: details.MerchantName, City: details.City, NMID: details.NMID, Provider: details.Provider,
 		Company: company, QR: qr, Sample: sample,
 	}
@@ -84,11 +83,11 @@ func (s *Server) qrisCard(st map[string]string, details payment.QRISDetails, qr 
 		d.Support = phone
 	}
 	if details.MerchantName == "" || strings.EqualFold(company, strings.TrimSpace(details.MerchantName)) {
-		d.Check = fmt.Sprintf(t("Make sure your app shows %s before paying."), company)
+		d.Check = fmt.Sprintf(s.t("Make sure your app shows %s before paying."), company)
 	} else {
-		d.Check = fmt.Sprintf(t("Your app will show the merchant name %s — this is the registered QRIS name of %s. If it shows another name, do not pay and contact us."), details.MerchantName, company)
+		d.Check = fmt.Sprintf(s.t("Your app will show the merchant name %s — this is the registered QRIS name of %s. If it shows another name, do not pay and contact us."), details.MerchantName, company)
 	}
-	tpl, err := template.New("qris").Funcs(template.FuncMap{"T": t}).Parse(qrisCardSrc)
+	tpl, err := template.New("qris").Funcs(template.FuncMap{"T": s.t}).Parse(qrisCardSrc)
 	if err != nil {
 		return ""
 	}

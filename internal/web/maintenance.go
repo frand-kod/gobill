@@ -32,8 +32,8 @@ func (s *Server) maintenance(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		title := html.EscapeString(s.catalog.T(s.language(), "Under Maintenance"))
-		msg := html.EscapeString(s.catalog.T(s.language(), "We are performing maintenance. Please try again later."))
+		title := html.EscapeString(s.t("Under Maintenance"))
+		msg := html.EscapeString(s.t("We are performing maintenance. Please try again later."))
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Retry-After", "3600")
 		w.WriteHeader(http.StatusServiceUnavailable)

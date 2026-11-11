@@ -31,7 +31,6 @@ func (s *Server) ipLookupForm(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) ipLookupRun(w http.ResponseWriter, r *http.Request) {
 	v := formVals(r, "ip", "at")
-	t := func(k string) string { return s.catalog.T(s.language(), k) }
 	e := map[string]string{}
 	ip, err := netip.ParseAddr(strings.TrimSpace(v["ip"]))
 	if err != nil {
@@ -61,7 +60,7 @@ func (s *Server) ipLookupRun(w http.ResponseWriter, r *http.Request) {
 		lp.Note = ip.String() + " · " + s.ts(at.Unix())
 	}
 	for _, x := range rows {
-		stop := t("still online")
+		stop := s.t("still online")
 		if x.StoppedAt.Valid {
 			stop = s.ts(x.StoppedAt.Int64)
 		}

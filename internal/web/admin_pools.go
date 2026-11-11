@@ -145,7 +145,7 @@ func (s *Server) syncPool(r *http.Request, op string, p db.Pool, oldName string)
 	if err := s.Billing.SyncPool(r.Context(), op, p, oldName); err != nil {
 		slog.Error("sync pool", "op", op, "pool", p.Name, "err", err)
 		s.logActivity(r, "pool.sync_failed", fmt.Sprintf("%s %s: %v", op, p.Name, err))
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Saved, but the router could not be updated")+": "+err.Error())
+		s.sessions.Put(r.Context(), "error", s.t("Saved, but the router could not be updated")+": "+err.Error())
 	}
 }
 

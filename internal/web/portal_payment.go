@@ -71,7 +71,7 @@ func (s *Server) pPay(w http.ResponseWriter, r *http.Request) {
 		}
 		if err != nil {
 			if m := couponErr(err); m != "" {
-				s.plansPage(w, r, 200, s.catalog.T(s.language(), m))
+				s.plansPage(w, r, 200, s.t(m))
 				return
 			}
 			s.fail(w, "portal pay coupon", err)
@@ -122,7 +122,7 @@ func (s *Server) payOrder(w http.ResponseWriter, r *http.Request, g Gateway, c *
 	if code != "" { // reserve the coupon use now; refused when it ran out since the price was shown
 		if err := billing.ReserveCoupon(r.Context(), s.queries, code); err != nil {
 			if m := couponErr(err); m != "" {
-				s.plansPage(w, r, 200, s.catalog.T(s.language(), m))
+				s.plansPage(w, r, 200, s.t(m))
 				return
 			}
 			s.fail(w, "portal pay coupon", err)
@@ -232,7 +232,7 @@ func (s *Server) pPayCheck(w http.ResponseWriter, r *http.Request) {
 	back := "/portal/payments/" + strconv.FormatInt(pr.ID, 10)
 	if pr.Status == "pending" && pr.GatewayRef != "" {
 		if wait := s.payCheckWait(pr.ID); wait > 0 {
-			s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.catalog.T(s.language(), "Wait %d seconds before checking again"), wait))
+			s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.t("Wait %d seconds before checking again"), wait))
 			http.Redirect(w, r, back, http.StatusSeeOther)
 			return
 		}

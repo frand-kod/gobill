@@ -118,7 +118,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	for _, r := range ended {
 		x := s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.Balance, r.LastSeenAt, r.ExpiresAt)
 		x.Days = int(today - dayIndex(time.Unix(r.ExpiresAt, 0), loc))
-		x.When = words.span(now.Unix()-r.ExpiresAt) + " " + s.catalog.T(s.language(), "ago")
+		x.When = words.span(now.Unix()-r.ExpiresAt) + " " + s.t("ago")
 		w.Recent = append(w.Recent, x)
 	}
 	week, errWeek := s.usageWindow(ctx, now, loc, 7)
@@ -135,7 +135,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 		w.LogsErr = true
 	}
 	for _, r := range logs {
-		when := words.span(now.Unix()-r.CreatedAt) + " " + s.catalog.T(s.language(), "ago")
+		when := words.span(now.Unix()-r.CreatedAt) + " " + s.t("ago")
 		w.Logs = append(w.Logs, logRow{Label: s.actionLabel(r.Action), Actor: s.actorLabel(ctx, r.ActorType, r.ActorID), Description: r.Description, When: when})
 	}
 	// card errors are flagged above, not returned: only the settings read (before any card) fails the page
@@ -216,7 +216,7 @@ func (s *Server) expiringRow(settings map[string]string, customerID int64, usern
 		x.LastSeen = s.ts(lastSeen)
 	}
 	if l := waLink(phone, settings["country_code_phone"]); l != "" {
-		x.WA = l + "?text=" + url.QueryEscape(s.catalog.T(s.language(), "Hello, your internet plan is about to end. Please renew to stay online."))
+		x.WA = l + "?text=" + url.QueryEscape(s.t("Hello, your internet plan is about to end. Please renew to stay online."))
 	}
 	return x
 }
