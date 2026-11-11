@@ -373,7 +373,7 @@ func TestIsolirSetupCommandsUseListenAddress(t *testing.T) {
 		}
 	}
 	s.ListenAddr = ":8090"
-	if host, port := s.gobillAddr(); host != lanIPv4() || port != "8090" {
+	if host, port := s.gobillAddr(); host != isolir.LanIPv4() || port != "8090" {
 		t.Errorf("wildcard listen gave %s:%s", host, port)
 	}
 }

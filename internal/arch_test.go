@@ -20,7 +20,7 @@ func TestImportRules(t *testing.T) {
 		{"radius", []string{"web"}},
 		{"notify", []string{"web"}},
 		{"payment", []string{"web"}},
-		{"isolir", []string{"web"}},
+		{"isolir", []string{"web", "billing", "radius"}},
 		{"importer", []string{"web"}},
 		// device drivers and the WireGuard manager stand beside the RADIUS server, not on it
 		{"device", []string{"web", "radius"}},

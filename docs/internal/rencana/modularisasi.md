@@ -84,6 +84,17 @@ Selesai jika tidak ada lagi `GetSetting` atau `ListSettings` di luar `internal/s
 
 Selesai jika lookup `isolir_plan_id` hanya ada di satu tempat.
 
+#### Isolir: perilaku yang belum seragam
+
+M3 memindahkan aturan ke `internal/isolir` tanpa mengubah perilaku. Perbedaan di bawah sengaja dibiarkan dan ditandai `// M3: kept as-is` di kode. Test karakterisasi mengunci semuanya.
+
+1. "Terisolir" punya tiga arti. RADIUS (`isolir.PlanFor`) butuh `isolir_enabled=yes`, plan id tidak 0, dan isolasi berjalan. Gerbang web hanya cek flag atomic dan isolasi berjalan. Web memakai `time.Now()`, billing dan RADIUS memakai clock yang bisa diganti.
+2. "Berjalan" punya dua arti. `GetRunningIsolation` butuh `ends_at > now`. `ListRunningIsolations` dan `EndCustomerIsolations` hanya butuh `ended_at = 0`.
+3. `isolir.Isolate` memanggil `EnsurePlan` sebelum cek langganan aktif dan isolasi yang sudah ada. Plan bisa terbuat walau isolasi dilewati.
+4. `isolir_address_list` kosong: `Value` memberi "" tetapi `AddressListFor` memberi `isolir`. Rule RouterOS bisa berisi `src-address-list=` kosong, sementara RADIUS mengirim `isolir`.
+5. `EnsurePlan` menerima plan id apa saja yang tersimpan, walau bukan plan isolir.
+6. `Days("-3")` memberi 0 (sampai bayar). `ValidHost` menerima `-x.com` dan IP mentah.
+
 ### M4. Logika keluar dari handler
 
 Urutan dari yang paling berisiko:

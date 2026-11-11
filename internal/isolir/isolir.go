@@ -89,11 +89,13 @@ func PlanID(v string) int64 {
 	return n
 }
 
+// M3: kept as-is, see docs/internal/rencana/modularisasi.md (any stored plan id is accepted, even
+// when it is not an isolir plan).
 // EnsurePlan returns the isolir plan id. It keeps the stored plan when it exists, else reuses a
 // plan named PlanName on the Radius device, else creates it with a 64k/64k bandwidth. The plan is
 // disabled so the portal does not sell it. The id is stored in isolir_plan_id.
 func EnsurePlan(ctx context.Context, q *db.Queries) (int64, error) {
-	if id := PlanID(settings.Get(ctx, q, "isolir_plan_id")); id > 0 {
+	if id := StoredPlanID(ctx, q); id > 0 {
 		if _, err := q.GetPlan(ctx, id); err == nil {
 			return id, nil
 		}
@@ -130,9 +132,11 @@ func findOrCreatePlan(ctx context.Context, q *db.Queries) (int64, error) {
 
 // AddressListFor is the Mikrotik-Address-List for a plan: the isolir list when planID is the isolir
 // plan, else "". The name is isolir_address_list, DefaultAddrList when unset or empty. st is the
+// M3: kept as-is, see docs/internal/rencana/modularisasi.md (an empty list gives "isolir" here, but
+// Value gives "" to the router rules).
 // settings table (RADIUS passes its cached copy, so a login costs no query here).
 func AddressListFor(st map[string]string, planID int64) string {
-	if planID == 0 || PlanID(st["isolir_plan_id"]) != planID {
+	if planID == 0 || PlanIDIn(st) != planID {
 		return ""
 	}
 	if v := st["isolir_address_list"]; v != "" {

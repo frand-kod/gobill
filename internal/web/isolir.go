@@ -119,7 +119,7 @@ func (s *Server) isolirFor(ctx context.Context, ip string, st map[string]string,
 	if err != nil {
 		return v
 	}
-	isoID := isolir.PlanID(st["isolir_plan_id"])
+	isoID := isolir.PlanIDIn(st)
 	for _, sub := range subs {
 		if sub.PlanID == isoID {
 			continue
@@ -146,8 +146,9 @@ func (s *Server) isolirCustomer(ctx context.Context, ip string) (c db.Customer, 
 
 // isolirIsolated reports whether the customer has an isolation that is running now.
 func (s *Server) isolirIsolated(ctx context.Context, customerID int64) bool {
-	_, err := s.queries.GetRunningIsolation(ctx, db.GetRunningIsolationParams{CustomerID: customerID, Now: time.Now().Unix()})
-	return err == nil
+	// M3: kept as-is, see docs/internal/rencana/modularisasi.md (real clock, no isolir_enabled check;
+	// the gate checks the atomic flag instead)
+	return isolir.IsIsolated(ctx, s.queries, customerID, time.Now())
 }
 
 // isolirGate serves the isolir page to an isolated client for GET and HEAD requests, whatever Host
@@ -373,39 +374,18 @@ var isolirVarList = []notify.Var{
 	{Name: "notice", Desc: "Result of the last action, such as a voucher"},
 }
 
-// isolirRouterRules is the one block of RouterOS commands that isolates a client except the
-// allow-list. The rules are appended to the forward chain, so they must sit above any general
-// accept rule. Every allow-list entry gets a tls-host rule that learns its IPs from the TLS SNI;
-// exact hosts are also added to the allow address-list up front.
-func isolirRouterRules(list, host, port string, hosts []string) string {
-	allow := list + "-allow"
-	var b strings.Builder
-	fmt.Fprintf(&b, "/ip firewall nat add chain=dstnat src-address-list=%s dst-address-type=!local protocol=tcp dst-port=80 action=dst-nat to-addresses=%s to-ports=%s\n", list, host, port)
-	fmt.Fprintf(&b, "/ip firewall filter add chain=forward src-address-list=%s dst-address=%s action=accept\n", list, host)
-	for _, h := range hosts {
-		if !strings.HasPrefix(h, "*.") {
-			fmt.Fprintf(&b, "/ip firewall address-list add list=%s address=%s comment=\"gobill isolir allow\"\n", allow, h)
-		}
-	}
-	for _, h := range hosts {
-		fmt.Fprintf(&b, "/ip firewall filter add chain=forward src-address-list=%s protocol=tcp dst-port=443 tls-host=%s action=add-dst-to-address-list address-list=%s address-list-timeout=1d comment=\"isolir: learn %s\"\n", list, h, allow, h)
-	}
-	fmt.Fprintf(&b, "/ip firewall filter add chain=forward src-address-list=%s protocol=tcp dst-port=443 tcp-flags=syn action=accept comment=\"isolir: TLS handshake\"\n", list)
-	fmt.Fprintf(&b, "/ip firewall filter add chain=forward src-address-list=%s dst-address-list=%s action=accept comment=\"isolir: allowed apps\"\n", list, allow)
-	fmt.Fprintf(&b, "/ip firewall filter add chain=forward src-address-list=%s action=drop comment=\"isolir: block the rest\"", list)
-	return b.String()
-}
-
 // isolirSetupFields is the MikroTik setup helper: copyable RouterOS commands for the address gobill
 // listens on (see gobillAddr).
 func (s *Server) isolirSetupFields(st map[string]string) []field {
 	host, port := s.gobillAddr()
+	// M3: kept as-is, see docs/internal/rencana/modularisasi.md (Value gives "" for an empty list,
+	// RADIUS sends "isolir")
 	list := isolir.Value(st, "isolir_address_list")
 	hosts := isolir.HostLines(isolir.Value(st, "isolir_allow_hosts"))
 	sec := s.t("Setup router (MikroTik, RouterOS 6 and 7)")
 	return []field{
 		{Name: "isolir_cmd_rules", Label: s.t("1. Isolation rules (paste the whole block, in this order)"), Type: "pre", Section: sec,
-			Value: isolirRouterRules(list, host, port, hosts),
+			Value: isolir.RouterRules(list, host, port, hosts),
 			Hint:  s.t("The rules must sit above any general accept rule in the forward chain, or isolated clients are not cut off. Only HTTP on port 80 is redirected to the isolir page. Hosts in Allowed while isolated are reachable; wildcard hosts are learned when the app opens a TLS connection. Changed the allowed hosts? Paste the block again.")},
 		{Name: "isolir_cmd_walled", Label: s.t("2. Walled garden hotspot for gobill"), Type: "pre", Section: sec,
 			Value: fmt.Sprintf("/ip hotspot walled-garden ip add dst-address=%s dst-port=%s action=accept", host, port),
@@ -433,20 +413,9 @@ func (s *Server) gobillAddr() (host, port string) {
 		host, port = "", "8080"
 	}
 	if ip := net.ParseIP(host); ip == nil || ip.IsUnspecified() {
-		host = lanIPv4()
+		host = isolir.LanIPv4()
 	}
 	return host, port
-}
-
-// lanIPv4 is the first non-loopback IPv4 address of this host, or a placeholder when there is none.
-func lanIPv4() string {
-	addrs, _ := net.InterfaceAddrs()
-	for _, a := range addrs {
-		if ipn, ok := a.(*net.IPNet); ok && ipn.IP.To4() != nil && !ipn.IP.IsLoopback() && !ipn.IP.IsLinkLocalUnicast() {
-			return ipn.IP.String()
-		}
-	}
-	return "<IP-LAN-GOBILL>"
 }
 
 // isolirPortalURL is where an isolated customer pays: the login page, on the app URL when it is set.

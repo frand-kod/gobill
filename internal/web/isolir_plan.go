@@ -14,8 +14,7 @@ import (
 
 // isolirIDs are the isolir plan and its bandwidth, 0 while the plan is not set up.
 func (s *Server) isolirIDs(ctx context.Context) (planID, bwID int64) {
-	v := settings.Get(ctx, s.queries, "isolir_plan_id")
-	if planID = isolir.PlanID(v); planID == 0 {
+	if planID = isolir.StoredPlanID(ctx, s.queries); planID == 0 {
 		return 0, 0
 	}
 	if p, err := s.queries.GetPlan(ctx, planID); err == nil && p.BandwidthID.Valid {
@@ -59,8 +58,7 @@ func rateSetting(n int64, unit string) string {
 // saveIsolirRates writes the typed rates to the isolir bandwidth row when the plan exists. A missing
 // or invalid rate is left alone; settingsErrors has already rejected invalid ones.
 func saveIsolirRates(ctx context.Context, q *db.Queries, v map[string]string) error {
-	raw := settings.Get(ctx, q, "isolir_plan_id")
-	p, err := q.GetPlan(ctx, isolir.PlanID(raw))
+	p, err := q.GetPlan(ctx, isolir.StoredPlanID(ctx, q))
 	if err != nil || !p.BandwidthID.Valid {
 		return nil // no plan yet: it is made the next time Isolir is turned on
 	}
