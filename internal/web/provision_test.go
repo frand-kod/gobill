@@ -3,7 +3,6 @@ package web
 import (
 	"net/http"
 	"net/http/httptest"
-	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/secret"
+	"github.com/frand-kod/gobill/internal/service/provision"
 	"github.com/frand-kod/gobill/internal/wg"
 )
 
@@ -99,10 +99,10 @@ func TestProvisionTokenSingleUse(t *testing.T) {
 func TestProvisionTokenExpired(t *testing.T) {
 	s, h, _, id, path := provisioned(t)
 	k, _ := s.queries.GetWgToken(t.Context(), id)
-	if left := time.Until(time.Unix(k.ExpiresAt, 0)); left > provisionTTL || left < provisionTTL-time.Minute {
+	if left := time.Until(time.Unix(k.ExpiresAt, 0)); left > provision.TTL || left < provision.TTL-time.Minute {
 		t.Fatalf("token lives %v, want 15 minutes", left)
 	}
-	if err := s.queries.SetWgToken(t.Context(), db.SetWgTokenParams{RouterID: id, TokenHash: tokenHash(path[strings.LastIndex(path, "/")+1:]), ExpiresAt: time.Now().Add(-time.Second).Unix()}); err != nil {
+	if err := s.queries.SetWgToken(t.Context(), db.SetWgTokenParams{RouterID: id, TokenHash: provision.TokenHash(path[strings.LastIndex(path, "/")+1:]), ExpiresAt: time.Now().Add(-time.Second).Unix()}); err != nil {
 		t.Fatal(err)
 	}
 	fetchScript(t, h, path, "198.51.100.7:4000", http.StatusGone)
@@ -154,53 +154,6 @@ func TestProvisionRemoveRevokes(t *testing.T) {
 		t.Error("token kept after the router was deleted")
 	}
 	fetchScript(t, h, p2, "198.51.100.7:4000", http.StatusGone)
-}
-
-// The script is the same for the same router and removes what it adds before adding it, so a second run
-// ends in the same state; RouterOS 6 stops before anything changes.
-func TestProvisionScriptShape(t *testing.T) {
-	b := wgBlock{Private: "PRIV", ServerPub: "PUB", Endpoint: "vpn.example.com", Secret: "SEC", APIPass: "PW", Port: 51820,
-		Self: netip.MustParseAddr("10.99.0.1"), Peer: netip.MustParseAddr("10.99.0.2"), Bits: 24}
-	sc := b.script()
-	if sc != b.script() {
-		t.Fatal("script changes between calls")
-	}
-	idx := func(sub string) int {
-		i := strings.Index(sc, sub)
-		if i < 0 {
-			t.Fatalf("script lacks %q", sub)
-		}
-		return i
-	}
-	if v, first := idx("RouterOS 7 is required"), idx("/user remove"); v > first || !strings.Contains(sc[:v], ":error") || !strings.Contains(sc[v:], "L2TP/IPsec or SSTP") {
-		t.Error("the version check must stop the script before any change")
-	}
-	for _, pair := range [][2]string{
-		{"/interface wireguard remove [find name=wg-gobill]", "/interface wireguard add name=wg-gobill"},
-		{"/radius remove [find comment=gobill]", "/radius add "},
-		{"/user remove [find name=gobill]", "/user add name=gobill"},
-		{"/user group remove [find name=gobill-api]", "/user group add name=gobill-api"},
-		{"/ip firewall filter remove [find comment=gobill]", "/ip firewall filter add "},
-	} {
-		if idx(pair[0]) > idx(pair[1]) {
-			t.Errorf("%q must come before %q", pair[0], pair[1])
-		}
-	}
-	for _, want := range []string{"place-before=[:pick [/ip firewall filter find] 0]", "/ip service set api address=10.99.0.1/32", "group=gobill-api", "address=10.99.0.1/32",
-		"/file remove [find name=gobill.rsc]"} {
-		if !strings.Contains(sc, want) {
-			t.Errorf("script lacks %q", want)
-		}
-	}
-	if strings.Count(sc, "place-before=") != 2 || strings.Contains(sc, "place-before=0") {
-		t.Error("both firewall rules go first, by id, never by index 0")
-	}
-	// An empty filter table has no first rule: each add with place-before is the else of an emptiness check, a plain add is the then.
-	for _, ln := range strings.Split(sc, "\n") {
-		if strings.Contains(ln, "place-before=") && (!strings.HasPrefix(ln, `:if ([:len [/ip firewall filter find]] = 0) do={ /ip firewall filter add `) || !strings.Contains(ln, "} else={ /ip firewall filter add ")) {
-			t.Errorf("unguarded place-before: %s", ln)
-		}
-	}
 }
 
 func TestWGCheckStages(t *testing.T) {

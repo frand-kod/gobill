@@ -6,14 +6,8 @@ package web
 // never says why (the log does).
 
 import (
-	"context"
-	"crypto/sha256"
 	"crypto/subtle"
 	"database/sql"
-	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
-	"github.com/frand-kod/gobill/internal/settings"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -23,16 +17,9 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/secret"
+	"github.com/frand-kod/gobill/internal/service/provision"
 	"github.com/frand-kod/gobill/internal/wg"
 )
-
-const provisionTTL = 15 * time.Minute
-
-func tokenHash(token string) string {
-	_, rnd, _ := strings.Cut(token, "-")
-	sum := sha256.Sum256([]byte(rnd))
-	return hex.EncodeToString(sum[:])
-}
 
 func (s *Server) provisionScript(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -52,7 +39,7 @@ func (s *Server) provisionScript(w http.ResponseWriter, r *http.Request) {
 		refuse("unknown", id)
 		return
 	}
-	if subtle.ConstantTimeCompare([]byte(tokenHash(token)), []byte(k.TokenHash)) != 1 {
+	if subtle.ConstantTimeCompare([]byte(provision.TokenHash(token)), []byte(k.TokenHash)) != 1 {
 		refuse("wrong token", id)
 		return
 	}
@@ -95,13 +82,13 @@ func (s *Server) provisionScript(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "wireguard server key", err)
 		return
 	}
-	radiusSecret, err := s.wgNAS(ctx, s.queries, rt, p.Ip)
+	radiusSecret, err := s.prov().NAS(ctx, s.queries, rt, p.Ip)
 	if err != nil {
 		s.fail(w, "wireguard nas", err)
 		return
 	}
 	// a pending password is switched in below, once the token is claimed; none = switched already
-	pendingEnc, pending := s.wgPending(ctx, id)
+	pendingEnc, pending := s.prov().Pending(ctx, id)
 	apiEnc := rt.PasswordEnc
 	if pending {
 		apiEnc = pendingEnc
@@ -111,8 +98,12 @@ func (s *Server) provisionScript(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "open router api password", err)
 		return
 	}
-	script := wgBlock{Private: string(priv), ServerPub: serverPub, Endpoint: wgDefaults(st)["wg_endpoint"], Secret: radiusSecret, APIPass: string(apiPass),
-		Port: cfg.Port, Self: cfg.Self(), Peer: netip.MustParseAddr(p.Ip), Bits: cfg.Subnet.Bits()}.script()
+	script, err := provision.Block{Private: string(priv), ServerPub: serverPub, Endpoint: wgDefaults(st)["wg_endpoint"], Secret: radiusSecret, APIPass: string(apiPass),
+		Port: cfg.Port, Self: cfg.Self(), Peer: netip.MustParseAddr(p.Ip), Bits: cfg.Subnet.Bits()}.Script()
+	if err != nil {
+		s.fail(w, "build provision script", err)
+		return
+	}
 	// the claim is atomic: of two requests at once only one gets the script
 	now := time.Now().Unix()
 	n, err := s.queries.UseWgToken(ctx, db.UseWgTokenParams{UsedAt: now, UsedIp: clientIP(r), RouterID: id, ExpiresAt: now})
@@ -125,7 +116,7 @@ func (s *Server) provisionScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if pending {
-		if err := s.wgSwitchCreds(ctx, rt, p.Ip, pendingEnc); err != nil {
+		if err := s.prov().SwitchCreds(ctx, rt, p.Ip, pendingEnc); err != nil {
 			s.fail(w, "switch router api user", err)
 			return
 		}
@@ -135,29 +126,7 @@ func (s *Server) provisionScript(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(script))
 }
 
-// wgPending is the sealed API password waiting for the script to be fetched (see routerWGProvision).
-func (s *Server) wgPending(ctx context.Context, id int64) ([]byte, bool) {
-	v := settings.Get(ctx, s.queries, wgPendingKey(id))
-	enc, err := base64.StdEncoding.DecodeString(v)
-	return enc, v != "" && err == nil
-}
-
-// wgSwitchCreds points the router at its tunnel address and new API user, remembering the previous
-// credentials (first switch only) so revoking can give them back.
-func (s *Server) wgSwitchCreds(ctx context.Context, rt db.Router, ip string, pass []byte) error {
-	if prev := settings.Get(ctx, s.queries, wgPrevKey(rt.ID)); prev == "" {
-		b, _ := json.Marshal(wgCreds{Host: rt.Host, Port: rt.Port, TLS: rt.Tls, User: rt.Username, Pass: rt.PasswordEnc})
-		if err := s.queries.UpsertSettingRaw(ctx, db.UpsertSettingRawParams{Key: wgPrevKey(rt.ID), Value: string(b)}); err != nil {
-			return err
-		}
-	}
-	if err := s.queries.UpdateRouter(ctx, db.UpdateRouterParams{Name: rt.Name, Host: ip, Port: 8728, Username: provUser, PasswordEnc: pass,
-		Description: rt.Description, Enabled: rt.Enabled, Coordinates: rt.Coordinates, Coverage: rt.Coverage, CertPin: rt.CertPin, ID: rt.ID}); err != nil {
-		return err
-	}
-	// the tunnel address is reached over the plain API on 8728
-	if err := s.queries.SetRouterTLS(ctx, db.SetRouterTLSParams{Tls: 0, ID: rt.ID}); err != nil {
-		return err
-	}
-	return s.queries.UpsertSettingRaw(ctx, db.UpsertSettingRawParams{Key: wgPendingKey(rt.ID)})
+// prov is the provisioning service. It is built per call because SecretKey is set after New.
+func (s *Server) prov() *provision.Service {
+	return &provision.Service{DB: s.conn, Q: s.queries, Key: s.SecretKey, Now: s.now}
 }
