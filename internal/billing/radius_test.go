@@ -14,6 +14,7 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/device"
+	gbradius "github.com/frand-kod/gobill/internal/radius"
 	"github.com/frand-kod/gobill/internal/secret"
 )
 
@@ -59,7 +60,7 @@ func TestExpireRadiusPlanDisconnects(t *testing.T) {
 	}()
 	port := strconv.Itoa(pc.LocalAddr().(*net.UDPAddr).Port)
 	e.s.DeviceFor = func(p db.Plan, _ db.Router) (device.Device, error) {
-		return device.Radius{Q: e.q, Key: key, Port: port}, nil
+		return gbradius.Driver{Q: e.q, Key: key, Port: port}, nil
 	}
 
 	enc, _ := secret.Seal(key, sec)
@@ -136,7 +137,7 @@ func TestRadiusPlanChangeCoA(t *testing.T) {
 	}()
 	port := strconv.Itoa(pc.LocalAddr().(*net.UDPAddr).Port)
 	e.s.DeviceFor = func(p db.Plan, _ db.Router) (device.Device, error) {
-		return device.Radius{Q: e.q, Key: key, Port: port}, nil
+		return gbradius.Driver{Q: e.q, Key: key, Port: port}, nil
 	}
 	enc, _ := secret.Seal(key, sec)
 	if _, err := e.q.CreateNAS(ctx, db.CreateNASParams{Name: "lo", Ip: "127.0.0.1", SecretEnc: enc}); err != nil {

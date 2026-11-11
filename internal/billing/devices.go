@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/device"
+	"github.com/frand-kod/gobill/internal/radius"
 	"github.com/frand-kod/gobill/internal/secret"
 	"time"
 )
@@ -203,7 +204,7 @@ func (s *Service) defaultDevice(p db.Plan, r db.Router) (device.Device, error) {
 		return device.Dummy{}, nil
 	}
 	if p.Device == "Radius" {
-		return device.Radius{Q: s.Q, Key: s.Key}, nil
+		return radius.Driver{Q: s.Q, Key: s.Key}, nil
 	}
 	rt, err := s.routerConn(r)
 	if err != nil {

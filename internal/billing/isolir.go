@@ -12,6 +12,7 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/device"
 	"github.com/frand-kod/gobill/internal/isolir"
+	"github.com/frand-kod/gobill/internal/radius"
 )
 
 // isolate starts the isolation of an expired subscription. It runs in the transaction that expires
@@ -93,7 +94,7 @@ func (s *Service) endDueIsolations(ctx context.Context) error {
 // disconnectIsolated drops the customer's open RADIUS sessions after an isolation ended, so the next
 // Access-Request gets the normal plan instead of the isolir address-list and rate limit.
 func (s *Service) disconnectIsolated(ctx context.Context, c db.Customer) {
-	dev := device.Radius{Q: s.Q, Key: s.Key}
+	dev := radius.Driver{Q: s.Q, Key: s.Key}
 	if err := dev.Disconnect(ctx, device.Customer{Username: c.Username}, ""); err != nil {
 		slog.Error("isolir: disconnect after isolation ended", "customer", c.Username, "err", err)
 	}
