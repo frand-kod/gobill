@@ -27,6 +27,8 @@ func TestImportRules(t *testing.T) {
 		{"wg", []string{"web", "radius"}},
 		// the scheduler is generic: update checks are registered from internal/app
 		{"job", []string{"web", "update", "selfupdate"}},
+		// services never reach up into the HTTP layer
+		{"service", []string{"web"}},
 		// kernel packages import nothing internal
 		{"money", []string{""}},
 		{"clock", []string{""}},

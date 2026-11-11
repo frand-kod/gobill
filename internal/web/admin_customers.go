@@ -6,18 +6,14 @@ import (
 	"database/sql"
 	"encoding/csv"
 	"encoding/json"
+	"github.com/frand-kod/gobill/internal/service/customer"
 	"log/slog"
 	"net/http"
-	"net/mail"
 
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/radius"
-	"github.com/frand-kod/gobill/internal/secret"
-	"golang.org/x/crypto/bcrypt"
 	"strconv"
 	"strings"
 	"time"
@@ -411,28 +407,16 @@ func (s *Server) customerOnline(ctx context.Context, c db.Customer, subs []db.Su
 	return ""
 }
 
-// custSave serves both create (no {id} in the path) and update.
 // setPassword stores a new portal password and, as in the old app (one password for portal and
 // router), the same value as the router secret.
 func (s *Server) setPassword(ctx context.Context, id int64, pass string) error {
-	hash, err := bcrypt.GenerateFromPassword([]byte(pass), bcryptCost)
-	if err != nil {
-		return err
-	}
-	enc, err := secret.Seal(s.SecretKey, []byte(pass))
-	if err != nil {
-		return err
-	}
-	if err = s.queries.SetCustomerPassword(ctx, db.SetCustomerPasswordParams{PasswordHash: string(hash), ID: id}); err != nil {
-		return err
-	}
-	return s.queries.SetCustomerSecret(ctx, db.SetCustomerSecretParams{SecretEnc: enc, ID: id})
+	return s.customers().SetPassword(ctx, id, pass)
 }
 
+// custSave serves both create (no {id} in the path) and update.
 func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
 	v := formVals(r, custNames...)
-	v["phone"] = db.CanonicalPhone(v["phone"])
 	pass, sec := r.PostFormValue("password"), r.PostFormValue("secret")
 	e := map[string]string{}
 	var cur db.Customer
@@ -458,63 +442,6 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 			e["password"] = msg
 		}
 	}
-	if v["username"] == "" {
-		e["username"] = "This field is required"
-	}
-	// RADIUS logs in by username or pppoe_username, so neither may collide with another customer.
-	for _, f := range []string{"username", "pppoe_username"} {
-		if _, ok := e[f]; ok || v[f] == "" || id != 0 && v[f] == cur.Username && f == "username" || id != 0 && v[f] == cur.PppoeUsername && f == "pppoe_username" {
-			continue
-		}
-		if _, err := s.queries.FindLoginNameOwner(r.Context(), db.FindLoginNameOwnerParams{Self: id, Name: v[f]}); err == nil {
-			e[f] = "Username already used by another customer"
-		} else if !errors.Is(err, sql.ErrNoRows) {
-			s.fail(w, "check username", err)
-			return
-		}
-	}
-	if v["bind_mac"] != "" {
-		if m := radius.NormMAC(v["bind_mac"]); m != "" {
-			v["bind_mac"] = m
-		} else {
-			e["bind_mac"] = "Enter a MAC address like AA:BB:CC:DD:EE:FF"
-		}
-	}
-	v["bind_port_id"] = strings.TrimSpace(v["bind_port_id"])
-	if v["phone"] != "" { // several accounts may share a number unless wa_unique_per_account is yes
-		if taken, err := s.phoneTaken(r.Context(), v["phone"], id); err != nil {
-			s.fail(w, "check phone", err)
-			return
-		} else if taken {
-			e["phone"] = msgPhoneTaken
-		}
-	}
-	if v["fullname"] == "" {
-		e["fullname"] = "This field is required"
-	}
-	if v["email"] != "" {
-		if _, err := mail.ParseAddress(v["email"]); err != nil {
-			e["email"] = "Invalid email address"
-		}
-	}
-	if !oneOf(v["service_type"], "Hotspot", "PPPoE", "Others") {
-		e["service_type"] = "Invalid value"
-	}
-	if !oneOf(v["status"], custStatuses...) {
-		e["status"] = "Invalid value"
-	}
-	coords, ok := checkCoords(v["coordinates"])
-	if !ok {
-		e["coordinates"] = "Enter coordinates as lat,lng, e.g. -6.2,106.8"
-	}
-	bday := sql.NullInt64{}
-	if v["billing_day"] != "" {
-		n, err := strconv.ParseInt(v["billing_day"], 10, 64)
-		if err != nil || n < 1 || n > 31 {
-			e["billing_day"] = cmp.Or(wholeErr(v["billing_day"]), "Enter a day between 1 and 31")
-		}
-		bday = sql.NullInt64{Int64: n, Valid: true}
-	}
 	cfv, err := s.cfCheck(r.Context(), r, v, e)
 	if err != nil {
 		s.fail(w, "check custom fields", err)
@@ -533,116 +460,54 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 			e["plan"] = msgPlanMissing
 		}
 	}
-	if len(e) == 0 {
-		enc := cur.SecretEnc
-		if rs := cmp.Or(sec, pass); rs != "" { // one password like the old app; explicit secret wins
-			var err error
-			if enc, err = secret.Seal(s.SecretKey, []byte(rs)); err != nil {
-				s.fail(w, "seal customer secret", err)
-				return
-			}
+	ctx := r.Context()
+	res, err := s.customers().Save(ctx, &customer.SaveInput{ID: id, Cur: cur, V: v, Pass: pass, Secret: sec,
+		AdminID: adminFrom(r).ID, CF: cfv, Errs: e})
+	if err != nil {
+		s.fail(w, "save customer", err)
+		return
+	}
+	cid, created := res.ID, res.Created
+	if res.Saved {
+		act, msg := "customer.create", "Data Created Successfully"
+		if id == 0 && v["send_welcome_message"] == "1" { // after the commit: no welcome for a rolled-back customer
+			s.welcome(ctx, created, welcomeChannels(v), pass)
 		}
-		renew := int64(0)
-		if v["auto_renewal"] == "1" {
-			renew = 1
-		}
-		ctx := r.Context()
-		var hash []byte // hashed before the tx: BeginTx takes the write lock (_txlock=immediate)
-		if id == 0 || pass != "" {
-			if hash, err = bcrypt.GenerateFromPassword([]byte(pass), bcryptCost); err != nil {
-				s.fail(w, "hash password", err)
-				return
-			}
-		}
-		tx, err := s.conn.BeginTx(ctx, nil) // customer row and custom field values commit together
-		if err != nil {
-			s.fail(w, "begin save customer", err)
-			return
-		}
-		defer tx.Rollback()
-		q := s.queries.WithTx(tx)
-		cid := id
-		var created db.Customer
-		if id == 0 {
-			var c db.Customer
-			c, err = q.CreateCustomer(ctx, db.CreateCustomerParams{Username: v["username"], PasswordHash: string(hash),
-				Fullname: v["fullname"], Address: v["address"], Phone: v["phone"], Email: v["email"], ServiceType: v["service_type"],
-				PppoeUsername: v["pppoe_username"], PppoeIp: v["pppoe_ip"], SecretEnc: enc, AutoRenewal: renew,
-				Status: v["status"], CreatedBy: sql.NullInt64{Int64: adminFrom(r).ID, Valid: true}, BillingDay: bday, Coordinates: coords})
-			cid, created = c.ID, c
-		} else {
-			if v["username"] != cur.Username { // first, so a clash changes nothing
-				err = q.RenameCustomer(ctx, db.RenameCustomerParams{Username: v["username"], ID: id})
-			}
-			if err == nil {
-				err = q.UpdateCustomer(ctx, db.UpdateCustomerParams{Fullname: v["fullname"], Address: v["address"],
-					Phone: v["phone"], Email: v["email"], ServiceType: v["service_type"], PppoeUsername: v["pppoe_username"],
-					PppoeIp: v["pppoe_ip"], SecretEnc: enc, AutoRenewal: renew, Status: v["status"], BillingDay: bday, Coordinates: coords, ID: id})
-			}
-			if err == nil && pass != "" {
-				err = q.SetCustomerPassword(ctx, db.SetCustomerPasswordParams{PasswordHash: string(hash), ID: id})
-			}
-		}
-		if err == nil {
-			err = s.cfStore(ctx, q, cid, cfv)
-		}
-		if err == nil {
-			if v["bind_mac"] == "" && v["bind_port_id"] == "" {
-				err = q.DeleteCustomerBinding(ctx, cid)
-			} else {
-				err = q.SetCustomerBinding(ctx, db.SetCustomerBindingParams{CustomerID: cid, Mac: v["bind_mac"], PortID: v["bind_port_id"]})
-			}
-		}
-		if err == nil {
-			err = tx.Commit()
-		}
-		switch {
-		case isUnique(err):
-			e["username"] = "Username already exists"
-		case err != nil:
-			s.fail(w, "save customer", err)
-			return
-		default:
-			act, msg := "customer.create", "Data Created Successfully"
-			if id == 0 && v["send_welcome_message"] == "1" { // after the commit: no welcome for a rolled-back customer
-				s.welcome(ctx, created, welcomeChannels(v), pass)
-			}
-			if id != 0 {
-				act, msg = "customer.update", "Data Updated Successfully"
-				// A new password, username, pppoe username/ip goes to the router, as the old app did.
-				if v["status"] != cur.Status && s.Billing != nil { // leaving Active cuts the router; coming back re-syncs
-					var serr error
-					if cur.Status == "Active" {
-						_, serr = s.Billing.SuspendCustomer(r.Context(), id)
-					} else if v["status"] == "Active" {
-						_, serr = s.Billing.SyncCustomer(r.Context(), id, adminFrom(r).ID)
-					}
-					if serr != nil {
-						slog.Error("customer status router update", "customer", v["username"], "err", serr)
-						s.logActivity(r, "customer.sync_failed", fmt.Sprintf("%s: %v", v["username"], serr))
-						s.sessions.Put(r.Context(), "error", s.t("Saved, but the router could not be updated")+": "+serr.Error())
-					}
+		if id != 0 {
+			act, msg = "customer.update", "Data Updated Successfully"
+			// A new password, username, pppoe username/ip goes to the router, as the old app did.
+			if v["status"] != cur.Status && s.Billing != nil { // leaving Active cuts the router; coming back re-syncs
+				var serr error
+				if cur.Status == "Active" {
+					_, serr = s.Billing.SuspendCustomer(r.Context(), id)
+				} else if v["status"] == "Active" {
+					_, serr = s.Billing.SyncCustomer(r.Context(), id, adminFrom(r).ID)
 				}
-				if v["status"] == "Active" && cur.Status == "Active" && (pass != "" || sec != "" || v["username"] != cur.Username || v["pppoe_username"] != cur.PppoeUsername || v["pppoe_ip"] != cur.PppoeIp) && s.Billing != nil {
-					if _, serr := s.Billing.SyncAfterEdit(r.Context(), cur, adminFrom(r).ID); serr != nil {
-						slog.Error("sync customer", "customer", v["username"], "err", serr)
-						s.logActivity(r, "customer.sync_failed", fmt.Sprintf("%s: %v", v["username"], serr))
-						s.sessions.Put(r.Context(), "error", s.t("Saved, but the router could not be updated")+": "+serr.Error())
-					}
+				if serr != nil {
+					slog.Error("customer status router update", "customer", v["username"], "err", serr)
+					s.logActivity(r, "customer.sync_failed", fmt.Sprintf("%s: %v", v["username"], serr))
+					s.sessions.Put(r.Context(), "error", s.t("Saved, but the router could not be updated")+": "+serr.Error())
 				}
 			}
-			next := "/admin/customers"
-			if id == 0 { // a new customer has no plan yet: go to the page where one is chosen
-				next, msg = fmt.Sprint("/admin/customers/", cid), "Customer created. Choose a plan below to switch the internet on."
-				if plan.ID != 0 {
-					if msg = s.activateNew(w, r, created, plan, act); msg == "" {
-						return
-					}
+			if v["status"] == "Active" && cur.Status == "Active" && (pass != "" || sec != "" || v["username"] != cur.Username || v["pppoe_username"] != cur.PppoeUsername || v["pppoe_ip"] != cur.PppoeIp) && s.Billing != nil {
+				if _, serr := s.Billing.SyncAfterEdit(r.Context(), cur, adminFrom(r).ID); serr != nil {
+					slog.Error("sync customer", "customer", v["username"], "err", serr)
+					s.logActivity(r, "customer.sync_failed", fmt.Sprintf("%s: %v", v["username"], serr))
+					s.sessions.Put(r.Context(), "error", s.t("Saved, but the router could not be updated")+": "+serr.Error())
 				}
 			}
-			s.done(w, r, next, msg, act, v["username"])
-			return
 		}
+		next := "/admin/customers"
+		if id == 0 { // a new customer has no plan yet: go to the page where one is chosen
+			next, msg = fmt.Sprint("/admin/customers/", cid), "Customer created. Choose a plan below to switch the internet on."
+			if plan.ID != 0 {
+				if msg = s.activateNew(w, r, created, plan, act); msg == "" {
+					return
+				}
+			}
+		}
+		s.done(w, r, next, msg, act, v["username"])
+		return
 	}
 	action, head := "/admin/customers", "Add New Contact"
 	if id != 0 {

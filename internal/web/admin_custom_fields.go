@@ -4,6 +4,7 @@ package web
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/service/customer"
 	"net/http"
 
 	"context"
@@ -186,19 +187,14 @@ func (s *Server) cfFormFields(ctx context.Context, custID int64, v, e map[string
 	return section(fs, "Custom Fields", ""), nil
 }
 
-type cfVal struct {
-	FieldID int64
-	Value   string
-}
-
 // cfCheck is the custom-field save hook: it reads and validates the posted values
 // into v and e, and returns what to store. Nothing is written here.
-func (s *Server) cfCheck(ctx context.Context, r *http.Request, v, e map[string]string) ([]cfVal, error) {
+func (s *Server) cfCheck(ctx context.Context, r *http.Request, v, e map[string]string) ([]customer.CFValue, error) {
 	defs, err := s.queries.ListCustomFields(ctx)
 	if err != nil {
 		return nil, err
 	}
-	var out []cfVal
+	var out []customer.CFValue
 	for _, d := range defs {
 		k := cfKey(d.ID)
 		val := strings.TrimSpace(r.PostFormValue(k))
@@ -223,19 +219,9 @@ func (s *Server) cfCheck(ctx context.Context, r *http.Request, v, e map[string]s
 				e[k] = "Invalid value"
 			}
 		}
-		out = append(out, cfVal{d.ID, val})
+		out = append(out, customer.CFValue{FieldID: d.ID, Value: val})
 	}
 	return out, nil
-}
-
-// cfStore writes the values of a saved customer, on q (the caller's transaction).
-func (s *Server) cfStore(ctx context.Context, q *db.Queries, custID int64, vals []cfVal) error {
-	for _, x := range vals {
-		if err := q.UpsertCustomerFieldValue(ctx, db.UpsertCustomerFieldValueParams{CustomerID: custID, FieldID: x.FieldID, Value: x.Value}); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // customerForm is the customer form: the built-in fields followed by the custom ones.

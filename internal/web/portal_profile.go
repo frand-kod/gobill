@@ -4,7 +4,7 @@ package web
 
 import (
 	"context"
-	"github.com/frand-kod/gobill/internal/settings"
+	"github.com/frand-kod/gobill/internal/service/customer"
 	"log/slog"
 	"net/http"
 
@@ -128,7 +128,7 @@ func (s *Server) contactClear(r *http.Request) {
 }
 
 // msgPhoneTaken is the error for a WhatsApp number another account already uses (wa_unique_per_account = yes).
-const msgPhoneTaken = "This WhatsApp number is already used by another account."
+const msgPhoneTaken = customer.MsgPhoneTaken
 
 // contactTaken reports whether another customer already uses this phone or email.
 func (s *Server) contactTaken(r *http.Request, kind, val string, self int64) (bool, error) {
@@ -142,24 +142,7 @@ func (s *Server) contactTaken(r *http.Request, kind, val string, self int64) (bo
 // phoneTaken reports whether another customer uses this WhatsApp number. Only checked when
 // wa_unique_per_account is yes: by default several accounts may share one number (family, RT/RW).
 func (s *Server) phoneTaken(ctx context.Context, phone string, self int64) (bool, error) {
-	if v := settings.Get(ctx, s.queries, "wa_unique_per_account"); v != "yes" {
-		return false, nil
-	}
-	want := db.CanonicalPhone(phone)
-	if want == "" {
-		return false, nil
-	}
-	// ponytail: loads every phone per check; compare in SQL if customers grow large.
-	rows, err := s.queries.ListCustomerPhones(ctx)
-	if err != nil {
-		return false, err
-	}
-	for _, c := range rows {
-		if c.ID != self && db.CanonicalPhone(c.Phone) == want {
-			return true, nil
-		}
-	}
-	return false, nil
+	return s.customers().PhoneTaken(ctx, phone, self)
 }
 
 func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {

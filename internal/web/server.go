@@ -5,6 +5,8 @@ package web
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/service/customer"
+	"github.com/frand-kod/gobill/internal/service/plan"
 	"github.com/frand-kod/gobill/internal/settings"
 	"html/template"
 	"maps"
@@ -86,6 +88,9 @@ type Server struct {
 	WG *wg.Manager
 	// Billing recharges customers and syncs plans to routers; nil disables both.
 	Billing *billing.Service
+	// Customers and Plans hold the write logic of the admin forms; read them through customers().
+	Customers *customer.Service
+	Plans     *plan.Service
 	// CoAPort is the NAS Disconnect-Request port; empty = 3799.
 	CoAPort string
 	// NewGateway builds the online gateway from tripay_* style config; nil = Tripay. Tests replace it.
@@ -177,6 +182,8 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 		failed:    map[string][]time.Time{},
 	}
 	s.Settings = settings.New(s.queries)
+	s.Customers = &customer.Service{DB: conn, Q: s.queries}
+	s.Plans = &plan.Service{DB: conn, Q: s.queries}
 	st, err := s.loadSettings(context.Background())
 	if err != nil {
 		return nil, err
@@ -348,4 +355,11 @@ func clientIP(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+// customers returns the customer service with the current secret key, which app sets after New.
+func (s *Server) customers() *customer.Service {
+	c := *s.Customers
+	c.Key = s.SecretKey
+	return &c
 }

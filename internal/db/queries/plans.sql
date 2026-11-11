@@ -31,3 +31,6 @@ DELETE FROM plans WHERE id = ?;
 -- name: ListPlansByRouter :many
 -- Plans a router serves, for the bulk push to that router.
 SELECT * FROM plans WHERE router_id = ? AND enabled = 1 AND type <> 'Balance' ORDER BY id;
+
+-- name: CountActiveSubscriptionsOfPlan :one
+SELECT count(*) FROM subscriptions WHERE plan_id = ? AND status = 'active';
