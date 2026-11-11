@@ -161,8 +161,7 @@ func (s *Server) statusData(r *http.Request) (statusData, error) {
 	if t := metrics.Value("payment_callback_last_timestamp"); t > 0 {
 		d.PayLast = time.Unix(int64(t), 0).In(loc).Format(backupLayout)
 	}
-	if err := s.conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM radius_sessions WHERE stopped_at IS NULL AND updated_at >= ?",
-		now.Unix()-radius.StaleMax()).Scan(&d.Open); err != nil {
+	if d.Open, err = s.queries.CountLiveRadiusSessions(ctx, now.Unix()-radius.StaleMax()); err != nil {
 		return d, err
 	}
 

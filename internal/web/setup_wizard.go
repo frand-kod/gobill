@@ -342,12 +342,12 @@ func (s *Server) setupLive(w http.ResponseWriter, r *http.Request) {
 		out["nas_seen"] = metrics.Value("radius_nas_last_packet_timestamp", "nas", ip) > 0
 	}
 	if code := strings.TrimSpace(q.Get("voucher")); code != "" {
-		var n int64
-		if err := s.conn.QueryRowContext(r.Context(), "SELECT COUNT(*) FROM radius_sessions WHERE username = ? AND stopped_at IS NULL", code).Scan(&n); err != nil {
+		open, err := s.queries.ListOpenRadiusSessionsByUser(r.Context(), code)
+		if err != nil {
 			s.fail(w, "setup live", err)
 			return
 		}
-		out["voucher_online"] = n > 0
+		out["voucher_online"] = len(open) > 0
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")

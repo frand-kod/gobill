@@ -106,6 +106,18 @@ func (q *Queries) CloseStaleRadiusSessions(ctx context.Context, updatedAt int64)
 	return result.RowsAffected()
 }
 
+const countLiveRadiusSessions = `-- name: CountLiveRadiusSessions :one
+SELECT COUNT(*) FROM radius_sessions WHERE stopped_at IS NULL AND updated_at >= ?
+`
+
+// Open sessions updated at or after the cutoff (older ones are treated as lost by the NAS).
+func (q *Queries) CountLiveRadiusSessions(ctx context.Context, updatedAt int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countLiveRadiusSessions, updatedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createNAS = `-- name: CreateNAS :one
 INSERT INTO nas (name, ip, secret_enc, description, require_message_auth) VALUES (?, ?, ?, ?, ?) RETURNING id, name, ip, secret_enc, description, require_message_auth, ma_seen, type
 `
