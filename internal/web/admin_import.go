@@ -203,7 +203,7 @@ func (s *Server) renderImport(w http.ResponseWriter, r *http.Request, status int
 	v.TOTP = adminFrom(r).TotpEnabled == 1
 	p := Page{Title: "Import PHPNuxBill", Data: v, Detail: detail}
 	if msg != "" {
-		p.Error = s.catalog.T(s.language(), msg)
+		p.Error = s.t(msg)
 	}
 	s.render(w, r, status, "import", p)
 }
@@ -343,6 +343,6 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) importCancel(w http.ResponseWriter, r *http.Request) {
 	s.dropImport(r.Context())
-	s.sessions.Put(r.Context(), "flash", s.catalog.T(s.language(), "Import cancelled."))
+	s.sessions.Put(r.Context(), "flash", s.t("Import cancelled."))
 	http.Redirect(w, r, importPage, http.StatusSeeOther)
 }

@@ -48,7 +48,7 @@ func (s *Server) pProfile(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal profile", err)
 		return
 	}
-	s.sessions.Put(r.Context(), "flash", s.catalog.T(s.language(), "Data Saved"))
+	s.sessions.Put(r.Context(), "flash", s.t("Data Saved"))
 	http.Redirect(w, r, "/portal/profile", http.StatusSeeOther)
 }
 
@@ -89,7 +89,7 @@ func (s *Server) pPassword(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal password", err)
 		return
 	}
-	s.sessions.Put(r.Context(), "flash", s.catalog.T(s.language(), "Password changed successfully"))
+	s.sessions.Put(r.Context(), "flash", s.t("Password changed successfully"))
 	http.Redirect(w, r, "/portal/profile", http.StatusSeeOther)
 }
 
@@ -199,7 +199,7 @@ func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if exp := s.sessions.GetInt64(ctx, "ct_exp"); s.sessions.GetString(ctx, "ct_kind") == kind && time.Now().Unix() < exp {
-		s.profilePage(w, r, 200, fmt.Sprintf(s.catalog.T(s.language(), "Please wait %d seconds before sending another code"), exp-time.Now().Unix()))
+		s.profilePage(w, r, 200, fmt.Sprintf(s.t("Please wait %d seconds before sending another code"), exp-time.Now().Unix()))
 		return
 	}
 	if !s.otpAllow(clientIP(r), val) {
@@ -220,7 +220,7 @@ func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		var n *notify.Notifier
 		if n, err = notify.Load(ctx, s.queries); err == nil {
-			err = n.Email(ctx, val, "["+st["company_name"]+"] "+s.catalog.T(s.language(), "Verification code"), otp)
+			err = n.Email(ctx, val, "["+st["company_name"]+"] "+s.t("Verification code"), otp)
 		}
 	}
 	if err != nil {

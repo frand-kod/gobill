@@ -148,7 +148,7 @@ func (s *Server) matchEntries(role string, es []searchEntry, words []string, lim
 			break
 		}
 		if allowed(e.Roles, role) && matchWords(words, e.Title+" "+e.Syn) {
-			out = append(out, searchItem{Title: s.catalog.T(s.language(), e.Title), Sub: e.Sub, URL: e.URL})
+			out = append(out, searchItem{Title: s.t(e.Title), Sub: e.Sub, URL: e.URL})
 		}
 	}
 	return out
@@ -159,13 +159,12 @@ func (s *Server) addGroup(gs []searchGroup, title string, items []searchItem) []
 	if len(items) == 0 {
 		return gs
 	}
-	return append(gs, searchGroup{Title: s.catalog.T(s.language(), title), Items: items})
+	return append(gs, searchGroup{Title: s.t(title), Items: items})
 }
 
 // settingsEntries lists every settings field of the sub-pages the role may open. The entries come from
 // settingsFields, so a new field is searchable without a change here.
 func (s *Server) settingsEntries(role string) []searchEntry {
-	t := func(x string) string { return s.catalog.T(s.language(), x) }
 	var out []searchEntry
 	for _, tab := range settingsTabs {
 		roles := roleMgr
@@ -184,11 +183,11 @@ func (s *Server) settingsEntries(role string) []searchEntry {
 			if !isSetting[f.Name] {
 				continue
 			}
-			syn := strings.Join([]string{f.Label, f.Name, strings.ReplaceAll(f.Name, "_", " "), f.Hint, t(f.Hint), f.Section, t(f.Section), tab.Label, settingsSyn[f.Name]}, " ")
+			syn := strings.Join([]string{f.Label, f.Name, strings.ReplaceAll(f.Name, "_", " "), f.Hint, s.t(f.Hint), f.Section, s.t(f.Section), tab.Label, settingsSyn[f.Name]}, " ")
 			if strings.Contains(f.Name, "reminder") {
 				syn += " pengingat"
 			}
-			out = append(out, searchEntry{Title: f.Label, Sub: joinNonEmpty(" › ", t(tab.Label), t(f.Section)),
+			out = append(out, searchEntry{Title: f.Label, Sub: joinNonEmpty(" › ", s.t(tab.Label), s.t(f.Section)),
 				URL: "/admin/settings/" + tab.Slug + "#f-" + f.Name, Syn: syn, Roles: roles})
 		}
 	}

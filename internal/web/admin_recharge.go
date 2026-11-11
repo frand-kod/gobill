@@ -37,7 +37,7 @@ func isFragment(r *http.Request) bool { return r.Header.Get("X-Fragment") == "1"
 // rechargeErrors answers a fragment request with the messages to show inside the dialog (422).
 func (s *Server) rechargeErrors(w http.ResponseWriter, msgs ...string) {
 	for i, m := range msgs {
-		msgs[i] = s.catalog.T(s.language(), m)
+		msgs[i] = s.t(m)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusUnprocessableEntity)
@@ -58,7 +58,7 @@ func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 			s.rechargeErrors(w, msg)
 			return
 		}
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), msg))
+		s.sessions.Put(r.Context(), "error", s.t(msg))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 	}
 	if s.Billing == nil {
@@ -111,7 +111,7 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 	}
 	back := fmt.Sprint("/admin/customers/", c.ID)
 	fail := func(msg string) {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), msg))
+		s.sessions.Put(r.Context(), "error", s.t(msg))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 	}
 	if s.Billing == nil {
@@ -143,7 +143,7 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 	}
 	if devFailed { // money and transaction are saved; only the router missed the change
 		s.logActivity(r, "customer.recharge", c.Username+" ["+plan.Name+"] router not updated")
-		s.sessions.Put(r.Context(), "warn", s.catalog.T(s.language(), msgNotSynced))
+		s.sessions.Put(r.Context(), "warn", s.t(msgNotSynced))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}

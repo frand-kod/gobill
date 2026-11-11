@@ -62,7 +62,6 @@ func (s *Server) testLoginForm(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) testLoginRun(w http.ResponseWriter, r *http.Request) {
 	v := formVals(r, "username", "password", "nas", "mac", "port_type", "port_id")
-	t := func(k string) string { return s.catalog.T(s.language(), k) }
 	user, pw := strings.TrimSpace(v["username"]), v["password"]
 	e := map[string]string{}
 	switch {
@@ -80,10 +79,10 @@ func (s *Server) testLoginRun(w http.ResponseWriter, r *http.Request) {
 		if d.Reject != "" {
 			reject = d.Reject
 			if k, ok := rejectLabels[d.Reject]; ok {
-				reject = t(k)
+				reject = s.t(k)
 			}
 		} else {
-			result = fmt.Sprintf("%s\n%s: %s\n%s", t("Access-Accept"), t("Plan"), d.Plan.PlanName, strings.Join(d.Attrs(), "\n"))
+			result = fmt.Sprintf("%s\n%s: %s\n%s", s.t("Access-Accept"), s.t("Plan"), d.Plan.PlanName, strings.Join(d.Attrs(), "\n"))
 		}
 		s.logActivity(r, "radius.test_login", user)
 	}
@@ -96,7 +95,7 @@ func (s *Server) testLoginRun(w http.ResponseWriter, r *http.Request) {
 	// a reject is an error alert above the form (role=alert), the same as the validation errors
 	page := Page{Title: "Test login", Data: formPage{"Test login", "/admin/radius/test-login", "/admin/nas", fs}}
 	if reject != "" {
-		page.Error = t("Access-Reject") + ": " + reject
+		page.Error = s.t("Access-Reject") + ": " + reject
 	}
 	s.render(w, r, http.StatusOK, "form", page)
 }

@@ -73,7 +73,7 @@ func (s *Server) sendOTP(ctx context.Context, st map[string]string, phone, label
 	if err != nil {
 		return err
 	}
-	msg := st["company_name"] + "\n\n" + s.catalog.T(s.language(), label) + "\n" + otp
+	msg := st["company_name"] + "\n\n" + s.t(label) + "\n" + otp
 	return deliverOTP(ctx, n, st["phone_otp_type"], phone, msg)
 }
 

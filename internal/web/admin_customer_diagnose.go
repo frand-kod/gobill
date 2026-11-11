@@ -45,7 +45,7 @@ func (d diagnosis) NeedsAction() bool {
 func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscription, online string) diagnosis {
 	now := time.Now().Unix()
 	t := func(k string, a ...any) string {
-		k = s.catalog.T(s.language(), k)
+		k = s.t(k)
 		if len(a) == 0 {
 			return k
 		}

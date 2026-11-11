@@ -52,7 +52,7 @@ func (s *Server) radiusDisconnect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := radius.Disconnect(r.Context(), s.queries, s.SecretKey, s.CoAPort, sess); err != nil {
-		s.putFailure(r, s.catalog.T(s.language(), "Disconnect failed")+". "+s.catalog.T(s.language(), routerErr(err, msgNASOther)), err)
+		s.putFailure(r, s.t("Disconnect failed")+". "+s.t(routerErr(err, msgNASOther)), err)
 		http.Redirect(w, r, "/admin/radius/sessions", http.StatusSeeOther)
 		return
 	}
@@ -65,12 +65,12 @@ func (s *Server) radiusDisconnectMany(w http.ResponseWriter, r *http.Request) {
 	const back = "/admin/radius/sessions"
 	ids, ok := parseIDs(r)
 	if !ok {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Select at least one row"))
+		s.sessions.Put(r.Context(), "error", s.t("Select at least one row"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
 	if len(ids) > maxDisconnectMany { // each CoA waits for its NAS, so the request must stay short
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Select at most 100 sessions"))
+		s.sessions.Put(r.Context(), "error", s.t("Select at most 100 sessions"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
@@ -91,7 +91,7 @@ func (s *Server) radiusDisconnectMany(w http.ResponseWriter, r *http.Request) {
 		okN++
 	}
 	s.logActivity(r, "radius.disconnect_many", fmt.Sprintf("%d ok, %d failed", okN, failN))
-	msg := fmt.Sprintf(s.catalog.T(s.language(), "%d disconnected, %d failed"), okN, failN)
+	msg := fmt.Sprintf(s.t("%d disconnected, %d failed"), okN, failN)
 	if okN == 0 {
 		s.putFailure(r, msg, firstErr)
 	} else {

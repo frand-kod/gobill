@@ -35,7 +35,7 @@ func (s *Server) keyWarning(r *http.Request) string {
 	if err != nil || st["key_saved_fp"] == fp {
 		return ""
 	}
-	return s.catalog.T(s.language(), "The encryption key is not saved outside this server and the backup mirror does not copy it. Without it a restored backup cannot open router passwords and API keys. Open Settings > System & Security > Encryption key. Fingerprint: ") + fp
+	return s.t("The encryption key is not saved outside this server and the backup mirror does not copy it. Without it a restored backup cannot open router passwords and API keys. Open Settings > System & Security > Encryption key. Fingerprint: ") + fp
 }
 
 type keyView struct {

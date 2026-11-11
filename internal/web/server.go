@@ -211,13 +211,16 @@ func (s *Server) ts(unix int64) string {
 // subExpiry is a subscription's expiry as shown: a start_on_first_login subscription has none until its first login.
 func (s *Server) subExpiry(pending, unix int64) string {
 	if pending == 1 {
-		return s.catalog.T(s.language(), "Starts on first login")
+		return s.t("Starts on first login")
 	}
 	return s.ts(unix)
 }
 
 // language returns the current app language.
 func (s *Server) language() string { return s.lang.Load().(string) }
+
+// t translates key into the app language.
+func (s *Server) t(key string) string { return s.catalog.T(s.language(), key) }
 
 // loadSettings returns all settings with defaults filled in.
 func (s *Server) loadSettings(ctx context.Context) (map[string]string, error) {
@@ -288,7 +291,7 @@ func (s *Server) proxyWarning(r *http.Request) string {
 	if s.proxyHint.Load() == 0 || s.trust.Load() {
 		return ""
 	}
-	return s.catalog.T(s.language(), "Requests arrive through a reverse proxy but Trust Proxy is off. All visitors share one IP: one attacker can lock every login, and the audit log loses real IPs. Set Trust Proxy to yes in Settings.")
+	return s.t("Requests arrive through a reverse proxy but Trust Proxy is off. All visitors share one IP: one attacker can lock every login, and the audit log loses real IPs. Set Trust Proxy to yes in Settings.")
 }
 
 // fromProxy reports whether the TCP peer may set X-Forwarded-For: loopback, or inside trusted_proxies.

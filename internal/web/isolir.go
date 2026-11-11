@@ -28,8 +28,7 @@ const isolirCSP = "sandbox allow-scripts allow-forms allow-popups allow-popups-t
 
 // isolirVoucherForm is the voucher box; it posts without a session (see routes: CSRF bypass).
 func (s *Server) isolirVoucherForm() template.HTML {
-	t := func(text string) string { return s.catalog.T(s.language(), text) }
-	return template.HTML(`<form method="post" action="/isolir/voucher" autocomplete="off"><label for="isolir-code" class="muted">` + t("Voucher code") + `</label><input id="isolir-code" name="code" placeholder="` + t("Voucher code") + `" autocapitalize="characters" required><p><button class="btn" type="submit">` + t("Activate voucher") + `</button></p></form>`)
+	return template.HTML(`<form method="post" action="/isolir/voucher" autocomplete="off"><label for="isolir-code" class="muted">` + s.t("Voucher code") + `</label><input id="isolir-code" name="code" placeholder="` + s.t("Voucher code") + `" autocapitalize="characters" required><p><button class="btn" type="submit">` + s.t("Activate voucher") + `</button></p></form>`)
 }
 
 // isolirView is what the page shows. Known is false for a client IP with no open session.
@@ -300,7 +299,7 @@ img.logo{display:block;max-height:48px;max-width:180px;margin-bottom:8px}
 
 // isolirDefault parses the default layout with T bound to the request language.
 func (s *Server) isolirDefault() *template.Template {
-	return template.Must(template.New("isolir").Funcs(template.FuncMap{"T": func(text string) string { return s.catalog.T(s.language(), text) }}).Parse(isolirDefaultSrc))
+	return template.Must(template.New("isolir").Funcs(template.FuncMap{"T": func(text string) string { return s.t(text) }}).Parse(isolirDefaultSrc))
 }
 
 // isolirPreview is GET /admin/settings/isolir/preview: the page with sample data, in a new tab. The
@@ -402,26 +401,25 @@ func isolirRouterRules(list, host, port string, hosts []string) string {
 // isolirSetupFields is the MikroTik setup helper: copyable RouterOS commands for the address gobill
 // listens on (see gobillAddr).
 func (s *Server) isolirSetupFields(st map[string]string) []field {
-	t := func(text string) string { return s.catalog.T(s.language(), text) }
 	host, port := s.gobillAddr()
 	list := isolir.Value(st, "isolir_address_list")
 	hosts := isolir.HostLines(isolir.Value(st, "isolir_allow_hosts"))
-	sec := t("Setup router (MikroTik, RouterOS 6 and 7)")
+	sec := s.t("Setup router (MikroTik, RouterOS 6 and 7)")
 	return []field{
-		{Name: "isolir_cmd_rules", Label: t("1. Isolation rules (paste the whole block, in this order)"), Type: "pre", Section: sec,
+		{Name: "isolir_cmd_rules", Label: s.t("1. Isolation rules (paste the whole block, in this order)"), Type: "pre", Section: sec,
 			Value: isolirRouterRules(list, host, port, hosts),
-			Hint:  t("The rules must sit above any general accept rule in the forward chain, or isolated clients are not cut off. Only HTTP on port 80 is redirected to the isolir page. Hosts in Allowed while isolated are reachable; wildcard hosts are learned when the app opens a TLS connection. Changed the allowed hosts? Paste the block again.")},
-		{Name: "isolir_cmd_walled", Label: t("2. Walled garden hotspot for gobill"), Type: "pre", Section: sec,
+			Hint:  s.t("The rules must sit above any general accept rule in the forward chain, or isolated clients are not cut off. Only HTTP on port 80 is redirected to the isolir page. Hosts in Allowed while isolated are reachable; wildcard hosts are learned when the app opens a TLS connection. Changed the allowed hosts? Paste the block again.")},
+		{Name: "isolir_cmd_walled", Label: s.t("2. Walled garden hotspot for gobill"), Type: "pre", Section: sec,
 			Value: fmt.Sprintf("/ip hotspot walled-garden ip add dst-address=%s dst-port=%s action=accept", host, port),
-			Hint:  t("So the isolir page opens before hotspot login.")},
-		{Name: "isolir_cmd_bypass", Label: t("3. Bypass the hotspot for the gobill host"), Type: "pre", Section: sec,
+			Hint:  s.t("So the isolir page opens before hotspot login.")},
+		{Name: "isolir_cmd_bypass", Label: s.t("3. Bypass the hotspot for the gobill host"), Type: "pre", Section: sec,
 			Value: "/ip hotspot ip-binding add mac-address=<MAC-HOST-GOBILL> type=bypassed",
-			Hint:  t("Replace <MAC-HOST-GOBILL> with the MAC address of gobill's LAN card. Without this rule, the hotspot can capture gobill's own traffic.")},
-		{Name: "isolir_cmd_test", Label: t("Test from the LAN with curl"), Type: "pre", Section: sec,
+			Hint:  s.t("Replace <MAC-HOST-GOBILL> with the MAC address of gobill's LAN card. Without this rule, the hotspot can capture gobill's own traffic.")},
+		{Name: "isolir_cmd_test", Label: s.t("Test from the LAN with curl"), Type: "pre", Section: sec,
 			Value: fmt.Sprintf(`curl -i -H "Host: example.com" http://%s:%s/`, host, port),
-			Hint:  t("gobill serves the isolir page to isolated clients at the root and at every other path. Do not test with /tool fetch: RouterOS sends a duplicate Host header and gets 400.")},
-		{Name: "isolir_cmd_note", Label: t("Note"), Type: "note", Section: sec,
-			Hint: t("The address-list is sent by RADIUS as Mikrotik-Address-List. RouterOS 6 resolves DNS allow-list entries to exact names only, so a host whose CDN address changes may sometimes fail, such as WhatsApp media. Add a bank app by putting its host in Allowed while isolated, then paste the block again.")},
+			Hint:  s.t("gobill serves the isolir page to isolated clients at the root and at every other path. Do not test with /tool fetch: RouterOS sends a duplicate Host header and gets 400.")},
+		{Name: "isolir_cmd_note", Label: s.t("Note"), Type: "note", Section: sec,
+			Hint: s.t("The address-list is sent by RADIUS as Mikrotik-Address-List. RouterOS 6 resolves DNS allow-list entries to exact names only, so a host whose CDN address changes may sometimes fail, such as WhatsApp media. Add a bank app by putting its host in Allowed while isolated, then paste the block again.")},
 	}
 }
 

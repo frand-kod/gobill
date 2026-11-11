@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	moneyfmt "github.com/frand-kod/gobill/internal/money"
 )
 
 func humanBytes(n int64) string {
@@ -63,20 +65,8 @@ func groupSep() string {
 	return "."
 }
 
-// money formats rupiah with dot thousands separators: Rp 1.234.000.
-// A negative amount keeps the sign in front of the currency: -Rp 1.000.
-func money(n int64) string {
-	sign := ""
-	if n < 0 {
-		sign, n = "-", -n
-	}
-	d := strconv.FormatInt(n, 10)
-	sep := groupSep()
-	for i := len(d) - 3; i > 0; i -= 3 {
-		d = d[:i] + sep + d[i:]
-	}
-	return sign + "Rp " + d
-}
+// money formats rupiah with the configured thousands separator: Rp 1.234.000, -Rp 1.000.
+func money(n int64) string { return moneyfmt.Format(n, groupSep()) }
 
 // badge maps a status value to its badge colour class.
 func badge(v string) string {

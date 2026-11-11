@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/netip"
 	"os"
 	"strconv"
@@ -18,7 +19,6 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/radius"
 	"github.com/frand-kod/gobill/internal/secret"
 )
 
@@ -115,13 +115,18 @@ type Stat struct {
 	Rx, Tx    int64
 }
 
+// RadiusServer answers RADIUS packets read from a tunnel socket (*radius.Server).
+type RadiusServer interface {
+	ServeConn(ctx context.Context, pc net.PacketConn, acct bool) error
+}
+
 // Manager owns the tunnel. Reload reads the settings and peers from the database and brings it up, down
 // or to a new config; AddPeer, RemovePeer and ResetPeer change one peer without touching the others.
 type Manager struct {
 	Q                  *db.Queries
 	Key                []byte
-	Radius             *radius.Server // serves the tunnel side of RADIUS; nil = none
-	AuthPort, AcctPort int            // RADIUS ports inside the tunnel
+	Radius             RadiusServer // serves the tunnel side of RADIUS; nil = none
+	AuthPort, AcctPort int          // RADIUS ports inside the tunnel
 
 	mu   sync.Mutex
 	t    tunnel

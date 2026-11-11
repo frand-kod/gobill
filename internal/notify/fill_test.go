@@ -1,11 +1,15 @@
 package notify
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/frand-kod/gobill/internal/money"
+)
 
 func TestFillNeverLeavesPlaceholders(t *testing.T) {
 	n := &Notifier{Settings: map[string]string{"app_url": "https://bill.example/"}}
 	got := n.fill("[[name]] [[price]] [[unknown]] [[payment_link]] [[invoice_link]]",
-		map[string]string{"name": "Ann", "price": Money(1234000), "invoice_link": "/portal/orders/7/invoice"})
+		map[string]string{"name": "Ann", "price": money.Message(1234000), "invoice_link": "/portal/orders/7/invoice"})
 	want := "Ann Rp 1.234.000  https://bill.example/portal/plans https://bill.example/portal/orders/7/invoice"
 	if got != want {
 		t.Errorf("got %q want %q", got, want)

@@ -60,10 +60,9 @@ func (s *Server) plansPage(w http.ResponseWriter, r *http.Request, code int, err
 		isoPlan, _ := s.isolirIDs(r.Context())
 		for _, p := range l {
 			if p.Billing == "prepaid" && p.ID != isoPlan {
-				t := func(x string) string { return s.catalog.T(s.language(), x) }
-				row := planRow{Plan: p, Kind: p.Type, Duration: fmt.Sprintf("%d %s", p.Validity, t(p.ValidityUnit)), Short: max(p.Price-c.Balance, 0)}
+				row := planRow{Plan: p, Kind: p.Type, Duration: fmt.Sprintf("%d %s", p.Validity, s.t(p.ValidityUnit)), Short: max(p.Price-c.Balance, 0)}
 				if p.Type == "PPPoE" {
-					row.Kind = t("Home internet")
+					row.Kind = s.t("Home internet")
 				}
 				if bw, err := s.queries.GetBandwidth(r.Context(), p.BandwidthID.Int64); st["show_bandwidth_plan"] == "yes" && p.BandwidthID.Valid && err == nil {
 					row.Bandwidth = bw.Name
@@ -128,7 +127,7 @@ func (s *Server) pBuyBalance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if m := couponErr(err); m != "" {
-		s.plansPage(w, r, 200, s.catalog.T(s.language(), m))
+		s.plansPage(w, r, 200, s.t(m))
 		return
 	}
 	if errors.Is(err, billing.ErrInsufficientBalance) {
@@ -147,7 +146,7 @@ func (s *Server) pBuyBalance(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal buy", err)
 		return
 	}
-	s.sessions.Put(r.Context(), "flash", fmt.Sprintf("%s: %s", s.catalog.T(s.language(), "Package activated"), p.Name))
+	s.sessions.Put(r.Context(), "flash", fmt.Sprintf("%s: %s", s.t("Package activated"), p.Name))
 	http.Redirect(w, r, "/portal", http.StatusSeeOther)
 }
 
@@ -165,7 +164,7 @@ func (s *Server) pTransfer(w http.ResponseWriter, r *http.Request) {
 	err := s.Billing.TransferBalance(r.Context(), customerFrom(r).ID, username, amount)
 	for _, e := range []error{billing.ErrSelfTransfer, billing.ErrTargetNotFound, billing.ErrBelowMinimum, billing.ErrTransferDisabled, billing.ErrInsufficientBalance, billing.ErrInactive} {
 		if errors.Is(err, e) {
-			msg := s.catalog.T(s.language(), e.Error())
+			msg := s.t(e.Error())
 			if e == billing.ErrBelowMinimum {
 				if st, _ := s.loadSettings(r.Context()); st["minimum_transfer"] != "" {
 					msg += " " + st["minimum_transfer"]
@@ -179,7 +178,7 @@ func (s *Server) pTransfer(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal transfer", err)
 		return
 	}
-	s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.catalog.T(s.language(), "Sent %s to %s (%s)"), money(amount), maskName(to.Fullname), username))
+	s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.t("Sent %s to %s (%s)"), money(amount), maskName(to.Fullname), username))
 	http.Redirect(w, r, "/portal/profile", http.StatusSeeOther)
 }
 
@@ -221,7 +220,7 @@ func (s *Server) pExtend(w http.ResponseWriter, r *http.Request) {
 	until, err := s.Billing.ExtendExpired(r.Context(), customerFrom(r).ID, pathID(r))
 	for _, e := range []error{billing.ErrExtendDisabled, billing.ErrExtendAlready, billing.ErrNotExpired, billing.ErrPlanNotFound, billing.ErrInactive, billing.ErrAdminOnlyPlan} {
 		if errors.Is(err, e) {
-			s.pDash(w, r, 200, s.catalog.T(s.language(), e.Error()))
+			s.pDash(w, r, 200, s.t(e.Error()))
 			return
 		}
 	}
@@ -229,7 +228,7 @@ func (s *Server) pExtend(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal extend", err)
 		return
 	}
-	s.flashTo(w, r, "/portal", s.catalog.T(s.language(), "Extend until")+" "+until.Format("2006-01-02"))
+	s.flashTo(w, r, "/portal", s.t("Extend until")+" "+until.Format("2006-01-02"))
 }
 
 // maskName keeps the first word and the initials of the rest ("Budi Santoso" -> "Budi S."):

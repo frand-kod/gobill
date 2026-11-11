@@ -43,7 +43,7 @@ func customerPasswordMin(st map[string]string) int {
 // customer password path. Equal to the username is refused because RADIUS treats it as a voucher login.
 func (s *Server) customerPasswordErr(st map[string]string, username, pass string) string {
 	if n := customerPasswordMin(st); len(pass) < n || len(pass) > 64 {
-		return fmt.Sprintf(s.catalog.T(s.language(), "Password should be between %d to 64 characters"), n)
+		return fmt.Sprintf(s.t("Password should be between %d to 64 characters"), n)
 	}
 	if strings.EqualFold(pass, username) {
 		return "Password must not be the same as the username"
@@ -155,7 +155,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 				show("Failed to send verification code")
 				return
 			}
-			s.prender(w, r, 200, "p_register", Page{Title: "Register", Data: d, Flash: s.catalog.T(s.language(), "Verification code sent")})
+			s.prender(w, r, 200, "p_register", Page{Title: "Register", Data: d, Flash: s.t("Verification code sent")})
 			return
 		}
 		ip := "c:" + clientIP(r)
@@ -193,7 +193,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "register", err)
 		return
 	}
-	s.sessions.Put(ctx, "flash", s.catalog.T(s.language(), "Registration successful. Welcome!"))
+	s.sessions.Put(ctx, "flash", s.t("Registration successful. Welcome!"))
 	http.Redirect(w, r, "/portal", http.StatusSeeOther)
 }
 

@@ -7,6 +7,7 @@ import (
 
 	"context"
 	"errors"
+	"github.com/frand-kod/gobill/internal/clock"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/device"
 	"github.com/frand-kod/gobill/internal/notify"
@@ -29,7 +30,7 @@ type Service struct {
 	Q   *db.Queries
 	Key []byte         // decrypts routers.password_enc and customers.secret_enc
 	Loc *time.Location // zone used for day/month/billing-day math
-	Now func() time.Time
+	Now clock.Func
 	// N sends notifications; nil means none. Swap at runtime with Reload.
 	N  *notify.Notifier
 	mu sync.RWMutex
@@ -54,10 +55,7 @@ func (s *Service) Location() *time.Location {
 	if s.Loc != nil {
 		return s.Loc
 	}
-	if l, err := time.LoadLocation("Asia/Jakarta"); err == nil {
-		return l
-	}
-	return time.FixedZone("WIB", 7*3600)
+	return clock.Jakarta()
 }
 
 func (s *Service) notifier() *notify.Notifier {
@@ -67,10 +65,7 @@ func (s *Service) notifier() *notify.Notifier {
 }
 
 func (s *Service) now() time.Time {
-	t := time.Now()
-	if s.Now != nil {
-		t = s.Now()
-	}
+	t := s.Now.Now()
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.Loc != nil {

@@ -36,21 +36,19 @@ func (s *Server) routerReconcile(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "get router", err)
 		return
 	}
-	lang := s.language()
-	t := func(k string) string { return s.catalog.T(lang, k) }
 	back := func() { http.Redirect(w, r, "/admin/routers", http.StatusSeeOther) }
 	if s.Billing == nil {
-		s.sessions.Put(r.Context(), "error", t("Router connection is not configured"))
+		s.sessions.Put(r.Context(), "error", s.t("Router connection is not configured"))
 		back()
 		return
 	}
 	rows, err := s.Billing.Reconcile(r.Context(), x.ID)
 	if errors.Is(err, billing.ErrRadiusRouter) {
-		s.sessions.Put(r.Context(), "error", t("Router is in RADIUS mode, nothing to import")+": "+x.Name)
+		s.sessions.Put(r.Context(), "error", s.t("Router is in RADIUS mode, nothing to import")+": "+x.Name)
 		back()
 		return
 	} else if err != nil {
-		s.putFailure(r, t("Could not read the router, nothing was changed")+": "+x.Name+". "+t(routerErr(err, msgRouterOther)), err)
+		s.putFailure(r, s.t("Could not read the router, nothing was changed")+": "+x.Name+". "+s.t(routerErr(err, msgRouterOther)), err)
 		back()
 		return
 	}
@@ -77,10 +75,10 @@ func (s *Server) routerReconcile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.logActivity(r, "router.reconcile", x.Name)
-		s.sessions.Put(r.Context(), "flash", fmt.Sprintf("%s: %s %d, %s %d, %s %d, %s %d", x.Name, t("Pushed"), res.Pushed, t("Imported"), res.Imported,
-			t("Followed router"), res.Followed, t("Skipped"), res.Skipped))
+		s.sessions.Put(r.Context(), "flash", fmt.Sprintf("%s: %s %d, %s %d, %s %d, %s %d", x.Name, s.t("Pushed"), res.Pushed, s.t("Imported"), res.Imported,
+			s.t("Followed router"), res.Followed, s.t("Skipped"), res.Skipped))
 		if n := len(res.Failures); n > 0 {
-			s.sessions.Put(r.Context(), "error", fmt.Sprintf("%s: %d. %s", t("Failed"), n, strings.Join(res.Failures[:min(n, 5)], "; ")))
+			s.sessions.Put(r.Context(), "error", fmt.Sprintf("%s: %d. %s", s.t("Failed"), n, strings.Join(res.Failures[:min(n, 5)], "; ")))
 		}
 		back()
 		return
@@ -101,8 +99,8 @@ func (s *Server) routerReconcile(w http.ResponseWriter, r *http.Request) {
 			fields = append(fields, field{Name: "a:" + row.Key(), Type: "hidden", Value: a})
 		}
 	}
-	summary := fmt.Sprintf("%s %d, %s %d, %s %d, %s %d, %s %d", t("Push to router"), count[billing.ActPush], t("Follow router"), count[billing.ActRouter],
-		t("Import into gobill"), count[billing.ActImport], t("Skip"), count[billing.ActSkip], t("Unchanged"), count["same"])
+	summary := fmt.Sprintf("%s %d, %s %d, %s %d, %s %d, %s %d", s.t("Push to router"), count[billing.ActPush], s.t("Follow router"), count[billing.ActRouter],
+		s.t("Import into gobill"), count[billing.ActImport], s.t("Skip"), count[billing.ActSkip], s.t("Unchanged"), count["same"])
 	head := []field{{Name: "summary", Type: "note", Label: x.Name + ": " + summary}}
 	if post {
 		head = append(head, field{Name: "confirm", Type: "hidden", Value: "1"},

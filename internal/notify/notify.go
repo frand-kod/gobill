@@ -542,18 +542,6 @@ func Render(tpl string, vars map[string]string) string {
 
 var anyPlaceholder = regexp.MustCompile(`\[\[[^\[\]]*\]\]`)
 
-// Money formats rupiah like the old Lang::moneyFormat: "Rp 1.234.000".
-func Money(v int64) string {
-	d, neg := strconv.FormatInt(v, 10), ""
-	if v < 0 {
-		d, neg = d[1:], "-"
-	}
-	for i := len(d) - 3; i > 0; i -= 3 {
-		d = d[:i] + "." + d[i:]
-	}
-	return "Rp " + neg + d
-}
-
 // fill is Render for messages that get sent: payment_link / invoice_link become absolute
 // with app_url (empty without it), and a placeholder nobody filled becomes "" instead of
 // reaching the customer as raw "[[price]]".

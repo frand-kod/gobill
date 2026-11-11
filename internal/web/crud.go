@@ -44,7 +44,7 @@ func parseIDs(r *http.Request) ([]int64, bool) {
 func (s *Server) bulkDelete(w http.ResponseWriter, r *http.Request, back, what, inUse string, del func(q *db.Queries, ids []int64) (int64, error)) {
 	ids, ok := parseIDs(r)
 	if !ok {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Select at least one row"))
+		s.sessions.Put(r.Context(), "error", s.t("Select at least one row"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
@@ -63,7 +63,7 @@ func (s *Server) bulkDelete(w http.ResponseWriter, r *http.Request, back, what, 
 			s.fail(w, "bulk delete "+what, err)
 			return
 		}
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), inUse))
+		s.sessions.Put(r.Context(), "error", s.t(inUse))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
@@ -73,7 +73,7 @@ func (s *Server) bulkDelete(w http.ResponseWriter, r *http.Request, back, what, 
 // bulkDone logs one activity entry with the count and flashes "N Data Deleted Successfully".
 func (s *Server) bulkDone(w http.ResponseWriter, r *http.Request, back, action string, n int64) {
 	s.logActivity(r, action, fmt.Sprint(n))
-	s.sessions.Put(r.Context(), "flash", fmt.Sprintf("%d %s", n, s.catalog.T(s.language(), "Data Deleted Successfully")))
+	s.sessions.Put(r.Context(), "flash", fmt.Sprintf("%d %s", n, s.t("Data Deleted Successfully")))
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
@@ -123,7 +123,7 @@ func (s *Server) langCode() string {
 // errorHTML is the shared error page (500, 403, 404, 405). It does not use the page layout because fail has
 // no request (and the failure may be in the layout itself), so it carries its own lang and a small theme script.
 func (s *Server) errorHTML(w http.ResponseWriter, code int, title, msg, ref string) {
-	t := func(k string) string { return html.EscapeString(s.catalog.T(s.language(), k)) }
+	t := func(k string) string { return html.EscapeString(s.t(k)) }
 	refLine := ""
 	if ref != "" {
 		refLine = `<p class="hint">Ref: ` + html.EscapeString(ref) + `</p>`
@@ -214,7 +214,7 @@ func (s *Server) logActivity(r *http.Request, action, desc string) {
 // done flashes a message, logs the action and redirects.
 func (s *Server) done(w http.ResponseWriter, r *http.Request, back, msg, action, desc string) {
 	s.logActivity(r, action, desc)
-	s.sessions.Put(r.Context(), "flash", s.catalog.T(s.language(), msg))
+	s.sessions.Put(r.Context(), "flash", s.t(msg))
 	if strings.Contains(action, "recharge") || strings.Contains(action, "deposit") { // money results stay until closed
 		s.sessions.Put(r.Context(), "flash_sticky", "1")
 	}
@@ -228,7 +228,7 @@ func (s *Server) remove(w http.ResponseWriter, r *http.Request, back, what, inUs
 			s.fail(w, "delete "+what, err)
 			return
 		}
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), inUse))
+		s.sessions.Put(r.Context(), "error", s.t(inUse))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}

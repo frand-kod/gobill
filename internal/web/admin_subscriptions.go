@@ -182,7 +182,7 @@ func (s *Server) subSave(w http.ResponseWriter, r *http.Request) {
 			slog.Error("edit subscription", "id", sub.ID, "err", err)
 			e["expires_at"] = "Could not save, check the plan and the date"
 		} else {
-			s.sessions.Put(r.Context(), "flash", s.catalog.T(s.language(), "Data Updated Successfully"))
+			s.sessions.Put(r.Context(), "flash", s.t("Data Updated Successfully"))
 			http.Redirect(w, r, "/admin/subscriptions", http.StatusSeeOther)
 			return
 		}
@@ -207,7 +207,7 @@ func (s *Server) subAct(w http.ResponseWriter, r *http.Request, do func(id int64
 		slog.Error("subscription action", "path", r.URL.Path, "err", err)
 		key, msg = "error", "Action failed"
 	}
-	s.sessions.Put(r.Context(), key, s.catalog.T(s.language(), msg))
+	s.sessions.Put(r.Context(), key, s.t(msg))
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
@@ -236,7 +236,7 @@ func (s *Server) subExtend(w http.ResponseWriter, r *http.Request) {
 	}
 	days, err := strconv.Atoi(r.PostFormValue("days"))
 	if err != nil || days < 1 || days > 3650 {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Enter a number greater than 0"))
+		s.sessions.Put(r.Context(), "error", s.t("Enter a number greater than 0"))
 		http.Redirect(w, r, "/admin/subscriptions", http.StatusSeeOther)
 		return
 	}

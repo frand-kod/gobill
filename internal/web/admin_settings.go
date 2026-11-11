@@ -303,7 +303,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		qris := field{Name: "qris_payload", Label: "Static QRIS", Type: "qris", Value: v["qris_payload"], Error: e["qris_payload"],
 			Hint: "Upload the merchant's static QRIS photo (PNG/JPG). The system only stores its text"}
 		if m, n := payment.QRISInfo(v["qris_payload"]); m != "" {
-			qris.Hint = s.catalog.T(s.language(), "Active") + ": " + m
+			qris.Hint = s.t("Active") + ": " + m
 			if n != "" {
 				qris.Hint += " (NMID " + n + ")"
 			}
@@ -744,7 +744,7 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 		n, _ := s.queries.CountWgPeers(r.Context())
 		for i, f := range fp.Fields {
 			if f.Name == "wg_confirm" {
-				fp.Fields[i].Hint = fmt.Sprintf(s.catalog.T(s.language(), "%d routers have a tunnel. Changing the port, endpoint or subnet cuts them until they are provisioned again, and switching WireGuard off cuts them too"), n)
+				fp.Fields[i].Hint = fmt.Sprintf(s.t("%d routers have a tunnel. Changing the port, endpoint or subnet cuts them until they are provisioned again, and switching WireGuard off cuts them too"), n)
 			}
 		}
 		fp.Fields = append(fp.Fields, s.wgStatusFields(r.Context(), st)...)
@@ -763,7 +763,7 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 	if tab == "system" && adminFrom(r).Role == "SuperAdmin" { // backup is SuperAdmin only, as in the old dbstatus page
 		links := []field{{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/system/backup", Section: "System", Hint: s.backupStatus(st)},
 			{Name: "key", Label: "Encryption key", Type: "link", Value: keyPage, Btn: "Open key page",
-				Hint: fmt.Sprintf(s.catalog.T(s.language(), "Fingerprint: %s. Keep a copy outside the backup mirror."), keyFingerprint(s.SecretKey)), Section: "System"},
+				Hint: fmt.Sprintf(s.t("Fingerprint: %s. Keep a copy outside the backup mirror."), keyFingerprint(s.SecretKey)), Section: "System"},
 			{Name: "import", Label: "Import PHPNuxBill", Type: "link", Value: importPage, Btn: "Open import page",
 				Hint: "Replaces the data in this app. A backup is made first.", Section: "System"},
 			{Name: "restore", Label: "Restore database", Type: "link", Value: restorePage, Btn: "Open restore page",
@@ -783,20 +783,19 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 
 // backupStatus is the one-line status under "Download backup", written by job.Backup. The mirror path is SuperAdmin only.
 func (s *Server) backupStatus(st map[string]string) string {
-	t := func(k string) string { return s.catalog.T(s.language(), k) }
-	out := t("Last local backup: none yet")
+	out := s.t("Last local backup: none yet")
 	if st["backup_last_at"] != "" {
-		out = fmt.Sprintf(t("Last local backup: %s %s"), st["backup_last_at"], st["backup_last_file"])
+		out = fmt.Sprintf(s.t("Last local backup: %s %s"), st["backup_last_at"], st["backup_last_file"])
 	}
 	switch {
 	case s.BackupMirror == "":
-		return fmt.Sprintf(t("%s. Off-site mirror: off (GOBILL_BACKUP_MIRROR)"), out)
+		return fmt.Sprintf(s.t("%s. Off-site mirror: off (GOBILL_BACKUP_MIRROR)"), out)
 	case st["backup_mirror_error"] != "":
-		return fmt.Sprintf(t("%s. Mirror %s ERROR: %s"), out, s.BackupMirror, st["backup_mirror_error"])
+		return fmt.Sprintf(s.t("%s. Mirror %s ERROR: %s"), out, s.BackupMirror, st["backup_mirror_error"])
 	case st["backup_mirror_at"] != "":
-		return fmt.Sprintf(t("%s. Mirror %s, last copy %s"), out, s.BackupMirror, st["backup_mirror_at"])
+		return fmt.Sprintf(s.t("%s. Mirror %s, last copy %s"), out, s.BackupMirror, st["backup_mirror_at"])
 	}
-	return fmt.Sprintf(t("%s. Mirror %s, no copy yet"), out, s.BackupMirror)
+	return fmt.Sprintf(s.t("%s. Mirror %s, no copy yet"), out, s.BackupMirror)
 }
 
 func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
@@ -861,7 +860,7 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if n > 0 && (rewrite || off) && v["wg_confirm"] != "yes" {
-			msg := s.catalog.T(s.language(), "%d routers have a tunnel and will be cut. Tick the box to confirm")
+			msg := s.t("%d routers have a tunnel and will be cut. Tick the box to confirm")
 			s.renderSettings(w, r, http.StatusUnprocessableEntity, tab, v, map[string]string{"wg_confirm": fmt.Sprintf(msg, n)})
 			return
 		}

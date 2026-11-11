@@ -307,7 +307,7 @@ func (s *Server) requireAdmin(roles ...string) func(http.Handler) http.Handler {
 			}
 			// an admin still on the imported sha1 hash must pick a new password first
 			if admin.LegacySha1 != "" && r.URL.Path != "/admin/password" && r.URL.Path != "/logout" {
-				s.sessions.Put(r.Context(), "flash", s.catalog.T(s.language(), "Your password is from the old system. Choose a new one to continue."))
+				s.sessions.Put(r.Context(), "flash", s.t("Your password is from the old system. Choose a new one to continue."))
 				http.Redirect(w, r, "/admin/password", http.StatusSeeOther)
 				return
 			}

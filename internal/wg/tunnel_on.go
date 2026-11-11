@@ -21,7 +21,6 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	devpkg "github.com/frand-kod/gobill/internal/device"
-	"github.com/frand-kod/gobill/internal/radius"
 )
 
 const built = true
@@ -107,7 +106,7 @@ func (t *tunnel) up(m *Manager, cfg Config) error {
 		}
 		return (&net.Dialer{}).DialContext(ctx, "tcp", addr)
 	})
-	radius.SetDialUDP(func(ctx context.Context, addr string) (net.Conn, error) {
+	devpkg.SetDialUDP(func(ctx context.Context, addr string) (net.Conn, error) {
 		if ap, ok := inside(sub, addr); ok {
 			return tnet.DialUDPAddrPort(netip.AddrPortFrom(self, 0), ap)
 		}
@@ -127,7 +126,7 @@ func (t *tunnel) down() {
 		return
 	}
 	devpkg.SetDialTCP(nil)
-	radius.SetDialUDP(nil)
+	devpkg.SetDialUDP(nil)
 	t.stop()
 	t.wg.Wait()
 	t.dev.Close()

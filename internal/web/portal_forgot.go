@@ -95,7 +95,7 @@ func (s *Server) pForgotUser(w http.ResponseWriter, r *http.Request) {
 		}()
 	}
 	s.prender(w, r, 200, "p_forgot_user", Page{Title: "Forgot Usernames",
-		Flash: s.catalog.T(s.language(), "If the contact is registered, the usernames have been sent")})
+		Flash: s.t("If the contact is registered, the usernames have been sent")})
 }
 
 // Old forgot.php: OTP by WA/SMS, then a new password. The OTP state lives in the
@@ -163,7 +163,7 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if wait := otpWait(s.sessions.GetInt64(ctx, "forgot_at"), time.Now().Unix()); s.sessions.GetString(ctx, "forgot_user") == username && time.Now().Unix() < s.sessions.GetInt64(ctx, "forgot_exp") && wait > 0 {
-		s.forgotRender(w, r, http.StatusOK, "", fmt.Sprintf(s.catalog.T(s.language(), "Wait %d seconds before asking for a new code"), wait))
+		s.forgotRender(w, r, http.StatusOK, "", fmt.Sprintf(s.t("Wait %d seconds before asking for a new code"), wait))
 		return
 	}
 	otp, err := newOTP()
@@ -210,7 +210,7 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 			}
 		}()
 	}
-	s.forgotRender(w, r, http.StatusOK, s.catalog.T(s.language(), "If your Username is found, Verification Code has been Sent to Your Phone/Email/Whatsapp"), "")
+	s.forgotRender(w, r, http.StatusOK, s.t("If your Username is found, Verification Code has been Sent to Your Phone/Email/Whatsapp"), "")
 }
 
 // pForgotVerify checks the code. Each wrong code uses one of otpTries; the last one drops the flow.
@@ -251,7 +251,7 @@ func (s *Server) pForgotVerify(w http.ResponseWriter, r *http.Request) {
 	s.clearFailures("otp:" + hash)
 	s.clearFailures(ip)
 	s.sessions.Put(ctx, "forgot_ok", true)
-	s.forgotRender(w, r, http.StatusOK, s.catalog.T(s.language(), "Verification Code Valid"), "")
+	s.forgotRender(w, r, http.StatusOK, s.t("Verification Code Valid"), "")
 }
 
 // pForgotReset sets the new password of the verified customer, then sends them to login.
@@ -288,6 +288,6 @@ func (s *Server) pForgotReset(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Billing.SyncCustomer(ctx, c.ID, 0)
 	s.forgotClear(r)
-	s.sessions.Put(ctx, "flash", s.catalog.T(s.language(), "Password changed successfully"))
+	s.sessions.Put(ctx, "flash", s.t("Password changed successfully"))
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }

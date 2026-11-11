@@ -10,10 +10,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/clock"
 )
 
 // Now is the clock for the per-minute ring; tests replace it.
-var Now = time.Now
+var Now clock.Func = time.Now
 
 var started = time.Now()
 

@@ -16,7 +16,7 @@ func (s *Server) custLoginAs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if c.Status == "Banned" || c.Status == "Disabled" {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(s.language(), "Customer not found"))
+		s.sessions.Put(r.Context(), "error", s.t("Customer not found"))
 		http.Redirect(w, r, fmt.Sprint("/admin/customers/", c.ID), http.StatusSeeOther)
 		return
 	}
