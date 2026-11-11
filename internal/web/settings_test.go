@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"context"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -328,13 +329,13 @@ func TestDBBackupSuperAdminOnly(t *testing.T) {
 
 func TestMoneyUsesThousandsSep(t *testing.T) {
 	_, h, _ := settingsSetup(t)
-	t.Cleanup(func() { setThousandsSep(".") })
-	if got := money(1234000); got != "Rp 1.234.000" {
+	t.Cleanup(func() { view.SetThousandsSep(".") })
+	if got := view.Money(1234000); got != "Rp 1.234.000" {
 		t.Fatalf("default: %q", got)
 	}
 	do(h, "POST", "/admin/settings/localisation", url.Values{"language": {"english"}, "timezone": {"Asia/Jakarta"},
 		"thousands_sep": {","}}, login(t, h, "alice"))
-	if got := money(1234000); got != "Rp 1,234,000" {
+	if got := view.Money(1234000); got != "Rp 1,234,000" {
 		t.Fatalf("thousands_sep: %q", got)
 	}
 }

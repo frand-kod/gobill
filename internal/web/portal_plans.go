@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 
@@ -179,7 +180,7 @@ func (s *Server) pTransfer(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal transfer", err)
 		return
 	}
-	s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.t("Sent %s to %s (%s)"), money(amount), maskName(to.Fullname), username))
+	s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.t("Sent %s to %s (%s)"), view.Money(amount), maskName(to.Fullname), username))
 	http.Redirect(w, r, "/portal/profile", http.StatusSeeOther)
 }
 

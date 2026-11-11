@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/csv"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 
@@ -204,8 +205,8 @@ func (s *Server) radiusLogRows(ss []db.RadiusSession) [][]string {
 		if x.StoppedAt.Valid {
 			stop, end = s.ts(x.StoppedAt.Int64), x.StoppedAt.Int64
 		}
-		out = append(out, []string{x.Username, x.NasIp, x.FramedIp, x.Mac, s.ts(x.StartedAt), stop, humanDur(end - x.StartedAt),
-			humanBytes(x.InputOctets), humanBytes(x.OutputOctets), x.TerminateCause})
+		out = append(out, []string{x.Username, x.NasIp, x.FramedIp, x.Mac, s.ts(x.StartedAt), stop, view.HumanDur(end - x.StartedAt),
+			view.HumanBytes(x.InputOctets), view.HumanBytes(x.OutputOctets), x.TerminateCause})
 	}
 	return out
 }

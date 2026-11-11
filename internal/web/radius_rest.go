@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -190,7 +191,7 @@ func (s *Server) acceptBody(d radius.Decision) kv {
 	}
 	if d.Rate != "" {
 		b["reply:Mikrotik-Rate-Limit"] = d.Rate
-		up, dn := bps(pl.RateUp.Int64, pl.RateUpUnit.String), bps(pl.RateDown.Int64, pl.RateDownUnit.String)
+		up, dn := view.Bps(pl.RateUp.Int64, pl.RateUpUnit.String), view.Bps(pl.RateDown.Int64, pl.RateDownUnit.String)
 		b["reply:Ascend-Xmit-Rate"], b["reply:WISPr-Bandwidth-Max-Up"] = up, up
 		b["reply:Ascend-Data-Rate"], b["reply:WISPr-Bandwidth-Max-Down"] = dn, dn
 	}

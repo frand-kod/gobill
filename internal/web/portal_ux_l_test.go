@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"net/url"
 	"strings"
@@ -36,7 +37,7 @@ func TestPortalTransferNamesRecipient(t *testing.T) {
 	if w := do(e.h, "POST", "/portal/transfer", url.Values{"username": {"u2"}, "balance": {"1000"}}, c); w.Code != http.StatusSeeOther {
 		t.Fatalf("transfer: %d", w.Code)
 	}
-	if b := do(e.h, "GET", "/portal/profile", nil, c).Body.String(); !strings.Contains(b, "Saldo "+money(1000)+" terkirim ke Two (u2)") {
+	if b := do(e.h, "GET", "/portal/profile", nil, c).Body.String(); !strings.Contains(b, "Saldo "+view.Money(1000)+" terkirim ke Two (u2)") {
 		t.Fatal("flash does not name the recipient")
 	}
 
@@ -78,7 +79,7 @@ func TestLoginPageTitles(t *testing.T) {
 
 // Negative money keeps the sign in front of the currency; the usage chart labels days in ISO form.
 func TestMoneyNegativeAndDayLabels(t *testing.T) {
-	if got, want := money(-1000), "-"+money(1000); got != want {
+	if got, want := view.Money(-1000), "-"+view.Money(1000); got != want {
 		t.Fatalf("money(-1000) = %q, want %q", got, want)
 	}
 	loc := time.UTC

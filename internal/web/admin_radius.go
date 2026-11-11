@@ -5,6 +5,7 @@ package web
 import (
 	"fmt"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -40,8 +41,8 @@ func (s *Server) sessRows(ss []db.RadiusSession, now int64) []sessRow {
 		}
 		// Input is what the NAS received from the user = upload.
 		out = append(out, sessRow{ID: x.ID, User: x.Username, NAS: x.NasIp, IP: x.FramedIp, MAC: x.Mac,
-			Start: s.ts(x.StartedAt), For: humanDur(end - x.StartedAt),
-			Up: humanBytes(x.InputOctets), Down: humanBytes(x.OutputOctets), Stale: stale})
+			Start: s.ts(x.StartedAt), For: view.HumanDur(end - x.StartedAt),
+			Up: view.HumanBytes(x.InputOctets), Down: view.HumanBytes(x.OutputOctets), Stale: stale})
 	}
 	return out
 }

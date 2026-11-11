@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"net/url"
 	"strings"
@@ -239,7 +240,7 @@ func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searc
 	}
 	items = nil
 	for _, x := range trx {
-		items = append(items, searchItem{Title: x.Invoice, Sub: joinNonEmpty(" · ", x.Username, x.PlanName, money(x.Price)),
+		items = append(items, searchItem{Title: x.Invoice, Sub: joinNonEmpty(" · ", x.Username, x.PlanName, view.Money(x.Price)),
 			URL: fmt.Sprint("/admin/transactions/", x.ID, "/invoice")})
 	}
 	out = s.addGroup(out, "Transactions", items)
@@ -264,7 +265,7 @@ func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searc
 		}
 		items = nil
 		for _, p := range ps {
-			items = append(items, searchItem{Title: p.Name, Sub: joinNonEmpty(" · ", p.Type, money(p.Price)),
+			items = append(items, searchItem{Title: p.Name, Sub: joinNonEmpty(" · ", p.Type, view.Money(p.Price)),
 				URL: fmt.Sprint("/admin/plans/", p.ID, "/edit")})
 		}
 		out = s.addGroup(out, "Service Plan", items)

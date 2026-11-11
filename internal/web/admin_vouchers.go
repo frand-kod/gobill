@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -71,7 +72,7 @@ func (s *Server) planOptions(r *http.Request, enabledOnly bool) ([]option, map[i
 	for _, p := range plans {
 		byID[p.ID] = p // rows and names still resolve; only the options leave the isolir plan out
 		if p.ID != isoPlan && (!enabledOnly || p.Enabled == 1) {
-			opts = append(opts, option{fmt.Sprint(p.ID), fmt.Sprintf("%s (%s)", p.Name, money(p.Price))})
+			opts = append(opts, option{fmt.Sprint(p.ID), fmt.Sprintf("%s (%s)", p.Name, view.Money(p.Price))})
 		}
 	}
 	return opts, byID, nil
@@ -329,7 +330,7 @@ func (s *Server) vchPrint(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		p := plans[v.PlanID]
-		pp.Items = append(pp.Items, printItem{v.Code, p.Name, money(p.Price),
+		pp.Items = append(pp.Items, printItem{v.Code, p.Name, view.Money(p.Price),
 			template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))})
 	}
 	s.render(w, r, 200, "print", Page{Title: "Voucher", Data: pp})

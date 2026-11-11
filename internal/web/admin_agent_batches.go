@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"strconv"
 
@@ -71,7 +72,7 @@ func (s *Server) abList(w http.ResponseWriter, r *http.Request) {
 func batchCells(b db.ListAgentBatchesRow) []string {
 	unused := b.PaidCount + b.BonusCount - b.Used - b.Returned
 	return []string{"#" + strconv.FormatInt(b.ID, 10), b.AgentName, b.PlanName, strconv.FormatInt(b.PaidCount, 10), strconv.FormatInt(b.BonusCount, 10),
-		money(b.UnitPrice), strconv.FormatInt(b.Used, 10), strconv.FormatInt(unused, 10), strconv.FormatInt(b.Returned, 10), money(b.Debt)}
+		view.Money(b.UnitPrice), strconv.FormatInt(b.Used, 10), strconv.FormatInt(unused, 10), strconv.FormatInt(b.Returned, 10), view.Money(b.Debt)}
 }
 
 func (s *Server) abView(w http.ResponseWriter, r *http.Request) {
@@ -214,7 +215,7 @@ func (s *Server) abPayForm(w http.ResponseWriter, r *http.Request, status int, b
 		s.fail(w, "agent batch debt", err)
 		return
 	}
-	amount := text("amount", "Amount", v, e).as("number").req().hint(fmt.Sprintf("%s %s", s.t("Debt"), money(debt)))
+	amount := text("amount", "Amount", v, e).as("number").req().hint(fmt.Sprintf("%s %s", s.t("Debt"), view.Money(debt)))
 	back := fmt.Sprint(batchBase, "/", b.ID)
 	s.renderForm(w, r, status, formPage{"Record payment", back + "/payment", back,
 		[]field{amount, text("note", "Note", v, e)}})

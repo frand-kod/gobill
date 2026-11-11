@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"github.com/frand-kod/gobill/internal/service/customer"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 
@@ -200,7 +201,7 @@ func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 			{"recharge", "Recharge same plan", false, false, true}}
 	}
 	for _, c := range rows {
-		lp.Rows = append(lp.Rows, listRow{c.ID, []string{c.Username, c.Fullname, money(c.Balance), c.Packages, c.ServiceType, c.PppoeUsername, s.endsCell(c.NextExpires), c.Status}})
+		lp.Rows = append(lp.Rows, listRow{c.ID, []string{c.Username, c.Fullname, view.Money(c.Balance), c.Packages, c.ServiceType, c.PppoeUsername, s.endsCell(c.NextExpires), c.Status}})
 	}
 	lp.Links = []option{{"/admin/customers/export?" + lp.query().Encode(), "Export CSV"}}
 	var total int64
@@ -238,7 +239,7 @@ func (s *Server) custPick(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, c := range rows {
 			out = append(out, map[string]any{"id": c.ID, "username": c.Username, "fullname": c.Fullname, "phone": c.Phone,
-				"pppoe_username": c.PppoeUsername, "status": c.Status, "balance": money(c.Balance),
+				"pppoe_username": c.PppoeUsername, "status": c.Status, "balance": view.Money(c.Balance),
 				"url": fmt.Sprint("/admin/customers/", c.ID)})
 		}
 	}

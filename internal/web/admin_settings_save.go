@@ -5,6 +5,7 @@ package web
 import (
 	"github.com/frand-kod/gobill/internal/service/settingsave"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 
@@ -135,7 +136,7 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 		s.lang.Store(l)
 	}
 	if x, ok := v["thousands_sep"]; ok {
-		setThousandsSep(x)
+		view.SetThousandsSep(x)
 	}
 	s.settingsSaved(r.Context())
 	s.done(w, r, "/admin/settings/"+tab, "Settings saved", "settings.save", tab)

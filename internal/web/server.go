@@ -9,6 +9,7 @@ import (
 	"github.com/frand-kod/gobill/internal/service/plan"
 	"github.com/frand-kod/gobill/internal/settings"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"html/template"
 	"maps"
 	"net/http"
@@ -249,7 +250,7 @@ func (s *Server) loadSettings(ctx context.Context) (map[string]string, error) {
 		"reminder_hour": "7",
 	}
 	maps.Copy(m, rows)
-	setThousandsSep(m["thousands_sep"]) // money reads it; loaded at start and on each settings page
+	view.SetThousandsSep(m["thousands_sep"]) // money reads it; loaded at start and on each settings page
 	return m, nil
 }
 

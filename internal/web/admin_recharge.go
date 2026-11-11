@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"database/sql"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -78,18 +79,18 @@ func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 		fail(planErrMsg(perr == nil, pl.Enabled))
 		return
 	}
-	d := rechargeConfirm{C: c, Plan: pv.Plan.Name, PlanID: planID, Method: method, MethodLabel: label, Price: money(pv.Price), Balance: money(c.Balance), After: money(c.Balance), Fragment: isFragment(r), Token: newFormToken()}
+	d := rechargeConfirm{C: c, Plan: pv.Plan.Name, PlanID: planID, Method: method, MethodLabel: label, Price: view.Money(pv.Price), Balance: view.Money(c.Balance), After: view.Money(c.Balance), Fragment: isFragment(r), Token: newFormToken()}
 	if !pv.Expiry.IsZero() {
 		d.Expiry = pv.Expiry.In(s.location()).Format("2006-01-02 15:04")
 	}
 	if method == methodZero {
-		pv.Price, d.Price, d.Zero = 0, money(0), true
+		pv.Price, d.Price, d.Zero = 0, view.Money(0), true
 	}
 	if pv.Plan.Type == "Balance" {
-		d.After = money(c.Balance + pv.Price)
+		d.After = view.Money(c.Balance + pv.Price)
 	}
 	if method == "Balance" {
-		d.After, d.Insufficient = money(c.Balance-pv.Price), c.Balance < pv.Price
+		d.After, d.Insufficient = view.Money(c.Balance-pv.Price), c.Balance < pv.Price
 	}
 	if d.Fragment {
 		var buf bytes.Buffer

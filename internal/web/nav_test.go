@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/frand-kod/gobill/internal/web/view"
 	"regexp"
 	"strings"
 	"testing"
@@ -33,7 +34,7 @@ func TestNavActiveResolution(t *testing.T) {
 		"/admin/settingsx":              "",
 	}
 	for path, want := range cases {
-		if got := navActive(path, navKeys...); got != want {
+		if got := view.NavActive(path, navKeys...); got != want {
 			t.Errorf("navActive(%q) = %q, want %q", path, got, want)
 		}
 	}

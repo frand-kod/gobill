@@ -7,6 +7,7 @@ import (
 	"errors"
 	"github.com/frand-kod/gobill/internal/service/plan"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -216,7 +217,7 @@ func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
 		if p.FupBandwidthID.Valid {
 			feats = append(feats, "FUP")
 		}
-		lp.Rows = append(lp.Rows, listRow{p.ID, []string{p.Name, p.Type + " / " + p.Billing, money(p.Price),
+		lp.Rows = append(lp.Rows, listRow{p.ID, []string{p.Name, p.Type + " / " + p.Billing, view.Money(p.Price),
 			fmt.Sprint(p.Validity, " ", p.ValidityUnit), routers[p.RouterID.Int64], aud, strings.Join(feats, ", "), st}})
 	}
 	total, err := s.queries.CountPlans(r.Context(), db.CountPlansParams{Term: q, HiddenID: isoPlan})

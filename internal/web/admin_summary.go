@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"math"
 	"net/http"
 	"strings"
@@ -77,7 +78,7 @@ func (s *Server) custSummary(w http.ResponseWriter, r *http.Request) {
 	loc := s.location()
 	out := customerSummary{ID: c.ID, Username: c.Username, Fullname: c.Fullname, Status: c.Status,
 		StatusLabel: s.t(c.Status), BlocksRecharge: c.Status != "Active",
-		Balance: money(c.Balance), Subscriptions: []summarySub{}, Transactions: []summaryTrx{}}
+		Balance: view.Money(c.Balance), Subscriptions: []summarySub{}, Transactions: []summaryTrx{}}
 
 	v, err := s.queries.LastVoucherUsedBy(ctx, sql.NullInt64{Int64: c.ID, Valid: true})
 	switch {
@@ -135,7 +136,7 @@ func (s *Server) custSummary(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, t := range trx {
 		out.Transactions = append(out.Transactions, summaryTrx{Date: time.Unix(t.CreatedAt, 0).In(loc).Format("2006-01-02 15:04"),
-			Invoice: t.Invoice, Plan: t.PlanName, Price: money(t.Price), Method: t.Method})
+			Invoice: t.Invoice, Plan: t.PlanName, Price: view.Money(t.Price), Method: t.Method})
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -161,18 +162,18 @@ func (s *Server) summaryUsage(ctx context.Context, c db.Customer, subID, planID 
 	q := diagnose.PlanQuota(sub, plan)
 	var parts []string
 	if q.HasData {
-		parts = append(parts, fmt.Sprintf(s.t("Data used: %s of %s"), humanBytes(q.Data), humanBytes(q.DataLim)))
+		parts = append(parts, fmt.Sprintf(s.t("Data used: %s of %s"), view.HumanBytes(q.Data), view.HumanBytes(q.DataLim)))
 		full = full || q.Data >= q.DataLim
 	}
 	if q.HasTime {
-		parts = append(parts, fmt.Sprintf(s.t("Time used: %s of %s"), humanDur(q.Time), humanDur(q.TimeLim)))
+		parts = append(parts, fmt.Sprintf(s.t("Time used: %s of %s"), view.HumanDur(q.Time), view.HumanDur(q.TimeLim)))
 		full = full || q.Time >= q.TimeLim
 	}
 	switch {
 	case len(parts) == 0:
-		parts = append(parts, fmt.Sprintf(s.t("Used since plan start: %s"), humanBytes(sub.UsedInOctets+sub.UsedOutOctets)))
+		parts = append(parts, fmt.Sprintf(s.t("Used since plan start: %s"), view.HumanBytes(sub.UsedInOctets+sub.UsedOutOctets)))
 	case !q.HasData: // a time limit only: the data is still worth seeing
-		parts = append(parts, fmt.Sprintf(s.t("Data: %s"), humanBytes(sub.UsedInOctets+sub.UsedOutOctets)))
+		parts = append(parts, fmt.Sprintf(s.t("Data: %s"), view.HumanBytes(sub.UsedInOctets+sub.UsedOutOctets)))
 	}
 	if full {
 		parts = append([]string{s.t("Quota used up")}, parts...)

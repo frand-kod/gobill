@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -46,7 +47,7 @@ func TestReportUsageMatchesDashboard(t *testing.T) {
 		t.Fatal(err)
 	}
 	month := d.Usage.Month
-	if month.Empty || month.Total != humanBytes(6<<20+3<<10) {
+	if month.Empty || month.Total != view.HumanBytes(6<<20+3<<10) {
 		t.Fatalf("dashboard 30 day total %q", month.Total)
 	}
 	to := now.Format("2006-01-02")
@@ -58,7 +59,7 @@ func TestReportUsageMatchesDashboard(t *testing.T) {
 	}
 	// only today: u1 4 MiB + u2 3 KiB; the 20 day old, 45 day old and tomorrow rows are out
 	day := do(e.h, "GET", "/admin/reports/period?from="+to+"&to="+to, nil, e.c).Body.String()
-	n, u := humanBytesParts(4<<20 + 3<<10)
+	n, u := view.HumanBytesParts(4<<20 + 3<<10)
 	if want := `class="stat-num">` + n + `<span class="ms-1 text-sm font-medium text-ink-2">` + u + `</span>`; !strings.Contains(day, want) {
 		t.Errorf("one day range: want %q", want)
 	}

@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"strings"
 	"testing"
 
@@ -21,7 +22,7 @@ func TestQRISPageCard(t *testing.T) {
 	}
 	path := fmt.Sprintf("/qris/%d/%s", tr.ID, payment.QRISToken(s.SecretKey, tr.ID))
 	body := isoReq(h, "GET", path, "198.51.100.9", nil).Body.String()
-	for _, want := range []string{"Pembayaran ke Toko Test", "CONTOH QRIS", "Contoh", money(150000), "Nominal sudah terkunci",
+	for _, want := range []string{"Pembayaran ke Toko Test", "CONTOH QRIS", "Contoh", view.Money(150000), "Nominal sudah terkunci",
 		"INV-1 · Paket 10M", "Scan dengan aplikasi bank atau e-wallet", "data:image/png;base64,",
 		"Aplikasi Anda akan menampilkan nama merchant CONTOH QRIS", "milik Toko Test", "Simpan / cetak", "window.print()"} {
 		if !strings.Contains(body, want) {

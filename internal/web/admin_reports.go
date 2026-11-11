@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/csv"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -412,7 +413,7 @@ func (s *Server) trxList(w http.ResponseWriter, r *http.Request) {
 		lp.Filters = []filter{{"customer", strconv.FormatInt(cid, 10), []option{{strconv.FormatInt(cid, 10), label}}, "Customer"}}
 	}
 	for _, t := range rows {
-		lp.Rows = append(lp.Rows, listRow{t.ID, []string{t.Invoice, s.ts(t.CreatedAt), t.Username, t.PlanName, t.Type, t.Method, money(t.Price)}})
+		lp.Rows = append(lp.Rows, listRow{t.ID, []string{t.Invoice, s.ts(t.CreatedAt), t.Username, t.PlanName, t.Type, t.Method, view.Money(t.Price)}})
 	}
 	total, err := s.queries.CountSearchTransactions(r.Context(), db.CountSearchTransactionsParams{Q: q, CustomerID: cid})
 	if err != nil {

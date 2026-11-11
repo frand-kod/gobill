@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -157,7 +158,7 @@ func (s *Server) bulkRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 	var total int64
 	for _, id := range ids {
 		c, plan, price, reason := s.bulkRechargeCheck(r, id)
-		row := bulkRechargeRow{Username: c.Username, Plan: plan.Name, Price: money(price), Err: reason}
+		row := bulkRechargeRow{Username: c.Username, Plan: plan.Name, Price: view.Money(price), Err: reason}
 		if reason != "" {
 			row.Plan, row.Price = "", ""
 		} else {
@@ -166,7 +167,7 @@ func (s *Server) bulkRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 		}
 		p.Rows = append(p.Rows, row)
 	}
-	p.Summary = fmt.Sprintf(s.t("Recharge %d customers, total %s"), len(eligible), money(total))
+	p.Summary = fmt.Sprintf(s.t("Recharge %d customers, total %s"), len(eligible), view.Money(total))
 	if len(eligible) > 0 {
 		tok, err := newBulkToken()
 		if err != nil {

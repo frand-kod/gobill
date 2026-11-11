@@ -8,6 +8,7 @@ import (
 	"crypto/hmac"
 	"encoding/base64"
 	"errors"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"html/template"
 	"image"
 	_ "image/jpeg"
@@ -104,6 +105,6 @@ func (s *Server) qrisPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	qr := template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))
-	d := qrisData{Card: s.qrisCard(st, payment.QRISDetailsOf(st["qris_payload"]), qr, money(t.Price), t.Invoice+" · "+t.PlanName, false)}
+	d := qrisData{Card: s.qrisCard(st, payment.QRISDetailsOf(st["qris_payload"]), qr, view.Money(t.Price), t.Invoice+" · "+t.PlanName, false)}
 	s.render(w, r, 200, "p_qris", Page{Title: "Pay via QRIS", Data: d})
 }

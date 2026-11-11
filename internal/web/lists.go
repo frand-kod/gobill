@@ -194,19 +194,6 @@ func (lp listPage) FilterCount() int {
 	return n
 }
 
-// badgeDot is the colour of a status dot for a badge class from badge().
-func badgeDot(badgeClass string) string {
-	switch badgeClass {
-	case "badge-ok":
-		return "bg-ok-fg"
-	case "badge-bad":
-		return "bg-err-fg"
-	case "badge-warn":
-		return "bg-warn-fg"
-	}
-	return "bg-ink-2"
-}
-
 // rowItem is one control in a row's action cell: an edit link, a delete form or a POST action form.
 type rowItem struct {
 	Kind    string // "edit", "delete" or "action"

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"net/url"
 	"strings"
@@ -229,7 +230,7 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		if sub.PendingStart == 1 {
 			d.Plan.Pending, d.Plan.Left, d.Plan.Pct = true, s.t("Starts on first login"), 0
 		}
-		d.Period = pTotal{Down: humanBytes(sub.UsedOutOctets), Up: humanBytes(sub.UsedInOctets)}
+		d.Period = pTotal{Down: view.HumanBytes(sub.UsedOutOctets), Up: view.HumanBytes(sub.UsedInOctets)}
 		d.Usage = s.pUsage(ctx, *c, *sub, p, d.Words, sub.UsedInOctets+sub.UsedOutOctets)
 	} else {
 		d.Usage.Note = s.t("No active plan")
@@ -264,7 +265,7 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 	}
 	days := dailyUsage(totals, 7, now, s.location())
 	d.Days = chartBars(days)
-	d.Today = pTotal{Down: humanBytes(days[len(days)-1].Down), Up: humanBytes(days[len(days)-1].Up)}
+	d.Today = pTotal{Down: view.HumanBytes(days[len(days)-1].Down), Up: view.HumanBytes(days[len(days)-1].Up)}
 
 	d.Trx, err = s.queries.ListTransactionsByCustomer(ctx, db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, Limit: 3})
 	if err != nil {
@@ -295,11 +296,11 @@ func (s *Server) pUsage(ctx context.Context, c db.Customer, sub db.Subscription,
 	}
 	q := diagnose.PlanQuota(sub, p)
 	u := pUsage{}
-	u.TotalNum, u.TotalUnit = humanBytesParts(used)
+	u.TotalNum, u.TotalUnit = view.HumanBytesParts(used)
 	if q.HasData {
-		u.Data = meter(q.Data, q.DataLim, humanBytes)
-		u.LeftNum, u.LeftUnit = humanBytesParts(max(q.DataLim-q.Data, 0))
-		u.Limit = humanBytes(q.DataLim)
+		u.Data = meter(q.Data, q.DataLim, view.HumanBytes)
+		u.LeftNum, u.LeftUnit = view.HumanBytesParts(max(q.DataLim-q.Data, 0))
+		u.Limit = view.HumanBytes(q.DataLim)
 	}
 	if q.HasTime {
 		u.HasTime = true
@@ -320,7 +321,7 @@ func (s *Server) pSession(x db.RadiusSession, now int64, w pWords) pSess {
 	if x.StoppedAt.Valid {
 		end = x.StoppedAt.Int64
 	}
-	return pSess{Start: s.ts(x.StartedAt), For: w.span(end - x.StartedAt), Up: humanBytes(x.InputOctets), Down: humanBytes(x.OutputOctets),
+	return pSess{Start: s.ts(x.StartedAt), For: w.span(end - x.StartedAt), Up: view.HumanBytes(x.InputOctets), Down: view.HumanBytes(x.OutputOctets),
 		MAC: maskMAC(x.Mac), Open: !x.StoppedAt.Valid && now-x.UpdatedAt <= radius.StaleFor(x.NasIp)}
 }
 
@@ -378,7 +379,7 @@ func (s *Server) radiusUsage(ctx context.Context, c db.Customer) (*radiusUsage, 
 	if p, err := s.queries.GetRadiusPlan(ctx, c.ID); err == nil {
 		total = p.UsedInOctets + p.UsedOutOctets
 	}
-	u.Total, u.Unit = humanBytesParts(total)
+	u.Total, u.Unit = view.HumanBytesParts(total)
 	now, loc := time.Now().Unix(), s.location()
 	n1, n2 := names2(loginNames(c))
 	rows, err := s.queries.ListRadiusUsageDaily(ctx, db.ListRadiusUsageDailyParams{Name1: n1, Name2: n2, Since: dayStart(now, loc).AddDate(0, 0, -29).Format("2006-01-02")})
@@ -398,7 +399,7 @@ func (s *Server) radiusUsage(ctx context.Context, c db.Customer) (*radiusUsage, 
 	u.Month = useWindow(dailyUsage(totals, 30, now, loc))
 	if len(ss) > 0 {
 		r := s.sessRows(ss[:1], now)[0]
-		u.Last = &useLast{Start: r.Start, For: r.For, Total: humanBytes(ss[0].InputOctets + ss[0].OutputOctets)}
+		u.Last = &useLast{Start: r.Start, For: r.For, Total: view.HumanBytes(ss[0].InputOctets + ss[0].OutputOctets)}
 	}
 	u.Rows = s.sessRows(ss, now)
 	return u, nil
@@ -410,5 +411,5 @@ func useWindow(days []dayUse) useWin {
 	for _, d := range days {
 		n += d.Down + d.Up
 	}
-	return useWin{Total: humanBytes(n), Bars: chartBars(days)}
+	return useWin{Total: view.HumanBytes(n), Bars: chartBars(days)}
 }
