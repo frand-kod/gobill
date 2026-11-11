@@ -10,44 +10,6 @@ import (
 	"database/sql"
 )
 
-const activePlanNameByLogin = `-- name: ActivePlanNameByLogin :one
-SELECT p.name FROM subscriptions s JOIN customers c ON c.id = s.customer_id JOIN plans p ON p.id = s.plan_id
-WHERE s.status = 'active' AND (c.username = ?1 OR (c.pppoe_username <> '' AND c.pppoe_username = ?1))
-ORDER BY s.expires_at DESC LIMIT 1
-`
-
-// Plan of the customer who logs in with this RADIUS user name (username or pppoe_username).
-func (q *Queries) ActivePlanNameByLogin(ctx context.Context, name string) (string, error) {
-	row := q.db.QueryRowContext(ctx, activePlanNameByLogin, name)
-	err := row.Scan(&name)
-	return name, err
-}
-
-const addRadiusUsageDaily = `-- name: AddRadiusUsageDaily :exec
-INSERT INTO radius_usage_daily (username, day, input_octets, output_octets) VALUES (?, ?, ?, ?)
-ON CONFLICT (username, day) DO UPDATE SET
-    input_octets = radius_usage_daily.input_octets + excluded.input_octets,
-    output_octets = radius_usage_daily.output_octets + excluded.output_octets
-`
-
-type AddRadiusUsageDailyParams struct {
-	Username     string
-	Day          string
-	InputOctets  int64
-	OutputOctets int64
-}
-
-// Adds the growth of a session's counters to its user's day (YYYY-MM-DD in the app time zone).
-func (q *Queries) AddRadiusUsageDaily(ctx context.Context, arg AddRadiusUsageDailyParams) error {
-	_, err := q.db.ExecContext(ctx, addRadiusUsageDaily,
-		arg.Username,
-		arg.Day,
-		arg.InputOctets,
-		arg.OutputOctets,
-	)
-	return err
-}
-
 const addSubscriptionUsage = `-- name: AddSubscriptionUsage :exec
 UPDATE subscriptions SET used_in_octets = used_in_octets + ?1, used_out_octets = used_out_octets + ?2,
     used_seconds = used_seconds + ?3
@@ -116,49 +78,6 @@ func (q *Queries) CountLiveRadiusSessions(ctx context.Context, updatedAt int64) 
 	var count int64
 	err := row.Scan(&count)
 	return count, err
-}
-
-const createNAS = `-- name: CreateNAS :one
-INSERT INTO nas (name, ip, secret_enc, description, require_message_auth) VALUES (?, ?, ?, ?, ?) RETURNING id, name, ip, secret_enc, description, require_message_auth, ma_seen, type
-`
-
-type CreateNASParams struct {
-	Name               string
-	Ip                 string
-	SecretEnc          []byte
-	Description        string
-	RequireMessageAuth int64
-}
-
-func (q *Queries) CreateNAS(ctx context.Context, arg CreateNASParams) (Na, error) {
-	row := q.db.QueryRowContext(ctx, createNAS,
-		arg.Name,
-		arg.Ip,
-		arg.SecretEnc,
-		arg.Description,
-		arg.RequireMessageAuth,
-	)
-	var i Na
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Ip,
-		&i.SecretEnc,
-		&i.Description,
-		&i.RequireMessageAuth,
-		&i.MaSeen,
-		&i.Type,
-	)
-	return i, err
-}
-
-const deleteNAS = `-- name: DeleteNAS :exec
-DELETE FROM nas WHERE id = ?
-`
-
-func (q *Queries) DeleteNAS(ctx context.Context, id int64) error {
-	_, err := q.db.ExecContext(ctx, deleteNAS, id)
-	return err
 }
 
 const getCustomerForRadius = `-- name: GetCustomerForRadius :one
@@ -246,26 +165,6 @@ func (q *Queries) GetIsolirPlan(ctx context.Context, planID int64) (GetIsolirPla
 		&i.RateUpUnit,
 		&i.Burst,
 		&i.PoolName,
-	)
-	return i, err
-}
-
-const getNAS = `-- name: GetNAS :one
-SELECT id, name, ip, secret_enc, description, require_message_auth, ma_seen, type FROM nas WHERE id = ?
-`
-
-func (q *Queries) GetNAS(ctx context.Context, id int64) (Na, error) {
-	row := q.db.QueryRowContext(ctx, getNAS, id)
-	var i Na
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Ip,
-		&i.SecretEnc,
-		&i.Description,
-		&i.RequireMessageAuth,
-		&i.MaSeen,
-		&i.Type,
 	)
 	return i, err
 }
@@ -741,42 +640,6 @@ func (q *Queries) ListFUPSessions(ctx context.Context) ([]RadiusSession, error) 
 	return items, nil
 }
 
-const listNAS = `-- name: ListNAS :many
-SELECT id, name, ip, secret_enc, description, require_message_auth, ma_seen, type FROM nas ORDER BY name
-`
-
-func (q *Queries) ListNAS(ctx context.Context) ([]Na, error) {
-	rows, err := q.db.QueryContext(ctx, listNAS)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Na
-	for rows.Next() {
-		var i Na
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Ip,
-			&i.SecretEnc,
-			&i.Description,
-			&i.RequireMessageAuth,
-			&i.MaSeen,
-			&i.Type,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listOpenRadiusSessionsByUser = `-- name: ListOpenRadiusSessionsByUser :many
 SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets, terminate_cause, nas_port_id FROM radius_sessions WHERE username = ? AND stopped_at IS NULL
 `
@@ -978,95 +841,6 @@ func (q *Queries) ListRadiusSessionsByUsers(ctx context.Context, arg ListRadiusS
 	return items, nil
 }
 
-const listRadiusUsageDaily = `-- name: ListRadiusUsageDaily :many
-SELECT day, CAST(SUM(input_octets) AS INTEGER) AS input, CAST(SUM(output_octets) AS INTEGER) AS output FROM radius_usage_daily
-WHERE (username = ?1 OR username = ?2) AND day >= ?3
-GROUP BY day
-`
-
-type ListRadiusUsageDailyParams struct {
-	Name1 string
-	Name2 string
-	Since string
-}
-
-type ListRadiusUsageDailyRow struct {
-	Day    string
-	Input  int64
-	Output int64
-}
-
-// Octets of the customer's two login names per day since day, for the daily usage chart.
-func (q *Queries) ListRadiusUsageDaily(ctx context.Context, arg ListRadiusUsageDailyParams) ([]ListRadiusUsageDailyRow, error) {
-	rows, err := q.db.QueryContext(ctx, listRadiusUsageDaily, arg.Name1, arg.Name2, arg.Since)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListRadiusUsageDailyRow
-	for rows.Next() {
-		var i ListRadiusUsageDailyRow
-		if err := rows.Scan(&i.Day, &i.Input, &i.Output); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listRadiusUsageDailyRange = `-- name: ListRadiusUsageDailyRange :many
-SELECT day, username, input_octets, output_octets FROM radius_usage_daily
-WHERE day >= ?1 AND day <= ?2
-ORDER BY day, username
-`
-
-type ListRadiusUsageDailyRangeParams struct {
-	Since string
-	Until string
-}
-
-type ListRadiusUsageDailyRangeRow struct {
-	Day          string
-	Username     string
-	InputOctets  int64
-	OutputOctets int64
-}
-
-// One row per user per day from since to until, for the usage CSV.
-func (q *Queries) ListRadiusUsageDailyRange(ctx context.Context, arg ListRadiusUsageDailyRangeParams) ([]ListRadiusUsageDailyRangeRow, error) {
-	rows, err := q.db.QueryContext(ctx, listRadiusUsageDailyRange, arg.Since, arg.Until)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListRadiusUsageDailyRangeRow
-	for rows.Next() {
-		var i ListRadiusUsageDailyRangeRow
-		if err := rows.Scan(
-			&i.Day,
-			&i.Username,
-			&i.InputOctets,
-			&i.OutputOctets,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listRecentRadiusSessionsByUser = `-- name: ListRecentRadiusSessionsByUser :many
 SELECT id, session_id, username, nas_ip, nas_ip_attr, nas_identifier, framed_ip, mac, started_at, updated_at, stopped_at, input_octets, output_octets, terminate_cause, nas_port_id FROM radius_sessions WHERE username = ? ORDER BY started_at DESC LIMIT 10
 `
@@ -1108,15 +882,6 @@ func (q *Queries) ListRecentRadiusSessionsByUser(ctx context.Context, username s
 		return nil, err
 	}
 	return items, nil
-}
-
-const markNASMASeen = `-- name: MarkNASMASeen :exec
-UPDATE nas SET ma_seen = 1 WHERE id = ?
-`
-
-func (q *Queries) MarkNASMASeen(ctx context.Context, id int64) error {
-	_, err := q.db.ExecContext(ctx, markNASMASeen, id)
-	return err
 }
 
 const searchOpenRadiusSessions = `-- name: SearchOpenRadiusSessions :many
@@ -1233,20 +998,6 @@ func (q *Queries) SearchRadiusLogs(ctx context.Context, arg SearchRadiusLogsPara
 	return items, nil
 }
 
-const setNASType = `-- name: SetNASType :exec
-UPDATE nas SET type = ? WHERE id = ?
-`
-
-type SetNASTypeParams struct {
-	Type string
-	ID   int64
-}
-
-func (q *Queries) SetNASType(ctx context.Context, arg SetNASTypeParams) error {
-	_, err := q.db.ExecContext(ctx, setNASType, arg.Type, arg.ID)
-	return err
-}
-
 const stopRadiusSession = `-- name: StopRadiusSession :exec
 UPDATE radius_sessions SET stopped_at = ? WHERE id = ? AND stopped_at IS NULL
 `
@@ -1277,131 +1028,6 @@ func (q *Queries) SumRadiusSessionTime(ctx context.Context, arg SumRadiusSession
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
-}
-
-const sumRadiusUsage = `-- name: SumRadiusUsage :one
-SELECT CAST(COALESCE(SUM(input_octets + output_octets), 0) AS INTEGER) FROM radius_sessions
-WHERE username = ? AND started_at >= ?
-`
-
-type SumRadiusUsageParams struct {
-	Username  string
-	StartedAt int64
-}
-
-func (q *Queries) SumRadiusUsage(ctx context.Context, arg SumRadiusUsageParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, sumRadiusUsage, arg.Username, arg.StartedAt)
-	var column_1 int64
-	err := row.Scan(&column_1)
-	return column_1, err
-}
-
-const sumRadiusUsageDailyByDay = `-- name: SumRadiusUsageDailyByDay :many
-SELECT day, CAST(SUM(input_octets) AS INTEGER) AS input, CAST(SUM(output_octets) AS INTEGER) AS output FROM radius_usage_daily
-WHERE day >= ?1 AND day <= ?2
-GROUP BY day ORDER BY day
-`
-
-type SumRadiusUsageDailyByDayParams struct {
-	Since string
-	Until string
-}
-
-type SumRadiusUsageDailyByDayRow struct {
-	Day    string
-	Input  int64
-	Output int64
-}
-
-// All users' octets per day from since to until (YYYY-MM-DD, both included).
-func (q *Queries) SumRadiusUsageDailyByDay(ctx context.Context, arg SumRadiusUsageDailyByDayParams) ([]SumRadiusUsageDailyByDayRow, error) {
-	rows, err := q.db.QueryContext(ctx, sumRadiusUsageDailyByDay, arg.Since, arg.Until)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []SumRadiusUsageDailyByDayRow
-	for rows.Next() {
-		var i SumRadiusUsageDailyByDayRow
-		if err := rows.Scan(&i.Day, &i.Input, &i.Output); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const topRadiusUsageDaily = `-- name: TopRadiusUsageDaily :many
-SELECT username, CAST(SUM(input_octets) AS INTEGER) AS input, CAST(SUM(output_octets) AS INTEGER) AS output FROM radius_usage_daily
-WHERE day >= ?1 AND day <= ?2
-GROUP BY username ORDER BY SUM(input_octets + output_octets) DESC LIMIT ?3
-`
-
-type TopRadiusUsageDailyParams struct {
-	Since    string
-	Until    string
-	RowLimit int64
-}
-
-type TopRadiusUsageDailyRow struct {
-	Username string
-	Input    int64
-	Output   int64
-}
-
-// The users with the most octets (up + down) from since to until.
-func (q *Queries) TopRadiusUsageDaily(ctx context.Context, arg TopRadiusUsageDailyParams) ([]TopRadiusUsageDailyRow, error) {
-	rows, err := q.db.QueryContext(ctx, topRadiusUsageDaily, arg.Since, arg.Until, arg.RowLimit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []TopRadiusUsageDailyRow
-	for rows.Next() {
-		var i TopRadiusUsageDailyRow
-		if err := rows.Scan(&i.Username, &i.Input, &i.Output); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const updateNAS = `-- name: UpdateNAS :exec
-UPDATE nas SET name = ?, ip = ?, secret_enc = ?, description = ?, require_message_auth = ? WHERE id = ?
-`
-
-type UpdateNASParams struct {
-	Name               string
-	Ip                 string
-	SecretEnc          []byte
-	Description        string
-	RequireMessageAuth int64
-	ID                 int64
-}
-
-func (q *Queries) UpdateNAS(ctx context.Context, arg UpdateNASParams) error {
-	_, err := q.db.ExecContext(ctx, updateNAS,
-		arg.Name,
-		arg.Ip,
-		arg.SecretEnc,
-		arg.Description,
-		arg.RequireMessageAuth,
-		arg.ID,
-	)
-	return err
 }
 
 const upsertRadiusSession = `-- name: UpsertRadiusSession :exec
