@@ -14,24 +14,17 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	gobill "github.com/frand-kod/gobill"
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/service/promo"
 )
 
-const (
-	promoTitleMax = 100
-	promoBodyMax  = 1000
-	promoLinkMax  = 500
-	promoBase     = "/admin/settings/promo"
-)
+const promoBase = "/admin/settings/promo"
 
 var promoCards = template.Must(template.New("").ParseFS(gobill.FS, "web/templates/promo_cards.html"))
 
@@ -121,12 +114,6 @@ func (s *Server) promoPortal(ctx context.Context) (*portalPromo, error) {
 	return pp, nil
 }
 
-// promoLinkOK accepts only absolute http and https links (no javascript:, data: or bare text).
-func promoLinkOK(v string) bool {
-	u, err := url.Parse(v)
-	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
-}
-
 // removeUpload deletes one stored promo image. Only upload-format names are touched.
 func (s *Server) removeUpload(name string) {
 	if !uploadName.MatchString(name) {
@@ -140,13 +127,6 @@ func (s *Server) removeUpload(name string) {
 	if err := os.Remove(filepath.Join(dir, name)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		slog.Error("remove promo image", "name", name, "err", err)
 	}
-}
-
-func promoFlag(v string) int64 {
-	if v == "1" {
-		return 1
-	}
-	return 0
 }
 
 // promoSchedule is the Schedule cell: "Always", or the dates the promo is on.
@@ -279,36 +259,7 @@ func (s *Server) promoSave(w http.ResponseWriter, r *http.Request) {
 			v[k] = "1"
 		}
 	}
-	if v["title"] == "" {
-		e["title"] = "This field is required"
-	} else if utf8.RuneCountInString(v["title"]) > promoTitleMax {
-		e["title"] = "Too long"
-	}
-	if utf8.RuneCountInString(v["body"]) > promoBodyMax {
-		e["body"] = "Too long"
-	}
-	if v["link"] != "" && (len(v["link"]) > promoLinkMax || !promoLinkOK(v["link"])) {
-		e["link"] = "Use an https:// or http:// link"
-	}
-	loc := s.location()
-	var starts, ends sql.NullInt64
-	if v["starts"] != "" {
-		if t, err := time.ParseInLocation("2006-01-02", v["starts"], loc); err != nil {
-			e["starts"] = "Invalid date"
-		} else {
-			starts = sql.NullInt64{Int64: t.Unix(), Valid: true}
-		}
-	}
-	if v["ends"] != "" {
-		if t, err := time.ParseInLocation("2006-01-02", v["ends"], loc); err != nil {
-			e["ends"] = "Invalid date"
-		} else {
-			ends = sql.NullInt64{Int64: t.AddDate(0, 0, 1).Unix() - 1, Valid: true} // last second of that day
-		}
-	}
-	if starts.Valid && ends.Valid && ends.Int64 < starts.Int64 {
-		e["ends"] = "End date must be after start date"
-	}
+	parsed := s.promos().Validate(v, e)
 	image := old.Image
 	if r.PostFormValue("image_remove") == "1" {
 		image = ""
@@ -327,20 +278,7 @@ func (s *Server) promoSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now().Unix()
-	var err error
-	if id == 0 {
-		var pos int64
-		if pos, err = s.queries.MaxPromoPosition(ctx); err == nil {
-			_, err = s.queries.CreatePromo(ctx, db.CreatePromoParams{Title: v["title"], Body: v["body"], Image: image, Link: v["link"],
-				ShowIsolir: promoFlag(v["show_isolir"]), ShowPortal: promoFlag(v["show_portal"]), Active: promoFlag(v["active"]),
-				StartsAt: starts, EndsAt: ends, Position: pos + 1, UpdatedAt: now})
-		}
-	} else {
-		err = s.queries.UpdatePromo(ctx, db.UpdatePromoParams{Title: v["title"], Body: v["body"], Image: image, Link: v["link"],
-			ShowIsolir: promoFlag(v["show_isolir"]), ShowPortal: promoFlag(v["show_portal"]), Active: promoFlag(v["active"]),
-			StartsAt: starts, EndsAt: ends, UpdatedAt: now, ID: id})
-	}
+	err := s.promos().Save(ctx, id, parsed, image)
 	if err != nil {
 		if added != "" {
 			s.removeUpload(added)
@@ -380,35 +318,14 @@ func (s *Server) promoDelete(w http.ResponseWriter, r *http.Request) {
 func (s *Server) promoMove(dir int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		rows, err := s.queries.ListPromos(ctx)
-		if err != nil {
-			s.fail(w, "list promos", err)
+		if err := s.promos().Move(ctx, pathID(r), dir); err != nil {
+			s.fail(w, "move promo", err)
 			return
-		}
-		id := pathID(r)
-		i := slices.IndexFunc(rows, func(p db.Promo) bool { return p.ID == id })
-		if j := i + dir; i >= 0 && j >= 0 && j < len(rows) {
-			rows[i], rows[j] = rows[j], rows[i]
-			tx, err := s.conn.BeginTx(ctx, nil)
-			if err != nil {
-				s.fail(w, "begin promo move", err)
-				return
-			}
-			defer tx.Rollback()
-			q := s.queries.WithTx(tx)
-			for n, p := range rows {
-				if p.Position != int64(n+1) {
-					if err := q.SetPromoPosition(ctx, db.SetPromoPositionParams{Position: int64(n + 1), ID: p.ID}); err != nil {
-						s.fail(w, "move promo", err)
-						return
-					}
-				}
-			}
-			if err := tx.Commit(); err != nil {
-				s.fail(w, "commit promo move", err)
-				return
-			}
 		}
 		http.Redirect(w, r, promoBase, http.StatusSeeOther)
 	}
+}
+
+func (s *Server) promos() *promo.Service {
+	return &promo.Service{DB: s.conn, Q: s.queries, Loc: s.location(), Now: time.Now}
 }

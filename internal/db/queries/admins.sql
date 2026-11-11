@@ -25,6 +25,10 @@ WHERE (username LIKE '%' || sqlc.arg(q) || '%' OR fullname LIKE '%' || sqlc.arg(
 ORDER BY id
 LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
+-- The PHPNuxBill sha1 of an imported admin, "" once the admin picked a new password.
+-- name: GetAdminLegacySha1 :one
+SELECT legacy_sha1 FROM admins WHERE id = ?;
+
 -- name: ListAgents :many
 SELECT * FROM admins WHERE role = 'Agent' ORDER BY username;
 
@@ -41,6 +45,10 @@ WHERE admins.id = sqlc.arg(id)
   AND (NOT (admins.role = 'SuperAdmin' AND admins.status = 'Active')
     OR (sqlc.arg(role) = 'SuperAdmin' AND sqlc.arg(status) = 'Active')
     OR (SELECT count(*) FROM admins AS sa WHERE sa.role = 'SuperAdmin' AND sa.status = 'Active') > 1);
+
+-- Swaps the stored hash only. Keeps legacy_sha1, so the admin is still sent to change the password.
+-- name: RehashAdminPassword :exec
+UPDATE admins SET password_hash = ? WHERE id = ?;
 
 -- Sets the password and bumps session_version, ending every other session.
 -- name: SetAdminPassword :one

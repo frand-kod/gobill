@@ -196,6 +196,18 @@ func (q *Queries) GetAdminByUsername(ctx context.Context, username string) (Admi
 	return i, err
 }
 
+const getAdminLegacySha1 = `-- name: GetAdminLegacySha1 :one
+SELECT legacy_sha1 FROM admins WHERE id = ?
+`
+
+// The PHPNuxBill sha1 of an imported admin, "" once the admin picked a new password.
+func (q *Queries) GetAdminLegacySha1(ctx context.Context, id int64) (string, error) {
+	row := q.db.QueryRowContext(ctx, getAdminLegacySha1, id)
+	var legacy_sha1 string
+	err := row.Scan(&legacy_sha1)
+	return legacy_sha1, err
+}
+
 const listAgents = `-- name: ListAgents :many
 SELECT id, username, fullname, password_hash, legacy_sha1, role, status, email, phone, city, root_id, session_version, last_login_at, created_at, totp_secret_enc, totp_enabled FROM admins WHERE role = 'Agent' ORDER BY username
 `
@@ -270,6 +282,21 @@ func (q *Queries) ListUnusedRecoveryCodes(ctx context.Context, adminID int64) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const rehashAdminPassword = `-- name: RehashAdminPassword :exec
+UPDATE admins SET password_hash = ? WHERE id = ?
+`
+
+type RehashAdminPasswordParams struct {
+	PasswordHash string
+	ID           int64
+}
+
+// Swaps the stored hash only. Keeps legacy_sha1, so the admin is still sent to change the password.
+func (q *Queries) RehashAdminPassword(ctx context.Context, arg RehashAdminPasswordParams) error {
+	_, err := q.db.ExecContext(ctx, rehashAdminPassword, arg.PasswordHash, arg.ID)
+	return err
 }
 
 const searchAdmins = `-- name: SearchAdmins :many

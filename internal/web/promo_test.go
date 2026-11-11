@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/service/promo"
 )
 
 func promoForm(title string) url.Values {
@@ -121,7 +122,7 @@ func TestPromoValidation(t *testing.T) {
 		t.Fatalf("invalid promos saved: %d", len(list))
 	}
 	for _, ok := range []string{"https://wa.me/628123", "http://intranet.test/promo"} {
-		if !promoLinkOK(ok) {
+		if !promo.LinkOK(ok) {
 			t.Fatalf("link refused: %s", ok)
 		}
 	}

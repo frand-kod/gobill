@@ -3,10 +3,7 @@ package web
 // Admin login, logout, login throttling, legacy password check and role guards.
 
 import (
-	"crypto/sha1"
-	"crypto/subtle"
 	"database/sql"
-	"encoding/hex"
 	"log/slog"
 	"net"
 	"net/http"
@@ -48,7 +45,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		hash = []byte(admin.PasswordHash)
 	}
 	passOK := bcrypt.CompareHashAndPassword(hash, []byte(password)) == nil
-	passOK = passOK || (err == nil && s.legacyLogin(r.Context(), admin.ID, password))
+	passOK = passOK || (err == nil && s.admins().LegacyLogin(r.Context(), admin.ID, password))
 	if err != nil || !passOK || admin.Status != "Active" {
 		metrics.Inc("login_failures_total", "scope", "admin")
 		s.recordFailure(uk)
@@ -258,24 +255,6 @@ func (s *Server) recent(ip string) []time.Time {
 		s.failed[ip] = list
 	}
 	return list
-}
-
-// legacyLogin checks an admin imported from PHPNuxBill (sha1 in admins.legacy_sha1).
-// On a match it rehashes the password to bcrypt but keeps the marker: requireAdmin sends the admin to
-// the change-password page until they pick a new password (which clears it).
-func (s *Server) legacyLogin(ctx context.Context, id int64, password string) bool {
-	var want string
-	if s.conn.QueryRowContext(ctx, "SELECT legacy_sha1 FROM admins WHERE id = ?", id).Scan(&want) != nil || want == "" {
-		return false
-	}
-	sum := sha1.Sum([]byte(password))
-	if subtle.ConstantTimeCompare([]byte(hex.EncodeToString(sum[:])), []byte(want)) != 1 {
-		return false
-	}
-	if h, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost); err == nil {
-		s.conn.ExecContext(ctx, "UPDATE admins SET password_hash = ? WHERE id = ?", string(h), id)
-	}
-	return true
 }
 
 // requireAdmin returns middleware that needs a logged-in, active admin.

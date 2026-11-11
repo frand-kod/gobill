@@ -1,9 +1,9 @@
 package web
 
-// Quick Setup ("Quick setup"): a SuperAdmin wizard with one page per install step.
+// Quick Setup: routes, handlers and the save of each step.
 // The wizard owns no data. Each save replays the existing handler of that feature (NAS, router,
-// bandwidth, plan) or writes the settings keys the Settings pages write, so validation and side
-// effects stay in one place. Progress is read back from the rows: a step is done when its data exists.
+// bandwidth) or goes through the same services the admin pages use (service/setup, service/plan), so
+// validation and side effects stay in one place. Progress is read back from the rows.
 
 import (
 	"bytes"
@@ -21,209 +21,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/skip2/go-qrcode"
-
 	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/isolir"
 	"github.com/frand-kod/gobill/internal/metrics"
-	"github.com/frand-kod/gobill/internal/notify"
-	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/service/setup"
 )
-
-// Settings keys the wizard keeps. setupKey is "" (not started), "started", "dismissed" (Lewati) or "done".
-const (
-	setupKey      = "setup_wizard"
-	setupModeKey  = "setup_mode"   // "new", or "import" once a PHPNuxBill import finished
-	setupRouter   = "setup_router" // "radius", "api" or "both"
-	setupVoucher  = "setup_test_voucher"
-	importPageURL = "/admin/settings/system/import"
-)
-
-// wizStep is one page of the wizard. Titles and texts are catalog keys (lang/indonesia.json).
-type wizStep struct {
-	Slug, Title, Why, Learn, Docs string
-	Optional                      bool
-}
-
-var wizSteps = []wizStep{
-	{"welcome", "Welcome", "gobill is ready in a few minutes. Start from scratch, or move your customers, plans and payments from PHPNuxBill.",
-		"Starting from scratch fills the basic settings step by step. Importing copies the PHPNuxBill database; every step then shows what was imported so you can check it.", "quick-setup", false},
-	{"company", "Business and app URL", "Your business name and phone appear on invoices and on the customer portal. The app URL is the address customers and routers use to reach gobill.",
-		"The app URL is filled from the address you used to log in. Change it when gobill is reached through a domain or another port.", "configuration", false},
-	{"router", "Router or NAS", "gobill has to talk to your MikroTik. RADIUS (recommended) lets the router ask gobill who may log in. The API lets gobill read and control the router directly.",
-		"After saving the NAS, paste the commands into the MikroTik terminal. The indicator turns green when the router sends its first RADIUS packet.", "mikrotik", false},
-	{"bandwidth", "Speed", "A speed is the download and upload limit a plan uses. Three common speeds are prepared; change them, or leave a field empty to skip it.",
-		"Speeds are saved as bandwidth rows. A speed with the same name is kept, not created twice.", "configuration", false},
-	{"plan", "Plans", "A plan is what the customer buys: a price, a validity and a speed. Daily, weekly and monthly templates are prepared with suggested prices.",
-		"Plans stay editable in the Plans page. With RADIUS they are served by the RADIUS server; with the API they belong to the router you choose.", "configuration", false},
-	{"whatsapp", "WhatsApp", "gobill sends invoices, reminders and expiry notices through WhatsApp using a GOWA gateway. Enter the gateway address, then send a test message.",
-		"Without a gateway no message is sent, but everything else keeps working.", "integrations", false},
-	{"qris", "QRIS payment code", "The static QRIS of your merchant lets customers pay by scanning. Upload the QRIS image; gobill reads the code in it. Scan the preview to check it.",
-		"Only the code text is stored, not the image.", "integrations", false},
-	{"tripay", "Tripay (optional)", "Tripay is a payment gateway that creates a payment for each invoice and confirms it automatically. Skip it if QRIS is enough.",
-		"The keys come from your Tripay dashboard. Sandbox is for testing.", "integrations", true},
-	{"isolir", "Isolation (optional)", "Isolation sends customers whose plan has expired to a page that asks them to pay, instead of cutting them off. It needs a few commands on the MikroTik.",
-		"Turn it on, then paste the commands into the router. Details are in the guide.", "isolation", true},
-	{"customer", "First customer or voucher", "Make one test voucher for a plan. You use it in the last step to check that a customer can log in. Real customers can be added later.",
-		"A voucher is a prepaid code the customer types on the hotspot login page.", "configuration", false},
-	{"finish", "Finish", "Last check: log in on the hotspot with the test voucher. When the router reports the session, the indicator below turns green.",
-		"Finishing hides Quick setup from the menu. Every setting stays editable on its normal page.", "README", false},
-}
-
-// wizSpeeds are the speed presets in Mbps; wizPlans the plan templates of the Plans step.
-var wizSpeeds = []string{"5", "10", "20"}
-
-var wizPlans = []struct {
-	Name, Unit, Label string
-	Validity, Price   int64
-}{
-	{"Harian", "Days", "Daily price (Rp)", 1, 5000},
-	{"Mingguan", "Days", "Weekly price (Rp)", 7, 25000},
-	{"Bulanan", "Months", "Monthly price (Rp)", 1, 100000},
-}
-
-const (
-	wizSave = iota
-	wizTest
-)
-
-func wizFind(slug string) (wizStep, int, bool) {
-	for i, st := range wizSteps {
-		if st.Slug == slug {
-			return st, i, true
-		}
-	}
-	return wizStep{}, 0, false
-}
-
-// wizHref is the page of step i: "" before the first step, /admin after the last.
-func wizHref(i int) string {
-	switch {
-	case i < 0:
-		return ""
-	case i >= len(wizSteps):
-		return "/admin"
-	}
-	return "/admin/setup/" + wizSteps[i].Slug
-}
-
-// wizState is what the steps are judged by: row counts, settings and the chosen router mode.
-type wizState struct {
-	cnt    db.CountSetupRow
-	st     map[string]string // loadSettings, defaults included
-	raw    map[string]string // stored settings only
-	mode   string            // setupModeKey
-	router string            // setupRouter
-}
-
-func (s *Server) wizLoad(ctx context.Context) (wizState, error) {
-	var ws wizState
-	var err error
-	if ws.cnt, err = s.queries.CountSetup(ctx); err != nil {
-		return ws, err
-	}
-	if ws.st, err = s.loadSettings(ctx); err != nil {
-		return ws, err
-	}
-	if ws.raw, err = s.Settings.All(ctx); err != nil {
-		return ws, err
-	}
-	ws.mode, ws.router = ws.raw[setupModeKey], ws.raw[setupRouter]
-	return ws, nil
-}
-
-// effectiveRouter is the chosen router mode, or the one the existing rows imply when none is chosen.
-func (ws wizState) effectiveRouter() string {
-	switch {
-	case ws.router != "":
-		return ws.router
-	case ws.cnt.Nas > 0:
-		return "radius"
-	case ws.cnt.Routers > 0:
-		return "api"
-	}
-	return ""
-}
-
-// done reports whether the rows and settings of a step exist.
-func (ws wizState) done(slug string) bool {
-	c := ws.cnt
-	switch slug {
-	case "welcome":
-		return ws.mode != "" || c.Routers+c.Nas+c.Bandwidths+c.Plans+c.Customers+c.Vouchers > 0
-	case "company":
-		return ws.raw["company_name"] != "" && ws.raw["phone"] != ""
-	case "router":
-		switch ws.effectiveRouter() {
-		case "api":
-			return c.Routers > 0
-		case "both":
-			return c.Routers > 0 && c.Nas > 0
-		case "radius":
-			return c.Nas > 0
-		}
-		return false
-	case "bandwidth":
-		return c.Bandwidths > 0
-	case "plan":
-		return c.Plans > 0
-	case "whatsapp":
-		return notify.WAConfigured(ws.st)
-	case "qris":
-		return ws.st["qris_payload"] != ""
-	case "tripay":
-		return ws.st["payment_gateway"] == "tripay"
-	case "isolir":
-		return ws.st["isolir_enabled"] == "yes"
-	case "customer":
-		return c.Customers+c.Vouchers > 0
-	case "finish":
-		return ws.raw[setupKey] == "done"
-	}
-	return false
-}
-
-// progress counts the required steps (the optional ones and the finish page do not count).
-func (ws wizState) progress() (done, total int) {
-	for _, st := range wizSteps {
-		if st.Optional || st.Slug == "finish" {
-			continue
-		}
-		total++
-		if ws.done(st.Slug) {
-			done++
-		}
-	}
-	return
-}
-
-// setupNav is what the layout shows a SuperAdmin: the sidebar item, the first-run dialog and the progress badge.
-type setupNav struct {
-	Show     bool // sidebar item: not finished and not dismissed
-	Modal    bool // first page load: offer the wizard
-	Done     int
-	Total    int
-	Finished bool // done or dismissed: the Guide links to the wizard
-}
-
-// setupNavFor works out the layout state. An install that already has every required step predates
-// the wizard, so it is marked done instead of being offered the wizard.
-func (s *Server) setupNavFor(ctx context.Context, path string) (*setupNav, error) {
-	ws, err := s.wizLoad(ctx)
-	if err != nil {
-		return nil, err
-	}
-	state := ws.raw[setupKey]
-	done, total := ws.progress()
-	if state == "" && total > 0 && done == total {
-		if err := s.queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupKey, Value: "done"}); err != nil {
-			return nil, err
-		}
-		state = "done"
-	}
-	return &setupNav{Show: state == "" || state == "started", Modal: state == "" && !strings.HasPrefix(path, "/admin/setup"),
-		Done: done, Total: total, Finished: state == "done" || state == "dismissed"}, nil
-}
 
 // setupRoutes registers the wizard. Everything is SuperAdmin only.
 func (s *Server) setupRoutes(mux *http.ServeMux, sa func(http.Handler) http.Handler) {
@@ -342,12 +143,12 @@ func (s *Server) setupLive(w http.ResponseWriter, r *http.Request) {
 		out["nas_seen"] = metrics.Value("radius_nas_last_packet_timestamp", "nas", ip) > 0
 	}
 	if code := strings.TrimSpace(q.Get("voucher")); code != "" {
-		var n int64
-		if err := s.conn.QueryRowContext(r.Context(), "SELECT COUNT(*) FROM radius_sessions WHERE username = ? AND stopped_at IS NULL", code).Scan(&n); err != nil {
+		open, err := s.queries.ListOpenRadiusSessionsByUser(r.Context(), code)
+		if err != nil {
 			s.fail(w, "setup live", err)
 			return
 		}
-		out["voucher_online"] = n > 0
+		out["voucher_online"] = len(open) > 0
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
@@ -431,24 +232,23 @@ func (s *Server) wizSave(r *http.Request, st wizStep, ws wizState, kind int) (wi
 	return wizResult{next: true}, nil // welcome: nothing to save
 }
 
-// wizPut writes settings the way the Settings pages do: one upsert per key.
+// wizPut writes settings the way the Settings pages do, see setup.Service.Put.
 func (s *Server) wizPut(ctx context.Context, kv map[string]string) error {
-	for k, v := range kv {
-		if err := s.queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: k, Value: v}); err != nil {
-			return err
-		}
-	}
-	s.settingsSaved(ctx)
-	return nil
+	return s.setup().Put(ctx, kv)
+}
+
+func (s *Server) setup() *setup.Service {
+	return &setup.Service{Q: s.queries, PlanSvc: s.Plans, Langs: s.catalog.Languages(), Saved: s.settingsSaved}
 }
 
 func (s *Server) wizSaveCompany(r *http.Request) (wizResult, error) {
 	v := formVals(r, "company_name", "app_url", "phone")
-	if e := s.settingsErrors(v); len(e) > 0 {
-		return wizResult{v: v, e: e}, nil
-	}
-	if err := s.wizPut(r.Context(), v); err != nil {
+	e, err := s.setup().Company(r.Context(), v)
+	if err != nil {
 		return wizResult{}, err
+	}
+	if len(e) > 0 {
+		return wizResult{v: v, e: e}, nil
 	}
 	return wizResult{next: true}, nil
 }
@@ -592,43 +392,21 @@ func (s *Server) wizSaveSpeeds(r *http.Request) (wizResult, error) {
 func (s *Server) wizSavePlans(r *http.Request, ws wizState) (wizResult, error) {
 	ctx := r.Context()
 	v := formVals(r, "plan_bandwidth", "plan_router")
-	e := map[string]string{}
-	for i := range wizPlans {
+	in := setup.PlansInput{Bandwidth: v["plan_bandwidth"], Router: v["plan_router"], RouterAPI: ws.effectiveRouter() == "api"}
+	for i, p := range wizPlans {
 		v[priceKey(i)] = strings.TrimSpace(r.PostFormValue(priceKey(i)))
+		in.Templates = append(in.Templates, setup.PlanTemplate{Key: priceKey(i), Name: p.Name, Price: v[priceKey(i)], Validity: p.Validity, Unit: p.Unit})
 	}
-	have := map[string]bool{}
-	rows, err := s.queries.ListPlans(ctx, db.ListPlansParams{Limit: 1000})
+	created, e, err := s.setup().Plans(ctx, in)
 	if err != nil {
 		return wizResult{}, err
 	}
-	for _, p := range rows {
-		have[p.Name] = true
+	for _, p := range created { // what the Plans page does after a save
+		s.syncPlan(r, "add", p, "")
+		s.logActivity(r, "plan.create", p.Name)
 	}
-	api := ws.effectiveRouter() == "api"
-	for i, p := range wizPlans {
-		key := priceKey(i)
-		if v[key] == "" || have[p.Name] {
-			continue
-		}
-		form := url.Values{"name": {p.Name}, "type": {"Hotspot"}, "billing": {"prepaid"}, "price": {v[key]},
-			"validity": {strconv.FormatInt(p.Validity, 10)}, "validity_unit": {p.Unit}, "bandwidth_id": {v["plan_bandwidth"]},
-			"enabled": {"1"}, "audience": {"public"}, "device": {"Radius"}}
-		if api {
-			form.Set("device", "MikrotikHotspot")
-			form.Set("router_id", v["plan_router"])
-		}
-		if ok, errs := s.wizReplay(r, http.HandlerFunc(s.planSave), 0, form); !ok {
-			for k, msg := range errs {
-				switch k {
-				case "bandwidth_id":
-					e["plan_bandwidth"] = msg
-				case "router_id":
-					e["plan_router"] = msg
-				default:
-					e[key] = msg
-				}
-			}
-		}
+	for k, msg := range e {
+		e[k] = s.t(msg)
 	}
 	if len(e) > 0 {
 		return wizResult{v: v, e: e}, nil
@@ -645,17 +423,9 @@ func (s *Server) wizSaveWA(r *http.Request, kind int) (wizResult, error) {
 		}
 		return wizResult{v: v, e: e}, nil
 	}
-	kv := map[string]string{}
-	for _, k := range []string{"alt_wga_server_url", "alt_wga_device_id", "alt_wga_username"} {
-		kv[k] = strings.TrimSpace(r.PostFormValue(k))
-	}
-	if pw := r.PostFormValue("alt_wga_password"); pw != "" { // empty keeps the saved password
-		kv["alt_wga_password"] = pw
-	}
-	if x := r.PostFormValue("notify_customers"); x == "yes" || x == "no" {
-		kv["notify_customers"] = x
-	}
-	if err := s.wizPut(r.Context(), kv); err != nil {
+	err := s.setup().WhatsApp(r.Context(), setup.WhatsApp{URL: r.PostFormValue("alt_wga_server_url"), Device: r.PostFormValue("alt_wga_device_id"),
+		User: r.PostFormValue("alt_wga_username"), Password: r.PostFormValue("alt_wga_password"), Notify: r.PostFormValue("notify_customers")})
+	if err != nil {
 		return wizResult{}, err
 	}
 	return wizResult{next: true}, nil
@@ -672,59 +442,34 @@ func (s *Server) wizSaveQRIS(r *http.Request, ws wizState) (wizResult, error) {
 	v := map[string]string{"qris_payload": text}
 	e := map[string]string{}
 	if qerr := qrisUpload(r, v); qerr != "" {
-		e["qris_payload"] = qerr
-	} else if v["qris_payload"] != "" && payment.QRISValid(v["qris_payload"]) != nil {
-		e["qris_payload"] = "Paste the full static QRIS text, the CRC must match"
+		return wizResult{v: v, e: map[string]string{"qris_payload": qerr}}, nil
+	}
+	e, err := s.setup().QRIS(r.Context(), current, v["qris_payload"])
+	if err != nil {
+		return wizResult{}, err
 	}
 	if len(e) > 0 {
 		return wizResult{v: v, e: e}, nil
-	}
-	if v["qris_payload"] != current {
-		if err := s.wizPut(r.Context(), map[string]string{"qris_payload": v["qris_payload"]}); err != nil {
-			return wizResult{}, err
-		}
 	}
 	return wizResult{next: true}, nil
 }
 
 func (s *Server) wizSaveTripay(r *http.Request) (wizResult, error) {
-	kv := map[string]string{"payment_gateway": ""}
-	if r.PostFormValue("tripay_on") == "1" {
-		kv["payment_gateway"] = "tripay"
-	}
-	for _, k := range []string{"tripay_merchant_code", "tripay_mode", "tripay_channel"} {
-		kv[k] = strings.TrimSpace(r.PostFormValue(k))
-	}
-	if kv["tripay_mode"] == "" {
-		kv["tripay_mode"] = "sandbox"
-	}
-	for _, k := range []string{"tripay_api_key", "tripay_private_key"} { // empty keeps the saved secret
-		if x := r.PostFormValue(k); x != "" {
-			kv[k] = x
-		}
-	}
-	if e := s.settingsErrors(kv); len(e) > 0 {
-		return wizResult{v: kv, e: e}, nil
-	}
-	if err := s.wizPut(r.Context(), kv); err != nil {
+	pf := r.PostFormValue
+	kv, e, err := s.setup().Tripay(r.Context(), setup.Tripay{On: pf("tripay_on") == "1", Merchant: pf("tripay_merchant_code"), Mode: pf("tripay_mode"),
+		Channel: pf("tripay_channel"), APIKey: pf("tripay_api_key"), PrivateKey: pf("tripay_private_key")})
+	if err != nil {
 		return wizResult{}, err
+	}
+	if len(e) > 0 {
+		return wizResult{v: kv, e: e}, nil
 	}
 	return wizResult{next: true}, nil
 }
 
 // wizSaveIsolir turns Isolir on or off. The isolir plan is created the first time, as the Settings page does.
 func (s *Server) wizSaveIsolir(r *http.Request) (wizResult, error) {
-	ctx := r.Context()
-	kv := map[string]string{"isolir_enabled": "no"}
-	if r.PostFormValue("isolir_on") == "1" {
-		kv["isolir_enabled"] = "yes"
-		id, err := isolir.EnsurePlan(ctx, s.queries)
-		if err != nil {
-			return wizResult{}, err
-		}
-		kv["isolir_plan_id"] = strconv.FormatInt(id, 10)
-	}
-	if err := s.wizPut(ctx, kv); err != nil {
+	if err := s.setup().Isolir(r.Context(), r.PostFormValue("isolir_on") == "1"); err != nil {
 		return wizResult{}, err
 	}
 	return wizResult{next: true}, nil
@@ -1059,148 +804,4 @@ func (s *Server) wizPage(r *http.Request, st wizStep, ws wizState, v, e map[stri
 func (s *Server) wizHost() string {
 	host, _ := s.gobillAddr()
 	return host
-}
-
-type wizLine struct {
-	Label string
-	OK    bool
-}
-
-// wizView is the data of the setup template.
-type wizView struct {
-	Step       wizStep
-	Num, Total int
-	Pct        int
-	Done       bool
-	Import     bool // came from a PHPNuxBill import
-	Verify     bool // imported and done: the step shows the data to check
-	Prev, Next string
-	Form       formPage
-	Secret     bool     // the NAS secret was saved just now and is in the commands
-	Commands   []string // RouterOS commands (router step)
-	LiveURL    string   // JSON the live indicator polls
-	Summary    []wizLine
-	Voucher    string
-}
-
-func wizCompanyFields(v, e map[string]string) []field {
-	return section([]field{
-		text("company_name", "Company Name", v, e).req().hint("Name of your business. Shown on invoices, messages and the login page."),
-		text("app_url", "App URL", v, e).hint("Public address of this app, e.g. https://billing.example.com. Used for links in WhatsApp messages (QRIS, invoice)."),
-		text("phone", "Phone Number", v, e).hint("Operator phone or WhatsApp. Shown to customers on the portal."),
-	}, "Business", "")
-}
-
-func wizRouterFields(v, e map[string]string) []field {
-	mode := text("router_mode", "How does gobill connect to MikroTik?", v, e).as("select").bind().req()
-	mode.Options = []option{{"radius", "RADIUS (recommended)"}, {"api", "API"}, {"both", "Both"}}
-	out := section([]field{mode}, "Connection", "")
-	nasSecret := text("nas_secret", "Shared Secret", v, e).as("password").hint("At least 16 characters. Use Generate, then copy the commands before you leave this page.")
-	nasSecret.Value, nasSecret.Gen = "", true
-	out = append(out, section([]field{
-		text("nas_name", "NAS Name", v, e).req(),
-		text("nas_ip", "IP / CIDR", v, e).req().hint("The MikroTik address that talks to gobill, e.g. 192.168.88.1."),
-		nasSecret,
-	}, "NAS (RADIUS)", "router_mode !== 'api'")...)
-	pw := text("router_password", "Password", v, e).as("password").hint("Leave empty to keep the current password")
-	pw.Value = ""
-	out = append(out, section([]field{
-		text("router_name", "Router Name", v, e).req(),
-		text("router_host", "Host", v, e).req(),
-		text("router_port", "Port", v, e).as("number").req(),
-		text("router_username", "Username", v, e).req(),
-		pw,
-		{Name: "router_test", Type: "test", Value: "/admin/setup/router/test", Btn: "Test connection", Hint: "Saves the router first, then checks the connection."},
-	}, "Router (API)", "router_mode !== 'radius'")...)
-	return out
-}
-
-func wizSpeedFields(v, e map[string]string) []field {
-	var fs []field
-	for i := range wizSpeeds {
-		f := text(speedKey(i), "Speed (Mbps)", v, e).as("number")
-		f.Hint = "Empty = skip this speed."
-		fs = append(fs, f)
-	}
-	return section(fs, "Speeds", "")
-}
-
-func (s *Server) wizPlanFields(ctx context.Context, ws wizState, v, e map[string]string) ([]field, error) {
-	bws, err := s.queries.ListBandwidths(ctx, db.ListBandwidthsParams{Limit: 1000})
-	if err != nil {
-		return nil, err
-	}
-	bw := text("plan_bandwidth", "Speed for these plans", v, e).as("select").req()
-	for _, b := range bws {
-		bw.Options = append(bw.Options, option{strconv.FormatInt(b.ID, 10), b.Name})
-	}
-	out := []field{bw}
-	if ws.effectiveRouter() == "api" {
-		routers, err := s.queries.ListRouters(ctx, db.ListRoutersParams{Limit: 1000})
-		if err != nil {
-			return nil, err
-		}
-		rt := text("plan_router", "Router", v, e).as("select").req()
-		for _, x := range routers {
-			rt.Options = append(rt.Options, option{strconv.FormatInt(x.ID, 10), x.Name})
-		}
-		out = append(out, rt)
-	}
-	for i, p := range wizPlans {
-		f := text(priceKey(i), p.Label, v, e).as("number")
-		f.Hint = "Empty = skip this plan."
-		out = append(out, f)
-	}
-	return section(out, "Plan templates", ""), nil
-}
-
-func wizWhatsAppFields(v, e map[string]string, importing bool) []field {
-	pw := text("alt_wga_password", "Password", v, e).as("password").hint("Leave empty to keep the saved password")
-	pw.Value = ""
-	out := []field{
-		text("alt_wga_server_url", "WA server URL", v, e).hint("Address of your GOWA gateway, e.g. http://127.0.0.1:3000"),
-		text("alt_wga_device_id", "Device ID", v, e),
-		text("alt_wga_username", "Username", v, e),
-		pw,
-	}
-	if importing {
-		n := text("notify_customers", "Send notifications to customers", v, e).as("select")
-		n.Options = []option{{"yes", "Yes"}, {"no", "No"}}
-		out = append(out, n.hint("No stops every message to customers. Operator alerts are not affected."))
-	}
-	out = append(out, field{Name: "wa_test_phone", Label: "Test number", Type: "test", Inp: "tel", Value: "/admin/setup/whatsapp/test",
-		Btn: "Send test message", Error: e["wa_test_phone"], Hint: "Enter a number to receive a test message."})
-	return section(out, "WhatsApp (GOWA)", "")
-}
-
-func wizQRISFields(v, e map[string]string) []field {
-	qris := field{Name: "qris_payload", Label: "Static QRIS", Type: "qris", Value: v["qris_payload"], Error: e["qris_payload"],
-		Hint: "Upload the merchant's static QRIS photo (PNG/JPG). The system only stores its text"}
-	if m, n := payment.QRISInfo(v["qris_payload"]); m != "" {
-		qris.Hint = "Active: " + m
-		if n != "" {
-			qris.Hint += " (NMID " + n + ")"
-		}
-		if png, err := qrcode.Encode(v["qris_payload"], qrcode.Medium, 256); err == nil {
-			qris.Img = wizDataURI(png)
-		}
-	}
-	return section([]field{qris}, "QRIS", "")
-}
-
-func wizTripayFields(v, e map[string]string, st map[string]string) []field {
-	on := field{Name: "tripay_on", Label: "Use Tripay for payments", Type: "checkbox", Checked: v["tripay_on"] == "1"}
-	sec := func(name, label string) field {
-		f := text(name, label, nil, e).as("password")
-		f.Hint = "Leave empty to keep the current secret"
-		if st[name] != "" {
-			f.Hint = "Saved. Leave empty to keep the current secret"
-		}
-		return f
-	}
-	mode := text("tripay_mode", "Tripay Mode", v, e).as("select")
-	mode.Options = []option{{"sandbox", "Sandbox"}, {"production", "Production"}}
-	return section([]field{on, sec("tripay_api_key", "Tripay API Key"), sec("tripay_private_key", "Tripay Private Key"),
-		text("tripay_merchant_code", "Tripay Merchant Code", v, e), mode,
-		text("tripay_channel", "Default Channel", v, e).hint("Optional channel code, e.g. QRIS")}, "Tripay", "")
 }

@@ -78,10 +78,7 @@ func (s *Server) computedFamilies(r *http.Request) []metrics.Family {
 
 // openRadiusSessions counts sessions that are open and were updated within radius.StaleMax().
 func (s *Server) openRadiusSessions(r *http.Request) (int64, error) {
-	var n int64
-	err := s.conn.QueryRowContext(r.Context(), "SELECT COUNT(*) FROM radius_sessions WHERE stopped_at IS NULL AND updated_at >= ?",
-		time.Now().Unix()-radius.StaleMax()).Scan(&n)
-	return n, err
+	return s.queries.CountLiveRadiusSessions(r.Context(), time.Now().Unix()-radius.StaleMax())
 }
 
 // metricsTokenNew makes a new random /metrics token (SuperAdmin). The settings page shows it once.

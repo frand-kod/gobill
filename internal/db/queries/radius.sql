@@ -61,6 +61,10 @@ LEFT JOIN pools pl ON pl.id = p.pool_id
 WHERE (c.username = sqlc.arg(name) OR (c.pppoe_username <> '' AND c.pppoe_username = sqlc.arg(name))) AND c.status = 'Active'
 LIMIT 1;
 
+-- name: CountLiveRadiusSessions :one
+-- Open sessions updated at or after the cutoff (older ones are treated as lost by the NAS).
+SELECT COUNT(*) FROM radius_sessions WHERE stopped_at IS NULL AND updated_at >= ?;
+
 -- name: SumRadiusUsage :one
 SELECT CAST(COALESCE(SUM(input_octets + output_octets), 0) AS INTEGER) FROM radius_sessions
 WHERE username = ? AND started_at >= ?;
