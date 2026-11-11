@@ -34,6 +34,9 @@ func TestImportRules(t *testing.T) {
 		// the scheduler is generic: update checks are registered from internal/app
 		{"job", []string{"web", "update", "selfupdate"}},
 		// services never reach up into the HTTP layer
+		// web sub-packages stand beside each other and never import web or a sibling (httpx and view are the shared leaves)
+		{"web/httpx", []string{"web"}},
+		{"web/view", []string{"web"}},
 		// kernel packages import nothing internal
 		{"money", []string{""}},
 		{"clock", []string{""}},
