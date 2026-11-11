@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/money"
-	"github.com/frand-kod/gobill/internal/notify"
 	"github.com/frand-kod/gobill/internal/payment"
 	"strconv"
 	"strings"
@@ -360,13 +359,13 @@ func (s *Service) notifyRecharge(p *pending) {
 
 // qrisLink is the public amount-locked QRIS page for a recharge the system did not collect
 // (not balance, gateway or voucher). "" when there is no payload or no app_url to make it absolute.
-func (s *Service) qrisLink(p *pending, n *notify.Notifier) string {
+func (s *Service) qrisLink(p *pending, n Notifier) string {
 	m := p.trx.Method
-	if n.Settings["qris_payload"] == "" || n.Settings["app_url"] == "" || p.trx.Price <= 0 ||
+	if n.Config()["qris_payload"] == "" || n.Config()["app_url"] == "" || p.trx.Price <= 0 ||
 		strings.HasPrefix(m, "Customer - Balance") || strings.HasPrefix(m, "Tripay - ") || strings.HasPrefix(m, "Voucher - ") {
 		return ""
 	}
-	return fmt.Sprintf("%s/qris/%d/%s", strings.TrimRight(n.Settings["app_url"], "/"), p.trxID, payment.QRISToken(s.Key, p.trxID))
+	return fmt.Sprintf("%s/qris/%d/%s", strings.TrimRight(n.Config()["app_url"], "/"), p.trxID, payment.QRISToken(s.Key, p.trxID))
 }
 
 // RechargePreview is what a recharge would do, computed without writing anything.

@@ -99,7 +99,7 @@ func (s *Server) Account(ctx context.Context, a AcctRequest) error {
 			if in == 0 && out == 0 && secs == 0 {
 				return nil
 			}
-			return q.AddSubscriptionUsage(ctx, db.AddSubscriptionUsageParams{InOctets: in, OutOctets: out, Seconds: secs, SessionStarted: cur.started, Name: arg.Username})
+			return s.usage().AddUsage(ctx, q, arg.Username, in, out, secs, cur.started)
 		})
 	}
 	return nil

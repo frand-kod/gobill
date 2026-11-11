@@ -19,9 +19,11 @@ import (
 )
 
 type Server struct {
-	Q        *db.Queries
-	DB       *sql.DB // set: accounting writes are group-committed (acctbatch.go); nil: written one by one
-	Key      []byte
+	Q   *db.Queries
+	DB  *sql.DB // set: accounting writes are group-committed (acctbatch.go); nil: written one by one
+	Key []byte
+	// Usage adds a session's growth to the login's subscriptions inside the accounting transaction; nil = DBUsage.
+	Usage    UsageRecorder
 	Trusted  func() bool           // clock guard; false = do not reject for expiry
 	AuthAddr string                // e.g. ":1812"
 	AcctAddr string                // e.g. ":1813"
@@ -146,4 +148,24 @@ func (s *Server) shed() bool {
 		return true
 	}
 	return false
+}
+
+// UsageRecorder adds the growth of one session to the active subscriptions of a login.
+// It runs inside the accounting batch transaction q, so it must only write through q.
+type UsageRecorder interface {
+	AddUsage(ctx context.Context, q *db.Queries, login string, inOctets, outOctets, secs, sessionStarted int64) error
+}
+
+// DBUsage is the default UsageRecorder: it updates the subscriptions table directly.
+type DBUsage struct{}
+
+func (DBUsage) AddUsage(ctx context.Context, q *db.Queries, login string, in, out, secs, started int64) error {
+	return q.AddSubscriptionUsage(ctx, db.AddSubscriptionUsageParams{InOctets: in, OutOctets: out, Seconds: secs, SessionStarted: started, Name: login})
+}
+
+func (s *Server) usage() UsageRecorder {
+	if s.Usage != nil {
+		return s.Usage
+	}
+	return DBUsage{}
 }

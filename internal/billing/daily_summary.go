@@ -101,7 +101,7 @@ func (s *Service) SendDailySummary(ctx context.Context) ([]string, error) {
 	if n == nil {
 		return nil, errors.New("notifier not ready")
 	}
-	tg, wa := dailySummaryTargets(n.Settings)
+	tg, wa := dailySummaryTargets(n.Config())
 	if !tg && wa == "" {
 		return nil, ErrSummaryNotConfigured
 	}

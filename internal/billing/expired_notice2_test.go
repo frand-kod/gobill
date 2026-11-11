@@ -38,8 +38,8 @@ func TestExpiredNoticeRetriesAfterFailure(t *testing.T) {
 	got := withNotify(t, e)
 	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }))
 	defer bad.Close()
-	good := e.s.notifier().Settings["wa_url"]
-	e.s.notifier().Settings["wa_url"] = bad.URL + "/wa?n=[number]&t=[text]"
+	good := e.s.notifier().Config()["wa_url"]
+	e.s.notifier().Config()["wa_url"] = bad.URL + "/wa?n=[number]&t=[text]"
 	exp := time.Unix(e.sub(t).ExpiresAt, 0)
 	e.now = exp.Add(-4 * time.Minute)
 	e.s.ExpireDue(ctx)
@@ -47,7 +47,7 @@ func TestExpiredNoticeRetriesAfterFailure(t *testing.T) {
 	if s := e.sub(t); s.ExpiredNotifiedAt.Valid {
 		t.Fatalf("claim kept after failure: %+v", s)
 	}
-	e.s.notifier().Settings["wa_url"] = good
+	e.s.notifier().Config()["wa_url"] = good
 	e.s.ExpireDue(ctx)
 	if reqs := drain(got); count(reqs, "/wa") != 1 {
 		t.Fatalf("retry: %v", reqs)

@@ -20,6 +20,10 @@ func TestImportRules(t *testing.T) {
 		{"radius", []string{"web"}},
 		{"notify", []string{"web"}},
 		{"payment", []string{"web"}},
+		// M5: the cores meet billing only through small interfaces (billing.Notifier, radius.UsageRecorder)
+		{"radius", []string{"billing", "notify"}},
+		{"notify", []string{"billing", "radius"}},
+		{"payment", []string{""}},
 		{"isolir", []string{"web", "billing", "radius"}},
 		{"importer", []string{"web"}},
 		// services take plain inputs and never see HTTP

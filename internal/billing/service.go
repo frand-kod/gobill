@@ -25,6 +25,21 @@ var (
 	ErrVoucherInvalid      = errors.New("voucher not valid or already used")
 )
 
+// Notifier is what billing needs from the notification side. notify.Notifier implements it.
+type Notifier interface {
+	Go(name string, fn func(context.Context) error)
+	Config() map[string]string
+	SendTimeout() time.Duration
+	Telegram(ctx context.Context, text string) error
+	WhatsApp(ctx context.Context, phone, text string) error
+	Reminder(ctx context.Context, c db.Customer, days int, pkg string, vars map[string]string) error
+	Expired(ctx context.Context, c db.Customer, pkg string, vars map[string]string) error
+	RechargeSuccess(ctx context.Context, c db.Customer, vars map[string]string) error
+	RechargeBalance(ctx context.Context, c db.Customer, vars map[string]string) error
+	Custom(ctx context.Context, c db.Customer, name, subject string, vars map[string]string) error
+	Webhook(ctx context.Context, event string, payload any) error
+}
+
 // Service ports phpnuxbill Package::rechargeUser and cron.php expiry.
 type Service struct {
 	DB  *sql.DB
@@ -33,7 +48,7 @@ type Service struct {
 	Loc *time.Location // zone used for day/month/billing-day math
 	Now clock.Func
 	// N sends notifications; nil means none. Swap at runtime with Reload.
-	N  *notify.Notifier
+	N  Notifier
 	mu sync.RWMutex
 	// DeviceFor builds the driver for a plan; nil means the default (by plans.device).
 	DeviceFor func(plan db.Plan, router db.Router) (device.Device, error)
@@ -43,7 +58,7 @@ type Service struct {
 }
 
 // Reload swaps the notifier and time zone (after settings change).
-func (s *Service) Reload(n *notify.Notifier, loc *time.Location) {
+func (s *Service) Reload(n Notifier, loc *time.Location) {
 	s.mu.Lock()
 	s.N, s.Loc = n, loc
 	s.mu.Unlock()
@@ -59,7 +74,7 @@ func (s *Service) Location() *time.Location {
 	return clock.Jakarta()
 }
 
-func (s *Service) notifier() *notify.Notifier {
+func (s *Service) notifier() Notifier {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.N
@@ -106,7 +121,7 @@ func (s *Service) Alert(ctx context.Context, text string) error {
 	if n == nil {
 		return nil
 	}
-	ch := n.Settings["alert_channel"]
+	ch := n.Config()["alert_channel"]
 	if ch == "" {
 		ch = "telegram"
 	}
@@ -114,7 +129,7 @@ func (s *Service) Alert(ctx context.Context, text string) error {
 	if ch == "telegram" || ch == "both" {
 		errs = append(errs, n.Telegram(ctx, text))
 	}
-	if to := alertWATo(n.Settings); (ch == "wa" || ch == "both") && to != "" && notify.WAConfigured(n.Settings) {
+	if to := alertWATo(n.Config()); (ch == "wa" || ch == "both") && to != "" && notify.WAConfigured(n.Config()) {
 		errs = append(errs, n.WhatsApp(ctx, to, text))
 	}
 	return errors.Join(errs...)

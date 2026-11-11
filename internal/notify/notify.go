@@ -91,3 +91,9 @@ func (n *Notifier) getURL(ctx context.Context, u string) error {
 	_, err = n.do(ctx, req)
 	return err
 }
+
+// Config returns the settings the notifier was loaded with (read only).
+func (n *Notifier) Config() map[string]string { return n.Settings }
+
+// SendTimeout is the time limit for one send.
+func (n *Notifier) SendTimeout() time.Duration { return n.Timeout }
