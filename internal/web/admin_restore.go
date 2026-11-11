@@ -7,7 +7,6 @@ package web
 import (
 	"context"
 	"crypto/subtle"
-	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -18,8 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/secret"
+	"github.com/frand-kod/gobill/internal/service/restore"
 )
 
 const restorePage = "/admin/settings/system/restore"
@@ -34,15 +32,6 @@ type restoreView struct {
 	Warning string // key fingerprint differs, shown translated by renderRestore
 	Done    bool
 	TOTP    bool // the confirm asks for a 2FA code too
-}
-
-// refusal is a file the restore page turns down. Msg is shown translated, Detail as is.
-type refusal struct{ msg, detail string }
-
-func (e *refusal) Error() string { return e.msg }
-
-func notBackup(err error) error {
-	return &refusal{msg: "Not a gobill backup: the file is not a readable SQLite database.", detail: err.Error()}
 }
 
 // restorePath is the staged upload: the live database file name plus ".upload-<random>".
@@ -107,96 +96,6 @@ func (s *Server) saveRestoreUpload(r *http.Request) (string, error) {
 	}
 }
 
-// keyRefusal is the refusal for a backup made with another key. The fingerprints let the admin find
-// the right key copy. bakFP is empty for a backup that does not carry one.
-func keyRefusal(key []byte, bakFP string) *refusal {
-	d := "key fingerprint of this app: " + keyFingerprint(key)
-	if bakFP != "" {
-		d += ", key fingerprint of this backup: " + bakFP
-	}
-	return &refusal{msg: "Different encryption key: this backup was made with another GOBILL_SECRET_KEY", detail: d}
-}
-
-// inspectBackup opens the file read-only and checks that gobill can restore it. It returns a
-// *refusal for a file it turns down.
-func inspectBackup(ctx context.Context, path string, key []byte, loc *time.Location) (importCounts, string, string, error) {
-	ro, err := sql.Open("sqlite", "file:"+path+"?mode=ro")
-	if err != nil {
-		return importCounts{}, "", "", notBackup(err)
-	}
-	defer ro.Close()
-	var check string
-	if err := ro.QueryRowContext(ctx, "PRAGMA integrity_check").Scan(&check); err != nil {
-		return importCounts{}, "", "", notBackup(err)
-	}
-	if check != "ok" {
-		return importCounts{}, "", "", notBackup(errors.New(check))
-	}
-	var ver int
-	if err := ro.QueryRowContext(ctx, "PRAGMA user_version").Scan(&ver); err != nil {
-		return importCounts{}, "", "", notBackup(err)
-	}
-	if ver == 0 {
-		return importCounts{}, "", "", notBackup(errors.New("no migrations applied"))
-	}
-	latest, err := db.LatestVersion()
-	if err != nil {
-		return importCounts{}, "", "", err
-	}
-	if ver > latest {
-		return importCounts{}, "", "", &refusal{msg: "Backup from a newer gobill version", detail: fmt.Sprintf("backup schema %d, this binary %d", ver, latest)}
-	}
-	counts, err := countImportRows(ctx, ro)
-	if err != nil {
-		return importCounts{}, "", "", notBackup(err)
-	}
-	// the backup carries the fingerprint of the key it was made with (settings key_fp); older backups have none
-	var bakFP string
-	_ = ro.QueryRowContext(ctx, "SELECT value FROM settings WHERE key = 'key_fp'").Scan(&bakFP)
-	// the sealed columns are encrypted with GOBILL_SECRET_KEY: one non-empty value tells whether the key matches
-	for _, q := range []string{
-		"SELECT password_enc FROM routers WHERE length(password_enc) > 0 LIMIT 1",
-		"SELECT secret_enc FROM nas WHERE length(secret_enc) > 0 LIMIT 1",
-		"SELECT secret_enc FROM customers WHERE length(secret_enc) > 0 LIMIT 1",
-	} {
-		var sealed []byte
-		err := ro.QueryRowContext(ctx, q).Scan(&sealed)
-		if errors.Is(err, sql.ErrNoRows) {
-			continue
-		}
-		if err != nil {
-			return importCounts{}, "", "", notBackup(err)
-		}
-		if _, err := secret.Open(key, sealed); err != nil {
-			return importCounts{}, "", "", keyRefusal(key, bakFP)
-		}
-		break
-	}
-	// secret settings carry the same key; an empty result for a non-empty value means it did not open
-	if srows, err := ro.QueryContext(ctx, "SELECT value FROM settings WHERE value LIKE 'enc1:%'"); err == nil {
-		defer srows.Close()
-		for srows.Next() {
-			var v string
-			if srows.Scan(&v) == nil && db.OpenSettingWith(key, v) == "" {
-				return importCounts{}, "", "", keyRefusal(key, bakFP)
-			}
-		}
-	}
-	// a different fingerprint with nothing sealed in the backup is allowed, with a warning
-	var warn string
-	if bakFP != "" && bakFP != keyFingerprint(key) {
-		warn = keyFingerprint(key) + " " + bakFP // renderRestore puts both into the translated text
-	}
-	var newest int64
-	if err := ro.QueryRowContext(ctx, "SELECT coalesce(max(created_at), 0) FROM transactions").Scan(&newest); err != nil {
-		return importCounts{}, "", "", notBackup(err)
-	}
-	if newest == 0 {
-		return counts, "", warn, nil
-	}
-	return counts, time.Unix(newest, 0).In(loc).Format("2006-01-02 15:04"), warn, nil
-}
-
 func (s *Server) renderRestore(w http.ResponseWriter, r *http.Request, status int, v restoreView, msg, detail string) {
 	v.TOTP = adminFrom(r).TotpEnabled == 1
 	if app, bak, ok := strings.Cut(v.Warning, " "); ok { // Warning holds the two key fingerprints
@@ -214,8 +113,8 @@ func (s *Server) renderRestore(w http.ResponseWriter, r *http.Request, status in
 func (s *Server) restoreAgain(w http.ResponseWriter, r *http.Request, token, path, msg string) {
 	v := restoreView{}
 	ctx := r.Context()
-	bak, newest, warn, err := inspectBackup(ctx, path, s.SecretKey, s.location())
-	cur, err2 := countImportRows(ctx, s.conn)
+	bak, newest, warn, err := restore.Inspect(ctx, path, s.SecretKey, s.location())
+	cur, err2 := restore.CountRows(ctx, s.conn)
 	fi, err3 := os.Stat(path)
 	if err == nil && err2 == nil && err3 == nil {
 		v = restoreView{Token: token, Size: fi.Size(), Backup: bak, Current: cur, Newest: newest, Warning: warn}
@@ -250,9 +149,9 @@ func (s *Server) restorePreview(w http.ResponseWriter, r *http.Request) {
 	}
 	fail := func(err error) {
 		os.Remove(path)
-		var rf *refusal
+		var rf *restore.Refusal
 		if errors.As(err, &rf) {
-			s.renderRestore(w, r, http.StatusUnprocessableEntity, restoreView{}, rf.msg, rf.detail)
+			s.renderRestore(w, r, http.StatusUnprocessableEntity, restoreView{}, rf.Msg, rf.Detail)
 			return
 		}
 		s.fail(w, "restore check", err)
@@ -262,12 +161,12 @@ func (s *Server) restorePreview(w http.ResponseWriter, r *http.Request) {
 		fail(err)
 		return
 	}
-	cur, err := countImportRows(ctx, s.conn)
+	cur, err := restore.CountRows(ctx, s.conn)
 	if err != nil {
 		fail(err)
 		return
 	}
-	bak, newest, warn, err := inspectBackup(ctx, path, s.SecretKey, s.location())
+	bak, newest, warn, err := restore.Inspect(ctx, path, s.SecretKey, s.location())
 	if err != nil {
 		fail(err)
 		return

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"github.com/frand-kod/gobill/internal/settings"
 
-	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/isolir"
 )
 
@@ -53,24 +52,4 @@ func rateSetting(n int64, unit string) string {
 		return fmt.Sprint(n, "M")
 	}
 	return fmt.Sprint(n, "k")
-}
-
-// saveIsolirRates writes the typed rates to the isolir bandwidth row when the plan exists. A missing
-// or invalid rate is left alone; settingsErrors has already rejected invalid ones.
-func saveIsolirRates(ctx context.Context, q *db.Queries, v map[string]string) error {
-	p, err := q.GetPlan(ctx, isolir.StoredPlanID(ctx, q))
-	if err != nil || !p.BandwidthID.Valid {
-		return nil // no plan yet: it is made the next time Isolir is turned on
-	}
-	down, dunit, okDown := parseRate(v["isolir_rate_down"])
-	up, uunit, okUp := parseRate(v["isolir_rate_up"])
-	if !okDown || !okUp {
-		return nil
-	}
-	b, err := q.GetBandwidth(ctx, p.BandwidthID.Int64)
-	if err != nil {
-		return nil
-	}
-	return q.UpdateBandwidth(ctx, db.UpdateBandwidthParams{Name: isolir.BandwidthName, RateDown: down, RateDownUnit: dunit,
-		RateUp: up, RateUpUnit: uunit, Burst: b.Burst, ID: b.ID})
 }

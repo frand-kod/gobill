@@ -8,9 +8,9 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
-	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/service/restore"
 	"github.com/frand-kod/gobill/internal/settings"
 	"io"
 	"log/slog"
@@ -31,11 +31,7 @@ const (
 )
 
 // importCounts are the rows gobill holds now, which an import replaces.
-type importCounts struct{ Customers, Plans, Subscriptions, Transactions, Admins int64 }
-
-func (c importCounts) filled() bool {
-	return c.Customers+c.Plans+c.Subscriptions+c.Transactions+c.Admins > 0
-}
+type importCounts = restore.Counts
 
 // importRow is one table of the preview. Reasons holds at most 10 skips, More the rest.
 type importRow struct {
@@ -55,19 +51,6 @@ type importView struct {
 	TOTP    bool // the confirm asks for a 2FA code too
 	// Unsupported lists the PHPNuxBill data and settings gobill does not import or use.
 	Unsupported []string
-}
-
-func countImportRows(ctx context.Context, conn *sql.DB) (importCounts, error) {
-	var c importCounts
-	for _, t := range []struct {
-		table string
-		n     *int64
-	}{{"customers", &c.Customers}, {"plans", &c.Plans}, {"subscriptions", &c.Subscriptions}, {"transactions", &c.Transactions}, {"admins", &c.Admins}} {
-		if err := conn.QueryRowContext(ctx, "SELECT count(*) FROM "+t.table).Scan(t.n); err != nil {
-			return c, err
-		}
-	}
-	return c, nil
 }
 
 // sweepImports deletes uploads left in the temp dir for longer than importTTL.
@@ -214,7 +197,7 @@ func (s *Server) renderImport(w http.ResponseWriter, r *http.Request, status int
 func (s *Server) importAgain(w http.ResponseWriter, r *http.Request, token string, files map[string]string, cur importCounts, msg string) {
 	v := importView{}
 	if rep, err := s.runImport(r.Context(), files, true); err == nil {
-		v = importView{Token: token, Rows: importRows(rep), Current: cur, Filled: cur.filled(), Unsupported: rep.Unsupported}
+		v = importView{Token: token, Rows: importRows(rep), Current: cur, Filled: cur.Filled(), Unsupported: rep.Unsupported}
 	}
 	s.renderImport(w, r, http.StatusUnprocessableEntity, v, msg, "")
 }
@@ -254,7 +237,7 @@ func (s *Server) importPreview(w http.ResponseWriter, r *http.Request) {
 		s.renderImport(w, r, http.StatusUnprocessableEntity, importView{}, "Could not read this file as a PHPNuxBill backup.", err.Error())
 		return
 	}
-	cur, err := countImportRows(ctx, s.conn)
+	cur, err := restore.CountRows(ctx, s.conn)
 	if err != nil {
 		removeFiles(files)
 		s.fail(w, "import counts", err)
@@ -263,7 +246,7 @@ func (s *Server) importPreview(w http.ResponseWriter, r *http.Request) {
 	s.sessions.Put(ctx, "import_token", token)
 	s.sessions.Put(ctx, "import_json", files["backup"])
 	s.sessions.Put(ctx, "import_notif", files["notifications"])
-	s.renderImport(w, r, http.StatusOK, importView{Token: token, Rows: importRows(rep), Current: cur, Filled: cur.filled(), Unsupported: rep.Unsupported}, "", "")
+	s.renderImport(w, r, http.StatusOK, importView{Token: token, Rows: importRows(rep), Current: cur, Filled: cur.Filled(), Unsupported: rep.Unsupported}, "", "")
 }
 
 // importConfirm backs up the database, imports for real, then ends the session: the admins were replaced.
@@ -276,12 +259,12 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 		s.renderImport(w, r, http.StatusUnprocessableEntity, importView{}, "The import file has expired. Upload it again.", "")
 		return
 	}
-	cur, err := countImportRows(ctx, s.conn)
+	cur, err := restore.CountRows(ctx, s.conn)
 	if err != nil {
 		s.fail(w, "import counts", err)
 		return
 	}
-	if cur.filled() && r.PostFormValue("understand") != "1" {
+	if cur.Filled() && r.PostFormValue("understand") != "1" {
 		s.importAgain(w, r, r.PostFormValue("token"), files, cur, "Tick the box to confirm the overwrite.")
 		return
 	}

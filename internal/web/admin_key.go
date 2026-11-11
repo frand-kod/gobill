@@ -5,8 +5,8 @@ package web
 // saved, and downloads it after the password (and 2FA code) is confirmed.
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
+	"github.com/frand-kod/gobill/internal/service/restore"
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -15,11 +15,7 @@ import (
 
 const keyPage = "/admin/settings/system/key"
 
-// keyFingerprint is the first 8 hex characters of the SHA-256 of the key.
-func keyFingerprint(key []byte) string {
-	h := sha256.Sum256(key)
-	return hex.EncodeToString(h[:4])
-}
+func keyFingerprint(key []byte) string { return restore.KeyFingerprint(key) }
 
 // KeyFingerprint is keyFingerprint for the backup job, which stores it in the backup.
 func KeyFingerprint(key []byte) string { return keyFingerprint(key) }
