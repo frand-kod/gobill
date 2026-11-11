@@ -2,6 +2,7 @@ package web
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -60,7 +61,7 @@ func TestVoucherBulkDelete(t *testing.T) {
 			t.Fatalf("bad ids %v: %d, %d left", bad, w.Code, vchCount(t, e))
 		}
 	}
-	tooMany := make([]string, maxBulkIDs+1)
+	tooMany := make([]string, httpx.MaxBulkIDs+1)
 	for i := range tooMany {
 		tooMany[i] = "1"
 	}
@@ -85,7 +86,7 @@ func TestVoucherBulkDelete(t *testing.T) {
 	}
 }
 
-func mustAtoi(s string) int64 { n, _ := posInt(s); return n }
+func mustAtoi(s string) int64 { n, _ := httpx.PosInt(s); return n }
 
 func TestVoucherRemoveOld(t *testing.T) {
 	e := billApp(t)

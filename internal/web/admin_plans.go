@@ -6,6 +6,8 @@ import (
 	"database/sql"
 	"errors"
 	"github.com/frand-kod/gobill/internal/service/plan"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -215,7 +217,7 @@ func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
 		if p.FupBandwidthID.Valid {
 			feats = append(feats, "FUP")
 		}
-		lp.Rows = append(lp.Rows, listRow{p.ID, []string{p.Name, p.Type + " / " + p.Billing, money(p.Price),
+		lp.Rows = append(lp.Rows, listRow{p.ID, []string{p.Name, p.Type + " / " + p.Billing, view.Money(p.Price),
 			fmt.Sprint(p.Validity, " ", p.ValidityUnit), routers[p.RouterID.Int64], aud, strings.Join(feats, ", "), st}})
 	}
 	total, err := s.queries.CountPlans(r.Context(), db.CountPlansParams{Term: q, HiddenID: isoPlan})
@@ -267,7 +269,7 @@ func (s *Server) isolirManaged(w http.ResponseWriter, r *http.Request, id int64)
 }
 
 func (s *Server) planEdit(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
+	id := httpx.PathID(r)
 	if s.isolirManaged(w, r, id) {
 		return
 	}
@@ -289,11 +291,11 @@ func (s *Server) planEdit(w http.ResponseWriter, r *http.Request) {
 
 // planSave serves both create (no {id} in the path) and update.
 func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
+	id := httpx.PathID(r)
 	if s.isolirManaged(w, r, id) {
 		return
 	}
-	v := formVals(r, planNames...)
+	v := httpx.FormVals(r, planNames...)
 	e := map[string]string{}
 	res, err := s.Plans.Save(r.Context(), &plan.SaveInput{ID: id, V: v, Errs: e})
 	if errors.Is(err, plan.ErrNotFound) {
@@ -338,10 +340,10 @@ func (s *Server) syncPlan(r *http.Request, op string, p db.Plan, oldName string)
 }
 
 func (s *Server) planDelete(w http.ResponseWriter, r *http.Request) {
-	if s.isolirManaged(w, r, pathID(r)) {
+	if s.isolirManaged(w, r, httpx.PathID(r)) {
 		return
 	}
-	p, _ := s.queries.GetPlan(r.Context(), pathID(r))
+	p, _ := s.queries.GetPlan(r.Context(), httpx.PathID(r))
 	s.remove(w, r, "/admin/plans", "plan", "Plan is in use and cannot be deleted", p.Name, func(id int64) error {
 		if err := s.queries.DeletePlan(r.Context(), id); err != nil {
 			return err

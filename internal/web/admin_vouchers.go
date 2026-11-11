@@ -6,6 +6,8 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -70,7 +72,7 @@ func (s *Server) planOptions(r *http.Request, enabledOnly bool) ([]option, map[i
 	for _, p := range plans {
 		byID[p.ID] = p // rows and names still resolve; only the options leave the isolir plan out
 		if p.ID != isoPlan && (!enabledOnly || p.Enabled == 1) {
-			opts = append(opts, option{fmt.Sprint(p.ID), fmt.Sprintf("%s (%s)", p.Name, money(p.Price))})
+			opts = append(opts, option{fmt.Sprint(p.ID), fmt.Sprintf("%s (%s)", p.Name, view.Money(p.Price))})
 		}
 	}
 	return opts, byID, nil
@@ -79,7 +81,7 @@ func (s *Server) planOptions(r *http.Request, enabledOnly bool) ([]option, map[i
 // voucherViewer is the admin whose vouchers a role may see: 0 = all. Agent and Sales see the vouchers they
 // generated, those of their own Sales, and (Agent) the codes of their consignment batches. Report is not limited.
 func voucherViewer(a *db.Admin) int64 {
-	if oneOf(a.Role, "Agent", "Sales") {
+	if httpx.OneOf(a.Role, "Agent", "Sales") {
 		return a.ID
 	}
 	return 0
@@ -100,7 +102,7 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 		status = ""
 	}
 	role := adminFrom(r).Role
-	canSee := oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales")
+	canSee := httpx.OneOf(role, "SuperAdmin", "Admin", "Agent", "Sales")
 	// A masked role must not find an unused code by its full text (an unused code is free service), so its
 	// search matches used codes only. "none" matches no row: unused codes are listed only without a search.
 	qStatus := status
@@ -121,7 +123,7 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp := listPage{Heading: "Voucher", Base: "/admin/vouchers", Q: q, Searchable: true, DeleteOnly: true,
-		CanCreate: oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), CanEdit: oneOf(role, "SuperAdmin", "Admin"),
+		CanCreate: httpx.OneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), CanEdit: httpx.OneOf(role, "SuperAdmin", "Admin"),
 		Filters: []filter{{"status", status, vchStatuses, "Status"}},
 		Cols:    []string{"Code Voucher", "Plan Name", "Status", "Created", "Used"}}
 	if lp.CanEdit {
@@ -184,16 +186,16 @@ func (s *Server) vchNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {
-	v := formVals(r, "plan", "numbervoucher", "voucher_format", "prefix", "lengthcode", "print_now")
+	v := httpx.FormVals(r, "plan", "numbervoucher", "voucher_format", "prefix", "lengthcode", "print_now")
 	e := map[string]string{}
-	planID, ok := posInt(v["plan"])
+	planID, ok := httpx.PosInt(v["plan"])
 	if _, err := s.queries.GetPlan(r.Context(), planID); !ok || err != nil {
 		e["plan"] = "This field is required"
 	}
 	if isoPlan, _ := s.isolirIDs(r.Context()); ok && planID == isoPlan {
 		e["plan"] = billing.ErrIsolirPlan.Error()
 	}
-	count, ok := posInt(v["numbervoucher"])
+	count, ok := httpx.PosInt(v["numbervoucher"])
 	if !ok || count > maxVouchers {
 		e["numbervoucher"] = fmt.Sprintf(s.t("Enter a number between 1 and %d"), maxVouchers)
 	}
@@ -205,7 +207,7 @@ func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {
 	if v["voucher_format"] == "numbers" {
 		minLen = minVoucherLenNumbers
 	}
-	length, ok := posInt(v["lengthcode"])
+	length, ok := httpx.PosInt(v["lengthcode"])
 	if !ok || length < minLen || length > 32 {
 		e["lengthcode"] = fmt.Sprintf(s.t("Enter a number between %d and 32"), minLen)
 	}
@@ -238,7 +240,7 @@ func (s *Server) newVoucher(r *http.Request, planID int64, prefix, charset strin
 		}
 		_, err = s.queries.CreateVoucher(r.Context(), db.CreateVoucherParams{Code: prefix + code, PlanID: planID,
 			GeneratedBy: sql.NullInt64{Int64: adminFrom(r).ID, Valid: true}})
-		if !isUnique(err) {
+		if !httpx.IsUnique(err) {
 			return err
 		}
 	}
@@ -247,7 +249,7 @@ func (s *Server) newVoucher(r *http.Request, planID int64, prefix, charset strin
 
 func (s *Server) vchDelete(w http.ResponseWriter, r *http.Request) {
 	name := ""
-	if v, err := s.queries.GetVoucher(r.Context(), pathID(r)); err == nil {
+	if v, err := s.queries.GetVoucher(r.Context(), httpx.PathID(r)); err == nil {
 		name = v.Code
 	}
 	s.remove(w, r, "/admin/vouchers", "voucher", "Voucher is in use", name, func(id int64) error {
@@ -292,7 +294,7 @@ type printLayout struct {
 // vchPrint lays out the newest unused vouchers (optionally of one plan) for printing.
 func (s *Server) vchPrint(w http.ResponseWriter, r *http.Request) {
 	planID, _ := strconv.ParseInt(r.URL.Query().Get("plan"), 10, 64)
-	limit, ok := posInt(r.URL.Query().Get("limit"))
+	limit, ok := httpx.PosInt(r.URL.Query().Get("limit"))
 	if !ok || limit > maxVouchers {
 		limit = 36
 	}
@@ -328,7 +330,7 @@ func (s *Server) vchPrint(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		p := plans[v.PlanID]
-		pp.Items = append(pp.Items, printItem{v.Code, p.Name, money(p.Price),
+		pp.Items = append(pp.Items, printItem{v.Code, p.Name, view.Money(p.Price),
 			template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))})
 	}
 	s.render(w, r, 200, "print", Page{Title: "Voucher", Data: pp})
@@ -337,7 +339,7 @@ func (s *Server) vchPrint(w http.ResponseWriter, r *http.Request) {
 // vchView shows the newest unused codes of a plan as plain text after generating (old voucher/view).
 func (s *Server) vchView(w http.ResponseWriter, r *http.Request) {
 	planID, _ := strconv.ParseInt(r.URL.Query().Get("plan"), 10, 64)
-	limit, ok := posInt(r.URL.Query().Get("limit"))
+	limit, ok := httpx.PosInt(r.URL.Query().Get("limit"))
 	if !ok || limit > maxVouchers {
 		limit = 36
 	}
@@ -372,7 +374,7 @@ func redeemPage(v, e map[string]string) formPage {
 }
 
 func (s *Server) vchRedeem(w http.ResponseWriter, r *http.Request) {
-	v := formVals(r, "customer", "code")
+	v := httpx.FormVals(r, "customer", "code")
 	e := map[string]string{}
 	c, err := s.queries.GetCustomerByUsername(r.Context(), v["customer"])
 	if err == sql.ErrNoRows {

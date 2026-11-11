@@ -4,6 +4,7 @@ package web
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
 	"fmt"
@@ -60,7 +61,7 @@ func (s *Server) cpnNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) cpnEdit(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
+	id := httpx.PathID(r)
 	c, err := s.queries.GetCoupon(r.Context(), id)
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
@@ -76,8 +77,8 @@ func (s *Server) cpnEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) cpnSave(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
-	v := formVals(r, cpnKeys...)
+	id := httpx.PathID(r)
+	v := httpx.FormVals(r, cpnKeys...)
 	e := map[string]string{}
 	if v["code"] == "" {
 		v["code"], _ = randomCode(upperChars, 8)
@@ -120,7 +121,7 @@ func (s *Server) cpnSave(w http.ResponseWriter, r *http.Request) {
 				StartDate: v["start_date"], EndDate: v["end_date"], Status: v["status"], ID: id})
 		}
 		switch {
-		case isUnique(err):
+		case httpx.IsUnique(err):
 			e["code"] = "Coupon Code already exists"
 		case err != nil:
 			s.fail(w, "save coupon", err)
@@ -142,15 +143,15 @@ func (s *Server) cpnSave(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) cpnToggle(w http.ResponseWriter, r *http.Request) {
-	if err := s.queries.ToggleCoupon(r.Context(), pathID(r)); err != nil {
+	if err := s.queries.ToggleCoupon(r.Context(), httpx.PathID(r)); err != nil {
 		s.fail(w, "toggle coupon", err)
 		return
 	}
-	s.done(w, r, "/admin/coupons", "Data Updated Successfully", "coupon.toggle", fmt.Sprint(pathID(r)))
+	s.done(w, r, "/admin/coupons", "Data Updated Successfully", "coupon.toggle", fmt.Sprint(httpx.PathID(r)))
 }
 
 func (s *Server) cpnDelete(w http.ResponseWriter, r *http.Request) {
-	c, _ := s.queries.GetCoupon(r.Context(), pathID(r))
+	c, _ := s.queries.GetCoupon(r.Context(), httpx.PathID(r))
 	s.remove(w, r, "/admin/coupons", "coupon", "Coupon is in use", c.Code, func(id int64) error {
 		return s.queries.DeleteCoupon(r.Context(), id)
 	})

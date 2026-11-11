@@ -4,6 +4,7 @@ package web
 
 import (
 	"encoding/csv"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"time"
 
@@ -26,7 +27,7 @@ func isoQuery(r *http.Request) db.FilterIsolationsParams {
 	g := r.URL.Query().Get
 	q, _ := paging(r)
 	status := g("status")
-	if !oneOf(status, "running", "ended") {
+	if !httpx.OneOf(status, "running", "ended") {
 		status = ""
 	}
 	return db.FilterIsolationsParams{Q: q, Status: status}
@@ -82,7 +83,7 @@ func (s *Server) isoExport(w http.ResponseWriter, r *http.Request) {
 			ended = s.ts(x.EndedAt)
 		}
 		rec := []string{x.Username, x.Fullname, s.ts(x.StartedAt), s.ts(x.EndsAt), ended, x.EndReason, isoState(x.EndedAt, x.EndsAt, now)}
-		csvSafe(rec)
+		httpx.CSVSafe(rec)
 		cw.Write(rec)
 	}
 	cw.Flush()

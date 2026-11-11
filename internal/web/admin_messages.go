@@ -4,6 +4,7 @@ package web
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
 	"context"
@@ -99,12 +100,12 @@ func (s *Server) msgSendForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) msgSend(w http.ResponseWriter, r *http.Request) {
-	v := formVals(r, "customer_id", "channel", "subject", "message")
+	v := httpx.FormVals(r, "customer_id", "channel", "subject", "message")
 	e := map[string]string{}
-	if _, ok := posInt(v["customer_id"]); !ok {
+	if _, ok := httpx.PosInt(v["customer_id"]); !ok {
 		e["customer_id"] = "Customer is required"
 	}
-	if !oneOf(v["channel"], msgChannels...) {
+	if !httpx.OneOf(v["channel"], msgChannels...) {
 		e["channel"] = "Choose a channel"
 	}
 	if v["message"] == "" {
@@ -114,7 +115,7 @@ func (s *Server) msgSend(w http.ResponseWriter, r *http.Request) {
 		s.msgSendPage(w, r, 422, v, e, "", "")
 		return
 	}
-	id, _ := posInt(v["customer_id"])
+	id, _ := httpx.PosInt(v["customer_id"])
 	c, err := s.queries.GetCustomer(r.Context(), id)
 	if err == sql.ErrNoRows {
 		s.msgSendPage(w, r, 422, v, map[string]string{"customer_id": "Customer not found"}, "", "")

@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"slices"
 	"strings"
@@ -115,7 +116,7 @@ func (s *Server) routerNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) routerEdit(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
+	id := httpx.PathID(r)
 	x, err := s.queries.GetRouter(r.Context(), id)
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
@@ -143,8 +144,8 @@ func (s *Server) routerEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
-	v := formVals(r, "name", "host", "port", "tls", "username", "description", "enabled", "coordinates", "coverage", "reset_pin")
+	id := httpx.PathID(r)
+	v := httpx.FormVals(r, "name", "host", "port", "tls", "username", "description", "enabled", "coordinates", "coverage", "reset_pin")
 	pass := r.PostFormValue("password")
 	e := map[string]string{}
 	for _, k := range []string{"name", "host", "username"} {
@@ -152,7 +153,7 @@ func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 			e[k] = "This field is required"
 		}
 	}
-	port, ok := posInt(v["port"])
+	port, ok := httpx.PosInt(v["port"])
 	if !ok || port > 65535 {
 		e["port"] = "Enter a port between 1 and 65535"
 	}
@@ -219,7 +220,7 @@ func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		switch {
-		case isUnique(err):
+		case httpx.IsUnique(err):
 			e["name"] = "Name already exists"
 		case err != nil:
 			s.fail(w, "save router", err)
@@ -242,7 +243,7 @@ func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 
 // routerTest connects to the router and flashes the identity or the error.
 func (s *Server) routerTest(w http.ResponseWriter, r *http.Request) {
-	x, err := s.queries.GetRouter(r.Context(), pathID(r))
+	x, err := s.queries.GetRouter(r.Context(), httpx.PathID(r))
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
 		return
@@ -321,7 +322,7 @@ func (s *Server) runSync(id, adminID int64) {
 // API-mode router, then shows its status page. A RADIUS router is refused before a run exists, a
 // second click during a run is refused; the offline check happens inside the run.
 func (s *Server) routerSync(w http.ResponseWriter, r *http.Request) {
-	x, err := s.queries.GetRouter(r.Context(), pathID(r))
+	x, err := s.queries.GetRouter(r.Context(), httpx.PathID(r))
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
 		return
@@ -354,7 +355,7 @@ func (s *Server) routerSync(w http.ResponseWriter, r *http.Request) {
 
 // routerSyncStatus shows the latest "Push all" run of a router and reloads itself while it runs.
 func (s *Server) routerSyncStatus(w http.ResponseWriter, r *http.Request) {
-	x, err := s.queries.GetRouter(r.Context(), pathID(r))
+	x, err := s.queries.GetRouter(r.Context(), httpx.PathID(r))
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
 		return
@@ -396,7 +397,7 @@ func (s *Server) routerSyncStatus(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) routerDelete(w http.ResponseWriter, r *http.Request) {
 	name := ""
-	if x, err := s.queries.GetRouter(r.Context(), pathID(r)); err == nil {
+	if x, err := s.queries.GetRouter(r.Context(), httpx.PathID(r)); err == nil {
 		name = x.Name
 	}
 	s.remove(w, r, "/admin/routers", "router", "Router is used by a plan", name, func(id int64) error {

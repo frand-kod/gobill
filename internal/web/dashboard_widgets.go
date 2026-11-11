@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/url"
 	"strconv"
@@ -181,8 +182,8 @@ func (s *Server) usageRange(ctx context.Context, from, to time.Time, loc *time.L
 		down += x.Output
 		up += x.Input
 	}
-	num, unit := humanBytesParts(down + up)
-	w := usageWin{Total: num + " " + unit, TotalNum: num, TotalUnit: unit, Down: humanBytes(down), Up: humanBytes(up),
+	num, unit := view.HumanBytesParts(down + up)
+	w := usageWin{Total: num + " " + unit, TotalNum: num, TotalUnit: unit, Down: view.HumanBytes(down), Up: view.HumanBytes(up),
 		Bars: chartBars(dailyRange(totals, from, n))}
 	rows, err := s.queries.TopRadiusUsageDaily(ctx, db.TopRadiusUsageDailyParams{Since: since, Until: until, RowLimit: int64(top)})
 	if err != nil {
@@ -195,7 +196,7 @@ func (s *Server) usageRange(ctx context.Context, from, to time.Time, loc *time.L
 	}
 	for _, t := range rows {
 		sum := t.Input + t.Output
-		u := usageTop{Name: t.Username, Total: humanBytes(sum), Pct: int(sum * 100 / peak)}
+		u := usageTop{Name: t.Username, Total: view.HumanBytes(sum), Pct: int(sum * 100 / peak)}
 		c, err := s.queries.GetCustomerByUsername(ctx, t.Username)
 		switch {
 		case err == nil:
@@ -211,7 +212,7 @@ func (s *Server) usageRange(ctx context.Context, from, to time.Time, loc *time.L
 // expiringRow builds one dashboard row; the WhatsApp reminder link is set only when the phone number allows one.
 func (s *Server) expiringRow(settings map[string]string, customerID int64, username, fullname, phone, plan string, balance, lastSeen, expiresAt int64) expiringRow {
 	x := expiringRow{CustomerID: customerID, Username: username, Fullname: fullname, Phone: phone, Plan: plan, Expires: s.ts(expiresAt),
-		Balance: money(balance)}
+		Balance: view.Money(balance)}
 	if lastSeen > 0 {
 		x.LastSeen = s.ts(lastSeen)
 	}

@@ -3,6 +3,7 @@ package web
 // Tell-a-friend invitation form.
 
 import (
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
 	"errors"
@@ -17,7 +18,7 @@ type friendData struct {
 }
 
 func (s *Server) friendPage(w http.ResponseWriter, r *http.Request, code int, username, errMsg string) {
-	p, err := s.queries.GetPlan(r.Context(), pathID(r))
+	p, err := s.queries.GetPlan(r.Context(), httpx.PathID(r))
 	if err != nil || p.Enabled != 1 || p.Type == "Balance" || p.Billing != "prepaid" {
 		http.NotFound(w, r)
 		return
@@ -26,7 +27,7 @@ func (s *Server) friendPage(w http.ResponseWriter, r *http.Request, code int, us
 }
 
 func (s *Server) pFriendForm(w http.ResponseWriter, r *http.Request) {
-	if p, err := s.queries.GetPlan(r.Context(), pathID(r)); err != nil || !billing.SellablePlan(p) { // no form for admin-only or Rp 0 plans
+	if p, err := s.queries.GetPlan(r.Context(), httpx.PathID(r)); err != nil || !billing.SellablePlan(p) { // no form for admin-only or Rp 0 plans
 		http.NotFound(w, r)
 		return
 	}
@@ -39,7 +40,7 @@ func (s *Server) pFriend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := strings.TrimSpace(r.PostFormValue("username"))
-	err := s.Billing.SendPlan(r.Context(), customerFrom(r).ID, user, pathID(r))
+	err := s.Billing.SendPlan(r.Context(), customerFrom(r).ID, user, httpx.PathID(r))
 	for _, e := range []error{billing.ErrSelfTransfer, billing.ErrTargetNotFound, billing.ErrInsufficientBalance, billing.ErrInactive,
 		billing.ErrTransferDisabled, billing.ErrPlanNotFound, billing.ErrFriendPlanDiffers, billing.ErrAdminOnlyPlan} {
 		if errors.Is(err, e) {

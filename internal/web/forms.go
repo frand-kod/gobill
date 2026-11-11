@@ -207,15 +207,6 @@ func (f field) opts(o ...string) field {
 	return f
 }
 
-// formVals returns the trimmed values of the named form fields.
-func formVals(r *http.Request, names ...string) map[string]string {
-	m := map[string]string{}
-	for _, n := range names {
-		m[n] = strings.TrimSpace(r.PostFormValue(n))
-	}
-	return m
-}
-
 func (s *Server) renderForm(w http.ResponseWriter, r *http.Request, status int, fp formPage) {
 	s.render(w, r, status, "form", Page{Title: fp.Heading, Data: fp})
 }

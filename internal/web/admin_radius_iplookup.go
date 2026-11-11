@@ -3,6 +3,7 @@ package web
 // Who had IP X at time T: Framed-IP and start/stop range over the session history.
 
 import (
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -30,7 +31,7 @@ func (s *Server) ipLookupForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) ipLookupRun(w http.ResponseWriter, r *http.Request) {
-	v := formVals(r, "ip", "at")
+	v := httpx.FormVals(r, "ip", "at")
 	e := map[string]string{}
 	ip, err := netip.ParseAddr(strings.TrimSpace(v["ip"]))
 	if err != nil {

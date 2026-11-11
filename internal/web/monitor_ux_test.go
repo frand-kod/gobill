@@ -3,6 +3,7 @@ package web
 import (
 	"database/sql"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -104,11 +105,11 @@ func TestDashboardIncomeLabelResetDay(t *testing.T) {
 	}
 }
 
-// The sales chart reads the currency prefix and separator from money() through data attributes.
+// The sales chart reads the currency prefix and separator from view.Money() through data attributes.
 func TestDashboardChartMoneyAttributes(t *testing.T) {
 	e := englishApp(t)
 	body := do(e.h, "GET", "/admin", nil, e.c).Body.String()
-	for _, want := range []string{`data-money-prefix="Rp "`, fmt.Sprintf(`data-money-sep="%s"`, groupSep())} {
+	for _, want := range []string{`data-money-prefix="Rp "`, fmt.Sprintf(`data-money-sep="%s"`, view.GroupSep())} {
 		if !strings.Contains(body, want) {
 			t.Errorf("sales chart missing %s", want)
 		}

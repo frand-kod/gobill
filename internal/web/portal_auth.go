@@ -4,6 +4,7 @@ package web
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 
@@ -221,7 +222,7 @@ func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "voucher login", err)
 	default:
 		to := "/login"
-		if u := safeRedirect(st["voucher_redirect"]); u != "" {
+		if u := httpx.SafeRedirect(st["voucher_redirect"]); u != "" {
 			to = u
 		}
 		s.flashTo(w, r, to, "Voucher activation success, now you can login")

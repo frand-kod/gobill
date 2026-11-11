@@ -2,6 +2,7 @@ package web
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"strconv"
 	"strings"
 	"testing"
@@ -167,8 +168,8 @@ func TestDashboardUsageCard(t *testing.T) {
 	}
 	body := do(e.h, "GET", "/admin", nil, e.c).Body.String()
 	// the big number carries the total once; the 7 day and 30 day windows both render
-	wn, wu := humanBytesParts(4<<20 + 3<<10)
-	mn, mu := humanBytesParts(6<<20 + 3<<10)
+	wn, wu := view.HumanBytesParts(4<<20 + 3<<10)
+	mn, mu := view.HumanBytesParts(6<<20 + 3<<10)
 	for _, want := range []string{
 		`id="usage-title"`, "RADIUS sessions only",
 		`class="stat-num">` + wn + `<span class="ms-1 text-sm font-medium text-ink-2">` + wu + `</span>`,

@@ -4,6 +4,7 @@ package web
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
 	"fmt"
@@ -50,7 +51,7 @@ func (s *Server) bwNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) bwEdit(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
+	id := httpx.PathID(r)
 	b, err := s.queries.GetBandwidth(r.Context(), id)
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
@@ -66,24 +67,24 @@ func (s *Server) bwEdit(w http.ResponseWriter, r *http.Request) {
 
 // bwSave serves both create (no {id} in the path) and update.
 func (s *Server) bwSave(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
-	v := formVals(r, bwNames...)
+	id := httpx.PathID(r)
+	v := httpx.FormVals(r, bwNames...)
 	e := map[string]string{}
 	if v["name"] == "" {
 		e["name"] = "This field is required"
 	}
-	down, ok := posInt(v["rate_down"])
+	down, ok := httpx.PosInt(v["rate_down"])
 	if !ok {
 		e["rate_down"] = "Enter a number greater than 0"
 	}
-	up, ok := posInt(v["rate_up"])
+	up, ok := httpx.PosInt(v["rate_up"])
 	if !ok {
 		e["rate_up"] = "Enter a number greater than 0"
 	}
-	if !oneOf(v["rate_down_unit"], "Kbps", "Mbps") {
+	if !httpx.OneOf(v["rate_down_unit"], "Kbps", "Mbps") {
 		e["rate_down_unit"] = "Invalid value"
 	}
-	if !oneOf(v["rate_up_unit"], "Kbps", "Mbps") {
+	if !httpx.OneOf(v["rate_up_unit"], "Kbps", "Mbps") {
 		e["rate_up_unit"] = "Invalid value"
 	}
 	if len(e) == 0 {
@@ -96,7 +97,7 @@ func (s *Server) bwSave(w http.ResponseWriter, r *http.Request) {
 				RateUp: up, RateUpUnit: v["rate_up_unit"], Burst: v["burst"], ID: id})
 		}
 		switch {
-		case isUnique(err):
+		case httpx.IsUnique(err):
 			e["name"] = "Name already exists"
 		case err != nil:
 			s.fail(w, "save bandwidth", err)
@@ -119,7 +120,7 @@ func (s *Server) bwSave(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) bwDelete(w http.ResponseWriter, r *http.Request) {
 	name := ""
-	if b, err := s.queries.GetBandwidth(r.Context(), pathID(r)); err == nil {
+	if b, err := s.queries.GetBandwidth(r.Context(), httpx.PathID(r)); err == nil {
 		name = b.Name
 	}
 	s.remove(w, r, "/admin/bandwidth", "bandwidth", "Bandwidth is used by a plan", name, func(id int64) error {

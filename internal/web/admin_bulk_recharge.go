@@ -16,6 +16,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -119,7 +121,7 @@ func (s *Server) bulkRechargeCheck(r *http.Request, id int64) (c db.Customer, pl
 		return c, plan, 0, msgPlanMissing
 	}
 	// same rule as the single recharge: Agent and Sales may not renew a disabled plan
-	if plan.Enabled != 1 && !oneOf(adminFrom(r).Role, "SuperAdmin", "Admin") {
+	if plan.Enabled != 1 && !httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin") {
 		return c, plan, 0, planErrMsg(true, plan.Enabled)
 	}
 	pv, err := s.Billing.Preview(ctx, id, plan.ID)
@@ -156,7 +158,7 @@ func (s *Server) bulkRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 	var total int64
 	for _, id := range ids {
 		c, plan, price, reason := s.bulkRechargeCheck(r, id)
-		row := bulkRechargeRow{Username: c.Username, Plan: plan.Name, Price: money(price), Err: reason}
+		row := bulkRechargeRow{Username: c.Username, Plan: plan.Name, Price: view.Money(price), Err: reason}
 		if reason != "" {
 			row.Plan, row.Price = "", ""
 		} else {
@@ -165,7 +167,7 @@ func (s *Server) bulkRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 		}
 		p.Rows = append(p.Rows, row)
 	}
-	p.Summary = fmt.Sprintf(s.t("Recharge %d customers, total %s"), len(eligible), money(total))
+	p.Summary = fmt.Sprintf(s.t("Recharge %d customers, total %s"), len(eligible), view.Money(total))
 	if len(eligible) > 0 {
 		tok, err := newBulkToken()
 		if err != nil {

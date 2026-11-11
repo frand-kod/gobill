@@ -5,6 +5,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -117,7 +118,7 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 	}
 	d.Year = now.Year()
 	d.ListLimit = dashListLimit
-	d.MoneyPrefix, d.MoneySep = moneyfmt.Prefix, groupSep()
+	d.MoneyPrefix, d.MoneySep = moneyfmt.Prefix, view.GroupSep()
 	labels, regs, sales := make([]string, 12), make([]int64, 12), make([]int64, 12)
 	// rolling window: the last 12 months, oldest first, ending with the current month
 	for m := 0; m < 12; m++ {

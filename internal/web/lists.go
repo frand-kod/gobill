@@ -3,6 +3,7 @@ package web
 // List pages: sorting, paging, filters, row and bulk actions, list rendering.
 
 import (
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"net/url"
 	"slices"
@@ -68,7 +69,7 @@ type bulkAction struct {
 func listSort(r *http.Request, allowed ...string) (sort, dir, param string) {
 	g := r.URL.Query().Get
 	dir = "asc"
-	if !oneOf(g("sort"), allowed...) {
+	if !httpx.OneOf(g("sort"), allowed...) {
 		return "", dir, ""
 	}
 	if g("dir") == "desc" {
@@ -191,19 +192,6 @@ func (lp listPage) FilterCount() int {
 		}
 	}
 	return n
-}
-
-// badgeDot is the colour of a status dot for a badge class from badge().
-func badgeDot(badgeClass string) string {
-	switch badgeClass {
-	case "badge-ok":
-		return "bg-ok-fg"
-	case "badge-bad":
-		return "bg-err-fg"
-	case "badge-warn":
-		return "bg-warn-fg"
-	}
-	return "bg-ink-2"
 }
 
 // rowItem is one control in a row's action cell: an edit link, a delete form or a POST action form.

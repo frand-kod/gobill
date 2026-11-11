@@ -5,6 +5,7 @@ package web
 import (
 	"database/sql"
 	"encoding/csv"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 
@@ -22,14 +23,14 @@ const localTime = "2006-01-02T15:04" // <input type="datetime-local">
 func subQuery(r *http.Request) db.FilterSubscriptionsParams {
 	g := r.URL.Query().Get
 	p := db.FilterSubscriptionsParams{Q: strings.TrimSpace(g("q")), Status: g("status"), Type: g("type")}
-	if !oneOf(p.Status, "active", "expired") {
+	if !httpx.OneOf(p.Status, "active", "expired") {
 		p.Status = ""
 	}
-	if !oneOf(p.Type, "Hotspot", "PPPoE") {
+	if !httpx.OneOf(p.Type, "Hotspot", "PPPoE") {
 		p.Type = ""
 	}
-	p.RouterID, _ = posInt(g("router"))
-	p.PlanID, _ = posInt(g("plan"))
+	p.RouterID, _ = httpx.PosInt(g("router"))
+	p.PlanID, _ = httpx.PosInt(g("plan"))
 	return p
 }
 
@@ -61,8 +62,8 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 	}
 	plans := append([]option{{"", "Plan"}}, planOpts...)
 	lp := listPage{Heading: "Subscriptions", Base: "/admin/subscriptions", Q: p.Q, Searchable: true,
-		CanEdit: oneOf(adminFrom(r).Role, "SuperAdmin", "Admin", "Agent", "Sales"), NoDelete: true,
-		DeleteOnly: !oneOf(adminFrom(r).Role, "SuperAdmin", "Admin"), // Agent/Sales get Extend only (PHP plan/extend has no role check)
+		CanEdit: httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin", "Agent", "Sales"), NoDelete: true,
+		DeleteOnly: !httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin"), // Agent/Sales get Extend only (PHP plan/extend has no role check)
 		Cols:       []string{"Username", "Plan Name", "Type", "Created On", "Expires On", "Method", "Location", "Status"},
 		SortKeys:   []string{"username", "plan", "", "created", "expires", "", "", ""}, Sort: sort, Dir: dir,
 		Filters: []filter{{"status", p.Status, []option{{"", "Status"}, {"active", "active"}, {"expired", "expired"}}, "Status"},
@@ -102,7 +103,7 @@ func (s *Server) subExport(w http.ResponseWriter, r *http.Request) {
 	cw.Write([]string{"Username", "Plan Name", "Type", "Created On", "Expires On", "Method", "Location", "Status"})
 	for _, x := range rows {
 		rec := []string{x.Username, x.PlanName, x.Type, s.ts(x.StartedAt), s.ts(x.ExpiresAt), x.Method, x.RouterName, x.Status}
-		csvSafe(rec)
+		httpx.CSVSafe(rec)
 		cw.Write(rec)
 	}
 	cw.Flush()
@@ -115,7 +116,7 @@ func (s *Server) subFields(r *http.Request, v, e map[string]string) ([]field, er
 	}
 	pl := text("plan", "Service Plan", v, e).as("select").req()
 	for _, o := range opts {
-		id, _ := posInt(o.Value)
+		id, _ := httpx.PosInt(o.Value)
 		if plans[id].Type != "Balance" {
 			pl.Options = append(pl.Options, o)
 		}
@@ -124,7 +125,7 @@ func (s *Server) subFields(r *http.Request, v, e map[string]string) ([]field, er
 }
 
 func (s *Server) subGet(w http.ResponseWriter, r *http.Request) (sub db.Subscription, username string, ok bool) {
-	sub, err := s.queries.GetSubscription(r.Context(), pathID(r))
+	sub, err := s.queries.GetSubscription(r.Context(), httpx.PathID(r))
 	if err == nil {
 		var c db.Customer
 		if c, err = s.queries.GetCustomer(r.Context(), sub.CustomerID); err == nil {
@@ -162,8 +163,8 @@ func (s *Server) subSave(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	v, e := formVals(r, "plan", "expires_at"), map[string]string{}
-	planID, valid := posInt(v["plan"])
+	v, e := httpx.FormVals(r, "plan", "expires_at"), map[string]string{}
+	planID, valid := httpx.PosInt(v["plan"])
 	if !valid {
 		e["plan"] = "Invalid value"
 	}
@@ -200,7 +201,7 @@ func (s *Server) subAct(w http.ResponseWriter, r *http.Request, do func(id int64
 		return
 	}
 	key := "flash"
-	if err := do(pathID(r)); errors.Is(err, sql.ErrNoRows) {
+	if err := do(httpx.PathID(r)); errors.Is(err, sql.ErrNoRows) {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
@@ -224,7 +225,7 @@ func (s *Server) canExtend(r *http.Request) bool {
 	case "super":
 		return role == "SuperAdmin"
 	case "managers":
-		return oneOf(role, "SuperAdmin", "Admin")
+		return httpx.OneOf(role, "SuperAdmin", "Admin")
 	}
 	return true // staff (default); the route already limits it to staff roles
 }

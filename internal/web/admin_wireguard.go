@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/settings"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net"
 	"net/http"
 	"strconv"
@@ -182,7 +183,7 @@ func (s *Server) wgUsable(ctx context.Context) (wg.Config, map[string]string, er
 // routerWGProvision is POST /admin/routers/{id}/wg/provision, for the first provisioning and again:
 // it always makes a new keypair and the old key stops working at once. The commands are shown once.
 func (s *Server) routerWGProvision(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
+	id := httpx.PathID(r)
 	back := fmt.Sprint("/admin/routers/", id, "/edit")
 	rt, err := s.queries.GetRouter(r.Context(), id)
 	if err == sql.ErrNoRows {
@@ -305,7 +306,7 @@ func (s *Server) wgRelease(ctx context.Context, p db.WgPeer) error {
 }
 
 func (s *Server) routerWGRevoke(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
+	id := httpx.PathID(r)
 	if err := s.wgRevoke(r.Context(), id); err != nil {
 		s.fail(w, "revoke wireguard peer", err)
 		return
@@ -315,7 +316,7 @@ func (s *Server) routerWGRevoke(w http.ResponseWriter, r *http.Request) {
 
 // routerWGReset is POST /admin/routers/{id}/wg/reset: forget the handshake state of the peer.
 func (s *Server) routerWGReset(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
+	id := httpx.PathID(r)
 	back := fmt.Sprint("/admin/routers/", id, "/edit")
 	p, err := s.queries.GetWgPeer(r.Context(), id)
 	if err == sql.ErrNoRows || s.WG == nil {
@@ -394,7 +395,7 @@ func (s *Server) wgCoA(ctx context.Context, p db.WgPeer) wgStage {
 
 // routerWGCheck is POST /admin/routers/{id}/wg/check: all four stages, shown on the router page.
 func (s *Server) routerWGCheck(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
+	id := httpx.PathID(r)
 	back := fmt.Sprint("/admin/routers/", id, "/edit")
 	rt, err := s.queries.GetRouter(r.Context(), id)
 	if err != nil {

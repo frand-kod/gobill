@@ -4,6 +4,7 @@ package web
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 
@@ -31,7 +32,7 @@ func (s *Server) usernamesFor(ctx context.Context, contact string, isMail bool) 
 			return nil, err
 		}
 		for _, c := range rows {
-			if strings.EqualFold(c.Email, contact) && !contains(names, c.Username) {
+			if strings.EqualFold(c.Email, contact) && !httpx.Contains(names, c.Username) {
 				names = append(names, c.Username)
 			}
 		}
@@ -43,7 +44,7 @@ func (s *Server) usernamesFor(ctx context.Context, contact string, isMail bool) 
 		return nil, err
 	}
 	for _, c := range rows {
-		if want != "" && db.CanonicalPhone(c.Phone) == want && !contains(names, c.Username) {
+		if want != "" && db.CanonicalPhone(c.Phone) == want && !httpx.Contains(names, c.Username) {
 			names = append(names, c.Username)
 		}
 	}

@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"strconv"
 
@@ -18,7 +20,7 @@ const batchBase = "/admin/agent-batches"
 
 // batchScope is the agent id whose batches the admin may see; 0 = every agent (managers).
 func batchScope(a *db.Admin) int64 {
-	if oneOf(a.Role, "SuperAdmin", "Admin") {
+	if httpx.OneOf(a.Role, "SuperAdmin", "Admin") {
 		return 0
 	}
 	return a.ID
@@ -27,7 +29,7 @@ func batchScope(a *db.Admin) int64 {
 // batchFor loads the batch of the path. An Agent asking for another agent's batch gets the same 404
 // as for a batch that does not exist.
 func (s *Server) batchFor(w http.ResponseWriter, r *http.Request) (db.AgentBatch, bool) {
-	b, err := s.queries.GetAgentBatch(r.Context(), pathID(r))
+	b, err := s.queries.GetAgentBatch(r.Context(), httpx.PathID(r))
 	if errors.Is(err, sql.ErrNoRows) || (err == nil && batchScope(adminFrom(r)) != 0 && b.AgentID != adminFrom(r).ID) {
 		http.NotFound(w, r)
 		return b, false
@@ -70,7 +72,7 @@ func (s *Server) abList(w http.ResponseWriter, r *http.Request) {
 func batchCells(b db.ListAgentBatchesRow) []string {
 	unused := b.PaidCount + b.BonusCount - b.Used - b.Returned
 	return []string{"#" + strconv.FormatInt(b.ID, 10), b.AgentName, b.PlanName, strconv.FormatInt(b.PaidCount, 10), strconv.FormatInt(b.BonusCount, 10),
-		money(b.UnitPrice), strconv.FormatInt(b.Used, 10), strconv.FormatInt(unused, 10), strconv.FormatInt(b.Returned, 10), money(b.Debt)}
+		view.Money(b.UnitPrice), strconv.FormatInt(b.Used, 10), strconv.FormatInt(unused, 10), strconv.FormatInt(b.Returned, 10), view.Money(b.Debt)}
 }
 
 func (s *Server) abView(w http.ResponseWriter, r *http.Request) {
@@ -160,13 +162,13 @@ func (s *Server) abNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) abCreate(w http.ResponseWriter, r *http.Request) {
-	v := formVals(r, "agent", "plan", "paid", "bonus", "price", "note")
+	v := httpx.FormVals(r, "agent", "plan", "paid", "bonus", "price", "note")
 	e := map[string]string{}
-	agentID, ok := posInt(v["agent"])
+	agentID, ok := httpx.PosInt(v["agent"])
 	if ag, err := s.queries.GetAdmin(r.Context(), agentID); !ok || err != nil || ag.Role != "Agent" || ag.Status != "Active" {
 		e["agent"] = "Agent not found"
 	}
-	planID, ok := posInt(v["plan"])
+	planID, ok := httpx.PosInt(v["plan"])
 	if _, err := s.queries.GetPlan(r.Context(), planID); !ok || err != nil {
 		e["plan"] = "This field is required"
 	}
@@ -213,7 +215,7 @@ func (s *Server) abPayForm(w http.ResponseWriter, r *http.Request, status int, b
 		s.fail(w, "agent batch debt", err)
 		return
 	}
-	amount := text("amount", "Amount", v, e).as("number").req().hint(fmt.Sprintf("%s %s", s.t("Debt"), money(debt)))
+	amount := text("amount", "Amount", v, e).as("number").req().hint(fmt.Sprintf("%s %s", s.t("Debt"), view.Money(debt)))
 	back := fmt.Sprint(batchBase, "/", b.ID)
 	s.renderForm(w, r, status, formPage{"Record payment", back + "/payment", back,
 		[]field{amount, text("note", "Note", v, e)}})
@@ -230,9 +232,9 @@ func (s *Server) abPay(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	v := formVals(r, "amount", "note")
+	v := httpx.FormVals(r, "amount", "note")
 	e := map[string]string{}
-	amount, ok := posInt(v["amount"])
+	amount, ok := httpx.PosInt(v["amount"])
 	if !ok || amount > 100_000_000_000 {
 		e["amount"] = "Invalid value"
 	}
@@ -260,7 +262,7 @@ func (s *Server) abReturn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	back := fmt.Sprint(batchBase, "/", b.ID)
-	ids, ok := parseIDs(r)
+	ids, ok := httpx.ParseIDs(r)
 	if !ok {
 		s.sessions.Put(r.Context(), "error", s.t("Select at least one row"))
 		http.Redirect(w, r, back, http.StatusSeeOther)

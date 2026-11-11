@@ -4,6 +4,7 @@ package web
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
 	"fmt"
@@ -75,7 +76,7 @@ func (s *Server) odpNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) odpEdit(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
+	id := httpx.PathID(r)
 	o, err := s.queries.GetODP(r.Context(), id)
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
@@ -98,8 +99,8 @@ func (s *Server) odpEdit(w http.ResponseWriter, r *http.Request) {
 
 // odpSave serves both create (no {id} in the path) and update.
 func (s *Server) odpSave(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
-	v := formVals(r, odpNames...)
+	id := httpx.PathID(r)
+	v := httpx.FormVals(r, odpNames...)
 	e := map[string]string{}
 	if v["name"] == "" {
 		e["name"] = "This field is required"
@@ -118,7 +119,7 @@ func (s *Server) odpSave(w http.ResponseWriter, r *http.Request) {
 	}
 	router := sql.NullInt64{}
 	if v["router_id"] != "" {
-		rid, ok := posInt(v["router_id"])
+		rid, ok := httpx.PosInt(v["router_id"])
 		if !ok {
 			e["router_id"] = "Invalid value"
 		}
@@ -134,9 +135,9 @@ func (s *Server) odpSave(w http.ResponseWriter, r *http.Request) {
 				PortAmount: ports, Attenuation: v["attenuation"], Coverage: cover, Description: v["description"], RouterID: router, ID: id})
 		}
 		switch {
-		case isUnique(err):
+		case httpx.IsUnique(err):
 			e["name"] = "Name already exists"
-		case isFK(err):
+		case httpx.IsFK(err):
 			e["router_id"] = "Invalid value"
 		case err != nil:
 			s.fail(w, "save odp", err)
@@ -163,7 +164,7 @@ func (s *Server) odpSave(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) odpDelete(w http.ResponseWriter, r *http.Request) {
 	name := ""
-	if o, err := s.queries.GetODP(r.Context(), pathID(r)); err == nil {
+	if o, err := s.queries.GetODP(r.Context(), httpx.PathID(r)); err == nil {
 		name = o.Name
 	}
 	s.remove(w, r, "/admin/odp", "odp", "ODP is in use", name, func(id int64) error {

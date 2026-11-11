@@ -6,6 +6,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"math"
 	"net/http"
@@ -75,7 +76,7 @@ func (s *Server) pLiveOf(ctx context.Context, c db.Customer, now int64, w pWords
 	l.Online = true
 	l.IP, l.Device = cur.FramedIp, maskMAC(cur.Mac)
 	l.Since, l.For = s.ts(cur.StartedAt), w.span(now-cur.StartedAt)
-	l.Used = humanBytes(cur.InputOctets + cur.OutputOctets)
+	l.Used = view.HumanBytes(cur.InputOctets + cur.OutputOctets)
 	var plan planSpeed
 	if pl, err := s.queries.GetRadiusPlan(ctx, c.ID); err == nil {
 		plan = newPlanSpeed(pl.PlanName, pl.RateDown.Int64, pl.RateDownUnit.String, pl.RateUp.Int64, pl.RateUpUnit.String)
@@ -187,7 +188,7 @@ func chartBars(days []dayUse) []dayBar {
 		if len(days) > 10 && i%5 != 0 && i != len(days)-1 {
 			tick = ""
 		}
-		out[i] = dayBar{Label: d.Label, Tick: tick, Down: humanBytes(d.Down), Up: humanBytes(d.Up),
+		out[i] = dayBar{Label: d.Label, Tick: tick, Down: view.HumanBytes(d.Down), Up: view.HumanBytes(d.Up),
 			DownPct: downPct, UpPct: int((d.Down+d.Up)*100/top) - downPct, Today: d.Today}
 	}
 	return out
@@ -242,7 +243,7 @@ func (s *Server) pConnHistory(w http.ResponseWriter, r *http.Request) {
 		day.up += x.InputOctets
 	}
 	for i := range out.Days {
-		out.Days[i].Down, out.Days[i].Up = humanBytes(out.Days[i].down), humanBytes(out.Days[i].up)
+		out.Days[i].Down, out.Days[i].Up = view.HumanBytes(out.Days[i].down), view.HumanBytes(out.Days[i].up)
 	}
 	out.Nav = newPageNav(pg, total, len(ss), more, func(page, per int) string {
 		return pageHref("/portal/connection", url.Values{}, page, per)

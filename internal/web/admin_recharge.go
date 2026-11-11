@@ -5,6 +5,8 @@ package web
 import (
 	"bytes"
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -65,30 +67,30 @@ func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "recharge", errors.New("billing service not configured"))
 		return
 	}
-	planID, _ := posInt(r.PostFormValue("plan"))
+	planID, _ := httpx.PosInt(r.PostFormValue("plan"))
 	method, label, ok := s.rechargeMethod(r)
 	if !ok {
 		fail("Invalid payment method")
 		return
 	}
 	pv, err := s.Billing.Preview(r.Context(), c.ID, planID)
-	if err != nil || pv.Plan.Enabled != 1 && !oneOf(adminFrom(r).Role, "SuperAdmin", "Admin") {
+	if err != nil || pv.Plan.Enabled != 1 && !httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin") {
 		pl, perr := s.queries.GetPlan(r.Context(), planID)
 		fail(planErrMsg(perr == nil, pl.Enabled))
 		return
 	}
-	d := rechargeConfirm{C: c, Plan: pv.Plan.Name, PlanID: planID, Method: method, MethodLabel: label, Price: money(pv.Price), Balance: money(c.Balance), After: money(c.Balance), Fragment: isFragment(r), Token: newFormToken()}
+	d := rechargeConfirm{C: c, Plan: pv.Plan.Name, PlanID: planID, Method: method, MethodLabel: label, Price: view.Money(pv.Price), Balance: view.Money(c.Balance), After: view.Money(c.Balance), Fragment: isFragment(r), Token: newFormToken()}
 	if !pv.Expiry.IsZero() {
 		d.Expiry = pv.Expiry.In(s.location()).Format("2006-01-02 15:04")
 	}
 	if method == methodZero {
-		pv.Price, d.Price, d.Zero = 0, money(0), true
+		pv.Price, d.Price, d.Zero = 0, view.Money(0), true
 	}
 	if pv.Plan.Type == "Balance" {
-		d.After = money(c.Balance + pv.Price)
+		d.After = view.Money(c.Balance + pv.Price)
 	}
 	if method == "Balance" {
-		d.After, d.Insufficient = money(c.Balance-pv.Price), c.Balance < pv.Price
+		d.After, d.Insufficient = view.Money(c.Balance-pv.Price), c.Balance < pv.Price
 	}
 	if d.Fragment {
 		var buf bytes.Buffer
@@ -122,9 +124,9 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 		fail(msgFormReplayed)
 		return
 	}
-	planID, _ := posInt(r.PostFormValue("plan"))
+	planID, _ := httpx.PosInt(r.PostFormValue("plan"))
 	plan, err := s.queries.GetPlan(r.Context(), planID)
-	if err != nil || plan.Enabled != 1 && !oneOf(adminFrom(r).Role, "SuperAdmin", "Admin") {
+	if err != nil || plan.Enabled != 1 && !httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin") {
 		fail(planErrMsg(err == nil, plan.Enabled))
 		return
 	}
@@ -237,7 +239,7 @@ func (p rechargePage) CustomerField() field {
 
 // rechargeOptions lists the plans this role may recharge (same rule as the customer page).
 func (s *Server) rechargeOptions(r *http.Request) ([]option, error) {
-	manage := oneOf(adminFrom(r).Role, "SuperAdmin", "Admin")
+	manage := httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin")
 	plans, _, err := s.planOptions(r, !manage) // PHP: SuperAdmin/Admin may recharge a disabled plan
 	return plans, err
 }

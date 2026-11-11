@@ -5,6 +5,7 @@ package web
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -113,7 +114,7 @@ func (s *Server) settlePayment(ctx context.Context, pr db.PaymentRequest, st pay
 				return err
 			}
 			msg := fmt.Sprintf("Pembayaran diterima untuk pelanggan yang sudah dihapus: perlu refund/recharge manual\nGateway: %s %s\nRef: %s\nJumlah: %s\nUsername: %s",
-				pr.Gateway, pr.Channel, pr.Ref, money(pr.Amount), pr.Username)
+				pr.Gateway, pr.Channel, pr.Ref, view.Money(pr.Amount), pr.Username)
 			if err := s.Billing.Alert(ctx, msg); err != nil {
 				slog.Error("operator alert", "ref", pr.Ref, "err", err)
 			}
@@ -136,7 +137,7 @@ func (s *Server) settlePayment(ctx context.Context, pr db.PaymentRequest, st pay
 		// a repeated callback logs and alerts again. Add a status via table rebuild if that gets noisy.
 		slog.Warn("payment refunded by the gateway after it was settled", "ref", pr.Ref)
 		msg := fmt.Sprintf("Gateway melaporkan REFUND/chargeback untuk pembayaran yang sudah lunas: tidak dibatalkan otomatis, cek manual\nGateway: %s %s\nRef: %s\nJumlah: %s\nUsername: %s",
-			pr.Gateway, pr.Channel, pr.Ref, money(pr.Amount), pr.Username)
+			pr.Gateway, pr.Channel, pr.Ref, view.Money(pr.Amount), pr.Username)
 		if err := s.queries.CreateActivityLog(ctx, db.CreateActivityLogParams{ActorType: "system", Action: "payment_refunded", Description: msg}); err != nil {
 			slog.Error("log refund", "ref", pr.Ref, "err", err)
 		}
@@ -181,7 +182,7 @@ func (s *Server) tripayCallback(w http.ResponseWriter, r *http.Request) {
 			metrics.Inc("payment_callbacks_total", "result", "unknown_paid")
 			slog.Error("payment callback: PAID for an unknown reference, settle it by hand", "ref", ref, "amount", amount, "err", err)
 			if s.Billing != nil {
-				msg := fmt.Sprintf("Pembayaran diterima untuk referensi yang tidak dikenal: perlu cek dan recharge manual\nRef: %s\nJumlah: %s", ref, money(amount))
+				msg := fmt.Sprintf("Pembayaran diterima untuk referensi yang tidak dikenal: perlu cek dan recharge manual\nRef: %s\nJumlah: %s", ref, view.Money(amount))
 				if err := s.Billing.Alert(r.Context(), msg); err != nil {
 					slog.Error("operator alert", "ref", ref, "err", err)
 				}

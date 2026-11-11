@@ -3,6 +3,7 @@ package web
 import (
 	"database/sql"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -70,7 +71,7 @@ func TestBulkRecharge(t *testing.T) {
 	before := trxCount(e.cust)
 	w := do(e.h, "POST", "/admin/customers/recharge", ids(e.cust, u2, off, nop), e.c)
 	b := w.Body.String()
-	if w.Code != 200 || !strings.Contains(b, "Isi ulang 2 pelanggan, total "+money(20000)) {
+	if w.Code != 200 || !strings.Contains(b, "Isi ulang 2 pelanggan, total "+view.Money(20000)) {
 		t.Fatalf("confirm: %d\n%s", w.Code, b)
 	}
 	if !strings.Contains(b, "Tidak ada paket untuk diperpanjang") || !strings.Contains(b, "tidak aktif") {

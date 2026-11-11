@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -92,7 +93,7 @@ func TestRegisterOTPSendLimited(t *testing.T) {
 
 func TestCSVSafeTriggers(t *testing.T) {
 	rec := []string{"=1", "+1", "-1", "@a", "\tx", "\rx", "ok", ""}
-	csvSafe(rec)
+	httpx.CSVSafe(rec)
 	for i, w := range []string{"'=1", "'+1", "'-1", "'@a", "'\tx", "'\rx", "ok", ""} {
 		if rec[i] != w {
 			t.Fatalf("%d: %q", i, rec[i])

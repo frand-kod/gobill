@@ -3,14 +3,12 @@ package web
 // Template parsing, icon loading, page rendering and flash/redirect helpers.
 
 import (
+	"github.com/frand-kod/gobill/internal/web/view"
 	"html/template"
-	"io/fs"
 	"log/slog"
 	"net/http"
-	"net/url"
 
 	"bytes"
-	"fmt"
 	gobill "github.com/frand-kod/gobill"
 	"github.com/frand-kod/gobill/internal/update"
 	"path"
@@ -23,77 +21,23 @@ func (s *Server) flashTo(w http.ResponseWriter, r *http.Request, to, msg string)
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
-// safeRedirect returns u only when it is an absolute http(s) URL.
-func safeRedirect(u string) string {
-	p, err := url.Parse(strings.TrimSpace(u))
-	if err != nil || (p.Scheme != "http" && p.Scheme != "https") || p.Host == "" {
-		return ""
-	}
-	return p.String()
-}
-
 // ---- templates ----
 
-// navActive returns the entry of keys that owns path: the longest key equal to path or one of its parents.
-// "/admin" only matches itself, otherwise the dashboard would be active on every admin page.
-// Returns "" when no key matches.
-func navActive(path string, keys ...string) string {
-	best := ""
-	for _, k := range keys {
-		if len(k) <= len(best) {
-			continue
-		}
-		if path == k || (k != "/admin" && strings.HasPrefix(path, k+"/")) {
-			best = k
-		}
-	}
-	return best
-}
-
 func (s *Server) parseTemplates() error {
-	icons, err := loadIcons()
+	funcs, err := view.Funcs()
 	if err != nil {
 		return err
 	}
-	funcs := template.FuncMap{
-		"T": func(text string) string { return s.t(text) },
-		// TT translates the part before ": ", so headings like "Edit Contact: budi" work.
-		"TT": func(text string) string {
-			if head, rest, ok := strings.Cut(text, ": "); ok {
-				return s.t(head) + ": " + rest
-			}
-			return s.t(text)
-		},
-		"hasPrefix": strings.HasPrefix,
-		// dict builds the map a sub-template takes several arguments through: {{template "x" dict "A" 1 "B" .Y}}
-		"dict": func(kv ...any) (map[string]any, error) {
-			if len(kv)%2 != 0 {
-				return nil, fmt.Errorf("dict: odd number of arguments")
-			}
-			m := make(map[string]any, len(kv)/2)
-			for i := 0; i < len(kv); i += 2 {
-				k, ok := kv[i].(string)
-				if !ok {
-					return nil, fmt.Errorf("dict: key %v is not a string", kv[i])
-				}
-				m[k] = kv[i+1]
-			}
-			return m, nil
-		},
-		"asset":     s.asset,
-		"navActive": navActive,
-		"money":     money,
-		"badge":     badge,
-		"dot":       func(v string) string { return badgeDot(badge(v)) },
-		"ts":        s.ts,
-		"icon": func(name string) (template.HTML, error) {
-			svg, ok := icons[name]
-			if !ok {
-				return "", fmt.Errorf("unknown icon %q", name)
-			}
-			return svg, nil
-		},
+	funcs["T"] = func(text string) string { return s.t(text) }
+	// TT translates the part before ": ", so headings like "Edit Contact: budi" work.
+	funcs["TT"] = func(text string) string {
+		if head, rest, ok := strings.Cut(text, ": "); ok {
+			return s.t(head) + ": " + rest
+		}
+		return s.t(text)
 	}
+	funcs["asset"] = s.asset
+	funcs["ts"] = s.ts
 	pages := map[string][]string{
 		"login":            {"base.html", "login.html"},
 		"login_2fa":        {"base.html", "login_2fa.html"},
@@ -153,29 +97,6 @@ func (s *Server) parseTemplates() error {
 		s.templates[name] = t
 	}
 	return nil
-}
-
-// loadIcons reads web/static/icons/*.svg and marks each icon decorative. The license comment
-// stays in the markup: the ISC license needs its notice in every copy of the icon.
-func loadIcons() (map[string]template.HTML, error) {
-	files, err := fs.Glob(gobill.FS, "web/static/icons/*.svg")
-	if err != nil {
-		return nil, err
-	}
-	icons := map[string]template.HTML{}
-	for _, f := range files {
-		b, err := fs.ReadFile(gobill.FS, f)
-		if err != nil {
-			return nil, err
-		}
-		i := bytes.Index(b, []byte("<svg"))
-		if i < 0 {
-			return nil, fmt.Errorf("%s: no <svg element", f)
-		}
-		svg := bytes.Replace(b, []byte("<svg"), []byte(`<svg aria-hidden="true"`), 1)
-		icons[strings.TrimSuffix(path.Base(f), ".svg")] = template.HTML(svg)
-	}
-	return icons, nil
 }
 
 // render writes a page. The body is buffered so a template error gives a 500, not half a page.

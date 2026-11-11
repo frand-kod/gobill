@@ -5,13 +5,14 @@ package web
 import (
 	"context"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/service/diagnose"
 )
 
 func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscription, online string) diagnose.Diagnosis {
-	return (&diagnose.Service{Q: s.queries, TS: s.ts, Dur: humanDur, Bytes: humanBytes,
+	return (&diagnose.Service{Q: s.queries, TS: s.ts, Dur: view.HumanDur, Bytes: view.HumanBytes,
 		T: func(k string, a ...any) string {
 			k = s.t(k)
 			if len(a) == 0 {

@@ -5,6 +5,8 @@ package web
 import (
 	"database/sql"
 	"encoding/json"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 
@@ -178,7 +180,7 @@ func (s *Server) pTransfer(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal transfer", err)
 		return
 	}
-	s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.t("Sent %s to %s (%s)"), money(amount), maskName(to.Fullname), username))
+	s.sessions.Put(r.Context(), "flash", fmt.Sprintf(s.t("Sent %s to %s (%s)"), view.Money(amount), maskName(to.Fullname), username))
 	http.Redirect(w, r, "/portal/profile", http.StatusSeeOther)
 }
 
@@ -217,7 +219,7 @@ func (s *Server) pExtend(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal extend", errors.New("billing not configured"))
 		return
 	}
-	until, err := s.Billing.ExtendExpired(r.Context(), customerFrom(r).ID, pathID(r))
+	until, err := s.Billing.ExtendExpired(r.Context(), customerFrom(r).ID, httpx.PathID(r))
 	for _, e := range []error{billing.ErrExtendDisabled, billing.ErrExtendAlready, billing.ErrNotExpired, billing.ErrPlanNotFound, billing.ErrInactive, billing.ErrAdminOnlyPlan} {
 		if errors.Is(err, e) {
 			s.pDash(w, r, 200, s.t(e.Error()))

@@ -5,6 +5,8 @@ package web
 import (
 	"context"
 	"encoding/csv"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 
@@ -25,7 +27,7 @@ func (s *Server) logClean(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	days, ok := posInt(strings.TrimSpace(r.PostFormValue("keep")))
+	days, ok := httpx.PosInt(strings.TrimSpace(r.PostFormValue("keep")))
 	if !ok || days > 36500 || s.Billing == nil {
 		s.sessions.Put(r.Context(), "error", s.t("Enter a number greater than 0"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
@@ -151,7 +153,7 @@ func (s *Server) writeCSV(w http.ResponseWriter, name string, head []string, row
 	cw := csv.NewWriter(w)
 	cw.Write(head)
 	for _, rec := range rows {
-		csvSafe(rec)
+		httpx.CSVSafe(rec)
 		cw.Write(rec)
 	}
 	cw.Flush()
@@ -174,7 +176,7 @@ func (s *Server) exportCSV(w http.ResponseWriter, name string, head []string, pa
 	cw.Write(head)
 	for off := int64(0); ; {
 		for _, rec := range rows {
-			csvSafe(rec)
+			httpx.CSVSafe(rec)
 			cw.Write(rec)
 		}
 		cw.Flush()
@@ -203,8 +205,8 @@ func (s *Server) radiusLogRows(ss []db.RadiusSession) [][]string {
 		if x.StoppedAt.Valid {
 			stop, end = s.ts(x.StoppedAt.Int64), x.StoppedAt.Int64
 		}
-		out = append(out, []string{x.Username, x.NasIp, x.FramedIp, x.Mac, s.ts(x.StartedAt), stop, humanDur(end - x.StartedAt),
-			humanBytes(x.InputOctets), humanBytes(x.OutputOctets), x.TerminateCause})
+		out = append(out, []string{x.Username, x.NasIp, x.FramedIp, x.Mac, s.ts(x.StartedAt), stop, view.HumanDur(end - x.StartedAt),
+			view.HumanBytes(x.InputOctets), view.HumanBytes(x.OutputOctets), x.TerminateCause})
 	}
 	return out
 }

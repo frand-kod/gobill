@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"html"
 	"html/template"
 	"net"
@@ -126,7 +127,7 @@ func (s *Server) isolirFor(ctx context.Context, ip string, st map[string]string,
 		}
 		v.ExpiredAt = time.Unix(sub.ExpiresAt, 0).In(s.location()).Format("2006-01-02 15:04")
 		if p, err := s.queries.GetPlan(ctx, sub.PlanID); err == nil {
-			v.PlanName, v.Amount = p.Name, money(p.Price)
+			v.PlanName, v.Amount = p.Name, view.Money(p.Price)
 		}
 		break
 	}
@@ -312,7 +313,7 @@ func (s *Server) isolirPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := isolirView{Known: true, CustomerID: 0, Name: "Budi", Username: "budi", PlanName: "Plan 10 Mbps",
-		ExpiredAt: "2026-01-31 23:59", Amount: money(150000), ShowVoucher: true}
+		ExpiredAt: "2026-01-31 23:59", Amount: view.Money(150000), ShowVoucher: true}
 	v.Title = isolir.Value(st, "isolir_title")
 	v.Message = isolir.Value(st, "isolir_message")
 	v.Company = st["company_name"]

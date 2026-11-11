@@ -4,6 +4,8 @@ package web
 
 import (
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -39,14 +41,14 @@ func (s *Server) sessRows(ss []db.RadiusSession, now int64) []sessRow {
 		}
 		// Input is what the NAS received from the user = upload.
 		out = append(out, sessRow{ID: x.ID, User: x.Username, NAS: x.NasIp, IP: x.FramedIp, MAC: x.Mac,
-			Start: s.ts(x.StartedAt), For: humanDur(end - x.StartedAt),
-			Up: humanBytes(x.InputOctets), Down: humanBytes(x.OutputOctets), Stale: stale})
+			Start: s.ts(x.StartedAt), For: view.HumanDur(end - x.StartedAt),
+			Up: view.HumanBytes(x.InputOctets), Down: view.HumanBytes(x.OutputOctets), Stale: stale})
 	}
 	return out
 }
 
 func (s *Server) radiusDisconnect(w http.ResponseWriter, r *http.Request) {
-	sess, err := s.queries.GetRadiusSession(r.Context(), pathID(r))
+	sess, err := s.queries.GetRadiusSession(r.Context(), httpx.PathID(r))
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -63,7 +65,7 @@ func (s *Server) radiusDisconnect(w http.ResponseWriter, r *http.Request) {
 // "N disconnected, M failed". One activity log entry for the whole action.
 func (s *Server) radiusDisconnectMany(w http.ResponseWriter, r *http.Request) {
 	const back = "/admin/radius/sessions"
-	ids, ok := parseIDs(r)
+	ids, ok := httpx.ParseIDs(r)
 	if !ok {
 		s.sessions.Put(r.Context(), "error", s.t("Select at least one row"))
 		http.Redirect(w, r, back, http.StatusSeeOther)

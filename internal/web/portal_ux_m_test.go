@@ -2,6 +2,7 @@ package web
 
 import (
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"net/url"
 	"strings"
 	"testing"
@@ -34,7 +35,7 @@ func TestPortalPlansShortfall(t *testing.T) {
 	e.plan(t, "Gold", "PPPoE", 50000)
 	c, _ := custLogin(t, e, "u1", "pw12345")
 	b := do(e.h, "GET", "/portal/plans", nil, c).Body.String()
-	for _, want := range []string{"Kurang " + money(30000), `aria-describedby="sf`, "1 Hari", "Internet rumah"} {
+	for _, want := range []string{"Kurang " + view.Money(30000), `aria-describedby="sf`, "1 Hari", "Internet rumah"} {
 		if !strings.Contains(b, want) {
 			t.Errorf("plans page misses %q", want)
 		}

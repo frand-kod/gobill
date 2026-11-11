@@ -3,6 +3,8 @@ package web
 // Payment request audit list, export and detail.
 
 import (
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -41,7 +43,7 @@ func (s *Server) pgAuditRows(rs []db.SearchPaymentRequestsRow) [][]string {
 		if x.PaidAt.Valid {
 			paid = s.ts(x.PaidAt.Int64)
 		}
-		out = append(out, []string{x.Ref, x.GatewayRef, x.Username, x.PlanName, money(x.Amount), x.Channel, x.Status, s.ts(x.CreatedAt), s.ts(x.ExpiresAt), paid})
+		out = append(out, []string{x.Ref, x.GatewayRef, x.Username, x.PlanName, view.Money(x.Amount), x.Channel, x.Status, s.ts(x.CreatedAt), s.ts(x.ExpiresAt), paid})
 	}
 	return out
 }
@@ -85,7 +87,7 @@ func (s *Server) pgAuditExport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) pgAuditView(w http.ResponseWriter, r *http.Request) {
-	x, err := s.queries.GetPaymentAudit(r.Context(), pathID(r))
+	x, err := s.queries.GetPaymentAudit(r.Context(), httpx.PathID(r))
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -95,7 +97,7 @@ func (s *Server) pgAuditView(w http.ResponseWriter, r *http.Request) {
 		paid = s.ts(x.PaidAt.Int64)
 	}
 	rows := [][2]string{{"Transaction ID", x.Ref}, {"Gateway Ref", x.GatewayRef}, {"Username", x.Username}, {"Package Name", x.PlanName},
-		{"Package Price", money(x.Amount)}, {"Coupon Code", x.Coupon}, {"Channel", x.Channel}, {"Payment Link", x.PayUrl}, {"Status", x.Status},
+		{"Package Price", view.Money(x.Amount)}, {"Coupon Code", x.Coupon}, {"Channel", x.Channel}, {"Payment Link", x.PayUrl}, {"Status", x.Status},
 		{"Created On", s.ts(x.CreatedAt)}, {"Expires On", s.ts(x.ExpiresAt)}, {"Paid Date", paid}}
 	s.render(w, r, 200, "pay_audit", Page{Title: "Payment Audit", Data: rows})
 }
