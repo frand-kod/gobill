@@ -1,4 +1,4 @@
-package main
+package selfupdate
 
 import (
 	"net/http"
@@ -20,7 +20,7 @@ func TestAuditSec2_SignatureDoesNotBindVersion(t *testing.T) {
 	for name, c := range cases {
 		srv := fakeGitHubRaw(t, "v9.9.9", old, c.sums, true)
 		tu := newTestUpdater(t, srv.URL, "")
-		err := tu.update(t.Context(), "v0.2.4", "", true)
+		err := tu.Update(t.Context(), "v0.2.4", "", true)
 		if c.want == "" {
 			if err != nil {
 				t.Fatalf("%s: %v", name, err)
@@ -40,15 +40,15 @@ func TestHealthcheck(t *testing.T) {
 	code := 200
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(code) }))
 	defer srv.Close()
-	if err := checkHealth(srv.URL); err != nil {
+	if err := CheckHealth(srv.URL); err != nil {
 		t.Fatal(err)
 	}
 	code = 503
-	if checkHealth(srv.URL) == nil {
+	if CheckHealth(srv.URL) == nil {
 		t.Fatal("503 counted as healthy")
 	}
 	srv.Close()
-	if checkHealth(srv.URL) == nil {
+	if CheckHealth(srv.URL) == nil {
 		t.Fatal("closed server counted as healthy")
 	}
 }
@@ -57,7 +57,7 @@ func TestAuditSec2_ExplicitVersionMayRollBack(t *testing.T) {
 	bin := []byte("b")
 	srv := fakeGitHub(t, "v0.2.0", bin, sumsFor(bin), true)
 	tu := newTestUpdater(t, srv.URL, "")
-	if err := tu.update(t.Context(), "v0.2.4", "v0.2.0", true); err != nil {
+	if err := tu.Update(t.Context(), "v0.2.4", "v0.2.0", true); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(tu.bin); string(b) != "b" {

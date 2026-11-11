@@ -24,6 +24,7 @@ Daftar ini berisi semua variabel yang dibaca kode di `cmd/gobill`.
 | `GOBILL_BACKUP_MIRROR` | kosong, mati | Salinan kedua backup harian di folder lain, misalnya USB, NAS, atau rclone. Folder harus sudah ada. Lihat [backup dan restore](backup-restore.md#mirror). |
 | `GOBILL_STALE_AFTER` | `10m` | Lanjutan. Lama sesi RADIUS yang terbuka boleh tanpa Interim-Update sebelum dianggap basi. Sesi basi tidak dihitung untuk `shared_users`. Isi sekitar 2× interval interim NAS, misalnya `20m` untuk interim 10 menit. Menerima `1m` sampai `1h`. Nilai salah menghentikan start. |
 | `GOBILL_NAS_ONLINE_WINDOW` | `15m` | Lanjutan. NAS tampil online di dashboard selama paket RADIUS terbarunya tidak lebih tua dari nilai ini. Menerima `1m` sampai `24h`. Nilai salah menghentikan start. |
+| `GOBILL_JOBS` | aktif | Job latar, misalnya expiry, pengingat, dan backup. Isi `0` untuk mematikannya di proses ini. Hanya satu proses yang boleh menjalankannya. |
 | `GOBILL_TEST_MYSQL_DSN`, `GOBILL_TEST_PHP_SQL` | kosong | Hanya untuk test importer. Tidak dibaca saat aplikasi berjalan. Lihat [panduan pengembangan](../internal/pengembangan.md). |
 
 Pada instalasi baru, `install.sh` menulis `/etc/gobill/config.env` lengkap dengan komentar (bahasa Inggris) untuk setiap variabel di atas. Untuk melihat template versi Anda, jalankan `gobill config-example`. Bentuk singkatnya:

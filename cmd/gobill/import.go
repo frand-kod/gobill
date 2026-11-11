@@ -11,17 +11,18 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 
+	"github.com/frand-kod/gobill/internal/config"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/importer"
 	"github.com/frand-kod/gobill/internal/secret"
 )
 
 // runImport implements `gobill import`: PHPNuxBill MySQL -> SQLite.
-func runImport(args []string) error {
+func runImport(cfg config.Config, args []string) error {
 	fs := flag.NewFlagSet("import", flag.ContinueOnError)
 	dsn := fs.String("mysql-dsn", "", "MySQL DSN, e.g. user:pass@tcp(127.0.0.1:3306)/phpnuxbill")
 	jsonPath := fs.String("json", "", "PHPNuxBill Database Status > Backup file (JSON) instead of --mysql-dsn")
-	dbPath := fs.String("db", env("GOBILL_DB", "./gobill.db"), "target SQLite file")
+	dbPath := fs.String("db", cfg.DB, "target SQLite file")
 	tz := fs.String("timezone", "", "timezone of the old dates (default: old appconfig timezone)")
 	dry := fs.Bool("dry-run", false, "read and convert everything, then roll back")
 	force := fs.Bool("force", false, "wipe a non-empty target first")
@@ -56,7 +57,7 @@ func runImport(args []string) error {
 	if err != nil {
 		return err
 	}
-	key, _, err := secret.LoadKey(os.Getenv("GOBILL_SECRET_KEY"), *dbPath+".key")
+	key, _, err := secret.LoadKey(cfg.SecretKey, *dbPath+".key")
 	if err != nil {
 		return err
 	}
@@ -70,7 +71,7 @@ func runImport(args []string) error {
 	}
 	if *force && !*dry {
 		// Same as the web import: keep a copy of the target before it is wiped.
-		backupDir := env("GOBILL_BACKUP_DIR", filepath.Join(filepath.Dir(*dbPath), "backup"))
+		backupDir := cfg.Backup(*dbPath)
 		name, err := db.Snapshot(ctx, lite, backupDir, "pre-import")
 		if err != nil {
 			return fmt.Errorf("pre-import backup: %w", err)
