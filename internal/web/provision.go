@@ -13,6 +13,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/frand-kod/gobill/internal/settings"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -136,7 +137,7 @@ func (s *Server) provisionScript(w http.ResponseWriter, r *http.Request) {
 
 // wgPending is the sealed API password waiting for the script to be fetched (see routerWGProvision).
 func (s *Server) wgPending(ctx context.Context, id int64) ([]byte, bool) {
-	v, _ := s.queries.GetSetting(ctx, wgPendingKey(id))
+	v := settings.Get(ctx, s.queries, wgPendingKey(id))
 	enc, err := base64.StdEncoding.DecodeString(v)
 	return enc, v != "" && err == nil
 }
@@ -144,7 +145,7 @@ func (s *Server) wgPending(ctx context.Context, id int64) ([]byte, bool) {
 // wgSwitchCreds points the router at its tunnel address and new API user, remembering the previous
 // credentials (first switch only) so revoking can give them back.
 func (s *Server) wgSwitchCreds(ctx context.Context, rt db.Router, ip string, pass []byte) error {
-	if prev, _ := s.queries.GetSetting(ctx, wgPrevKey(rt.ID)); prev == "" {
+	if prev := settings.Get(ctx, s.queries, wgPrevKey(rt.ID)); prev == "" {
 		b, _ := json.Marshal(wgCreds{Host: rt.Host, Port: rt.Port, TLS: rt.Tls, User: rt.Username, Pass: rt.PasswordEnc})
 		if err := s.queries.UpsertSettingRaw(ctx, db.UpsertSettingRawParams{Key: wgPrevKey(rt.ID), Value: string(b)}); err != nil {
 			return err

@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/settings"
 	"io"
 	"log/slog"
 	"net/http"
@@ -237,14 +238,11 @@ func LogTo(q *db.Queries) func(ch, to, subject, body string, err error) {
 
 // Load reads all settings.
 func Load(ctx context.Context, q *db.Queries) (*Notifier, error) {
-	rows, err := q.ListSettings(ctx)
+	st, err := settings.List(ctx, q)
 	if err != nil {
 		return nil, err
 	}
-	n := &Notifier{Settings: map[string]string{}, HTTP: &http.Client{Timeout: 20 * time.Second}, TelegramAPI: "https://api.telegram.org", Timeout: 20 * time.Second}
-	for _, r := range rows {
-		n.Settings[r.Key] = r.Value
-	}
+	n := &Notifier{Settings: st, HTTP: &http.Client{Timeout: 20 * time.Second}, TelegramAPI: "https://api.telegram.org", Timeout: 20 * time.Second}
 	n.Log = LogTo(q)
 	return n, nil
 }

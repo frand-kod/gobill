@@ -349,9 +349,7 @@ func (s *Server) isolirReset(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if s.SettingsChanged != nil {
-		s.SettingsChanged(r.Context())
-	}
+	s.settingsSaved(r.Context())
 	s.done(w, r, "/admin/settings/isolir", "Settings saved", "settings.reset", "isolir "+sec)
 }
 

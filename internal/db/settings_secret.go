@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"log/slog"
 	"strings"
+	"sync/atomic"
 
 	"github.com/frand-kod/gobill/internal/secret"
 )
@@ -16,6 +17,9 @@ var SettingsKey []byte
 
 // SecretSettings are the settings stored encrypted.
 var SecretSettings = map[string]bool{"telegram_bot": true, "smtp_pass": true, "webhook_secret": true, "alt_wga_password": true, "tripay_api_key": true, "tripay_private_key": true, "duitku_api_key": true, "metrics_token": true, "radius_rest_secret": true, "wg_private": true}
+
+// SettingsGen counts the settings saved through UpsertSetting; the settings cache reloads when it moves.
+var SettingsGen atomic.Uint64
 
 const encPrefix = "enc1:"
 
@@ -71,7 +75,9 @@ func (q *Queries) ListSettings(ctx context.Context) ([]Setting, error) {
 
 // UpsertSetting stores a setting, encrypting the secret ones.
 func (q *Queries) UpsertSetting(ctx context.Context, arg UpsertSettingParams) error {
-	return q.UpsertSettingRaw(ctx, UpsertSettingRawParams{Key: arg.Key, Value: SealSetting(arg.Key, arg.Value)})
+	err := q.UpsertSettingRaw(ctx, UpsertSettingRawParams{Key: arg.Key, Value: SealSetting(arg.Key, arg.Value)})
+	SettingsGen.Add(1)
+	return err
 }
 
 // EncryptSettings encrypts legacy plaintext secret settings. Safe to run on every start.

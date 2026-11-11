@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/settings"
 	"log/slog"
 	"math"
 	"net"
@@ -71,10 +72,9 @@ type Server struct {
 	acctQ           chan acctJob         // accounting writes waiting for the next commit
 	octs            octCache             // last counters per open session, for usage deltas
 	nasMu           sync.Mutex
-	nasRows         []nasEntry        // listNAS cache
-	nasAt           time.Time         // when nasRows was read; zero = never
-	st              map[string]string // settings cache, under nasMu
-	stAt            time.Time
+	nasRows         []nasEntry      // listNAS cache
+	nasAt           time.Time       // when nasRows was read; zero = never
+	Settings        *settings.Store // shared settings cache; nil = made on first use
 }
 
 func (s *Server) now() time.Time { return s.Now.Now() }
@@ -147,11 +147,12 @@ func parsePrefix(spec string) netip.Prefix {
 	return netip.Prefix{}
 }
 
-// forgetNAS drops the listNAS cache.
+// forgetNAS drops the listNAS cache and the settings cache.
 func (s *Server) forgetNAS() {
 	s.nasMu.Lock()
-	s.nasAt, s.stAt = time.Time{}, time.Time{}
+	s.nasAt = time.Time{}
 	s.nasMu.Unlock()
+	s.store().Invalidate()
 }
 
 // nasByIP returns the nas whose ip (single address or CIDR) matches ip.
@@ -471,8 +472,8 @@ const InterimDefault = 300
 
 // interimInterval is the radius_interim_interval setting: seconds, 0 = do not send, unset = InterimDefault.
 func (s *Server) interimInterval(ctx context.Context) int64 {
-	v, ok := s.settings(ctx)["radius_interim_interval"]
-	if n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64); ok && err == nil && n >= 0 {
+	v := s.store().Get(ctx, "radius_interim_interval")
+	if n, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64); err == nil && n >= 0 {
 		return min(n, 1<<32-1)
 	}
 	return InterimDefault
@@ -480,30 +481,30 @@ func (s *Server) interimInterval(ctx context.Context) int64 {
 
 // sharedPolicy is the shared_users_policy setting: "reject" or "kick_oldest" (default, also when unset).
 func (s *Server) sharedPolicy(ctx context.Context) string {
-	if s.settings(ctx)["shared_users_policy"] == "reject" {
+	if s.store().Get(ctx, "shared_users_policy") == "reject" {
 		return "reject"
 	}
 	return "kick_oldest"
 }
 
-// settings is the settings table cached for nasTTL, like the nas list: a login read two or three
-// settings, each a query. A read error gives an empty map (defaults) and is retried next packet.
-func (s *Server) settings(ctx context.Context) map[string]string {
+// store is the shared settings Store; a standalone Server makes its own.
+func (s *Server) store() *settings.Store {
 	s.nasMu.Lock()
 	defer s.nasMu.Unlock()
-	if time.Since(s.stAt) < nasTTL {
-		return s.st
+	if s.Settings == nil {
+		s.Settings = settings.New(s.Q)
 	}
-	rows, err := s.Q.ListSettings(ctx)
+	return s.Settings
+}
+
+// settings is the settings table, read-only. A read error gives an empty map (defaults) and is retried
+// next packet.
+func (s *Server) settings(ctx context.Context) map[string]string {
+	m, err := s.store().View(ctx)
 	if err != nil {
 		slog.Error("radius: read settings", "err", err)
 		return map[string]string{}
 	}
-	m := make(map[string]string, len(rows))
-	for _, r := range rows {
-		m[r.Key] = r.Value
-	}
-	s.st, s.stAt = m, time.Now()
 	return m
 }
 

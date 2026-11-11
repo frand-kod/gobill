@@ -4,6 +4,7 @@ package web
 
 import (
 	"context"
+	"github.com/frand-kod/gobill/internal/settings"
 	"log/slog"
 	"net/http"
 
@@ -141,7 +142,7 @@ func (s *Server) contactTaken(r *http.Request, kind, val string, self int64) (bo
 // phoneTaken reports whether another customer uses this WhatsApp number. Only checked when
 // wa_unique_per_account is yes: by default several accounts may share one number (family, RT/RW).
 func (s *Server) phoneTaken(ctx context.Context, phone string, self int64) (bool, error) {
-	if v, _ := s.queries.GetSetting(ctx, "wa_unique_per_account"); v != "yes" {
+	if v := settings.Get(ctx, s.queries, "wa_unique_per_account"); v != "yes" {
 		return false, nil
 	}
 	want := db.CanonicalPhone(phone)

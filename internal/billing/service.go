@@ -4,6 +4,7 @@ package billing
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/settings"
 
 	"context"
 	"errors"
@@ -88,18 +89,7 @@ func (s *Service) tx(ctx context.Context, fn func(*db.Queries) error) error {
 
 func nullID(id int64) sql.NullInt64 { return sql.NullInt64{Int64: id, Valid: id > 0} }
 
-func setting(ctx context.Context, q *db.Queries, key string) string {
-	rows, err := q.ListSettings(ctx)
-	if err != nil {
-		return ""
-	}
-	for _, r := range rows {
-		if r.Key == key {
-			return r.Value
-		}
-	}
-	return ""
-}
+func setting(ctx context.Context, q *db.Queries, key string) string { return settings.Get(ctx, q, key) }
 
 // telegram sends an operator alert in the background; never blocks or fails billing.
 func (s *Service) telegram(text string) {

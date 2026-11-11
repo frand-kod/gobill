@@ -5,9 +5,8 @@ package isolir
 import (
 	"context"
 	"database/sql"
-	"regexp"
+	"github.com/frand-kod/gobill/internal/settings"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -24,22 +23,12 @@ const (
 	DefaultAllowHosts = "*.whatsapp.net\n*.whatsapp.com\nwhatsapp.com\nwhatsapp.net\ng.whatsapp.net\nmmg.whatsapp.net\nwa.me"
 )
 
-var hostRe = regexp.MustCompile(`^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)*$`)
-
 // HostLines splits an allow-list into lowercase hosts, one per line. Blank lines are dropped.
-func HostLines(v string) []string {
-	var out []string
-	for _, line := range strings.Split(v, "\n") {
-		if h := strings.ToLower(strings.TrimSpace(line)); h != "" {
-			out = append(out, h)
-		}
-	}
-	return out
-}
+func HostLines(v string) []string { return settings.HostLines(v) }
 
 // ValidHost reports whether h (lowercase) is a hostname or a *. wildcard of one, such as wa.me or
 // *.whatsapp.net.
-func ValidHost(h string) bool { return hostRe.MatchString(h) }
+func ValidHost(h string) bool { return settings.ValidHost(h) }
 
 // Forever is the expiry of an isolation with isolir_days = 0 (isolated until paid).
 var Forever = time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -104,11 +93,9 @@ func PlanID(v string) int64 {
 // plan named PlanName on the Radius device, else creates it with a 64k/64k bandwidth. The plan is
 // disabled so the portal does not sell it. The id is stored in isolir_plan_id.
 func EnsurePlan(ctx context.Context, q *db.Queries) (int64, error) {
-	if row, err := q.GetSetting(ctx, "isolir_plan_id"); err == nil {
-		if id := PlanID(row); id > 0 {
-			if _, err := q.GetPlan(ctx, id); err == nil {
-				return id, nil
-			}
+	if id := PlanID(settings.Get(ctx, q, "isolir_plan_id")); id > 0 {
+		if _, err := q.GetPlan(ctx, id); err == nil {
+			return id, nil
 		}
 	}
 	id, err := findOrCreatePlan(ctx, q)

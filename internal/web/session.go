@@ -52,3 +52,11 @@ func (s *Server) idleGuard(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+// settingsSaved is called after settings were committed: it drops the settings cache and runs the SettingsChanged hook.
+func (s *Server) settingsSaved(ctx context.Context) {
+	s.Settings.Invalidate()
+	if s.SettingsChanged != nil {
+		s.SettingsChanged(ctx)
+	}
+}

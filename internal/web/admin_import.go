@@ -11,6 +11,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/settings"
 	"io"
 	"log/slog"
 	"net/http"
@@ -320,9 +321,7 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 		s.lang.Store(m["language"])
 	}
 	s.ReloadSessionSettings(ctx)
-	if s.SettingsChanged != nil {
-		s.SettingsChanged(ctx)
-	}
+	s.settingsSaved(ctx)
 	lang := s.language()
 	msg := s.catalog.T(lang, "Import finished. Log in with a PHPNuxBill admin account.") + " " +
 		fmt.Sprintf(s.catalog.T(lang, "%d rows imported, %d skipped"), loaded, skipped) + ". " +
@@ -331,7 +330,7 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 	if err := s.queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupModeKey, Value: "import"}); err != nil {
 		slog.Error("import setup mode", "err", err)
 	}
-	if cur, _ := s.queries.GetSetting(ctx, setupKey); cur == "" {
+	if cur := settings.Get(ctx, s.queries, setupKey); cur == "" {
 		if err := s.queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupKey, Value: "started"}); err != nil {
 			slog.Error("import setup state", "err", err)
 		}
