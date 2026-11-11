@@ -24,10 +24,10 @@ import (
 	"github.com/skip2/go-qrcode"
 
 	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/isolir"
 	"github.com/frand-kod/gobill/internal/metrics"
 	"github.com/frand-kod/gobill/internal/notify"
 	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/service/setup"
 )
 
 // Settings keys the wizard keeps. setupKey is "" (not started), "started", "dismissed" (Lewati) or "done".
@@ -431,24 +431,23 @@ func (s *Server) wizSave(r *http.Request, st wizStep, ws wizState, kind int) (wi
 	return wizResult{next: true}, nil // welcome: nothing to save
 }
 
-// wizPut writes settings the way the Settings pages do: one upsert per key.
+// wizPut writes settings the way the Settings pages do, see setup.Service.Put.
 func (s *Server) wizPut(ctx context.Context, kv map[string]string) error {
-	for k, v := range kv {
-		if err := s.queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: k, Value: v}); err != nil {
-			return err
-		}
-	}
-	s.settingsSaved(ctx)
-	return nil
+	return s.setup().Put(ctx, kv)
+}
+
+func (s *Server) setup() *setup.Service {
+	return &setup.Service{Q: s.queries, PlanSvc: s.Plans, Langs: s.catalog.Languages(), Saved: s.settingsSaved}
 }
 
 func (s *Server) wizSaveCompany(r *http.Request) (wizResult, error) {
 	v := formVals(r, "company_name", "app_url", "phone")
-	if e := s.settingsErrors(v); len(e) > 0 {
-		return wizResult{v: v, e: e}, nil
-	}
-	if err := s.wizPut(r.Context(), v); err != nil {
+	e, err := s.setup().Company(r.Context(), v)
+	if err != nil {
 		return wizResult{}, err
+	}
+	if len(e) > 0 {
+		return wizResult{v: v, e: e}, nil
 	}
 	return wizResult{next: true}, nil
 }
@@ -592,43 +591,21 @@ func (s *Server) wizSaveSpeeds(r *http.Request) (wizResult, error) {
 func (s *Server) wizSavePlans(r *http.Request, ws wizState) (wizResult, error) {
 	ctx := r.Context()
 	v := formVals(r, "plan_bandwidth", "plan_router")
-	e := map[string]string{}
-	for i := range wizPlans {
+	in := setup.PlansInput{Bandwidth: v["plan_bandwidth"], Router: v["plan_router"], RouterAPI: ws.effectiveRouter() == "api"}
+	for i, p := range wizPlans {
 		v[priceKey(i)] = strings.TrimSpace(r.PostFormValue(priceKey(i)))
+		in.Templates = append(in.Templates, setup.PlanTemplate{Key: priceKey(i), Name: p.Name, Price: v[priceKey(i)], Validity: p.Validity, Unit: p.Unit})
 	}
-	have := map[string]bool{}
-	rows, err := s.queries.ListPlans(ctx, db.ListPlansParams{Limit: 1000})
+	created, e, err := s.setup().Plans(ctx, in)
 	if err != nil {
 		return wizResult{}, err
 	}
-	for _, p := range rows {
-		have[p.Name] = true
+	for _, p := range created { // what the Plans page does after a save
+		s.syncPlan(r, "add", p, "")
+		s.logActivity(r, "plan.create", p.Name)
 	}
-	api := ws.effectiveRouter() == "api"
-	for i, p := range wizPlans {
-		key := priceKey(i)
-		if v[key] == "" || have[p.Name] {
-			continue
-		}
-		form := url.Values{"name": {p.Name}, "type": {"Hotspot"}, "billing": {"prepaid"}, "price": {v[key]},
-			"validity": {strconv.FormatInt(p.Validity, 10)}, "validity_unit": {p.Unit}, "bandwidth_id": {v["plan_bandwidth"]},
-			"enabled": {"1"}, "audience": {"public"}, "device": {"Radius"}}
-		if api {
-			form.Set("device", "MikrotikHotspot")
-			form.Set("router_id", v["plan_router"])
-		}
-		if ok, errs := s.wizReplay(r, http.HandlerFunc(s.planSave), 0, form); !ok {
-			for k, msg := range errs {
-				switch k {
-				case "bandwidth_id":
-					e["plan_bandwidth"] = msg
-				case "router_id":
-					e["plan_router"] = msg
-				default:
-					e[key] = msg
-				}
-			}
-		}
+	for k, msg := range e {
+		e[k] = s.t(msg)
 	}
 	if len(e) > 0 {
 		return wizResult{v: v, e: e}, nil
@@ -645,17 +622,9 @@ func (s *Server) wizSaveWA(r *http.Request, kind int) (wizResult, error) {
 		}
 		return wizResult{v: v, e: e}, nil
 	}
-	kv := map[string]string{}
-	for _, k := range []string{"alt_wga_server_url", "alt_wga_device_id", "alt_wga_username"} {
-		kv[k] = strings.TrimSpace(r.PostFormValue(k))
-	}
-	if pw := r.PostFormValue("alt_wga_password"); pw != "" { // empty keeps the saved password
-		kv["alt_wga_password"] = pw
-	}
-	if x := r.PostFormValue("notify_customers"); x == "yes" || x == "no" {
-		kv["notify_customers"] = x
-	}
-	if err := s.wizPut(r.Context(), kv); err != nil {
+	err := s.setup().WhatsApp(r.Context(), setup.WhatsApp{URL: r.PostFormValue("alt_wga_server_url"), Device: r.PostFormValue("alt_wga_device_id"),
+		User: r.PostFormValue("alt_wga_username"), Password: r.PostFormValue("alt_wga_password"), Notify: r.PostFormValue("notify_customers")})
+	if err != nil {
 		return wizResult{}, err
 	}
 	return wizResult{next: true}, nil
@@ -672,59 +641,34 @@ func (s *Server) wizSaveQRIS(r *http.Request, ws wizState) (wizResult, error) {
 	v := map[string]string{"qris_payload": text}
 	e := map[string]string{}
 	if qerr := qrisUpload(r, v); qerr != "" {
-		e["qris_payload"] = qerr
-	} else if v["qris_payload"] != "" && payment.QRISValid(v["qris_payload"]) != nil {
-		e["qris_payload"] = "Paste the full static QRIS text, the CRC must match"
+		return wizResult{v: v, e: map[string]string{"qris_payload": qerr}}, nil
+	}
+	e, err := s.setup().QRIS(r.Context(), current, v["qris_payload"])
+	if err != nil {
+		return wizResult{}, err
 	}
 	if len(e) > 0 {
 		return wizResult{v: v, e: e}, nil
-	}
-	if v["qris_payload"] != current {
-		if err := s.wizPut(r.Context(), map[string]string{"qris_payload": v["qris_payload"]}); err != nil {
-			return wizResult{}, err
-		}
 	}
 	return wizResult{next: true}, nil
 }
 
 func (s *Server) wizSaveTripay(r *http.Request) (wizResult, error) {
-	kv := map[string]string{"payment_gateway": ""}
-	if r.PostFormValue("tripay_on") == "1" {
-		kv["payment_gateway"] = "tripay"
-	}
-	for _, k := range []string{"tripay_merchant_code", "tripay_mode", "tripay_channel"} {
-		kv[k] = strings.TrimSpace(r.PostFormValue(k))
-	}
-	if kv["tripay_mode"] == "" {
-		kv["tripay_mode"] = "sandbox"
-	}
-	for _, k := range []string{"tripay_api_key", "tripay_private_key"} { // empty keeps the saved secret
-		if x := r.PostFormValue(k); x != "" {
-			kv[k] = x
-		}
-	}
-	if e := s.settingsErrors(kv); len(e) > 0 {
-		return wizResult{v: kv, e: e}, nil
-	}
-	if err := s.wizPut(r.Context(), kv); err != nil {
+	pf := r.PostFormValue
+	kv, e, err := s.setup().Tripay(r.Context(), setup.Tripay{On: pf("tripay_on") == "1", Merchant: pf("tripay_merchant_code"), Mode: pf("tripay_mode"),
+		Channel: pf("tripay_channel"), APIKey: pf("tripay_api_key"), PrivateKey: pf("tripay_private_key")})
+	if err != nil {
 		return wizResult{}, err
+	}
+	if len(e) > 0 {
+		return wizResult{v: kv, e: e}, nil
 	}
 	return wizResult{next: true}, nil
 }
 
 // wizSaveIsolir turns Isolir on or off. The isolir plan is created the first time, as the Settings page does.
 func (s *Server) wizSaveIsolir(r *http.Request) (wizResult, error) {
-	ctx := r.Context()
-	kv := map[string]string{"isolir_enabled": "no"}
-	if r.PostFormValue("isolir_on") == "1" {
-		kv["isolir_enabled"] = "yes"
-		id, err := isolir.EnsurePlan(ctx, s.queries)
-		if err != nil {
-			return wizResult{}, err
-		}
-		kv["isolir_plan_id"] = strconv.FormatInt(id, 10)
-	}
-	if err := s.wizPut(ctx, kv); err != nil {
+	if err := s.setup().Isolir(r.Context(), r.PostFormValue("isolir_on") == "1"); err != nil {
 		return wizResult{}, err
 	}
 	return wizResult{next: true}, nil
