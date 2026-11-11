@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"strconv"
 
@@ -18,7 +19,7 @@ const batchBase = "/admin/agent-batches"
 
 // batchScope is the agent id whose batches the admin may see; 0 = every agent (managers).
 func batchScope(a *db.Admin) int64 {
-	if oneOf(a.Role, "SuperAdmin", "Admin") {
+	if httpx.OneOf(a.Role, "SuperAdmin", "Admin") {
 		return 0
 	}
 	return a.ID
@@ -27,7 +28,7 @@ func batchScope(a *db.Admin) int64 {
 // batchFor loads the batch of the path. An Agent asking for another agent's batch gets the same 404
 // as for a batch that does not exist.
 func (s *Server) batchFor(w http.ResponseWriter, r *http.Request) (db.AgentBatch, bool) {
-	b, err := s.queries.GetAgentBatch(r.Context(), pathID(r))
+	b, err := s.queries.GetAgentBatch(r.Context(), httpx.PathID(r))
 	if errors.Is(err, sql.ErrNoRows) || (err == nil && batchScope(adminFrom(r)) != 0 && b.AgentID != adminFrom(r).ID) {
 		http.NotFound(w, r)
 		return b, false
@@ -160,13 +161,13 @@ func (s *Server) abNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) abCreate(w http.ResponseWriter, r *http.Request) {
-	v := formVals(r, "agent", "plan", "paid", "bonus", "price", "note")
+	v := httpx.FormVals(r, "agent", "plan", "paid", "bonus", "price", "note")
 	e := map[string]string{}
-	agentID, ok := posInt(v["agent"])
+	agentID, ok := httpx.PosInt(v["agent"])
 	if ag, err := s.queries.GetAdmin(r.Context(), agentID); !ok || err != nil || ag.Role != "Agent" || ag.Status != "Active" {
 		e["agent"] = "Agent not found"
 	}
-	planID, ok := posInt(v["plan"])
+	planID, ok := httpx.PosInt(v["plan"])
 	if _, err := s.queries.GetPlan(r.Context(), planID); !ok || err != nil {
 		e["plan"] = "This field is required"
 	}
@@ -230,9 +231,9 @@ func (s *Server) abPay(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	v := formVals(r, "amount", "note")
+	v := httpx.FormVals(r, "amount", "note")
 	e := map[string]string{}
-	amount, ok := posInt(v["amount"])
+	amount, ok := httpx.PosInt(v["amount"])
 	if !ok || amount > 100_000_000_000 {
 		e["amount"] = "Invalid value"
 	}
@@ -260,7 +261,7 @@ func (s *Server) abReturn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	back := fmt.Sprint(batchBase, "/", b.ID)
-	ids, ok := parseIDs(r)
+	ids, ok := httpx.ParseIDs(r)
 	if !ok {
 		s.sessions.Put(r.Context(), "error", s.t("Select at least one row"))
 		http.Redirect(w, r, back, http.StatusSeeOther)

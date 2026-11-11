@@ -6,6 +6,7 @@ package web
 
 import (
 	"context"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -36,11 +37,11 @@ func (s *Server) byMode(strict, php func(http.Handler) http.Handler) func(http.H
 // ctxIsManager: the admin on ctx (set by requireAdmin) is SuperAdmin or Admin.
 func ctxIsManager(ctx context.Context) bool {
 	a, _ := ctx.Value(ctxKey{}).(*db.Admin)
-	return a != nil && oneOf(a.Role, "SuperAdmin", "Admin")
+	return a != nil && httpx.OneOf(a.Role, "SuperAdmin", "Admin")
 }
 
 // canOpenInvoices matches the invoice route (noReport): strict mode keeps the Report role out.
 func (s *Server) canOpenInvoices(ctx context.Context) bool {
 	a, _ := ctx.Value(ctxKey{}).(*db.Admin)
-	return a != nil && (!s.strictAccess(ctx) || oneOf(a.Role, "SuperAdmin", "Admin", "Agent", "Sales"))
+	return a != nil && (!s.strictAccess(ctx) || httpx.OneOf(a.Role, "SuperAdmin", "Admin", "Agent", "Sales"))
 }

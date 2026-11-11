@@ -7,6 +7,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -45,7 +46,7 @@ func radiusRestAllowed(r *http.Request, m map[string]string) bool {
 			return false
 		}
 	}
-	a, ok := peerAddr(originalPeer(r))
+	a, ok := httpx.PeerAddr(originalPeer(r))
 	if !ok {
 		return false
 	}

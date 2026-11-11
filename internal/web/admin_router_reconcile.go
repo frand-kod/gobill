@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"strings"
 
@@ -28,7 +29,7 @@ func reconChoices(kind string) []option {
 // first and applies only when the summary was confirmed. The read happens on each request, the router
 // password never reaches the page. A RADIUS or unreachable router stops here with a message.
 func (s *Server) routerReconcile(w http.ResponseWriter, r *http.Request) {
-	x, err := s.queries.GetRouter(r.Context(), pathID(r))
+	x, err := s.queries.GetRouter(r.Context(), httpx.PathID(r))
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
 		return

@@ -5,6 +5,7 @@ package web
 import (
 	"encoding/base64"
 	"github.com/frand-kod/gobill/internal/service/settingsave"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"html/template"
 	"net/http"
 
@@ -154,7 +155,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 		return append(out, override...)
 	case "localisation":
 		zones := append([]string(nil), settingsZones...)
-		if z := v["timezone"]; z != "" && !contains(zones, z) {
+		if z := v["timezone"]; z != "" && !httpx.Contains(zones, z) {
 			zones = append(zones, z)
 		}
 		out := section([]field{

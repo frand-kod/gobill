@@ -5,6 +5,7 @@ package web
 import (
 	"crypto/subtle"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -61,7 +62,7 @@ func (s *Server) testLoginForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) testLoginRun(w http.ResponseWriter, r *http.Request) {
-	v := formVals(r, "username", "password", "nas", "mac", "port_type", "port_id")
+	v := httpx.FormVals(r, "username", "password", "nas", "mac", "port_type", "port_id")
 	user, pw := strings.TrimSpace(v["username"]), v["password"]
 	e := map[string]string{}
 	switch {

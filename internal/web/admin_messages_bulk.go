@@ -3,6 +3,7 @@ package web
 // Bulk message jobs: progress, status and selected-customer sending.
 
 import (
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
 	"context"
@@ -112,20 +113,20 @@ func (s *Server) msgBulkForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) msgBulkStart(w http.ResponseWriter, r *http.Request) {
-	v := formVals(r, "service", "router", "status", "channel", "subject", "message")
+	v := httpx.FormVals(r, "service", "router", "status", "channel", "subject", "message")
 	e := map[string]string{}
-	if !oneOf(v["service"], "all", "PPPoE", "Hotspot", "VPN") {
+	if !httpx.OneOf(v["service"], "all", "PPPoE", "Hotspot", "VPN") {
 		e["service"] = "Choose a service type"
 	}
 	if v["router"] != "" {
-		if _, ok := posInt(v["router"]); !ok {
+		if _, ok := httpx.PosInt(v["router"]); !ok {
 			e["router"] = "Choose a router"
 		}
 	}
-	if !oneOf(v["status"], "all", "active", "expired") {
+	if !httpx.OneOf(v["status"], "all", "active", "expired") {
 		e["status"] = "Choose a status"
 	}
-	if !oneOf(v["channel"], msgChannels...) {
+	if !httpx.OneOf(v["channel"], msgChannels...) {
 		e["channel"] = "Choose a channel"
 	}
 	if v["message"] == "" {
@@ -135,7 +136,7 @@ func (s *Server) msgBulkStart(w http.ResponseWriter, r *http.Request) {
 		s.msgBulkPage(w, r, 422, v, e, "")
 		return
 	}
-	routerID, _ := posInt(v["router"])
+	routerID, _ := httpx.PosInt(v["router"])
 	svc, sub := v["service"], v["status"]
 	if svc == "all" {
 		svc = ""
@@ -179,7 +180,7 @@ func msgSelectedPage(v, e map[string]string) formPage {
 
 // custMessageForm takes the ids ticked on the customer list and shows the compose form.
 func (s *Server) custMessageForm(w http.ResponseWriter, r *http.Request) {
-	ids, ok := parseIDs(r)
+	ids, ok := httpx.ParseIDs(r)
 	if !ok {
 		s.sessions.Put(r.Context(), "error", s.t("Select at least one row"))
 		http.Redirect(w, r, "/admin/customers", http.StatusSeeOther)
@@ -194,12 +195,12 @@ func (s *Server) custMessageForm(w http.ResponseWriter, r *http.Request) {
 
 // msgSelectedSend starts the one bulk job for the chosen customers, then shows its progress page.
 func (s *Server) msgSelectedSend(w http.ResponseWriter, r *http.Request) {
-	v := formVals(r, "ids", "channel", "subject", "message")
+	v := httpx.FormVals(r, "ids", "channel", "subject", "message")
 	e := map[string]string{}
 	var ids []int64
 	for _, f := range strings.Split(v["ids"], ",") {
-		id, ok := posInt(f)
-		if !ok || len(ids) >= maxBulkIDs {
+		id, ok := httpx.PosInt(f)
+		if !ok || len(ids) >= httpx.MaxBulkIDs {
 			ids = nil
 			break
 		}
@@ -210,7 +211,7 @@ func (s *Server) msgSelectedSend(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/customers", http.StatusSeeOther)
 		return
 	}
-	if !oneOf(v["channel"], msgChannels...) {
+	if !httpx.OneOf(v["channel"], msgChannels...) {
 		e["channel"] = "Choose a channel"
 	}
 	if v["message"] == "" {

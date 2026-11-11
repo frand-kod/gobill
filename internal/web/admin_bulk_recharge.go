@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -119,7 +120,7 @@ func (s *Server) bulkRechargeCheck(r *http.Request, id int64) (c db.Customer, pl
 		return c, plan, 0, msgPlanMissing
 	}
 	// same rule as the single recharge: Agent and Sales may not renew a disabled plan
-	if plan.Enabled != 1 && !oneOf(adminFrom(r).Role, "SuperAdmin", "Admin") {
+	if plan.Enabled != 1 && !httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin") {
 		return c, plan, 0, planErrMsg(true, plan.Enabled)
 	}
 	pv, err := s.Billing.Preview(ctx, id, plan.ID)

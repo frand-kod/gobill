@@ -5,6 +5,7 @@ package web
 import (
 	"context"
 	"encoding/csv"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 
@@ -25,7 +26,7 @@ func (s *Server) logClean(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	days, ok := posInt(strings.TrimSpace(r.PostFormValue("keep")))
+	days, ok := httpx.PosInt(strings.TrimSpace(r.PostFormValue("keep")))
 	if !ok || days > 36500 || s.Billing == nil {
 		s.sessions.Put(r.Context(), "error", s.t("Enter a number greater than 0"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
@@ -151,7 +152,7 @@ func (s *Server) writeCSV(w http.ResponseWriter, name string, head []string, row
 	cw := csv.NewWriter(w)
 	cw.Write(head)
 	for _, rec := range rows {
-		csvSafe(rec)
+		httpx.CSVSafe(rec)
 		cw.Write(rec)
 	}
 	cw.Flush()
@@ -174,7 +175,7 @@ func (s *Server) exportCSV(w http.ResponseWriter, name string, head []string, pa
 	cw.Write(head)
 	for off := int64(0); ; {
 		for _, rec := range rows {
-			csvSafe(rec)
+			httpx.CSVSafe(rec)
 			cw.Write(rec)
 		}
 		cw.Flush()

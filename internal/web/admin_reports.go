@@ -5,6 +5,7 @@ package web
 import (
 	"context"
 	"encoding/csv"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -300,15 +301,6 @@ func (s *Server) reportPrint(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, 200, "report_print", Page{Title: title, Data: d})
 }
 
-// csvSafe defuses spreadsheet formula injection.
-func csvSafe(rec []string) {
-	for i, f := range rec {
-		if f != "" && strings.ContainsRune("=+-@\t\r", rune(f[0])) {
-			rec[i] = "'" + f
-		}
-	}
-}
-
 func (s *Server) reportExport(w http.ResponseWriter, r *http.Request) {
 	d, a := s.reportFilter(r, isPeriod(r))
 	rows, err := s.queries.ReportTransactions(r.Context(), db.ReportTransactionsParams(a))
@@ -329,12 +321,12 @@ func (s *Server) reportExport(w http.ResponseWriter, r *http.Request) {
 	cw.Write([]string{"Invoice", "Username", "Plan Name", "Type", "Plan Price", "Method", "Routers", "Created On", "Expires On"})
 	for _, t := range rows {
 		rec := []string{t.Invoice, t.Username, t.PlanName, t.Type, strconv.FormatInt(t.Price, 10), t.Method, t.RouterName, s.ts(t.CreatedAt), s.ts(t.PeriodEnd)}
-		csvSafe(rec)
+		httpx.CSVSafe(rec)
 		cw.Write(rec)
 	}
 	for _, p := range pays { // agent deposits, so the file adds up to the report total
 		rec := []string{"AGENT-" + strconv.FormatInt(p.ID, 10), p.AgentName, "", "", strconv.FormatInt(p.Amount, 10), agentDepositMethod, "", s.ts(p.CreatedAt), ""}
-		csvSafe(rec)
+		httpx.CSVSafe(rec)
 		cw.Write(rec)
 	}
 	cw.Flush()
@@ -359,7 +351,7 @@ func (s *Server) usageExport(w http.ResponseWriter, r *http.Request) {
 	cw.Write([]string{"Day", "Username", "Download bytes", "Upload bytes", "Total bytes"})
 	for _, x := range rows {
 		rec := []string{x.Day, x.Username, strconv.FormatInt(x.OutputOctets, 10), strconv.FormatInt(x.InputOctets, 10), strconv.FormatInt(x.InputOctets+x.OutputOctets, 10)}
-		csvSafe(rec)
+		httpx.CSVSafe(rec)
 		cw.Write(rec)
 	}
 	cw.Flush()
@@ -391,7 +383,7 @@ func (s *Server) invoice(w http.ResponseWriter, r *http.Request, t db.Transactio
 }
 
 func (s *Server) trxInvoice(w http.ResponseWriter, r *http.Request) {
-	t, err := s.queries.GetTransaction(r.Context(), pathID(r))
+	t, err := s.queries.GetTransaction(r.Context(), httpx.PathID(r))
 	if err != nil {
 		http.NotFound(w, r)
 		return

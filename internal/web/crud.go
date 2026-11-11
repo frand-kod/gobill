@@ -5,44 +5,20 @@ package web
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
 	"html"
-	"strconv"
 	"strings"
 )
-
-const maxBulkIDs = 1000
-
-// parseIDs reads the posted "ids" strictly: positive integers only, duplicates dropped, 1..maxBulkIDs of them.
-func parseIDs(r *http.Request) ([]int64, bool) {
-	r.ParseForm()
-	vals := r.PostForm["ids"]
-	if len(vals) == 0 || len(vals) > maxBulkIDs {
-		return nil, false
-	}
-	seen := map[int64]bool{}
-	var ids []int64
-	for _, v := range vals {
-		id, ok := posInt(v)
-		if !ok {
-			return nil, false
-		}
-		if !seen[id] {
-			seen[id] = true
-			ids = append(ids, id)
-		}
-	}
-	return ids, true
-}
 
 // bulkDelete runs del over the posted ids in ONE transaction, logs once and flashes "N Data Deleted Successfully".
 // A foreign-key refusal rolls everything back and shows inUse.
 func (s *Server) bulkDelete(w http.ResponseWriter, r *http.Request, back, what, inUse string, del func(q *db.Queries, ids []int64) (int64, error)) {
-	ids, ok := parseIDs(r)
+	ids, ok := httpx.ParseIDs(r)
 	if !ok {
 		s.sessions.Put(r.Context(), "error", s.t("Select at least one row"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
@@ -59,7 +35,7 @@ func (s *Server) bulkDelete(w http.ResponseWriter, r *http.Request, back, what, 
 		err = tx.Commit()
 	}
 	if err != nil {
-		if !isFK(err) {
+		if !httpx.IsFK(err) {
 			s.fail(w, "bulk delete "+what, err)
 			return
 		}
@@ -75,22 +51,6 @@ func (s *Server) bulkDone(w http.ResponseWriter, r *http.Request, back, action s
 	s.logActivity(r, action, fmt.Sprint(n))
 	s.sessions.Put(r.Context(), "flash", fmt.Sprintf("%d %s", n, s.t("Data Deleted Successfully")))
 	http.Redirect(w, r, back, http.StatusSeeOther)
-}
-
-// posInt parses a positive integer.
-func posInt(s string) (int64, bool) {
-	n, err := strconv.ParseInt(s, 10, 64)
-	return n, err == nil && n > 0
-}
-
-func oneOf(v string, list ...string) bool { return contains(list, v) }
-
-func isUnique(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
-}
-
-func isFK(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "FOREIGN KEY constraint failed")
 }
 
 func (s *Server) fail(w http.ResponseWriter, what string, err error) {
@@ -196,11 +156,6 @@ func (p *statusProbe) Header() http.Header         { return p.h }
 func (p *statusProbe) Write(b []byte) (int, error) { return len(b), nil }
 func (p *statusProbe) WriteHeader(c int)           { p.code = c }
 
-func pathID(r *http.Request) int64 {
-	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	return id
-}
-
 // logActivity records an admin action. A failure is logged, never shown.
 func (s *Server) logActivity(r *http.Request, action, desc string) {
 	err := s.queries.CreateActivityLog(r.Context(), db.CreateActivityLogParams{
@@ -223,8 +178,8 @@ func (s *Server) done(w http.ResponseWriter, r *http.Request, back, msg, action,
 
 // remove runs a delete; a foreign-key refusal becomes the friendly message inUse.
 func (s *Server) remove(w http.ResponseWriter, r *http.Request, back, what, inUse, name string, del func(id int64) error) {
-	if err := del(pathID(r)); err != nil {
-		if !isFK(err) {
+	if err := del(httpx.PathID(r)); err != nil {
+		if !httpx.IsFK(err) {
 			s.fail(w, "delete "+what, err)
 			return
 		}

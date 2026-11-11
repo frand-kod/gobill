@@ -3,6 +3,7 @@ package web
 // List pages: sorting, paging, filters, row and bulk actions, list rendering.
 
 import (
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"net/url"
 	"slices"
@@ -68,7 +69,7 @@ type bulkAction struct {
 func listSort(r *http.Request, allowed ...string) (sort, dir, param string) {
 	g := r.URL.Query().Get
 	dir = "asc"
-	if !oneOf(g("sort"), allowed...) {
+	if !httpx.OneOf(g("sort"), allowed...) {
 		return "", dir, ""
 	}
 	if g("dir") == "desc" {

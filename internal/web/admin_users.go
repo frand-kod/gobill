@@ -5,6 +5,7 @@ package web
 import (
 	"database/sql"
 	"errors"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 
@@ -154,7 +155,7 @@ func (s *Server) adminNew(w http.ResponseWriter, r *http.Request) {
 
 // loadManaged loads the target of {id}; 404 unless the actor may manage it.
 func (s *Server) loadManaged(w http.ResponseWriter, r *http.Request) (db.Admin, bool) {
-	t, err := s.queries.GetAdmin(r.Context(), pathID(r))
+	t, err := s.queries.GetAdmin(r.Context(), httpx.PathID(r))
 	if err == sql.ErrNoRows || (err == nil && !canManage(adminFrom(r), t)) {
 		http.NotFound(w, r)
 		return t, false
@@ -180,7 +181,7 @@ func (s *Server) adminEdit(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) adminSave(w http.ResponseWriter, r *http.Request) {
 	actor := adminFrom(r)
-	id := pathID(r)
+	id := httpx.PathID(r)
 	var t *db.Admin
 	if id != 0 {
 		cur, ok := s.loadManaged(w, r)
@@ -189,7 +190,7 @@ func (s *Server) adminSave(w http.ResponseWriter, r *http.Request) {
 		}
 		t = &cur
 	}
-	v := formVals(r, "username", "fullname", "email", "phone", "city", "role", "status", "root")
+	v := httpx.FormVals(r, "username", "fullname", "email", "phone", "city", "role", "status", "root")
 	res, err := s.admins().Save(r.Context(), admin.SaveInput{ActorID: actor.ID, ActorRole: actor.Role, Assignable: assignable(actor),
 		Target: t, V: v, Pass: r.PostFormValue("password"), CPass: r.PostFormValue("cpassword")})
 	if errors.Is(err, admin.ErrForbidden) {

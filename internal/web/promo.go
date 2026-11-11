@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -207,7 +208,7 @@ func (s *Server) promoNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) promoEdit(w http.ResponseWriter, r *http.Request) {
-	p, err := s.queries.GetPromo(r.Context(), pathID(r))
+	p, err := s.queries.GetPromo(r.Context(), httpx.PathID(r))
 	if errors.Is(err, sql.ErrNoRows) {
 		http.NotFound(w, r)
 		return
@@ -229,7 +230,7 @@ func (s *Server) promoEdit(w http.ResponseWriter, r *http.Request) {
 // promoSave creates (POST /new) or updates (POST /{id}). A new image is stored only when the rest is valid,
 // and the replaced or removed image is deleted from disk after the row is saved.
 func (s *Server) promoSave(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
+	id := httpx.PathID(r)
 	if id == 0 && r.PathValue("id") != "" {
 		http.NotFound(w, r)
 		return
@@ -252,7 +253,7 @@ func (s *Server) promoSave(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(maxUpload); err != nil && !errors.Is(err, http.ErrNotMultipart) {
 		e["image"] = "File must be 2 MB or less"
 	}
-	v := formVals(r, "title", "body", "link", "starts", "ends")
+	v := httpx.FormVals(r, "title", "body", "link", "starts", "ends")
 	for _, k := range []string{"show_isolir", "show_portal", "active"} {
 		v[k] = ""
 		if r.PostFormValue(k) == "1" {
@@ -298,7 +299,7 @@ func (s *Server) promoSave(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) promoDelete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	p, err := s.queries.GetPromo(ctx, pathID(r))
+	p, err := s.queries.GetPromo(ctx, httpx.PathID(r))
 	if errors.Is(err, sql.ErrNoRows) {
 		http.NotFound(w, r)
 		return
@@ -318,7 +319,7 @@ func (s *Server) promoDelete(w http.ResponseWriter, r *http.Request) {
 func (s *Server) promoMove(dir int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		if err := s.promos().Move(ctx, pathID(r), dir); err != nil {
+		if err := s.promos().Move(ctx, httpx.PathID(r), dir); err != nil {
 			s.fail(w, "move promo", err)
 			return
 		}

@@ -5,6 +5,7 @@ package web
 import (
 	"database/sql"
 	"github.com/frand-kod/gobill/internal/service/customer"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
 	"context"
@@ -71,7 +72,7 @@ func (s *Server) cfNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) cfEdit(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
+	id := httpx.PathID(r)
 	f, err := s.queries.GetCustomField(r.Context(), id)
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
@@ -89,13 +90,13 @@ func (s *Server) cfEdit(w http.ResponseWriter, r *http.Request) {
 
 // cfSave serves both create (no {id} in the path) and update.
 func (s *Server) cfSave(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
-	v := formVals(r, cfNames...)
+	id := httpx.PathID(r)
+	v := httpx.FormVals(r, cfNames...)
 	e := map[string]string{}
 	if v["name"] == "" {
 		e["name"] = "This field is required"
 	}
-	if !oneOf(v["type"], cfTypes...) {
+	if !httpx.OneOf(v["type"], cfTypes...) {
 		e["type"] = "Invalid value"
 	}
 	if v["type"] == "select" && len(cfOptions(v["options"])) == 0 {
@@ -123,7 +124,7 @@ func (s *Server) cfSave(w http.ResponseWriter, r *http.Request) {
 				Options: v["options"], Required: req, SortOrder: order, ID: id})
 		}
 		switch {
-		case isUnique(err):
+		case httpx.IsUnique(err):
 			e["name"] = "Name already exists"
 		case err != nil:
 			s.fail(w, "save custom field", err)
@@ -146,7 +147,7 @@ func (s *Server) cfSave(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) cfDelete(w http.ResponseWriter, r *http.Request) {
 	name := ""
-	if f, err := s.queries.GetCustomField(r.Context(), pathID(r)); err == nil {
+	if f, err := s.queries.GetCustomField(r.Context(), httpx.PathID(r)); err == nil {
 		name = f.Name
 	}
 	s.remove(w, r, "/admin/fields", "field", "Custom field is in use", name, func(id int64) error {
@@ -215,7 +216,7 @@ func (s *Server) cfCheck(ctx context.Context, r *http.Request, v, e map[string]s
 				e[k] = "Enter a valid date"
 			}
 		case d.Type == "select":
-			if !oneOf(val, cfOptions(d.Options)...) {
+			if !httpx.OneOf(val, cfOptions(d.Options)...) {
 				e[k] = "Invalid value"
 			}
 		}

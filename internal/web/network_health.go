@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -237,7 +238,7 @@ func (s *Server) liveView(h device.Health) *netLive {
 
 // networkPage serves the detail page; check runs the live router check first (POST).
 func (s *Server) networkPage(w http.ResponseWriter, r *http.Request, check bool) {
-	kind, id, ctx := r.PathValue("kind"), pathID(r), r.Context()
+	kind, id, ctx := r.PathValue("kind"), httpx.PathID(r), r.Context()
 	var p netPage
 	switch kind {
 	case "router":

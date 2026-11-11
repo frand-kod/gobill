@@ -3,6 +3,7 @@ package web
 // Customer voucher redemption.
 
 import (
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
 	"errors"
@@ -47,7 +48,7 @@ func (s *Server) pVoucher(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "portal voucher", err)
 	default:
 		to := "/portal/orders"
-		if u := safeRedirect(st["voucher_redirect"]); u != "" {
+		if u := httpx.SafeRedirect(st["voucher_redirect"]); u != "" {
 			to = u
 		}
 		s.flashTo(w, r, to, "Activation Vouchers Successfully")

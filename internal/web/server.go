@@ -8,6 +8,7 @@ import (
 	"github.com/frand-kod/gobill/internal/service/customer"
 	"github.com/frand-kod/gobill/internal/service/plan"
 	"github.com/frand-kod/gobill/internal/settings"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"html/template"
 	"maps"
 	"net/http"
@@ -252,15 +253,6 @@ func (s *Server) loadSettings(ctx context.Context) (map[string]string, error) {
 	return m, nil
 }
 
-func contains(list []string, v string) bool {
-	for _, x := range list {
-		if x == v {
-			return true
-		}
-	}
-	return false
-}
-
 type peerKey struct{}
 
 // realIP replaces RemoteAddr with the rightmost X-Forwarded-For entry (added by our own proxy) when
@@ -283,7 +275,7 @@ func (s *Server) realIP(next http.Handler) http.Handler {
 // proxy on this host whose clients all look like 127.0.0.1. It logs once per process, the status page
 // and Quick Setup keep showing proxyWarning.
 func (s *Server) noteProxyHeaders(r *http.Request, peer string) {
-	if a, ok := peerAddr(peer); !ok || !a.IsLoopback() {
+	if a, ok := httpx.PeerAddr(peer); !ok || !a.IsLoopback() {
 		return
 	}
 	for _, h := range []string{"CF-Connecting-IP", "X-Forwarded-For", "X-Real-IP", "Forwarded"} {
@@ -306,7 +298,7 @@ func (s *Server) proxyWarning(r *http.Request) string {
 
 // fromProxy reports whether the TCP peer may set X-Forwarded-For: loopback, or inside trusted_proxies.
 func (s *Server) fromProxy(peer string) bool {
-	a, ok := peerAddr(peer)
+	a, ok := httpx.PeerAddr(peer)
 	if !ok {
 		return false
 	}
@@ -328,19 +320,6 @@ func originalPeer(r *http.Request) string {
 		return p
 	}
 	return r.RemoteAddr
-}
-
-// peerAddr parses host:port (or a bare host) into an address; IPv4-mapped IPv6 becomes IPv4.
-func peerAddr(remote string) (netip.Addr, bool) {
-	host, _, err := net.SplitHostPort(remote)
-	if err != nil {
-		host = remote
-	}
-	a, err := netip.ParseAddr(host)
-	if err != nil {
-		return netip.Addr{}, false
-	}
-	return a.Unmap(), true
 }
 
 // parseTrustedProxies parses a comma-separated list of IPs and CIDRs. ok is false if any entry is invalid.

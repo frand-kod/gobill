@@ -4,6 +4,7 @@ package web
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net"
 	"net/http"
@@ -290,7 +291,7 @@ func (s *Server) requireAdmin(roles ...string) func(http.Handler) http.Handler {
 				http.Redirect(w, r, "/admin/password", http.StatusSeeOther)
 				return
 			}
-			if len(roles) > 0 && !contains(roles, admin.Role) {
+			if len(roles) > 0 && !httpx.Contains(roles, admin.Role) {
 				s.deny(w, r, http.StatusForbidden)
 				return
 			}

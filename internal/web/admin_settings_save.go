@@ -4,6 +4,7 @@ package web
 
 import (
 	"github.com/frand-kod/gobill/internal/service/settingsave"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 
@@ -48,7 +49,7 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "load settings", err)
 		return
 	}
-	v := formVals(r, keys...)
+	v := httpx.FormVals(r, keys...)
 	for _, f := range fields {
 		if f.Type == "checkbox" { // stored as yes/no, the PHP convention every reader expects
 			v[f.Name] = map[bool]string{true: "yes", false: "no"}[v[f.Name] == "1"]

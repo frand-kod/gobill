@@ -8,6 +8,7 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"strings"
 
@@ -37,7 +38,7 @@ func (s *Server) migFail(w http.ResponseWriter, r *http.Request, back string, er
 // routerMigration is GET /admin/routers/{id}/migration: where the router is, the step 1 test, the
 // buttons that are allowed now and the hotspot walled garden block.
 func (s *Server) routerMigration(w http.ResponseWriter, r *http.Request) {
-	x, err := s.queries.GetRouter(r.Context(), pathID(r))
+	x, err := s.queries.GetRouter(r.Context(), httpx.PathID(r))
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -105,7 +106,7 @@ func (s *Server) routerMigration(w http.ResponseWriter, r *http.Request) {
 // routerMigrationAct is POST /admin/routers/{id}/migration/{act} for test, switch, disable and rollback.
 // switch and disable first show what will happen and apply only when that page was confirmed.
 func (s *Server) routerMigrationAct(w http.ResponseWriter, r *http.Request) {
-	x, err := s.queries.GetRouter(r.Context(), pathID(r))
+	x, err := s.queries.GetRouter(r.Context(), httpx.PathID(r))
 	if err != nil || s.Billing == nil {
 		http.NotFound(w, r)
 		return

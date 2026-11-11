@@ -5,6 +5,7 @@ package web
 import (
 	"crypto/subtle"
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"net/netip"
 	"strconv"
@@ -115,7 +116,7 @@ func (s *Server) nasNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nasEdit(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
+	id := httpx.PathID(r)
 	n, err := s.queries.GetNAS(r.Context(), id)
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
@@ -129,8 +130,8 @@ func (s *Server) nasEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
-	v := formVals(r, "name", "ip", "description", "require_message_auth", "type")
+	id := httpx.PathID(r)
+	v := httpx.FormVals(r, "name", "ip", "description", "require_message_auth", "type")
 	pass := r.PostFormValue("secret")
 	v["secret"] = pass
 	e := map[string]string{}
@@ -198,7 +199,7 @@ func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
 			err = s.queries.SetNASType(r.Context(), db.SetNASTypeParams{Type: v["type"], ID: nid})
 		}
 		switch {
-		case isUnique(err):
+		case httpx.IsUnique(err):
 			if strings.Contains(err.Error(), "nas.ip") {
 				e["ip"] = "IP already exists"
 			} else {
@@ -224,7 +225,7 @@ func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nasDelete(w http.ResponseWriter, r *http.Request) {
-	n, _ := s.queries.GetNAS(r.Context(), pathID(r))
+	n, _ := s.queries.GetNAS(r.Context(), httpx.PathID(r))
 	s.remove(w, r, "/admin/nas", "nas", "NAS is in use", n.Name, func(id int64) error {
 		return s.queries.DeleteNAS(r.Context(), id)
 	})

@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
-	"net/url"
 
 	"bytes"
 	"fmt"
@@ -21,15 +20,6 @@ import (
 func (s *Server) flashTo(w http.ResponseWriter, r *http.Request, to, msg string) {
 	s.sessions.Put(r.Context(), "flash", s.t(msg))
 	http.Redirect(w, r, to, http.StatusSeeOther)
-}
-
-// safeRedirect returns u only when it is an absolute http(s) URL.
-func safeRedirect(u string) string {
-	p, err := url.Parse(strings.TrimSpace(u))
-	if err != nil || (p.Scheme != "http" && p.Scheme != "https") || p.Host == "" {
-		return ""
-	}
-	return p.String()
 }
 
 // ---- templates ----

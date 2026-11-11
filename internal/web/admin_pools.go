@@ -4,6 +4,7 @@ package web
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 
@@ -69,7 +70,7 @@ func (s *Server) poolNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) poolEdit(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
+	id := httpx.PathID(r)
 	p, err := s.queries.GetPool(r.Context(), id)
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
@@ -88,8 +89,8 @@ func (s *Server) poolEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) poolSave(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
-	v := formVals(r, "name", "local_ip", "range_ip", "router_id")
+	id := httpx.PathID(r)
+	v := httpx.FormVals(r, "name", "local_ip", "range_ip", "router_id")
 	e := map[string]string{}
 	for _, k := range []string{"name", "range_ip"} {
 		if v[k] == "" {
@@ -110,7 +111,7 @@ func (s *Server) poolSave(w http.ResponseWriter, r *http.Request) {
 			err = s.queries.UpdatePool(r.Context(), db.UpdatePoolParams{Name: v["name"], LocalIp: v["local_ip"], RangeIp: v["range_ip"], RouterID: rid, ID: id})
 		}
 		switch {
-		case isUnique(err):
+		case httpx.IsUnique(err):
 			e["name"] = "Name already exists"
 		case err != nil:
 			s.fail(w, "save pool", err)
@@ -150,7 +151,7 @@ func (s *Server) syncPool(r *http.Request, op string, p db.Pool, oldName string)
 }
 
 func (s *Server) poolDelete(w http.ResponseWriter, r *http.Request) {
-	p, _ := s.queries.GetPool(r.Context(), pathID(r))
+	p, _ := s.queries.GetPool(r.Context(), httpx.PathID(r))
 	s.remove(w, r, "/admin/pool", "pool", "Pool is used by a plan", p.Name, func(id int64) error {
 		if err := s.queries.DeletePool(r.Context(), id); err != nil {
 			return err

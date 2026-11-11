@@ -4,6 +4,7 @@ package web
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"net/url"
 
@@ -73,7 +74,7 @@ type depositConfirm struct {
 func (s *Server) balancePlans(r *http.Request) (opts []option, err error) {
 	all, plans, err := s.planOptions(r, true)
 	for _, o := range all {
-		id, _ := posInt(o.Value)
+		id, _ := httpx.PosInt(o.Value)
 		if plans[id].Type == "Balance" {
 			opts = append(opts, o)
 		}
@@ -102,7 +103,7 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/deposit?customer="+url.QueryEscape(r.PostFormValue("customer")), http.StatusSeeOther)
 		return
 	}
-	v, e := formVals(r, "customer", "plan", "amount", "note"), map[string]string{}
+	v, e := httpx.FormVals(r, "customer", "plan", "amount", "note"), map[string]string{}
 	c, err := s.queries.GetCustomerByUsername(r.Context(), v["customer"])
 	if err == sql.ErrNoRows {
 		e["customer"] = "Customer not found"
@@ -110,8 +111,8 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, "get customer", err)
 		return
 	}
-	planID, _ := posInt(v["plan"])
-	amount, _ := posInt(v["amount"])
+	planID, _ := httpx.PosInt(v["plan"])
+	amount, _ := httpx.PosInt(v["amount"])
 	switch {
 	case wholeErr(v["amount"]) != "":
 		e["amount"] = wholeErr(v["amount"])

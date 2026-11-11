@@ -4,6 +4,7 @@ package web
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -28,7 +29,7 @@ func (s *Server) pInbox(w http.ResponseWriter, r *http.Request) {
 // pInboxView shows one message of this customer and marks it read.
 func (s *Server) pInboxView(w http.ResponseWriter, r *http.Request) {
 	c := customerFrom(r)
-	m, err := s.queries.GetInboxMessage(r.Context(), db.GetInboxMessageParams{ID: pathID(r), CustomerID: c.ID})
+	m, err := s.queries.GetInboxMessage(r.Context(), db.GetInboxMessageParams{ID: httpx.PathID(r), CustomerID: c.ID})
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
 		return

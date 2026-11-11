@@ -7,6 +7,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"github.com/frand-kod/gobill/internal/service/customer"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 
@@ -65,7 +66,7 @@ func custFields(v, e map[string]string, editing bool) []field {
 }
 
 // canRecharge: the roles that may recharge a customer (same list as the customer page's CanSell).
-func canRecharge(role string) bool { return oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales") }
+func canRecharge(role string) bool { return httpx.OneOf(role, "SuperAdmin", "Admin", "Agent", "Sales") }
 
 // addPlans are the plans the add form offers: the Recharge page's list (SuperAdmin/Admin also see
 // disabled plans), without Balance plans, and only those that fit the service type. Empty for roles
@@ -75,7 +76,7 @@ func (s *Server) addPlans(r *http.Request, serviceType string) ([]option, map[in
 	if !canRecharge(adminFrom(r).Role) {
 		return nil, fit, nil
 	}
-	opts, byID, err := s.planOptions(r, !oneOf(adminFrom(r).Role, "SuperAdmin", "Admin"))
+	opts, byID, err := s.planOptions(r, !httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin"))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -125,14 +126,14 @@ func (s *Server) endsCell(unix int64) string {
 func custQuery(r *http.Request) (db.FilterCustomersParams, string, string) {
 	g := r.URL.Query().Get
 	p := db.FilterCustomersParams{Q: strings.TrimSpace(g("q")), ServiceType: g("service_type"), Status: g("status")}
-	if !oneOf(p.ServiceType, "Hotspot", "PPPoE", "Others") {
+	if !httpx.OneOf(p.ServiceType, "Hotspot", "PPPoE", "Others") {
 		p.ServiceType = ""
 	}
-	if !oneOf(p.Status, custStatuses...) {
+	if !httpx.OneOf(p.Status, custStatuses...) {
 		p.Status = ""
 	}
 	sort, dir := g("sort"), "asc"
-	if !oneOf(sort, custSorts...) {
+	if !httpx.OneOf(sort, custSorts...) {
 		sort = ""
 	} else if g("dir") == "desc" {
 		dir = "desc"
@@ -189,12 +190,12 @@ func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 	role := adminFrom(r).Role
 	lp := listPage{Heading: "Customer", Base: "/admin/customers", Q: typed, Searchable: true, ViewLink: true,
 		DeleteNote: "The balance and active plans are removed (plans are also removed from the router). Transactions are kept.",
-		CanCreate:  oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), CanEdit: oneOf(role, "SuperAdmin", "Admin"),
+		CanCreate:  httpx.OneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), CanEdit: httpx.OneOf(role, "SuperAdmin", "Admin"),
 		Cols:     []string{"Username", "Full Name", "Balance", "Package", "Service Type", "PPPoE Username", "Ends On", "Status"},
 		SortKeys: []string{"username", "fullname", "balance", "", "", "", "expires", "status"}, Sort: sort, Dir: dir,
 		Filters: []filter{{"service_type", p.ServiceType, anyOpts("Service Type", "Hotspot", "PPPoE", "Others"), "Service Type"},
 			{"status", p.Status, anyOpts("Status", custStatuses...), "Status"}}}
-	if oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales") {
+	if httpx.OneOf(role, "SuperAdmin", "Admin", "Agent", "Sales") {
 		lp.Bulk = []bulkAction{{"message", "Send message to selected", false, false, false},
 			{"recharge", "Recharge same plan", false, false, true}}
 	}
@@ -261,7 +262,7 @@ func (s *Server) custExport(w http.ResponseWriter, r *http.Request) {
 	cw.Write([]string{"Username", "Full Name", "Phone Number", "Email", "Balance", "Package", "Service Type", "PPPoE Username", "Status", "Created"})
 	for _, c := range rows {
 		rec := []string{c.Username, c.Fullname, c.Phone, c.Email, fmt.Sprint(c.Balance), c.Packages, c.ServiceType, c.PppoeUsername, c.Status, s.ts(c.CreatedAt)}
-		csvSafe(rec)
+		httpx.CSVSafe(rec)
 		cw.Write(rec)
 	}
 	cw.Flush()
@@ -278,7 +279,7 @@ func (s *Server) custNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) custGet(w http.ResponseWriter, r *http.Request) (db.Customer, bool) {
-	c, err := s.queries.GetCustomer(r.Context(), pathID(r))
+	c, err := s.queries.GetCustomer(r.Context(), httpx.PathID(r))
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
 		return c, false
@@ -339,8 +340,8 @@ func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	role := adminFrom(r).Role
-	d := custDetail{Manage: oneOf(role, "SuperAdmin", "Admin"), C: c, Created: s.ts(c.CreatedAt), SecretSet: len(c.SecretEnc) > 0,
-		CanEdit: oneOf(role, "SuperAdmin", "Admin"), CanSell: oneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), RouterFailed: r.URL.Query().Get("router_failed") == "1"}
+	d := custDetail{Manage: httpx.OneOf(role, "SuperAdmin", "Admin"), C: c, Created: s.ts(c.CreatedAt), SecretSet: len(c.SecretEnc) > 0,
+		CanEdit: httpx.OneOf(role, "SuperAdmin", "Admin"), CanSell: httpx.OneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), RouterFailed: r.URL.Query().Get("router_failed") == "1"}
 	opts, plans, err := s.planOptions(r, !d.Manage) // PHP: SuperAdmin/Admin may recharge a disabled plan
 	if err != nil {
 		s.fail(w, "list plans", err)
@@ -416,8 +417,8 @@ func (s *Server) setPassword(ctx context.Context, id int64, pass string) error {
 
 // custSave serves both create (no {id} in the path) and update.
 func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
-	v := formVals(r, custNames...)
+	id := httpx.PathID(r)
+	v := httpx.FormVals(r, custNames...)
 	pass, sec := r.PostFormValue("password"), r.PostFormValue("secret")
 	e := map[string]string{}
 	var cur db.Customer
@@ -456,7 +457,7 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 			s.fail(w, "list plans", perr)
 			return
 		}
-		pid, _ := posInt(v["plan"])
+		pid, _ := httpx.PosInt(v["plan"])
 		if plan = fit[pid]; plan.ID == 0 {
 			e["plan"] = msgPlanMissing
 		}
@@ -545,7 +546,7 @@ func (s *Server) activateNew(w http.ResponseWriter, r *http.Request, c db.Custom
 }
 
 func (s *Server) custDelete(w http.ResponseWriter, r *http.Request) {
-	id := pathID(r)
+	id := httpx.PathID(r)
 	c, err := s.queries.GetCustomer(r.Context(), id)
 	if err != nil {
 		http.NotFound(w, r)

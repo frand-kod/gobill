@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 
@@ -34,7 +35,7 @@ func (s *Server) pPay(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	p, err := s.queries.GetPlan(r.Context(), pathID(r))
+	p, err := s.queries.GetPlan(r.Context(), httpx.PathID(r))
 	if errors.Is(err, sql.ErrNoRows) || err == nil && (p.Enabled != 1 || p.Type == "Balance" || p.Billing != "prepaid") {
 		http.NotFound(w, r)
 		return
@@ -162,7 +163,7 @@ func (s *Server) payOrder(w http.ResponseWriter, r *http.Request, g Gateway, c *
 
 // ownPayment loads the payment of the logged-in customer (404 for anyone else's).
 func (s *Server) ownPayment(w http.ResponseWriter, r *http.Request) (db.PaymentRequest, bool) {
-	pr, err := s.queries.GetPaymentRequest(r.Context(), pathID(r))
+	pr, err := s.queries.GetPaymentRequest(r.Context(), httpx.PathID(r))
 	if err != nil || !pr.CustomerID.Valid || pr.CustomerID.Int64 != customerFrom(r).ID { // NULL = customer deleted: not yours
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			slog.Error("load payment", "err", err)

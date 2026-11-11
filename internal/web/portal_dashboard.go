@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"net/url"
 	"strings"
@@ -344,7 +345,7 @@ func (s *Server) pOrders(w http.ResponseWriter, r *http.Request) {
 
 // pInvoice shows the invoice only for the customer's own transaction.
 func (s *Server) pInvoice(w http.ResponseWriter, r *http.Request) {
-	t, err := s.queries.GetTransaction(r.Context(), pathID(r))
+	t, err := s.queries.GetTransaction(r.Context(), httpx.PathID(r))
 	if err != nil || !t.CustomerID.Valid || t.CustomerID.Int64 != customerFrom(r).ID {
 		http.NotFound(w, r)
 		return

@@ -3,6 +3,7 @@ package web
 // Payment request audit list, export and detail.
 
 import (
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -85,7 +86,7 @@ func (s *Server) pgAuditExport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) pgAuditView(w http.ResponseWriter, r *http.Request) {
-	x, err := s.queries.GetPaymentAudit(r.Context(), pathID(r))
+	x, err := s.queries.GetPaymentAudit(r.Context(), httpx.PathID(r))
 	if err != nil {
 		http.NotFound(w, r)
 		return

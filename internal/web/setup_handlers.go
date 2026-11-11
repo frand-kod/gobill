@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/frand-kod/gobill/internal/settings"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"html"
 	"html/template"
 	"net/http"
@@ -242,7 +243,7 @@ func (s *Server) setup() *setup.Service {
 }
 
 func (s *Server) wizSaveCompany(r *http.Request) (wizResult, error) {
-	v := formVals(r, "company_name", "app_url", "phone")
+	v := httpx.FormVals(r, "company_name", "app_url", "phone")
 	e, err := s.setup().Company(r.Context(), v)
 	if err != nil {
 		return wizResult{}, err
@@ -257,11 +258,11 @@ func (s *Server) wizSaveCompany(r *http.Request) (wizResult, error) {
 // host is edited, never duplicated. The step stays open so the commands and the live indicator show.
 func (s *Server) wizSaveRouter(r *http.Request, kind int) (wizResult, error) {
 	ctx := r.Context()
-	v := formVals(r, "router_mode", "nas_name", "nas_ip", "nas_secret", "router_name", "router_host", "router_port", "router_username", "router_password")
+	v := httpx.FormVals(r, "router_mode", "nas_name", "nas_ip", "nas_secret", "router_name", "router_host", "router_port", "router_username", "router_password")
 	e := map[string]string{}
 	res := wizResult{v: v, e: e}
 	mode := v["router_mode"]
-	if !oneOf(mode, "radius", "api", "both") {
+	if !httpx.OneOf(mode, "radius", "api", "both") {
 		e["router_mode"] = "Invalid value"
 		return res, nil
 	}
@@ -367,7 +368,7 @@ func (s *Server) wizSaveSpeeds(r *http.Request) (wizResult, error) {
 		if rate == "" {
 			continue
 		}
-		if _, ok := posInt(rate); !ok {
+		if _, ok := httpx.PosInt(rate); !ok {
 			e[key] = "Enter a number greater than 0"
 			continue
 		}
@@ -391,7 +392,7 @@ func (s *Server) wizSaveSpeeds(r *http.Request) (wizResult, error) {
 // The plans follow the router mode: RADIUS plans have no router, API plans belong to the chosen router.
 func (s *Server) wizSavePlans(r *http.Request, ws wizState) (wizResult, error) {
 	ctx := r.Context()
-	v := formVals(r, "plan_bandwidth", "plan_router")
+	v := httpx.FormVals(r, "plan_bandwidth", "plan_router")
 	in := setup.PlansInput{Bandwidth: v["plan_bandwidth"], Router: v["plan_router"], RouterAPI: ws.effectiveRouter() == "api"}
 	for i, p := range wizPlans {
 		v[priceKey(i)] = strings.TrimSpace(r.PostFormValue(priceKey(i)))
@@ -478,9 +479,9 @@ func (s *Server) wizSaveIsolir(r *http.Request) (wizResult, error) {
 // wizSaveVoucher makes the one test voucher, unless the saved one still exists.
 func (s *Server) wizSaveVoucher(r *http.Request) (wizResult, error) {
 	ctx := r.Context()
-	v := formVals(r, "voucher_plan")
+	v := httpx.FormVals(r, "voucher_plan")
 	e := map[string]string{}
-	planID, ok := posInt(v["voucher_plan"])
+	planID, ok := httpx.PosInt(v["voucher_plan"])
 	if !ok {
 		e["voucher_plan"] = "This field is required"
 		return wizResult{v: v, e: e}, nil

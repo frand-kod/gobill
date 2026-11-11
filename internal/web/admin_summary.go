@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"math"
 	"net/http"
 	"strings"
@@ -89,7 +90,7 @@ func (s *Server) custSummary(w http.ResponseWriter, r *http.Request) {
 
 	var plan db.Plan
 	hasPlan := false
-	if pid, ok := posInt(r.URL.Query().Get("plan")); ok {
+	if pid, ok := httpx.PosInt(r.URL.Query().Get("plan")); ok {
 		plan, err = s.queries.GetPlan(ctx, pid)
 		switch {
 		case err == nil:

@@ -3,6 +3,7 @@ package web
 // Integration checks: WhatsApp test and daily summary trigger.
 
 import (
+	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
 	"context"
@@ -42,7 +43,7 @@ func (s *Server) waTestSend(r *http.Request) (map[string]string, map[string]stri
 	if err != nil {
 		return nil, nil, err
 	}
-	v := formVals(r, "alt_wga_server_url", "alt_wga_device_id", "alt_wga_username", "alt_wga_password", "wa_test_phone")
+	v := httpx.FormVals(r, "alt_wga_server_url", "alt_wga_device_id", "alt_wga_username", "alt_wga_password", "wa_test_phone")
 	for k, x := range v {
 		if k != "wa_test_phone" && (k != "alt_wga_password" || x != "") {
 			n.Settings[k] = x
@@ -103,7 +104,7 @@ func waTestError(err error) string {
 // and the channel's own checks still do. Result: a flash, or an error toast with the scrubbed text.
 func (s *Server) integrationTest(w http.ResponseWriter, r *http.Request) {
 	kind := r.PathValue("kind")
-	if !oneOf(kind, "telegram", "gateway", "email", "webhook") {
+	if !httpx.OneOf(kind, "telegram", "gateway", "email", "webhook") {
 		http.NotFound(w, r)
 		return
 	}
