@@ -29,6 +29,7 @@ import (
 	"layeh.com/radius/vendors/microsoft"
 	"layeh.com/radius/vendors/mikrotik"
 
+	"github.com/frand-kod/gobill/internal/clock"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/isolir"
 	"github.com/frand-kod/gobill/internal/metrics"
@@ -48,7 +49,7 @@ type Server struct {
 	Trusted  func() bool           // clock guard; false = do not reject for expiry
 	AuthAddr string                // e.g. ":1812"
 	AcctAddr string                // e.g. ":1813"
-	Now      func() time.Time      // default time.Now
+	Now      clock.Func            // default time.Now
 	Loc      func() *time.Location // the app time zone for daily usage; nil = UTC
 	// Redeem activates an unused voucher for a customer (billing.Service.RedeemVoucher).
 	// nil disables hotspot voucher login.
@@ -76,12 +77,7 @@ type Server struct {
 	stAt            time.Time
 }
 
-func (s *Server) now() time.Time {
-	if s.Now != nil {
-		return s.Now()
-	}
-	return time.Now()
-}
+func (s *Server) now() time.Time { return s.Now.Now() }
 
 func (s *Server) loc() *time.Location {
 	if s.Loc != nil {
