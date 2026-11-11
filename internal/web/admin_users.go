@@ -4,13 +4,14 @@ package web
 
 import (
 	"database/sql"
+	"errors"
 	"log/slog"
 	"net/http"
-	"net/mail"
 
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/secret"
+	"github.com/frand-kod/gobill/internal/service/admin"
 	"golang.org/x/crypto/bcrypt"
 	"strconv"
 )
@@ -188,125 +189,34 @@ func (s *Server) adminSave(w http.ResponseWriter, r *http.Request) {
 		}
 		t = &cur
 	}
-	self := t != nil && t.ID == actor.ID
 	v := formVals(r, "username", "fullname", "email", "phone", "city", "role", "status", "root")
-	pass, cpass := r.PostFormValue("password"), r.PostFormValue("cpassword")
-	e := map[string]string{}
-
-	// Role and status: the server decides, never the form, for self and for Agents.
-	role, status := v["role"], v["status"]
-	switch {
-	case self:
-		role, status = t.Role, t.Status
-		pass = "" // own password goes through /admin/password
-	case actor.Role == "Agent":
-		role = "Sales"
-	case !oneOf(role, assignable(actor)...):
+	res, err := s.admins().Save(r.Context(), admin.SaveInput{ActorID: actor.ID, ActorRole: actor.Role, Assignable: assignable(actor),
+		Target: t, V: v, Pass: r.PostFormValue("password"), CPass: r.PostFormValue("cpassword")})
+	if errors.Is(err, admin.ErrForbidden) {
 		s.deny(w, r, http.StatusForbidden)
 		return
+	} else if err != nil {
+		s.fail(w, "save admin", err)
+		return
 	}
-	if t == nil {
-		status = "Active"
-	} else if !oneOf(status, "Active", "Inactive") {
-		status = t.Status
-	}
-	v["role"], v["status"] = role, status
-
-	if n := len([]rune(v["username"])); n < 3 || n > 45 {
-		e["username"] = "Username should be between 3 to 45 characters"
-	}
-	if n := len([]rune(v["fullname"])); n < 3 || n > 45 {
-		e["fullname"] = "Full Name should be between 3 to 45 characters"
-	}
-	if v["email"] != "" {
-		if a, err := mail.ParseAddress(v["email"]); err != nil || a.Address != v["email"] {
-			e["email"] = "Enter a valid email address"
-		}
-	}
-	if pass != "" || t == nil {
-		if n := len(pass); n < 10 || n > 72 { // bcrypt reads at most 72 bytes
-			e["password"] = "Password should be 10 to 72 characters"
-		} else if pass != cpass {
-			e["cpassword"] = "Passwords does not match"
-		}
-	}
-	root := sql.NullInt64{}
-	if role == "Sales" {
-		if actor.Role == "Agent" {
-			root = sql.NullInt64{Int64: actor.ID, Valid: true}
-		} else if v["root"] != "" {
-			rid, _ := strconv.ParseInt(v["root"], 10, 64)
-			if ag, err := s.queries.GetAdmin(r.Context(), rid); err != nil || ag.Role != "Agent" {
-				e["root"] = "Agent not found"
-			} else {
-				root = sql.NullInt64{Int64: rid, Valid: true}
-			}
-		}
-	}
-	again := func(status int) {
+	v["role"], v["status"] = res.Role, res.Status
+	if len(res.Errs) > 0 {
 		heading, action := "Add User", "/admin/users"
 		if t != nil {
 			heading, action = "Edit User", fmt.Sprint("/admin/users/", t.ID)
 		}
-		s.renderForm(w, r, status, formPage{heading, action, "/admin/users", s.adminFields(r, t, v, e)})
-	}
-	if len(e) > 0 {
-		again(422)
+		s.renderForm(w, r, 422, formPage{heading, action, "/admin/users", s.adminFields(r, t, v, res.Errs)})
 		return
 	}
-	var hash []byte
-	if pass != "" {
-		var err error
-		if hash, err = bcrypt.GenerateFromPassword([]byte(pass), bcryptCost); err != nil {
-			s.fail(w, "hash password", err)
-			return
-		}
-	}
-
 	if t == nil {
-		_, err := s.queries.CreateAdmin(r.Context(), db.CreateAdminParams{Username: v["username"], Fullname: v["fullname"],
-			PasswordHash: string(hash), Role: role, Email: v["email"], Phone: v["phone"], City: v["city"], RootID: root})
-		if isUnique(err) {
-			e["username"] = "Account already exist"
-			again(422)
-			return
-		} else if err != nil {
-			s.fail(w, "create admin", err)
-			return
-		}
-		s.done(w, r, "/admin/users", "Account Created Successfully", "users.create", v["username"]+" ("+role+")")
+		s.done(w, r, "/admin/users", "Account Created Successfully", "users.create", res.Desc)
 		return
 	}
+	s.done(w, r, "/admin/users", "User Updated Successfully", "users.update", res.Desc)
+}
 
-	// Any change that must cut off existing sessions bumps session_version.
-	var bump int64
-	if pass != "" || role != t.Role || status != t.Status {
-		bump = 1
-	}
-	n, err := s.queries.UpdateAdmin(r.Context(), db.UpdateAdminParams{Username: v["username"], Fullname: v["fullname"],
-		Email: v["email"], Phone: v["phone"], City: v["city"], Role: role, Status: status, RootID: root,
-		PasswordHash: string(hash), Bump: bump, ID: t.ID})
-	switch {
-	case isUnique(err):
-		e["username"] = "Account already exist"
-		again(422)
-		return
-	case err != nil:
-		s.fail(w, "update admin", err)
-		return
-	case n == 0:
-		e["role"] = "The last active SuperAdmin cannot be demoted or deactivated"
-		again(422)
-		return
-	}
-	desc := v["username"]
-	if role != t.Role {
-		desc += ": " + t.Role + " -> " + role
-	}
-	if pass != "" {
-		desc += ": password changed"
-	}
-	s.done(w, r, "/admin/users", "User Updated Successfully", "users.update", desc)
+func (s *Server) admins() *admin.Service {
+	return &admin.Service{Q: s.queries, Cost: bcryptCost}
 }
 
 func (s *Server) adminDelete(w http.ResponseWriter, r *http.Request) {
