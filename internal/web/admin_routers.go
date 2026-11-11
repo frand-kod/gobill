@@ -6,18 +6,21 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"slices"
 	"strings"
 	"sync"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"fmt"
+	"strconv"
+
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/secret"
 	"github.com/frand-kod/gobill/internal/wg"
-	"strconv"
 )
 
 func routerFields(v, e map[string]string, editing bool) []field {
@@ -65,8 +68,8 @@ func routerFields(v, e map[string]string, editing bool) []field {
 }
 
 func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
-	q, pg := paging(r)
-	rows, err := s.Queries.SearchRouters(r.Context(), db.SearchRoutersParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
+	q, pg := view.Paging(r)
+	rows, err := s.Queries.SearchRouters(r.Context(), db.SearchRoutersParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
 		s.Fail(w, "list routers", err)
 		return

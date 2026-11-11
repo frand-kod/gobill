@@ -4,13 +4,16 @@ package web
 
 import (
 	"database/sql"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"fmt"
-	"github.com/frand-kod/gobill/internal/db"
 	"strconv"
+
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // routerNames lists up to 1000 routers; pools are meaningless without one.
@@ -31,8 +34,8 @@ func poolFields(v, e map[string]string, routers []db.Router) []field {
 }
 
 func (s *Server) poolList(w http.ResponseWriter, r *http.Request) {
-	q, pg := paging(r)
-	rows, err := s.Queries.SearchPools(r.Context(), db.SearchPoolsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
+	q, pg := view.Paging(r)
+	rows, err := s.Queries.SearchPools(r.Context(), db.SearchPoolsParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
 		s.Fail(w, "list pools", err)
 		return

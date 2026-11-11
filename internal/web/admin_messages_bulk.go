@@ -3,17 +3,19 @@ package web
 // Bulk message jobs: progress, status and selected-customer sending.
 
 import (
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
+
+	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"context"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/notify"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/notify"
 )
 
 // ---- bulk message ----

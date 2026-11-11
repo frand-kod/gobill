@@ -5,15 +5,17 @@ package web
 import (
 	"context"
 	"encoding/csv"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"fmt"
-	"github.com/frand-kod/gobill/internal/db"
 	"strings"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // ---- log cleanup ----
@@ -109,8 +111,8 @@ func (s *Server) actorLabel(ctx context.Context, typ string, id int64) string {
 }
 
 func (s *Server) logList(w http.ResponseWriter, r *http.Request) {
-	q, pg := paging(r)
-	rows, err := s.Queries.SearchActivityLogs(r.Context(), db.SearchActivityLogsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
+	q, pg := view.Paging(r)
+	rows, err := s.Queries.SearchActivityLogs(r.Context(), db.SearchActivityLogsParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
 		s.Fail(w, "list logs", err)
 		return
@@ -213,9 +215,9 @@ func (s *Server) radiusLogRows(ss []db.RadiusSession) [][]string {
 
 // radiusLog lists all RADIUS sessions, open and closed (old logs/radius).
 func (s *Server) radiusLog(w http.ResponseWriter, r *http.Request) {
-	q, pg := paging(r)
+	q, pg := view.Paging(r)
 	p := s.radiusLogParams(r)
-	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
+	p.PageLimit, p.PageOffset = pg.Limit(), pg.Offset()
 	ss, err := s.Queries.SearchRadiusLogs(r.Context(), p)
 	if err != nil {
 		s.Fail(w, "radius log", err)
@@ -269,9 +271,9 @@ func (s *Server) msgLogRows(ms []db.MessageLog) [][]string {
 
 // msgLog lists every send attempt of internal/notify (old logs/message).
 func (s *Server) msgLog(w http.ResponseWriter, r *http.Request) {
-	q, pg := paging(r)
+	q, pg := view.Paging(r)
 	p := s.msgLogParams(r)
-	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
+	p.PageLimit, p.PageOffset = pg.Limit(), pg.Offset()
 	ms, err := s.Queries.SearchMessageLogs(r.Context(), p)
 	if err != nil {
 		s.Fail(w, "message log", err)
@@ -337,9 +339,9 @@ func (s *Server) authLogRows(rows []db.RadiusAuthLog, page bool) [][]string {
 
 // radiusAuthLog lists every RADIUS login attempt (post-auth log): accepted or rejected, with the reason.
 func (s *Server) radiusAuthLog(w http.ResponseWriter, r *http.Request) {
-	q, pg := paging(r)
+	q, pg := view.Paging(r)
 	p := s.authLogParams(r)
-	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
+	p.PageLimit, p.PageOffset = pg.Limit(), pg.Offset()
 	rows, err := s.Queries.SearchRadiusAuthLog(r.Context(), p)
 	if err != nil {
 		s.Fail(w, "auth log", err)

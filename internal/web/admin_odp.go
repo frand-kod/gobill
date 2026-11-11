@@ -4,12 +4,15 @@ package web
 
 import (
 	"database/sql"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"fmt"
-	"github.com/frand-kod/gobill/internal/db"
 	"strconv"
+
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 var odpNames = []string{"name", "coordinates", "address", "port_amount", "attenuation", "coverage", "description", "router_id"}
@@ -37,8 +40,8 @@ func odpFields(v, e map[string]string, routers []db.Router) []field {
 }
 
 func (s *Server) odpList(w http.ResponseWriter, r *http.Request) {
-	q, pg := paging(r)
-	rows, err := s.Queries.SearchODPs(r.Context(), db.SearchODPsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
+	q, pg := view.Paging(r)
+	rows, err := s.Queries.SearchODPs(r.Context(), db.SearchODPsParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
 		s.Fail(w, "list odps", err)
 		return

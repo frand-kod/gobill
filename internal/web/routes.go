@@ -8,8 +8,9 @@ import (
 	"net/http"
 
 	"context"
-	gobill "github.com/frand-kod/gobill"
 	"strings"
+
+	gobill "github.com/frand-kod/gobill"
 )
 
 // prefetchSafe is the session middleware with one change: a prefetch (Sec-Purpose, or Purpose on older

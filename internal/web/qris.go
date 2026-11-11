@@ -8,7 +8,6 @@ import (
 	"crypto/hmac"
 	"encoding/base64"
 	"errors"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"html/template"
 	"image"
 	_ "image/jpeg"
@@ -17,6 +16,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/payment"
 	"github.com/makiuchi-d/gozxing"

@@ -6,20 +6,22 @@ import (
 	"database/sql"
 	"encoding/csv"
 	"encoding/json"
+	"log/slog"
+	"net/http"
+
 	"github.com/frand-kod/gobill/internal/service/customer"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/view"
-	"log/slog"
-	"net/http"
 
 	"context"
 	"errors"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/service/diagnose"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/service/diagnose"
 )
 
 var (
@@ -179,8 +181,8 @@ func (s *Server) filterCustomers(ctx context.Context, p db.FilterCustomersParams
 
 func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 	p, sort, dir := custQuery(r)
-	_, pg := paging(r)
-	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
+	_, pg := view.Paging(r)
+	p.PageLimit, p.PageOffset = pg.Limit(), pg.Offset()
 	typed := p.Q
 	p.Q = phoneTerm(p.Q)
 	rows, err := s.filterCustomers(r.Context(), p)

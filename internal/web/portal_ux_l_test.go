@@ -1,12 +1,13 @@
 package web
 
 import (
-	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
 )

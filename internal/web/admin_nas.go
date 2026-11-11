@@ -5,15 +5,17 @@ package web
 import (
 	"crypto/subtle"
 	"database/sql"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"net/netip"
 	"strconv"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+
 	"fmt"
+	"strings"
+
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/secret"
-	"strings"
 )
 
 func nasFields(v, e map[string]string, editing bool) []field {

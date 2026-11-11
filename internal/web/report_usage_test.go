@@ -1,11 +1,12 @@
 package web
 
 import (
-	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 )
 
 // usageEnv fixes the clock at 2026-03-15 12:00 and seeds usage: u1 today and 20 days ago, u2 45 days ago,

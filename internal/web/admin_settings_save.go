@@ -3,14 +3,16 @@ package web
 // Saving a Settings tab; the transaction is in service/settingsave.
 
 import (
-	"github.com/frand-kod/gobill/internal/service/settingsave"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/service/settingsave"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"errors"
 	"fmt"
+
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
 )

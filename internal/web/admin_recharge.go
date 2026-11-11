@@ -5,19 +5,21 @@ package web
 import (
 	"bytes"
 	"database/sql"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
-	"strings"
 )
 
 type rechargeConfirm struct {

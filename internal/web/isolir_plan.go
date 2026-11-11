@@ -6,26 +6,14 @@ package web
 import (
 	"context"
 	"fmt"
+
 	"github.com/frand-kod/gobill/internal/settings"
-
-	"github.com/frand-kod/gobill/internal/isolir"
 )
-
-// isolirIDs are the isolir plan and its bandwidth, 0 while the plan is not set up.
-func (s *Server) isolirIDs(ctx context.Context) (planID, bwID int64) {
-	if planID = isolir.StoredPlanID(ctx, s.Queries); planID == 0 {
-		return 0, 0
-	}
-	if p, err := s.Queries.GetPlan(ctx, planID); err == nil && p.BandwidthID.Valid {
-		bwID = p.BandwidthID.Int64
-	}
-	return planID, bwID
-}
 
 // isolirSpeed is what the Isolir settings show: the plan name ("" = not set up yet) and its rates,
 // from the isolir bandwidth row, or the default rate when there is none yet.
 func (s *Server) isolirSpeed(ctx context.Context) (name, down, up string) {
-	planID, bwID := s.isolirIDs(ctx)
+	planID, bwID := s.IsolirIDs(ctx)
 	down, up = isolirDefaultRate, isolirDefaultRate
 	if planID == 0 {
 		return "", down, up

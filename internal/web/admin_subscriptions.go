@@ -5,16 +5,19 @@ package web
 import (
 	"database/sql"
 	"encoding/csv"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"errors"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/db"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 const localTime = "2006-01-02T15:04" // <input type="datetime-local">
@@ -35,9 +38,9 @@ func subQuery(r *http.Request) db.FilterSubscriptionsParams {
 }
 
 func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
-	_, pg := paging(r)
+	_, pg := view.Paging(r)
 	p := subQuery(r)
-	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
+	p.PageLimit, p.PageOffset = pg.Limit(), pg.Offset()
 	g := r.URL.Query().Get
 	rts, err := s.routerNames(r)
 	if err != nil {

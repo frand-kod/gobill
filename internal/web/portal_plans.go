@@ -5,19 +5,21 @@ package web
 import (
 	"database/sql"
 	"encoding/json"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"errors"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/billing"
-	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/payment"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/billing"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/payment"
 )
 
 type planRow struct {
@@ -59,7 +61,7 @@ func (s *Server) plansPage(w http.ResponseWriter, r *http.Request, code int, err
 			s.Fail(w, "portal plans", err)
 			return
 		}
-		isoPlan, _ := s.isolirIDs(r.Context())
+		isoPlan, _ := s.IsolirIDs(r.Context())
 		for _, p := range l {
 			if p.Billing == "prepaid" && p.ID != isoPlan {
 				row := planRow{Plan: p, Kind: p.Type, Duration: fmt.Sprintf("%d %s", p.Validity, s.T(p.ValidityUnit)), Short: max(p.Price-c.Balance, 0)}

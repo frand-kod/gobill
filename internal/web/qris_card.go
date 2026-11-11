@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/web/view"
 )
 
 // qrisCardSrc is the card. Its colors are fixed (a white card with a white QR tile), so it reads the
@@ -79,7 +80,7 @@ func (s *Server) qrisCard(st map[string]string, details payment.QRISDetails, qr 
 		Merchant: details.MerchantName, City: details.City, NMID: details.NMID, Provider: details.Provider,
 		Company: company, QR: qr, Sample: sample,
 	}
-	if phone := waLink(st["phone"], "62"); phone != "" {
+	if phone := view.WaLink(st["phone"], "62"); phone != "" {
 		d.Support = phone
 	}
 	if details.MerchantName == "" || strings.EqualFold(company, strings.TrimSpace(details.MerchantName)) {

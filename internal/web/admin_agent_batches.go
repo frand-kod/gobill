@@ -7,10 +7,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"strconv"
+
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
@@ -46,9 +47,9 @@ func nonNeg(s string) (int64, bool) {
 }
 
 func (s *Server) abList(w http.ResponseWriter, r *http.Request) {
-	_, pg := paging(r)
+	_, pg := view.Paging(r)
 	scope := batchScope(adminFrom(r))
-	rows, err := s.Queries.ListAgentBatches(r.Context(), db.ListAgentBatchesParams{AgentID: scope, PageLimit: pg.limit(), PageOffset: pg.offset()})
+	rows, err := s.Queries.ListAgentBatches(r.Context(), db.ListAgentBatchesParams{AgentID: scope, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
 		s.Fail(w, "list agent batches", err)
 		return
@@ -80,13 +81,13 @@ func (s *Server) abView(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	_, pg := paging(r)
+	_, pg := view.Paging(r)
 	sum, err := s.Queries.ListAgentBatches(r.Context(), db.ListAgentBatchesParams{BatchID: b.ID, PageLimit: 1})
 	if err != nil || len(sum) != 1 {
 		s.Fail(w, "agent batch summary", errors.Join(err, errors.New("no summary row")))
 		return
 	}
-	codes, err := s.Queries.ListBatchVouchers(r.Context(), db.ListBatchVouchersParams{BatchID: b.ID, Limit: pg.limit(), Offset: pg.offset()})
+	codes, err := s.Queries.ListBatchVouchers(r.Context(), db.ListBatchVouchersParams{BatchID: b.ID, Limit: pg.Limit(), Offset: pg.Offset()})
 	if err != nil {
 		s.Fail(w, "list batch vouchers", err)
 		return
@@ -172,7 +173,7 @@ func (s *Server) abCreate(w http.ResponseWriter, r *http.Request) {
 	if _, err := s.Queries.GetPlan(r.Context(), planID); !ok || err != nil {
 		e["plan"] = "This field is required"
 	}
-	if iso, _ := s.isolirIDs(r.Context()); ok && planID == iso {
+	if iso, _ := s.IsolirIDs(r.Context()); ok && planID == iso {
 		e["plan"] = billing.ErrIsolirPlan.Error()
 	}
 	paid, ok1 := nonNeg(v["paid"])

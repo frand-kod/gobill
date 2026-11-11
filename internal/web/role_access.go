@@ -6,8 +6,9 @@ package web
 
 import (
 	"context"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
+
+	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"github.com/frand-kod/gobill/internal/db"
 )

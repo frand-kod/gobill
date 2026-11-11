@@ -3,13 +3,15 @@ package web
 // Tell-a-friend invitation form.
 
 import (
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+
 	"errors"
+	"strings"
+
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
-	"strings"
 )
 
 type friendData struct {

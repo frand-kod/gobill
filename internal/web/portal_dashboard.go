@@ -7,12 +7,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
@@ -26,25 +28,25 @@ import (
 type pTrxPage struct {
 	Pay  *db.PaymentRequest // the unpaid, unexpired online payment, nil when none
 	Rows []db.Transaction
-	Nav  pageNav
+	Nav  view.PageNav
 }
 
-// pageOf drops the extra row paging() asks for and sets the pager; base is the page's URL.
-func pageOf(trx []db.Transaction, pg pager, total int64, base string) pTrxPage {
+// pageOf drops the extra row view.Paging() asks for and sets the view.Pager; base is the page's URL.
+func pageOf(trx []db.Transaction, pg view.Pager, total int64, base string) pTrxPage {
 	more := len(trx) > pg.Per
 	if more {
 		trx = trx[:pg.Per]
 	}
-	return pTrxPage{Rows: trx, Nav: newPageNav(pg, total, len(trx), more, func(page, per int) string {
-		return pageHref(base, url.Values{}, page, per)
+	return pTrxPage{Rows: trx, Nav: view.NewPageNav(pg, total, len(trx), more, func(page, per int) string {
+		return view.PageHref(base, url.Values{}, page, per)
 	})}
 }
 
 // pActivations lists the customer's own plan purchases and activations, one page at a time.
 func (s *Server) pActivations(w http.ResponseWriter, r *http.Request) {
-	_, pg := paging(r)
+	_, pg := view.Paging(r)
 	cust := sql.NullInt64{Int64: customerFrom(r).ID, Valid: true}
-	trx, err := s.Queries.ListActivationsByCustomer(r.Context(), db.ListActivationsByCustomerParams{CustomerID: cust, Limit: pg.limit(), Offset: pg.offset()})
+	trx, err := s.Queries.ListActivationsByCustomer(r.Context(), db.ListActivationsByCustomerParams{CustomerID: cust, Limit: pg.Limit(), Offset: pg.Offset()})
 	if err != nil {
 		s.Fail(w, "portal activations", err)
 		return
@@ -212,7 +214,7 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 	names := loginNames(*c)
 	n1, n2 := names2(names)
 	d := pDashData{Words: s.pTexts(), Now: now, Voucher: st["disable_voucher"] != "yes",
-		Company: st["company_name"], Phone: st["phone"], WA: waLink(st["phone"], st["country_code_phone"]),
+		Company: st["company_name"], Phone: st["phone"], WA: view.WaLink(st["phone"], st["country_code_phone"]),
 		Buy: st["payment_gateway"] != "" || st["enable_balance"] != "no" && c.Balance > 0}
 
 	// the active plan: the one that ends last
@@ -325,11 +327,11 @@ func (s *Server) pSession(x db.RadiusSession, now int64, w pWords) pSess {
 		MAC: maskMAC(x.Mac), Open: !x.StoppedAt.Valid && now-x.UpdatedAt <= radius.StaleFor(x.NasIp)}
 }
 
-// pOrders lists the customer's own transactions, perPage at a time.
+// pOrders lists the customer's own transactions, view.PerPage at a time.
 func (s *Server) pOrders(w http.ResponseWriter, r *http.Request) {
-	_, pg := paging(r)
+	_, pg := view.Paging(r)
 	cust := sql.NullInt64{Int64: customerFrom(r).ID, Valid: true}
-	trx, err := s.Queries.ListTransactionsByCustomer(r.Context(), db.ListTransactionsByCustomerParams{CustomerID: cust, Limit: pg.limit(), Offset: pg.offset()})
+	trx, err := s.Queries.ListTransactionsByCustomer(r.Context(), db.ListTransactionsByCustomerParams{CustomerID: cust, Limit: pg.Limit(), Offset: pg.Offset()})
 	if err != nil {
 		s.Fail(w, "portal orders", err)
 		return
@@ -351,7 +353,7 @@ func (s *Server) pInvoice(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	s.invoice(w, r, t)
+	s.Invoice(w, r, t)
 }
 
 // useWin is one window of the customer's daily usage chart: its total and its bars.
@@ -364,11 +366,11 @@ type useWin struct {
 type useLast struct{ Start, For, Total string }
 
 type radiusUsage struct {
-	Total, Unit string    // data since the plan started, the big number and its unit
-	Empty       bool      // no daily usage and no session recorded
-	Week, Month useWin    // the 7 and 30 day charts, built from one query
-	Last        *useLast  // nil when there is no session
-	Rows        []sessRow // the last 10 sessions, under Session history
+	Total, Unit string         // data since the plan started, the big number and its unit
+	Empty       bool           // no daily usage and no session recorded
+	Week, Month useWin         // the 7 and 30 day charts, built from one query
+	Last        *useLast       // nil when there is no session
+	Rows        []core.SessRow // the last 10 sessions, under Session history
 }
 
 // radiusUsage: bytes since the active subscription started, the daily chart for 7 and 30 days, and the
@@ -398,10 +400,10 @@ func (s *Server) radiusUsage(ctx context.Context, c db.Customer) (*radiusUsage, 
 	u.Week = useWindow(dailyUsage(totals, 7, now, loc))
 	u.Month = useWindow(dailyUsage(totals, 30, now, loc))
 	if len(ss) > 0 {
-		r := s.sessRows(ss[:1], now)[0]
+		r := s.SessRows(ss[:1], now)[0]
 		u.Last = &useLast{Start: r.Start, For: r.For, Total: view.HumanBytes(ss[0].InputOctets + ss[0].OutputOctets)}
 	}
-	u.Rows = s.sessRows(ss, now)
+	u.Rows = s.SessRows(ss, now)
 	return u, nil
 }
 

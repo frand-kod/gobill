@@ -5,9 +5,10 @@ package web
 import (
 	"net/http"
 
-	"github.com/frand-kod/gobill/internal/db"
 	"regexp"
 	"strings"
+
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // Theme defaults live in the settings table (theme_mode, theme_accent, theme_density). Admins without

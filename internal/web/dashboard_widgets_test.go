@@ -2,11 +2,12 @@ package web
 
 import (
 	"database/sql"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
 )

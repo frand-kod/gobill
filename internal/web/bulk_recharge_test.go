@@ -3,12 +3,13 @@ package web
 import (
 	"database/sql"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
 )

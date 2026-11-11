@@ -3,12 +3,14 @@ package web
 // Payment request audit list, export and detail.
 
 import (
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 
-	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"strings"
+
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 func (s *Server) pgList(w http.ResponseWriter, r *http.Request) {
@@ -51,9 +53,9 @@ func (s *Server) pgAuditRows(rs []db.SearchPaymentRequestsRow) [][]string {
 var pgStatuses = []option{{"", "Status"}, {"pending", "pending"}, {"paid", "paid"}, {"failed", "failed"}, {"expired", "expired"}}
 
 func (s *Server) pgAudit(w http.ResponseWriter, r *http.Request) {
-	q, pg := paging(r)
+	q, pg := view.Paging(r)
 	p := s.pgAuditParams(r)
-	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
+	p.PageLimit, p.PageOffset = pg.Limit(), pg.Offset()
 	rs, err := s.Queries.SearchPaymentRequests(r.Context(), p)
 	if err != nil {
 		s.Fail(w, "payment audit", err)

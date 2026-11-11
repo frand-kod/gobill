@@ -4,13 +4,16 @@ package web
 
 import (
 	"database/sql"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"fmt"
-	"github.com/frand-kod/gobill/internal/db"
 	"strconv"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 var cpnKeys = []string{"code", "type", "value", "description", "max_usage", "min_order", "max_discount", "start_date", "end_date", "status"}
@@ -31,8 +34,8 @@ func cpnFields(v, e map[string]string) []field {
 }
 
 func (s *Server) cpnList(w http.ResponseWriter, r *http.Request) {
-	q, pg := paging(r)
-	rows, err := s.Queries.SearchCoupons(r.Context(), db.SearchCouponsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
+	q, pg := view.Paging(r)
+	rows, err := s.Queries.SearchCoupons(r.Context(), db.SearchCouponsParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
 		s.Fail(w, "list coupons", err)
 		return

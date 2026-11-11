@@ -3,18 +3,20 @@ package web
 // Integration checks: WhatsApp test and daily summary trigger.
 
 import (
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
+
+	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"context"
 	"errors"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/billing"
-	"github.com/frand-kod/gobill/internal/notify"
-	"github.com/frand-kod/gobill/internal/payment"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/billing"
+	"github.com/frand-kod/gobill/internal/notify"
+	"github.com/frand-kod/gobill/internal/payment"
 )
 
 // waTest sends a test message with the (possibly unsaved) values of the WA server fields and

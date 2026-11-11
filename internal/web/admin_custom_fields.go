@@ -4,16 +4,18 @@ package web
 
 import (
 	"database/sql"
+	"net/http"
+
 	"github.com/frand-kod/gobill/internal/service/customer"
 	"github.com/frand-kod/gobill/internal/web/httpx"
-	"net/http"
 
 	"context"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/db"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 // Old customfield.php: admin-defined fields, values stored per customer.

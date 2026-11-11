@@ -6,12 +6,14 @@ package web
 import (
 	"context"
 	"encoding/json"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"math"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/radius"
@@ -31,7 +33,7 @@ type pLive struct {
 	Up     string   `json:"up"`    // current upload rate
 	Limit  string   `json:"limit"` // the plan's download limit as written, "" when none
 	Label  string   `json:"label"` // the meter's text for screen readers
-	Bars   []string `json:"bars"`  // the five meter segments, see speedMeter.bars
+	Bars   []string `json:"bars"`  // the five meter segments, see core.SpeedMeter.bars
 	Pct    int      `json:"pct"`   // download rate as a share of the plan's, 0..100; the gauge's needle
 }
 
@@ -44,7 +46,7 @@ func (l pLive) JSON() string {
 // pLiveOf reads the customer's open session. The speed uses the same samples, plan limits and meter as the
 // admin live page (liveMonitor, speedOf).
 func (s *Server) pLiveOf(ctx context.Context, c db.Customer, now int64, w pWords) (pLive, error) {
-	l := pLive{Down: "—", Up: "—", Label: "—", Bars: speedMeter{}.bars()}
+	l := pLive{Down: "—", Up: "—", Label: "—", Bars: core.SpeedMeter{}.Bars()}
 	var open []db.RadiusSession
 	var last *db.RadiusSession
 	for _, n := range loginNames(c) {
@@ -77,17 +79,17 @@ func (s *Server) pLiveOf(ctx context.Context, c db.Customer, now int64, w pWords
 	l.IP, l.Device = cur.FramedIp, maskMAC(cur.Mac)
 	l.Since, l.For = s.TS(cur.StartedAt), w.span(now-cur.StartedAt)
 	l.Used = view.HumanBytes(cur.InputOctets + cur.OutputOctets)
-	var plan planSpeed
+	var plan core.PlanSpeed
 	if pl, err := s.Queries.GetRadiusPlan(ctx, c.ID); err == nil {
-		plan = newPlanSpeed(pl.PlanName, pl.RateDown.Int64, pl.RateDownUnit.String, pl.RateUp.Int64, pl.RateUpUnit.String)
+		plan = core.NewPlanSpeed(pl.PlanName, pl.RateDown.Int64, pl.RateDownUnit.String, pl.RateUp.Int64, pl.RateUpUnit.String)
 	}
 	s.Live.Observe(*cur, now)
 	down, up, ok := s.Live.Rate(cur.ID)
-	var m speedMeter
-	l.Label, m = speedOf(down, up, ok, plan)
-	l.Bars, l.Limit = m.bars(), plan.DownLabel
+	var m core.SpeedMeter
+	l.Label, m = core.SpeedOf(down, up, ok, plan)
+	l.Bars, l.Limit = m.Bars(), plan.DownLabel
 	if ok {
-		l.Down, l.Up = rateText(down), rateText(up)
+		l.Down, l.Up = core.RateText(down), core.RateText(up)
 		if plan.MaxDown > 0 {
 			l.Pct = min(int(math.Round(down/plan.MaxDown*100)), 100)
 		}
@@ -206,17 +208,17 @@ type pConnDay struct {
 // pConnPage is one page of the connection history, grouped by day.
 type pConnPage struct {
 	Days []pConnDay
-	Nav  pageNav
+	Nav  view.PageNav
 }
 
 // pConnHistory is the customer's connection history, one page at a time. A day that continues on the next
 // page shows as two groups; ponytail: group in SQL if that is ever confusing.
 func (s *Server) pConnHistory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	_, pg := paging(r)
+	_, pg := view.Paging(r)
 	names := loginNames(*customerFrom(r))
 	n1, n2 := names2(names)
-	ss, err := s.Queries.ListRadiusSessionsByUsers(ctx, db.ListRadiusSessionsByUsersParams{Name1: n1, Name2: n2, PageLimit: pg.limit(), PageOffset: pg.offset()})
+	ss, err := s.Queries.ListRadiusSessionsByUsers(ctx, db.ListRadiusSessionsByUsersParams{Name1: n1, Name2: n2, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
 		s.Fail(w, "portal connection history", err)
 		return
@@ -245,8 +247,8 @@ func (s *Server) pConnHistory(w http.ResponseWriter, r *http.Request) {
 	for i := range out.Days {
 		out.Days[i].Down, out.Days[i].Up = view.HumanBytes(out.Days[i].down), view.HumanBytes(out.Days[i].up)
 	}
-	out.Nav = newPageNav(pg, total, len(ss), more, func(page, per int) string {
-		return pageHref("/portal/connection", url.Values{}, page, per)
+	out.Nav = view.NewPageNav(pg, total, len(ss), more, func(page, per int) string {
+		return view.PageHref("/portal/connection", url.Values{}, page, per)
 	})
 	s.prender(w, r, http.StatusOK, "p_connection", Page{Title: "Connection History", Data: out})
 }

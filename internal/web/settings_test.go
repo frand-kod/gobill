@@ -3,7 +3,6 @@ package web
 import (
 	"bytes"
 	"context"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"golang.org/x/crypto/bcrypt"
 

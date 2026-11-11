@@ -6,21 +6,23 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"html/template"
 	"log/slog"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"errors"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/billing"
-	"github.com/frand-kod/gobill/internal/db"
-	"github.com/skip2/go-qrcode"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/billing"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/skip2/go-qrcode"
 )
 
 const (
@@ -68,7 +70,7 @@ func (s *Server) planOptions(r *http.Request, enabledOnly bool) ([]option, map[i
 	}
 	var opts []option
 	byID := map[int64]db.Plan{}
-	isoPlan, _ := s.isolirIDs(r.Context())
+	isoPlan, _ := s.IsolirIDs(r.Context())
 	for _, p := range plans {
 		byID[p.ID] = p // rows and names still resolve; only the options leave the isolir plan out
 		if p.ID != isoPlan && (!enabledOnly || p.Enabled == 1) {
@@ -96,7 +98,7 @@ func maskCode(c string) string {
 }
 
 func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
-	q, pg := paging(r)
+	q, pg := view.Paging(r)
 	status := r.URL.Query().Get("status")
 	if status != "unused" && status != "used" {
 		status = ""
@@ -112,7 +114,7 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 			qStatus = "none"
 		}
 	}
-	rows, err := s.Queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Q: q, Status: qStatus, Viewer: voucherViewer(adminFrom(r)), PageLimit: pg.limit(), PageOffset: pg.offset()})
+	rows, err := s.Queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Q: q, Status: qStatus, Viewer: voucherViewer(adminFrom(r)), PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
 		s.Fail(w, "list vouchers", err)
 		return
@@ -192,7 +194,7 @@ func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {
 	if _, err := s.Queries.GetPlan(r.Context(), planID); !ok || err != nil {
 		e["plan"] = "This field is required"
 	}
-	if isoPlan, _ := s.isolirIDs(r.Context()); ok && planID == isoPlan {
+	if isoPlan, _ := s.IsolirIDs(r.Context()); ok && planID == isoPlan {
 		e["plan"] = billing.ErrIsolirPlan.Error()
 	}
 	count, ok := httpx.PosInt(v["numbervoucher"])

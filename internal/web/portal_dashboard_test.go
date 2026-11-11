@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/view"
 )
 
 // englishApp is billApp with English pages (the test app defaults to Indonesian).
@@ -206,11 +207,11 @@ func TestPortalConnectionHistoryPagingAndIsolation(t *testing.T) {
 	dashSess(t, e, other.Username, "x", "10.9.9.9", "DE:AD:BE:EF:00:01", now-600, now, 1, 1)
 
 	page1 := portalGet(t, e, c, "/portal/connection")
-	if n := strings.Count(page1, `<td class="font-mono hidden sm:table-cell">`); n != perPage {
-		t.Fatalf("page 1 rows = %d, want %d", n, perPage)
+	if n := strings.Count(page1, `<td class="font-mono hidden sm:table-cell">`); n != view.PerPage {
+		t.Fatalf("page 1 rows = %d, want %d", n, view.PerPage)
 	}
 	if !strings.Contains(page1, "/portal/connection?page=2") || strings.Contains(page1, "/portal/connection?page=3") {
-		t.Fatal("page 1 pager wrong")
+		t.Fatal("page 1 view.Pager wrong")
 	}
 	if n := strings.Count(page1, `<section class="card mb-4" aria-label=`); n < 1 {
 		t.Fatal("no day group on the history page")
@@ -225,7 +226,7 @@ func TestPortalConnectionHistoryPagingAndIsolation(t *testing.T) {
 		}
 	}
 	// garbage page numbers fall back to page 1
-	if n := strings.Count(portalGet(t, e, c, "/portal/connection?page=abc"), `<td class="font-mono hidden sm:table-cell">`); n != perPage {
+	if n := strings.Count(portalGet(t, e, c, "/portal/connection?page=abc"), `<td class="font-mono hidden sm:table-cell">`); n != view.PerPage {
 		t.Fatalf("bad page rows = %d", n)
 	}
 	// the dashboard has no session table any more

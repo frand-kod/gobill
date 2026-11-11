@@ -5,11 +5,12 @@ package web
 import (
 	"context"
 	"encoding/json"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
 	moneyfmt "github.com/frand-kod/gobill/internal/money"

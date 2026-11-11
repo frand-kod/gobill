@@ -3,10 +3,11 @@ package web
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 )
 
 // The customer picker reads /admin/search with an empty or non-empty q and a limit (capped at 20).

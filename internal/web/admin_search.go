@@ -8,11 +8,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
 )
@@ -258,7 +259,7 @@ func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searc
 		out = s.addGroup(out, "Voucher", items)
 	}
 	if allowed(roleMgr, a.Role) {
-		isoPlan, _ := s.isolirIDs(ctx) // the isolir plan is a system plan, not listed
+		isoPlan, _ := s.IsolirIDs(ctx) // the isolir plan is a system plan, not listed
 		ps, err := s.Queries.SearchPlansContains(ctx, db.SearchPlansContainsParams{Q: q, Limit: n, HiddenID: isoPlan})
 		if err != nil {
 			return nil, err

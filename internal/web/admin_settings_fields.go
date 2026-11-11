@@ -4,16 +4,18 @@ package web
 
 import (
 	"encoding/base64"
-	"github.com/frand-kod/gobill/internal/service/settingsave"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"html/template"
 	"net/http"
+
+	"github.com/frand-kod/gobill/internal/service/settingsave"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+
+	"strings"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
 	"github.com/frand-kod/gobill/internal/payment"
 	"github.com/skip2/go-qrcode"
-	"strings"
 )
 
 // settingsTabs are the sub-pages in menu order. Integrations is SuperAdmin only; the rest

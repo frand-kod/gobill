@@ -4,15 +4,9 @@ package web
 // bottom. Admin CRUD is under Settings > Promosi (/admin/settings/promo), SuperAdmin only.
 
 import (
-	"bytes"
-	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"html/template"
 	"log/slog"
 	"net/http"
 	"os"
@@ -20,102 +14,14 @@ import (
 	"strings"
 	"time"
 
-	gobill "github.com/frand-kod/gobill"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/service/promo"
 )
 
 const promoBase = "/admin/settings/promo"
 
-var promoCards = template.Must(template.New("").ParseFS(gobill.FS, "web/templates/promo_cards.html"))
-
-// promoView is one promo as the cards show it. Image is the /uploads URL, "" when none.
-type promoView struct {
-	ID                       int64
-	Title, Body, Link, Image string
-}
-
-// portalPromo is the dashboard card: the first live portal promo, the rest behind "Lainnya".
-// Key is the localStorage key; it changes with the promo ids and updated_at, so a change shows the card again.
-type portalPromo struct {
-	Key                          string
-	First                        promoView
-	More                         []promoView
-	MoreLabel, CloseLabel, Label string // translated here: the card template has no translator
-}
-
-func promoOf(p db.Promo) promoView {
-	v := promoView{ID: p.ID, Title: p.Title, Body: p.Body, Link: p.Link}
-	if uploadName.MatchString(p.Image) {
-		v.Image = "/uploads/" + p.Image
-	}
-	return v
-}
-
-// promoLive: active and inside its schedule at now (unix). Both ends are inclusive.
-func promoLive(p db.Promo, now int64) bool {
-	return p.Active == 1 && (!p.StartsAt.Valid || now >= p.StartsAt.Int64) && (!p.EndsAt.Valid || now <= p.EndsAt.Int64)
-}
-
-// promoRows returns the live promos shown at place ("isolir" or "portal"), in list order.
-func (s *Server) promoRows(ctx context.Context, place string) ([]db.Promo, error) {
-	rows, err := s.Queries.ListPromos(ctx)
-	if err != nil {
-		return nil, err
-	}
-	now := time.Now().Unix()
-	var out []db.Promo
-	for _, p := range rows {
-		shown := (place == "isolir" && p.ShowIsolir == 1) || (place == "portal" && p.ShowPortal == 1)
-		if shown && promoLive(p, now) {
-			out = append(out, p)
-		}
-	}
-	return out, nil
-}
-
-// promoBlocks is the isolir page HTML: every live isolir promo as a compact card, "" when none.
-// Errors are logged, never shown, so the isolir page still loads.
-func (s *Server) promoBlocks(ctx context.Context, place string) template.HTML {
-	rows, err := s.promoRows(ctx, place)
-	if err != nil {
-		slog.Error("promo blocks", "place", place, "err", err)
-		return ""
-	}
-	if len(rows) == 0 {
-		return ""
-	}
-	views := make([]promoView, len(rows))
-	for i, p := range rows {
-		views[i] = promoOf(p)
-	}
-	var b bytes.Buffer
-	if err := promoCards.ExecuteTemplate(&b, "promo_isolir", views); err != nil {
-		slog.Error("promo blocks", "place", place, "err", err)
-		return ""
-	}
-	return template.HTML(b.String())
-}
-
-// promoPortal builds the dashboard card, nil when no live portal promo exists.
-func (s *Server) promoPortal(ctx context.Context) (*portalPromo, error) {
-	rows, err := s.promoRows(ctx, "portal")
-	if err != nil || len(rows) == 0 {
-		return nil, err
-	}
-	h := sha256.New()
-	pp := &portalPromo{First: promoOf(rows[0]), MoreLabel: s.T("More"), CloseLabel: s.T("Close"), Label: s.T("Promotions")}
-	for i, p := range rows {
-		fmt.Fprintf(h, "%d:%d;", p.ID, p.UpdatedAt)
-		if i > 0 {
-			pp.More = append(pp.More, promoOf(p))
-		}
-	}
-	pp.Key = "gb-promo-" + hex.EncodeToString(h.Sum(nil))[:16]
-	return pp, nil
-}
-
-// removeUpload deletes one stored promo image. Only upload-format names are touched.
 func (s *Server) removeUpload(name string) {
 	if !uploadName.MatchString(name) {
 		return

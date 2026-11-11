@@ -202,7 +202,7 @@ func (s *Server) writeIsolir(w http.ResponseWriter, r *http.Request, st map[stri
 	if v.ShowVoucher {
 		v.VoucherForm = s.isolirVoucherForm()
 	}
-	v.Promos = s.promoBlocks(r.Context(), "isolir")
+	v.Promos = s.PromoBlocks(r.Context(), "isolir")
 	v.WAAdmin = isolirWALink(v, isolir.Value(st, "isolir_wa"))
 	v.LogoutURL = isolirLogoutURL(st)
 	v.PortalURL = isolirPortalURL(st)
@@ -237,7 +237,7 @@ func isolirLogoutURL(st map[string]string) string {
 
 // isolirWALink is the wa.me link with the customer, plan and amount filled in; "" without a number.
 func isolirWALink(v isolirView, phone string) string {
-	link := waLink(phone, "62")
+	link := view.WaLink(phone, "62")
 	if link == "" {
 		return ""
 	}
@@ -323,7 +323,7 @@ func (s *Server) isolirPreview(w http.ResponseWriter, r *http.Request) {
 		v.Logo = "/uploads/" + st["logo"]
 	}
 	v.VoucherForm = s.isolirVoucherForm()
-	v.Promos = s.promoBlocks(r.Context(), "isolir")
+	v.Promos = s.PromoBlocks(r.Context(), "isolir")
 	v.WAAdmin = isolirWALink(v, isolir.Value(st, "isolir_wa"))
 	v.LogoutURL = isolirLogoutURL(st)
 	v.PortalURL = isolirPortalURL(st)

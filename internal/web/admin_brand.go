@@ -7,6 +7,8 @@ import (
 
 	"context"
 	"strconv"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 )
 
 // brand returns the branding the layouts show: logo, favicon and login page text, plus
@@ -40,8 +42,8 @@ func (s *Server) brand(ctx context.Context) map[string]string {
 	}
 	out["theme_mode"], out["theme_accent"], out["theme_density"] = themeDefaults(m)
 	out["theme_font"] = themeFont(m)
-	out["phone"], out["wa"] = m["phone"], waLink(m["phone"], m["country_code_phone"]) // operator contact for the portal login
-	out["pass_min"] = strconv.Itoa(customerPasswordMin(m))                            // minlength of the portal password fields
+	out["phone"], out["wa"] = m["phone"], view.WaLink(m["phone"], m["country_code_phone"]) // operator contact for the portal login
+	out["pass_min"] = strconv.Itoa(customerPasswordMin(m))                                 // minlength of the portal password fields
 	out["theme_color"], _ = pwaColors(out["theme_accent"], out["theme_mode"])
 	if out["app_icon"] = pwaIcon(m); out["app_icon"] == "" {
 		out["app_icon"] = "/static/icons/app-192.png"

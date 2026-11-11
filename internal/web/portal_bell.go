@@ -31,7 +31,7 @@ func (s *Server) portalBell(r *http.Request, c *db.Customer) ([]bellItem, error)
 	} else if ann.Body != "" {
 		items = append(items, bellItem{Key: "announcement", Ver: verOf(ann.Body), Title: s.T("Announcement"), Text: oneLine(ann.Body), Href: "/portal"})
 	}
-	if pp, err := s.promoPortal(ctx); err != nil {
+	if pp, err := s.PromoPortal(ctx); err != nil {
 		return nil, err
 	} else if pp != nil {
 		href := pp.First.Link

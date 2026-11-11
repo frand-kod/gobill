@@ -5,10 +5,11 @@ package web
 import (
 	"crypto/subtle"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"net/netip"
 	"strings"
+
+	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"github.com/frand-kod/gobill/internal/radius"
 )

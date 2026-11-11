@@ -11,6 +11,7 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/device"
 	"github.com/frand-kod/gobill/internal/i18n"
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	gobill "github.com/frand-kod/gobill"
 )
@@ -86,8 +87,8 @@ func TestWALink(t *testing.T) {
 		{"0812", "62", ""},
 		{"", "62", ""},
 	} {
-		if got := waLink(c.phone, c.cc); got != c.want {
-			t.Errorf("waLink(%q) = %q, want %q", c.phone, got, c.want)
+		if got := view.WaLink(c.phone, c.cc); got != c.want {
+			t.Errorf("view.WaLink(%q) = %q, want %q", c.phone, got, c.want)
 		}
 	}
 }

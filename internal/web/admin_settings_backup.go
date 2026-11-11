@@ -3,8 +3,9 @@ package web
 // Database backup download; the copy is made by service/restore.
 
 import (
-	"github.com/frand-kod/gobill/internal/service/restore"
 	"net/http"
+
+	"github.com/frand-kod/gobill/internal/service/restore"
 
 	"fmt"
 	"io"

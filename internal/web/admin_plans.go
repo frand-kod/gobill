@@ -5,15 +5,17 @@ package web
 import (
 	"database/sql"
 	"errors"
-	"github.com/frand-kod/gobill/internal/service/plan"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
 
+	"github.com/frand-kod/gobill/internal/service/plan"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"fmt"
+
 	"github.com/frand-kod/gobill/internal/db"
 )
 
@@ -47,7 +49,7 @@ func (s *Server) planRefs(r *http.Request) (x planRefs, err error) {
 		return
 	}
 	// the isolir plan and its bandwidth are system rows: no select offers them
-	isoPlan, isoBW := s.isolirIDs(ctx)
+	isoPlan, isoBW := s.IsolirIDs(ctx)
 	x.bw = slices.DeleteFunc(x.bw, func(b db.Bandwidth) bool { return b.ID == isoBW })
 	x.plans = slices.DeleteFunc(x.plans, func(p db.Plan) bool { return p.ID == isoPlan })
 	return
@@ -181,9 +183,9 @@ func planFormValues(p db.Plan) map[string]string {
 }
 
 func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
-	q, pg := paging(r)
-	isoPlan, _ := s.isolirIDs(r.Context())
-	rows, err := s.Queries.SearchPlans(r.Context(), db.SearchPlansParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset(), HiddenID: isoPlan})
+	q, pg := view.Paging(r)
+	isoPlan, _ := s.IsolirIDs(r.Context())
+	rows, err := s.Queries.SearchPlans(r.Context(), db.SearchPlansParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset(), HiddenID: isoPlan})
 	if err != nil {
 		s.Fail(w, "list plans", err)
 		return
@@ -260,7 +262,7 @@ func newPlanDevice(setting, typ string) string {
 
 // isolirManaged flashes an error and reports true when id is the isolir plan, which is edited only in Settings > Isolir.
 func (s *Server) isolirManaged(w http.ResponseWriter, r *http.Request, id int64) bool {
-	if iso, _ := s.isolirIDs(r.Context()); iso == 0 || iso != id {
+	if iso, _ := s.IsolirIDs(r.Context()); iso == 0 || iso != id {
 		return false
 	}
 	s.Sessions.Put(r.Context(), "error", s.T("The Isolir plan is managed in Settings > Isolir"))

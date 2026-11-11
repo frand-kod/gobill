@@ -4,10 +4,13 @@ package web
 
 import (
 	"database/sql"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"fmt"
+
 	"github.com/frand-kod/gobill/internal/db"
 )
 
@@ -24,9 +27,9 @@ func bwFields(v, e map[string]string) []field {
 }
 
 func (s *Server) bwList(w http.ResponseWriter, r *http.Request) {
-	q, pg := paging(r)
-	_, isoBW := s.isolirIDs(r.Context()) // the isolir profile is set in Settings > Isolir
-	rows, err := s.Queries.SearchBandwidths(r.Context(), db.SearchBandwidthsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset(), HiddenID: isoBW})
+	q, pg := view.Paging(r)
+	_, isoBW := s.IsolirIDs(r.Context()) // the isolir profile is set in Settings > Isolir
+	rows, err := s.Queries.SearchBandwidths(r.Context(), db.SearchBandwidthsParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset(), HiddenID: isoBW})
 	if err != nil {
 		s.Fail(w, "list bandwidths", err)
 		return

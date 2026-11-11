@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 // Winbox thresholds: green below 50%, yellow from 50% to 75%, red above 75%. Segments are 20% each.
@@ -19,11 +20,11 @@ func TestMeterThresholds(t *testing.T) {
 	}{
 		{0, 0, "ok"}, {49, 2, "ok"}, {50, 3, "warn"}, {75, 4, "warn"}, {76, 4, "err"}, {100, 5, "err"}, {130, 5, "err"},
 	} {
-		if m := meterOf(c.pct); m.Segs != c.segs || m.Tone != c.tone {
-			t.Errorf("meterOf(%v) = %+v, want %d %s", c.pct, m, c.segs, c.tone)
+		if m := core.MeterOf(c.pct); m.Segs != c.segs || m.Tone != c.tone {
+			t.Errorf("core.MeterOf(%v) = %+v, want %d %s", c.pct, m, c.segs, c.tone)
 		}
 	}
-	b := meterOf(49).bars()
+	b := core.MeterOf(49).Bars()
 	if len(b) != 5 || b[0] != "bg-meter-ok" || b[1] != "bg-meter-ok" || b[2] != "bg-line" {
 		t.Fatalf("bars for 49%%: %v", b)
 	}
@@ -31,25 +32,25 @@ func TestMeterThresholds(t *testing.T) {
 
 // The meter follows the larger of the two shares; the text shows both directions.
 func TestSpeedOfUsesLargerShare(t *testing.T) {
-	plan := planSpeed{Name: "Gold", MaxDown: 10e6, MaxUp: 1e6, DownLabel: "10 Mbps"}
-	text, m := speedOf(3.2e6, 0.9e6, true, plan)
+	plan := core.PlanSpeed{Name: "Gold", MaxDown: 10e6, MaxUp: 1e6, DownLabel: "10 Mbps"}
+	text, m := core.SpeedOf(3.2e6, 0.9e6, true, plan)
 	if text != "↓3,2 Mbps / 10 Mbps ↑900 kbps" {
 		t.Fatalf("text %q", text)
 	}
 	if m.Tone != "err" || m.Segs != 5 { // upload is at 90% of its limit
 		t.Fatalf("meter %+v, want red and full", m)
 	}
-	if text, m := speedOf(0, 0, false, plan); text != "—" || m.Segs != 0 {
+	if text, m := core.SpeedOf(0, 0, false, plan); text != "—" || m.Segs != 0 {
 		t.Fatalf("no samples: %q %+v", text, m)
 	}
-	if _, m := speedOf(5e6, 0, true, planSpeed{}); m.Segs != 0 {
+	if _, m := core.SpeedOf(5e6, 0, true, core.PlanSpeed{}); m.Segs != 0 {
 		t.Fatal("a plan without a limit has no meter")
 	}
 }
 
 // The first plan of a login (newest expiry) is the one shown, under both login names.
 func TestPlanSpeedsNewestFirst(t *testing.T) {
-	m := planSpeeds([]db.ListActivePlanRatesRow{
+	m := core.PlanSpeeds([]db.ListActivePlanRatesRow{
 		{Username: "u1", PlanName: "Gold", RateDown: 10, RateDownUnit: "Mbps"},
 		{Username: "u1", PlanName: "Old", RateDown: 2, RateDownUnit: "Mbps"},
 		{Username: "c2", PppoeUsername: "pp2", PlanName: "Silver", RateDown: 512, RateDownUnit: "Kbps"},

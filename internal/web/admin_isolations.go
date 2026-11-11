@@ -4,9 +4,11 @@ package web
 
 import (
 	"encoding/csv"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
 )
@@ -25,7 +27,7 @@ func isoState(endedAt, endsAt, now int64) string {
 // isoQuery reads the filter shared by the list and the CSV export; paging is added by the caller.
 func isoQuery(r *http.Request) db.FilterIsolationsParams {
 	g := r.URL.Query().Get
-	q, _ := paging(r)
+	q, _ := view.Paging(r)
 	status := g("status")
 	if !httpx.OneOf(status, "running", "ended") {
 		status = ""
@@ -34,9 +36,9 @@ func isoQuery(r *http.Request) db.FilterIsolationsParams {
 }
 
 func (s *Server) isoList(w http.ResponseWriter, r *http.Request) {
-	_, pg := paging(r)
+	_, pg := view.Paging(r)
 	p := isoQuery(r)
-	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
+	p.PageLimit, p.PageOffset = pg.Limit(), pg.Offset()
 	rows, err := s.Queries.FilterIsolations(r.Context(), p)
 	if err != nil {
 		s.Fail(w, "list isolations", err)

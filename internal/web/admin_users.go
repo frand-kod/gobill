@@ -10,6 +10,7 @@ import (
 
 	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"fmt"
 	"strconv"
@@ -126,9 +127,9 @@ func (s *Server) adminFields(r *http.Request, target *db.Admin, v, e map[string]
 
 func (s *Server) adminList(w http.ResponseWriter, r *http.Request) {
 	actor := adminFrom(r)
-	q, pg := paging(r)
+	q, pg := view.Paging(r)
 	rows, err := s.Queries.SearchAdmins(r.Context(), db.SearchAdminsParams{
-		Q: sql.NullString{String: q, Valid: true}, Scope: adminScope(actor), Actor: actor.ID, PageLimit: pg.limit(), PageOffset: pg.offset()})
+		Q: sql.NullString{String: q, Valid: true}, Scope: adminScope(actor), Actor: actor.ID, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
 		s.Fail(w, "list admins", err)
 		return

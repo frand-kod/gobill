@@ -20,7 +20,7 @@ func seedBandwidths(t *testing.T, s *Server, n int) {
 	}
 }
 
-// showing is the pager's row range text in the app language.
+// showing is the view.Pager's row range text in the app language.
 func showing(s *Server, from, to, total int) string {
 	return fmt.Sprintf(s.Catalog.T(s.Language(), "Showing %d–%d of %d"), from, to, total)
 }
@@ -65,7 +65,7 @@ func TestListPagerKeepsSizeAndSearch(t *testing.T) {
 	}
 }
 
-// The report pager counts the rows the filter matches, not the rows on the page.
+// The report view.Pager counts the rows the filter matches, not the rows on the page.
 func TestReportPagerCountsMatchingRows(t *testing.T) {
 	s, h, _, c := crudApp(t)
 	jkt, _ := time.LoadLocation("Asia/Jakarta")
@@ -73,6 +73,6 @@ func TestReportPagerCountsMatchingRows(t *testing.T) {
 	seedMixed(t, s, jkt, 90)
 	body := do(h, "GET", "/admin/reports/period?from=2026-03-09&to=2026-03-11&router=r2", nil, c).Body.String()
 	if !strings.Contains(body, showing(s, 1, 20, 27)) {
-		t.Fatalf("no %q in the report pager", showing(s, 1, 20, 27))
+		t.Fatalf("no %q in the report view.Pager", showing(s, 1, 20, 27))
 	}
 }

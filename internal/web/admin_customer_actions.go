@@ -9,9 +9,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
-	"strings"
 )
 
 // ---- customer detail actions ----

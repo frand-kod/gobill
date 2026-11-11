@@ -9,6 +9,7 @@ import (
 
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/view"
 )
 
 // seedMixed inserts varied rows across three days: types, methods, routers and the excluded balance moves.
@@ -82,15 +83,15 @@ func TestReportTotalsMatchRowList(t *testing.T) {
 		}
 		// pages of 20 concatenate to the full list, in the same order
 		var paged []string
-		for off := int64(0); ; off += perPage {
-			rows, err := s.reportRows(t.Context(), a, perPage, off)
+		for off := int64(0); ; off += view.PerPage {
+			rows, err := s.reportRows(t.Context(), a, view.PerPage, off)
 			if err != nil {
 				t.Fatal(err)
 			}
 			for _, r := range rows {
 				paged = append(paged, r.Invoice)
 			}
-			if len(rows) < perPage {
+			if len(rows) < view.PerPage {
 				break
 			}
 		}
@@ -115,8 +116,8 @@ func TestReportPaginationKeepsFilter(t *testing.T) {
 	p1 := do(h, "GET", target, nil, c).Body.String()
 	p2 := do(h, "GET", target+"&page=2", nil, c).Body.String()
 	rowTag := `<a class="link" href="/admin/transactions/`
-	if n := strings.Count(p1, rowTag); n != perPage {
-		t.Fatalf("page 1 rows %d, want %d", n, perPage)
+	if n := strings.Count(p1, rowTag); n != view.PerPage {
+		t.Fatalf("page 1 rows %d, want %d", n, view.PerPage)
 	}
 	if !strings.Contains(p1, "page=2") {
 		t.Fatal("page 1 has no Next link")
@@ -191,8 +192,8 @@ func TestPortalOrdersPaginationAndIsolation(t *testing.T) {
 	cc, _ := custLogin(t, e, "u1", "pw12345")
 
 	p1 := do(e.h, "GET", "/portal/orders", nil, cc).Body.String()
-	if n := strings.Count(p1, `invoice">MINE-`); n != perPage {
-		t.Fatalf("orders page 1: %d rows, want %d", n, perPage)
+	if n := strings.Count(p1, `invoice">MINE-`); n != view.PerPage {
+		t.Fatalf("orders page 1: %d rows, want %d", n, view.PerPage)
 	}
 	if !strings.Contains(p1, `href="/portal/orders?page=2"`) || strings.Contains(p1, "THEIRS") {
 		t.Fatal("orders page 1: next link or isolation wrong")

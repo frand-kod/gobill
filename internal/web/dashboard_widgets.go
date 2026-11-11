@@ -6,12 +6,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
 )
@@ -44,23 +44,6 @@ type usageWin struct {
 type usageTop struct {
 	Name, Href, Total string
 	Pct               int // share of the heaviest user's total, for the thin bar
-}
-
-// waLink is the wa.me chat link for a phone number; numbers starting with 0 get the country code.
-func waLink(phone, cc string) string {
-	d := strings.Map(func(r rune) rune {
-		if r >= '0' && r <= '9' {
-			return r
-		}
-		return -1
-	}, phone)
-	if strings.HasPrefix(strings.TrimSpace(phone), "0") && cc != "" {
-		d = cc + strings.TrimLeft(d, "0")
-	}
-	if len(d) < 8 {
-		return ""
-	}
-	return "https://wa.me/" + d
 }
 
 // expiringRow is one row of the Expiring and Recent lists.
@@ -216,7 +199,7 @@ func (s *Server) expiringRow(settings map[string]string, customerID int64, usern
 	if lastSeen > 0 {
 		x.LastSeen = s.TS(lastSeen)
 	}
-	if l := waLink(phone, settings["country_code_phone"]); l != "" {
+	if l := view.WaLink(phone, settings["country_code_phone"]); l != "" {
 		x.WA = l + "?text=" + url.QueryEscape(s.T("Hello, your internet plan is about to end. Please renew to stay online."))
 	}
 	return x

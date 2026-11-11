@@ -11,8 +11,6 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/frand-kod/gobill/internal/settings"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"html"
 	"html/template"
 	"net/http"
@@ -21,6 +19,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/frand-kod/gobill/internal/settings"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/metrics"
