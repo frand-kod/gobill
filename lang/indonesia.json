@@ -2993,5 +2993,6 @@
     "Enter a name and pick how long the token lasts": "Isi nama dan pilih lama berlaku token",
     "Pick an active admin": "Pilih admin yang aktif",
     "Token not found or already revoked": "Token tidak ditemukan atau sudah dicabut",
-    "Token revoked": "Token dicabut"
+    "Token revoked": "Token dicabut",
+    "The isolir plan is on sale or is not a RADIUS plan. Isolated customers may get the wrong profile. Set the plan to RADIUS and not for sale.": "Paket isolir sedang dijual atau bukan paket RADIUS. Pelanggan terisolir bisa mendapat profil yang salah. Jadikan paket RADIUS dan jangan dijual."
 }

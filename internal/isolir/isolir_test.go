@@ -18,6 +18,7 @@ import (
 	"context"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,7 +55,7 @@ func TestValueDefaultsAndWAFallback(t *testing.T) {
 }
 
 func TestDaysUntilPlanID(t *testing.T) {
-	for in, want := range map[string]int{"": 30, "x": 30, "5": 5, "0": 0, "-3": 0, " 5": 30} {
+	for in, want := range map[string]int{"": 30, "x": 30, "5": 5, "0": 0, "-3": 30, " 5": 30} {
 		if got := Days(in); got != want {
 			t.Errorf("Days(%q) = %d, want %d", in, got, want)
 		}
@@ -117,10 +118,89 @@ func TestHostLinesAndValidHost(t *testing.T) {
 			t.Errorf("ValidHost(%q) = true", h)
 		}
 	}
-	// Loose today: a leading hyphen and a bare IP pass.
-	for _, h := range []string{"localhost", "1.2.3.4", "-x.com"} {
+	for _, h := range []string{"-x.com", "x-.com", "a.-b.com", "*.-x.com", "a.b-"} {
+		if ValidHost(h) {
+			t.Errorf("ValidHost(%q) = true", h)
+		}
+	}
+	// A bare IP stays allowed; RouterRules keeps it out of the tls-host rules.
+	for _, h := range []string{"localhost", "1.2.3.4", "a-b.com"} {
 		if !ValidHost(h) {
 			t.Errorf("ValidHost(%q) = false", h)
+		}
+	}
+}
+
+func TestAddressListEmptyIsDefault(t *testing.T) {
+	for _, st := range []map[string]string{nil, {"isolir_address_list": ""}} {
+		if got := AddressList(st); got != DefaultAddrList {
+			t.Errorf("AddressList(%v) = %q", st, got)
+		}
+	}
+	if got := AddressList(map[string]string{"isolir_address_list": "blok"}); got != "blok" {
+		t.Errorf("custom = %q", got)
+	}
+}
+
+func TestRouterRulesIPOnlyInAddressList(t *testing.T) {
+	b := RouterRules("isolir", "10.0.0.2", "8090", []string{"1.2.3.4", "wa.me", "*.x.com"})
+	if !strings.Contains(b, "list=isolir-allow address=1.2.3.4 ") || strings.Contains(b, "tls-host=1.2.3.4") {
+		t.Errorf("IP rules wrong:\n%s", b)
+	}
+	if !strings.Contains(b, "tls-host=wa.me ") || !strings.Contains(b, "tls-host=*.x.com ") {
+		t.Errorf("names lost a tls-host rule:\n%s", b)
+	}
+}
+
+// Active is enabled AND a running isolation (ended_at = 0, ends_at > now); the plan id is not part of it.
+func TestActive(t *testing.T) {
+	ctx, q := context.Background(), openDB(t)
+	c, err := q.CreateCustomer(ctx, db.CreateCustomerParams{Username: "u", PasswordHash: "h", Fullname: "U", ServiceType: "Hotspot", Status: "Active"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Unix(1_000_000, 0)
+	on := map[string]string{"isolir_enabled": "yes"} // no isolir_plan_id
+	if Active(ctx, q, on, c.ID, now) {
+		t.Fatal("active without a row")
+	}
+	if _, err := q.CreateIsolation(ctx, db.CreateIsolationParams{CustomerID: c.ID, StartedAt: now.Unix(), EndsAt: now.Unix() + 100}); err != nil {
+		t.Fatal(err)
+	}
+	if !Active(ctx, q, on, c.ID, now) {
+		t.Error("running row, enabled, no plan id: want active")
+	}
+	if Active(ctx, q, map[string]string{"isolir_enabled": "no"}, c.ID, now) || Active(ctx, q, nil, c.ID, now) {
+		t.Error("disabled must not be active")
+	}
+	if Active(ctx, q, on, c.ID, now.Add(100*time.Second)) {
+		t.Error("ends_at <= now must not be active")
+	}
+	// PlanFor still needs a plan id for the profile
+	if _, ok := PlanFor(ctx, q, on, c.ID, now); ok {
+		t.Error("PlanFor ok without a plan id")
+	}
+}
+
+func TestPlanLooksWrong(t *testing.T) {
+	ctx, q := context.Background(), openDB(t)
+	if _, err := EnsurePlan(ctx, q); err != nil {
+		t.Fatal(err)
+	}
+	if PlanLooksWrong(ctx, q) {
+		t.Error("system plan flagged")
+	}
+	for _, p := range []db.CreatePlanParams{
+		{Name: "Sale", Type: "Balance", Billing: "prepaid", Validity: 30, ValidityUnit: "Days", Enabled: 1, Device: "Radius"},
+		{Name: "Topup", Type: "Balance", Billing: "prepaid", Validity: 30, ValidityUnit: "Days", Enabled: 0, Device: "Dummy"},
+	} {
+		x, err := q.CreatePlan(ctx, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		setPlanID(t, q, strconv.FormatInt(x.ID, 10))
+		if !PlanLooksWrong(ctx, q) {
+			t.Errorf("%s not flagged", p.Name)
 		}
 	}
 }

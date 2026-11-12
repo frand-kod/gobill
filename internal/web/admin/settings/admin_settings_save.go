@@ -15,6 +15,7 @@ import (
 	"fmt"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/isolir"
 	"github.com/frand-kod/gobill/internal/notify"
 )
 
@@ -142,6 +143,9 @@ func (s *Handlers) settingsSave(w http.ResponseWriter, r *http.Request) {
 		view.SetThousandsSep(x)
 	}
 	s.SettingsSaved(r.Context())
+	if tab == "isolir" && isolir.PlanLooksWrong(r.Context(), s.Queries) {
+		s.Sessions.Put(r.Context(), "warn", s.T("The isolir plan is on sale or is not a RADIUS plan. Isolated customers may get the wrong profile. Set the plan to RADIUS and not for sale."))
+	}
 	s.Done(w, r, "/admin/settings/"+tab, "Settings saved", "settings.save", tab)
 }
 
