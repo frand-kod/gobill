@@ -6,20 +6,23 @@ import (
 	"database/sql"
 	"encoding/csv"
 	"encoding/json"
-	"github.com/frand-kod/gobill/internal/service/customer"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
+
+	"github.com/frand-kod/gobill/internal/service/customer"
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"context"
 	"errors"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/service/diagnose"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/service/diagnose"
 )
 
 var (
@@ -116,11 +119,11 @@ func (s *Server) endsCell(unix int64) string {
 	if unix == 0 {
 		return "—"
 	}
-	loc := s.location()
+	loc := s.Location()
 	if time.Unix(unix, 0).In(loc).Format("2006-01-02") == time.Now().In(loc).Format("2006-01-02") {
 		return "Today"
 	}
-	return s.ts(unix)
+	return s.TS(unix)
 }
 
 // custQuery reads the list filters and sort; unknown values fall back to "any" / newest first.
@@ -167,9 +170,9 @@ func phoneTerm(q string) string {
 // filter or sort), which reads the page off the id index instead of sorting every customer.
 func (s *Server) filterCustomers(ctx context.Context, p db.FilterCustomersParams) ([]db.FilterCustomersRow, error) {
 	if p != (db.FilterCustomersParams{PageOffset: p.PageOffset, PageLimit: p.PageLimit}) {
-		return s.queries.FilterCustomers(ctx, p)
+		return s.Queries.FilterCustomers(ctx, p)
 	}
-	rows, err := s.queries.FilterCustomersNewest(ctx, db.FilterCustomersNewestParams{PageOffset: p.PageOffset, PageLimit: p.PageLimit})
+	rows, err := s.Queries.FilterCustomersNewest(ctx, db.FilterCustomersNewestParams{PageOffset: p.PageOffset, PageLimit: p.PageLimit})
 	out := make([]db.FilterCustomersRow, len(rows))
 	for i, r := range rows {
 		out[i] = db.FilterCustomersRow(r)
@@ -179,13 +182,13 @@ func (s *Server) filterCustomers(ctx context.Context, p db.FilterCustomersParams
 
 func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 	p, sort, dir := custQuery(r)
-	_, pg := paging(r)
-	p.PageLimit, p.PageOffset = pg.limit(), pg.offset()
+	_, pg := view.Paging(r)
+	p.PageLimit, p.PageOffset = pg.Limit(), pg.Offset()
 	typed := p.Q
 	p.Q = phoneTerm(p.Q)
 	rows, err := s.filterCustomers(r.Context(), p)
 	if err != nil {
-		s.fail(w, "list customers", err)
+		s.Fail(w, "list customers", err)
 		return
 	}
 	role := adminFrom(r).Role
@@ -206,12 +209,12 @@ func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 	lp.Links = []option{{"/admin/customers/export?" + lp.query().Encode(), "Export CSV"}}
 	var total int64
 	if p.Q == "" && p.ServiceType == "" && p.Status == "" {
-		total, err = s.queries.CountCustomers(r.Context()) // no LIKE scan over every customer
+		total, err = s.Queries.CountCustomers(r.Context()) // no LIKE scan over every customer
 	} else {
-		total, err = s.queries.CountFilteredCustomers(r.Context(), db.CountFilteredCustomersParams{Q: p.Q, ServiceType: p.ServiceType, Status: p.Status})
+		total, err = s.Queries.CountFilteredCustomers(r.Context(), db.CountFilteredCustomersParams{Q: p.Q, ServiceType: p.ServiceType, Status: p.Status})
 	}
 	if err != nil {
-		s.fail(w, "count customers", err)
+		s.Fail(w, "count customers", err)
 		return
 	}
 	lp.finish(pg, total)
@@ -232,9 +235,9 @@ func (s *Server) custPick(w http.ResponseWriter, r *http.Request) {
 		limit = int64(min(n, 20))
 	}
 	if len(q) <= 100 {
-		rows, err := s.queries.QuickSearchCustomers(r.Context(), db.QuickSearchCustomersParams{Term: q, Limit: limit})
+		rows, err := s.Queries.QuickSearchCustomers(r.Context(), db.QuickSearchCustomersParams{Term: q, Limit: limit})
 		if err != nil {
-			s.fail(w, "search customers", err)
+			s.Fail(w, "search customers", err)
 			return
 		}
 		for _, c := range rows {
@@ -254,7 +257,7 @@ func (s *Server) custExport(w http.ResponseWriter, r *http.Request) {
 	p.PageLimit = -1
 	rows, err := s.filterCustomers(r.Context(), p)
 	if err != nil {
-		s.fail(w, "export customers", err)
+		s.Fail(w, "export customers", err)
 		return
 	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
@@ -262,7 +265,7 @@ func (s *Server) custExport(w http.ResponseWriter, r *http.Request) {
 	cw := csv.NewWriter(w)
 	cw.Write([]string{"Username", "Full Name", "Phone Number", "Email", "Balance", "Package", "Service Type", "PPPoE Username", "Status", "Created"})
 	for _, c := range rows {
-		rec := []string{c.Username, c.Fullname, c.Phone, c.Email, fmt.Sprint(c.Balance), c.Packages, c.ServiceType, c.PppoeUsername, c.Status, s.ts(c.CreatedAt)}
+		rec := []string{c.Username, c.Fullname, c.Phone, c.Email, fmt.Sprint(c.Balance), c.Packages, c.ServiceType, c.PppoeUsername, c.Status, s.TS(c.CreatedAt)}
 		httpx.CSVSafe(rec)
 		cw.Write(rec)
 	}
@@ -273,19 +276,19 @@ func (s *Server) custNew(w http.ResponseWriter, r *http.Request) {
 	v := map[string]string{"service_type": "Others", "status": "Active", "auto_renewal": "1"}
 	fs, err := s.addCustomerForm(r, v, nil)
 	if err != nil {
-		s.fail(w, "custom fields", err)
+		s.Fail(w, "custom fields", err)
 		return
 	}
 	s.renderForm(w, r, 200, formPage{"Add New Contact", "/admin/customers", "/admin/customers", fs})
 }
 
 func (s *Server) custGet(w http.ResponseWriter, r *http.Request) (db.Customer, bool) {
-	c, err := s.queries.GetCustomer(r.Context(), httpx.PathID(r))
+	c, err := s.Queries.GetCustomer(r.Context(), httpx.PathID(r))
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
 		return c, false
 	} else if err != nil {
-		s.fail(w, "get customer", err)
+		s.Fail(w, "get customer", err)
 		return c, false
 	}
 	return c, true
@@ -302,12 +305,12 @@ func (s *Server) custEdit(w http.ResponseWriter, r *http.Request) {
 	if c.BillingDay.Valid {
 		v["billing_day"] = fmt.Sprint(c.BillingDay.Int64)
 	}
-	if b, err := s.queries.GetCustomerBinding(r.Context(), c.ID); err == nil {
+	if b, err := s.Queries.GetCustomerBinding(r.Context(), c.ID); err == nil {
 		v["bind_mac"], v["bind_port_id"] = b.Mac, b.PortID
 	}
 	fs, err := s.customerForm(r.Context(), c.ID, v, nil, true)
 	if err != nil {
-		s.fail(w, "custom fields", err)
+		s.Fail(w, "custom fields", err)
 		return
 	}
 	s.renderForm(w, r, 200, formPage{"Edit Contact: " + c.Username, fmt.Sprint("/admin/customers/", c.ID), "/admin/customers", fs})
@@ -325,7 +328,7 @@ type custDetail struct {
 	Plans        []option
 	Methods      []option // payment methods offered on the recharge form
 	Subs         []subRow
-	Usage        *radiusUsage
+	Usage        *core.RadiusUsage
 	Trx          []db.Transaction
 	Custom       []field // custom fields with this customer's values
 	Online       string  // "" unless check_customer_online is yes; else Online, Offline or Error
@@ -341,44 +344,44 @@ func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	role := adminFrom(r).Role
-	d := custDetail{Manage: httpx.OneOf(role, "SuperAdmin", "Admin"), C: c, Created: s.ts(c.CreatedAt), SecretSet: len(c.SecretEnc) > 0,
+	d := custDetail{Manage: httpx.OneOf(role, "SuperAdmin", "Admin"), C: c, Created: s.TS(c.CreatedAt), SecretSet: len(c.SecretEnc) > 0,
 		CanEdit: httpx.OneOf(role, "SuperAdmin", "Admin"), CanSell: httpx.OneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), RouterFailed: r.URL.Query().Get("router_failed") == "1"}
 	opts, plans, err := s.planOptions(r, !d.Manage) // PHP: SuperAdmin/Admin may recharge a disabled plan
 	if err != nil {
-		s.fail(w, "list plans", err)
+		s.Fail(w, "list plans", err)
 		return
 	}
 	d.Plans = opts
 	d.Methods = s.rechargeMethods(ctx)
-	subs, err := s.queries.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 50})
+	subs, err := s.Queries.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 50})
 	if err != nil {
-		s.fail(w, "list subscriptions", err)
+		s.Fail(w, "list subscriptions", err)
 		return
 	}
 	for _, x := range subs {
-		d.Subs = append(d.Subs, subRow{plans[x.PlanID].Name, x.Type, s.subExpiry(x.PendingStart, x.ExpiresAt), x.Status})
+		d.Subs = append(d.Subs, subRow{plans[x.PlanID].Name, x.Type, s.SubExpiry(x.PendingStart, x.ExpiresAt), x.Status})
 	}
-	if d.Trx, err = s.queries.ListTransactionsByCustomer(ctx, db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, Limit: 10}); err != nil {
-		s.fail(w, "list transactions", err)
+	if d.Trx, err = s.Queries.ListTransactionsByCustomer(ctx, db.ListTransactionsByCustomerParams{CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, Limit: 10}); err != nil {
+		s.Fail(w, "list transactions", err)
 		return
 	}
-	if d.Usage, err = s.radiusUsage(ctx, c); err != nil {
-		s.fail(w, "customer usage", err)
+	if d.Usage, err = s.RadiusUsage(ctx, c); err != nil {
+		s.Fail(w, "customer usage", err)
 		return
 	}
 	if d.Custom, err = s.cfFormFields(ctx, c.ID, map[string]string{}, nil); err != nil {
-		s.fail(w, "custom fields", err)
+		s.Fail(w, "custom fields", err)
 		return
 	}
-	if iso, err := s.queries.GetRunningIsolation(ctx, db.GetRunningIsolationParams{CustomerID: c.ID, Now: time.Now().Unix()}); err == nil {
-		d.Iso = s.ts(iso.EndsAt)
+	if iso, err := s.Queries.GetRunningIsolation(ctx, db.GetRunningIsolationParams{CustomerID: c.ID, Now: time.Now().Unix()}); err == nil {
+		d.Iso = s.TS(iso.EndsAt)
 	}
 	d.Online = s.customerOnline(ctx, c, subs)
 	d.Diag = s.diagnose(ctx, c, subs, d.Online)
-	s.render(w, r, 200, "customer", Page{
+	s.Render(w, r, 200, "customer", Page{
 		Title: c.Username,
-		Flash: s.sessions.PopString(ctx, "flash"),
-		Error: s.sessions.PopString(ctx, "error"),
+		Flash: s.Sessions.PopString(ctx, "flash"),
+		Error: s.Sessions.PopString(ctx, "error"),
 		Data:  d,
 	})
 }
@@ -386,7 +389,7 @@ func (s *Server) custView(w http.ResponseWriter, r *http.Request) {
 // customerOnline asks the device of the first active plan (old check_customer_online). Device
 // errors show as Error, as the old red dot did.
 func (s *Server) customerOnline(ctx context.Context, c db.Customer, subs []db.Subscription) string {
-	st, err := s.loadSettings(ctx)
+	st, err := s.LoadSettings(ctx)
 	if err != nil || s.Billing == nil || st["check_customer_online"] != "yes" {
 		return ""
 	}
@@ -394,7 +397,7 @@ func (s *Server) customerOnline(ctx context.Context, c db.Customer, subs []db.Su
 		if x.Status != "active" {
 			continue
 		}
-		p, err := s.queries.GetPlan(ctx, x.PlanID)
+		p, err := s.Queries.GetPlan(ctx, x.PlanID)
 		if err != nil {
 			return "Error"
 		}
@@ -413,7 +416,7 @@ func (s *Server) customerOnline(ctx context.Context, c db.Customer, subs []db.Su
 // setPassword stores a new portal password and, as in the old app (one password for portal and
 // router), the same value as the router secret.
 func (s *Server) setPassword(ctx context.Context, id int64, pass string) error {
-	return s.customers().SetPassword(ctx, id, pass)
+	return s.CustomerSvc().SetPassword(ctx, id, pass)
 }
 
 // custSave serves both create (no {id} in the path) and update.
@@ -436,18 +439,18 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 		v["username"] = cur.Username
 	}
 	if pass != "" {
-		st, err := s.loadSettings(r.Context())
+		st, err := s.LoadSettings(r.Context())
 		if err != nil {
-			s.fail(w, "customer password", err)
+			s.Fail(w, "customer password", err)
 			return
 		}
-		if msg := s.customerPasswordErr(st, v["username"], pass); msg != "" {
+		if msg := s.CustomerPasswordErr(st, v["username"], pass); msg != "" {
 			e["password"] = msg
 		}
 	}
 	cfv, err := s.cfCheck(r.Context(), r, v, e)
 	if err != nil {
-		s.fail(w, "check custom fields", err)
+		s.Fail(w, "check custom fields", err)
 		return
 	}
 	// Optional plan on the add form, activated with Cash after the customer is created.
@@ -455,7 +458,7 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 	if id == 0 && v["plan"] != "" {
 		_, fit, perr := s.addPlans(r, v["service_type"])
 		if perr != nil {
-			s.fail(w, "list plans", perr)
+			s.Fail(w, "list plans", perr)
 			return
 		}
 		pid, _ := httpx.PosInt(v["plan"])
@@ -464,10 +467,10 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	ctx := r.Context()
-	res, err := s.customers().Save(ctx, &customer.SaveInput{ID: id, Cur: cur, V: v, Pass: pass, Secret: sec,
+	res, err := s.CustomerSvc().Save(ctx, &customer.SaveInput{ID: id, Cur: cur, V: v, Pass: pass, Secret: sec,
 		AdminID: adminFrom(r).ID, CF: cfv, Errs: e})
 	if err != nil {
-		s.fail(w, "save customer", err)
+		s.Fail(w, "save customer", err)
 		return
 	}
 	cid, created := res.ID, res.Created
@@ -489,14 +492,14 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 				if serr != nil {
 					slog.Error("customer status router update", "customer", v["username"], "err", serr)
 					s.logActivity(r, "customer.sync_failed", fmt.Sprintf("%s: %v", v["username"], serr))
-					s.sessions.Put(r.Context(), "error", s.t("Saved, but the router could not be updated")+": "+serr.Error())
+					s.Sessions.Put(r.Context(), "error", s.T("Saved, but the router could not be updated")+": "+serr.Error())
 				}
 			}
 			if v["status"] == "Active" && cur.Status == "Active" && (pass != "" || sec != "" || v["username"] != cur.Username || v["pppoe_username"] != cur.PppoeUsername || v["pppoe_ip"] != cur.PppoeIp) && s.Billing != nil {
 				if _, serr := s.Billing.SyncAfterEdit(r.Context(), cur, adminFrom(r).ID); serr != nil {
 					slog.Error("sync customer", "customer", v["username"], "err", serr)
 					s.logActivity(r, "customer.sync_failed", fmt.Sprintf("%s: %v", v["username"], serr))
-					s.sessions.Put(r.Context(), "error", s.t("Saved, but the router could not be updated")+": "+serr.Error())
+					s.Sessions.Put(r.Context(), "error", s.T("Saved, but the router could not be updated")+": "+serr.Error())
 				}
 			}
 		}
@@ -521,7 +524,7 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 		fs, err = s.addCustomerForm(r, v, e)
 	}
 	if err != nil {
-		s.fail(w, "custom fields", err)
+		s.Fail(w, "custom fields", err)
 		return
 	}
 	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{head, action, "/admin/customers", fs})
@@ -535,40 +538,40 @@ func (s *Server) activateNew(w http.ResponseWriter, r *http.Request, c db.Custom
 	devFailed, err := s.chargePlan(r, c, plan, "Cash", "Cash")
 	if err != nil {
 		s.logActivity(r, act, c.Username)
-		s.sessions.Put(ctx, "error", s.t("Customer created, but the plan could not be activated")+": "+s.t(rechargeFailMsg(err, c, plan)))
+		s.Sessions.Put(ctx, "error", s.T("Customer created, but the plan could not be activated")+": "+s.T(rechargeFailMsg(err, c, plan)))
 		http.Redirect(w, r, fmt.Sprint("/admin/customers/", c.ID), http.StatusSeeOther)
 		return ""
 	}
 	s.logActivity(r, "customer.recharge", c.Username+" ["+plan.Name+"]")
 	if devFailed {
-		s.sessions.Put(ctx, "warn", s.t(msgNotSynced))
+		s.Sessions.Put(ctx, "warn", s.T(msgNotSynced))
 	}
 	return "Customer created and plan activated, paid in Cash"
 }
 
 func (s *Server) custDelete(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
-	c, err := s.queries.GetCustomer(r.Context(), id)
+	c, err := s.Queries.GetCustomer(r.Context(), id)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 	if s.Billing == nil {
-		s.fail(w, "delete customer", errors.New("billing service not configured"))
+		s.Fail(w, "delete customer", errors.New("billing service not configured"))
 		return
 	}
 	// Transactions are kept (customer_id -> NULL). The router goes first: on failure the row stays
 	// unless "force" is checked, which deletes anyway.
 	if err := s.Billing.DeleteCustomerForce(r.Context(), id, r.FormValue("force") == "1"); err != nil {
-		if _, gerr := s.queries.GetCustomer(r.Context(), id); gerr == nil {
+		if _, gerr := s.Queries.GetCustomer(r.Context(), id); gerr == nil {
 			slog.Error("delete customer: router", "customer", c.Username, "err", err)
-			s.sessions.Put(r.Context(), "error", s.t("Not deleted, the router could not remove the customer"))
+			s.Sessions.Put(r.Context(), "error", s.T("Not deleted, the router could not remove the customer"))
 			http.Redirect(w, r, "/admin/customers/"+strconv.FormatInt(id, 10)+"?router_failed=1", http.StatusSeeOther)
 			return
 		}
 		slog.Error("delete customer: router", "customer", c.Username, "err", err)
 		s.logActivity(r, "customer.delete_router_failed", fmt.Sprintf("%s: %v", c.Username, err))
-		s.sessions.Put(r.Context(), "error", s.t("Deleted, but the router could not be updated"))
+		s.Sessions.Put(r.Context(), "error", s.T("Deleted, but the router could not be updated"))
 	}
 	s.done(w, r, "/admin/customers", "Data Deleted Successfully", "customer.delete", c.Username)
 }

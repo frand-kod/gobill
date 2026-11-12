@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/skip2/go-qrcode"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -45,7 +46,7 @@ func (s *Server) render2FA(w http.ResponseWriter, r *http.Request, status int, c
 	if !p.Enabled && a.TotpSecretEnc != "" {
 		key, err := s.totpOpen(a.TotpSecretEnc)
 		if err != nil {
-			s.fail(w, "open totp secret", err)
+			s.Fail(w, "open totp secret", err)
 			return
 		}
 		company := s.brand(r.Context())["company_name"]
@@ -54,14 +55,14 @@ func (s *Server) render2FA(w http.ResponseWriter, r *http.Request, status int, c
 		}
 		png, err := qrcode.Encode(totpURI(company, a.Username, key), qrcode.Medium, 220)
 		if err != nil {
-			s.fail(w, "totp qr", err)
+			s.Fail(w, "totp qr", err)
 			return
 		}
 		p.Pending = true
 		p.Secret = totpB32.EncodeToString(key)
 		p.QR = template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))
 	}
-	s.render(w, r, status, "admin_2fa", Page{Title: "Two-factor login", Data: p})
+	s.Render(w, r, status, "admin_2fa", Page{Title: "Two-factor login", Data: p})
 }
 
 // admin2FASetup stores a new pending secret. It is not active until confirmed with a code.
@@ -73,11 +74,11 @@ func (s *Server) admin2FASetup(w http.ResponseWriter, r *http.Request) {
 	}
 	enc, err := s.totpSeal(newTOTPSecret())
 	if err != nil {
-		s.fail(w, "seal totp secret", err)
+		s.Fail(w, "seal totp secret", err)
 		return
 	}
-	if err := s.queries.SetAdminTOTPSecret(ctx, db.SetAdminTOTPSecretParams{TotpSecretEnc: enc, ID: a.ID}); err != nil {
-		s.fail(w, "save totp secret", err)
+	if err := s.Queries.SetAdminTOTPSecret(ctx, db.SetAdminTOTPSecretParams{TotpSecretEnc: enc, ID: a.ID}); err != nil {
+		s.Fail(w, "save totp secret", err)
 		return
 	}
 	http.Redirect(w, r, "/admin/2fa", http.StatusSeeOther)
@@ -90,39 +91,39 @@ func (s *Server) admin2FAConfirm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/2fa", http.StatusSeeOther)
 		return
 	}
-	ip := clientIP(r)
-	if s.tooManyFailures(ip) {
-		s.flashTo(w, r, "/admin/2fa", "Too many failed attempts. Try again in 15 minutes.")
+	ip := core.ClientIP(r)
+	if s.TooManyFailures(ip) {
+		s.FlashTo(w, r, "/admin/2fa", "Too many failed attempts. Try again in 15 minutes.")
 		return
 	}
 	key, err := s.totpOpen(a.TotpSecretEnc)
 	if err != nil {
-		s.fail(w, "open totp secret", err)
+		s.Fail(w, "open totp secret", err)
 		return
 	}
 	if !s.totpVerify(a.ID, key, cleanCode(r.PostFormValue("code"))) {
-		s.recordFailure(ip)
-		s.flashTo(w, r, "/admin/2fa", "Invalid code")
+		s.RecordFailure(ip)
+		s.FlashTo(w, r, "/admin/2fa", "Invalid code")
 		return
 	}
 	codes := newRecoveryCodes()
-	if err := s.queries.DeleteRecoveryCodes(ctx, a.ID); err != nil {
-		s.fail(w, "clear recovery codes", err)
+	if err := s.Queries.DeleteRecoveryCodes(ctx, a.ID); err != nil {
+		s.Fail(w, "clear recovery codes", err)
 		return
 	}
 	for _, c := range codes {
-		h, err := bcrypt.GenerateFromPassword([]byte(strings.ReplaceAll(c, "-", "")), bcryptCost)
+		h, err := bcrypt.GenerateFromPassword([]byte(strings.ReplaceAll(c, "-", "")), core.BcryptCost)
 		if err != nil {
-			s.fail(w, "hash recovery code", err)
+			s.Fail(w, "hash recovery code", err)
 			return
 		}
-		if err := s.queries.CreateRecoveryCode(ctx, db.CreateRecoveryCodeParams{AdminID: a.ID, CodeHash: string(h)}); err != nil {
-			s.fail(w, "save recovery code", err)
+		if err := s.Queries.CreateRecoveryCode(ctx, db.CreateRecoveryCodeParams{AdminID: a.ID, CodeHash: string(h)}); err != nil {
+			s.Fail(w, "save recovery code", err)
 			return
 		}
 	}
-	if err := s.queries.EnableAdminTOTP(ctx, a.ID); err != nil {
-		s.fail(w, "enable totp", err)
+	if err := s.Queries.EnableAdminTOTP(ctx, a.ID); err != nil {
+		s.Fail(w, "enable totp", err)
 		return
 	}
 	s.logActivity(r, "users.2fa.enable", a.Username)
@@ -137,28 +138,28 @@ func (s *Server) admin2FADisable(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/2fa", http.StatusSeeOther)
 		return
 	}
-	ip := clientIP(r)
-	if s.tooManyFailures(ip) {
-		s.flashTo(w, r, "/admin/2fa", "Too many failed attempts. Try again in 15 minutes.")
+	ip := core.ClientIP(r)
+	if s.TooManyFailures(ip) {
+		s.FlashTo(w, r, "/admin/2fa", "Too many failed attempts. Try again in 15 minutes.")
 		return
 	}
 	key, err := s.totpOpen(a.TotpSecretEnc)
 	if err != nil {
-		s.fail(w, "open totp secret", err)
+		s.Fail(w, "open totp secret", err)
 		return
 	}
 	pwOK := bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte(r.PostFormValue("current"))) == nil
 	if !pwOK || !s.totpVerify(a.ID, key, cleanCode(r.PostFormValue("code"))) {
-		s.recordFailure(ip)
-		s.flashTo(w, r, "/admin/2fa", "Incorrect password or code")
+		s.RecordFailure(ip)
+		s.FlashTo(w, r, "/admin/2fa", "Incorrect password or code")
 		return
 	}
-	if err := s.queries.ClearAdminTOTP(ctx, a.ID); err != nil {
-		s.fail(w, "clear totp", err)
+	if err := s.Queries.ClearAdminTOTP(ctx, a.ID); err != nil {
+		s.Fail(w, "clear totp", err)
 		return
 	}
-	if err := s.queries.DeleteRecoveryCodes(ctx, a.ID); err != nil {
-		s.fail(w, "clear recovery codes", err)
+	if err := s.Queries.DeleteRecoveryCodes(ctx, a.ID); err != nil {
+		s.Fail(w, "clear recovery codes", err)
 		return
 	}
 	s.done(w, r, "/admin/2fa", "Two-factor login turned off", "users.2fa.disable", a.Username)
@@ -170,12 +171,12 @@ func (s *Server) adminTOTPReset(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.queries.ClearAdminTOTP(r.Context(), t.ID); err != nil {
-		s.fail(w, "clear totp", err)
+	if err := s.Queries.ClearAdminTOTP(r.Context(), t.ID); err != nil {
+		s.Fail(w, "clear totp", err)
 		return
 	}
-	if err := s.queries.DeleteRecoveryCodes(r.Context(), t.ID); err != nil {
-		s.fail(w, "clear recovery codes", err)
+	if err := s.Queries.DeleteRecoveryCodes(r.Context(), t.ID); err != nil {
+		s.Fail(w, "clear recovery codes", err)
 		return
 	}
 	s.done(w, r, "/admin/users/"+strconv.FormatInt(t.ID, 10)+"/edit", "Two-factor login reset", "users.2fa.reset", t.Username)

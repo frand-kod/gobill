@@ -4,44 +4,47 @@ package web
 
 import (
 	"database/sql"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/netip"
 
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+
 	"context"
+	"strings"
+	"time"
+
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/metrics"
 	"golang.org/x/crypto/bcrypt"
-	"strings"
-	"time"
 )
 
 // ---- login / logout ----
 
 func (s *Server) loginForm(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, http.StatusOK, "login", Page{Title: "Admin sign in"})
+	s.Render(w, r, http.StatusOK, "login", Page{Title: "Admin sign in"})
 }
 
 type loginData struct{ Username string }
 
 func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.PostFormValue("username"))
-	ip, uk := clientIP(r), "u:"+strings.ToLower(username)
-	if !s.loginReserve(ip, username) {
-		s.render(w, r, http.StatusTooManyRequests, "login", Page{
+	ip, uk := core.ClientIP(r), "u:"+strings.ToLower(username)
+	if !s.LoginReserve(ip, username) {
+		s.Render(w, r, http.StatusTooManyRequests, "login", Page{
 			Title: "Admin sign in",
 			Error: "Too many failed attempts. Try again in 15 minutes.",
 		})
 		return
 	}
-	s.userDelay(uk)
+	s.UserDelay(uk)
 
 	password := r.PostFormValue("password")
 
-	admin, err := s.queries.GetAdminByUsername(r.Context(), username)
-	hash := s.dummyHash // same bcrypt work whether or not the user exists
+	admin, err := s.Queries.GetAdminByUsername(r.Context(), username)
+	hash := s.DummyHash // same bcrypt work whether or not the user exists
 	if err == nil {
 		hash = []byte(admin.PasswordHash)
 	}
@@ -49,8 +52,8 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	passOK = passOK || (err == nil && s.admins().LegacyLogin(r.Context(), admin.ID, password))
 	if err != nil || !passOK || admin.Status != "Active" {
 		metrics.Inc("login_failures_total", "scope", "admin")
-		s.recordFailure(uk)
-		s.render(w, r, http.StatusOK, "login", Page{
+		s.RecordFailure(uk)
+		s.Render(w, r, http.StatusOK, "login", Page{
 			Title: "Admin sign in",
 			Error: "Invalid Username or Password",
 			Data:  loginData{Username: username},
@@ -58,43 +61,43 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.loginForgive(ip, username)
+	s.LoginForgive(ip, username)
 	if admin.TotpEnabled == 1 {
 		// Failures are counted in the second step. Clearing them here would let a correct password reset the count.
-		if err := s.sessions.RenewToken(r.Context()); err != nil {
+		if err := s.Sessions.RenewToken(r.Context()); err != nil {
 			slog.Error("renew session", "err", err)
-			s.errorPage(w, "-")
+			s.ErrorPage(w, "-")
 			return
 		}
-		s.sessions.Put(r.Context(), "pending_2fa_tries", 0)
-		s.sessions.Put(r.Context(), "pending_2fa", admin.ID)
-		s.sessions.Put(r.Context(), "pending_2fa_until", time.Now().Add(pending2FAWindow).Unix())
+		s.Sessions.Put(r.Context(), "pending_2fa_tries", 0)
+		s.Sessions.Put(r.Context(), "pending_2fa", admin.ID)
+		s.Sessions.Put(r.Context(), "pending_2fa_until", time.Now().Add(pending2FAWindow).Unix())
 		http.Redirect(w, r, "/admin/login/2fa", http.StatusSeeOther)
 		return
 	}
-	s.clearFailures(loginKey(ip, username))
-	s.clearFailures(uk)
+	s.ClearFailures(core.LoginKey(ip, username))
+	s.ClearFailures(uk)
 	s.finishLogin(w, r, admin)
 }
 
 // finishLogin opens the admin session. Called once the password, and the second factor if any, is verified.
 func (s *Server) finishLogin(w http.ResponseWriter, r *http.Request, admin db.Admin) {
-	if err := s.sessions.RenewToken(r.Context()); err != nil {
+	if err := s.Sessions.RenewToken(r.Context()); err != nil {
 		slog.Error("renew session", "err", err)
-		s.errorPage(w, "-")
+		s.ErrorPage(w, "-")
 		return
 	}
 	if s.single.Load() { // single_session: a new login invalidates the other sessions
 		var err error
-		if admin.SessionVersion, err = s.queries.BumpAdminSession(r.Context(), admin.ID); err != nil {
+		if admin.SessionVersion, err = s.Queries.BumpAdminSession(r.Context(), admin.ID); err != nil {
 			slog.Error("bump session", "err", err)
-			s.errorPage(w, "-")
+			s.ErrorPage(w, "-")
 			return
 		}
 	}
-	s.sessions.Put(r.Context(), "admin_id", admin.ID)
-	s.sessions.Put(r.Context(), "sv", admin.SessionVersion)
-	if err := s.queries.TouchAdminLogin(r.Context(), admin.ID); err != nil {
+	s.Sessions.Put(r.Context(), "admin_id", admin.ID)
+	s.Sessions.Put(r.Context(), "sv", admin.SessionVersion)
+	if err := s.Queries.TouchAdminLogin(r.Context(), admin.ID); err != nil {
 		slog.Error("touch login", "err", err)
 	}
 	s.fillAppURL(r)
@@ -112,7 +115,7 @@ func (s *Server) fillAppURL(r *http.Request) {
 	if a, e := netip.ParseAddr(strings.Trim(h, "[]")); h == "" || h == "localhost" || e == nil && (a.IsPrivate() || a.IsLoopback()) {
 		return
 	}
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil || st["app_url"] != "" {
 		if err != nil {
 			slog.Error("load settings", "err", err)
@@ -123,7 +126,7 @@ func (s *Server) fillAppURL(r *http.Request) {
 	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" || strings.Contains(r.Header.Get("CF-Visitor"), `"scheme":"https"`) {
 		scheme = "https"
 	}
-	if err := s.queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "app_url", Value: scheme + "://" + r.Host}); err != nil {
+	if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "app_url", Value: scheme + "://" + r.Host}); err != nil {
 		slog.Error("save app_url", "err", err)
 	}
 }
@@ -131,131 +134,19 @@ func (s *Server) fillAppURL(r *http.Request) {
 // root sends a customer to the portal and everyone else to the customer login.
 func (s *Server) root(w http.ResponseWriter, r *http.Request) {
 	to := "/login"
-	if s.sessions.GetInt64(r.Context(), "admin_id") != 0 {
+	if s.Sessions.GetInt64(r.Context(), "admin_id") != 0 {
 		to = "/admin"
-	} else if s.sessions.GetInt64(r.Context(), "customer_id") != 0 {
+	} else if s.Sessions.GetInt64(r.Context(), "customer_id") != 0 {
 		to = "/portal"
 	}
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
-	if err := s.sessions.Destroy(r.Context()); err != nil {
+	if err := s.Sessions.Destroy(r.Context()); err != nil {
 		slog.Error("destroy session", "err", err)
 	}
 	http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
-}
-
-func (s *Server) tooManyFailures(ip string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return len(s.recent(ip)) >= maxFailedLogins
-}
-
-// Lock key is ip|username so customers sharing one CGNAT IP don't lock each other out; a loose
-// per-IP cap ("~"+ip, never cleared by a success) still stops one IP spraying many usernames.
-func loginKey(ip, user string) string { return ip + "|" + strings.ToLower(strings.TrimSpace(user)) }
-
-// reserve counts one attempt against key before the check runs and returns how many are left after it,
-// or -1 when key is already at limit. Check and count happen under one lock, so parallel requests
-// cannot all pass a check that a later recordFailure would have failed. A success that must not count
-// calls unreserve.
-func (s *Server) reserve(key string, limit int) int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	n := len(s.recent(key))
-	if n >= limit {
-		return -1
-	}
-	s.failed[key] = append(s.failed[key], time.Now())
-	return limit - n - 1
-}
-
-// unreserve takes back the newest attempt reserve counted.
-func (s *Server) unreserve(key string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if l := s.recent(key); len(l) > 0 {
-		s.failed[key] = l[:len(l)-1]
-	}
-}
-
-// loginReserve counts one login attempt against ip|user and the loose per-IP cap, and says false when
-// either is over its limit. A correct password calls loginForgive, a wrong one leaves both counted.
-func (s *Server) loginReserve(ip, user string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	k, pk := loginKey(ip, user), "~"+ip
-	if len(s.recent(k)) >= maxFailedLogins || len(s.recent(pk)) >= maxFailedPerIP {
-		return false
-	}
-	now := time.Now()
-	s.failed[k] = append(s.failed[k], now)
-	s.failed[pk] = append(s.failed[pk], now)
-	return true
-}
-
-// loginForgive takes back the attempt loginReserve counted, for a correct password.
-func (s *Server) loginForgive(ip, user string) {
-	s.unreserve(loginKey(ip, user))
-	s.unreserve("~" + ip)
-}
-
-// userDelay slows guessing against one username, whatever the client IP, by loginDelayStep per recent
-// failure up to loginDelayMax. It never locks: a hard per-username lock would let anyone lock admin out.
-// ponytail: the delay applies to 2FA accounts too; exempt them if the wait annoys real admins.
-func (s *Server) userDelay(uk string) {
-	s.mu.Lock()
-	n := len(s.recent(uk))
-	s.mu.Unlock()
-	time.Sleep(min(time.Duration(n)*loginDelayStep, loginDelayMax))
-}
-
-func (s *Server) recordFailure(ip string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if len(s.failed) > 10000 { // bound memory: recent() drops keys whose failures have expired
-		for k := range s.failed {
-			s.recent(k)
-		}
-	}
-	s.failed[ip] = append(s.recent(ip), time.Now())
-}
-
-// lockedCount returns how many login keys (client IPs; usernames only delay, see userDelay) are over the failure limit now.
-func (s *Server) lockedCount() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	n := 0
-	for k := range s.failed {
-		if !strings.HasPrefix(k, "u:") && !strings.HasPrefix(k, "~") && !strings.HasPrefix(k, "cu:") && !strings.HasPrefix(k, "otp:") && len(s.recent(k)) >= maxFailedLogins {
-			n++
-		}
-	}
-	return n
-}
-
-func (s *Server) clearFailures(ip string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.failed, ip)
-}
-
-// recent drops failures older than the window. Caller holds s.mu.
-func (s *Server) recent(ip string) []time.Time {
-	cutoff := time.Now().Add(-loginWindow)
-	list := s.failed[ip][:0]
-	for _, t := range s.failed[ip] {
-		if t.After(cutoff) {
-			list = append(list, t)
-		}
-	}
-	if len(list) == 0 {
-		delete(s.failed, ip)
-	} else {
-		s.failed[ip] = list
-	}
-	return list
 }
 
 // requireAdmin returns middleware that needs a logged-in, active admin.
@@ -263,31 +154,31 @@ func (s *Server) recent(ip string) []time.Time {
 func (s *Server) requireAdmin(roles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			id := s.sessions.GetInt64(r.Context(), "admin_id")
+			id := s.Sessions.GetInt64(r.Context(), "admin_id")
 			if id == 0 {
 				http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 				return
 			}
-			admin, err := s.queries.GetAdmin(r.Context(), id)
+			admin, err := s.Queries.GetAdmin(r.Context(), id)
 			if err != nil && err != sql.ErrNoRows {
 				// A cancelled request or a busy DB is not a reason to log the admin out.
-				s.fail(w, "load admin", err)
+				s.Fail(w, "load admin", err)
 				return
 			}
 			if err != nil || admin.Status != "Active" {
-				s.sessions.Destroy(r.Context())
+				s.Sessions.Destroy(r.Context())
 				http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 				return
 			}
-			if admin.SessionVersion != s.sessions.GetInt64(r.Context(), "sv") {
+			if admin.SessionVersion != s.Sessions.GetInt64(r.Context(), "sv") {
 				// password, role or status changed since this session was created
-				s.sessions.Destroy(r.Context())
+				s.Sessions.Destroy(r.Context())
 				http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 				return
 			}
 			// an admin still on the imported sha1 hash must pick a new password first
 			if admin.LegacySha1 != "" && r.URL.Path != "/admin/password" && r.URL.Path != "/logout" {
-				s.sessions.Put(r.Context(), "flash", s.t("Your password is from the old system. Choose a new one to continue."))
+				s.Sessions.Put(r.Context(), "flash", s.T("Your password is from the old system. Choose a new one to continue."))
 				http.Redirect(w, r, "/admin/password", http.StatusSeeOther)
 				return
 			}
@@ -305,6 +196,3 @@ func adminFrom(r *http.Request) *db.Admin {
 	a, _ := r.Context().Value(ctxKey{}).(*db.Admin)
 	return a
 }
-
-// bcryptCost is lowered by tests; bcrypt at the default cost dominates test time under -race.
-var bcryptCost = bcrypt.DefaultCost

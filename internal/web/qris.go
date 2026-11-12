@@ -8,7 +8,6 @@ import (
 	"crypto/hmac"
 	"encoding/base64"
 	"errors"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"html/template"
 	"image"
 	_ "image/jpeg"
@@ -17,6 +16,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/payment"
 	"github.com/makiuchi-d/gozxing"
@@ -84,27 +85,27 @@ func (s *Server) qrisPage(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "qris settings", err)
+		s.Fail(w, "qris settings", err)
 		return
 	}
-	t, err := s.queries.GetTransaction(r.Context(), id)
+	t, err := s.Queries.GetTransaction(r.Context(), id)
 	if err != nil || st["qris_payload"] == "" || t.Price <= 0 {
 		http.NotFound(w, r)
 		return
 	}
 	code, err := payment.QRISAmount(st["qris_payload"], t.Price)
 	if err != nil {
-		s.fail(w, "qris", err)
+		s.Fail(w, "qris", err)
 		return
 	}
 	png, err := qrcode.Encode(code, qrcode.Medium, 512)
 	if err != nil {
-		s.fail(w, "qris png", err)
+		s.Fail(w, "qris png", err)
 		return
 	}
 	qr := template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))
 	d := qrisData{Card: s.qrisCard(st, payment.QRISDetailsOf(st["qris_payload"]), qr, view.Money(t.Price), t.Invoice+" · "+t.PlanName, false)}
-	s.render(w, r, 200, "p_qris", Page{Title: "Pay via QRIS", Data: d})
+	s.Render(w, r, 200, "p_qris", Page{Title: "Pay via QRIS", Data: d})
 }

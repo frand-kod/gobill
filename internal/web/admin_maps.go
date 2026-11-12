@@ -54,16 +54,16 @@ func writeMarkers(w http.ResponseWriter, ms []mapMarker) {
 // mapPage renders the Leaflet page; the marker JSON is fetched from dataURL.
 func (s *Server) mapPage(title, dataURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		s.render(w, r, http.StatusOK, "maps", Page{Title: title, Data: dataURL})
+		s.Render(w, r, http.StatusOK, "maps", Page{Title: title, Data: dataURL})
 	}
 }
 
 // ponytail: loads every customer marker in one response and the map draws them all. Upgrade path when
 // the operator has thousands of customers: a bbox query on the map viewport, or client-side clustering.
 func (s *Server) mapCustomerData(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.queries.ListCustomerMarkers(r.Context())
+	rows, err := s.Queries.ListCustomerMarkers(r.Context())
 	if err != nil {
-		s.fail(w, "customer markers", err)
+		s.Fail(w, "customer markers", err)
 		return
 	}
 	var ms []mapMarker
@@ -82,9 +82,9 @@ func (s *Server) mapCustomerData(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) mapRouterData(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.queries.ListRouterMarkers(r.Context())
+	rows, err := s.Queries.ListRouterMarkers(r.Context())
 	if err != nil {
-		s.fail(w, "router markers", err)
+		s.Fail(w, "router markers", err)
 		return
 	}
 	var ms []mapMarker
@@ -104,9 +104,9 @@ func (s *Server) mapRouterData(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) mapODPData(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.queries.ListODPMarkers(r.Context())
+	rows, err := s.Queries.ListODPMarkers(r.Context())
 	if err != nil {
-		s.fail(w, "odp markers", err)
+		s.Fail(w, "odp markers", err)
 		return
 	}
 	var ms []mapMarker

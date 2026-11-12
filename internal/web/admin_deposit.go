@@ -4,16 +4,18 @@ package web
 
 import (
 	"database/sql"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"net/url"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"errors"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/billing"
 	"sync"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/billing"
 )
 
 // Money forms (deposit, single recharge) carry a one-time token: a second POST with the same token
@@ -86,7 +88,7 @@ func (s *Server) balancePlans(r *http.Request) (opts []option, err error) {
 func (s *Server) depositForm(w http.ResponseWriter, r *http.Request) {
 	opts, err := s.balancePlans(r)
 	if err != nil {
-		s.fail(w, "list plans", err)
+		s.Fail(w, "list plans", err)
 		return
 	}
 	s.renderForm(w, r, 200, depositPage(map[string]string{"customer": r.URL.Query().Get("customer")}, nil, opts))
@@ -95,21 +97,21 @@ func (s *Server) depositForm(w http.ResponseWriter, r *http.Request) {
 func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 	opts, err := s.balancePlans(r)
 	if err != nil {
-		s.fail(w, "list plans", err)
+		s.Fail(w, "list plans", err)
 		return
 	}
 	confirmed := r.PostFormValue("confirmed") == "1"
 	if confirmed && !takeFormToken(r.PostFormValue("token")) {
-		s.sessions.Put(r.Context(), "error", s.t(msgFormReplayed))
+		s.Sessions.Put(r.Context(), "error", s.T(msgFormReplayed))
 		http.Redirect(w, r, "/admin/deposit?customer="+url.QueryEscape(r.PostFormValue("customer")), http.StatusSeeOther)
 		return
 	}
 	v, e := httpx.FormVals(r, "customer", "plan", "amount", "note"), map[string]string{}
-	c, err := s.queries.GetCustomerByUsername(r.Context(), v["customer"])
+	c, err := s.Queries.GetCustomerByUsername(r.Context(), v["customer"])
 	if err == sql.ErrNoRows {
 		e["customer"] = "Customer not found"
 	} else if err != nil {
-		s.fail(w, "get customer", err)
+		s.Fail(w, "get customer", err)
 		return
 	}
 	planID, _ := httpx.PosInt(v["plan"])
@@ -124,7 +126,7 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(e) == 0 && !confirmed {
 		if planID > 0 {
-			pl, err := s.queries.GetPlan(r.Context(), planID)
+			pl, err := s.Queries.GetPlan(r.Context(), planID)
 			if err != nil || pl.Type != "Balance" {
 				e["plan"] = "Invalid value"
 			} else {
@@ -133,14 +135,14 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 		}
 		if len(e) == 0 {
 			d := depositConfirm{Customer: c.Username, Plan: v["plan"], Amount: v["amount"], Note: v["note"], Token: r.PostFormValue("token")}
-			d.Summary = fmt.Sprintf(s.t("Add %s to %s; balance becomes %s"), view.Money(amount), c.Username, view.Money(c.Balance+amount))
-			s.render(w, r, 200, "deposit_confirm", Page{Title: "Refill Balance", Data: d})
+			d.Summary = fmt.Sprintf(s.T("Add %s to %s; balance becomes %s"), view.Money(amount), c.Username, view.Money(c.Balance+amount))
+			s.Render(w, r, 200, "deposit_confirm", Page{Title: "Refill Balance", Data: d})
 			return
 		}
 	}
 	if len(e) == 0 {
 		if s.Billing == nil {
-			s.fail(w, "deposit", errors.New("billing service not configured"))
+			s.Fail(w, "deposit", errors.New("billing service not configured"))
 			return
 		}
 		// the service writes the transaction and the activity log
@@ -148,15 +150,15 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, billing.ErrBadDeposit):
 			e["plan"] = "Invalid value"
 		case err != nil:
-			s.fail(w, "deposit", err)
+			s.Fail(w, "deposit", err)
 			return
 		default:
-			msg := s.t("Refill Balance")
-			if nc, err := s.queries.GetCustomer(r.Context(), c.ID); err == nil { // amount = what the balance actually grew by
-				msg = fmt.Sprintf(s.t("Balance +%s, now %s"), view.Money(nc.Balance-c.Balance), view.Money(nc.Balance))
+			msg := s.T("Refill Balance")
+			if nc, err := s.Queries.GetCustomer(r.Context(), c.ID); err == nil { // amount = what the balance actually grew by
+				msg = fmt.Sprintf(s.T("Balance +%s, now %s"), view.Money(nc.Balance-c.Balance), view.Money(nc.Balance))
 			}
-			s.sessions.Put(r.Context(), "flash", msg+": "+c.Username)
-			s.sessions.Put(r.Context(), "flash_sticky", "1") // the receipt for money moved: no auto-dismiss
+			s.Sessions.Put(r.Context(), "flash", msg+": "+c.Username)
+			s.Sessions.Put(r.Context(), "flash_sticky", "1") // the receipt for money moved: no auto-dismiss
 			http.Redirect(w, r, fmt.Sprint("/admin/customers/", c.ID), http.StatusSeeOther)
 			return
 		}

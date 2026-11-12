@@ -3,18 +3,20 @@ package web
 // Integration checks: WhatsApp test and daily summary trigger.
 
 import (
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
+
+	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"context"
 	"errors"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/billing"
-	"github.com/frand-kod/gobill/internal/notify"
-	"github.com/frand-kod/gobill/internal/payment"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/billing"
+	"github.com/frand-kod/gobill/internal/notify"
+	"github.com/frand-kod/gobill/internal/payment"
 )
 
 // waTest sends a test message with the (possibly unsaved) values of the WA server fields and
@@ -26,7 +28,7 @@ func (s *Server) waTest(w http.ResponseWriter, r *http.Request) {
 	}
 	v, e, err := s.waTestSend(r)
 	if err != nil {
-		s.fail(w, "wa test", err)
+		s.Fail(w, "wa test", err)
 		return
 	}
 	s.renderSettings(w, r, http.StatusOK, "integrations", v, e)
@@ -35,11 +37,11 @@ func (s *Server) waTest(w http.ResponseWriter, r *http.Request) {
 // waTestSend is the send itself, shared by Settings > Integrations and the Quick Setup WhatsApp step.
 // It returns the values and field errors the form shows again; the flash is set when the message was sent.
 func (s *Server) waTestSend(r *http.Request) (map[string]string, map[string]string, error) {
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
 		return nil, nil, err
 	}
-	n, err := notify.Load(r.Context(), s.queries)
+	n, err := notify.Load(r.Context(), s.Queries)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -55,7 +57,7 @@ func (s *Server) waTestSend(r *http.Request) (map[string]string, map[string]stri
 			v[k] = x
 		}
 	}
-	lang, e := s.language(), map[string]string{}
+	lang, e := s.Language(), map[string]string{}
 	switch {
 	case n.Settings["alt_wga_server_url"] == "":
 		e["wa_test_phone"] = "Fill in the WA server URL first"
@@ -64,12 +66,12 @@ func (s *Server) waTestSend(r *http.Request) (map[string]string, map[string]stri
 	default:
 		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 		defer cancel()
-		err := n.AltWA(ctx, v["wa_test_phone"], s.catalog.T(lang, "Test message from gobill. WhatsApp works."))
+		err := n.AltWA(ctx, v["wa_test_phone"], s.Catalog.T(lang, "Test message from gobill. WhatsApp works."))
 		s.logActivity(r, "wa.test", "ok="+strconv.FormatBool(err == nil))
 		if err == nil {
-			s.sessions.Put(r.Context(), "flash", s.catalog.T(lang, "Test message sent. Check the phone to be sure it arrived."))
+			s.Sessions.Put(r.Context(), "flash", s.Catalog.T(lang, "Test message sent. Check the phone to be sure it arrived."))
 		} else {
-			msg := s.catalog.T(lang, waTestError(err))
+			msg := s.Catalog.T(lang, waTestError(err))
 			var we *notify.WAError
 			if errors.As(err, &we) && we.Status > 0 && we.Status != 401 && we.Status != 403 && we.Status != 404 && we.Detail != "" {
 				msg += ": " + we.Detail // the server's own words
@@ -112,9 +114,9 @@ func (s *Server) integrationTest(w http.ResponseWriter, r *http.Request) {
 		s.testResult(w, r, kind, "", errTestLimit)
 		return
 	}
-	n, err := notify.Load(r.Context(), s.queries)
+	n, err := notify.Load(r.Context(), s.Queries)
 	if err != nil {
-		s.fail(w, "integration test notifier", err)
+		s.Fail(w, "integration test notifier", err)
 		return
 	}
 	if s.telegramAPI != "" {
@@ -122,8 +124,8 @@ func (s *Server) integrationTest(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
-	lang := s.language()
-	text := s.catalog.T(lang, "Test message from gobill. The channel works.")
+	lang := s.Language()
+	text := s.Catalog.T(lang, "Test message from gobill. The channel works.")
 	var ok string
 	switch kind {
 	case "telegram":
@@ -132,17 +134,17 @@ func (s *Server) integrationTest(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		err = n.Telegram(ctx, text)
-		ok = s.catalog.T(lang, "Telegram test message sent. Check the chat to be sure it arrived.")
+		ok = s.Catalog.T(lang, "Telegram test message sent. Check the chat to be sure it arrived.")
 	case "gateway":
 		to := r.PostFormValue("gateway_test_phone")
 		switch {
 		case !notify.SMSConfigured(n.Settings):
 			err = errTestNotSet
 		case to == "":
-			err = errors.New(s.catalog.T(lang, "Enter a phone number for the test"))
+			err = errors.New(s.Catalog.T(lang, "Enter a phone number for the test"))
 		default:
 			err = n.SMS(ctx, to, text)
-			ok = s.catalog.T(lang, "Gateway test sent. Check the phone to be sure it arrived.")
+			ok = s.Catalog.T(lang, "Gateway test sent. Check the phone to be sure it arrived.")
 		}
 	case "email":
 		to := r.PostFormValue("email_test_to")
@@ -150,10 +152,10 @@ func (s *Server) integrationTest(w http.ResponseWriter, r *http.Request) {
 		case n.Settings["smtp_host"] == "":
 			err = errTestNotSet
 		case to == "":
-			err = errors.New(s.catalog.T(lang, "Enter an email address for the test"))
+			err = errors.New(s.Catalog.T(lang, "Enter an email address for the test"))
 		default:
-			err = n.Email(ctx, to, s.catalog.T(lang, "Test email from gobill"), text)
-			ok = s.catalog.T(lang, "Test email sent. Check the inbox to be sure it arrived.")
+			err = n.Email(ctx, to, s.Catalog.T(lang, "Test email from gobill"), text)
+			ok = s.Catalog.T(lang, "Test email sent. Check the inbox to be sure it arrived.")
 		}
 	case "webhook":
 		if n.Settings["webhook_url"] == "" {
@@ -162,7 +164,7 @@ func (s *Server) integrationTest(w http.ResponseWriter, r *http.Request) {
 		}
 		var status int
 		status, err = n.PostWebhook(ctx, "test", map[string]any{})
-		ok = fmt.Sprintf(s.catalog.T(lang, "Webhook answered HTTP %d"), status)
+		ok = fmt.Sprintf(s.Catalog.T(lang, "Webhook answered HTTP %d"), status)
 	}
 	s.testResult(w, r, kind, ok, err)
 }
@@ -178,16 +180,16 @@ func (s *Server) gatewayTest(w http.ResponseWriter, r *http.Request, which strin
 		s.testResult(w, r, "tripay", "", errTestLimit)
 		return
 	}
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "load settings", err)
+		s.Fail(w, "load settings", err)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
 	var ok string
 	st["payment_gateway"] = which
-	g, err := s.gateway(st)
+	g, err := s.Gateway(st)
 	switch {
 	case err != nil:
 	default:
@@ -200,7 +202,7 @@ func (s *Server) gatewayTest(w http.ResponseWriter, r *http.Request, which strin
 			if mode != "production" {
 				mode = "sandbox"
 			}
-			ok = fmt.Sprintf(s.t(name+" connection OK (%s mode, %d payment channels)"), mode, len(chans))
+			ok = fmt.Sprintf(s.T(name+" connection OK (%s mode, %d payment channels)"), mode, len(chans))
 		}
 	}
 	s.testResult(w, r, "tripay", ok, err)
@@ -213,8 +215,8 @@ var (
 
 // testAllow lets an admin run 5 integration tests a minute, so the buttons cannot be used to spam.
 func (s *Server) testAllow(admin int64) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
 	if s.testSent == nil {
 		s.testSent = map[int64][]time.Time{}
 	}
@@ -236,27 +238,27 @@ func (s *Server) testAllow(admin int64) bool {
 // testResult logs the test and redirects with the outcome: a flash on success, an error toast otherwise.
 // err is the test's own message or a server error text, scrubbed of URLs, tokens and numbers.
 func (s *Server) testResult(w http.ResponseWriter, r *http.Request, kind, ok string, err error) {
-	back, lang := "/admin/settings/integrations", s.language()
+	back, lang := "/admin/settings/integrations", s.Language()
 	if kind == "tripay" {
 		back = "/admin/settings/payment"
 	}
 	s.logActivity(r, "integration.test", kind+" ok="+strconv.FormatBool(err == nil))
 	if err == nil {
-		s.sessions.Put(r.Context(), "flash", ok)
+		s.Sessions.Put(r.Context(), "flash", ok)
 	} else {
-		s.sessions.Put(r.Context(), "error", s.catalog.T(lang, "Test failed")+": "+s.catalog.T(lang, notify.Scrub(err.Error())))
+		s.Sessions.Put(r.Context(), "error", s.Catalog.T(lang, "Test failed")+": "+s.Catalog.T(lang, notify.Scrub(err.Error())))
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
 // dailySummaryNow sends the summary immediately from the saved settings and shows a plain result.
 func (s *Server) dailySummaryNow(w http.ResponseWriter, r *http.Request) {
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "load settings", err)
+		s.Fail(w, "load settings", err)
 		return
 	}
-	lang, e := s.language(), map[string]string{}
+	lang, e := s.Language(), map[string]string{}
 	var sent []string
 	if s.Billing != nil {
 		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
@@ -268,11 +270,11 @@ func (s *Server) dailySummaryNow(w http.ResponseWriter, r *http.Request) {
 	s.logActivity(r, "daily_summary.send", "ok="+strconv.FormatBool(err == nil))
 	switch {
 	case err == nil:
-		s.sessions.Put(r.Context(), "flash", s.catalog.T(lang, "Summary sent")+": "+strings.Join(sent, ", "))
+		s.Sessions.Put(r.Context(), "flash", s.Catalog.T(lang, "Summary sent")+": "+strings.Join(sent, ", "))
 	case errors.Is(err, billing.ErrSummaryNotConfigured):
-		e["daily_summary_now"] = s.catalog.T(lang, "Not sent. Choose a channel and fill in the Telegram ID or the WhatsApp number and server first")
+		e["daily_summary_now"] = s.Catalog.T(lang, "Not sent. Choose a channel and fill in the Telegram ID or the WhatsApp number and server first")
 	default:
-		e["daily_summary_now"] = s.catalog.T(lang, "Could not send the summary") + ": " + err.Error()
+		e["daily_summary_now"] = s.Catalog.T(lang, "Could not send the summary") + ": " + err.Error()
 	}
 	s.renderSettings(w, r, http.StatusOK, "notifications", st, e)
 }

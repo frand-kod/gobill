@@ -10,14 +10,15 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/service/restore"
-	"github.com/frand-kod/gobill/internal/settings"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/service/restore"
+	"github.com/frand-kod/gobill/internal/settings"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/importer"
@@ -66,21 +67,21 @@ func sweepImports() {
 // dropImport deletes the pending upload files and forgets them.
 func (s *Server) dropImport(ctx context.Context) {
 	for _, k := range []string{"import_json", "import_notif"} {
-		if p := s.sessions.GetString(ctx, k); p != "" {
+		if p := s.Sessions.GetString(ctx, k); p != "" {
 			os.Remove(p)
 		}
-		s.sessions.Remove(ctx, k)
+		s.Sessions.Remove(ctx, k)
 	}
-	s.sessions.Remove(ctx, "import_token")
+	s.Sessions.Remove(ctx, "import_token")
 }
 
 // pendingImport returns the upload files when token is the one this session was given and the files are still fresh.
 func (s *Server) pendingImport(ctx context.Context, token string) (map[string]string, bool) {
-	want := s.sessions.GetString(ctx, "import_token")
+	want := s.Sessions.GetString(ctx, "import_token")
 	if want == "" || subtle.ConstantTimeCompare([]byte(want), []byte(token)) != 1 {
 		return nil, false
 	}
-	files := map[string]string{"backup": s.sessions.GetString(ctx, "import_json"), "notifications": s.sessions.GetString(ctx, "import_notif")}
+	files := map[string]string{"backup": s.Sessions.GetString(ctx, "import_json"), "notifications": s.Sessions.GetString(ctx, "import_notif")}
 	for _, p := range files {
 		if p == "" {
 			continue
@@ -187,9 +188,9 @@ func (s *Server) renderImport(w http.ResponseWriter, r *http.Request, status int
 	v.TOTP = adminFrom(r).TotpEnabled == 1
 	p := Page{Title: "Import PHPNuxBill", Data: v, Detail: detail}
 	if msg != "" {
-		p.Error = s.t(msg)
+		p.Error = s.T(msg)
 	}
-	s.render(w, r, status, "import", p)
+	s.Render(w, r, status, "import", p)
 }
 
 // importAgain re-renders the dry-run preview of the staged file with an error (wrong password, missing
@@ -228,7 +229,7 @@ func (s *Server) importPreview(w http.ResponseWriter, r *http.Request) {
 	token, err := newToken()
 	if err != nil {
 		removeFiles(files)
-		s.fail(w, "import token", err)
+		s.Fail(w, "import token", err)
 		return
 	}
 	rep, err := s.runImport(ctx, files, true)
@@ -240,12 +241,12 @@ func (s *Server) importPreview(w http.ResponseWriter, r *http.Request) {
 	cur, err := restore.CountRows(ctx, s.conn)
 	if err != nil {
 		removeFiles(files)
-		s.fail(w, "import counts", err)
+		s.Fail(w, "import counts", err)
 		return
 	}
-	s.sessions.Put(ctx, "import_token", token)
-	s.sessions.Put(ctx, "import_json", files["backup"])
-	s.sessions.Put(ctx, "import_notif", files["notifications"])
+	s.Sessions.Put(ctx, "import_token", token)
+	s.Sessions.Put(ctx, "import_json", files["backup"])
+	s.Sessions.Put(ctx, "import_notif", files["notifications"])
 	s.renderImport(w, r, http.StatusOK, importView{Token: token, Rows: importRows(rep), Current: cur, Filled: cur.Filled(), Unsupported: rep.Unsupported}, "", "")
 }
 
@@ -261,7 +262,7 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 	cur, err := restore.CountRows(ctx, s.conn)
 	if err != nil {
-		s.fail(w, "import counts", err)
+		s.Fail(w, "import counts", err)
 		return
 	}
 	if cur.Filled() && r.PostFormValue("understand") != "1" {
@@ -270,7 +271,7 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 	// the import replaces the admins and settings: ask for the password again, like the key download
 	if msg, err := s.stepUp(r); err != nil {
-		s.fail(w, "open totp secret", err)
+		s.Fail(w, "open totp secret", err)
 		return
 	} else if msg != "" {
 		s.importAgain(w, r, r.PostFormValue("token"), files, cur, msg)
@@ -298,33 +299,33 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 	slog.Info("phpnuxbill import", "backup", bak, "loaded", loaded, "skipped", skipped)
 
 	// the import replaced settings and admins: reload what is cached, then end this session
-	if m, err := s.loadSettings(ctx); err != nil {
+	if m, err := s.LoadSettings(ctx); err != nil {
 		slog.Error("import reload settings", "err", err)
 	} else {
-		s.lang.Store(m["language"])
+		s.Lang.Store(m["language"])
 	}
 	s.ReloadSessionSettings(ctx)
 	s.settingsSaved(ctx)
-	lang := s.language()
-	msg := s.catalog.T(lang, "Import finished. Log in with a PHPNuxBill admin account.") + " " +
-		fmt.Sprintf(s.catalog.T(lang, "%d rows imported, %d skipped"), loaded, skipped) + ". " +
-		fmt.Sprintf(s.catalog.T(lang, "Backup saved as %s"), bak)
+	lang := s.Language()
+	msg := s.Catalog.T(lang, "Import finished. Log in with a PHPNuxBill admin account.") + " " +
+		fmt.Sprintf(s.Catalog.T(lang, "%d rows imported, %d skipped"), loaded, skipped) + ". " +
+		fmt.Sprintf(s.Catalog.T(lang, "Backup saved as %s"), bak)
 	// Quick Setup switches to verifying the imported data, and the first-run dialog does not come back
-	if err := s.queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupModeKey, Value: "import"}); err != nil {
+	if err := s.Queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupModeKey, Value: "import"}); err != nil {
 		slog.Error("import setup mode", "err", err)
 	}
-	if cur := settings.Get(ctx, s.queries, setupKey); cur == "" {
-		if err := s.queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupKey, Value: "started"}); err != nil {
+	if cur := settings.Get(ctx, s.Queries, setupKey); cur == "" {
+		if err := s.Queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupKey, Value: "started"}); err != nil {
 			slog.Error("import setup state", "err", err)
 		}
 	}
-	s.sessions.Destroy(ctx)
-	s.sessions.Put(ctx, "flash", msg)
+	s.Sessions.Destroy(ctx)
+	s.Sessions.Put(ctx, "flash", msg)
 	http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 }
 
 func (s *Server) importCancel(w http.ResponseWriter, r *http.Request) {
 	s.dropImport(r.Context())
-	s.sessions.Put(r.Context(), "flash", s.t("Import cancelled."))
+	s.Sessions.Put(r.Context(), "flash", s.T("Import cancelled."))
 	http.Redirect(w, r, importPage, http.StatusSeeOther)
 }

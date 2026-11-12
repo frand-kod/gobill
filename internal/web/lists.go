@@ -3,18 +3,14 @@ package web
 // List pages: sorting, paging, filters, row and bulk actions, list rendering.
 
 import (
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 )
-
-// perPage is the default rows per page; ?per= may pick any of pageSizes.
-const perPage = 20
-
-var pageSizes = []int{20, 50, 100}
 
 type listRow struct {
 	ID    int64
@@ -30,7 +26,7 @@ type listPage struct {
 	CanEdit          bool // shows edit and delete
 	ViewLink         bool // first cell links to Base/ID instead of Base/ID/edit
 	Searchable       bool
-	Nav              pageNav      // row count, page-size links and Prev/Next under the table
+	Nav              view.PageNav // row count, page-size links and Prev/Next under the table
 	DeleteOnly       bool         // rows have no edit page
 	DeleteNote       string       // consequences shown in the delete confirm, English key
 	Links            []option     // extra toolbar buttons: Value = href
@@ -110,7 +106,7 @@ func (lp listPage) query() url.Values {
 		v.Set("sort", lp.Sort)
 		v.Set("dir", lp.Dir)
 	}
-	if lp.Nav.Per != 0 && lp.Nav.Per != perPage {
+	if lp.Nav.Per != 0 && lp.Nav.Per != view.PerPage {
 		v.Set("per", strconv.Itoa(lp.Nav.Per))
 	}
 	return v
@@ -307,91 +303,22 @@ func (lp listPage) SortURL(key string) string {
 	return lp.Base + "?" + v.Encode()
 }
 
-// pager is the page request: ?page (1-based) and ?per (one of pageSizes).
-type pager struct{ Page, Per int }
-
-// limit is one row more than a page, so finish can tell if a next page exists.
-func (pg pager) limit() int64 { return int64(pg.Per) + 1 }
-
-func (pg pager) offset() int64 { return int64(pg.Page-1) * int64(pg.Per) }
-
-// paging reads ?q, ?page and ?per. A ?per that is not in pageSizes is perPage.
-func paging(r *http.Request) (q string, pg pager) {
-	g := r.URL.Query()
-	q = strings.TrimSpace(g.Get("q"))
-	pg.Page, _ = strconv.Atoi(g.Get("page"))
-	if pg.Page < 1 {
-		pg.Page = 1
-	}
-	pg.Per, _ = strconv.Atoi(g.Get("per"))
-	if !slices.Contains(pageSizes, pg.Per) {
-		pg.Per = perPage
-	}
-	return q, pg
-}
-
-// pageNav is the pager under a table: the rows shown, the page-size links and Prev/Next.
-type pageNav struct {
-	Total, From, To int64
-	Per             int
-	Prev, Next      string // URLs, "" = none
-	Sizes           []pageSize
-}
-
-// pageSize is one page-size link of the pager; On marks the size in use.
-type pageSize struct {
-	N    int
-	Href string
-	On   bool
-}
-
-// newPageNav builds the pager for a page of shown rows. more says a next page exists and href builds the URL of
-// a page at a page size, keeping the filters.
-func newPageNav(pg pager, total int64, shown int, more bool, href func(page, per int) string) pageNav {
-	nav := pageNav{Total: total, Per: pg.Per}
-	if shown > 0 {
-		nav.From = pg.offset() + 1
-		nav.To = nav.From + int64(shown) - 1
-	}
-	if pg.Page > 1 {
-		nav.Prev = href(pg.Page-1, pg.Per)
-	}
-	if more {
-		nav.Next = href(pg.Page+1, pg.Per)
-	}
-	for _, n := range pageSizes {
-		nav.Sizes = append(nav.Sizes, pageSize{N: n, Href: href(1, n), On: n == pg.Per})
-	}
-	return nav
-}
-
-// pageHref is the URL of a page: v plus page, and per when it is not the default page size.
-func pageHref(base string, v url.Values, page, per int) string {
-	v.Set("page", strconv.Itoa(page))
-	if per != perPage {
-		v.Set("per", strconv.Itoa(per))
-	} else {
-		v.Del("per")
-	}
-	return base + "?" + v.Encode()
-}
-
-// finish drops the extra row and sets the pager from the count of all matching rows.
-func (lp *listPage) finish(pg pager, total int64) {
+// finish drops the extra row and sets the view.Pager from the count of all matching rows.
+func (lp *listPage) finish(pg view.Pager, total int64) {
 	more := len(lp.Rows) > pg.Per
 	if more {
 		lp.Rows = lp.Rows[:pg.Per]
 	}
-	lp.Nav = newPageNav(pg, total, len(lp.Rows), more, func(page, per int) string {
-		return pageHref(lp.Base, lp.query(), page, per)
+	lp.Nav = view.NewPageNav(pg, total, len(lp.Rows), more, func(page, per int) string {
+		return view.PageHref(lp.Base, lp.query(), page, per)
 	})
 }
 
 func (s *Server) renderList(w http.ResponseWriter, r *http.Request, lp listPage) {
-	s.render(w, r, http.StatusOK, "list", Page{
+	s.Render(w, r, http.StatusOK, "list", Page{
 		Title: lp.Heading,
-		Flash: s.sessions.PopString(r.Context(), "flash"),
-		Error: s.sessions.PopString(r.Context(), "error"),
+		Flash: s.Sessions.PopString(r.Context(), "flash"),
+		Error: s.Sessions.PopString(r.Context(), "error"),
 		Data:  lp,
 	})
 }

@@ -6,12 +6,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
 )
@@ -35,7 +36,7 @@ type usageCard struct {
 type usageWin struct {
 	Total, Down, Up     string
 	TotalNum, TotalUnit string // Total split for the big number
-	Bars                []dayBar
+	Bars                []core.DayBar
 	Top                 []usageTop
 	Empty               bool
 }
@@ -44,23 +45,6 @@ type usageWin struct {
 type usageTop struct {
 	Name, Href, Total string
 	Pct               int // share of the heaviest user's total, for the thin bar
-}
-
-// waLink is the wa.me chat link for a phone number; numbers starting with 0 get the country code.
-func waLink(phone, cc string) string {
-	d := strings.Map(func(r rune) rune {
-		if r >= '0' && r <= '9' {
-			return r
-		}
-		return -1
-	}, phone)
-	if strings.HasPrefix(strings.TrimSpace(phone), "0") && cc != "" {
-		d = cc + strings.TrimLeft(d, "0")
-	}
-	if len(d) < 8 {
-		return ""
-	}
-	return "https://wa.me/" + d
 }
 
 // expiringRow is one row of the Expiring and Recent lists.
@@ -86,19 +70,19 @@ func dayIndex(t time.Time, loc *time.Location) int64 {
 
 // widgetData gathers the dashboard cards.
 func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, err error) {
-	settings, err := s.loadSettings(ctx)
+	settings, err := s.LoadSettings(ctx)
 	if err != nil {
 		return
 	}
-	loc := s.location()
+	loc := s.Location()
 	today := dayIndex(now, loc)
 	y, m, d := now.In(loc).Date()
 	// the lists cover whole calendar days: today and the six after it (expiring), the six before it (recent)
 	nextWeek := time.Date(y, m, d+7, 0, 0, 0, 0, loc).Unix() - 1
 	weekStart := time.Date(y, m, d-6, 0, 0, 0, 0, loc).Unix()
-	words := s.pTexts()
+	words := s.PTexts()
 	// each card's query is independent: a failure sets its Err flag and leaves its rows empty
-	soon, err := s.queries.ListExpiringSubscriptions(ctx, db.ListExpiringSubscriptionsParams{
+	soon, err := s.Queries.ListExpiringSubscriptions(ctx, db.ListExpiringSubscriptionsParams{
 		Since: now.Unix(), Until: nextWeek, PageLimit: dashListLimit})
 	if err != nil {
 		slog.Error("dashboard expiring", "err", err)
@@ -107,10 +91,10 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	for _, r := range soon {
 		x := s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.Balance, r.LastSeenAt, r.ExpiresAt)
 		x.Days = int(dayIndex(time.Unix(r.ExpiresAt, 0), loc) - today)
-		x.When = words.span(r.ExpiresAt-now.Unix()) + " " + words.Left
+		x.When = words.Span(r.ExpiresAt-now.Unix()) + " " + words.Left
 		w.Expiring = append(w.Expiring, x)
 	}
-	ended, err := s.queries.ListRecentlyExpiredSubscriptions(ctx, db.ListRecentlyExpiredSubscriptionsParams{
+	ended, err := s.Queries.ListRecentlyExpiredSubscriptions(ctx, db.ListRecentlyExpiredSubscriptionsParams{
 		Since: weekStart, Until: now.Unix(), PageLimit: dashListLimit})
 	if err != nil {
 		slog.Error("dashboard recent", "err", err)
@@ -119,7 +103,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	for _, r := range ended {
 		x := s.expiringRow(settings, r.CustomerID, r.Username, r.Fullname, r.Phone, r.PlanName, r.Balance, r.LastSeenAt, r.ExpiresAt)
 		x.Days = int(today - dayIndex(time.Unix(r.ExpiresAt, 0), loc))
-		x.When = words.span(now.Unix()-r.ExpiresAt) + " " + s.t("ago")
+		x.When = words.Span(now.Unix()-r.ExpiresAt) + " " + s.T("ago")
 		w.Recent = append(w.Recent, x)
 	}
 	week, errWeek := s.usageWindow(ctx, now, loc, 7)
@@ -130,13 +114,13 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	} else {
 		w.Usage = usageCard{Week: week, Month: month}
 	}
-	logs, err := s.queries.ListActivityLogs(ctx, db.ListActivityLogsParams{Limit: dashLogLimit})
+	logs, err := s.Queries.ListActivityLogs(ctx, db.ListActivityLogsParams{Limit: dashLogLimit})
 	if err != nil {
 		slog.Error("dashboard activity log", "err", err)
 		w.LogsErr = true
 	}
 	for _, r := range logs {
-		when := words.span(now.Unix()-r.CreatedAt) + " " + s.t("ago")
+		when := words.Span(now.Unix()-r.CreatedAt) + " " + s.T("ago")
 		w.Logs = append(w.Logs, logRow{Label: s.actionLabel(r.Action), Actor: s.actorLabel(ctx, r.ActorType, r.ActorID), Description: r.Description, When: when})
 	}
 	// card errors are flagged above, not returned: only the settings read (before any card) fails the page
@@ -159,7 +143,7 @@ const usageTopN = 3
 
 // usageWindow reads the RADIUS octets of all users over the last n days (radius_usage_daily).
 func (s *Server) usageWindow(ctx context.Context, now time.Time, loc *time.Location, n int) (usageWin, error) {
-	today := dayStart(now.Unix(), loc)
+	today := core.DayStart(now.Unix(), loc)
 	return s.usageRange(ctx, today.AddDate(0, 0, -(n-1)), today, loc, usageTopN)
 }
 
@@ -168,24 +152,24 @@ func (s *Server) usageWindow(ctx context.Context, now time.Time, loc *time.Locat
 func (s *Server) usageRange(ctx context.Context, from, to time.Time, loc *time.Location, top int) (usageWin, error) {
 	since, until := from.Format("2006-01-02"), to.Format("2006-01-02")
 	n := int(dayIndex(to, loc)-dayIndex(from, loc)) + 1
-	sums, err := s.queries.SumRadiusUsageDailyByDay(ctx, db.SumRadiusUsageDailyByDayParams{Since: since, Until: until})
+	sums, err := s.Queries.SumRadiusUsageDailyByDay(ctx, db.SumRadiusUsageDailyByDayParams{Since: since, Until: until})
 	if err != nil {
 		return usageWin{}, err
 	}
 	if len(sums) == 0 {
 		return usageWin{Empty: true}, nil
 	}
-	totals := make([]dayTotal, len(sums))
+	totals := make([]core.DayTotal, len(sums))
 	var down, up int64
 	for i, x := range sums {
-		totals[i] = dayTotal{Day: x.Day, Input: x.Input, Output: x.Output}
+		totals[i] = core.DayTotal{Day: x.Day, Input: x.Input, Output: x.Output}
 		down += x.Output
 		up += x.Input
 	}
 	num, unit := view.HumanBytesParts(down + up)
 	w := usageWin{Total: num + " " + unit, TotalNum: num, TotalUnit: unit, Down: view.HumanBytes(down), Up: view.HumanBytes(up),
-		Bars: chartBars(dailyRange(totals, from, n))}
-	rows, err := s.queries.TopRadiusUsageDaily(ctx, db.TopRadiusUsageDailyParams{Since: since, Until: until, RowLimit: int64(top)})
+		Bars: core.ChartBars(core.DailyRange(totals, from, n))}
+	rows, err := s.Queries.TopRadiusUsageDaily(ctx, db.TopRadiusUsageDailyParams{Since: since, Until: until, RowLimit: int64(top)})
 	if err != nil {
 		return usageWin{}, err
 	}
@@ -197,7 +181,7 @@ func (s *Server) usageRange(ctx context.Context, from, to time.Time, loc *time.L
 	for _, t := range rows {
 		sum := t.Input + t.Output
 		u := usageTop{Name: t.Username, Total: view.HumanBytes(sum), Pct: int(sum * 100 / peak)}
-		c, err := s.queries.GetCustomerByUsername(ctx, t.Username)
+		c, err := s.Queries.GetCustomerByUsername(ctx, t.Username)
 		switch {
 		case err == nil:
 			u.Href = "/admin/customers/" + strconv.FormatInt(c.ID, 10)
@@ -211,13 +195,13 @@ func (s *Server) usageRange(ctx context.Context, from, to time.Time, loc *time.L
 
 // expiringRow builds one dashboard row; the WhatsApp reminder link is set only when the phone number allows one.
 func (s *Server) expiringRow(settings map[string]string, customerID int64, username, fullname, phone, plan string, balance, lastSeen, expiresAt int64) expiringRow {
-	x := expiringRow{CustomerID: customerID, Username: username, Fullname: fullname, Phone: phone, Plan: plan, Expires: s.ts(expiresAt),
+	x := expiringRow{CustomerID: customerID, Username: username, Fullname: fullname, Phone: phone, Plan: plan, Expires: s.TS(expiresAt),
 		Balance: view.Money(balance)}
 	if lastSeen > 0 {
-		x.LastSeen = s.ts(lastSeen)
+		x.LastSeen = s.TS(lastSeen)
 	}
-	if l := waLink(phone, settings["country_code_phone"]); l != "" {
-		x.WA = l + "?text=" + url.QueryEscape(s.t("Hello, your internet plan is about to end. Please renew to stay online."))
+	if l := view.WaLink(phone, settings["country_code_phone"]); l != "" {
+		x.WA = l + "?text=" + url.QueryEscape(s.T("Hello, your internet plan is about to end. Please renew to stay online."))
 	}
 	return x
 }

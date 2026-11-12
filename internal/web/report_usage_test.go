@@ -1,11 +1,12 @@
 package web
 
 import (
-	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 )
 
 // usageEnv fixes the clock at 2026-03-15 12:00 and seeds usage: u1 today and 20 days ago, u2 45 days ago,
@@ -13,7 +14,7 @@ import (
 func usageEnv(t *testing.T) (*billEnv, time.Time) {
 	t.Helper()
 	e := englishApp(t)
-	now := time.Date(2026, 3, 15, 12, 0, 0, 0, e.srv.location())
+	now := time.Date(2026, 3, 15, 12, 0, 0, 0, e.srv.Location())
 	e.srv.clock = func() time.Time { return now }
 	day := func(back int) string { return now.AddDate(0, 0, -back).Format("2006-01-02") }
 	for _, r := range []struct {
@@ -74,7 +75,7 @@ func TestReportUsageMatchesDashboard(t *testing.T) {
 // With no from and to the Period Report starts at the dashboard income period (reset_day) and ends today.
 func TestReportDefaultRangeIsDashboardPeriod(t *testing.T) {
 	e, now := usageEnv(t)
-	loc := e.srv.location()
+	loc := e.srv.Location()
 	for _, rd := range []string{"", "10", "20"} { // calendar month; cycle began this month; cycle began last month
 		setting(t, e, "reset_day", rd)
 		for i, at := range []time.Time{time.Date(2026, 2, 25, 9, 0, 0, 0, loc), time.Date(2026, 3, 3, 9, 0, 0, 0, loc),

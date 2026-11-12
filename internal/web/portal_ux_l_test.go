@@ -1,12 +1,14 @@
 package web
 
 import (
-	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
 )
@@ -47,26 +49,6 @@ func TestPortalTransferNamesRecipient(t *testing.T) {
 	}
 }
 
-// The payment check waits 30 seconds per payment; the message gets the seconds left.
-func TestPayCheckWaitSeconds(t *testing.T) {
-	s := &Server{}
-	if w := s.payCheckWait(1); w != 0 {
-		t.Fatalf("first check held back for %d s", w)
-	}
-	if w := s.payCheckWait(1); w < 25 || w > 30 {
-		t.Fatalf("second check waits %d s, want the seconds left of the 30 s gap", w)
-	}
-	if w := s.payCheckWait(2); w != 0 {
-		t.Fatalf("another payment held back for %d s", w)
-	}
-	s.payCheckMu.Lock()
-	s.payCheckAt[1] = time.Now().Add(-payCheckGap)
-	s.payCheckMu.Unlock()
-	if w := s.payCheckWait(1); w != 0 {
-		t.Fatalf("check after the gap held back for %d s", w)
-	}
-}
-
 // Each login page has its own title: the admin page and the customer page are told apart in tabs and history.
 func TestLoginPageTitles(t *testing.T) {
 	e := billApp(t)
@@ -84,17 +66,8 @@ func TestMoneyNegativeAndDayLabels(t *testing.T) {
 	}
 	loc := time.UTC
 	now := time.Date(2026, 10, 12, 10, 0, 0, 0, loc).Unix()
-	days := dailyUsage(nil, 7, now, loc)
+	days := core.DailyUsage(nil, 7, now, loc)
 	if days[0].Label != "2026-10-06" || days[6].Label != "2026-10-12" {
 		t.Fatalf("day labels %q .. %q", days[0].Label, days[6].Label)
-	}
-}
-
-// The lookup answers any signed-in customer, so it gives a masked name only.
-func TestMaskName(t *testing.T) {
-	for in, want := range map[string]string{"Budi Santoso": "Budi S.", "Siti Nur Aisyah": "Siti N. A.", "Two": "Two", "": ""} {
-		if got := maskName(in); got != want {
-			t.Errorf("maskName(%q) = %q, want %q", in, got, want)
-		}
 	}
 }

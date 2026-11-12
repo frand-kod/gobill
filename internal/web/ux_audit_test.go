@@ -22,7 +22,7 @@ func TestProfileDropdownLinks2FA(t *testing.T) {
 func TestDashboardExpiringTodayBadge(t *testing.T) {
 	e := billApp(t)
 	p := e.plan(t, "p1", "PPPoE", 25000)
-	now := time.Now().In(e.srv.location())
+	now := time.Now().In(e.srv.Location())
 	// last second of today in the app time zone: "ends today" at any wall-clock hour
 	endOfToday := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()).Unix() - 1
 	if _, err := e.q.CreateSubscription(t.Context(), db.CreateSubscriptionParams{CustomerID: e.cust.ID, PlanID: p.ID,

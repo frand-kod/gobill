@@ -43,13 +43,13 @@ func routerErr(err error, other string) string {
 // putFailure stores a plain error for the next page and keeps the raw text for technicians
 // (shown in a small <details>). Raw errors come from dial/login failures and carry no secrets.
 func (s *Server) putFailure(r *http.Request, msg string, raw error) {
-	s.sessions.Put(r.Context(), "error", msg)
+	s.Sessions.Put(r.Context(), "error", msg)
 	if raw != nil {
 		d := raw.Error()
 		if len(d) > 300 {
 			d = d[:300]
 		}
-		s.sessions.Put(r.Context(), "detail", d)
+		s.Sessions.Put(r.Context(), "detail", d)
 	}
 }
 

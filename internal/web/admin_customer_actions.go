@@ -9,9 +9,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
-	"strings"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 // ---- customer detail actions ----
@@ -23,7 +25,7 @@ func (s *Server) custAct(w http.ResponseWriter, r *http.Request, action, okMsg s
 		return
 	}
 	if s.Billing == nil {
-		s.fail(w, action, errors.New("billing service not configured"))
+		s.Fail(w, action, errors.New("billing service not configured"))
 		return
 	}
 	back := fmt.Sprint("/admin/customers/", c.ID)
@@ -31,10 +33,10 @@ func (s *Server) custAct(w http.ResponseWriter, r *http.Request, action, okMsg s
 	switch {
 	case err != nil:
 		slog.Error(action, "customer", c.Username, "err", err)
-		s.sessions.Put(r.Context(), "error", s.t("Action failed"))
+		s.Sessions.Put(r.Context(), "error", s.T("Action failed"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 	case n == 0:
-		s.sessions.Put(r.Context(), "error", s.t("Cannot find active plan"))
+		s.Sessions.Put(r.Context(), "error", s.T("Cannot find active plan"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 	default:
 		s.done(w, r, back, okMsg, action, c.Username)
@@ -75,11 +77,11 @@ func (s *Server) welcome(ctx context.Context, c db.Customer, vias []string, pass
 	if len(vias) == 0 {
 		return
 	}
-	st, err := s.loadSettings(ctx)
+	st, err := s.LoadSettings(ctx)
 	if err == nil {
 		var n *notify.Notifier
-		if n, err = notify.Load(ctx, s.queries); err == nil {
-			pw, logTo := "********", notify.LogTo(s.queries)
+		if n, err = notify.Load(ctx, s.Queries); err == nil {
+			pw, logTo := "********", notify.LogTo(s.Queries)
 			n.Log = logTo
 			if st["send_credentials_on_create"] == "yes" && pass != "" {
 				pw = pass
@@ -89,7 +91,7 @@ func (s *Server) welcome(ctx context.Context, c db.Customer, vias []string, pass
 			}
 			n.Go("welcome", func(ctx context.Context) error {
 				return n.CustomOn(ctx, c, vias, "welcome_message", "Welcome", map[string]string{"company": st["company_name"],
-					"Username": c.Username, "url": customerLoginURL(st), "Password": pw})
+					"Username": c.Username, "url": core.CustomerLoginURL(st), "Password": pw})
 			})
 			return
 		}
@@ -105,17 +107,17 @@ func (s *Server) custRecountUsage(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	subs, err := s.queries.ListSubscriptionsByCustomer(r.Context(), db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 100})
+	subs, err := s.Queries.ListSubscriptionsByCustomer(r.Context(), db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 100})
 	if err != nil {
-		s.fail(w, "usage recount", err)
+		s.Fail(w, "usage recount", err)
 		return
 	}
 	for _, sub := range subs {
 		if sub.Status != "active" {
 			continue
 		}
-		if _, err := s.queries.RecountSubscriptionUsage(r.Context(), sub.ID); err != nil {
-			s.fail(w, "usage recount", err)
+		if _, err := s.Queries.RecountSubscriptionUsage(r.Context(), sub.ID); err != nil {
+			s.Fail(w, "usage recount", err)
 			return
 		}
 	}

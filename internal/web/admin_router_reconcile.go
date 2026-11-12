@@ -6,9 +6,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"strings"
+
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"github.com/frand-kod/gobill/internal/billing"
 	"golang.org/x/crypto/bcrypt"
@@ -29,27 +31,27 @@ func reconChoices(kind string) []option {
 // first and applies only when the summary was confirmed. The read happens on each request, the router
 // password never reaches the page. A RADIUS or unreachable router stops here with a message.
 func (s *Server) routerReconcile(w http.ResponseWriter, r *http.Request) {
-	x, err := s.queries.GetRouter(r.Context(), httpx.PathID(r))
+	x, err := s.Queries.GetRouter(r.Context(), httpx.PathID(r))
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		s.fail(w, "get router", err)
+		s.Fail(w, "get router", err)
 		return
 	}
 	back := func() { http.Redirect(w, r, "/admin/routers", http.StatusSeeOther) }
 	if s.Billing == nil {
-		s.sessions.Put(r.Context(), "error", s.t("Router connection is not configured"))
+		s.Sessions.Put(r.Context(), "error", s.T("Router connection is not configured"))
 		back()
 		return
 	}
 	rows, err := s.Billing.Reconcile(r.Context(), x.ID)
 	if errors.Is(err, billing.ErrRadiusRouter) {
-		s.sessions.Put(r.Context(), "error", s.t("Router is in RADIUS mode, nothing to import")+": "+x.Name)
+		s.Sessions.Put(r.Context(), "error", s.T("Router is in RADIUS mode, nothing to import")+": "+x.Name)
 		back()
 		return
 	} else if err != nil {
-		s.putFailure(r, s.t("Could not read the router, nothing was changed")+": "+x.Name+". "+s.t(routerErr(err, msgRouterOther)), err)
+		s.putFailure(r, s.T("Could not read the router, nothing was changed")+": "+x.Name+". "+s.T(routerErr(err, msgRouterOther)), err)
 		back()
 		return
 	}
@@ -67,19 +69,19 @@ func (s *Server) routerReconcile(w http.ResponseWriter, r *http.Request) {
 	base := fmt.Sprint("/admin/routers/", x.ID, "/reconcile")
 	if post && r.PostFormValue("confirm") == "1" {
 		hash := func(pw string) (string, error) {
-			b, err := bcrypt.GenerateFromPassword([]byte(pw), bcryptCost)
+			b, err := bcrypt.GenerateFromPassword([]byte(pw), core.BcryptCost)
 			return string(b), err
 		}
 		res, err := s.Billing.ReconApply(r.Context(), x.ID, adminFrom(r).ID, choose, hash)
 		if err != nil {
-			s.fail(w, "reconcile router", err)
+			s.Fail(w, "reconcile router", err)
 			return
 		}
 		s.logActivity(r, "router.reconcile", x.Name)
-		s.sessions.Put(r.Context(), "flash", fmt.Sprintf("%s: %s %d, %s %d, %s %d, %s %d", x.Name, s.t("Pushed"), res.Pushed, s.t("Imported"), res.Imported,
-			s.t("Followed router"), res.Followed, s.t("Skipped"), res.Skipped))
+		s.Sessions.Put(r.Context(), "flash", fmt.Sprintf("%s: %s %d, %s %d, %s %d, %s %d", x.Name, s.T("Pushed"), res.Pushed, s.T("Imported"), res.Imported,
+			s.T("Followed router"), res.Followed, s.T("Skipped"), res.Skipped))
 		if n := len(res.Failures); n > 0 {
-			s.sessions.Put(r.Context(), "error", fmt.Sprintf("%s: %d. %s", s.t("Failed"), n, strings.Join(res.Failures[:min(n, 5)], "; ")))
+			s.Sessions.Put(r.Context(), "error", fmt.Sprintf("%s: %d. %s", s.T("Failed"), n, strings.Join(res.Failures[:min(n, 5)], "; ")))
 		}
 		back()
 		return
@@ -100,8 +102,8 @@ func (s *Server) routerReconcile(w http.ResponseWriter, r *http.Request) {
 			fields = append(fields, field{Name: "a:" + row.Key(), Type: "hidden", Value: a})
 		}
 	}
-	summary := fmt.Sprintf("%s %d, %s %d, %s %d, %s %d, %s %d", s.t("Push to router"), count[billing.ActPush], s.t("Follow router"), count[billing.ActRouter],
-		s.t("Import into gobill"), count[billing.ActImport], s.t("Skip"), count[billing.ActSkip], s.t("Unchanged"), count["same"])
+	summary := fmt.Sprintf("%s %d, %s %d, %s %d, %s %d, %s %d", s.T("Push to router"), count[billing.ActPush], s.T("Follow router"), count[billing.ActRouter],
+		s.T("Import into gobill"), count[billing.ActImport], s.T("Skip"), count[billing.ActSkip], s.T("Unchanged"), count["same"])
 	head := []field{{Name: "summary", Type: "note", Label: x.Name + ": " + summary}}
 	if post {
 		head = append(head, field{Name: "confirm", Type: "hidden", Value: "1"},

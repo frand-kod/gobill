@@ -11,8 +11,6 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"github.com/frand-kod/gobill/internal/settings"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"html"
 	"html/template"
 	"net/http"
@@ -21,6 +19,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/frand-kod/gobill/internal/settings"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/metrics"
@@ -44,7 +45,7 @@ func (s *Server) setupRoutes(mux *http.ServeMux, sa func(http.Handler) http.Hand
 func (s *Server) setupIndex(w http.ResponseWriter, r *http.Request) {
 	ws, err := s.wizLoad(r.Context())
 	if err != nil {
-		s.fail(w, "setup", err)
+		s.Fail(w, "setup", err)
 		return
 	}
 	dest := wizHref(len(wizSteps) - 1)
@@ -66,12 +67,12 @@ func (s *Server) setupShow(w http.ResponseWriter, r *http.Request) {
 	}
 	ws, err := s.wizLoad(r.Context())
 	if err != nil {
-		s.fail(w, "setup", err)
+		s.Fail(w, "setup", err)
 		return
 	}
 	view, err := s.wizPage(r, st, ws, nil, nil, "")
 	if err != nil {
-		s.fail(w, "setup "+st.Slug, err)
+		s.Fail(w, "setup "+st.Slug, err)
 		return
 	}
 	warn := s.proxyWarning(r)
@@ -80,16 +81,16 @@ func (s *Server) setupShow(w http.ResponseWriter, r *http.Request) {
 			warn = strings.TrimSpace(warn + " " + wgw)
 		}
 	}
-	s.render(w, r, http.StatusOK, "setup", Page{Title: "Quick setup", Data: view, Warn: warn})
+	s.Render(w, r, http.StatusOK, "setup", Page{Title: "Quick setup", Data: view, Warn: warn})
 }
 
 // setupStart answers the first-run dialog. to is "new" (Mulai baru), "import" or "" (Mulai setup cepat).
 func (s *Server) setupStart(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	cur := settings.Get(ctx, s.queries, setupKey)
+	cur := settings.Get(ctx, s.Queries, setupKey)
 	if cur == "" {
-		if err := s.queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupKey, Value: "started"}); err != nil {
-			s.fail(w, "setup start", err)
+		if err := s.Queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupKey, Value: "started"}); err != nil {
+			s.Fail(w, "setup start", err)
 			return
 		}
 	}
@@ -98,8 +99,8 @@ func (s *Server) setupStart(w http.ResponseWriter, r *http.Request) {
 	case "import":
 		dest = importPageURL
 	case "new":
-		if err := s.queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupModeKey, Value: "new"}); err != nil {
-			s.fail(w, "setup start", err)
+		if err := s.Queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupModeKey, Value: "new"}); err != nil {
+			s.Fail(w, "setup start", err)
 			return
 		}
 		dest = wizHref(1)
@@ -109,20 +110,20 @@ func (s *Server) setupStart(w http.ResponseWriter, r *http.Request) {
 
 // setupDismiss is Lewati: the dialog never comes back.
 func (s *Server) setupDismiss(w http.ResponseWriter, r *http.Request) {
-	if err := s.queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: setupKey, Value: "dismissed"}); err != nil {
-		s.fail(w, "setup dismiss", err)
+	if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: setupKey, Value: "dismissed"}); err != nil {
+		s.Fail(w, "setup dismiss", err)
 		return
 	}
-	s.flashTo(w, r, "/admin", "Quick setup hidden. Open it again from the Guide if you need it.")
+	s.FlashTo(w, r, "/admin", "Quick setup hidden. Open it again from the Guide if you need it.")
 }
 
 // setupFinish is "Ke Dashboard" on the last page.
 func (s *Server) setupFinish(w http.ResponseWriter, r *http.Request) {
-	if err := s.queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: setupKey, Value: "done"}); err != nil {
-		s.fail(w, "setup finish", err)
+	if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: setupKey, Value: "done"}); err != nil {
+		s.Fail(w, "setup finish", err)
 		return
 	}
-	s.flashTo(w, r, "/admin", "Quick setup finished. Every setting stays editable on its page.")
+	s.FlashTo(w, r, "/admin", "Quick setup finished. Every setting stays editable on its page.")
 }
 
 // setupSkip is Lewati langkah: go on without saving anything.
@@ -144,9 +145,9 @@ func (s *Server) setupLive(w http.ResponseWriter, r *http.Request) {
 		out["nas_seen"] = metrics.Value("radius_nas_last_packet_timestamp", "nas", ip) > 0
 	}
 	if code := strings.TrimSpace(q.Get("voucher")); code != "" {
-		open, err := s.queries.ListOpenRadiusSessionsByUser(r.Context(), code)
+		open, err := s.Queries.ListOpenRadiusSessionsByUser(r.Context(), code)
 		if err != nil {
-			s.fail(w, "setup live", err)
+			s.Fail(w, "setup live", err)
 			return
 		}
 		out["voucher_online"] = len(open) > 0
@@ -174,37 +175,37 @@ func (s *Server) setupAct(kind int) http.HandlerFunc {
 		ctx := r.Context()
 		ws, err := s.wizLoad(ctx)
 		if err != nil {
-			s.fail(w, "setup", err)
+			s.Fail(w, "setup", err)
 			return
 		}
 		res, err := s.wizSave(r, st, ws, kind)
 		if err != nil {
-			s.fail(w, "setup "+st.Slug, err)
+			s.Fail(w, "setup "+st.Slug, err)
 			return
 		}
 		if res.next {
-			s.sessions.Put(ctx, "flash", s.t("Saved"))
+			s.Sessions.Put(ctx, "flash", s.T("Saved"))
 			http.Redirect(w, r, wizHref(idx+1), http.StatusSeeOther)
 			return
 		}
 		if ws, err = s.wizLoad(ctx); err != nil {
-			s.fail(w, "setup", err)
+			s.Fail(w, "setup", err)
 			return
 		}
 		view, err := s.wizPage(r, st, ws, res.v, res.e, res.secret)
 		if err != nil {
-			s.fail(w, "setup "+st.Slug, err)
+			s.Fail(w, "setup "+st.Slug, err)
 			return
 		}
 		status, page := http.StatusOK, Page{Title: "Quick setup", Data: view}
 		if len(res.e) > 0 {
 			status = http.StatusUnprocessableEntity
-			page.Error = s.t("Please check the highlighted fields")
+			page.Error = s.T("Please check the highlighted fields")
 			if m := res.e[""]; m != "" {
 				page.Error = m
 			}
 		}
-		s.render(w, r, status, "setup", page)
+		s.Render(w, r, status, "setup", page)
 	}
 }
 
@@ -239,7 +240,7 @@ func (s *Server) wizPut(ctx context.Context, kv map[string]string) error {
 }
 
 func (s *Server) setup() *setup.Service {
-	return &setup.Service{Q: s.queries, PlanSvc: s.Plans, Langs: s.catalog.Languages(), Saved: s.settingsSaved}
+	return &setup.Service{Q: s.Queries, PlanSvc: s.Plans, Langs: s.Catalog.Languages(), Saved: s.settingsSaved}
 }
 
 func (s *Server) wizSaveCompany(r *http.Request) (wizResult, error) {
@@ -273,7 +274,7 @@ func (s *Server) wizSaveRouter(r *http.Request, kind int) (wizResult, error) {
 		}
 		form := url.Values{"name": {v["nas_name"]}, "ip": {v["nas_ip"]}, "secret": {v["nas_secret"]}}
 		if id != 0 { // keep what the NAS form does not show
-			n, err := s.queries.GetNAS(ctx, id)
+			n, err := s.Queries.GetNAS(ctx, id)
 			if err != nil {
 				return wizResult{}, err
 			}
@@ -296,7 +297,7 @@ func (s *Server) wizSaveRouter(r *http.Request, kind int) (wizResult, error) {
 		form := url.Values{"name": {v["router_name"]}, "host": {v["router_host"]}, "port": {v["router_port"]},
 			"username": {v["router_username"]}, "password": {v["router_password"]}, "enabled": {"1"}}
 		if id != 0 {
-			x, err := s.queries.GetRouter(ctx, id)
+			x, err := s.Queries.GetRouter(ctx, id)
 			if err != nil {
 				return wizResult{}, err
 			}
@@ -321,29 +322,29 @@ func (s *Server) wizSaveRouter(r *http.Request, kind int) (wizResult, error) {
 	if err := s.wizPut(ctx, map[string]string{setupRouter: mode}); err != nil {
 		return wizResult{}, err
 	}
-	s.sessions.Put(ctx, "flash", s.t("Saved"))
+	s.Sessions.Put(ctx, "flash", s.T("Saved"))
 	return res, nil
 }
 
 // wizPing runs the Routers page connection test on a saved router and leaves the answer as a flash.
 func (s *Server) wizPing(r *http.Request, host string) {
-	ctx, lang := r.Context(), s.language()
+	ctx, lang := r.Context(), s.Language()
 	id, err := s.wizRouterByHost(ctx, host)
 	if err != nil || id == 0 {
 		return
 	}
-	x, err := s.queries.GetRouter(ctx, id)
+	x, err := s.Queries.GetRouter(ctx, id)
 	if err != nil {
 		return
 	}
 	switch {
 	case s.Billing == nil:
-		s.sessions.Put(ctx, "error", s.catalog.T(lang, "Router connection is not configured"))
+		s.Sessions.Put(ctx, "error", s.Catalog.T(lang, "Router connection is not configured"))
 	default:
 		if ident, err := s.Billing.Ping(ctx, x); err != nil {
-			s.sessions.Put(ctx, "error", s.catalog.T(lang, "Connection failed")+": "+x.Name+". "+s.catalog.T(lang, routerErr(err, msgRouterOther)))
+			s.Sessions.Put(ctx, "error", s.Catalog.T(lang, "Connection failed")+": "+x.Name+". "+s.Catalog.T(lang, routerErr(err, msgRouterOther)))
 		} else {
-			s.sessions.Put(ctx, "flash", s.catalog.T(lang, "Connection successful")+": "+x.Name+" ("+ident+")")
+			s.Sessions.Put(ctx, "flash", s.Catalog.T(lang, "Connection successful")+": "+x.Name+" ("+ident+")")
 		}
 	}
 }
@@ -354,7 +355,7 @@ func (s *Server) wizSaveSpeeds(r *http.Request) (wizResult, error) {
 	v := map[string]string{}
 	e := map[string]string{}
 	have := map[string]bool{}
-	rows, err := s.queries.ListBandwidths(ctx, db.ListBandwidthsParams{Limit: 1000})
+	rows, err := s.Queries.ListBandwidths(ctx, db.ListBandwidthsParams{Limit: 1000})
 	if err != nil {
 		return wizResult{}, err
 	}
@@ -407,7 +408,7 @@ func (s *Server) wizSavePlans(r *http.Request, ws wizState) (wizResult, error) {
 		s.logActivity(r, "plan.create", p.Name)
 	}
 	for k, msg := range e {
-		e[k] = s.t(msg)
+		e[k] = s.T(msg)
 	}
 	if len(e) > 0 {
 		return wizResult{v: v, e: e}, nil
@@ -486,22 +487,22 @@ func (s *Server) wizSaveVoucher(r *http.Request) (wizResult, error) {
 		e["voucher_plan"] = "This field is required"
 		return wizResult{v: v, e: e}, nil
 	}
-	if _, err := s.queries.GetPlan(ctx, planID); err != nil {
+	if _, err := s.Queries.GetPlan(ctx, planID); err != nil {
 		if err == sql.ErrNoRows {
 			e["voucher_plan"] = "Invalid value"
 			return wizResult{v: v, e: e}, nil
 		}
 		return wizResult{}, err
 	}
-	if cur := settings.Get(ctx, s.queries, setupVoucher); cur != "" {
-		if _, err := s.queries.GetVoucherByCode(ctx, cur); err == nil {
+	if cur := settings.Get(ctx, s.Queries, setupVoucher); cur != "" {
+		if _, err := s.Queries.GetVoucherByCode(ctx, cur); err == nil {
 			return wizResult{next: true}, nil
 		}
 	}
 	if err := s.newVoucher(r, planID, "", upperChars, minVoucherLen); err != nil {
 		return wizResult{}, err
 	}
-	last, err := s.queries.ListVouchers(ctx, db.ListVouchersParams{Limit: 1})
+	last, err := s.Queries.ListVouchers(ctx, db.ListVouchersParams{Limit: 1})
 	if err != nil {
 		return wizResult{}, err
 	}
@@ -516,7 +517,7 @@ func (s *Server) wizSaveVoucher(r *http.Request) (wizResult, error) {
 
 // wizNASByIP is the id of the NAS with that address, 0 when there is none.
 func (s *Server) wizNASByIP(ctx context.Context, ip string) (int64, error) {
-	rows, err := s.queries.ListNAS(ctx)
+	rows, err := s.Queries.ListNAS(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -530,7 +531,7 @@ func (s *Server) wizNASByIP(ctx context.Context, ip string) (int64, error) {
 
 // wizRouterByHost is the id of the router with that host, 0 when there is none.
 func (s *Server) wizRouterByHost(ctx context.Context, host string) (int64, error) {
-	rows, err := s.queries.ListRouters(ctx, db.ListRoutersParams{Limit: 1000})
+	rows, err := s.Queries.ListRouters(ctx, db.ListRoutersParams{Limit: 1000})
 	if err != nil {
 		return 0, err
 	}
@@ -648,14 +649,14 @@ func (s *Server) wizDefaults(r *http.Request, slug string, ws wizState) (map[str
 		if v["router_mode"] == "" {
 			v["router_mode"] = "radius"
 		}
-		nas, err := s.queries.ListNAS(ctx)
+		nas, err := s.Queries.ListNAS(ctx)
 		if err != nil {
 			return nil, err
 		}
 		if len(nas) > 0 {
 			v["nas_name"], v["nas_ip"] = nas[0].Name, nas[0].Ip
 		}
-		routers, err := s.queries.ListRouters(ctx, db.ListRoutersParams{Limit: 1000})
+		routers, err := s.Queries.ListRouters(ctx, db.ListRoutersParams{Limit: 1000})
 		if err != nil {
 			return nil, err
 		}
@@ -669,7 +670,7 @@ func (s *Server) wizDefaults(r *http.Request, slug string, ws wizState) (map[str
 			v[speedKey(i)] = sp
 		}
 	case "plan":
-		bws, err := s.queries.ListBandwidths(ctx, db.ListBandwidthsParams{Limit: 1000})
+		bws, err := s.Queries.ListBandwidths(ctx, db.ListBandwidthsParams{Limit: 1000})
 		if err != nil {
 			return nil, err
 		}
@@ -678,14 +679,14 @@ func (s *Server) wizDefaults(r *http.Request, slug string, ws wizState) (map[str
 				v["plan_bandwidth"] = strconv.FormatInt(b.ID, 10)
 			}
 		}
-		routers, err := s.queries.ListRouters(ctx, db.ListRoutersParams{Limit: 1000})
+		routers, err := s.Queries.ListRouters(ctx, db.ListRoutersParams{Limit: 1000})
 		if err != nil {
 			return nil, err
 		}
 		if len(routers) > 0 {
 			v["plan_router"] = strconv.FormatInt(routers[0].ID, 10)
 		}
-		plans, err := s.queries.ListPlans(ctx, db.ListPlansParams{Limit: 1000})
+		plans, err := s.Queries.ListPlans(ctx, db.ListPlansParams{Limit: 1000})
 		if err != nil {
 			return nil, err
 		}
@@ -720,7 +721,7 @@ func (s *Server) wizDefaults(r *http.Request, slug string, ws wizState) (map[str
 			v["isolir_on"] = "1"
 		}
 	case "customer":
-		plans, err := s.queries.ListPlans(ctx, db.ListPlansParams{Limit: 1000})
+		plans, err := s.Queries.ListPlans(ctx, db.ListPlansParams{Limit: 1000})
 		if err != nil {
 			return nil, err
 		}
@@ -775,7 +776,7 @@ func (s *Server) wizPage(r *http.Request, st wizStep, ws wizState, v, e map[stri
 		view.Form.Fields = append([]field{{Name: "isolir_on", Label: "Turn on Isolir", Type: "checkbox", Checked: v["isolir_on"] == "1",
 			Section: "Isolir", Hint: "RADIUS customers whose plan has expired are isolated and see the isolir page."}}, s.isolirSetupFields(ws.st)...)
 	case "customer":
-		plans, err := s.queries.ListPlans(ctx, db.ListPlansParams{Limit: 1000})
+		plans, err := s.Queries.ListPlans(ctx, db.ListPlansParams{Limit: 1000})
 		if err != nil {
 			return view, err
 		}

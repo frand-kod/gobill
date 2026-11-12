@@ -16,7 +16,7 @@ const defaultIdle = 2 * time.Hour
 // ReloadSessionSettings applies session_timeout_duration (minutes, admin idle timeout) and
 // single_session, and isolir_enabled for isolirGate. Called from New and from SettingsChanged (see main.go).
 func (s *Server) ReloadSessionSettings(ctx context.Context) {
-	m, err := s.loadSettings(ctx)
+	m, err := s.LoadSettings(ctx)
 	if err != nil {
 		slog.Error("session settings", "err", err)
 		return
@@ -38,15 +38,15 @@ func (s *Server) ReloadSessionSettings(ctx context.Context) {
 func (s *Server) idleGuard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		if s.sessions.GetInt64(ctx, "admin_id") != 0 || s.sessions.GetInt64(ctx, "customer_id") != 0 {
+		if s.Sessions.GetInt64(ctx, "admin_id") != 0 || s.Sessions.GetInt64(ctx, "customer_id") != 0 {
 			now, limit := time.Now().Unix(), int64(defaultIdle/time.Second)
-			if s.sessions.GetInt64(ctx, "admin_id") != 0 {
+			if s.Sessions.GetInt64(ctx, "admin_id") != 0 {
 				limit = s.idle.Load() / int64(time.Second)
 			}
-			if seen := s.sessions.GetInt64(ctx, "seen"); seen > 0 && now-seen > limit {
-				s.sessions.Destroy(ctx)
+			if seen := s.Sessions.GetInt64(ctx, "seen"); seen > 0 && now-seen > limit {
+				s.Sessions.Destroy(ctx)
 			} else if now-seen >= 30 { // avoid a session write on every request
-				s.sessions.Put(ctx, "seen", now)
+				s.Sessions.Put(ctx, "seen", now)
 			}
 		}
 		next.ServeHTTP(w, r)

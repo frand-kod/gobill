@@ -7,10 +7,6 @@ import (
 	"strings"
 )
 
-// intro is the short "what is this page" callout shown above the content. Title, Text and Tip are
-// English catalog keys (translated in render); Tip is only set where there is a common pitfall.
-type intro struct{ Title, Text, Tip string }
-
 var numSeg = regexp.MustCompile(`/\d+`)
 
 // introKey turns a request path into the key of the intro tables: ids, "/new" and "/edit" are dropped.
@@ -50,13 +46,13 @@ func introFor(tmpl, urlPath string) intro {
 }
 
 func (s *Server) translateIntro(in intro) intro {
-	l := s.language()
+	l := s.Language()
 	if in.Title == "" {
 		return in
 	}
-	in.Title, in.Text = s.catalog.T(l, in.Title), s.catalog.T(l, in.Text)
+	in.Title, in.Text = s.Catalog.T(l, in.Title), s.Catalog.T(l, in.Text)
 	if in.Tip != "" {
-		in.Tip = s.catalog.T(l, in.Tip)
+		in.Tip = s.Catalog.T(l, in.Tip)
 	}
 	return in
 }

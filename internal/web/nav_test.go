@@ -1,10 +1,11 @@
 package web
 
 import (
-	"github.com/frand-kod/gobill/internal/web/view"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 )
 
 // navKeys is the set of keys app.html passes to navActive, in the same order.

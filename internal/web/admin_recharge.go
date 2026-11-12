@@ -5,19 +5,21 @@ package web
 import (
 	"bytes"
 	"database/sql"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
-	"strings"
 )
 
 type rechargeConfirm struct {
@@ -39,11 +41,11 @@ func isFragment(r *http.Request) bool { return r.Header.Get("X-Fragment") == "1"
 // rechargeErrors answers a fragment request with the messages to show inside the dialog (422).
 func (s *Server) rechargeErrors(w http.ResponseWriter, msgs ...string) {
 	for i, m := range msgs {
-		msgs[i] = s.t(m)
+		msgs[i] = s.T(m)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusUnprocessableEntity)
-	if err := s.templates["recharge_confirm"].ExecuteTemplate(w, "recharge_error", msgs); err != nil {
+	if err := s.Templates["recharge_confirm"].ExecuteTemplate(w, "recharge_error", msgs); err != nil {
 		slog.Error("recharge errors", "err", err)
 	}
 }
@@ -60,11 +62,11 @@ func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 			s.rechargeErrors(w, msg)
 			return
 		}
-		s.sessions.Put(r.Context(), "error", s.t(msg))
+		s.Sessions.Put(r.Context(), "error", s.T(msg))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 	}
 	if s.Billing == nil {
-		s.fail(w, "recharge", errors.New("billing service not configured"))
+		s.Fail(w, "recharge", errors.New("billing service not configured"))
 		return
 	}
 	planID, _ := httpx.PosInt(r.PostFormValue("plan"))
@@ -75,13 +77,13 @@ func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 	pv, err := s.Billing.Preview(r.Context(), c.ID, planID)
 	if err != nil || pv.Plan.Enabled != 1 && !httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin") {
-		pl, perr := s.queries.GetPlan(r.Context(), planID)
+		pl, perr := s.Queries.GetPlan(r.Context(), planID)
 		fail(planErrMsg(perr == nil, pl.Enabled))
 		return
 	}
 	d := rechargeConfirm{C: c, Plan: pv.Plan.Name, PlanID: planID, Method: method, MethodLabel: label, Price: view.Money(pv.Price), Balance: view.Money(c.Balance), After: view.Money(c.Balance), Fragment: isFragment(r), Token: newFormToken()}
 	if !pv.Expiry.IsZero() {
-		d.Expiry = pv.Expiry.In(s.location()).Format("2006-01-02 15:04")
+		d.Expiry = pv.Expiry.In(s.Location()).Format("2006-01-02 15:04")
 	}
 	if method == methodZero {
 		pv.Price, d.Price, d.Zero = 0, view.Money(0), true
@@ -94,15 +96,15 @@ func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 	if d.Fragment {
 		var buf bytes.Buffer
-		if err := s.templates["recharge_confirm"].ExecuteTemplate(&buf, "recharge_card", d); err != nil {
-			s.fail(w, "recharge card", err)
+		if err := s.Templates["recharge_confirm"].ExecuteTemplate(&buf, "recharge_card", d); err != nil {
+			s.Fail(w, "recharge card", err)
 			return
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write(buf.Bytes())
 		return
 	}
-	s.render(w, r, 200, "recharge_confirm", Page{Title: "Recharge Account", Data: d})
+	s.Render(w, r, 200, "recharge_confirm", Page{Title: "Recharge Account", Data: d})
 }
 
 // custRecharge activates a plan for the customer, paid in cash or from their balance.
@@ -113,11 +115,11 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 	}
 	back := fmt.Sprint("/admin/customers/", c.ID)
 	fail := func(msg string) {
-		s.sessions.Put(r.Context(), "error", s.t(msg))
+		s.Sessions.Put(r.Context(), "error", s.T(msg))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 	}
 	if s.Billing == nil {
-		s.fail(w, "recharge", errors.New("billing service not configured"))
+		s.Fail(w, "recharge", errors.New("billing service not configured"))
 		return
 	}
 	if !takeFormToken(r.PostFormValue("token")) {
@@ -125,7 +127,7 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	planID, _ := httpx.PosInt(r.PostFormValue("plan"))
-	plan, err := s.queries.GetPlan(r.Context(), planID)
+	plan, err := s.Queries.GetPlan(r.Context(), planID)
 	if err != nil || plan.Enabled != 1 && !httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin") {
 		fail(planErrMsg(err == nil, plan.Enabled))
 		return
@@ -137,7 +139,7 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 	}
 	devFailed, err := s.chargePlan(r, c, plan, method, label)
 	if errors.Is(err, billing.ErrInsufficientBalance) {
-		s.sessions.Put(r.Context(), "errlink", "/admin/deposit?customer="+url.QueryEscape(c.Username))
+		s.Sessions.Put(r.Context(), "errlink", "/admin/deposit?customer="+url.QueryEscape(c.Username))
 	}
 	if err != nil {
 		fail(rechargeFailMsg(err, c, plan))
@@ -145,7 +147,7 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 	}
 	if devFailed { // money and transaction are saved; only the router missed the change
 		s.logActivity(r, "customer.recharge", c.Username+" ["+plan.Name+"] router not updated")
-		s.sessions.Put(r.Context(), "warn", s.t(msgNotSynced))
+		s.Sessions.Put(r.Context(), "warn", s.T(msgNotSynced))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
@@ -192,7 +194,7 @@ const methodZero = "Zero"
 // rechargeMethods lists what the admin recharge form offers: the payment_usings setting (PHP
 // plan.php:80, default Cash), then Balance and Recharge Zero.
 func (s *Server) rechargeMethods(ctx context.Context) []option {
-	st, _ := s.loadSettings(ctx)
+	st, _ := s.LoadSettings(ctx)
 	var out []option
 	seen := map[string]bool{"balance": true, "zero": true}
 	for _, u := range strings.Split(st["payment_usings"], ",") {
@@ -246,14 +248,14 @@ func (s *Server) rechargeOptions(r *http.Request) ([]option, error) {
 
 func (s *Server) rechargeForm(w http.ResponseWriter, r *http.Request, status int, d rechargePage, plans []option) {
 	d.Plans, d.Methods, d.Summary = plans, s.rechargeMethods(r.Context()), s.summaryLabels()
-	s.render(w, r, status, "recharge", Page{Title: "Recharge Account", Data: d})
+	s.Render(w, r, status, "recharge", Page{Title: "Recharge Account", Data: d})
 }
 
 // rechargePick: GET /admin/recharge, optionally ?customer=<username> to prefill.
 func (s *Server) rechargePick(w http.ResponseWriter, r *http.Request) {
 	plans, err := s.rechargeOptions(r)
 	if err != nil {
-		s.fail(w, "list plans", err)
+		s.Fail(w, "list plans", err)
 		return
 	}
 	s.rechargeForm(w, r, http.StatusOK, rechargePage{Customer: strings.TrimSpace(r.URL.Query().Get("customer"))}, plans)
@@ -264,18 +266,18 @@ func (s *Server) rechargePick(w http.ResponseWriter, r *http.Request) {
 func (s *Server) rechargeStart(w http.ResponseWriter, r *http.Request) {
 	plans, err := s.rechargeOptions(r)
 	if err != nil {
-		s.fail(w, "list plans", err)
+		s.Fail(w, "list plans", err)
 		return
 	}
 	d := rechargePage{Customer: strings.TrimSpace(r.PostFormValue("customer")), Plan: r.PostFormValue("plan"), Method: r.PostFormValue("method")}
-	c, err := s.queries.GetCustomerByUsername(r.Context(), d.Customer)
+	c, err := s.Queries.GetCustomerByUsername(r.Context(), d.Customer)
 	switch {
 	case d.Customer == "":
 		d.ErrCustomer = "Choose a customer first"
 	case errors.Is(err, sql.ErrNoRows):
 		d.ErrCustomer = "Customer not found"
 	case err != nil:
-		s.fail(w, "get customer", err)
+		s.Fail(w, "get customer", err)
 		return
 	case c.Status != "Active":
 		d.ErrCustomer = "This customer is not active. Turn the customer on first."

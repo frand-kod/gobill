@@ -5,59 +5,39 @@ package web
 
 import (
 	"database/sql"
-	"github.com/frand-kod/gobill/internal/service/customer"
-	"github.com/frand-kod/gobill/internal/service/plan"
-	"github.com/frand-kod/gobill/internal/settings"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
-	"html/template"
-	"maps"
 	"net/http"
 	"net/netip"
 	"sync/atomic"
 
+	"github.com/frand-kod/gobill/internal/service/customer"
+	"github.com/frand-kod/gobill/internal/service/plan"
+	"github.com/frand-kod/gobill/internal/settings"
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/portal"
+
 	"context"
+	"log/slog"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/alexedwards/scs/sqlite3store"
 	"github.com/alexedwards/scs/v2"
 	gobill "github.com/frand-kod/gobill"
-	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/i18n"
 	"github.com/frand-kod/gobill/internal/radius"
 	"github.com/frand-kod/gobill/internal/wg"
 	"golang.org/x/crypto/bcrypt"
-	"log/slog"
-	"net"
-	"strings"
-	"sync"
-	"time"
-)
-
-const (
-	maxFailedLogins = 10
-	maxFailedPerIP  = 100 // loose per-IP cap across usernames
-	loginWindow     = 15 * time.Minute
-)
-
-// Per-username delay (see userDelay); vars so tests can zero them.
-var (
-	loginDelayStep = 250 * time.Millisecond
-	loginDelayMax  = 3 * time.Second
 )
 
 // Server wires the database, sessions, translations and templates together.
 type Server struct {
-	conn    *sql.DB
-	queries *db.Queries
-	// Settings caches the settings table, shared with the other packages by internal/app.
-	Settings  *settings.Store
-	sessions  *scs.SessionManager
-	catalog   i18n.Catalog
-	templates map[string]*template.Template
-	guides    map[string]*guideSet // rendered "Panduan" pages per language ("id", "en"), see docs.go
-	lang      atomic.Value         // string: current language, a global app setting
-	dummyHash []byte               // compared against when the username does not exist
-	live      liveMonitor          // online sessions: rate samples and sparkline, see admin_radius_live.go
+	core.Core
+	portal *portal.Handlers
+	conn   *sql.DB
+	guides map[string]*guideSet // rendered "Panduan" pages per language ("id", "en"), see docs.go
 
 	// Radius is shared with the UDP listener so auth throttles apply to /radius.php too.
 	Radius     *radius.Server
@@ -66,8 +46,6 @@ type Server struct {
 	payCheckMu sync.Mutex // guards payCheckAt: last gateway status call per payment id, see payCheckAllowed
 	payCheckAt map[int64]time.Time
 
-	// Version is shown in the admin sidebar footer and on /health.
-	Version string
 	// DBPath is the SQLite file: /health reports its disk space, restore stages uploads next to it.
 	DBPath string
 	// ListenAddr is GOBILL_HTTP, the address the MikroTik setup helper of the isolir tab names.
@@ -76,9 +54,7 @@ type Server struct {
 	// ClockWarning, if set, returns a non-empty reason while the clock is untrusted.
 	ClockWarning func() string
 	// UpdateInfo returns the newest known release tag and its page, see job.UpdateCheck.
-	UpdateInfo func() (tag, link string)
-	// SecretKey encrypts router passwords and customer secrets (see package secret).
-	SecretKey       []byte
+	UpdateInfo      func() (tag, link string)
 	SettingsChanged func(ctx context.Context) // called after settings are saved
 	// BackupDir receives the database backup taken before a PHPNuxBill import, see admin_import.go.
 	BackupDir string
@@ -87,24 +63,13 @@ type Server struct {
 	// BackupMirror is the optional off-site backup folder (GOBILL_BACKUP_MIRROR), shown to SuperAdmin.
 	BackupMirror string
 	// WG is the built-in WireGuard tunnel; nil = none.
-	WG *wg.Manager
-	// Billing recharges customers and syncs plans to routers; nil disables both.
-	Billing *billing.Service
-	// Customers and Plans hold the write logic of the admin forms; read them through customers().
-	Customers *customer.Service
-	Plans     *plan.Service
+	WG    *wg.Manager
+	Plans *plan.Service
 	// CoAPort is the NAS Disconnect-Request port; empty = 3799.
 	CoAPort string
-	// NewGateway builds the online gateway from tripay_* style config; nil = Tripay. Tests replace it.
-	NewGateway func(cfg map[string]string) (Gateway, error)
-	chanCache  paymentCache
 
-	// ponytail: in-memory limiter, resets on restart; persist if needed. Login locks per ip|username; per IP, 100 failures/15 min across usernames
-	mu       sync.Mutex
-	otpSent  map[string][]time.Time // "ip:x" / "ph:y" -> OTP send times, see otpAllow
-	failed   map[string][]time.Time // client IP -> times of recent failed logins
-	totpLast map[int64]int64        // admin id -> last accepted TOTP time step, see totpVerify
-	testSent map[int64][]time.Time  // admin id -> Integrations test times, see testAllow
+	totpLast map[int64]int64       // admin id -> last accepted TOTP time step, see totpVerify
+	testSent map[int64][]time.Time // admin id -> Integrations test times, see testAllow
 	// telegramAPI overrides the Telegram API root in tests (empty = the notify default)
 	telegramAPI string
 	// admin bell counts, cached for noticeCacheFor, see bellItems
@@ -121,39 +86,22 @@ type Server struct {
 	proxies   atomic.Value // []netip.Prefix from trusted_proxies, see realIP
 }
 
-// Page is the data every template receives.
-type Page struct {
-	Title         string
-	Admin         *db.Admin
-	Customer      *db.Customer // portal customer, if any
-	Impersonating bool         // portal session opened by an admin (login as customer)
-	Unread        int64        // portal inbox badge
-	Bell          []bellItem   // portal bell items
-	BellUnread    int          // how many of them are unread
-	Flash         string
-	Sticky        bool // the flash carries a money result: no auto-dismiss
-	Error         string
-	Warn          string   // yellow alert: the action worked but needs a follow-up
-	Detail        string   // raw technical text of Error, shown in a small <details>
-	ErrLink       string   // href of an "Add balance" button next to Error
-	Intro         intro    // callout under the page title; filled by render when empty
-	Help          formHelp // form pages: docs link, summary line, narrow card, sticky save bar
-	Path          string
-	Tabs          []option          // settings sub-page menu
-	Brand         map[string]string // logo and login page text, filled by render
-	Setup         *setupNav         // Quick Setup state of a SuperAdmin page, filled by render
-	Dir           string            // "rtl" or "ltr"
-	Lang          string
-	Version       string
-	UpdateTag     string // set by render for SuperAdmin when a newer release is known
-	UpdateURL     string
-	Notices       []attnItem // admin bell: the items this admin may see, filled by render for admin pages
-	NoticeTotal   int        // sum of the Notices counts, the bell badge
-	NoticeErr     bool       // one of Notices is an error: the badge turns red
-	Data          any
-}
+// Page is the data every template receives; the portal packages share it through core.
+type Page = core.Page
 
-type ctxKey struct{}
+type (
+	formHelp = core.FormHelp
+	setupNav = core.SetupNav
+	attnItem = core.AttnItem
+	bellItem = core.BellItem
+)
+
+type ctxKey = core.AdminKey
+
+type option struct{ Value, Label string }
+
+// intro is core.Intro for the intro tables, whose literals are unkeyed.
+type intro struct{ Title, Text, Tip string }
 
 func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	store := sqlite3store.New(conn)
@@ -170,28 +118,27 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	dummy, err := bcrypt.GenerateFromPassword([]byte("not-a-real-password"), bcryptCost)
+	dummy, err := bcrypt.GenerateFromPassword([]byte("not-a-real-password"), core.BcryptCost)
 	if err != nil {
 		return nil, err
 	}
 
 	s := &Server{
-		conn:      conn,
-		queries:   db.NewCached(conn),
-		sessions:  sm,
-		catalog:   catalog,
-		dummyHash: dummy,
-		failed:    map[string][]time.Time{},
+		conn: conn,
 	}
-	s.Settings = settings.New(s.queries)
-	s.Customers = &customer.Service{DB: conn, Q: s.queries}
-	s.Plans = &plan.Service{DB: conn, Q: s.queries}
-	st, err := s.loadSettings(context.Background())
+	s.Queries, s.Sessions, s.Catalog, s.DummyHash = db.NewCached(conn), sm, catalog, dummy
+	s.Failed = map[string][]time.Time{}
+	s.Settings = settings.New(s.Queries)
+	s.Customers = &customer.Service{DB: conn, Q: s.Queries}
+	s.Plans = &plan.Service{DB: conn, Q: s.Queries}
+	st, err := s.LoadSettings(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	s.lang.Store(st["language"])
+	s.Lang.Store(st["language"])
 	s.ReloadSessionSettings(context.Background())
+	s.Asset, s.Decorate = s.asset, s.decorate
+	s.portal = portal.New(&s.Core)
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
 	}
@@ -201,7 +148,6 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	return s, nil
 }
 
-// location is the billing zone; UTC until a billing service is set.
 // now is the current time; tests set s.clock to fix it.
 func (s *Server) now() time.Time {
 	if s.clock != nil {
@@ -209,52 +155,6 @@ func (s *Server) now() time.Time {
 	}
 	return time.Now()
 }
-
-func (s *Server) location() *time.Location {
-	if s.Billing != nil {
-		return s.Billing.Location()
-	}
-	return time.UTC
-}
-
-// ts formats a unix time in the billing zone.
-func (s *Server) ts(unix int64) string {
-	return time.Unix(unix, 0).In(s.location()).Format("2006-01-02 15:04")
-}
-
-// subExpiry is a subscription's expiry as shown: a start_on_first_login subscription has none until its first login.
-func (s *Server) subExpiry(pending, unix int64) string {
-	if pending == 1 {
-		return s.t("Starts on first login")
-	}
-	return s.ts(unix)
-}
-
-// language returns the current app language.
-func (s *Server) language() string { return s.lang.Load().(string) }
-
-// t translates key into the app language.
-func (s *Server) t(key string) string { return s.catalog.T(s.language(), key) }
-
-// loadSettings returns all settings with defaults filled in.
-func (s *Server) loadSettings(ctx context.Context) (map[string]string, error) {
-	rows, err := s.Settings.All(ctx)
-	if err != nil {
-		return nil, err
-	}
-	m := map[string]string{
-		"company_name":  "gobill",
-		"language":      "indonesia",
-		"timezone":      "Asia/Jakarta",
-		"currency_code": "Rp",
-		"reminder_hour": "7",
-	}
-	maps.Copy(m, rows)
-	view.SetThousandsSep(m["thousands_sep"]) // money reads it; loaded at start and on each settings page
-	return m, nil
-}
-
-type peerKey struct{}
 
 // realIP replaces RemoteAddr with the rightmost X-Forwarded-For entry (added by our own proxy) when
 // trust_proxy=yes and the TCP peer is loopback or in trusted_proxies. The TCP peer is kept in the
@@ -294,7 +194,7 @@ func (s *Server) proxyWarning(r *http.Request) string {
 	if s.proxyHint.Load() == 0 || s.trust.Load() {
 		return ""
 	}
-	return s.t("Requests arrive through a reverse proxy but Trust Proxy is off. All visitors share one IP: one attacker can lock every login, and the audit log loses real IPs. Set Trust Proxy to yes in Settings.")
+	return s.T("Requests arrive through a reverse proxy but Trust Proxy is off. All visitors share one IP: one attacker can lock every login, and the audit log loses real IPs. Set Trust Proxy to yes in Settings.")
 }
 
 // fromProxy reports whether the TCP peer may set X-Forwarded-For: loopback, or inside trusted_proxies.
@@ -328,18 +228,7 @@ func parseTrustedProxies(spec string) ([]netip.Prefix, bool) {
 	return settings.ParseTrustedProxies(spec)
 }
 
-// clientIP is the host part of RemoteAddr.
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
-}
+type peerKey struct{}
 
-// customers returns the customer service with the current secret key, which app sets after New.
-func (s *Server) customers() *customer.Service {
-	c := *s.Customers
-	c.Key = s.SecretKey
-	return &c
-}
+// Gateway is what the payment flows need from an online gateway (Tripay, Duitku).
+type Gateway = core.Gateway

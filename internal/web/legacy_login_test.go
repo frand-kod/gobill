@@ -54,7 +54,7 @@ func TestAdminResetClearsLegacySha1(t *testing.T) {
 	var id int64
 	s.conn.QueryRow("SELECT id FROM admins WHERE username = 'alice'").Scan(&id)
 	hash, _ := bcrypt.GenerateFromPassword([]byte("newpass1"), bcrypt.MinCost)
-	if _, err := s.queries.SetAdminPassword(t.Context(), db.SetAdminPasswordParams{PasswordHash: string(hash), ID: id}); err != nil {
+	if _, err := s.Queries.SetAdminPassword(t.Context(), db.SetAdminPasswordParams{PasswordHash: string(hash), ID: id}); err != nil {
 		t.Fatal(err)
 	}
 	if w := do(s.Handler(), "POST", "/admin/login", url.Values{"username": {"alice"}, "password": {"secret123"}}, nil); w.Code != 200 {

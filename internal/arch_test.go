@@ -39,6 +39,9 @@ func TestImportRules(t *testing.T) {
 		{"web/view", []string{"web"}},
 		// M9: DTOs are the API contract and see only the db models
 		{"api/dto", []string{"web", "service", "billing", "radius"}},
+		// "=web" denies only the web package itself, not its sub-packages
+		{"web/core", []string{"=web", "web/portal"}},
+		{"web/portal", []string{"=web"}},
 		// kernel packages import nothing internal
 		{"money", []string{""}},
 		{"clock", []string{""}},
@@ -53,7 +56,7 @@ func TestImportRules(t *testing.T) {
 			f := strings.Fields(line)
 			for _, imp := range f[1:] {
 				for _, d := range r.deny {
-					if d == "" && strings.HasPrefix(imp, mod) || d != "" && (imp == mod+d || strings.HasPrefix(imp, mod+d+"/")) {
+					if d == "" && strings.HasPrefix(imp, mod) || strings.HasPrefix(d, "=") && imp == mod+d[1:] || d != "" && !strings.HasPrefix(d, "=") && (imp == mod+d || strings.HasPrefix(imp, mod+d+"/")) {
 						t.Errorf("%s imports %s (rule: %s must not import internal/%s)", f[0], imp, r.from, d)
 					}
 				}

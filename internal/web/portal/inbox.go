@@ -1,0 +1,47 @@
+package portal
+
+// Customer inbox.
+
+import (
+	"database/sql"
+	"net/http"
+
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+
+	"github.com/frand-kod/gobill/internal/db"
+)
+
+// ---- customer inbox (old mail.php) ----
+
+type inboxData struct {
+	List []db.CustomersInbox
+	View *db.CustomersInbox
+}
+
+func (s *Handlers) pInbox(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.Queries.ListInboxByCustomer(r.Context(), db.ListInboxByCustomerParams{CustomerID: customerFrom(r).ID, Limit: 100})
+	if err != nil {
+		s.Fail(w, "portal inbox", err)
+		return
+	}
+	s.Prender(w, r, 200, "p_inbox", core.Page{Title: "Inbox", Data: inboxData{List: rows}})
+}
+
+// pInboxView shows one message of this customer and marks it read.
+func (s *Handlers) pInboxView(w http.ResponseWriter, r *http.Request) {
+	c := customerFrom(r)
+	m, err := s.Queries.GetInboxMessage(r.Context(), db.GetInboxMessageParams{ID: httpx.PathID(r), CustomerID: c.ID})
+	if err == sql.ErrNoRows {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.Fail(w, "portal inbox view", err)
+		return
+	}
+	if err := s.Queries.MarkInboxRead(r.Context(), db.MarkInboxReadParams{ID: m.ID, CustomerID: c.ID}); err != nil {
+		s.Fail(w, "portal inbox read", err)
+		return
+	}
+	s.Prender(w, r, 200, "p_inbox", core.Page{Title: "Inbox", Data: inboxData{View: &m}})
+}

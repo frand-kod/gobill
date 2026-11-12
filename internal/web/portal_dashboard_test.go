@@ -9,12 +9,14 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/view"
 )
 
 // englishApp is billApp with English pages (the test app defaults to Indonesian).
 func englishApp(t *testing.T) *billEnv {
 	e := billApp(t)
-	e.s.lang.Store("english")
+	e.s.Lang.Store("english")
 	return e
 }
 
@@ -206,11 +208,11 @@ func TestPortalConnectionHistoryPagingAndIsolation(t *testing.T) {
 	dashSess(t, e, other.Username, "x", "10.9.9.9", "DE:AD:BE:EF:00:01", now-600, now, 1, 1)
 
 	page1 := portalGet(t, e, c, "/portal/connection")
-	if n := strings.Count(page1, `<td class="font-mono hidden sm:table-cell">`); n != perPage {
-		t.Fatalf("page 1 rows = %d, want %d", n, perPage)
+	if n := strings.Count(page1, `<td class="font-mono hidden sm:table-cell">`); n != view.PerPage {
+		t.Fatalf("page 1 rows = %d, want %d", n, view.PerPage)
 	}
 	if !strings.Contains(page1, "/portal/connection?page=2") || strings.Contains(page1, "/portal/connection?page=3") {
-		t.Fatal("page 1 pager wrong")
+		t.Fatal("page 1 view.Pager wrong")
 	}
 	if n := strings.Count(page1, `<section class="card mb-4" aria-label=`); n < 1 {
 		t.Fatal("no day group on the history page")
@@ -225,7 +227,7 @@ func TestPortalConnectionHistoryPagingAndIsolation(t *testing.T) {
 		}
 	}
 	// garbage page numbers fall back to page 1
-	if n := strings.Count(portalGet(t, e, c, "/portal/connection?page=abc"), `<td class="font-mono hidden sm:table-cell">`); n != perPage {
+	if n := strings.Count(portalGet(t, e, c, "/portal/connection?page=abc"), `<td class="font-mono hidden sm:table-cell">`); n != view.PerPage {
 		t.Fatalf("bad page rows = %d", n)
 	}
 	// the dashboard has no session table any more
@@ -285,26 +287,13 @@ func TestPortalLastLoginRecorded(t *testing.T) {
 	if !cu.LastLoginAt.Valid || cu.LastLoginAt.Int64 < before {
 		t.Fatalf("last login not recorded: %+v", cu.LastLoginAt)
 	}
-	if body := portalGet(t, e, c, "/portal/profile"); !strings.Contains(body, "Last Login: "+e.s.ts(cu.LastLoginAt.Int64)) {
+	if body := portalGet(t, e, c, "/portal/profile"); !strings.Contains(body, "Last Login: "+e.s.TS(cu.LastLoginAt.Int64)) {
 		t.Fatal("profile lacks the last login")
 	}
 }
 
-func TestMaskMAC(t *testing.T) {
-	for in, want := range map[string]string{
-		"CE:33:AA:BB:2A:AA": "CE:33:••:••:2A:AA",
-		"ce-33-aa-bb-2a-aa": "ce:33:••:••:2a:aa",
-		"":                  "",
-		"garbage":           "",
-	} {
-		if got := maskMAC(in); got != want {
-			t.Errorf("maskMAC(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
 func TestPwordsCountdownText(t *testing.T) {
-	w := pWords{Days: "hari", Hours: "jam", Minutes: "menit", Left: "lagi", Done: "Sudah habis"}
+	w := core.PWords{Days: "hari", Hours: "jam", Minutes: "menit", Left: "lagi", Done: "Sudah habis"}
 	for sec, want := range map[int64]string{
 		3*86400 + 4*3600 + 59: "3 hari 4 jam lagi",
 		86400:                 "1 hari lagi",
@@ -315,7 +304,7 @@ func TestPwordsCountdownText(t *testing.T) {
 		0:                     "Sudah habis",
 		-5:                    "Sudah habis",
 	} {
-		if got := w.countdown(sec); got != want {
+		if got := w.Countdown(sec); got != want {
 			t.Errorf("countdown(%d) = %q, want %q", sec, got, want)
 		}
 	}

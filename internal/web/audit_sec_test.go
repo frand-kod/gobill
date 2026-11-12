@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 // #1: the Report role must not read unused voucher codes (each one is free service).
@@ -50,9 +51,9 @@ func TestAuditSec4_TrustedProxiesCatchAll(t *testing.T) {
 
 // #5: one pending 2FA login must not allow unbounded guesses when they come from many IPs.
 func TestAuditSec5_2FAGuessesAcrossIPs(t *testing.T) {
-	old := loginDelayStep
-	loginDelayStep = 0
-	t.Cleanup(func() { loginDelayStep = old })
+	old := core.LoginDelayStep
+	core.LoginDelayStep = 0
+	t.Cleanup(func() { core.LoginDelayStep = old })
 	s, _ := newTestApp(t)
 	s.SecretKey = make([]byte, 32)
 	h := s.Handler()
@@ -67,7 +68,7 @@ func TestAuditSec5_2FAGuessesAcrossIPs(t *testing.T) {
 		h.ServeHTTP(w, r)
 		return w
 	}
-	n := 5 * maxFailedLogins
+	n := 5 * core.MaxFailedLogins
 	for i := 0; i < n; i++ {
 		post("000000", fmt.Sprintf("198.51.100.%d", i%250+1))
 	}

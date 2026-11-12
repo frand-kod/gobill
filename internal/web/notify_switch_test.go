@@ -5,15 +5,17 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 // wa_url alone is enough for the phone OTP to be offered.
 func TestOTPEnabledWithWAURLOnly(t *testing.T) {
 	st := map[string]string{"sms_otp_registration": "yes", "wa_url": "http://gw.test/?to=[number]&text=[text]"}
-	if !otpEnabled(st) {
+	if !core.OtpEnabled(st) {
 		t.Fatal("wa_url only: OTP not enabled")
 	}
-	if otpEnabled(map[string]string{"sms_otp_registration": "yes"}) {
+	if core.OtpEnabled(map[string]string{"sms_otp_registration": "yes"}) {
 		t.Fatal("no gateway: OTP enabled")
 	}
 }

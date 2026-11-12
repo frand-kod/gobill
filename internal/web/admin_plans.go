@@ -5,15 +5,17 @@ package web
 import (
 	"database/sql"
 	"errors"
-	"github.com/frand-kod/gobill/internal/service/plan"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
 
+	"github.com/frand-kod/gobill/internal/service/plan"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"fmt"
+
 	"github.com/frand-kod/gobill/internal/db"
 )
 
@@ -34,20 +36,20 @@ type planRefs struct {
 
 func (s *Server) planRefs(r *http.Request) (x planRefs, err error) {
 	ctx := r.Context()
-	if x.bw, err = s.queries.ListBandwidths(ctx, db.ListBandwidthsParams{Limit: 1000}); err != nil {
+	if x.bw, err = s.Queries.ListBandwidths(ctx, db.ListBandwidthsParams{Limit: 1000}); err != nil {
 		return
 	}
-	if x.rt, err = s.queries.ListRouters(ctx, db.ListRoutersParams{Limit: 1000}); err != nil {
+	if x.rt, err = s.Queries.ListRouters(ctx, db.ListRoutersParams{Limit: 1000}); err != nil {
 		return
 	}
-	if x.pools, err = s.queries.ListPools(ctx, db.ListPoolsParams{Limit: 1000}); err != nil {
+	if x.pools, err = s.Queries.ListPools(ctx, db.ListPoolsParams{Limit: 1000}); err != nil {
 		return
 	}
-	if x.plans, err = s.queries.ListPlans(ctx, db.ListPlansParams{Limit: 1000}); err != nil {
+	if x.plans, err = s.Queries.ListPlans(ctx, db.ListPlansParams{Limit: 1000}); err != nil {
 		return
 	}
 	// the isolir plan and its bandwidth are system rows: no select offers them
-	isoPlan, isoBW := s.isolirIDs(ctx)
+	isoPlan, isoBW := s.IsolirIDs(ctx)
 	x.bw = slices.DeleteFunc(x.bw, func(b db.Bandwidth) bool { return b.ID == isoBW })
 	x.plans = slices.DeleteFunc(x.plans, func(p db.Plan) bool { return p.ID == isoPlan })
 	return
@@ -151,7 +153,7 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 // planHelp is the plan form's extras: the docs link, a live summary and a sticky save bar. The
 // summary is an Alpine expression over the bound fields; its word comes from the catalog.
 func (s *Server) planHelp() formHelp {
-	word := jsonStr(s.t("device"))
+	word := jsonStr(s.T("device"))
 	sum := `(type === 'Balance' ? [type] : [type,
 		bandwidth_id && $root.bandwidth_id.selectedOptions[0]?.text,
 		validity && validity_unit && validity + ' ' + $root.validity_unit.selectedOptions[0]?.text,
@@ -162,7 +164,7 @@ func (s *Server) planHelp() formHelp {
 
 // renderPlanForm renders the plan form page with its extras.
 func (s *Server) renderPlanForm(w http.ResponseWriter, r *http.Request, status int, head, action string, fs []field) {
-	s.render(w, r, status, "form", Page{Title: head, Data: formPage{head, action, "/admin/plans", fs}, Help: s.planHelp()})
+	s.Render(w, r, status, "form", Page{Title: head, Data: formPage{head, action, "/admin/plans", fs}, Help: s.planHelp()})
 }
 
 func planFormValues(p db.Plan) map[string]string {
@@ -181,11 +183,11 @@ func planFormValues(p db.Plan) map[string]string {
 }
 
 func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
-	q, pg := paging(r)
-	isoPlan, _ := s.isolirIDs(r.Context())
-	rows, err := s.queries.SearchPlans(r.Context(), db.SearchPlansParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset(), HiddenID: isoPlan})
+	q, pg := view.Paging(r)
+	isoPlan, _ := s.IsolirIDs(r.Context())
+	rows, err := s.Queries.SearchPlans(r.Context(), db.SearchPlansParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset(), HiddenID: isoPlan})
 	if err != nil {
-		s.fail(w, "list plans", err)
+		s.Fail(w, "list plans", err)
 		return
 	}
 	routers := map[int64]string{}
@@ -220,9 +222,9 @@ func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{p.ID, []string{p.Name, p.Type + " / " + p.Billing, view.Money(p.Price),
 			fmt.Sprint(p.Validity, " ", p.ValidityUnit), routers[p.RouterID.Int64], aud, strings.Join(feats, ", "), st}})
 	}
-	total, err := s.queries.CountPlans(r.Context(), db.CountPlansParams{Term: q, HiddenID: isoPlan})
+	total, err := s.Queries.CountPlans(r.Context(), db.CountPlansParams{Term: q, HiddenID: isoPlan})
 	if err != nil {
-		s.fail(w, "count plans", err)
+		s.Fail(w, "count plans", err)
 		return
 	}
 	lp.finish(pg, total)
@@ -232,14 +234,14 @@ func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
 func (s *Server) planNew(w http.ResponseWriter, r *http.Request) {
 	x, err := s.planRefs(r)
 	if err != nil {
-		s.fail(w, "plan refs", err)
+		s.Fail(w, "plan refs", err)
 		return
 	}
 	v := map[string]string{"type": "Hotspot", "billing": "prepaid", "validity": "1", "validity_unit": "Days", "enabled": "1",
 		"time_unit": "Hrs", "data_unit": "GB", "shared_users": "1", "audience": "public"}
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "load settings", err)
+		s.Fail(w, "load settings", err)
 		return
 	}
 	v["device"] = newPlanDevice(st["default_plan_device"], v["type"])
@@ -260,10 +262,10 @@ func newPlanDevice(setting, typ string) string {
 
 // isolirManaged flashes an error and reports true when id is the isolir plan, which is edited only in Settings > Isolir.
 func (s *Server) isolirManaged(w http.ResponseWriter, r *http.Request, id int64) bool {
-	if iso, _ := s.isolirIDs(r.Context()); iso == 0 || iso != id {
+	if iso, _ := s.IsolirIDs(r.Context()); iso == 0 || iso != id {
 		return false
 	}
-	s.sessions.Put(r.Context(), "error", s.t("The Isolir plan is managed in Settings > Isolir"))
+	s.Sessions.Put(r.Context(), "error", s.T("The Isolir plan is managed in Settings > Isolir"))
 	http.Redirect(w, r, "/admin/plans", http.StatusSeeOther)
 	return true
 }
@@ -273,17 +275,17 @@ func (s *Server) planEdit(w http.ResponseWriter, r *http.Request) {
 	if s.isolirManaged(w, r, id) {
 		return
 	}
-	p, err := s.queries.GetPlan(r.Context(), id)
+	p, err := s.Queries.GetPlan(r.Context(), id)
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		s.fail(w, "get plan", err)
+		s.Fail(w, "get plan", err)
 		return
 	}
 	x, err := s.planRefs(r)
 	if err != nil {
-		s.fail(w, "plan refs", err)
+		s.Fail(w, "plan refs", err)
 		return
 	}
 	s.renderPlanForm(w, r, 200, "Edit Service Plan", fmt.Sprint("/admin/plans/", id), planFields(planFormValues(p), nil, x, id))
@@ -302,7 +304,7 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		s.fail(w, "save plan", err)
+		s.Fail(w, "save plan", err)
 		return
 	}
 	if res.Saved {
@@ -316,7 +318,7 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 	}
 	x, rerr := s.planRefs(r)
 	if rerr != nil {
-		s.fail(w, "plan refs", rerr)
+		s.Fail(w, "plan refs", rerr)
 		return
 	}
 	action, head := "/admin/plans", "Add Service Plan"
@@ -335,7 +337,7 @@ func (s *Server) syncPlan(r *http.Request, op string, p db.Plan, oldName string)
 	if err := s.Billing.SyncPlan(r.Context(), op, p, oldName); err != nil {
 		slog.Error("sync plan", "op", op, "plan", p.Name, "err", err)
 		s.logActivity(r, "plan.sync_failed", fmt.Sprintf("%s %s: %v", op, p.Name, err))
-		s.sessions.Put(r.Context(), "error", s.t("Saved, but the router could not be updated")+": "+err.Error())
+		s.Sessions.Put(r.Context(), "error", s.T("Saved, but the router could not be updated")+": "+err.Error())
 	}
 }
 
@@ -343,9 +345,9 @@ func (s *Server) planDelete(w http.ResponseWriter, r *http.Request) {
 	if s.isolirManaged(w, r, httpx.PathID(r)) {
 		return
 	}
-	p, _ := s.queries.GetPlan(r.Context(), httpx.PathID(r))
+	p, _ := s.Queries.GetPlan(r.Context(), httpx.PathID(r))
 	s.remove(w, r, "/admin/plans", "plan", "Plan is in use and cannot be deleted", p.Name, func(id int64) error {
-		if err := s.queries.DeletePlan(r.Context(), id); err != nil {
+		if err := s.Queries.DeletePlan(r.Context(), id); err != nil {
 			return err
 		}
 		s.syncPlan(r, "remove", p, "")

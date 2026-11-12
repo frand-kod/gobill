@@ -71,11 +71,11 @@ func TestProvisionTokenSingleUse(t *testing.T) {
 	for _, p := range []string{bad, "/provision/999-" + strings.Repeat("a", 64), "/provision/x", "/provision/" + strconv.FormatInt(id, 10) + "-"} {
 		fetchScript(t, h, p, "198.51.100.7:4000", http.StatusGone)
 	}
-	if k, _ := s.queries.GetWgToken(t.Context(), id); k.UsedAt != 0 {
+	if k, _ := s.Queries.GetWgToken(t.Context(), id); k.UsedAt != 0 {
 		t.Fatal("a wrong token used the real one up")
 	}
 	script := fetchScript(t, h, path, "198.51.100.7:4000", http.StatusOK)
-	rt, _ := s.queries.GetRouter(t.Context(), id)
+	rt, _ := s.Queries.GetRouter(t.Context(), id)
 	pw, _ := secret.Open(s.SecretKey, rt.PasswordEnc)
 	if rt.Host != "10.77.0.2" || rt.Username != "gobill" || rt.Port != 8728 || !strings.Contains(script, `password="`+string(pw)+`"`) {
 		t.Errorf("API user not set up for the tunnel: %s %s %d", rt.Host, rt.Username, rt.Port)
@@ -83,7 +83,7 @@ func TestProvisionTokenSingleUse(t *testing.T) {
 	// the token is gone: same address, another address, and a later time all fail
 	fetchScript(t, h, path, "198.51.100.7:4001", http.StatusGone)
 	fetchScript(t, h, path, "203.0.113.9:4000", http.StatusGone)
-	k, _ := s.queries.GetWgToken(t.Context(), id)
+	k, _ := s.Queries.GetWgToken(t.Context(), id)
 	if k.UsedIp != "198.51.100.7" || k.UsedAt == 0 {
 		t.Fatalf("the first use was not kept: %+v", k)
 	}
@@ -98,22 +98,22 @@ func TestProvisionTokenSingleUse(t *testing.T) {
 
 func TestProvisionTokenExpired(t *testing.T) {
 	s, h, _, id, path := provisioned(t)
-	k, _ := s.queries.GetWgToken(t.Context(), id)
+	k, _ := s.Queries.GetWgToken(t.Context(), id)
 	if left := time.Until(time.Unix(k.ExpiresAt, 0)); left > provision.TTL || left < provision.TTL-time.Minute {
 		t.Fatalf("token lives %v, want 15 minutes", left)
 	}
-	if err := s.queries.SetWgToken(t.Context(), db.SetWgTokenParams{RouterID: id, TokenHash: provision.TokenHash(path[strings.LastIndex(path, "/")+1:]), ExpiresAt: time.Now().Add(-time.Second).Unix()}); err != nil {
+	if err := s.Queries.SetWgToken(t.Context(), db.SetWgTokenParams{RouterID: id, TokenHash: provision.TokenHash(path[strings.LastIndex(path, "/")+1:]), ExpiresAt: time.Now().Add(-time.Second).Unix()}); err != nil {
 		t.Fatal(err)
 	}
 	fetchScript(t, h, path, "198.51.100.7:4000", http.StatusGone)
-	if k, _ := s.queries.GetWgToken(t.Context(), id); k.UsedAt != 0 {
+	if k, _ := s.Queries.GetWgToken(t.Context(), id); k.UsedAt != 0 {
 		t.Error("an expired token was marked used")
 	}
 }
 
 func TestProvisionAgainCancelsOldToken(t *testing.T) {
 	s, h, c, id, old := provisioned(t)
-	oldPeer, _ := s.queries.GetWgPeer(t.Context(), id)
+	oldPeer, _ := s.Queries.GetWgPeer(t.Context(), id)
 	wgPost(h, c, id, "provision")
 	fresh := provisionPath(t, do(h, "GET", "/admin/routers/"+strconv.FormatInt(id, 10)+"/edit", nil, c).Body.String())
 	if fresh == old {
@@ -121,7 +121,7 @@ func TestProvisionAgainCancelsOldToken(t *testing.T) {
 	}
 	fetchScript(t, h, old, "198.51.100.7:4000", http.StatusGone)
 	script := fetchScript(t, h, fresh, "198.51.100.7:4000", http.StatusOK)
-	newPeer, _ := s.queries.GetWgPeer(t.Context(), id)
+	newPeer, _ := s.Queries.GetWgPeer(t.Context(), id)
 	if newPeer.PublicKey == oldPeer.PublicKey {
 		t.Fatal("provisioning again kept the key")
 	}
@@ -132,16 +132,16 @@ func TestProvisionAgainCancelsOldToken(t *testing.T) {
 
 func TestProvisionRemoveRevokes(t *testing.T) {
 	s, h, c, id, path := provisioned(t)
-	orig, _ := s.queries.GetRouter(t.Context(), id)
+	orig, _ := s.Queries.GetRouter(t.Context(), id)
 	fetchScript(t, h, path, "198.51.100.7:4000", http.StatusOK) // the router takes over the tunnel credentials
-	before, _ := s.queries.GetRouter(t.Context(), id)
+	before, _ := s.Queries.GetRouter(t.Context(), id)
 	if before.Host == orig.Host || string(before.PasswordEnc) == string(orig.PasswordEnc) {
 		t.Fatal("credentials not switched once the script was fetched")
 	}
 	if w := wgPost(h, c, id, "revoke"); w.Code != http.StatusSeeOther {
 		t.Fatalf("revoke: %d", w.Code)
 	}
-	after, _ := s.queries.GetRouter(t.Context(), id)
+	after, _ := s.Queries.GetRouter(t.Context(), id)
 	if after.Host != orig.Host || after.Username != orig.Username || string(after.PasswordEnc) != string(orig.PasswordEnc) {
 		t.Error("revoke did not restore the previous credentials")
 	}
@@ -150,7 +150,7 @@ func TestProvisionRemoveRevokes(t *testing.T) {
 	wgPost(h, c, id, "provision")
 	p2 := provisionPath(t, do(h, "GET", "/admin/routers/"+strconv.FormatInt(id, 10)+"/edit", nil, c).Body.String())
 	do(h, "POST", "/admin/routers/"+strconv.FormatInt(id, 10)+"/delete", nil, c)
-	if _, err := s.queries.GetWgToken(t.Context(), id); err == nil {
+	if _, err := s.Queries.GetWgToken(t.Context(), id); err == nil {
 		t.Error("token kept after the router was deleted")
 	}
 	fetchScript(t, h, p2, "198.51.100.7:4000", http.StatusGone)

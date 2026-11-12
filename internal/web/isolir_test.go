@@ -15,6 +15,7 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/isolir"
 	"github.com/frand-kod/gobill/internal/secret"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 const isoQRIS = "00020101021126520016ID.CO.CONTOH.WWW01129360000000010212ID10000000015204549953033605802ID5911CONTOH QRIS6006CONTOH9954XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX63048687"
@@ -183,7 +184,7 @@ func TestIsolirVoucherWithoutSessionAndRateLimited(t *testing.T) {
 		t.Fatalf("unknown client: %d %s", w.Code, w.Body)
 	}
 	isoCustomer(t, s, q, "203.0.113.7", true)
-	for i := 0; i < maxFailedLogins; i++ {
+	for i := 0; i < core.MaxFailedLogins; i++ {
 		w = isoReq(h, "POST", "/isolir/voucher", "203.0.113.7", url.Values{"code": {"NOPE"}}, cross...)
 		if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Voucher tidak valid") {
 			t.Fatalf("try %d: %d %s", i, w.Code, w.Body)

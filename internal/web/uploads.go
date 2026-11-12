@@ -14,7 +14,8 @@ import (
 	"errors"
 	"io"
 	"os"
-	"regexp"
+
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 const maxUpload = 2 << 20
@@ -22,7 +23,7 @@ const maxUpload = 2 << 20
 // uploadExt maps the sniffed types to extensions. SVG sniffs as text, so it is refused (XSS).
 var uploadExt = map[string]string{"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp", "image/x-icon": ".ico"}
 
-var uploadName = regexp.MustCompile(`^[0-9a-f]{32}\.(png|jpg|webp|ico)$`)
+var uploadName = core.UploadName
 
 // uploadDir is <db dir>/uploads, found from the open database file so no other setting is needed.
 func (s *Server) uploadDir() (string, error) {
@@ -81,7 +82,7 @@ func (s *Server) removeUnused(ctx context.Context, names []string) {
 	if len(names) == 0 {
 		return
 	}
-	st, err := s.loadSettings(ctx)
+	st, err := s.LoadSettings(ctx)
 	if err != nil {
 		slog.Error("remove unused uploads", "err", err)
 		return
@@ -114,7 +115,7 @@ func (s *Server) serveUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	dir, err := s.uploadDir()
 	if err != nil {
-		s.fail(w, "uploads dir", err)
+		s.Fail(w, "uploads dir", err)
 		return
 	}
 	w.Header().Set("X-Content-Type-Options", "nosniff")

@@ -210,7 +210,7 @@ func TestPromoBlocksRules(t *testing.T) {
 	insertPromo(t, q, db.CreatePromoParams{Title: "Portal only", ShowIsolir: 0, ShowPortal: 1, Active: 1, Position: 0})
 	insertPromo(t, q, db.CreatePromoParams{Title: "<script>x</script>", Body: "<b>hi</b>", Link: "https://wa.me/1", Image: "0123456789abcdef0123456789abcdef.png", ShowIsolir: 1, Active: 1, Position: 1})
 
-	html := string(s.promoBlocks(ctx, "isolir"))
+	html := string(s.PromoBlocks(ctx, "isolir"))
 	for _, hidden := range []string{"Inactive", "Ended", "Later", "Portal only"} {
 		if strings.Contains(html, hidden) {
 			t.Fatalf("%q shown on isolir", hidden)
@@ -226,10 +226,10 @@ func TestPromoBlocksRules(t *testing.T) {
 	if !strings.Contains(html, `target="_blank" rel="noopener"`) || !strings.Contains(html, `loading="lazy"`) {
 		t.Fatal("link or lazy image attributes missing")
 	}
-	if got := s.promoBlocks(ctx, "portal"); !strings.Contains(string(got), "Portal only") {
+	if got := s.PromoBlocks(ctx, "portal"); !strings.Contains(string(got), "Portal only") {
 		t.Fatal("portal place missing its promo")
 	}
-	if s.promoBlocks(ctx, "nobody") != "" {
+	if s.PromoBlocks(ctx, "nobody") != "" {
 		t.Fatal("unknown place rendered something")
 	}
 }

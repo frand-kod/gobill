@@ -7,10 +7,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"strconv"
+
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
@@ -29,12 +30,12 @@ func batchScope(a *db.Admin) int64 {
 // batchFor loads the batch of the path. An Agent asking for another agent's batch gets the same 404
 // as for a batch that does not exist.
 func (s *Server) batchFor(w http.ResponseWriter, r *http.Request) (db.AgentBatch, bool) {
-	b, err := s.queries.GetAgentBatch(r.Context(), httpx.PathID(r))
+	b, err := s.Queries.GetAgentBatch(r.Context(), httpx.PathID(r))
 	if errors.Is(err, sql.ErrNoRows) || (err == nil && batchScope(adminFrom(r)) != 0 && b.AgentID != adminFrom(r).ID) {
 		http.NotFound(w, r)
 		return b, false
 	} else if err != nil {
-		s.fail(w, "get agent batch", err)
+		s.Fail(w, "get agent batch", err)
 		return b, false
 	}
 	return b, true
@@ -46,16 +47,16 @@ func nonNeg(s string) (int64, bool) {
 }
 
 func (s *Server) abList(w http.ResponseWriter, r *http.Request) {
-	_, pg := paging(r)
+	_, pg := view.Paging(r)
 	scope := batchScope(adminFrom(r))
-	rows, err := s.queries.ListAgentBatches(r.Context(), db.ListAgentBatchesParams{AgentID: scope, PageLimit: pg.limit(), PageOffset: pg.offset()})
+	rows, err := s.Queries.ListAgentBatches(r.Context(), db.ListAgentBatchesParams{AgentID: scope, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
-		s.fail(w, "list agent batches", err)
+		s.Fail(w, "list agent batches", err)
 		return
 	}
-	total, err := s.queries.CountAgentBatches(r.Context(), scope)
+	total, err := s.Queries.CountAgentBatches(r.Context(), scope)
 	if err != nil {
-		s.fail(w, "count agent batches", err)
+		s.Fail(w, "count agent batches", err)
 		return
 	}
 	lp := listPage{Heading: "Agent batches", Base: batchBase, ViewLink: true, NoDelete: true, DeleteOnly: true,
@@ -80,29 +81,29 @@ func (s *Server) abView(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	_, pg := paging(r)
-	sum, err := s.queries.ListAgentBatches(r.Context(), db.ListAgentBatchesParams{BatchID: b.ID, PageLimit: 1})
+	_, pg := view.Paging(r)
+	sum, err := s.Queries.ListAgentBatches(r.Context(), db.ListAgentBatchesParams{BatchID: b.ID, PageLimit: 1})
 	if err != nil || len(sum) != 1 {
-		s.fail(w, "agent batch summary", errors.Join(err, errors.New("no summary row")))
+		s.Fail(w, "agent batch summary", errors.Join(err, errors.New("no summary row")))
 		return
 	}
-	codes, err := s.queries.ListBatchVouchers(r.Context(), db.ListBatchVouchersParams{BatchID: b.ID, Limit: pg.limit(), Offset: pg.offset()})
+	codes, err := s.Queries.ListBatchVouchers(r.Context(), db.ListBatchVouchersParams{BatchID: b.ID, Limit: pg.Limit(), Offset: pg.Offset()})
 	if err != nil {
-		s.fail(w, "list batch vouchers", err)
+		s.Fail(w, "list batch vouchers", err)
 		return
 	}
-	total, err := s.queries.CountBatchVouchers(r.Context(), b.ID)
+	total, err := s.Queries.CountBatchVouchers(r.Context(), b.ID)
 	if err != nil {
-		s.fail(w, "count batch vouchers", err)
+		s.Fail(w, "count batch vouchers", err)
 		return
 	}
 	c := batchCells(sum[0])
 	manage := batchScope(adminFrom(r)) == 0
 	base := fmt.Sprint(batchBase, "/", b.ID)
 	lp := listPage{Heading: "Agent batch", Base: base, NoDelete: true, DeleteOnly: true,
-		Note: fmt.Sprintf("%s #%d: %s, %s %s, %s %s, %s %s, %s %s, %s %s", s.t("Batch"), b.ID, c[1],
-			s.t("Used"), c[6], s.t("Unused"), c[7],
-			s.t("Returned"), c[8], s.t("Price"), c[5], s.t("Debt"), c[9]),
+		Note: fmt.Sprintf("%s #%d: %s, %s %s, %s %s, %s %s, %s %s, %s %s", s.T("Batch"), b.ID, c[1],
+			s.T("Used"), c[6], s.T("Unused"), c[7],
+			s.T("Returned"), c[8], s.T("Price"), c[5], s.T("Debt"), c[9]),
 		Cols: []string{"Code Voucher", "Status", "Used"}}
 	if manage {
 		lp.Links = []option{{base + "/payment", "Record payment"}, {batchBase, "Agent batches"}}
@@ -116,7 +117,7 @@ func (s *Server) abView(w http.ResponseWriter, r *http.Request) {
 			status = "Returned"
 		}
 		if v.UsedAt.Valid {
-			used = s.ts(v.UsedAt.Int64)
+			used = s.TS(v.UsedAt.Int64)
 		}
 		lp.Rows = append(lp.Rows, listRow{v.ID, []string{v.Code, status, used}})
 	}
@@ -129,7 +130,7 @@ func (s *Server) abFields(r *http.Request, v, e map[string]string) ([]field, err
 	if err != nil {
 		return nil, err
 	}
-	agents, err := s.queries.ListAgents(r.Context())
+	agents, err := s.Queries.ListAgents(r.Context())
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +152,7 @@ func (s *Server) abFields(r *http.Request, v, e map[string]string) ([]field, err
 func (s *Server) abForm(w http.ResponseWriter, r *http.Request, status int, v, e map[string]string) {
 	fs, err := s.abFields(r, v, e)
 	if err != nil {
-		s.fail(w, "agent batch form", err)
+		s.Fail(w, "agent batch form", err)
 		return
 	}
 	s.renderForm(w, r, status, formPage{"Add Agent batch", batchBase, batchBase, fs})
@@ -165,14 +166,14 @@ func (s *Server) abCreate(w http.ResponseWriter, r *http.Request) {
 	v := httpx.FormVals(r, "agent", "plan", "paid", "bonus", "price", "note")
 	e := map[string]string{}
 	agentID, ok := httpx.PosInt(v["agent"])
-	if ag, err := s.queries.GetAdmin(r.Context(), agentID); !ok || err != nil || ag.Role != "Agent" || ag.Status != "Active" {
+	if ag, err := s.Queries.GetAdmin(r.Context(), agentID); !ok || err != nil || ag.Role != "Agent" || ag.Status != "Active" {
 		e["agent"] = "Agent not found"
 	}
 	planID, ok := httpx.PosInt(v["plan"])
-	if _, err := s.queries.GetPlan(r.Context(), planID); !ok || err != nil {
+	if _, err := s.Queries.GetPlan(r.Context(), planID); !ok || err != nil {
 		e["plan"] = "This field is required"
 	}
-	if iso, _ := s.isolirIDs(r.Context()); ok && planID == iso {
+	if iso, _ := s.IsolirIDs(r.Context()); ok && planID == iso {
 		e["plan"] = billing.ErrIsolirPlan.Error()
 	}
 	paid, ok1 := nonNeg(v["paid"])
@@ -181,7 +182,7 @@ func (s *Server) abCreate(w http.ResponseWriter, r *http.Request) {
 		bonus, ok2 = 0, true
 	}
 	if !ok1 || !ok2 || paid+bonus < 1 || paid+bonus > maxVouchers {
-		e["paid"] = fmt.Sprintf(s.t("Enter a number between 1 and %d"), maxVouchers)
+		e["paid"] = fmt.Sprintf(s.T("Enter a number between 1 and %d"), maxVouchers)
 	}
 	price, ok := nonNeg(v["price"])
 	if !ok || price > 100_000_000 {
@@ -202,7 +203,7 @@ func (s *Server) abCreate(w http.ResponseWriter, r *http.Request) {
 		s.abForm(w, r, http.StatusUnprocessableEntity, v, e)
 		return
 	} else if err != nil {
-		s.fail(w, "create agent batch", err)
+		s.Fail(w, "create agent batch", err)
 		return
 	}
 	s.done(w, r, fmt.Sprint(batchBase, "/", id), "Agent batch created", "agent_batch.create",
@@ -210,12 +211,12 @@ func (s *Server) abCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) abPayForm(w http.ResponseWriter, r *http.Request, status int, b db.AgentBatch, v, e map[string]string) {
-	debt, err := s.queries.AgentBatchDebt(r.Context(), b.ID)
+	debt, err := s.Queries.AgentBatchDebt(r.Context(), b.ID)
 	if err != nil {
-		s.fail(w, "agent batch debt", err)
+		s.Fail(w, "agent batch debt", err)
 		return
 	}
-	amount := text("amount", "Amount", v, e).as("number").req().hint(fmt.Sprintf("%s %s", s.t("Debt"), view.Money(debt)))
+	amount := text("amount", "Amount", v, e).as("number").req().hint(fmt.Sprintf("%s %s", s.T("Debt"), view.Money(debt)))
 	back := fmt.Sprint(batchBase, "/", b.ID)
 	s.renderForm(w, r, status, formPage{"Record payment", back + "/payment", back,
 		[]field{amount, text("note", "Note", v, e)}})
@@ -246,7 +247,7 @@ func (s *Server) abPay(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, billing.ErrOverpay):
 			e["amount"] = "Payment is more than the debt"
 		case err != nil:
-			s.fail(w, "record agent payment", err)
+			s.Fail(w, "record agent payment", err)
 			return
 		default:
 			s.done(w, r, fmt.Sprint(batchBase, "/", b.ID), "Payment recorded", "agent_batch.payment", fmt.Sprintf("batch %d: %d", b.ID, amount))
@@ -264,17 +265,17 @@ func (s *Server) abReturn(w http.ResponseWriter, r *http.Request) {
 	back := fmt.Sprint(batchBase, "/", b.ID)
 	ids, ok := httpx.ParseIDs(r)
 	if !ok {
-		s.sessions.Put(r.Context(), "error", s.t("Select at least one row"))
+		s.Sessions.Put(r.Context(), "error", s.T("Select at least one row"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
 	switch err := s.Billing.ReturnAgentVouchers(r.Context(), b.ID, ids, adminFrom(r).ID); {
 	case errors.Is(err, billing.ErrReturnLimit):
-		s.sessions.Put(r.Context(), "error", s.t("Returns are more than the paid vouchers of the batch"))
+		s.Sessions.Put(r.Context(), "error", s.T("Returns are more than the paid vouchers of the batch"))
 	case errors.Is(err, billing.ErrNotReturnable):
-		s.sessions.Put(r.Context(), "error", s.t("Only unused codes of this batch can be returned"))
+		s.Sessions.Put(r.Context(), "error", s.T("Only unused codes of this batch can be returned"))
 	case err != nil:
-		s.fail(w, "return agent vouchers", err)
+		s.Fail(w, "return agent vouchers", err)
 		return
 	default:
 		s.done(w, r, back, "Vouchers returned", "agent_batch.return", fmt.Sprintf("batch %d: %d codes", b.ID, len(ids)))

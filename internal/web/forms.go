@@ -41,18 +41,9 @@ type field struct {
 	Gate                                  string       // JS condition under which the field is submitted; set by Groups, "" = always
 }
 
-type option struct{ Value, Label string }
-
 type formPage struct {
 	Heading, Action, Cancel string
 	Fields                  []field
-}
-
-// formHelp is what a form page adds around its fields (set on Page.Help): a docs link in the header,
-// an Alpine expression for a live summary line, a narrower card and a save bar that sticks to the bottom.
-type formHelp struct {
-	Docs, Summary  string
-	Narrow, Sticky bool
 }
 
 // group is a titled card of fields on the form page.
@@ -208,7 +199,7 @@ func (f field) opts(o ...string) field {
 }
 
 func (s *Server) renderForm(w http.ResponseWriter, r *http.Request, status int, fp formPage) {
-	s.render(w, r, status, "form", Page{Title: fp.Heading, Data: fp})
+	s.Render(w, r, status, "form", Page{Title: fp.Heading, Data: fp})
 }
 
 // Submit is the submit button label: lookup and test pages run an action instead of saving.

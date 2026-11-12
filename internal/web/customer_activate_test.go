@@ -44,7 +44,7 @@ func (s *syncBuf) String() string {
 }
 
 // xlate is the text the app shows for an English message, in the language the tests run in.
-func xlate(e *billEnv, msg string) string { return e.s.catalog.T(e.s.language(), msg) }
+func xlate(e *billEnv, msg string) string { return e.s.Catalog.T(e.s.Language(), msg) }
 
 // afterPost is the page a post redirects to, read with the session that post set (its flash).
 func afterPost(e *billEnv, w *httptest.ResponseRecorder) string {

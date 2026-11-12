@@ -3,21 +3,19 @@ package web
 // Template parsing, icon loading, page rendering and flash/redirect helpers.
 
 import (
-	"github.com/frand-kod/gobill/internal/web/view"
 	"html/template"
-	"log/slog"
 	"net/http"
 
-	"bytes"
-	gobill "github.com/frand-kod/gobill"
-	"github.com/frand-kod/gobill/internal/update"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"path"
 	"strings"
-	"time"
+
+	gobill "github.com/frand-kod/gobill"
 )
 
 func (s *Server) flashTo(w http.ResponseWriter, r *http.Request, to, msg string) {
-	s.sessions.Put(r.Context(), "flash", s.t(msg))
+	s.Sessions.Put(r.Context(), "flash", s.T(msg))
 	http.Redirect(w, r, to, http.StatusSeeOther)
 }
 
@@ -28,16 +26,16 @@ func (s *Server) parseTemplates() error {
 	if err != nil {
 		return err
 	}
-	funcs["T"] = func(text string) string { return s.t(text) }
+	funcs["T"] = func(text string) string { return s.T(text) }
 	// TT translates the part before ": ", so headings like "Edit Contact: budi" work.
 	funcs["TT"] = func(text string) string {
 		if head, rest, ok := strings.Cut(text, ": "); ok {
-			return s.t(head) + ": " + rest
+			return s.T(head) + ": " + rest
 		}
-		return s.t(text)
+		return s.T(text)
 	}
 	funcs["asset"] = s.asset
-	funcs["ts"] = s.ts
+	funcs["ts"] = s.TS
 	pages := map[string][]string{
 		"login":            {"base.html", "login.html"},
 		"login_2fa":        {"base.html", "login_2fa.html"},
@@ -85,7 +83,7 @@ func (s *Server) parseTemplates() error {
 		"admin_password": {"base.html", "admin/app.html", "admin/admin_password.html"},
 		"setup":          {"base.html", "admin/app.html", "admin/setup.html", "admin/formfields.html", "admin/customer_pick.html", "admin/tplvars.html"},
 	}
-	s.templates = map[string]*template.Template{}
+	s.Templates = map[string]*template.Template{}
 	for name, files := range pages {
 		for i, f := range files {
 			files[i] = path.Join("web/templates", f)
@@ -94,68 +92,7 @@ func (s *Server) parseTemplates() error {
 		if err != nil {
 			return err
 		}
-		s.templates[name] = t
+		s.Templates[name] = t
 	}
 	return nil
-}
-
-// render writes a page. The body is buffered so a template error gives a 500, not half a page.
-func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, name string, p Page) {
-	p.Admin = adminFrom(r)
-	p.Path = r.URL.Path
-	ctx := r.Context()
-	for _, a := range []struct {
-		dst *string
-		key string
-	}{{&p.Flash, "flash"}, {&p.Error, "error"}, {&p.Warn, "warn"}, {&p.Detail, "detail"}, {&p.ErrLink, "errlink"}} {
-		if v := s.sessions.PopString(ctx, a.key); *a.dst == "" {
-			*a.dst = v
-		}
-	}
-	if s.sessions.PopString(ctx, "flash_sticky") != "" {
-		p.Sticky = true
-	}
-	if p.Intro.Title == "" {
-		p.Intro = introFor(name, r.URL.Path)
-	}
-	p.Intro = s.translateIntro(p.Intro)
-	p.Lang = s.language()
-	p.Version = s.Version
-	p.Brand = s.brand(r.Context())
-	if p.Admin != nil && p.Admin.Role == "SuperAdmin" && s.UpdateInfo != nil {
-		if tag, link := s.UpdateInfo(); update.Newer(tag, s.Version) {
-			p.UpdateTag, p.UpdateURL = tag, link
-		}
-	}
-	if p.Admin != nil && p.Admin.Role == "SuperAdmin" {
-		if n, err := s.setupNavFor(ctx, r.URL.Path); err != nil {
-			slog.Warn("setup nav", "err", err)
-		} else {
-			p.Setup = n
-		}
-	}
-	if p.Admin != nil {
-		if items, err := s.bellItems(ctx, time.Now()); err != nil {
-			slog.Warn("admin bell", "err", err)
-		} else {
-			p.Notices = attentionFor(items, p.Admin)
-			for _, it := range p.Notices {
-				p.NoticeTotal += it.Count
-				p.NoticeErr = p.NoticeErr || it.Err
-			}
-		}
-	}
-	p.Dir = "ltr"
-	if p.Lang == "arabic" {
-		p.Dir = "rtl"
-	}
-	var buf bytes.Buffer
-	if err := s.templates[name].ExecuteTemplate(&buf, "base", p); err != nil {
-		slog.Error("render", "page", name, "err", err)
-		s.errorPage(w, "-")
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(status)
-	buf.WriteTo(w)
 }

@@ -4,15 +4,9 @@ package web
 // bottom. Admin CRUD is under Settings > Promosi (/admin/settings/promo), SuperAdmin only.
 
 import (
-	"bytes"
-	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"html/template"
 	"log/slog"
 	"net/http"
 	"os"
@@ -20,102 +14,14 @@ import (
 	"strings"
 	"time"
 
-	gobill "github.com/frand-kod/gobill"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/service/promo"
 )
 
 const promoBase = "/admin/settings/promo"
 
-var promoCards = template.Must(template.New("").ParseFS(gobill.FS, "web/templates/promo_cards.html"))
-
-// promoView is one promo as the cards show it. Image is the /uploads URL, "" when none.
-type promoView struct {
-	ID                       int64
-	Title, Body, Link, Image string
-}
-
-// portalPromo is the dashboard card: the first live portal promo, the rest behind "Lainnya".
-// Key is the localStorage key; it changes with the promo ids and updated_at, so a change shows the card again.
-type portalPromo struct {
-	Key                          string
-	First                        promoView
-	More                         []promoView
-	MoreLabel, CloseLabel, Label string // translated here: the card template has no translator
-}
-
-func promoOf(p db.Promo) promoView {
-	v := promoView{ID: p.ID, Title: p.Title, Body: p.Body, Link: p.Link}
-	if uploadName.MatchString(p.Image) {
-		v.Image = "/uploads/" + p.Image
-	}
-	return v
-}
-
-// promoLive: active and inside its schedule at now (unix). Both ends are inclusive.
-func promoLive(p db.Promo, now int64) bool {
-	return p.Active == 1 && (!p.StartsAt.Valid || now >= p.StartsAt.Int64) && (!p.EndsAt.Valid || now <= p.EndsAt.Int64)
-}
-
-// promoRows returns the live promos shown at place ("isolir" or "portal"), in list order.
-func (s *Server) promoRows(ctx context.Context, place string) ([]db.Promo, error) {
-	rows, err := s.queries.ListPromos(ctx)
-	if err != nil {
-		return nil, err
-	}
-	now := time.Now().Unix()
-	var out []db.Promo
-	for _, p := range rows {
-		shown := (place == "isolir" && p.ShowIsolir == 1) || (place == "portal" && p.ShowPortal == 1)
-		if shown && promoLive(p, now) {
-			out = append(out, p)
-		}
-	}
-	return out, nil
-}
-
-// promoBlocks is the isolir page HTML: every live isolir promo as a compact card, "" when none.
-// Errors are logged, never shown, so the isolir page still loads.
-func (s *Server) promoBlocks(ctx context.Context, place string) template.HTML {
-	rows, err := s.promoRows(ctx, place)
-	if err != nil {
-		slog.Error("promo blocks", "place", place, "err", err)
-		return ""
-	}
-	if len(rows) == 0 {
-		return ""
-	}
-	views := make([]promoView, len(rows))
-	for i, p := range rows {
-		views[i] = promoOf(p)
-	}
-	var b bytes.Buffer
-	if err := promoCards.ExecuteTemplate(&b, "promo_isolir", views); err != nil {
-		slog.Error("promo blocks", "place", place, "err", err)
-		return ""
-	}
-	return template.HTML(b.String())
-}
-
-// promoPortal builds the dashboard card, nil when no live portal promo exists.
-func (s *Server) promoPortal(ctx context.Context) (*portalPromo, error) {
-	rows, err := s.promoRows(ctx, "portal")
-	if err != nil || len(rows) == 0 {
-		return nil, err
-	}
-	h := sha256.New()
-	pp := &portalPromo{First: promoOf(rows[0]), MoreLabel: s.t("More"), CloseLabel: s.t("Close"), Label: s.t("Promotions")}
-	for i, p := range rows {
-		fmt.Fprintf(h, "%d:%d;", p.ID, p.UpdatedAt)
-		if i > 0 {
-			pp.More = append(pp.More, promoOf(p))
-		}
-	}
-	pp.Key = "gb-promo-" + hex.EncodeToString(h.Sum(nil))[:16]
-	return pp, nil
-}
-
-// removeUpload deletes one stored promo image. Only upload-format names are touched.
 func (s *Server) removeUpload(name string) {
 	if !uploadName.MatchString(name) {
 		return
@@ -132,22 +38,22 @@ func (s *Server) removeUpload(name string) {
 
 // promoSchedule is the Schedule cell: "Always", or the dates the promo is on.
 func (s *Server) promoSchedule(p db.Promo) string {
-	day := func(x sql.NullInt64) string { return time.Unix(x.Int64, 0).In(s.location()).Format("2006-01-02") }
+	day := func(x sql.NullInt64) string { return time.Unix(x.Int64, 0).In(s.Location()).Format("2006-01-02") }
 	switch {
 	case p.StartsAt.Valid && p.EndsAt.Valid:
 		return fmt.Sprintf("%s - %s", day(p.StartsAt), day(p.EndsAt))
 	case p.StartsAt.Valid:
-		return fmt.Sprintf(s.t("From %s"), day(p.StartsAt))
+		return fmt.Sprintf(s.T("From %s"), day(p.StartsAt))
 	case p.EndsAt.Valid:
-		return fmt.Sprintf(s.t("Until %s"), day(p.EndsAt))
+		return fmt.Sprintf(s.T("Until %s"), day(p.EndsAt))
 	}
-	return s.t("Always")
+	return s.T("Always")
 }
 
 func (s *Server) promoList(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.queries.ListPromos(r.Context())
+	rows, err := s.Queries.ListPromos(r.Context())
 	if err != nil {
-		s.fail(w, "list promos", err)
+		s.Fail(w, "list promos", err)
 		return
 	}
 	lp := listPage{Heading: "Promotions", Base: promoBase, CanCreate: true, CanEdit: true,
@@ -156,10 +62,10 @@ func (s *Server) promoList(w http.ResponseWriter, r *http.Request) {
 	for _, p := range rows {
 		var places []string
 		if p.ShowIsolir == 1 {
-			places = append(places, s.t("Isolir page"))
+			places = append(places, s.T("Isolir page"))
 		}
 		if p.ShowPortal == 1 {
-			places = append(places, s.t("Portal dashboard"))
+			places = append(places, s.T("Portal dashboard"))
 		}
 		status := "Inactive"
 		if p.Active == 1 {
@@ -167,8 +73,8 @@ func (s *Server) promoList(w http.ResponseWriter, r *http.Request) {
 		}
 		lp.Rows = append(lp.Rows, listRow{p.ID, []string{p.Title, strings.Join(places, ", "), s.promoSchedule(p), status}})
 	}
-	s.render(w, r, http.StatusOK, "list", Page{Title: "Promotions", Tabs: settingsNav(r), Flash: s.sessions.PopString(r.Context(), "flash"),
-		Error: s.sessions.PopString(r.Context(), "error"), Data: lp})
+	s.Render(w, r, http.StatusOK, "list", Page{Title: "Promotions", Tabs: settingsNav(r), Flash: s.Sessions.PopString(r.Context(), "flash"),
+		Error: s.Sessions.PopString(r.Context(), "error"), Data: lp})
 }
 
 func promoFields(v, e map[string]string, image string) []field {
@@ -200,7 +106,7 @@ func (s *Server) promoForm(w http.ResponseWriter, r *http.Request, status int, i
 		head, action = "Edit Promo", fmt.Sprintf("%s/%d", promoBase, id)
 	}
 	fp := formPage{Heading: head, Action: action, Cancel: promoBase, Fields: promoFields(v, e, image)}
-	s.render(w, r, status, "form", Page{Title: head, Tabs: settingsNav(r), Data: fp})
+	s.Render(w, r, status, "form", Page{Title: head, Tabs: settingsNav(r), Data: fp})
 }
 
 func (s *Server) promoNew(w http.ResponseWriter, r *http.Request) {
@@ -208,19 +114,19 @@ func (s *Server) promoNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) promoEdit(w http.ResponseWriter, r *http.Request) {
-	p, err := s.queries.GetPromo(r.Context(), httpx.PathID(r))
+	p, err := s.Queries.GetPromo(r.Context(), httpx.PathID(r))
 	if errors.Is(err, sql.ErrNoRows) {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		s.fail(w, "get promo", err)
+		s.Fail(w, "get promo", err)
 		return
 	}
 	date := func(x sql.NullInt64) string {
 		if !x.Valid {
 			return ""
 		}
-		return time.Unix(x.Int64, 0).In(s.location()).Format("2006-01-02")
+		return time.Unix(x.Int64, 0).In(s.Location()).Format("2006-01-02")
 	}
 	v := map[string]string{"title": p.Title, "body": p.Body, "link": p.Link, "starts": date(p.StartsAt), "ends": date(p.EndsAt),
 		"show_isolir": fmt.Sprint(p.ShowIsolir), "show_portal": fmt.Sprint(p.ShowPortal), "active": fmt.Sprint(p.Active)}
@@ -238,12 +144,12 @@ func (s *Server) promoSave(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var old db.Promo
 	if id != 0 {
-		p, err := s.queries.GetPromo(ctx, id)
+		p, err := s.Queries.GetPromo(ctx, id)
 		if errors.Is(err, sql.ErrNoRows) {
 			http.NotFound(w, r)
 			return
 		} else if err != nil {
-			s.fail(w, "get promo", err)
+			s.Fail(w, "get promo", err)
 			return
 		}
 		old = p
@@ -284,7 +190,7 @@ func (s *Server) promoSave(w http.ResponseWriter, r *http.Request) {
 		if added != "" {
 			s.removeUpload(added)
 		}
-		s.fail(w, "save promo", err)
+		s.Fail(w, "save promo", err)
 		return
 	}
 	if old.Image != image {
@@ -299,16 +205,16 @@ func (s *Server) promoSave(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) promoDelete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	p, err := s.queries.GetPromo(ctx, httpx.PathID(r))
+	p, err := s.Queries.GetPromo(ctx, httpx.PathID(r))
 	if errors.Is(err, sql.ErrNoRows) {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		s.fail(w, "get promo", err)
+		s.Fail(w, "get promo", err)
 		return
 	}
-	if err := s.queries.DeletePromo(ctx, p.ID); err != nil {
-		s.fail(w, "delete promo", err)
+	if err := s.Queries.DeletePromo(ctx, p.ID); err != nil {
+		s.Fail(w, "delete promo", err)
 		return
 	}
 	s.removeUpload(p.Image)
@@ -320,7 +226,7 @@ func (s *Server) promoMove(dir int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		if err := s.promos().Move(ctx, httpx.PathID(r), dir); err != nil {
-			s.fail(w, "move promo", err)
+			s.Fail(w, "move promo", err)
 			return
 		}
 		http.Redirect(w, r, promoBase, http.StatusSeeOther)
@@ -328,5 +234,5 @@ func (s *Server) promoMove(dir int) http.HandlerFunc {
 }
 
 func (s *Server) promos() *promo.Service {
-	return &promo.Service{DB: s.conn, Q: s.queries, Loc: s.location(), Now: time.Now}
+	return &promo.Service{DB: s.conn, Q: s.Queries, Loc: s.Location(), Now: time.Now}
 }

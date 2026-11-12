@@ -16,12 +16,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
 )
@@ -58,7 +59,7 @@ type bulkRechargePending struct {
 
 // bulkFail sends the user back to the customer list with an error flash.
 func (s *Server) bulkFail(w http.ResponseWriter, r *http.Request, msg string) {
-	s.sessions.Put(r.Context(), "error", s.t(msg))
+	s.Sessions.Put(r.Context(), "error", s.T(msg))
 	http.Redirect(w, r, "/admin/customers", http.StatusSeeOther)
 }
 
@@ -92,7 +93,7 @@ func bulkRechargeIDs(r *http.Request) ([]int64, string) {
 // isolation) and its price. reason is a message key, "" when the customer can be renewed.
 func (s *Server) bulkRechargeCheck(r *http.Request, id int64) (c db.Customer, plan db.Plan, price int64, reason string) {
 	ctx := r.Context()
-	c, err := s.queries.GetCustomer(ctx, id)
+	c, err := s.Queries.GetCustomer(ctx, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return c, plan, 0, "Customer not found"
 	} else if err != nil {
@@ -102,7 +103,7 @@ func (s *Server) bulkRechargeCheck(r *http.Request, id int64) (c db.Customer, pl
 	if c.Status != "Active" {
 		return c, plan, 0, "This customer is not active. Turn the customer on first."
 	}
-	subs, err := s.queries.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: id, Limit: 1000})
+	subs, err := s.Queries.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: id, Limit: 1000})
 	if err != nil {
 		slog.Error("bulk recharge: subscriptions", "id", id, "err", err)
 		return c, plan, 0, msgRechargeFail
@@ -116,7 +117,7 @@ func (s *Server) bulkRechargeCheck(r *http.Request, id int64) (c db.Customer, pl
 	if cur == nil {
 		return c, plan, 0, "No plan to renew: recharge this customer one by one"
 	}
-	plan, err = s.queries.GetPlan(ctx, cur.PlanID)
+	plan, err = s.Queries.GetPlan(ctx, cur.PlanID)
 	if err != nil {
 		return c, plan, 0, msgPlanMissing
 	}
@@ -150,7 +151,7 @@ func (s *Server) bulkRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.Billing == nil {
-		s.fail(w, "bulk recharge", errors.New("billing service not configured"))
+		s.Fail(w, "bulk recharge", errors.New("billing service not configured"))
 		return
 	}
 	p := bulkRechargePage{Heading: "Recharge same plan"}
@@ -167,25 +168,25 @@ func (s *Server) bulkRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 		}
 		p.Rows = append(p.Rows, row)
 	}
-	p.Summary = fmt.Sprintf(s.t("Recharge %d customers, total %s"), len(eligible), view.Money(total))
+	p.Summary = fmt.Sprintf(s.T("Recharge %d customers, total %s"), len(eligible), view.Money(total))
 	if len(eligible) > 0 {
 		tok, err := newBulkToken()
 		if err != nil {
-			s.fail(w, "bulk recharge token", err)
+			s.Fail(w, "bulk recharge token", err)
 			return
 		}
 		b, _ := json.Marshal(bulkRechargePending{Token: tok, Ids: eligible, Total: total})
-		s.sessions.Put(r.Context(), bulkPendingKey, string(b))
+		s.Sessions.Put(r.Context(), bulkPendingKey, string(b))
 		p.Token = tok
 	}
-	s.render(w, r, 200, "bulk_recharge", Page{Title: "Recharge same plan", Data: p})
+	s.Render(w, r, 200, "bulk_recharge", Page{Title: "Recharge same plan", Data: p})
 }
 
 // bulkAlreadyDone answers a run without a matching pending token: nothing is charged.
 func (s *Server) bulkAlreadyDone(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, http.StatusConflict, "bulk_recharge", Page{Title: "Recharge result", Data: bulkRechargePage{
+	s.Render(w, r, http.StatusConflict, "bulk_recharge", Page{Title: "Recharge result", Data: bulkRechargePage{
 		Heading: bulkAlreadyHeading, Done: true,
-		Summary: s.t("This recharge was already processed or the form expired. Nothing was charged. Start again from the customer list."),
+		Summary: s.T("This recharge was already processed or the form expired. Nothing was charged. Start again from the customer list."),
 	}})
 }
 
@@ -195,11 +196,11 @@ func (s *Server) bulkAlreadyDone(w http.ResponseWriter, r *http.Request) {
 // browser is redirected to the result page, which is safe to reload.
 func (s *Server) bulkRechargeRun(w http.ResponseWriter, r *http.Request) {
 	if s.Billing == nil {
-		s.fail(w, "bulk recharge", errors.New("billing service not configured"))
+		s.Fail(w, "bulk recharge", errors.New("billing service not configured"))
 		return
 	}
 	ctx := r.Context()
-	raw := s.sessions.PopString(ctx, bulkPendingKey) // consumed here, whatever happens next
+	raw := s.Sessions.PopString(ctx, bulkPendingKey) // consumed here, whatever happens next
 	var pend bulkRechargePending
 	if raw == "" || json.Unmarshal([]byte(raw), &pend) != nil || pend.Token == "" ||
 		subtle.ConstantTimeCompare([]byte(pend.Token), []byte(r.PostFormValue("token"))) != 1 {
@@ -229,9 +230,9 @@ func (s *Server) bulkRechargeRun(w http.ResponseWriter, r *http.Request) {
 		}
 		p.Rows = append(p.Rows, row)
 	}
-	p.Summary = fmt.Sprintf(s.t("%d recharged, %d failed"), okN, failN)
+	p.Summary = fmt.Sprintf(s.T("%d recharged, %d failed"), okN, failN)
 	if b, err := json.Marshal(p); err == nil {
-		s.sessions.Put(ctx, bulkResultKey, string(b))
+		s.Sessions.Put(ctx, bulkResultKey, string(b))
 	}
 	s.logActivity(r, "customer.recharge.bulk", fmt.Sprintf("Cash, %d ok, %d failed (%s)", okN, failN, adminFrom(r).Username))
 	http.Redirect(w, r, bulkResultPath, http.StatusSeeOther)
@@ -241,9 +242,9 @@ func (s *Server) bulkRechargeRun(w http.ResponseWriter, r *http.Request) {
 // reads the session, so a reload shows the same page and charges nothing.
 func (s *Server) bulkRechargeResult(w http.ResponseWriter, r *http.Request) {
 	var p bulkRechargePage
-	if raw := s.sessions.GetString(r.Context(), bulkResultKey); raw == "" || json.Unmarshal([]byte(raw), &p) != nil {
+	if raw := s.Sessions.GetString(r.Context(), bulkResultKey); raw == "" || json.Unmarshal([]byte(raw), &p) != nil {
 		s.bulkFail(w, r, "No recharge result to show yet.")
 		return
 	}
-	s.render(w, r, 200, "bulk_recharge", Page{Title: "Recharge result", Data: p})
+	s.Render(w, r, 200, "bulk_recharge", Page{Title: "Recharge result", Data: p})
 }

@@ -63,8 +63,8 @@ func (s *Server) totpVerify(adminID int64, key []byte, code string) bool {
 		if subtle.ConstantTimeCompare([]byte(totpCode(key, step)), []byte(code)) != 1 {
 			continue
 		}
-		s.mu.Lock()
-		defer s.mu.Unlock()
+		s.Mu.Lock()
+		defer s.Mu.Unlock()
 		if s.totpLast == nil {
 			s.totpLast = map[int64]int64{}
 		}
@@ -118,7 +118,7 @@ func (s *Server) useRecoveryCode(r *http.Request, adminID int64, code string) bo
 	if len(code) != 8 {
 		return false
 	}
-	rows, err := s.queries.ListUnusedRecoveryCodes(r.Context(), adminID)
+	rows, err := s.Queries.ListUnusedRecoveryCodes(r.Context(), adminID)
 	if err != nil {
 		return false
 	}
@@ -126,7 +126,7 @@ func (s *Server) useRecoveryCode(r *http.Request, adminID int64, code string) bo
 		if bcrypt.CompareHashAndPassword([]byte(row.CodeHash), []byte(code)) != nil {
 			continue
 		}
-		n, err := s.queries.UseRecoveryCode(r.Context(), row.ID)
+		n, err := s.Queries.UseRecoveryCode(r.Context(), row.ID)
 		return err == nil && n == 1
 	}
 	return false

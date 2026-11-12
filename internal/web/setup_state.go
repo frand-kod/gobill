@@ -99,10 +99,10 @@ type wizState struct {
 func (s *Server) wizLoad(ctx context.Context) (wizState, error) {
 	var ws wizState
 	var err error
-	if ws.cnt, err = s.queries.CountSetup(ctx); err != nil {
+	if ws.cnt, err = s.Queries.CountSetup(ctx); err != nil {
 		return ws, err
 	}
-	if ws.st, err = s.loadSettings(ctx); err != nil {
+	if ws.st, err = s.LoadSettings(ctx); err != nil {
 		return ws, err
 	}
 	if ws.raw, err = s.Settings.All(ctx); err != nil {
@@ -177,15 +177,6 @@ func (ws wizState) progress() (done, total int) {
 	return
 }
 
-// setupNav is what the layout shows a SuperAdmin: the sidebar item, the first-run dialog and the progress badge.
-type setupNav struct {
-	Show     bool // sidebar item: not finished and not dismissed
-	Modal    bool // first page load: offer the wizard
-	Done     int
-	Total    int
-	Finished bool // done or dismissed: the Guide links to the wizard
-}
-
 // setupNavFor works out the layout state. An install that already has every required step predates
 // the wizard, so it is marked done instead of being offered the wizard.
 func (s *Server) setupNavFor(ctx context.Context, path string) (*setupNav, error) {
@@ -196,7 +187,7 @@ func (s *Server) setupNavFor(ctx context.Context, path string) (*setupNav, error
 	state := ws.raw[setupKey]
 	done, total := ws.progress()
 	if state == "" && total > 0 && done == total {
-		if err := s.queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupKey, Value: "done"}); err != nil {
+		if err := s.Queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupKey, Value: "done"}); err != nil {
 			return nil, err
 		}
 		state = "done"

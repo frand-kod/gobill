@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/web/view"
 )
 
 // qrisCardSrc is the card. Its colors are fixed (a white card with a white QR tile), so it reads the
@@ -75,19 +76,19 @@ type qrisCardData struct {
 func (s *Server) qrisCard(st map[string]string, details payment.QRISDetails, qr template.URL, amount, ref string, sample bool) template.HTML {
 	company := strings.TrimSpace(st["company_name"])
 	d := qrisCardData{
-		Title: fmt.Sprintf(s.t("Payment to %s"), company), Amount: amount, Ref: ref,
+		Title: fmt.Sprintf(s.T("Payment to %s"), company), Amount: amount, Ref: ref,
 		Merchant: details.MerchantName, City: details.City, NMID: details.NMID, Provider: details.Provider,
 		Company: company, QR: qr, Sample: sample,
 	}
-	if phone := waLink(st["phone"], "62"); phone != "" {
+	if phone := view.WaLink(st["phone"], "62"); phone != "" {
 		d.Support = phone
 	}
 	if details.MerchantName == "" || strings.EqualFold(company, strings.TrimSpace(details.MerchantName)) {
-		d.Check = fmt.Sprintf(s.t("Make sure your app shows %s before paying."), company)
+		d.Check = fmt.Sprintf(s.T("Make sure your app shows %s before paying."), company)
 	} else {
-		d.Check = fmt.Sprintf(s.t("Your app will show the merchant name %s — this is the registered QRIS name of %s. If it shows another name, do not pay and contact us."), details.MerchantName, company)
+		d.Check = fmt.Sprintf(s.T("Your app will show the merchant name %s — this is the registered QRIS name of %s. If it shows another name, do not pay and contact us."), details.MerchantName, company)
 	}
-	tpl, err := template.New("qris").Funcs(template.FuncMap{"T": s.t}).Parse(qrisCardSrc)
+	tpl, err := template.New("qris").Funcs(template.FuncMap{"T": s.T}).Parse(qrisCardSrc)
 	if err != nil {
 		return ""
 	}

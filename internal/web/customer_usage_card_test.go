@@ -22,7 +22,7 @@ func TestCustomerPageUsageCardAndEmptyFields(t *testing.T) {
 		t.Fatal("filled full name is missing from the header")
 	}
 
-	day := time.Now().In(e.srv.location()).Format("2006-01-02")
+	day := time.Now().In(e.srv.Location()).Format("2006-01-02")
 	if _, err := e.s.conn.ExecContext(t.Context(), `INSERT INTO radius_usage_daily (username, day, input_octets, output_octets) VALUES (?, ?, ?, ?)`,
 		e.cust.Username, day, 1<<20, 3<<20); err != nil {
 		t.Fatal(err)

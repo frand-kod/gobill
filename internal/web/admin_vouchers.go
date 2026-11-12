@@ -6,21 +6,23 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"html/template"
 	"log/slog"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"errors"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/billing"
-	"github.com/frand-kod/gobill/internal/db"
-	"github.com/skip2/go-qrcode"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/billing"
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/skip2/go-qrcode"
 )
 
 const (
@@ -62,13 +64,13 @@ func randomCode(charset string, n int) (string, error) {
 }
 
 func (s *Server) planOptions(r *http.Request, enabledOnly bool) ([]option, map[int64]db.Plan, error) {
-	plans, err := s.queries.ListPlans(r.Context(), db.ListPlansParams{Limit: 1000})
+	plans, err := s.Queries.ListPlans(r.Context(), db.ListPlansParams{Limit: 1000})
 	if err != nil {
 		return nil, nil, err
 	}
 	var opts []option
 	byID := map[int64]db.Plan{}
-	isoPlan, _ := s.isolirIDs(r.Context())
+	isoPlan, _ := s.IsolirIDs(r.Context())
 	for _, p := range plans {
 		byID[p.ID] = p // rows and names still resolve; only the options leave the isolir plan out
 		if p.ID != isoPlan && (!enabledOnly || p.Enabled == 1) {
@@ -96,7 +98,7 @@ func maskCode(c string) string {
 }
 
 func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
-	q, pg := paging(r)
+	q, pg := view.Paging(r)
 	status := r.URL.Query().Get("status")
 	if status != "unused" && status != "used" {
 		status = ""
@@ -112,14 +114,14 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 			qStatus = "none"
 		}
 	}
-	rows, err := s.queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Q: q, Status: qStatus, Viewer: voucherViewer(adminFrom(r)), PageLimit: pg.limit(), PageOffset: pg.offset()})
+	rows, err := s.Queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Q: q, Status: qStatus, Viewer: voucherViewer(adminFrom(r)), PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
-		s.fail(w, "list vouchers", err)
+		s.Fail(w, "list vouchers", err)
 		return
 	}
 	_, plans, err := s.planOptions(r, false)
 	if err != nil {
-		s.fail(w, "list plans", err)
+		s.Fail(w, "list plans", err)
 		return
 	}
 	lp := listPage{Heading: "Voucher", Base: "/admin/vouchers", Q: q, Searchable: true, DeleteOnly: true,
@@ -135,17 +137,17 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 	for _, v := range rows {
 		used := ""
 		if v.UsedAt.Valid {
-			used = s.ts(v.UsedAt.Int64)
+			used = s.TS(v.UsedAt.Int64)
 		}
 		code := v.Code
 		if v.Status == "unused" && !canSee { // an unused code is free service
 			code = maskCode(code)
 		}
-		lp.Rows = append(lp.Rows, listRow{v.ID, []string{code, plans[v.PlanID].Name, v.Status, s.ts(v.CreatedAt), used}})
+		lp.Rows = append(lp.Rows, listRow{v.ID, []string{code, plans[v.PlanID].Name, v.Status, s.TS(v.CreatedAt), used}})
 	}
-	total, err := s.queries.CountVouchers(r.Context(), db.CountVouchersParams{Q: q, Status: qStatus, Viewer: voucherViewer(adminFrom(r))})
+	total, err := s.Queries.CountVouchers(r.Context(), db.CountVouchersParams{Q: q, Status: qStatus, Viewer: voucherViewer(adminFrom(r))})
 	if err != nil {
-		s.fail(w, "count vouchers", err)
+		s.Fail(w, "count vouchers", err)
 		return
 	}
 	lp.finish(pg, total)
@@ -175,7 +177,7 @@ func (s *Server) vchFields(r *http.Request, v, e map[string]string) ([]field, er
 func (s *Server) vchForm(w http.ResponseWriter, r *http.Request, status int, v, e map[string]string) {
 	fs, err := s.vchFields(r, v, e)
 	if err != nil {
-		s.fail(w, "voucher form", err)
+		s.Fail(w, "voucher form", err)
 		return
 	}
 	s.renderForm(w, r, status, formPage{"Add Vouchers", "/admin/vouchers", "/admin/vouchers", fs})
@@ -189,15 +191,15 @@ func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {
 	v := httpx.FormVals(r, "plan", "numbervoucher", "voucher_format", "prefix", "lengthcode", "print_now")
 	e := map[string]string{}
 	planID, ok := httpx.PosInt(v["plan"])
-	if _, err := s.queries.GetPlan(r.Context(), planID); !ok || err != nil {
+	if _, err := s.Queries.GetPlan(r.Context(), planID); !ok || err != nil {
 		e["plan"] = "This field is required"
 	}
-	if isoPlan, _ := s.isolirIDs(r.Context()); ok && planID == isoPlan {
+	if isoPlan, _ := s.IsolirIDs(r.Context()); ok && planID == isoPlan {
 		e["plan"] = billing.ErrIsolirPlan.Error()
 	}
 	count, ok := httpx.PosInt(v["numbervoucher"])
 	if !ok || count > maxVouchers {
-		e["numbervoucher"] = fmt.Sprintf(s.t("Enter a number between 1 and %d"), maxVouchers)
+		e["numbervoucher"] = fmt.Sprintf(s.T("Enter a number between 1 and %d"), maxVouchers)
 	}
 	charset := map[string]string{"up": upperChars, "low": lowerChars, "rand": mixedChars, "numbers": digitChars}[v["voucher_format"]]
 	if charset == "" {
@@ -209,7 +211,7 @@ func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 	length, ok := httpx.PosInt(v["lengthcode"])
 	if !ok || length < minLen || length > 32 {
-		e["lengthcode"] = fmt.Sprintf(s.t("Enter a number between %d and 32"), minLen)
+		e["lengthcode"] = fmt.Sprintf(s.T("Enter a number between %d and 32"), minLen)
 	}
 	if !prefixRe.MatchString(v["prefix"]) || len(v["prefix"]) > 16 {
 		e["prefix"] = "Invalid value"
@@ -220,7 +222,7 @@ func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 	for n := int64(0); n < count; n++ {
 		if err := s.newVoucher(r, planID, v["prefix"], charset, int(length)); err != nil {
-			s.fail(w, "create voucher", err)
+			s.Fail(w, "create voucher", err)
 			return
 		}
 	}
@@ -238,7 +240,7 @@ func (s *Server) newVoucher(r *http.Request, planID int64, prefix, charset strin
 		if err != nil {
 			return err
 		}
-		_, err = s.queries.CreateVoucher(r.Context(), db.CreateVoucherParams{Code: prefix + code, PlanID: planID,
+		_, err = s.Queries.CreateVoucher(r.Context(), db.CreateVoucherParams{Code: prefix + code, PlanID: planID,
 			GeneratedBy: sql.NullInt64{Int64: adminFrom(r).ID, Valid: true}})
 		if !httpx.IsUnique(err) {
 			return err
@@ -249,11 +251,11 @@ func (s *Server) newVoucher(r *http.Request, planID int64, prefix, charset strin
 
 func (s *Server) vchDelete(w http.ResponseWriter, r *http.Request) {
 	name := ""
-	if v, err := s.queries.GetVoucher(r.Context(), httpx.PathID(r)); err == nil {
+	if v, err := s.Queries.GetVoucher(r.Context(), httpx.PathID(r)); err == nil {
 		name = v.Code
 	}
 	s.remove(w, r, "/admin/vouchers", "voucher", "Voucher is in use", name, func(id int64) error {
-		return s.queries.DeleteVoucher(r.Context(), id)
+		return s.Queries.DeleteVoucher(r.Context(), id)
 	})
 }
 
@@ -266,9 +268,9 @@ func (s *Server) vchDeleteMany(w http.ResponseWriter, r *http.Request) {
 
 // vchRemoveOld deletes used vouchers older than 3 months (old PHP remove-voucher); ids are ignored.
 func (s *Server) vchRemoveOld(w http.ResponseWriter, r *http.Request) {
-	n, err := s.queries.DeleteOldUsedVouchers(r.Context(), sql.NullInt64{Int64: time.Now().AddDate(0, -3, 0).Unix(), Valid: true})
+	n, err := s.Queries.DeleteOldUsedVouchers(r.Context(), sql.NullInt64{Int64: time.Now().AddDate(0, -3, 0).Unix(), Valid: true})
 	if err != nil {
-		s.fail(w, "remove old vouchers", err)
+		s.Fail(w, "remove old vouchers", err)
 		return
 	}
 	s.bulkDone(w, r, "/admin/vouchers", "voucher.remove_old", n)
@@ -298,19 +300,19 @@ func (s *Server) vchPrint(w http.ResponseWriter, r *http.Request) {
 	if !ok || limit > maxVouchers {
 		limit = 36
 	}
-	rows, err := s.queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Status: "unused", PlanID: planID, Viewer: voucherViewer(adminFrom(r)), PageLimit: limit})
+	rows, err := s.Queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Status: "unused", PlanID: planID, Viewer: voucherViewer(adminFrom(r)), PageLimit: limit})
 	if err != nil {
-		s.fail(w, "print vouchers", err)
+		s.Fail(w, "print vouchers", err)
 		return
 	}
 	_, plans, err := s.planOptions(r, false)
 	if err != nil {
-		s.fail(w, "list plans", err)
+		s.Fail(w, "list plans", err)
 		return
 	}
-	settings, err := s.loadSettings(r.Context())
+	settings, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "settings", err)
+		s.Fail(w, "settings", err)
 		return
 	}
 	layout := "a4"
@@ -333,7 +335,7 @@ func (s *Server) vchPrint(w http.ResponseWriter, r *http.Request) {
 		pp.Items = append(pp.Items, printItem{v.Code, p.Name, view.Money(p.Price),
 			template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))})
 	}
-	s.render(w, r, 200, "print", Page{Title: "Voucher", Data: pp})
+	s.Render(w, r, 200, "print", Page{Title: "Voucher", Data: pp})
 }
 
 // vchView shows the newest unused codes of a plan as plain text after generating (old voucher/view).
@@ -343,21 +345,21 @@ func (s *Server) vchView(w http.ResponseWriter, r *http.Request) {
 	if !ok || limit > maxVouchers {
 		limit = 36
 	}
-	plan, err := s.queries.GetPlan(r.Context(), planID)
+	plan, err := s.Queries.GetPlan(r.Context(), planID)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
-	rows, err := s.queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Status: "unused", PlanID: planID, Viewer: voucherViewer(adminFrom(r)), PageLimit: limit})
+	rows, err := s.Queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Status: "unused", PlanID: planID, Viewer: voucherViewer(adminFrom(r)), PageLimit: limit})
 	if err != nil {
-		s.fail(w, "view vouchers", err)
+		s.Fail(w, "view vouchers", err)
 		return
 	}
 	codes := make([]string, len(rows))
 	for i, v := range rows {
 		codes[i] = v.Code
 	}
-	s.render(w, r, 200, "voucher_view", Page{Title: "Voucher", Flash: s.sessions.PopString(r.Context(), "flash"), Data: struct {
+	s.Render(w, r, 200, "voucher_view", Page{Title: "Voucher", Flash: s.Sessions.PopString(r.Context(), "flash"), Data: struct {
 		Plan, Codes, PrintURL string
 		Count                 int
 	}{plan.Name, strings.Join(codes, "\n"), fmt.Sprintf("/admin/vouchers/print?plan=%d&limit=%d", planID, limit), len(codes)}})
@@ -376,11 +378,11 @@ func redeemPage(v, e map[string]string) formPage {
 func (s *Server) vchRedeem(w http.ResponseWriter, r *http.Request) {
 	v := httpx.FormVals(r, "customer", "code")
 	e := map[string]string{}
-	c, err := s.queries.GetCustomerByUsername(r.Context(), v["customer"])
+	c, err := s.Queries.GetCustomerByUsername(r.Context(), v["customer"])
 	if err == sql.ErrNoRows {
 		e["customer"] = "Customer not found"
 	} else if err != nil {
-		s.fail(w, "get customer", err)
+		s.Fail(w, "get customer", err)
 		return
 	}
 	if v["code"] == "" {
@@ -388,13 +390,13 @@ func (s *Server) vchRedeem(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(e) == 0 && voucherViewer(adminFrom(r)) != 0 {
 		// a code outside the admin's own vouchers answers like a code that does not exist
-		if _, err := s.queries.VoucherVisibleByCode(r.Context(), db.VoucherVisibleByCodeParams{Code: v["code"], Viewer: voucherViewer(adminFrom(r))}); err != nil {
+		if _, err := s.Queries.VoucherVisibleByCode(r.Context(), db.VoucherVisibleByCodeParams{Code: v["code"], Viewer: voucherViewer(adminFrom(r))}); err != nil {
 			e["code"] = "Voucher not valid or already used"
 		}
 	}
 	if len(e) == 0 {
 		if s.Billing == nil {
-			s.fail(w, "redeem voucher", errors.New("billing service not configured"))
+			s.Fail(w, "redeem voucher", errors.New("billing service not configured"))
 			return
 		}
 		switch err := s.Billing.RedeemVoucher(r.Context(), v["code"], c.ID); {
@@ -403,7 +405,7 @@ func (s *Server) vchRedeem(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, billing.ErrInactive):
 			e["code"] = "account is not active"
 		case err != nil:
-			s.fail(w, "redeem voucher", err)
+			s.Fail(w, "redeem voucher", err)
 			return
 		default:
 			s.done(w, r, fmt.Sprint("/admin/customers/", c.ID), "Voucher redeemed", "voucher.redeem", v["code"]+" -> "+c.Username)

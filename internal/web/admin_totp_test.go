@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 // RFC 6238 appendix B: SHA-1 secret "12345678901234567890"; 8-digit values truncated to 6 digits.
@@ -43,7 +45,7 @@ func enrollTOTP(t *testing.T, s *Server, h http.Handler, cookie *http.Cookie, us
 	if w := do(h, "POST", "/admin/2fa/setup", nil, cookie); w.Code != http.StatusSeeOther {
 		t.Fatalf("setup: %d", w.Code)
 	}
-	a, err := s.queries.GetAdminByUsername(t.Context(), user)
+	a, err := s.Queries.GetAdminByUsername(t.Context(), user)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +152,7 @@ func TestTOTPWrongCodeThrottled(t *testing.T) {
 	key, _ := enrollTOTP(t, s, h, login(t, h, "alice"), "alice")
 
 	var pending *http.Cookie
-	for i := 0; i < maxFailedLogins; i++ { // a fresh password step each time: one pending login only allows max2FAPerLogin guesses
+	for i := 0; i < core.MaxFailedLogins; i++ { // a fresh password step each time: one pending login only allows max2FAPerLogin guesses
 		pending = sessionCookie(passwordStep(h, "alice"))
 		if w := secondStep(h, pending, "000000"); w.Code != 200 {
 			t.Fatalf("attempt %d: %d", i, w.Code)
@@ -211,7 +213,7 @@ func TestTOTPDisableAndSuperAdminReset(t *testing.T) {
 	// rita turns 2FA on; only a SuperAdmin may reset it
 	ritaCookie := login(t, h, "rita")
 	enrollTOTP(t, s, h, ritaCookie, "rita")
-	rita, err := s.queries.GetAdminByUsername(t.Context(), "rita")
+	rita, err := s.Queries.GetAdminByUsername(t.Context(), "rita")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +224,7 @@ func TestTOTPDisableAndSuperAdminReset(t *testing.T) {
 	if w := do(h, "POST", reset, nil, cookie); w.Code != http.StatusSeeOther {
 		t.Fatalf("SuperAdmin reset: %d", w.Code)
 	}
-	a, _ := s.queries.GetAdminByUsername(t.Context(), "rita")
+	a, _ := s.Queries.GetAdminByUsername(t.Context(), "rita")
 	if a.TotpEnabled != 0 || a.TotpSecretEnc != "" {
 		t.Fatal("reset did not clear 2FA")
 	}

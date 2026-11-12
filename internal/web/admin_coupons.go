@@ -4,13 +4,16 @@ package web
 
 import (
 	"database/sql"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"fmt"
-	"github.com/frand-kod/gobill/internal/db"
 	"strconv"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/db"
 )
 
 var cpnKeys = []string{"code", "type", "value", "description", "max_usage", "min_order", "max_discount", "start_date", "end_date", "status"}
@@ -31,10 +34,10 @@ func cpnFields(v, e map[string]string) []field {
 }
 
 func (s *Server) cpnList(w http.ResponseWriter, r *http.Request) {
-	q, pg := paging(r)
-	rows, err := s.queries.SearchCoupons(r.Context(), db.SearchCouponsParams{Q: q, PageLimit: pg.limit(), PageOffset: pg.offset()})
+	q, pg := view.Paging(r)
+	rows, err := s.Queries.SearchCoupons(r.Context(), db.SearchCouponsParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
-		s.fail(w, "list coupons", err)
+		s.Fail(w, "list coupons", err)
 		return
 	}
 	lp := listPage{Heading: "Coupons", Base: "/admin/coupons", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
@@ -45,9 +48,9 @@ func (s *Server) cpnList(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{c.ID, []string{c.Code, c.Type, fmt.Sprint(c.Value), fmt.Sprint(c.MaxUsage),
 			fmt.Sprint(c.Used), fmt.Sprint(c.MinOrder), c.StartDate, c.EndDate, c.Status}})
 	}
-	total, err := s.queries.CountCoupons(r.Context(), q)
+	total, err := s.Queries.CountCoupons(r.Context(), q)
 	if err != nil {
-		s.fail(w, "count coupons", err)
+		s.Fail(w, "count coupons", err)
 		return
 	}
 	lp.finish(pg, total)
@@ -62,12 +65,12 @@ func (s *Server) cpnNew(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) cpnEdit(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
-	c, err := s.queries.GetCoupon(r.Context(), id)
+	c, err := s.Queries.GetCoupon(r.Context(), id)
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		s.fail(w, "get coupon", err)
+		s.Fail(w, "get coupon", err)
 		return
 	}
 	v := map[string]string{"code": c.Code, "type": c.Type, "value": fmt.Sprint(c.Value), "description": c.Description,
@@ -112,11 +115,11 @@ func (s *Server) cpnSave(w http.ResponseWriter, r *http.Request) {
 	if len(e) == 0 {
 		var err error
 		if id == 0 {
-			_, err = s.queries.CreateCoupon(r.Context(), db.CreateCouponParams{Code: v["code"], Type: v["type"], Value: n["value"],
+			_, err = s.Queries.CreateCoupon(r.Context(), db.CreateCouponParams{Code: v["code"], Type: v["type"], Value: n["value"],
 				Description: v["description"], MaxUsage: n["max_usage"], MinOrder: n["min_order"], MaxDiscount: n["max_discount"],
 				StartDate: v["start_date"], EndDate: v["end_date"], Status: v["status"]})
 		} else {
-			err = s.queries.UpdateCoupon(r.Context(), db.UpdateCouponParams{Code: v["code"], Type: v["type"], Value: n["value"],
+			err = s.Queries.UpdateCoupon(r.Context(), db.UpdateCouponParams{Code: v["code"], Type: v["type"], Value: n["value"],
 				Description: v["description"], MaxUsage: n["max_usage"], MinOrder: n["min_order"], MaxDiscount: n["max_discount"],
 				StartDate: v["start_date"], EndDate: v["end_date"], Status: v["status"], ID: id})
 		}
@@ -124,7 +127,7 @@ func (s *Server) cpnSave(w http.ResponseWriter, r *http.Request) {
 		case httpx.IsUnique(err):
 			e["code"] = "Coupon Code already exists"
 		case err != nil:
-			s.fail(w, "save coupon", err)
+			s.Fail(w, "save coupon", err)
 			return
 		default:
 			act, msg := "coupon.create", "Data Created Successfully"
@@ -143,17 +146,17 @@ func (s *Server) cpnSave(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) cpnToggle(w http.ResponseWriter, r *http.Request) {
-	if err := s.queries.ToggleCoupon(r.Context(), httpx.PathID(r)); err != nil {
-		s.fail(w, "toggle coupon", err)
+	if err := s.Queries.ToggleCoupon(r.Context(), httpx.PathID(r)); err != nil {
+		s.Fail(w, "toggle coupon", err)
 		return
 	}
 	s.done(w, r, "/admin/coupons", "Data Updated Successfully", "coupon.toggle", fmt.Sprint(httpx.PathID(r)))
 }
 
 func (s *Server) cpnDelete(w http.ResponseWriter, r *http.Request) {
-	c, _ := s.queries.GetCoupon(r.Context(), httpx.PathID(r))
+	c, _ := s.Queries.GetCoupon(r.Context(), httpx.PathID(r))
 	s.remove(w, r, "/admin/coupons", "coupon", "Coupon is in use", c.Code, func(id int64) error {
-		return s.queries.DeleteCoupon(r.Context(), id)
+		return s.Queries.DeleteCoupon(r.Context(), id)
 	})
 }
 

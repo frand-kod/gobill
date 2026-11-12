@@ -20,6 +20,7 @@ import (
 	"github.com/frand-kod/gobill/internal/metrics"
 	"github.com/frand-kod/gobill/internal/notify"
 	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/web/portal"
 )
 
 const tripayKey = "priv-secret-key"
@@ -239,13 +240,13 @@ func TestPaymentSettings(t *testing.T) {
 	// empty secret keeps the stored one; a new one replaces it
 	form := url.Values{"payment_gateway": {"tripay"}, "tripay_merchant_code": {"M2"}, "tripay_mode": {"sandbox"}}
 	wantCode(t, do(e.h, "POST", "/admin/settings/payment", form, e.c), 303, "save")
-	st, _ := e.s.loadSettings(t.Context())
+	st, _ := e.s.LoadSettings(t.Context())
 	if st["tripay_private_key"] != tripayKey || st["tripay_merchant_code"] != "M2" {
 		t.Fatalf("settings: %v", st)
 	}
 	form.Set("tripay_private_key", "new-key")
 	do(e.h, "POST", "/admin/settings/payment", form, e.c)
-	if st, _ = e.s.loadSettings(t.Context()); st["tripay_private_key"] != "new-key" {
+	if st, _ = e.s.LoadSettings(t.Context()); st["tripay_private_key"] != "new-key" {
 		t.Fatal("secret not replaced")
 	}
 	form.Set("tripay_mode", "bogus")
@@ -349,9 +350,9 @@ func TestPortalPayCheckRateLimited(t *testing.T) {
 	if e.pending(t).Status != "pending" || e.trxCount(t) != 0 {
 		t.Fatal("second check within the gap reached the gateway")
 	}
-	e.s.payCheckMu.Lock()
-	e.s.payCheckAt[pr.ID] = time.Now().Add(-payCheckGap)
-	e.s.payCheckMu.Unlock()
+	e.s.portal.PayCheckMu.Lock()
+	e.s.portal.PayCheckAt[pr.ID] = time.Now().Add(-portal.PayCheckGap)
+	e.s.portal.PayCheckMu.Unlock()
 	check()
 	if e.pending(t).Status != "paid" || e.trxCount(t) != 1 {
 		t.Fatal("check after the gap did not settle")

@@ -3,11 +3,12 @@ package web
 import (
 	"context"
 	"encoding/json"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"golang.org/x/crypto/bcrypt"

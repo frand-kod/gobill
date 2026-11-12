@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/portal"
 )
 
 // /portal/usage.json is the logged-in customer's own live card: another customer's session never shows.
@@ -23,12 +26,12 @@ func TestPortalUsageJSONIsolationAndRate(t *testing.T) {
 	if _, err := e.s.conn.ExecContext(t.Context(), `UPDATE radius_sessions SET updated_at = ? WHERE session_id = 'mine'`, now-60); err != nil {
 		t.Fatal(err)
 	}
-	get := func() (pLive, string) {
+	get := func() (portal.PLive, string) {
 		w := do(e.h, "GET", "/portal/usage.json", nil, c)
 		if w.Code != 200 || !strings.Contains(w.Header().Get("Content-Type"), "application/json") {
 			t.Fatalf("usage.json: %d %s", w.Code, w.Header().Get("Content-Type"))
 		}
-		var v pLive
+		var v portal.PLive
 		if err := json.Unmarshal(w.Body.Bytes(), &v); err != nil {
 			t.Fatal(err)
 		}
@@ -58,15 +61,15 @@ func TestPortalUsageJSONIsolationAndRate(t *testing.T) {
 func TestDailyUsageAggregation(t *testing.T) {
 	loc := time.UTC
 	now := time.Date(2026, 10, 12, 10, 0, 0, 0, loc).Unix()
-	rows := []dayTotal{
+	rows := []core.DayTotal{
 		{Day: "2026-10-12", Input: 11, Output: 22},
 		{Day: "2026-10-06", Input: 100, Output: 200},   // first day of the chart
 		{Day: "2026-10-05", Input: 1000, Output: 2000}, // before the chart: dropped
 	}
-	if got := weekSince(now, loc); got != "2026-10-06" {
+	if got := core.WeekSince(now, loc); got != "2026-10-06" {
 		t.Fatalf("weekSince = %s, want six days back", got)
 	}
-	days := dailyUsage(rows, 7, now, loc)
+	days := core.DailyUsage(rows, 7, now, loc)
 	if len(days) != 7 || !days[6].Today || days[6].Down != 22 || days[6].Up != 11 {
 		t.Fatalf("today: %+v", days[6])
 	}
@@ -78,7 +81,7 @@ func TestDailyUsageAggregation(t *testing.T) {
 			t.Fatalf("day %d should be empty: %+v", i, days[i])
 		}
 	}
-	bars := chartBars(days)
+	bars := core.ChartBars(days)
 	if top := bars[0]; top.DownPct+top.UpPct != 100 || top.DownPct != 66 {
 		t.Fatalf("busiest bar does not fill the chart or does not stack: %+v", top)
 	}
@@ -107,7 +110,7 @@ func TestPortalDashboardCards(t *testing.T) {
 	if n := strings.Count(body, "<span>Buy / Extend</span>"); n != 0 {
 		t.Fatalf("Buy / Extend buttons without a way to pay = %d, want 0", n)
 	}
-	if !strings.Contains(body, `data-bar="`+time.Unix(now, 0).In(e.s.location()).Format("2006-01-02")+" · ↓ ") {
+	if !strings.Contains(body, `data-bar="`+time.Unix(now, 0).In(e.s.Location()).Format("2006-01-02")+" · ↓ ") {
 		t.Fatal("today's bar lacks its hover text")
 	}
 	setting(t, e, "payment_gateway", "tripay")

@@ -54,7 +54,7 @@ func TestReportAgentDeposits(t *testing.T) {
 		}
 		return d
 	}
-	day := time.Unix(1000, 0).In(s.location()).Format("2006-01-02")
+	day := time.Unix(1000, 0).In(s.Location()).Format("2006-01-02")
 	d := get("/?from=" + day + "&to=" + day)
 	// DIRECT 5000 + deposits 4000; AG1's 5000 is the agent's sale
 	if d.Sum != 9000 || d.Count != 3 || d.RowCount != 1 || len(d.ByMethod) != 2 {
@@ -64,7 +64,7 @@ func TestReportAgentDeposits(t *testing.T) {
 		t.Fatalf("type filter must hide deposits, sum %d", d.Sum)
 	}
 	// the dashboard / daily summary query and the CSV export agree with the report
-	if n, err := s.queries.SumTransactionsBetween(t.Context(), db.SumTransactionsBetweenParams{FromTs: 0, ToTs: 2000}); err != nil || n != 9000 {
+	if n, err := s.Queries.SumTransactionsBetween(t.Context(), db.SumTransactionsBetweenParams{FromTs: 0, ToTs: 2000}); err != nil || n != 9000 {
 		t.Fatalf("dashboard income %d %v", n, err)
 	}
 	w := httptest.NewRecorder()

@@ -5,15 +5,17 @@ package web
 import (
 	"crypto/subtle"
 	"database/sql"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
 	"net/netip"
 	"strconv"
 
+	"github.com/frand-kod/gobill/internal/web/httpx"
+
 	"fmt"
+	"strings"
+
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/secret"
-	"strings"
 )
 
 func nasFields(v, e map[string]string, editing bool) []field {
@@ -67,7 +69,7 @@ func weakSecret(p string) string {
 
 // secretReused reports whether another NAS (not id) already uses secret p.
 func (s *Server) secretReused(r *http.Request, id int64, p string) (bool, error) {
-	rows, err := s.queries.ListNAS(r.Context())
+	rows, err := s.Queries.ListNAS(r.Context())
 	for _, n := range rows {
 		if n.ID == id {
 			continue
@@ -93,9 +95,9 @@ func maStatus(policy, seen int64) string {
 }
 
 func (s *Server) nasList(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.queries.ListNAS(r.Context())
+	rows, err := s.Queries.ListNAS(r.Context())
 	if err != nil {
-		s.fail(w, "list nas", err)
+		s.Fail(w, "list nas", err)
 		return
 	}
 	lp := listPage{Heading: "NAS", Base: "/admin/nas", CanCreate: true, CanEdit: true,
@@ -117,12 +119,12 @@ func (s *Server) nasNew(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) nasEdit(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
-	n, err := s.queries.GetNAS(r.Context(), id)
+	n, err := s.Queries.GetNAS(r.Context(), id)
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		s.fail(w, "get nas", err)
+		s.Fail(w, "get nas", err)
 		return
 	}
 	v := map[string]string{"name": n.Name, "ip": n.Ip, "description": n.Description, "require_message_auth": fmt.Sprint(n.RequireMessageAuth), "type": n.Type}
@@ -152,12 +154,12 @@ func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
 	}
 	var enc []byte
 	if id != 0 {
-		n, err := s.queries.GetNAS(r.Context(), id)
+		n, err := s.Queries.GetNAS(r.Context(), id)
 		if err == sql.ErrNoRows {
 			http.NotFound(w, r)
 			return
 		} else if err != nil {
-			s.fail(w, "get nas", err)
+			s.Fail(w, "get nas", err)
 			return
 		}
 		enc = n.SecretEnc
@@ -168,7 +170,7 @@ func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
 		if m := weakSecret(pass); m != "" {
 			e["secret"] = m
 		} else if dup, err := s.secretReused(r, id, pass); err != nil {
-			s.fail(w, "list nas", err)
+			s.Fail(w, "list nas", err)
 			return
 		} else if dup {
 			e["secret"] = "Secret is already used by another NAS"
@@ -178,7 +180,7 @@ func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
 		if pass != "" {
 			var err error
 			if enc, err = secret.Seal(s.SecretKey, []byte(pass)); err != nil {
-				s.fail(w, "seal nas secret", err)
+				s.Fail(w, "seal nas secret", err)
 				return
 			}
 		}
@@ -190,13 +192,13 @@ func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
 		nid := id
 		if id == 0 {
 			var n db.Na
-			n, err = s.queries.CreateNAS(r.Context(), db.CreateNASParams{Name: v["name"], Ip: v["ip"], SecretEnc: enc, Description: v["description"], RequireMessageAuth: rma})
+			n, err = s.Queries.CreateNAS(r.Context(), db.CreateNASParams{Name: v["name"], Ip: v["ip"], SecretEnc: enc, Description: v["description"], RequireMessageAuth: rma})
 			nid = n.ID
 		} else {
-			err = s.queries.UpdateNAS(r.Context(), db.UpdateNASParams{Name: v["name"], Ip: v["ip"], SecretEnc: enc, Description: v["description"], RequireMessageAuth: rma, ID: id})
+			err = s.Queries.UpdateNAS(r.Context(), db.UpdateNASParams{Name: v["name"], Ip: v["ip"], SecretEnc: enc, Description: v["description"], RequireMessageAuth: rma, ID: id})
 		}
 		if err == nil {
-			err = s.queries.SetNASType(r.Context(), db.SetNASTypeParams{Type: v["type"], ID: nid})
+			err = s.Queries.SetNASType(r.Context(), db.SetNASTypeParams{Type: v["type"], ID: nid})
 		}
 		switch {
 		case httpx.IsUnique(err):
@@ -206,7 +208,7 @@ func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
 				e["name"] = "Name already exists"
 			}
 		case err != nil:
-			s.fail(w, "save nas", err)
+			s.Fail(w, "save nas", err)
 			return
 		default:
 			act, msg := "nas.create", "Data Created Successfully"
@@ -225,8 +227,8 @@ func (s *Server) nasSave(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) nasDelete(w http.ResponseWriter, r *http.Request) {
-	n, _ := s.queries.GetNAS(r.Context(), httpx.PathID(r))
+	n, _ := s.Queries.GetNAS(r.Context(), httpx.PathID(r))
 	s.remove(w, r, "/admin/nas", "nas", "NAS is in use", n.Name, func(id int64) error {
-		return s.queries.DeleteNAS(r.Context(), id)
+		return s.Queries.DeleteNAS(r.Context(), id)
 	})
 }

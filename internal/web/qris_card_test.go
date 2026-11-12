@@ -2,9 +2,10 @@ package web
 
 import (
 	"fmt"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"strings"
 	"testing"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/payment"

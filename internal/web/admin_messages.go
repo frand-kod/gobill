@@ -4,14 +4,17 @@ package web
 
 import (
 	"database/sql"
-	"github.com/frand-kod/gobill/internal/web/httpx"
 	"net/http"
+
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"context"
 	"errors"
+	"strconv"
+
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
-	"strconv"
 )
 
 // Old message.php (send, send_bulk) and mail.php (customer inbox). Channels: sms, wa, email, inbox.
@@ -29,7 +32,7 @@ func channelField(v, e map[string]string) field {
 // messageFor fills a message the way the automated ones are filled (notify.Fill): the customer's
 // fields plus company, company_name, url and payment_link. Package and price placeholders stay empty.
 func messageFor(n *notify.Notifier, c db.Customer, st map[string]string, tpl string) string {
-	return n.Fill(tpl, c, map[string]string{"phone": c.Phone, "company": st["company_name"], "company_name": st["company_name"], "url": customerLoginURL(st)})
+	return n.Fill(tpl, c, map[string]string{"phone": c.Phone, "company": st["company_name"], "company_name": st["company_name"], "url": core.CustomerLoginURL(st)})
 }
 
 // deliver sends one message on one channel. Gateways that are not configured are an error, not a silent no-op.
@@ -44,7 +47,7 @@ func (s *Server) deliver(ctx context.Context, n *notify.Notifier, st map[string]
 	defer cancel()
 	switch channel {
 	case "inbox":
-		return s.queries.CreateInboxMessage(ctx, db.CreateInboxMessageParams{CustomerID: c.ID, FromName: from, Subject: subject, Body: text})
+		return s.Queries.CreateInboxMessage(ctx, db.CreateInboxMessageParams{CustomerID: c.ID, FromName: from, Subject: subject, Body: text})
 	case "sms", "wa":
 		if (channel == "sms" && !notify.SMSConfigured(st)) || (channel == "wa" && !notify.WAConfigured(st)) {
 			return errors.New("gateway not configured")
@@ -85,12 +88,12 @@ func msgSendFields(v, e map[string]string, customers []db.Customer) []field {
 
 func (s *Server) msgSendPage(w http.ResponseWriter, r *http.Request, code int, v, e map[string]string, flash, errMsg string) {
 	// ponytail: customer picker lists the newest 500 only; add a search box if the base grows past that.
-	customers, err := s.queries.ListCustomers(r.Context(), db.ListCustomersParams{Limit: 500})
+	customers, err := s.Queries.ListCustomers(r.Context(), db.ListCustomersParams{Limit: 500})
 	if err != nil {
-		s.fail(w, "message customers", err)
+		s.Fail(w, "message customers", err)
 		return
 	}
-	s.render(w, r, code, "form", Page{Title: "Send Message", Flash: flash, Error: errMsg,
+	s.Render(w, r, code, "form", Page{Title: "Send Message", Flash: flash, Error: errMsg,
 		Data: formPage{"Send Message", "/admin/message/send", "/admin/message/send", msgSendFields(v, e, customers)}})
 }
 
@@ -116,22 +119,22 @@ func (s *Server) msgSend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, _ := httpx.PosInt(v["customer_id"])
-	c, err := s.queries.GetCustomer(r.Context(), id)
+	c, err := s.Queries.GetCustomer(r.Context(), id)
 	if err == sql.ErrNoRows {
 		s.msgSendPage(w, r, 422, v, map[string]string{"customer_id": "Customer not found"}, "", "")
 		return
 	} else if err != nil {
-		s.fail(w, "message customer", err)
+		s.Fail(w, "message customer", err)
 		return
 	}
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "message settings", err)
+		s.Fail(w, "message settings", err)
 		return
 	}
-	n, err := notify.Load(r.Context(), s.queries)
+	n, err := notify.Load(r.Context(), s.Queries)
 	if err != nil {
-		s.fail(w, "message notifier", err)
+		s.Fail(w, "message notifier", err)
 		return
 	}
 	err = s.deliver(r.Context(), n, st, v["channel"], adminFrom(r).Username, v["subject"], messageFor(n, c, st, v["message"]), c)
@@ -140,5 +143,5 @@ func (s *Server) msgSend(w http.ResponseWriter, r *http.Request) {
 		s.msgSendPage(w, r, 200, v, nil, "", "Failed to send message: "+err.Error())
 		return
 	}
-	s.msgSendPage(w, r, 200, v, nil, s.t("Message Sent Successfully"), "")
+	s.msgSendPage(w, r, 200, v, nil, s.T("Message Sent Successfully"), "")
 }

@@ -3,13 +3,14 @@ package web
 import (
 	"database/sql"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/web/view"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	gobill "github.com/frand-kod/gobill"
 	"github.com/frand-kod/gobill/internal/db"
@@ -76,7 +77,7 @@ func TestLogCleanFlashCount(t *testing.T) {
 	if body := do(e.h, "GET", "/admin/logs", nil, e.c).Body.String(); !strings.Contains(body, "0 logs deleted") {
 		t.Errorf("flash after clean does not name the count")
 	}
-	if got := fmt.Sprintf(e.s.catalog.T("indonesia", "%d logs deleted"), 3); got != "3 log dihapus" {
+	if got := fmt.Sprintf(e.s.Catalog.T("indonesia", "%d logs deleted"), 3); got != "3 log dihapus" {
 		t.Errorf("indonesian flash = %q", got)
 	}
 }

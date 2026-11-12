@@ -3,6 +3,8 @@ package web
 import (
 	"net/http"
 	"testing"
+
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 // The customer login is /login and the admin login is /admin/login. /portal/login is gone.
@@ -49,8 +51,8 @@ func TestCustomerLoginURL(t *testing.T) {
 		"https://billing.example.com/": "https://billing.example.com/login",
 		"":                             "",
 	} {
-		if got := customerLoginURL(map[string]string{"app_url": in}); got != want {
-			t.Errorf("customerLoginURL(%q) = %q, want %q", in, got, want)
+		if got := core.CustomerLoginURL(map[string]string{"app_url": in}); got != want {
+			t.Errorf("core.CustomerLoginURL(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

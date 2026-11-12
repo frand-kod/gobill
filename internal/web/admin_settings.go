@@ -3,21 +3,24 @@ package web
 // Settings page: form, render and validation hook.
 
 import (
-	"github.com/frand-kod/gobill/internal/settings"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/settings"
+	"github.com/frand-kod/gobill/internal/web/core"
+
 	"fmt"
+	"slices"
+	"strconv"
+
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/isolir"
 	"github.com/frand-kod/gobill/internal/job"
 	"github.com/frand-kod/gobill/internal/wg"
-	"slices"
-	"strconv"
 )
 
 // settingsErrors checks the posted values of one sub-page, see settings.Validate.
 func (s *Server) settingsErrors(v map[string]string) map[string]string {
-	return settings.Validate(v, s.catalog.Languages())
+	return settings.Validate(v, s.Catalog.Languages())
 }
 
 // settingsTab reads the sub-page from the path. It 404s an unknown page and 403s a role that may not open it.
@@ -48,9 +51,9 @@ func (s *Server) settingsForm(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	values, err := s.loadSettings(r.Context())
+	values, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "load settings", err)
+		s.Fail(w, "load settings", err)
 		return
 	}
 	if values["wa_url"] == "" { // legacy sms_url: shown in the gateway field until the page is saved
@@ -60,11 +63,11 @@ func (s *Server) settingsForm(w http.ResponseWriter, r *http.Request) {
 }
 
 // settingsNav is the sub-page menu for the caller's role (SuperOnly tabs only for SuperAdmin).
-func settingsNav(r *http.Request) []option {
-	var nav []option
+func settingsNav(r *http.Request) []core.Option {
+	var nav []core.Option
 	for _, t := range settingsTabs {
 		if (!t.SuperOnly || adminFrom(r).Role == "SuperAdmin") && (t.Slug != "wireguard" || wg.Built) {
-			nav = append(nav, option{"/admin/settings/" + t.Slug, t.Label})
+			nav = append(nav, core.Option{Value: "/admin/settings/" + t.Slug, Label: t.Label})
 		}
 	}
 	return nav
@@ -72,9 +75,9 @@ func settingsNav(r *http.Request) []option {
 
 func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status int, tab string, v, e map[string]string) {
 	nav := settingsNav(r)
-	st, err := s.loadSettings(r.Context())
+	st, err := s.LoadSettings(r.Context())
 	if err != nil {
-		s.fail(w, "load settings", err)
+		s.Fail(w, "load settings", err)
 		return
 	}
 	// a field absent from v (e.g. after a body too big to parse) shows the stored value
@@ -119,18 +122,18 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 		fp.Fields = append(fp.Fields, s.isolirSetupFields(st)...)
 	}
 	if tab == "wireguard" {
-		n, _ := s.queries.CountWgPeers(r.Context())
+		n, _ := s.Queries.CountWgPeers(r.Context())
 		for i, f := range fp.Fields {
 			if f.Name == "wg_confirm" {
-				fp.Fields[i].Hint = fmt.Sprintf(s.t("%d routers have a tunnel. Changing the port, endpoint or subnet cuts them until they are provisioned again, and switching WireGuard off cuts them too"), n)
+				fp.Fields[i].Hint = fmt.Sprintf(s.T("%d routers have a tunnel. Changing the port, endpoint or subnet cuts them until they are provisioned again, and switching WireGuard off cuts them too"), n)
 			}
 		}
 		fp.Fields = append(fp.Fields, s.wgStatusFields(r.Context(), st)...)
 	}
 	if tab == "payment" { // the URL to paste into the Tripay merchant dashboard
-		fp.Fields[0].Hint = "Callback URL for Tripay: " + baseURL(r) + "/callback/tripay" + ", Duitku: " + baseURL(r) + "/callback/duitku"
+		fp.Fields[0].Hint = "Callback URL for Tripay: " + core.BaseURL(r) + "/callback/tripay" + ", Duitku: " + core.BaseURL(r) + "/callback/duitku"
 	}
-	if tok := s.sessions.PopString(r.Context(), "metrics_token_once"); tok != "" && tab == "integrations" {
+	if tok := s.Sessions.PopString(r.Context(), "metrics_token_once"); tok != "" && tab == "integrations" {
 		snippet := "scrape_configs:\n  - job_name: gobill\n    metrics_path: /metrics\n    authorization:\n      type: Bearer\n      credentials: " + tok +
 			"\n    static_configs:\n      - targets: ['" + r.Host + "']"
 		once := field{Name: "metrics_token_once", Label: "New /metrics token", Type: "tokenshow", Value: tok, Snippet: snippet,
@@ -141,7 +144,7 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 	if tab == "system" && adminFrom(r).Role == "SuperAdmin" { // backup is SuperAdmin only, as in the old dbstatus page
 		links := []field{{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/system/backup", Section: "System", Hint: s.backupStatus(st)},
 			{Name: "key", Label: "Encryption key", Type: "link", Value: keyPage, Btn: "Open key page",
-				Hint: fmt.Sprintf(s.t("Fingerprint: %s. Keep a copy outside the backup mirror."), keyFingerprint(s.SecretKey)), Section: "System"},
+				Hint: fmt.Sprintf(s.T("Fingerprint: %s. Keep a copy outside the backup mirror."), keyFingerprint(s.SecretKey)), Section: "System"},
 			{Name: "import", Label: "Import PHPNuxBill", Type: "link", Value: importPage, Btn: "Open import page",
 				Hint: "Replaces the data in this app. A backup is made first.", Section: "System"},
 			{Name: "restore", Label: "Restore database", Type: "link", Value: restorePage, Btn: "Open restore page",
@@ -156,5 +159,5 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 		fp.Fields = slices.Insert(fp.Fields, at, links...)
 		warn = s.keyWarning(r)
 	}
-	s.render(w, r, status, "form", Page{Title: "Settings", Flash: s.sessions.PopString(r.Context(), "flash"), Error: s.sessions.PopString(r.Context(), "error"), Tabs: nav, Data: fp, Warn: warn})
+	s.Render(w, r, status, "form", Page{Title: "Settings", Flash: s.Sessions.PopString(r.Context(), "flash"), Error: s.Sessions.PopString(r.Context(), "error"), Tabs: nav, Data: fp, Warn: warn})
 }
