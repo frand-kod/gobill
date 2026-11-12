@@ -27,10 +27,17 @@ const (
 
 // Caller is an identified sender.
 type Caller struct {
-	Kind       Kind
-	CustomerID int64  // KindCustomer
-	AdminID    int64  // KindAdmin
-	Role       string // KindAdmin: SuperAdmin, Admin, Agent, Sales, Report
+	Kind          Kind
+	CustomerID    int64  // KindCustomer
+	AdminID       int64  // KindAdmin
+	Role          string // KindAdmin: SuperAdmin, Admin, Agent, Sales, Report
+	Phone         string // the sender's phone as Identify matched it; write confirmations are bound to it
+	OwnCustomerID int64  // KindAdmin: the one customer with the same phone, 0 when none or several
+}
+
+// asCustomer is the customer side of an admin who also has a customer account on the same phone.
+func (c Caller) asCustomer() (Caller, bool) {
+	return Caller{Kind: KindCustomer, CustomerID: c.OwnCustomerID, Phone: c.Phone}, c.Kind == KindAdmin && c.OwnCustomerID != 0
 }
 
 // Tool is one command. Roles lists the admin roles allowed (admin tools only; empty = every admin).
@@ -49,6 +56,17 @@ type Service struct {
 	PortalURL string                  // customer login address, "" when app_url is not set
 	Loc       *time.Location          // app time zone for "today"; nil = Jakarta
 	Now       clock.Func
+	NASFresh  func(ip string) time.Duration // how recent a NAS packet counts as online; nil = 15 minutes
+
+	// wa-write
+	Confirm    *ConfirmStore                                    // pending writes; one store for all requests
+	Billing    Biller                                           // nil = recharge is off
+	Disconnect func(ctx context.Context, username string) error // drops RADIUS sessions; nil = off
+
+	// wa-pay
+	StaleFor func(nas string) int64                                                         // radius.StaleFor; nil = 15 minutes
+	Notify   func(ctx context.Context, phone, text string) error                            // sends WhatsApp to an admin; nil = reports are not forwarded
+	Pay      func(ctx context.Context, c db.Customer, p db.Plan) (db.PaymentRequest, error) // starts a gateway payment; nil = no gateway
 }
 
 var (
@@ -75,7 +93,9 @@ func (s *Service) loc() *time.Location {
 	return clock.Jakarta()
 }
 
-// Identify finds the sender by phone. An active admin wins over a customer with the same number.
+// Identify finds the sender by phone. An active admin wins over a customer with the same number; that
+// customer (only when exactly one has the number) is kept as OwnCustomerID, so the admin can still use
+// the customer commands for their own account.
 // ponytail: scans all admins and all customer phones; add a phone lookup query if the customer table gets very large.
 func (s *Service) Identify(ctx context.Context, phone string) (Caller, error) {
 	p := db.CanonicalPhone(phone)
@@ -86,9 +106,11 @@ func (s *Service) Identify(ctx context.Context, phone string) (Caller, error) {
 	if err != nil {
 		return Caller{}, err
 	}
+	var admin *Caller
 	for _, a := range admins {
 		if a.Status == "Active" && db.CanonicalPhone(a.Phone) == p {
-			return Caller{Kind: KindAdmin, AdminID: a.ID, Role: a.Role}, nil
+			admin = &Caller{Kind: KindAdmin, AdminID: a.ID, Role: a.Role, Phone: p}
+			break
 		}
 	}
 	rows, err := s.Q.ListCustomerPhones(ctx)
@@ -101,11 +123,17 @@ func (s *Service) Identify(ctx context.Context, phone string) (Caller, error) {
 			ids = append(ids, r.ID)
 		}
 	}
+	if admin != nil {
+		if len(ids) == 1 {
+			admin.OwnCustomerID = ids[0]
+		}
+		return *admin, nil
+	}
 	switch len(ids) {
 	case 0:
 		return Caller{}, ErrUnknown
 	case 1:
-		return Caller{Kind: KindCustomer, CustomerID: ids[0]}, nil
+		return Caller{Kind: KindCustomer, CustomerID: ids[0], Phone: p}, nil
 	}
 	return Caller{}, ErrAmbiguous
 }
@@ -125,8 +153,22 @@ func find(c Caller, text string) (Tool, string, bool) {
 // Reply is the answer for an identified caller. The first word picks the tool, the rest is its argument.
 // The second result is the tool name that ran, "" when the text matched none (for the log).
 func (s *Service) Reply(ctx context.Context, c Caller, text string) (string, string) {
+	if out, ok := s.confirm(ctx, c, strings.TrimSpace(text)); ok {
+		return out, "confirm"
+	}
+	text = menuPick(c, text)
 	t, args, ok := find(c, text)
+	if !ok && !denied(c, text) {
+		if cc, own := c.asCustomer(); own { // admin first, then the admin's own customer account
+			if t, args, ok := find(cc, menuPick(cc, text)); ok {
+				return t.Run(s, ctx, cc, args), t.Name
+			}
+		}
+	}
 	if !ok {
+		if denied(c, text) {
+			return s.t("You are not allowed to use this command."), ""
+		}
 		return s.t("Command not known. Send bantuan to see the commands."), ""
 	}
 	return t.Run(s, ctx, c, args), t.Name
@@ -138,6 +180,19 @@ func (s *Service) ReplyUnknown(err error) string {
 		return s.t("This number is used by more than one account. Please use the customer portal.")
 	}
 	return s.t("This number is not registered. Please contact your provider.")
+}
+
+// denied: an admin asked for an admin command that exists but their role may not use. Customers never
+// learn that admin commands exist.
+func denied(c Caller, text string) bool {
+	if c.Kind != KindAdmin {
+		return false
+	}
+	word, _, _ := strings.Cut(strings.TrimSpace(text), " ")
+	word = strings.ToLower(strings.Trim(word, ".,!?/"))
+	return slices.ContainsFunc(tools, func(t Tool) bool {
+		return t.Kind == KindAdmin && (t.Name == word || slices.Contains(t.Aliases, word))
+	})
 }
 
 // allowed is the permission gate: the tool is for this kind of caller and, for admins, this role.

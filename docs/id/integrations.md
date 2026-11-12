@@ -49,7 +49,8 @@ gobill mengirim `POST <alt_wga_server_url>/send/message` dengan body `{"phone":"
 
 ### Perintah lewat WhatsApp (hanya GOWA)
 
-Pelanggan dan admin bisa mengirim perintah singkat ke nomor WhatsApp. gobill menjawab di chat yang sama. Perintah hanya membaca data.
+Pelanggan dan admin bisa mengirim perintah singkat ke nomor WhatsApp. gobill menjawab di chat yang sama. Sebagian besar perintah hanya membaca data. Beberapa perintah admin mengubah data dan butuh kode konfirmasi.
+Pelanggan dan admin bisa mengirim perintah singkat ke nomor WhatsApp. gobill menjawab di chat yang sama. Sebagian besar perintah hanya membaca data. Perintah admin yang mengubah data butuh kode konfirmasi. Dua perintah pelanggan juga bertindak: `bayar` membuat permintaan bayar dan `gangguan` bisa mengirim pesan ke admin.
 
 Atur GOWA dengan nilai environment ini:
 
@@ -61,14 +62,23 @@ WHATSAPP_WEBHOOK_SECRET=<secret minimal 16 karakter>
 
 Lalu di **Pengaturan > Integrasi**, bagian "WhatsApp — GOWA", isi "Secret webhook GOWA" dengan secret yang sama dan set "Jawab perintah WhatsApp" ke Yes. Bawaannya mati. Tanpa secret, `/wa/inbound` menjawab 404. Request dengan tanda tangan salah menerima 401.
 
-gobill mengenali pengirim dari nomor telepon. Admin aktif dicocokkan dengan telepon di profil admin. Pelanggan dicocokkan dengan telepon pelanggan. Jika dua pelanggan memakai nomor yang sama, gobill meminta mereka memakai portal dan tidak menampilkan data. Nomor tak dikenal menerima balasan umum yang singkat. Tiap nomor boleh mengirim 20 perintah per 15 menit. Chat grup dan pesan dari nomor sendiri diabaikan. Setiap perintah dicatat di log aktivitas dengan sumber `wa`.
+gobill mengenali pengirim dari nomor telepon. `bayar` menampilkan permintaan bayar yang masih terbuka atau membuat satu untuk paket saat ini, paling banyak 3 baru per jam. Harga selalu dari server. `gangguan` meneruskan paling banyak satu laporan per pelanggan per 30 menit. Admin aktif dicocokkan dengan telepon di profil admin. Pelanggan dicocokkan dengan telepon pelanggan. Jika dua pelanggan memakai nomor yang sama, gobill meminta mereka memakai portal dan tidak menampilkan data. Nomor tak dikenal menerima balasan umum yang singkat. Tiap nomor boleh mengirim 20 perintah per 15 menit. Chat grup dan pesan dari nomor sendiri diabaikan. Setiap perintah dicatat di log aktivitas dengan sumber `wa`.
 
 | Siapa | Perintah |
 |---|---|
-| Pelanggan | `cek` (status dan sisa hari), `tagihan` (saldo dan pembayaran yang belum selesai), `kuota` (pemakaian), `paket` (paket yang dijual), `bayar` (link portal), `bantuan` |
+| Pelanggan | `cek` (status dan sisa hari), `tagihan` (saldo dan pembayaran yang belum selesai), `kuota` (pemakaian), `paket` (paket yang dijual), `gangguan` (memeriksa akun sendiri dan menyebut kemungkinan penyebab, atau melapor ke admin), `bayar` (link bayar untuk paket saat ini, atau link portal tanpa gateway), `bantuan` |
 | Admin (SuperAdmin, Admin) | `cari <teks>` (maksimal 5 pelanggan), `isolir` (yang terisolir sekarang) |
+| Admin (SuperAdmin, Admin) | `info <username>` (satu pelanggan: status, telepon, paket, terisolir, online, data terpakai), `jatuhtempo` (paket yang berakhir dalam 3 hari), `router` (router dan NAS yang offline sekarang) |
 | Admin (SuperAdmin, Admin, Report) | `ringkasan` (pelanggan, paket aktif, terisolir, pendapatan hari ini) |
+| Admin (SuperAdmin, Admin, Agent, Sales) | `perpanjang <username> [paket]` (juga `recharge`): perpanjang tunai. Tanpa paket, dipakai paket saat ini atau terakhir. |
+| Admin (SuperAdmin, Admin) | `putus <username>` (juga `kick`, `disconnect`): putuskan sesi online pelanggan |
+
+Perintah boleh diawali `/`, misalnya `/cek`. Pelanggan yang mengirim `bantuan` atau `menu` menerima menu bernomor. Membalas satu angka sama dengan mengirim perintahnya.
+
+Jika nomor admin juga dipakai tepat satu pelanggan, perintah admin didahulukan. Perintah yang hanya ada untuk pelanggan, misalnya `cek` atau `bayar`, berlaku untuk akun pelanggan itu sendiri.
 | Semua admin | `bantuan` |
+
+Perintah yang mengubah data tidak langsung jalan. gobill membalas dengan pratinjau dan kode 6 digit. Kirim hanya angkanya dalam 5 menit untuk konfirmasi. Tiap kode hanya berlaku sekali, hanya dari telepon dan admin yang sama, dan satu admin hanya punya satu perintah tertunda: perintah baru membatalkan yang lama. Tiga kode salah membatalkannya. Perintah tertunda disimpan di memori, jadi restart membatalkannya. Saat dikonfirmasi, gobill memeriksa lagi peran, pelanggan, dan harga. Kalau harga berubah, tidak ada yang ditagih. Perintah yang dijalankan dicatat di log aktivitas dengan `source=wa`.
 
 ### Cara 2: gateway pesan `wa_url`
 

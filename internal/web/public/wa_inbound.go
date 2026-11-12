@@ -2,7 +2,7 @@ package public
 
 // POST /wa/inbound: the GOWA webhook for incoming WhatsApp messages (command mode). The HMAC
 // signature over the raw body is the only credential. The sender is told apart by phone number,
-// which GOWA reports but cannot prove, so the tools here only read.
+// which GOWA reports but cannot prove, so every write tool needs a one-time code (see chat/confirm.go).
 
 import (
 	"context"
@@ -17,10 +17,19 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/device"
 	"github.com/frand-kod/gobill/internal/notify"
+	"github.com/frand-kod/gobill/internal/radius"
 	"github.com/frand-kod/gobill/internal/service/chat"
+	"github.com/frand-kod/gobill/internal/service/payorder"
+	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"github.com/frand-kod/gobill/internal/web/core"
 )
+
+// nasFresh is the NAS online window of the network health page.
+func nasFresh(ip string) time.Duration {
+	return max(network.NASFreshFor, time.Duration(radius.StaleFor(ip))*time.Second)
+}
 
 const (
 	waMaxBody   = 64 << 10
@@ -149,7 +158,21 @@ func (s *Handlers) waCommand(phone, text string) {
 		slog.Error("wa inbound: settings", "err", err)
 		return
 	}
-	svc := &chat.Service{Q: s.Queries, T: s.T, PortalURL: core.CustomerLoginURL(st), Loc: s.Location()}
+	send := s.waSend
+	if send == nil {
+		n, err := notify.Load(ctx, s.Queries)
+		if err != nil {
+			slog.Error("wa inbound: notifier", "err", err)
+			return
+		}
+		send = n.WhatsApp
+	}
+	svc := &chat.Service{Q: s.Queries, T: s.T, PortalURL: core.CustomerLoginURL(st), Loc: s.Location(),
+		NASFresh: nasFresh, StaleFor: radius.StaleFor, Notify: send, Pay: s.waPay(st),
+		Confirm: waConfirm, Disconnect: s.waDisconnect}
+	if s.Billing != nil { // a nil *billing.Service must not become a non-nil Biller
+		svc.Billing = s.Billing
+	}
 	reply, tool := "", ""
 	c, err := svc.Identify(ctx, phone)
 	switch err {
@@ -163,17 +186,40 @@ func (s *Handlers) waCommand(phone, text string) {
 		return
 	}
 	slog.Info("wa inbound: command", "phone", masked, "tool", tool)
-	send := s.waSend
-	if send == nil {
-		n, err := notify.Load(ctx, s.Queries)
-		if err != nil {
-			slog.Error("wa inbound: notifier", "err", err)
-			return
-		}
-		send = n.WhatsApp
-	}
 	if err := send(ctx, phone, reply); err != nil {
 		slog.Warn("wa inbound: reply failed", "phone", masked, "err", err)
+	}
+}
+
+// waConfirm holds the pending write commands. One store for all requests.
+var waConfirm = chat.NewConfirmStore()
+
+// waDisconnect drops the open RADIUS sessions of a user, as the admin sessions page does.
+func (s *Handlers) waDisconnect(ctx context.Context, username string) error {
+	return radius.Driver{Q: s.Queries, Key: s.SecretKey}.Disconnect(ctx, device.Customer{Username: username}, "")
+}
+
+// waPay starts a gateway payment for the chat tool bayar. It uses the same order code as the portal
+// (payorder.Create) with the same price rule. nil when no gateway is set.
+func (s *Handlers) waPay(st map[string]string) func(context.Context, db.Customer, db.Plan) (db.PaymentRequest, error) {
+	g, err := s.Gateway(st)
+	base := strings.TrimRight(st["app_url"], "/")
+	if err != nil || g == nil || base == "" {
+		return nil
+	}
+	return func(ctx context.Context, c db.Customer, p db.Plan) (db.PaymentRequest, error) {
+		chans, err := s.ActiveChannels(ctx, g)
+		if err != nil || len(chans) == 0 {
+			return db.PaymentRequest{}, chat.ErrNoGateway
+		}
+		amount := p.Price
+		if s.Billing != nil {
+			if amount, err = s.Billing.OrderPrice(ctx, c.ID, amount); err != nil {
+				return db.PaymentRequest{}, err
+			}
+		}
+		return payorder.Create(ctx, s.Queries, g, payorder.Order{Customer: c, PlanID: p.ID, PlanName: p.Name, Amount: amount,
+			Channel: chans[0].Code, ReturnBase: base, CallbackBase: base})
 	}
 }
 
