@@ -9,8 +9,6 @@ import (
 	"net/http"
 )
 
-func init() { settingsSuperField["role_access_mode"] = true }
-
 // strictAccess reports whether role_access_mode is strict (anything but "phpnuxbill").
 func (s *Server) strictAccess(ctx context.Context) bool { return s.ax.StrictAccess(ctx) }
 

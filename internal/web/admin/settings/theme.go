@@ -1,4 +1,4 @@
-package web
+package settings
 
 import (
 	"net/http"
@@ -9,7 +9,7 @@ import (
 )
 
 // themeDefault saves the defaults for everyone. SuperAdmin only (route), values checked strictly.
-func (s *Server) themeDefault(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) themeDefault(w http.ResponseWriter, r *http.Request) {
 	mode, accent, density, font := r.FormValue("mode"), strings.ToLower(r.FormValue("accent")), r.FormValue("density"), r.FormValue("font")
 	if !core.ThemeModes[mode] || !core.ValidAccent(accent) || !core.ThemeDensities[density] || !core.ThemeFonts[font] {
 		http.Error(w, "Invalid theme", http.StatusUnprocessableEntity)
@@ -25,5 +25,5 @@ func (s *Server) themeDefault(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(back, "/admin") || strings.ContainsAny(back, "\\\r\n") || strings.Contains(back, "//") {
 		back = "/admin"
 	}
-	s.done(w, r, back, "Theme default saved", "theme.default", mode+" "+accent+" "+density+" "+font)
+	s.Done(w, r, back, "Theme default saved", "theme.default", mode+" "+accent+" "+density+" "+font)
 }

@@ -1,10 +1,11 @@
-package web
+package settings
 
 // Integration checks: WhatsApp test and daily summary trigger.
 
 import (
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"context"
@@ -21,12 +22,12 @@ import (
 
 // waTest sends a test message with the (possibly unsaved) values of the WA server fields and
 // shows the server's answer on the integrations page.
-func (s *Server) waTest(w http.ResponseWriter, r *http.Request) {
-	if adminFrom(r).Role != "SuperAdmin" {
-		s.deny(w, r, http.StatusForbidden)
+func (s *Handlers) waTest(w http.ResponseWriter, r *http.Request) {
+	if core.AdminFrom(r).Role != "SuperAdmin" {
+		s.Deny(w, r, http.StatusForbidden)
 		return
 	}
-	v, e, err := s.waTestSend(r)
+	v, e, err := s.WaTestSend(r)
 	if err != nil {
 		s.Fail(w, "wa test", err)
 		return
@@ -34,9 +35,9 @@ func (s *Server) waTest(w http.ResponseWriter, r *http.Request) {
 	s.renderSettings(w, r, http.StatusOK, "integrations", v, e)
 }
 
-// waTestSend is the send itself, shared by Settings > Integrations and the Quick Setup WhatsApp step.
+// WaTestSend is the send itself, shared by Settings > Integrations and the Quick Setup WhatsApp step.
 // It returns the values and field errors the form shows again; the flash is set when the message was sent.
-func (s *Server) waTestSend(r *http.Request) (map[string]string, map[string]string, error) {
+func (s *Handlers) WaTestSend(r *http.Request) (map[string]string, map[string]string, error) {
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
 		return nil, nil, err
@@ -67,7 +68,7 @@ func (s *Server) waTestSend(r *http.Request) (map[string]string, map[string]stri
 		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 		defer cancel()
 		err := n.AltWA(ctx, v["wa_test_phone"], s.Catalog.T(lang, "Test message from gobill. WhatsApp works."))
-		s.logActivity(r, "wa.test", "ok="+strconv.FormatBool(err == nil))
+		s.LogActivity(r, "wa.test", "ok="+strconv.FormatBool(err == nil))
 		if err == nil {
 			s.Sessions.Put(r.Context(), "flash", s.Catalog.T(lang, "Test message sent. Check the phone to be sure it arrived."))
 		} else {
@@ -104,13 +105,13 @@ func waTestError(err error) string {
 // integrationTest sends one short test through a channel of the Integrations tab, using the SAVED
 // settings. The target is the operator, so notify_customers does not apply; the other switches
 // and the channel's own checks still do. Result: a flash, or an error toast with the scrubbed text.
-func (s *Server) integrationTest(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) integrationTest(w http.ResponseWriter, r *http.Request) {
 	kind := r.PathValue("kind")
 	if !httpx.OneOf(kind, "telegram", "gateway", "email", "webhook") {
 		http.NotFound(w, r)
 		return
 	}
-	if !s.testAllow(adminFrom(r).ID) {
+	if !s.testAllow(core.AdminFrom(r).ID) {
 		s.testResult(w, r, kind, "", errTestLimit)
 		return
 	}
@@ -119,8 +120,8 @@ func (s *Server) integrationTest(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "integration test notifier", err)
 		return
 	}
-	if s.telegramAPI != "" {
-		n.TelegramAPI = s.telegramAPI
+	if s.TelegramAPI != "" {
+		n.TelegramAPI = s.TelegramAPI
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
@@ -169,14 +170,14 @@ func (s *Server) integrationTest(w http.ResponseWriter, r *http.Request) {
 	s.testResult(w, r, kind, ok, err)
 }
 
-func (s *Server) tripayTest(w http.ResponseWriter, r *http.Request) { s.gatewayTest(w, r, "tripay") }
+func (s *Handlers) tripayTest(w http.ResponseWriter, r *http.Request) { s.gatewayTest(w, r, "tripay") }
 
-func (s *Server) duitkuTest(w http.ResponseWriter, r *http.Request) { s.gatewayTest(w, r, "duitku") }
+func (s *Handlers) duitkuTest(w http.ResponseWriter, r *http.Request) { s.gatewayTest(w, r, "duitku") }
 
 // gatewayTest checks the saved keys of the gateway the button names (not the active one) with the
 // payment channel list, the cheapest authenticated call.
-func (s *Server) gatewayTest(w http.ResponseWriter, r *http.Request, which string) {
-	if !s.testAllow(adminFrom(r).ID) {
+func (s *Handlers) gatewayTest(w http.ResponseWriter, r *http.Request, which string) {
+	if !s.testAllow(core.AdminFrom(r).ID) {
 		s.testResult(w, r, "tripay", "", errTestLimit)
 		return
 	}
@@ -214,7 +215,7 @@ var (
 )
 
 // testAllow lets an admin run 5 integration tests a minute, so the buttons cannot be used to spam.
-func (s *Server) testAllow(admin int64) bool {
+func (s *Handlers) testAllow(admin int64) bool {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 	if s.testSent == nil {
@@ -237,12 +238,12 @@ func (s *Server) testAllow(admin int64) bool {
 
 // testResult logs the test and redirects with the outcome: a flash on success, an error toast otherwise.
 // err is the test's own message or a server error text, scrubbed of URLs, tokens and numbers.
-func (s *Server) testResult(w http.ResponseWriter, r *http.Request, kind, ok string, err error) {
+func (s *Handlers) testResult(w http.ResponseWriter, r *http.Request, kind, ok string, err error) {
 	back, lang := "/admin/settings/integrations", s.Language()
 	if kind == "tripay" {
 		back = "/admin/settings/payment"
 	}
-	s.logActivity(r, "integration.test", kind+" ok="+strconv.FormatBool(err == nil))
+	s.LogActivity(r, "integration.test", kind+" ok="+strconv.FormatBool(err == nil))
 	if err == nil {
 		s.Sessions.Put(r.Context(), "flash", ok)
 	} else {
@@ -252,7 +253,7 @@ func (s *Server) testResult(w http.ResponseWriter, r *http.Request, kind, ok str
 }
 
 // dailySummaryNow sends the summary immediately from the saved settings and shows a plain result.
-func (s *Server) dailySummaryNow(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) dailySummaryNow(w http.ResponseWriter, r *http.Request) {
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
 		s.Fail(w, "load settings", err)
@@ -267,7 +268,7 @@ func (s *Server) dailySummaryNow(w http.ResponseWriter, r *http.Request) {
 	} else {
 		err = billing.ErrSummaryNotConfigured
 	}
-	s.logActivity(r, "daily_summary.send", "ok="+strconv.FormatBool(err == nil))
+	s.LogActivity(r, "daily_summary.send", "ok="+strconv.FormatBool(err == nil))
 	switch {
 	case err == nil:
 		s.Sessions.Put(r.Context(), "flash", s.Catalog.T(lang, "Summary sent")+": "+strings.Join(sent, ", "))

@@ -1,4 +1,4 @@
-package web
+package settings
 
 // Settings page: form, render and validation hook.
 
@@ -22,31 +22,31 @@ import (
 	"github.com/frand-kod/gobill/internal/wg"
 )
 
-// settingsErrors checks the posted values of one sub-page, see settings.Validate.
-func (s *Server) settingsErrors(v map[string]string) map[string]string {
+// SettingsErrors checks the posted values of one sub-page, see settings.Validate.
+func (s *Handlers) SettingsErrors(v map[string]string) map[string]string {
 	return settings.Validate(v, s.Catalog.Languages())
 }
 
 // settingsTab reads the sub-page from the path. It 404s an unknown page and 403s a role that may not open it.
-func (s *Server) settingsTab(w http.ResponseWriter, r *http.Request) (string, bool) {
+func (s *Handlers) settingsTab(w http.ResponseWriter, r *http.Request) (string, bool) {
 	tab := r.PathValue("tab")
 	for _, t := range adminx.SettingsTabs {
 		if t.Slug == "wireguard" && !wg.Built {
 			continue // the nowg build has no such tab
 		}
 		if t.Slug == tab {
-			if t.SuperOnly && adminFrom(r).Role != "SuperAdmin" {
-				s.deny(w, r, http.StatusForbidden)
+			if t.SuperOnly && core.AdminFrom(r).Role != "SuperAdmin" {
+				s.Deny(w, r, http.StatusForbidden)
 				return "", false
 			}
 			return tab, true
 		}
 	}
-	s.deny(w, r, http.StatusNotFound)
+	s.Deny(w, r, http.StatusNotFound)
 	return "", false
 }
 
-func (s *Server) settingsForm(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) settingsForm(w http.ResponseWriter, r *http.Request) {
 	if r.PathValue("tab") == "" {
 		http.Redirect(w, r, "/admin/settings/app", http.StatusSeeOther)
 		return
@@ -66,7 +66,7 @@ func (s *Server) settingsForm(w http.ResponseWriter, r *http.Request) {
 	s.renderSettings(w, r, http.StatusOK, tab, values, nil)
 }
 
-func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status int, tab string, v, e map[string]string) {
+func (s *Handlers) renderSettings(w http.ResponseWriter, r *http.Request, status int, tab string, v, e map[string]string) {
 	nav := adminx.SettingsNav(r)
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
@@ -110,9 +110,9 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 			}
 		}
 	}
-	fp := formPage{Heading: "Settings", Action: "/admin/settings/" + tab, Cancel: "/admin", Fields: forRole(s.settingsFields(tab, v, e, st), r)}
+	fp := formPage{Heading: "Settings", Action: "/admin/settings/" + tab, Cancel: "/admin", Fields: forRole(s.SettingsFields(tab, v, e, st), r)}
 	if tab == "isolir" {
-		fp.Fields = append(fp.Fields, s.isolirSetupFields(st)...)
+		fp.Fields = append(fp.Fields, s.IsolirSetupFields(st)...)
 	}
 	if tab == "wireguard" {
 		n, _ := s.Queries.CountWgPeers(r.Context())
@@ -134,11 +134,11 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 		fp.Fields = append([]field{once}, fp.Fields...)
 	}
 	var warn string
-	if tab == "system" && adminFrom(r).Role == "SuperAdmin" { // backup is SuperAdmin only, as in the old dbstatus page
+	if tab == "system" && core.AdminFrom(r).Role == "SuperAdmin" { // backup is SuperAdmin only, as in the old dbstatus page
 		links := []field{{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/system/backup", Section: "System", Hint: s.backupStatus(st)},
-			{Name: "key", Label: "Encryption key", Type: "link", Value: keyPage, Btn: "Open key page",
+			{Name: "key", Label: "Encryption key", Type: "link", Value: KeyPage, Btn: "Open key page",
 				Hint: fmt.Sprintf(s.T("Fingerprint: %s. Keep a copy outside the backup mirror."), restore.KeyFingerprint(s.SecretKey)), Section: "System"},
-			{Name: "import", Label: "Import PHPNuxBill", Type: "link", Value: importPage, Btn: "Open import page",
+			{Name: "import", Label: "Import PHPNuxBill", Type: "link", Value: ImportPage, Btn: "Open import page",
 				Hint: "Replaces the data in this app. A backup is made first.", Section: "System"},
 			{Name: "restore", Label: "Restore database", Type: "link", Value: restorePage, Btn: "Open restore page",
 				Hint: "Replaces the data with a gobill backup and restarts the app. A backup is made first.", Section: "System"}}
@@ -150,7 +150,7 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 			}
 		}
 		fp.Fields = slices.Insert(fp.Fields, at, links...)
-		warn = s.ax.KeyWarning(r)
+		warn = s.KeyWarning(r)
 	}
-	s.Render(w, r, status, "form", Page{Title: "Settings", Flash: s.Sessions.PopString(r.Context(), "flash"), Error: s.Sessions.PopString(r.Context(), "error"), Tabs: nav, Data: fp, Warn: warn})
+	s.Render(w, r, status, "form", core.Page{Title: "Settings", Flash: s.Sessions.PopString(r.Context(), "flash"), Error: s.Sessions.PopString(r.Context(), "error"), Tabs: nav, Data: fp, Warn: warn})
 }

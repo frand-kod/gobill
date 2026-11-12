@@ -1,4 +1,4 @@
-package web
+package settings
 
 // Restore a gobill backup (a .db copy) from Settings > System & Security (SuperAdmin only). The upload is
 // staged next to the live database and checked read-only. Confirm backs up the current data, moves the
@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/service/restore"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 const restorePage = "/admin/settings/system/restore"
@@ -35,7 +36,7 @@ type restoreView struct {
 }
 
 // restorePath is the staged upload: the live database file name plus ".upload-<random>".
-func (s *Server) sweepRestores() {
+func (s *Handlers) sweepRestores() {
 	names, _ := filepath.Glob(s.DBPath + ".upload-*")
 	for _, p := range names {
 		if fi, err := os.Stat(p); err == nil && time.Since(fi.ModTime()) > importTTL {
@@ -45,7 +46,7 @@ func (s *Server) sweepRestores() {
 }
 
 // dropRestore deletes the staged upload and forgets it.
-func (s *Server) dropRestore(ctx context.Context) {
+func (s *Handlers) dropRestore(ctx context.Context) {
 	if p := s.Sessions.GetString(ctx, "restore_file"); p != "" {
 		os.Remove(p)
 	}
@@ -54,7 +55,7 @@ func (s *Server) dropRestore(ctx context.Context) {
 }
 
 // pendingRestore returns the staged file when token is the one this session was given and the file is fresh.
-func (s *Server) pendingRestore(ctx context.Context, token string) (string, bool) {
+func (s *Handlers) pendingRestore(ctx context.Context, token string) (string, bool) {
 	want := s.Sessions.GetString(ctx, "restore_token")
 	if want == "" || subtle.ConstantTimeCompare([]byte(want), []byte(token)) != 1 {
 		return "", false
@@ -68,7 +69,7 @@ func (s *Server) pendingRestore(ctx context.Context, token string) (string, bool
 
 // saveRestoreUpload streams the "backup" part to a new file next to the database. It returns the
 // file name even on error, so the caller can delete it.
-func (s *Server) saveRestoreUpload(r *http.Request) (string, error) {
+func (s *Handlers) saveRestoreUpload(r *http.Request) (string, error) {
 	mr, err := r.MultipartReader()
 	if err != nil {
 		return "", err
@@ -96,12 +97,12 @@ func (s *Server) saveRestoreUpload(r *http.Request) (string, error) {
 	}
 }
 
-func (s *Server) renderRestore(w http.ResponseWriter, r *http.Request, status int, v restoreView, msg, detail string) {
-	v.TOTP = adminFrom(r).TotpEnabled == 1
+func (s *Handlers) renderRestore(w http.ResponseWriter, r *http.Request, status int, v restoreView, msg, detail string) {
+	v.TOTP = core.AdminFrom(r).TotpEnabled == 1
 	if app, bak, ok := strings.Cut(v.Warning, " "); ok { // Warning holds the two key fingerprints
 		v.Warning = fmt.Sprintf(s.T("This backup was made with another encryption key. It holds no encrypted values now, but you need that key to enter router passwords and API keys again. Key fingerprint of this app: %s. Key fingerprint of this backup: %s."), app, bak)
 	}
-	p := Page{Title: "Restore database", Data: v, Detail: detail}
+	p := core.Page{Title: "Restore database", Data: v, Detail: detail}
 	if msg != "" {
 		p.Error = s.T(msg)
 	}
@@ -110,11 +111,11 @@ func (s *Server) renderRestore(w http.ResponseWriter, r *http.Request, status in
 
 // restoreAgain re-renders the preview of the staged file with an error (wrong password, missing tick),
 // so the admin does not have to upload again. If the preview cannot be rebuilt the plain form is shown.
-func (s *Server) restoreAgain(w http.ResponseWriter, r *http.Request, token, path, msg string) {
+func (s *Handlers) restoreAgain(w http.ResponseWriter, r *http.Request, token, path, msg string) {
 	v := restoreView{}
 	ctx := r.Context()
 	bak, newest, warn, err := restore.Inspect(ctx, path, s.SecretKey, s.Location())
-	cur, err2 := restore.CountRows(ctx, s.conn)
+	cur, err2 := restore.CountRows(ctx, s.Conn)
 	fi, err3 := os.Stat(path)
 	if err == nil && err2 == nil && err3 == nil {
 		v = restoreView{Token: token, Size: fi.Size(), Backup: bak, Current: cur, Newest: newest, Warning: warn}
@@ -122,13 +123,13 @@ func (s *Server) restoreAgain(w http.ResponseWriter, r *http.Request, token, pat
 	s.renderRestore(w, r, http.StatusUnprocessableEntity, v, msg, "")
 }
 
-func (s *Server) restoreForm(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) restoreForm(w http.ResponseWriter, r *http.Request) {
 	s.sweepRestores()
 	s.renderRestore(w, r, http.StatusOK, restoreView{}, "", "")
 }
 
 // restorePreview stages the upload and checks it. Nothing is changed until the confirm.
-func (s *Server) restorePreview(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) restorePreview(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	s.sweepRestores()
 	s.dropRestore(ctx)
@@ -161,7 +162,7 @@ func (s *Server) restorePreview(w http.ResponseWriter, r *http.Request) {
 		fail(err)
 		return
 	}
-	cur, err := restore.CountRows(ctx, s.conn)
+	cur, err := restore.CountRows(ctx, s.Conn)
 	if err != nil {
 		fail(err)
 		return
@@ -182,7 +183,7 @@ func (s *Server) restorePreview(w http.ResponseWriter, r *http.Request) {
 }
 
 // restoreConfirm backs up the current data, stages the file as <db>.restore and asks main to restart.
-func (s *Server) restoreConfirm(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) restoreConfirm(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	s.sweepRestores()
 	extendDeadlines(w)
@@ -226,7 +227,7 @@ func (s *Server) restoreConfirm(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) restoreCancel(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) restoreCancel(w http.ResponseWriter, r *http.Request) {
 	s.dropRestore(r.Context())
 	s.Sessions.Put(r.Context(), "flash", s.T("Restore cancelled."))
 	http.Redirect(w, r, restorePage, http.StatusSeeOther)
@@ -234,7 +235,7 @@ func (s *Server) restoreCancel(w http.ResponseWriter, r *http.Request) {
 
 // SweepUploads is the job body that removes abandoned import and restore uploads, so they do not
 // stay on disk until someone happens to visit those pages.
-func (s *Server) SweepUploads(context.Context) error {
+func (s *Handlers) SweepUploads(context.Context) error {
 	sweepImports()
 	s.sweepRestores()
 	return nil

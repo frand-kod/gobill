@@ -1,11 +1,10 @@
-package web
+package settings
 
 // ISOLIR settings: reset buttons, the custom HTML variable list and the MikroTik setup helper.
 // The public page itself is in web/public.
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -22,7 +21,7 @@ var isolirSections = map[string]map[string]string{
 }
 
 // isolirReset is POST /admin/settings/isolir/reset/{section}: writes the section's defaults.
-func (s *Server) isolirReset(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) isolirReset(w http.ResponseWriter, r *http.Request) {
 	sec := r.PathValue("section")
 	set, ok := isolirSections[sec]
 	if !ok {
@@ -35,12 +34,12 @@ func (s *Server) isolirReset(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	s.settingsSaved(r.Context())
-	s.done(w, r, "/admin/settings/isolir", "Settings saved", "settings.reset", "isolir "+sec)
+	s.SettingsSaved(r.Context())
+	s.Done(w, r, "/admin/settings/isolir", "Settings saved", "settings.reset", "isolir "+sec)
 }
 
-// isolirVarList are the variables of the custom HTML, the ones renderIsolirCustom fills.
-var isolirVarList = []notify.Var{
+// IsolirVarList are the variables of the custom HTML, the ones renderIsolirCustom fills.
+var IsolirVarList = []notify.Var{
 	{Name: "company_name", Desc: "Company name"},
 	{Name: "logo_url", Desc: "Logo address"},
 	{Name: "title", Desc: "Title of the page (Title setting)"},
@@ -59,10 +58,10 @@ var isolirVarList = []notify.Var{
 	{Name: "notice", Desc: "Result of the last action, such as a voucher"},
 }
 
-// isolirSetupFields is the MikroTik setup helper: copyable RouterOS commands for the address gobill
+// IsolirSetupFields is the MikroTik setup helper: copyable RouterOS commands for the address gobill
 // listens on (see gobillAddr).
-func (s *Server) isolirSetupFields(st map[string]string) []field {
-	host, port := s.gobillAddr()
+func (s *Handlers) IsolirSetupFields(st map[string]string) []field {
+	host, port := s.GobillAddr()
 	// M3: kept as-is, see docs/internal/rencana/modularisasi.md (Value gives "" for an empty list,
 	// RADIUS sends "isolir")
 	list := isolir.Value(st, "isolir_address_list")
@@ -84,21 +83,4 @@ func (s *Server) isolirSetupFields(st map[string]string) []field {
 		{Name: "isolir_cmd_note", Label: s.T("Note"), Type: "note", Section: sec,
 			Hint: s.T("The address-list is sent by RADIUS as Mikrotik-Address-List. RouterOS 6 resolves DNS allow-list entries to exact names only, so a host whose CDN address changes may sometimes fail, such as WhatsApp media. Add a bank app by putting its host in Allowed while isolated, then paste the block again.")},
 	}
-}
-
-// gobillAddr is the LAN address and port gobill listens on (GOBILL_HTTP). A host that is not an IP,
-// such as empty or 0.0.0.0, gives the first LAN IPv4 address of this host.
-func (s *Server) gobillAddr() (host, port string) {
-	addr := s.ListenAddr
-	if addr == "" {
-		addr = ":8080"
-	}
-	host, port, err := net.SplitHostPort(addr)
-	if err != nil {
-		host, port = "", "8080"
-	}
-	if ip := net.ParseIP(host); ip == nil || ip.IsUnspecified() {
-		host = isolir.LanIPv4()
-	}
-	return host, port
 }

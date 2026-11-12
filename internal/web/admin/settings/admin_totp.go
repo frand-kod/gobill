@@ -1,4 +1,4 @@
-package web
+package settings
 
 // Admin two-factor login: enrollment and disable on the admin's own page, SuperAdmin reset,
 // and the route table shared with the login step (login_2fa.go).
@@ -25,23 +25,13 @@ type totpPage struct {
 	Codes   []string // recovery codes, shown once right after enabling
 }
 
-func (s *Server) totpRoutes(mux *http.ServeMux, all func(http.Handler) http.Handler) {
-	mux.HandleFunc("GET /admin/login/2fa", s.login2FAForm)
-	mux.HandleFunc("POST /admin/login/2fa", s.login2FASubmit)
-	mux.Handle("GET /admin/2fa", all(http.HandlerFunc(s.admin2FAForm)))
-	mux.Handle("POST /admin/2fa/setup", all(http.HandlerFunc(s.admin2FASetup)))
-	mux.Handle("POST /admin/2fa/confirm", all(http.HandlerFunc(s.admin2FAConfirm)))
-	mux.Handle("POST /admin/2fa/disable", all(http.HandlerFunc(s.admin2FADisable)))
-	mux.Handle("POST /admin/users/{id}/2fa/reset", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.adminTOTPReset)))
-}
-
-func (s *Server) admin2FAForm(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) admin2FAForm(w http.ResponseWriter, r *http.Request) {
 	s.render2FA(w, r, http.StatusOK, nil)
 }
 
 // render2FA shows the page for the admin in the request. codes is set only right after enabling.
-func (s *Server) render2FA(w http.ResponseWriter, r *http.Request, status int, codes []string) {
-	a := adminFrom(r)
+func (s *Handlers) render2FA(w http.ResponseWriter, r *http.Request, status int, codes []string) {
+	a := core.AdminFrom(r)
 	p := totpPage{Enabled: a.TotpEnabled == 1, Codes: codes}
 	if !p.Enabled && a.TotpSecretEnc != "" {
 		key, err := s.TotpOpen(a.TotpSecretEnc)
@@ -62,12 +52,12 @@ func (s *Server) render2FA(w http.ResponseWriter, r *http.Request, status int, c
 		p.Secret = core.TotpB32.EncodeToString(key)
 		p.QR = template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))
 	}
-	s.Render(w, r, status, "admin_2fa", Page{Title: "Two-factor login", Data: p})
+	s.Render(w, r, status, "admin_2fa", core.Page{Title: "Two-factor login", Data: p})
 }
 
 // admin2FASetup stores a new pending secret. It is not active until confirmed with a code.
-func (s *Server) admin2FASetup(w http.ResponseWriter, r *http.Request) {
-	ctx, a := r.Context(), adminFrom(r)
+func (s *Handlers) admin2FASetup(w http.ResponseWriter, r *http.Request) {
+	ctx, a := r.Context(), core.AdminFrom(r)
 	if a.TotpEnabled == 1 {
 		http.Redirect(w, r, "/admin/2fa", http.StatusSeeOther)
 		return
@@ -85,8 +75,8 @@ func (s *Server) admin2FASetup(w http.ResponseWriter, r *http.Request) {
 }
 
 // admin2FAConfirm checks the first code, enables 2FA and shows the recovery codes once.
-func (s *Server) admin2FAConfirm(w http.ResponseWriter, r *http.Request) {
-	ctx, a := r.Context(), adminFrom(r)
+func (s *Handlers) admin2FAConfirm(w http.ResponseWriter, r *http.Request) {
+	ctx, a := r.Context(), core.AdminFrom(r)
 	if a.TotpEnabled == 1 || a.TotpSecretEnc == "" {
 		http.Redirect(w, r, "/admin/2fa", http.StatusSeeOther)
 		return
@@ -126,14 +116,14 @@ func (s *Server) admin2FAConfirm(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "enable totp", err)
 		return
 	}
-	s.logActivity(r, "users.2fa.enable", a.Username)
+	s.LogActivity(r, "users.2fa.enable", a.Username)
 	a.TotpEnabled = 1 // this request renders the enabled page with the codes
 	s.render2FA(w, r, http.StatusOK, codes)
 }
 
 // admin2FADisable needs the current password and a valid code.
-func (s *Server) admin2FADisable(w http.ResponseWriter, r *http.Request) {
-	ctx, a := r.Context(), adminFrom(r)
+func (s *Handlers) admin2FADisable(w http.ResponseWriter, r *http.Request) {
+	ctx, a := r.Context(), core.AdminFrom(r)
 	if a.TotpEnabled != 1 {
 		http.Redirect(w, r, "/admin/2fa", http.StatusSeeOther)
 		return
@@ -162,11 +152,11 @@ func (s *Server) admin2FADisable(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "clear recovery codes", err)
 		return
 	}
-	s.done(w, r, "/admin/2fa", "Two-factor login turned off", "users.2fa.disable", a.Username)
+	s.Done(w, r, "/admin/2fa", "Two-factor login turned off", "users.2fa.disable", a.Username)
 }
 
 // adminTOTPReset is the SuperAdmin escape hatch for a lost authenticator and recovery codes.
-func (s *Server) adminTOTPReset(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) adminTOTPReset(w http.ResponseWriter, r *http.Request) {
 	t, ok := s.loadManaged(w, r)
 	if !ok {
 		return
@@ -179,5 +169,5 @@ func (s *Server) adminTOTPReset(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "clear recovery codes", err)
 		return
 	}
-	s.done(w, r, "/admin/users/"+strconv.FormatInt(t.ID, 10)+"/edit", "Two-factor login reset", "users.2fa.reset", t.Username)
+	s.Done(w, r, "/admin/users/"+strconv.FormatInt(t.ID, 10)+"/edit", "Two-factor login reset", "users.2fa.reset", t.Username)
 }

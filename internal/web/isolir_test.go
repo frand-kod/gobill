@@ -349,7 +349,7 @@ func TestIsolirSetupCommandsUseListenAddress(t *testing.T) {
 	isoSettings(t, q, map[string]string{"app_url": "https://billing.example.com"})
 	s.ListenAddr = "192.168.99.2:8090"
 	cmds := map[string]string{}
-	for _, f := range s.isolirSetupFields(map[string]string{"app_url": "https://billing.example.com"}) {
+	for _, f := range s.settings.IsolirSetupFields(map[string]string{"app_url": "https://billing.example.com"}) {
 		cmds[f.Name] = f.Value
 	}
 	for name, want := range map[string]string{
@@ -363,7 +363,7 @@ func TestIsolirSetupCommandsUseListenAddress(t *testing.T) {
 		}
 	}
 	s.ListenAddr = ":8090"
-	if host, port := s.gobillAddr(); host != isolir.LanIPv4() || port != "8090" {
+	if host, port := s.ax.GobillAddr(); host != isolir.LanIPv4() || port != "8090" {
 		t.Errorf("wildcard listen gave %s:%s", host, port)
 	}
 }
@@ -416,7 +416,7 @@ func TestIsolirRouterRulesBlock(t *testing.T) {
 	s, _, _ := isoSetup(t)
 	s.ListenAddr = "192.168.99.2:8090"
 	block := func(st map[string]string) string {
-		for _, f := range s.isolirSetupFields(st) {
+		for _, f := range s.settings.IsolirSetupFields(st) {
 			if f.Name == "isolir_cmd_rules" {
 				return f.Value
 			}
@@ -468,11 +468,11 @@ func TestIsolirRouterRulesBlock(t *testing.T) {
 func TestIsolirAllowHostsValidated(t *testing.T) {
 	s, _, _ := isoSetup(t)
 	for _, bad := range []string{"foo bar", "http://x", "*bad", "*.", "a..b"} {
-		if e := s.settingsErrors(map[string]string{"isolir_allow_hosts": "wa.me\n" + bad}); e["isolir_allow_hosts"] == "" {
+		if e := s.settings.SettingsErrors(map[string]string{"isolir_allow_hosts": "wa.me\n" + bad}); e["isolir_allow_hosts"] == "" {
 			t.Errorf("%q accepted", bad)
 		}
 	}
-	if e := s.settingsErrors(map[string]string{"isolir_allow_hosts": "wa.me\r\n\r\n*.whatsapp.net\r\n"}); e["isolir_allow_hosts"] != "" {
+	if e := s.settings.SettingsErrors(map[string]string{"isolir_allow_hosts": "wa.me\r\n\r\n*.whatsapp.net\r\n"}); e["isolir_allow_hosts"] != "" {
 		t.Errorf("valid list rejected: %v", e)
 	}
 }

@@ -317,7 +317,7 @@ func TestUploadsServeRejectsTraversal(t *testing.T) {
 
 func TestDBBackupSuperAdminOnly(t *testing.T) {
 	s, h, _ := settingsSetup(t)
-	backup := s.Sessions.LoadAndSave(s.requireAdmin("SuperAdmin", "Admin")(http.HandlerFunc(s.dbBackup)))
+	backup := s.Sessions.LoadAndSave(s.requireAdmin("SuperAdmin", "Admin")(http.HandlerFunc(s.settings.DbBackup)))
 	w := do(backup, "GET", "/backup", nil, login(t, h, "alice"))
 	if w.Code != http.StatusOK || !strings.HasPrefix(w.Body.String(), "SQLite format 3\x00") {
 		t.Fatalf("superadmin: %d", w.Code)

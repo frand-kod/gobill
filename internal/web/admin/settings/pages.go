@@ -1,4 +1,4 @@
-package web
+package settings
 
 // Editable static content pages (admin editor and public view).
 
@@ -25,7 +25,7 @@ func pageTabs() []core.Option {
 	return append(tabs, core.Option{Value: "/admin/fields", Label: "Custom Fields"})
 }
 
-func (s *Server) pageEdit(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pageEdit(w http.ResponseWriter, r *http.Request) {
 	p, err := s.Queries.GetPage(r.Context(), r.PathValue("slug"))
 	if errors.Is(err, sql.ErrNoRows) {
 		http.NotFound(w, r)
@@ -38,10 +38,10 @@ func (s *Server) pageEdit(w http.ResponseWriter, r *http.Request) {
 		Name: "body", Label: "Content", Type: "textarea", Value: p.Body,
 		Hint: "Plain text. Line breaks are kept; HTML is shown as text.",
 	}}}
-	s.Render(w, r, http.StatusOK, "form", Page{Title: p.Title, Tabs: pageTabs(), Data: fp})
+	s.Render(w, r, http.StatusOK, "form", core.Page{Title: p.Title, Tabs: pageTabs(), Data: fp})
 }
 
-func (s *Server) pageSave(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pageSave(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("slug")
 	p, err := s.Queries.GetPage(r.Context(), slug)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -56,5 +56,5 @@ func (s *Server) pageSave(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "save page", err)
 		return
 	}
-	s.done(w, r, "/admin/pages/"+slug, "Data Updated Successfully", "page.update", p.Title)
+	s.Done(w, r, "/admin/pages/"+slug, "Data Updated Successfully", "page.update", p.Title)
 }

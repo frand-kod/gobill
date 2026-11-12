@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	adminsettings "github.com/frand-kod/gobill/internal/web/admin/settings"
 	"html"
 	"mime/multipart"
 	"net/http"
@@ -90,10 +91,10 @@ func TestSettingsEveryFieldShowsStoredValue(t *testing.T) {
 		if tab.Slug == "wireguard" && !wg.Built {
 			continue // the nowg build has no such tab
 		}
-		fields := s.settingsFields(tab.Slug, nil, nil, nil)
+		fields := s.settings.SettingsFields(tab.Slug, nil, nil, nil)
 		form, want, checked := url.Values{}, map[string]string{}, map[string]bool{}
 		for i, f := range fields {
-			if settingsSpeed[f.Name] || f.Name == "wg_confirm" { // a confirmation, never stored // kept in the isolir bandwidth row, see TestIsolirSpeedSavesBandwidth
+			if adminsettings.SettingsSpeed[f.Name] || f.Name == "wg_confirm" { // a confirmation, never stored // kept in the isolir bandwidth row, see TestIsolirSpeedSavesBandwidth
 				continue
 			}
 			switch f.Type {
@@ -114,7 +115,7 @@ func TestSettingsEveryFieldShowsStoredValue(t *testing.T) {
 		}
 		body := getBody(t, h, c, "/admin/settings/"+tab.Slug)
 		for _, f := range fields {
-			if settingsSpeed[f.Name] || f.Name == "wg_confirm" { // a confirmation, never stored
+			if adminsettings.SettingsSpeed[f.Name] || f.Name == "wg_confirm" { // a confirmation, never stored
 				continue
 			}
 			switch f.Type {
@@ -241,7 +242,7 @@ func TestSettingsSecretsMarkedSavedNotEchoed(t *testing.T) {
 	const saved = "Saved. Leave empty to keep the current secret"
 	errField := map[string][2]string{"integrations": {"smtp_port", "70000"}, "payment": {"tripay_mode", "bogus"}, "system": {"radius_rest_allow", "not an ip"}}
 	for _, tab := range adminx.SettingsTabs {
-		for _, f := range s.settingsFields(tab.Slug, nil, nil, nil) {
+		for _, f := range s.settings.SettingsFields(tab.Slug, nil, nil, nil) {
 			if f.Type != "password" {
 				continue
 			}
@@ -310,12 +311,12 @@ func TestSettingsUnsetYesNoShowsRuntimeDefault(t *testing.T) {
 			continue
 		}
 		body := getBody(t, h, c, "/admin/settings/"+tab.Slug)
-		for _, f := range s.settingsFields(tab.Slug, nil, nil, nil) {
+		for _, f := range s.settings.SettingsFields(tab.Slug, nil, nil, nil) {
 			if f.Type != "select" || len(f.Options) != 2 || f.Options[0].Value != "yes" {
 				continue
 			}
 			want := "no"
-			if settingsYesByDefault[f.Name] {
+			if adminsettings.SettingsYesByDefault[f.Name] {
 				want = "yes"
 			}
 			if !strings.Contains(selectBlock(body, f.Name), `value="`+want+`" selected`) {

@@ -13,7 +13,6 @@ import (
 
 // Settings keys the wizard keeps. core.SetupKey (the wizard state) is "" (not started), "started", "dismissed" (Lewati) or "done".
 const (
-	setupModeKey  = "setup_mode"   // "new", or "import" once a PHPNuxBill import finished
 	setupRouter   = "setup_router" // "radius", "api" or "both"
 	setupVoucher  = "setup_test_voucher"
 	importPageURL = "/admin/settings/system/import"
@@ -92,7 +91,7 @@ type wizState struct {
 	cnt    db.CountSetupRow
 	st     map[string]string // loadSettings, defaults included
 	raw    map[string]string // stored settings only
-	mode   string            // setupModeKey
+	mode   string            // core.SetupModeKey
 	router string            // setupRouter
 }
 
@@ -108,7 +107,7 @@ func (s *Server) wizLoad(ctx context.Context) (wizState, error) {
 	if ws.raw, err = s.Settings.All(ctx); err != nil {
 		return ws, err
 	}
-	ws.mode, ws.router = ws.raw[setupModeKey], ws.raw[setupRouter]
+	ws.mode, ws.router = ws.raw[core.SetupModeKey], ws.raw[setupRouter]
 	return ws, nil
 }
 

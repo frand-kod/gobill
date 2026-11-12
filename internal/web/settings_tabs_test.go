@@ -29,7 +29,7 @@ func TestSettingsKeysOnOneTab(t *testing.T) {
 	s, _, _ := settingsSetup(t)
 	owner := map[string]string{}
 	for _, tab := range adminx.SettingsTabs {
-		for _, n := range adminx.FieldNames(s.settingsFields(tab.Slug, nil, nil, nil)) {
+		for _, n := range adminx.FieldNames(s.settings.SettingsFields(tab.Slug, nil, nil, nil)) {
 			if prev, ok := owner[n]; ok {
 				t.Errorf("%s is on tabs %s and %s", n, prev, tab.Slug)
 			}
@@ -64,11 +64,11 @@ func TestSettingsTitlesTranslated(t *testing.T) {
 	}
 	for _, tab := range adminx.SettingsTabs {
 		check(tab.Slug, tab.Label)
-		for _, f := range s.settingsFields(tab.Slug, nil, nil, nil) {
+		for _, f := range s.settings.SettingsFields(tab.Slug, nil, nil, nil) {
 			check(tab.Slug, f.Section)
 		}
 	}
-	for _, f := range s.isolirSetupFields(nil) {
+	for _, f := range s.settings.IsolirSetupFields(nil) {
 		check("isolir setup", f.Section)
 	}
 	check("integrations", "New token") // the one-time metrics token card

@@ -49,7 +49,7 @@ func (s *Server) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		hash = []byte(admin.PasswordHash)
 	}
 	passOK := bcrypt.CompareHashAndPassword(hash, []byte(password)) == nil
-	passOK = passOK || (err == nil && s.admins().LegacyLogin(r.Context(), admin.ID, password))
+	passOK = passOK || (err == nil && s.ax.Admins().LegacyLogin(r.Context(), admin.ID, password))
 	if err != nil || !passOK || admin.Status != "Active" {
 		metrics.Inc("login_failures_total", "scope", "admin")
 		s.RecordFailure(uk)

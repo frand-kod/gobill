@@ -15,6 +15,7 @@ import (
 	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"github.com/frand-kod/gobill/internal/web/admin/plans"
 	"github.com/frand-kod/gobill/internal/web/admin/reports"
+	adminsettings "github.com/frand-kod/gobill/internal/web/admin/settings"
 	"github.com/frand-kod/gobill/internal/web/portal"
 	"github.com/frand-kod/gobill/internal/web/public"
 )
@@ -105,6 +106,7 @@ func (s *Server) Handler() http.Handler {
 	plans.Register(mux, s.plans, mw)
 	billing.Register(mux, s.billing, mw)
 	reports.Register(mux, s.reports, mw)
+	adminsettings.Register(mux, s.settings, mw)
 
 	// auth: root redirect, static files, uploads, admin login/logout, own password
 	mux.HandleFunc("GET /{$}", s.root)
@@ -113,9 +115,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /uploads/{name}", s.serveUpload)
 	mux.HandleFunc("POST /admin/login", s.loginSubmit)
 	mux.HandleFunc("POST /logout", s.logout)
-	mux.Handle("GET /admin/password", all(http.HandlerFunc(s.passwordForm)))
-	mux.Handle("POST /admin/password", all(http.HandlerFunc(s.passwordSave)))
-	s.totpRoutes(mux, all)
+	mux.HandleFunc("GET /admin/login/2fa", s.login2FAForm)
+	mux.HandleFunc("POST /admin/login/2fa", s.login2FASubmit)
 
 	// app manifests (public: the browser fetches them without cookies)
 	mux.HandleFunc("GET /admin/manifest.webmanifest", s.manifest(" Admin", "/admin", "/admin/"))
@@ -159,55 +160,9 @@ func (s *Server) Handler() http.Handler {
 	// reports and logs
 	s.docsRoutes(mux, all)
 
-	// settings: app settings, theme default, admin users, static pages
-	mux.Handle("GET /admin/settings", managers(http.HandlerFunc(s.settingsForm)))
-	mux.Handle("GET /admin/settings/{tab}", managers(http.HandlerFunc(s.settingsForm)))
-	mux.Handle("POST /admin/settings/{tab}", managers(http.HandlerFunc(s.settingsSave)))
-	mux.Handle("POST /admin/theme/default", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.themeDefault)))
-	mux.Handle("POST /admin/settings/integrations/wa-test", managers(http.HandlerFunc(s.waTest)))
-	mux.Handle("POST /admin/settings/notifications/daily-summary", managers(http.HandlerFunc(s.dailySummaryNow)))
-	mux.Handle("POST /admin/settings/notifications/reset/{name}", managers(http.HandlerFunc(s.notifReset)))
-	mux.Handle("GET /admin/settings/system/backup", managers(http.HandlerFunc(s.dbBackup)))
-	// Promosi: SuperAdmin only
-	promoOnly := s.requireAdmin("SuperAdmin")
-	mux.Handle("GET /admin/settings/promo", promoOnly(http.HandlerFunc(s.promoList)))
-	mux.Handle("GET /admin/settings/promo/new", promoOnly(http.HandlerFunc(s.promoNew)))
-	mux.Handle("POST /admin/settings/promo/new", promoOnly(http.HandlerFunc(s.promoSave)))
-	mux.Handle("GET /admin/settings/promo/{id}/edit", promoOnly(http.HandlerFunc(s.promoEdit)))
-	mux.Handle("POST /admin/settings/promo/{id}", promoOnly(http.HandlerFunc(s.promoSave)))
-	mux.Handle("POST /admin/settings/promo/{id}/delete", promoOnly(http.HandlerFunc(s.promoDelete)))
-	mux.Handle("POST /admin/settings/promo/{id}/up", promoOnly(s.promoMove(-1)))
-	mux.Handle("POST /admin/settings/promo/{id}/down", promoOnly(s.promoMove(1)))
 	superAdmin := s.requireAdmin("SuperAdmin")
 	s.setupRoutes(mux, superAdmin)
-	mux.Handle("POST /admin/settings/integrations/test/{kind}", superAdmin(http.HandlerFunc(s.integrationTest)))
-	mux.Handle("POST /admin/settings/payment/tripay-test", superAdmin(http.HandlerFunc(s.tripayTest)))
-	mux.Handle("POST /admin/settings/payment/duitku-test", superAdmin(http.HandlerFunc(s.duitkuTest)))
 	mux.Handle("GET /admin/settings/isolir/preview", superAdmin(http.HandlerFunc(s.public.IsolirPreview)))
-	mux.Handle("POST /admin/settings/isolir/reset/{section}", superAdmin(http.HandlerFunc(s.isolirReset)))
-	mux.Handle("GET /admin/settings/system/import", superAdmin(http.HandlerFunc(s.importForm)))
-	mux.Handle("POST /admin/settings/system/import", superAdmin(http.HandlerFunc(s.importPreview)))
-	mux.Handle("POST /admin/settings/system/import/confirm", superAdmin(http.HandlerFunc(s.importConfirm)))
-	mux.Handle("POST /admin/settings/system/import/cancel", superAdmin(http.HandlerFunc(s.importCancel)))
-	mux.Handle("GET "+keyPage, superAdmin(http.HandlerFunc(s.keyForm)))
-	mux.Handle("POST "+keyPage+"/saved", superAdmin(http.HandlerFunc(s.keySaved)))
-	mux.Handle("POST "+keyPage+"/download", superAdmin(http.HandlerFunc(s.keyDownload)))
-	mux.Handle("GET /admin/settings/system/restore", superAdmin(http.HandlerFunc(s.restoreForm)))
-	mux.Handle("POST /admin/settings/system/restore", superAdmin(http.HandlerFunc(s.restorePreview)))
-	mux.Handle("POST /admin/settings/system/restore/confirm", superAdmin(http.HandlerFunc(s.restoreConfirm)))
-	mux.Handle("POST /admin/settings/system/restore/cancel", superAdmin(http.HandlerFunc(s.restoreCancel)))
-	// Old settings.php users-*: list/add/edit for SuperAdmin, Admin and Agent (scoped in admins.go); delete only SuperAdmin and Admin.
-	userMgr := s.requireAdmin("SuperAdmin", "Admin", "Agent")
-	mux.Handle("GET /admin/users", userMgr(http.HandlerFunc(s.adminList)))
-	mux.Handle("GET /admin/users/new", userMgr(http.HandlerFunc(s.adminNew)))
-	mux.Handle("POST /admin/users", userMgr(http.HandlerFunc(s.adminSave)))
-	mux.Handle("GET /admin/users/{id}/edit", userMgr(http.HandlerFunc(s.adminEdit)))
-	mux.Handle("POST /admin/users/{id}", userMgr(http.HandlerFunc(s.adminSave)))
-	mux.Handle("POST /admin/users/{id}/delete", managers(http.HandlerFunc(s.adminDelete)))
-	mux.Handle("POST /admin/users/{id}/password/reset", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.adminPasswordReset)))
-	// Old pages.php: static page editor (managers only).
-	mux.Handle("GET /admin/pages/{slug}", managers(http.HandlerFunc(s.pageEdit)))
-	mux.Handle("POST /admin/pages/{slug}", managers(http.HandlerFunc(s.pageSave)))
 
 	// messages: send, bulk, selected customers
 	s.messageRoutes(mux, staff)

@@ -1,4 +1,4 @@
-package web
+package settings
 
 // Admin account management and own-password change.
 
@@ -73,8 +73,8 @@ func roleOptions(roles []string) []option {
 }
 
 // adminFields builds the form; a nil target is "create". Self cannot change role, status or password here.
-func (s *Server) adminFields(r *http.Request, target *db.Admin, v, e map[string]string) []field {
-	actor := adminFrom(r)
+func (s *Handlers) adminFields(r *http.Request, target *db.Admin, v, e map[string]string) []field {
+	actor := core.AdminFrom(r)
 	self := target != nil && target.ID == actor.ID
 	out := section([]field{
 		text("username", "Username", v, e).Req(),
@@ -125,8 +125,8 @@ func (s *Server) adminFields(r *http.Request, target *db.Admin, v, e map[string]
 	return append(out, section(acc, "Account", "")...)
 }
 
-func (s *Server) adminList(w http.ResponseWriter, r *http.Request) {
-	actor := adminFrom(r)
+func (s *Handlers) adminList(w http.ResponseWriter, r *http.Request) {
+	actor := core.AdminFrom(r)
 	q, pg := view.Paging(r)
 	rows, err := s.Queries.SearchAdmins(r.Context(), db.SearchAdminsParams{
 		Q: sql.NullString{String: q, Valid: true}, Scope: adminScope(actor), Actor: actor.ID, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
@@ -149,18 +149,18 @@ func (s *Server) adminList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp.Finish(pg, total)
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }
 
-func (s *Server) adminNew(w http.ResponseWriter, r *http.Request) {
-	v := map[string]string{"role": assignable(adminFrom(r))[0]}
-	s.renderForm(w, r, 200, formPage{Heading: "Add User", Action: "/admin/users", Cancel: "/admin/users", Fields: s.adminFields(r, nil, v, nil)})
+func (s *Handlers) adminNew(w http.ResponseWriter, r *http.Request) {
+	v := map[string]string{"role": assignable(core.AdminFrom(r))[0]}
+	s.RenderForm(w, r, 200, formPage{Heading: "Add User", Action: "/admin/users", Cancel: "/admin/users", Fields: s.adminFields(r, nil, v, nil)})
 }
 
 // loadManaged loads the target of {id}; 404 unless the actor may manage it.
-func (s *Server) loadManaged(w http.ResponseWriter, r *http.Request) (db.Admin, bool) {
+func (s *Handlers) loadManaged(w http.ResponseWriter, r *http.Request) (db.Admin, bool) {
 	t, err := s.Queries.GetAdmin(r.Context(), httpx.PathID(r))
-	if err == sql.ErrNoRows || (err == nil && !canManage(adminFrom(r), t)) {
+	if err == sql.ErrNoRows || (err == nil && !canManage(core.AdminFrom(r), t)) {
 		http.NotFound(w, r)
 		return t, false
 	} else if err != nil {
@@ -170,7 +170,7 @@ func (s *Server) loadManaged(w http.ResponseWriter, r *http.Request) (db.Admin, 
 	return t, true
 }
 
-func (s *Server) adminEdit(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) adminEdit(w http.ResponseWriter, r *http.Request) {
 	t, ok := s.loadManaged(w, r)
 	if !ok {
 		return
@@ -180,11 +180,11 @@ func (s *Server) adminEdit(w http.ResponseWriter, r *http.Request) {
 	if t.RootID.Valid {
 		v["root"] = strconv.FormatInt(t.RootID.Int64, 10)
 	}
-	s.renderForm(w, r, 200, formPage{Heading: "Edit User", Action: fmt.Sprint("/admin/users/", t.ID), Cancel: "/admin/users", Fields: s.adminFields(r, &t, v, nil)})
+	s.RenderForm(w, r, 200, formPage{Heading: "Edit User", Action: fmt.Sprint("/admin/users/", t.ID), Cancel: "/admin/users", Fields: s.adminFields(r, &t, v, nil)})
 }
 
-func (s *Server) adminSave(w http.ResponseWriter, r *http.Request) {
-	actor := adminFrom(r)
+func (s *Handlers) adminSave(w http.ResponseWriter, r *http.Request) {
+	actor := core.AdminFrom(r)
 	id := httpx.PathID(r)
 	var t *db.Admin
 	if id != 0 {
@@ -195,10 +195,10 @@ func (s *Server) adminSave(w http.ResponseWriter, r *http.Request) {
 		t = &cur
 	}
 	v := httpx.FormVals(r, "username", "fullname", "email", "phone", "city", "role", "status", "root")
-	res, err := s.admins().Save(r.Context(), admin.SaveInput{ActorID: actor.ID, ActorRole: actor.Role, Assignable: assignable(actor),
+	res, err := s.Admins().Save(r.Context(), admin.SaveInput{ActorID: actor.ID, ActorRole: actor.Role, Assignable: assignable(actor),
 		Target: t, V: v, Pass: r.PostFormValue("password"), CPass: r.PostFormValue("cpassword")})
 	if errors.Is(err, admin.ErrForbidden) {
-		s.deny(w, r, http.StatusForbidden)
+		s.Deny(w, r, http.StatusForbidden)
 		return
 	} else if err != nil {
 		s.Fail(w, "save admin", err)
@@ -210,22 +210,18 @@ func (s *Server) adminSave(w http.ResponseWriter, r *http.Request) {
 		if t != nil {
 			heading, action = "Edit User", fmt.Sprint("/admin/users/", t.ID)
 		}
-		s.renderForm(w, r, 422, formPage{Heading: heading, Action: action, Cancel: "/admin/users", Fields: s.adminFields(r, t, v, res.Errs)})
+		s.RenderForm(w, r, 422, formPage{Heading: heading, Action: action, Cancel: "/admin/users", Fields: s.adminFields(r, t, v, res.Errs)})
 		return
 	}
 	if t == nil {
-		s.done(w, r, "/admin/users", "Account Created Successfully", "users.create", res.Desc)
+		s.Done(w, r, "/admin/users", "Account Created Successfully", "users.create", res.Desc)
 		return
 	}
-	s.done(w, r, "/admin/users", "User Updated Successfully", "users.update", res.Desc)
+	s.Done(w, r, "/admin/users", "User Updated Successfully", "users.update", res.Desc)
 }
 
-func (s *Server) admins() *admin.Service {
-	return &admin.Service{Q: s.Queries, Cost: core.BcryptCost}
-}
-
-func (s *Server) adminDelete(w http.ResponseWriter, r *http.Request) {
-	actor := adminFrom(r)
+func (s *Handlers) adminDelete(w http.ResponseWriter, r *http.Request) {
+	actor := core.AdminFrom(r)
 	t, ok := s.loadManaged(w, r)
 	if !ok {
 		return
@@ -245,7 +241,7 @@ func (s *Server) adminDelete(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
 		return
 	}
-	s.done(w, r, "/admin/users", "User deleted Successfully", "users.delete", t.Username+" ("+t.Role+")")
+	s.Done(w, r, "/admin/users", "User deleted Successfully", "users.delete", t.Username+" ("+t.Role+")")
 }
 
 // ---- change own password ----
@@ -265,7 +261,7 @@ func pwFields(e map[string]string, forced bool) []field {
 }
 
 // pwPage is the change-password form; while the password is the imported sha1 one, Cancel (which loops back here) is Logout.
-func (s *Server) pwPage(a *db.Admin, e map[string]string) formPage {
+func (s *Handlers) pwPage(a *db.Admin, e map[string]string) formPage {
 	forced := a.LegacySha1 != ""
 	cancel := "/admin"
 	if forced {
@@ -274,16 +270,16 @@ func (s *Server) pwPage(a *db.Admin, e map[string]string) formPage {
 	return formPage{Heading: "Change Password", Action: "/admin/password", Cancel: cancel, Fields: pwFields(e, forced)}
 }
 
-func (s *Server) passwordForm(w http.ResponseWriter, r *http.Request) {
-	s.renderForm(w, r, 200, s.pwPage(adminFrom(r), nil))
+func (s *Handlers) passwordForm(w http.ResponseWriter, r *http.Request) {
+	s.RenderForm(w, r, 200, s.pwPage(core.AdminFrom(r), nil))
 }
 
-func (s *Server) passwordSave(w http.ResponseWriter, r *http.Request) {
-	actor := adminFrom(r)
+func (s *Handlers) passwordSave(w http.ResponseWriter, r *http.Request) {
+	actor := core.AdminFrom(r)
 	cur, pass, cpass := r.PostFormValue("current"), r.PostFormValue("password"), r.PostFormValue("cpassword")
 	e := map[string]string{}
 	again := func(status int) {
-		s.renderForm(w, r, status, s.pwPage(actor, e))
+		s.RenderForm(w, r, status, s.pwPage(actor, e))
 	}
 	// The current password is a guess target for a hijacked session: share the login throttle.
 	ip := core.ClientIP(r)
@@ -324,7 +320,7 @@ func (s *Server) passwordSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Sessions.Put(r.Context(), "sv", sv)
-	s.done(w, r, "/admin", "Password changed successfully", "users.password", actor.Username)
+	s.Done(w, r, "/admin", "Password changed successfully", "users.password", actor.Username)
 }
 
 // ---- SuperAdmin resets another admin's password ----
@@ -332,13 +328,13 @@ func (s *Server) passwordSave(w http.ResponseWriter, r *http.Request) {
 // adminPasswordReset sets a random password for another admin and shows it once. The admin's other
 // sessions end with the bumped session_version, so they must log in again. The activity log names the
 // admin, never the password.
-func (s *Server) adminPasswordReset(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) adminPasswordReset(w http.ResponseWriter, r *http.Request) {
 	t, ok := s.loadManaged(w, r)
 	if !ok {
 		return
 	}
 	back := "/admin/users/" + strconv.FormatInt(t.ID, 10) + "/edit"
-	if t.ID == adminFrom(r).ID {
+	if t.ID == core.AdminFrom(r).ID {
 		s.FlashTo(w, r, back, "Change your own password under Password")
 		return
 	}
@@ -352,8 +348,8 @@ func (s *Server) adminPasswordReset(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "reset admin password", err)
 		return
 	}
-	s.logActivity(r, "users.password.reset", t.Username)
-	s.Render(w, r, 200, "admin_password", Page{Title: "Reset password", Data: adminPasswordPage{Username: t.Username, Password: pw, Back: back}})
+	s.LogActivity(r, "users.password.reset", t.Username)
+	s.Render(w, r, 200, "admin_password", core.Page{Title: "Reset password", Data: adminPasswordPage{Username: t.Username, Password: pw, Back: back}})
 }
 
 // adminPasswordPage shows the new password once.

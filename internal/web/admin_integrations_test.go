@@ -119,7 +119,7 @@ func TestIntegrationTestTelegram(t *testing.T) {
 		w.WriteHeader(code)
 	}))
 	defer stub.Close()
-	s.telegramAPI = stub.URL
+	s.settings.TelegramAPI = stub.URL
 	setSettings(t, q, map[string]string{"telegram_bot": "123456:ABCSECRET", "telegram_target_id": "42"})
 	if p := integrationPage(t, h, c, path, nil, "/admin/settings/integrations"); !strings.Contains(p, "Telegram test message sent") || got != "/bot123456:ABCSECRET/sendMessage" {
 		t.Fatalf("telegram: path=%s page=%s", got, p)

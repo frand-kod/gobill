@@ -1,4 +1,4 @@
-package web
+package settings
 
 // The isolir plan is a system plan (Settings > Isolir): it is hidden from the plan and bandwidth lists
 // and the plan selects, and its speed is typed in the Isolir settings and kept in its bandwidth row.
@@ -12,7 +12,7 @@ import (
 
 // isolirSpeed is what the Isolir settings show: the plan name ("" = not set up yet) and its rates,
 // from the isolir bandwidth row, or the default rate when there is none yet.
-func (s *Server) isolirSpeed(ctx context.Context) (name, down, up string) {
+func (s *Handlers) isolirSpeed(ctx context.Context) (name, down, up string) {
 	planID, bwID := s.IsolirIDs(ctx)
 	down, up = isolirDefaultRate, isolirDefaultRate
 	if planID == 0 {

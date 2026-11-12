@@ -18,6 +18,7 @@ import (
 	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"github.com/frand-kod/gobill/internal/web/admin/plans"
 	"github.com/frand-kod/gobill/internal/web/admin/reports"
+	adminsettings "github.com/frand-kod/gobill/internal/web/admin/settings"
 	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/portal"
@@ -50,6 +51,7 @@ type Server struct {
 	billing   *billing.Handlers
 	plans     *plans.Handlers
 	reports   *reports.Handlers
+	settings  *adminsettings.Handlers
 	conn      *sql.DB
 	guides    map[string]*guideSet // rendered "Panduan" pages per language ("id", "en"), see docs.go
 
@@ -61,19 +63,11 @@ type Server struct {
 	payCheckAt map[int64]time.Time
 
 	// UpdateInfo returns the newest known release tag and its page, see job.UpdateCheck.
-	UpdateInfo      func() (tag, link string)
-	SettingsChanged func(ctx context.Context) // called after settings are saved
-	// BackupDir receives the database backup taken before a PHPNuxBill import, see admin_import.go.
-	BackupDir string
-	// Restart is called after a restore is staged; main shuts down and exits for systemd to start it again.
-	Restart func()
-	Plans   *plan.Service
+	UpdateInfo func() (tag, link string)
+	Plans      *plan.Service
 	// CoAPort is the NAS Disconnect-Request port; empty = 3799.
 	CoAPort string
 
-	testSent map[int64][]time.Time // admin id -> Integrations test times, see testAllow
-	// telegramAPI overrides the Telegram API root in tests (empty = the notify default)
-	telegramAPI string
 	// admin bell counts, cached for noticeCacheFor, see bellItems
 	noticeMu    sync.Mutex
 	noticeAt    time.Time
@@ -139,13 +133,14 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	s.ReloadSessionSettings(context.Background())
 	s.Asset, s.Decorate = s.asset, s.decorate
 	s.portal = portal.New(&s.Core)
-	s.ax = &adminx.Base{Core: &s.Core, Shared: &s.Shared, Conn: conn, Deny: s.deny, RadiusServer: s.radiusServer, Prov: s.prov, GobillAddr: s.gobillAddr, Now: s.now, ProxyWarning: s.proxyWarning}
+	s.ax = &adminx.Base{Core: &s.Core, Shared: &s.Shared, Conn: conn, Deny: s.deny, RadiusServer: s.radiusServer, Prov: s.prov, Now: s.now, ProxyWarning: s.proxyWarning, ReloadSessionSettings: s.ReloadSessionSettings}
 	s.net = network.New(s.ax)
 	s.customers = customers.New(s.ax)
 	s.billing = billing.New(s.ax)
 	s.plans = plans.New(s.ax, s.Plans)
 	s.reports = reports.New(s.ax, s.net)
-	s.reports.SettingsFields = func(tab string) []field { return s.settingsFields(tab, nil, nil, nil) }
+	s.settings = adminsettings.New(s.ax, s.net)
+	s.reports.SettingsFields = func(tab string) []field { return s.settings.SettingsFields(tab, nil, nil, nil) }
 	s.public = public.New(&s.Core)
 	s.public.IsolirOn, s.public.RadiusServer, s.public.OriginalPeer = s.isolir.Load, s.radiusServer, originalPeer
 	s.public.WGUsable, s.public.WGEndpoint, s.public.Prov = s.net.WGUsable, func(st map[string]string) string { return network.WGDefaults(st)["wg_endpoint"] }, s.prov

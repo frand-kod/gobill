@@ -137,3 +137,6 @@ func ClientIP(r *http.Request) string {
 
 // SetupKey is the settings key of the setup wizard state: "" (not started), "started", "dismissed" or "done".
 const SetupKey = "setup_wizard"
+
+// SetupModeKey is the settings key of the wizard mode: "new", or "import" once a PHPNuxBill import finished.
+const SetupModeKey = "setup_mode"

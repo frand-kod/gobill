@@ -1,4 +1,4 @@
-package web
+package settings
 
 // Saving a Settings tab; the transaction is in service/settingsave.
 
@@ -18,16 +18,16 @@ import (
 	"github.com/frand-kod/gobill/internal/notify"
 )
 
-func (s *Server) settingSaver() *settingsave.Service {
-	return &settingsave.Service{DB: s.conn, Q: s.Queries}
+func (s *Handlers) settingSaver() *settingsave.Service {
+	return &settingsave.Service{DB: s.Conn, Q: s.Queries}
 }
 
-func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) settingsSave(w http.ResponseWriter, r *http.Request) {
 	tab, ok := s.settingsTab(w, r)
 	if !ok {
 		return
 	}
-	fields := forRole(s.settingsFields(tab, nil, nil, nil), r)
+	fields := forRole(s.SettingsFields(tab, nil, nil, nil), r)
 	keys := adminx.FieldNames(fields)
 	// the body limit allows every image field of the tab at its 2 MB cap (each file is checked on its
 	// own when saved); only a bigger body fails the parse, shown on the file fields
@@ -68,8 +68,8 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 	if r.PostFormValue("qris_payload_remove") == "1" {
 		v["qris_payload"] = ""
 	}
-	qerr := qrisUpload(r, v)
-	errs := s.settingsErrors(v)
+	qerr := adminx.QrisUpload(r, v)
+	errs := s.SettingsErrors(v)
 	if qerr != "" {
 		errs["qris_payload"] = qerr
 	}
@@ -94,7 +94,7 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 		if !settingsFile[k] || r.MultipartForm == nil || len(r.MultipartForm.File[k]) == 0 {
 			continue
 		}
-		name, err := s.ax.StoreUpload(r.MultipartForm.File[k][0])
+		name, err := s.StoreUpload(r.MultipartForm.File[k][0])
 		if err != nil {
 			e[k] = err.Error()
 			continue
@@ -124,7 +124,7 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 			replaced = append(replaced, st[k])
 		}
 	}
-	s.ax.RemoveUnused(r.Context(), replaced)
+	s.RemoveUnused(r.Context(), replaced)
 
 	if tab == "isolir" && st["isolir_enabled"] == "yes" && v["isolir_enabled"] != "yes" && s.Billing != nil {
 		// switching isolation off ends the running ones; the settings stay saved if this fails
@@ -141,12 +141,12 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 	if x, ok := v["thousands_sep"]; ok {
 		view.SetThousandsSep(x)
 	}
-	s.settingsSaved(r.Context())
-	s.done(w, r, "/admin/settings/"+tab, "Settings saved", "settings.save", tab)
+	s.SettingsSaved(r.Context())
+	s.Done(w, r, "/admin/settings/"+tab, "Settings saved", "settings.save", tab)
 }
 
 // notifReset is POST /admin/settings/notifications/reset/{name}: the message goes back to its built-in text.
-func (s *Server) notifReset(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) notifReset(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	def := notify.DefaultTemplate(name)
 	if def == "" {
@@ -157,6 +157,6 @@ func (s *Server) notifReset(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "reset notif "+name, err)
 		return
 	}
-	s.settingsSaved(r.Context())
-	s.done(w, r, "/admin/settings/notifications", "Settings saved", "settings.reset", "notif "+name)
+	s.SettingsSaved(r.Context())
+	s.Done(w, r, "/admin/settings/notifications", "Settings saved", "settings.reset", "notif "+name)
 }

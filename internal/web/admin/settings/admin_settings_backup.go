@@ -1,4 +1,4 @@
-package web
+package settings
 
 // Database backup download; the copy is made by service/restore.
 
@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/service/restore"
+	"github.com/frand-kod/gobill/internal/web/core"
 
 	"fmt"
 	"io"
@@ -15,7 +16,7 @@ import (
 )
 
 // backupStatus is the one-line status under "Download backup", written by job.Backup. The mirror path is SuperAdmin only.
-func (s *Server) backupStatus(st map[string]string) string {
+func (s *Handlers) backupStatus(st map[string]string) string {
 	out := s.T("Last local backup: none yet")
 	if st["backup_last_at"] != "" {
 		out = fmt.Sprintf(s.T("Last local backup: %s %s"), st["backup_last_at"], st["backup_last_file"])
@@ -31,13 +32,13 @@ func (s *Server) backupStatus(st map[string]string) string {
 	return fmt.Sprintf(s.T("%s. Mirror %s, no copy yet"), out, s.BackupMirror)
 }
 
-// dbBackup streams a consistent copy of the database made with VACUUM INTO. SuperAdmin only.
-func (s *Server) dbBackup(w http.ResponseWriter, r *http.Request) {
-	if a := adminFrom(r); a == nil || a.Role != "SuperAdmin" {
-		s.deny(w, r, http.StatusForbidden)
+// DbBackup streams a consistent copy of the database made with VACUUM INTO. SuperAdmin only.
+func (s *Handlers) DbBackup(w http.ResponseWriter, r *http.Request) {
+	if a := core.AdminFrom(r); a == nil || a.Role != "SuperAdmin" {
+		s.Deny(w, r, http.StatusForbidden)
 		return
 	}
-	copyPath, cleanup, err := restore.Backup(r.Context(), s.conn, s.DBPath)
+	copyPath, cleanup, err := restore.Backup(r.Context(), s.Conn, s.DBPath)
 	if err != nil {
 		s.Fail(w, "backup", err)
 		return

@@ -103,7 +103,7 @@ func (s *Server) setupStart(w http.ResponseWriter, r *http.Request) {
 	case "import":
 		dest = importPageURL
 	case "new":
-		if err := s.Queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupModeKey, Value: "new"}); err != nil {
+		if err := s.Queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: core.SetupModeKey, Value: "new"}); err != nil {
 			s.Fail(w, "setup start", err)
 			return
 		}
@@ -244,7 +244,7 @@ func (s *Server) wizPut(ctx context.Context, kv map[string]string) error {
 }
 
 func (s *Server) setup() *setup.Service {
-	return &setup.Service{Q: s.Queries, PlanSvc: s.Plans, Langs: s.Catalog.Languages(), Saved: s.settingsSaved}
+	return &setup.Service{Q: s.Queries, PlanSvc: s.Plans, Langs: s.Catalog.Languages(), Saved: s.ax.SettingsSaved}
 }
 
 func (s *Server) wizSaveCompany(r *http.Request) (wizResult, error) {
@@ -423,7 +423,7 @@ func (s *Server) wizSavePlans(r *http.Request, ws wizState) (wizResult, error) {
 // wizSaveWA saves the gateway fields, or sends the test message through the same code as Integrations.
 func (s *Server) wizSaveWA(r *http.Request, kind int) (wizResult, error) {
 	if kind == wizTest {
-		v, e, err := s.waTestSend(r)
+		v, e, err := s.settings.WaTestSend(r)
 		if err != nil {
 			return wizResult{}, err
 		}
@@ -447,7 +447,7 @@ func (s *Server) wizSaveQRIS(r *http.Request, ws wizState) (wizResult, error) {
 	}
 	v := map[string]string{"qris_payload": text}
 	e := map[string]string{}
-	if qerr := qrisUpload(r, v); qerr != "" {
+	if qerr := adminx.QrisUpload(r, v); qerr != "" {
 		return wizResult{v: v, e: map[string]string{"qris_payload": qerr}}, nil
 	}
 	e, err := s.setup().QRIS(r.Context(), current, v["qris_payload"])
@@ -778,7 +778,7 @@ func (s *Server) wizPage(r *http.Request, st wizStep, ws wizState, v, e map[stri
 		view.Form.Fields = wizTripayFields(v, e, ws.st)
 	case "isolir":
 		view.Form.Fields = append([]field{{Name: "isolir_on", Label: "Turn on Isolir", Type: "checkbox", Checked: v["isolir_on"] == "1",
-			Section: "Isolir", Hint: "RADIUS customers whose plan has expired are isolated and see the isolir page."}}, s.isolirSetupFields(ws.st)...)
+			Section: "Isolir", Hint: "RADIUS customers whose plan has expired are isolated and see the isolir page."}}, s.settings.IsolirSetupFields(ws.st)...)
 	case "customer":
 		plans, err := s.Queries.ListPlans(ctx, db.ListPlansParams{Limit: 1000})
 		if err != nil {
@@ -808,6 +808,6 @@ func (s *Server) wizPage(r *http.Request, st wizStep, ws wizState, v, e map[stri
 
 // wizHost is the LAN address the routers reach gobill on (see gobillAddr).
 func (s *Server) wizHost() string {
-	host, _ := s.gobillAddr()
+	host, _ := s.ax.GobillAddr()
 	return host
 }

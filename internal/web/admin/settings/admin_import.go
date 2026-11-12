@@ -1,4 +1,4 @@
-package web
+package settings
 
 // Import a PHPNuxBill JSON backup from Settings > System & Security (SuperAdmin only). The upload is
 // streamed to temp files and kept under a random session token until the operator confirms,
@@ -28,8 +28,8 @@ import (
 const (
 	importMaxBody = 200 << 20 // a PHPNuxBill backup can be large; only the import routes accept this
 	importTTL     = 30 * time.Minute
-	importPrefix  = "gobill-import-"
-	importPage    = "/admin/settings/system/import"
+	ImportPrefix  = "gobill-import-"
+	ImportPage    = "/admin/settings/system/import"
 )
 
 // importCounts are the rows gobill holds now, which an import replaces.
@@ -44,8 +44,8 @@ type importRow struct {
 	Notes                 []string
 }
 
-// importView is the page data. Token and Rows are set after a preview.
-type importView struct {
+// ImportView is the page data. Token and Rows are set after a preview.
+type ImportView struct {
 	Token   string
 	Rows    []importRow
 	Current importCounts
@@ -57,7 +57,7 @@ type importView struct {
 
 // sweepImports deletes uploads left in the temp dir for longer than importTTL.
 func sweepImports() {
-	names, _ := filepath.Glob(filepath.Join(os.TempDir(), importPrefix+"*"))
+	names, _ := filepath.Glob(filepath.Join(os.TempDir(), ImportPrefix+"*"))
 	for _, p := range names {
 		if fi, err := os.Stat(p); err == nil && time.Since(fi.ModTime()) > importTTL {
 			os.Remove(p)
@@ -66,7 +66,7 @@ func sweepImports() {
 }
 
 // dropImport deletes the pending upload files and forgets them.
-func (s *Server) dropImport(ctx context.Context) {
+func (s *Handlers) dropImport(ctx context.Context) {
 	for _, k := range []string{"import_json", "import_notif"} {
 		if p := s.Sessions.GetString(ctx, k); p != "" {
 			os.Remove(p)
@@ -77,7 +77,7 @@ func (s *Server) dropImport(ctx context.Context) {
 }
 
 // pendingImport returns the upload files when token is the one this session was given and the files are still fresh.
-func (s *Server) pendingImport(ctx context.Context, token string) (map[string]string, bool) {
+func (s *Handlers) pendingImport(ctx context.Context, token string) (map[string]string, bool) {
 	want := s.Sessions.GetString(ctx, "import_token")
 	if want == "" || subtle.ConstantTimeCompare([]byte(want), []byte(token)) != 1 {
 		return nil, false
@@ -114,7 +114,7 @@ func saveUpload(r *http.Request) (map[string]string, error) {
 		if (name != "backup" && name != "notifications") || p.FileName() == "" {
 			continue // an empty file input sends no file
 		}
-		f, err := os.CreateTemp(os.TempDir(), importPrefix+"*.json")
+		f, err := os.CreateTemp(os.TempDir(), ImportPrefix+"*.json")
 		if err != nil {
 			return files, err
 		}
@@ -136,7 +136,7 @@ func removeFiles(files map[string]string) {
 }
 
 // runImport reads the uploaded backup and imports it into the app database. dry rolls everything back.
-func (s *Server) runImport(ctx context.Context, files map[string]string, dry bool) (*importer.Report, error) {
+func (s *Handlers) runImport(ctx context.Context, files map[string]string, dry bool) (*importer.Report, error) {
 	src, err := importer.OpenJSON(ctx, files["backup"])
 	if err != nil {
 		return nil, err
@@ -146,13 +146,13 @@ func (s *Server) runImport(ctx context.Context, files map[string]string, dry boo
 	if err != nil {
 		return nil, err
 	}
-	return importer.Run(ctx, src, s.conn, importer.Options{Key: s.SecretKey, Loc: loc, DryRun: dry, Force: true, Notifications: files["notifications"]})
+	return importer.Run(ctx, src, s.Conn, importer.Options{Key: s.SecretKey, Loc: loc, DryRun: dry, Force: true, Notifications: files["notifications"]})
 }
 
 // importBackup writes a VACUUM INTO copy of the database to BackupDir, named with label (pre-import or pre-restore), and returns its file name.
 // The name does not match the daily backup pattern, so the daily rotation never deletes it.
-func (s *Server) importBackup(ctx context.Context, label string) (string, error) {
-	return db.Snapshot(ctx, s.conn, s.BackupDir, label)
+func (s *Handlers) importBackup(ctx context.Context, label string) (string, error) {
+	return db.Snapshot(ctx, s.Conn, s.BackupDir, label)
 }
 
 // extendDeadlines lifts the server's 15 s read and 30 s write timeouts for these routes: a large
@@ -185,9 +185,9 @@ func importRows(rep *importer.Report) []importRow {
 	return out
 }
 
-func (s *Server) renderImport(w http.ResponseWriter, r *http.Request, status int, v importView, msg, detail string) {
-	v.TOTP = adminFrom(r).TotpEnabled == 1
-	p := Page{Title: "Import PHPNuxBill", Data: v, Detail: detail}
+func (s *Handlers) RenderImport(w http.ResponseWriter, r *http.Request, status int, v ImportView, msg, detail string) {
+	v.TOTP = core.AdminFrom(r).TotpEnabled == 1
+	p := core.Page{Title: "Import PHPNuxBill", Data: v, Detail: detail}
 	if msg != "" {
 		p.Error = s.T(msg)
 	}
@@ -196,21 +196,21 @@ func (s *Server) renderImport(w http.ResponseWriter, r *http.Request, status int
 
 // importAgain re-renders the dry-run preview of the staged file with an error (wrong password, missing
 // tick), so the admin does not have to upload again. If the preview cannot be rebuilt the plain form is shown.
-func (s *Server) importAgain(w http.ResponseWriter, r *http.Request, token string, files map[string]string, cur importCounts, msg string) {
-	v := importView{}
+func (s *Handlers) importAgain(w http.ResponseWriter, r *http.Request, token string, files map[string]string, cur importCounts, msg string) {
+	v := ImportView{}
 	if rep, err := s.runImport(r.Context(), files, true); err == nil {
-		v = importView{Token: token, Rows: importRows(rep), Current: cur, Filled: cur.Filled(), Unsupported: rep.Unsupported}
+		v = ImportView{Token: token, Rows: importRows(rep), Current: cur, Filled: cur.Filled(), Unsupported: rep.Unsupported}
 	}
-	s.renderImport(w, r, http.StatusUnprocessableEntity, v, msg, "")
+	s.RenderImport(w, r, http.StatusUnprocessableEntity, v, msg, "")
 }
 
-func (s *Server) importForm(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) importForm(w http.ResponseWriter, r *http.Request) {
 	sweepImports()
-	s.renderImport(w, r, http.StatusOK, importView{}, "", "")
+	s.RenderImport(w, r, http.StatusOK, ImportView{}, "", "")
 }
 
 // importPreview stores the upload and runs the import as a dry run, so the operator sees what would happen.
-func (s *Server) importPreview(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) importPreview(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	sweepImports()
 	s.dropImport(ctx)
@@ -220,11 +220,11 @@ func (s *Server) importPreview(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		removeFiles(files)
 		slog.Warn("import upload", "err", err)
-		s.renderImport(w, r, http.StatusUnprocessableEntity, importView{}, "Upload failed. The file may be larger than 200 MB.", "")
+		s.RenderImport(w, r, http.StatusUnprocessableEntity, ImportView{}, "Upload failed. The file may be larger than 200 MB.", "")
 		return
 	}
 	if files["backup"] == "" {
-		s.renderImport(w, r, http.StatusUnprocessableEntity, importView{}, "Choose the backup file (.json).", "")
+		s.RenderImport(w, r, http.StatusUnprocessableEntity, ImportView{}, "Choose the backup file (.json).", "")
 		return
 	}
 	token, err := newToken()
@@ -236,10 +236,10 @@ func (s *Server) importPreview(w http.ResponseWriter, r *http.Request) {
 	rep, err := s.runImport(ctx, files, true)
 	if err != nil {
 		removeFiles(files)
-		s.renderImport(w, r, http.StatusUnprocessableEntity, importView{}, "Could not read this file as a PHPNuxBill backup.", err.Error())
+		s.RenderImport(w, r, http.StatusUnprocessableEntity, ImportView{}, "Could not read this file as a PHPNuxBill backup.", err.Error())
 		return
 	}
-	cur, err := restore.CountRows(ctx, s.conn)
+	cur, err := restore.CountRows(ctx, s.Conn)
 	if err != nil {
 		removeFiles(files)
 		s.Fail(w, "import counts", err)
@@ -248,20 +248,20 @@ func (s *Server) importPreview(w http.ResponseWriter, r *http.Request) {
 	s.Sessions.Put(ctx, "import_token", token)
 	s.Sessions.Put(ctx, "import_json", files["backup"])
 	s.Sessions.Put(ctx, "import_notif", files["notifications"])
-	s.renderImport(w, r, http.StatusOK, importView{Token: token, Rows: importRows(rep), Current: cur, Filled: cur.Filled(), Unsupported: rep.Unsupported}, "", "")
+	s.RenderImport(w, r, http.StatusOK, ImportView{Token: token, Rows: importRows(rep), Current: cur, Filled: cur.Filled(), Unsupported: rep.Unsupported}, "", "")
 }
 
 // importConfirm backs up the database, imports for real, then ends the session: the admins were replaced.
-func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) importConfirm(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	sweepImports()
 	extendDeadlines(w)
 	files, ok := s.pendingImport(ctx, r.PostFormValue("token"))
 	if !ok {
-		s.renderImport(w, r, http.StatusUnprocessableEntity, importView{}, "The import file has expired. Upload it again.", "")
+		s.RenderImport(w, r, http.StatusUnprocessableEntity, ImportView{}, "The import file has expired. Upload it again.", "")
 		return
 	}
-	cur, err := restore.CountRows(ctx, s.conn)
+	cur, err := restore.CountRows(ctx, s.Conn)
 	if err != nil {
 		s.Fail(w, "import counts", err)
 		return
@@ -282,14 +282,14 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.dropImport(ctx)
 		slog.Error("import backup", "err", err)
-		s.renderImport(w, r, http.StatusInternalServerError, importView{}, "Backup failed. Nothing was imported.", "")
+		s.RenderImport(w, r, http.StatusInternalServerError, ImportView{}, "Backup failed. Nothing was imported.", "")
 		return
 	}
 	rep, err := s.runImport(ctx, files, false)
 	s.dropImport(ctx)
 	if err != nil {
 		slog.Error("import", "err", err)
-		s.renderImport(w, r, http.StatusUnprocessableEntity, importView{}, "Import failed. Nothing was changed.", err.Error())
+		s.RenderImport(w, r, http.StatusUnprocessableEntity, ImportView{}, "Import failed. Nothing was changed.", err.Error())
 		return
 	}
 	loaded, skipped := 0, 0
@@ -306,13 +306,13 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 		s.Lang.Store(m["language"])
 	}
 	s.ReloadSessionSettings(ctx)
-	s.settingsSaved(ctx)
+	s.SettingsSaved(ctx)
 	lang := s.Language()
 	msg := s.Catalog.T(lang, "Import finished. Log in with a PHPNuxBill admin account.") + " " +
 		fmt.Sprintf(s.Catalog.T(lang, "%d rows imported, %d skipped"), loaded, skipped) + ". " +
 		fmt.Sprintf(s.Catalog.T(lang, "Backup saved as %s"), bak)
 	// Quick Setup switches to verifying the imported data, and the first-run dialog does not come back
-	if err := s.Queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupModeKey, Value: "import"}); err != nil {
+	if err := s.Queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: core.SetupModeKey, Value: "import"}); err != nil {
 		slog.Error("import setup mode", "err", err)
 	}
 	if cur := settings.Get(ctx, s.Queries, core.SetupKey); cur == "" {
@@ -325,8 +325,8 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 }
 
-func (s *Server) importCancel(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) importCancel(w http.ResponseWriter, r *http.Request) {
 	s.dropImport(r.Context())
 	s.Sessions.Put(r.Context(), "flash", s.T("Import cancelled."))
-	http.Redirect(w, r, importPage, http.StatusSeeOther)
+	http.Redirect(w, r, ImportPage, http.StatusSeeOther)
 }

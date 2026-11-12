@@ -1,4 +1,4 @@
-package web
+package settings
 
 // Settings tabs and the fields of each sub-page.
 
@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/service/settingsave"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"strings"
@@ -24,25 +25,25 @@ var settingsSecret = db.SecretSettings
 // settingsFile are image uploads. The setting holds the stored filename; an empty post keeps it.
 var settingsFile = map[string]bool{"logo": true, "logo_dark": true, "login_page_logo": true, "login_page_logo_dark": true, "login_page_favicon": true, "login_page_wallpaper": true}
 
-// settingsSuperField are keys on an Admin-visible tab that only a SuperAdmin sees and saves.
-var settingsSuperField = map[string]bool{"radius_rest_allow": true, "radius_rest_secret": true, "trust_proxy": true, "trusted_proxies": true}
+// SettingsSuperField are keys on an Admin-visible tab that only a SuperAdmin sees and saves.
+var SettingsSuperField = map[string]bool{"radius_rest_allow": true, "radius_rest_secret": true, "trust_proxy": true, "trusted_proxies": true, "role_access_mode": true}
 
 // forRole drops the SuperAdmin-only fields for any other role, so they are neither rendered nor saved.
 func forRole(fs []field, r *http.Request) []field {
-	if adminFrom(r).Role == "SuperAdmin" {
+	if core.AdminFrom(r).Role == "SuperAdmin" {
 		return fs
 	}
 	var out []field
 	for _, f := range fs {
-		if !settingsSuperField[f.Name] {
+		if !SettingsSuperField[f.Name] {
 			out = append(out, f)
 		}
 	}
 	return out
 }
 
-// settingsSpeed are the Isolir rates. They are not stored as settings: save writes them to the isolir bandwidth row.
-var settingsSpeed = settingsave.Speed
+// SettingsSpeed are the Isolir rates. They are not stored as settings: save writes them to the isolir bandwidth row.
+var SettingsSpeed = settingsave.Speed
 
 // settingsZones is the timezone select; the server still checks any value with time.LoadLocation.
 var settingsZones = []string{"Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura", "Asia/Singapore", "Asia/Kuala_Lumpur",
@@ -51,23 +52,23 @@ var settingsZones = []string{"Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura", "
 
 var (
 	settingsYesNo = []option{{Value: "yes", Label: "Yes"}, {Value: "no", Label: "No"}}
-	// settingsYesByDefault are the yes/no keys the code treats as on while unset (it tests != "no").
+	// SettingsYesByDefault are the yes/no keys the code treats as on while unset (it tests != "no").
 	// Every other yes/no key is off while unset.
-	settingsYesByDefault = map[string]bool{"notify_customers": true, "notify_otp": true, "isolir_show_voucher": true,
+	SettingsYesByDefault = map[string]bool{"notify_customers": true, "notify_otp": true, "isolir_show_voucher": true,
 		"extend_expiry": true, "enable_balance": true, "router_check": true, "update_check": true}
 	settingsOnOff    = []option{{Value: "on", Label: "On"}, {Value: "off", Label: "Off"}}
 	settingsChannels = []option{{Value: "", Label: "Disabled"}, {Value: "sms", Label: "SMS"}, {Value: "wa", Label: "WhatsApp"}, {Value: "email", Label: "Email"}}
 )
 
-// settingsFields builds one sub-page. With nil maps it only names the fields, which is how save finds the keys.
+// SettingsFields builds one sub-page. With nil maps it only names the fields, which is how save finds the keys.
 // st is the stored settings: it tells whether a secret or an image is already saved.
-func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field {
+func (s *Handlers) SettingsFields(tab string, v, e, st map[string]string) []field {
 	sel := func(name, label string, opts ...option) field {
 		f := text(name, label, v, e).As("select")
 		f.Options = opts
 		if f.Value == "" && len(opts) == 2 && opts[0].Value == "yes" { // unset: show what the code does, not the first option
 			f.Value = "no"
-			if settingsYesByDefault[name] {
+			if SettingsYesByDefault[name] {
 				f.Value = "yes"
 			}
 		}
@@ -310,7 +311,7 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 			func() field {
 				f := area("isolir_html", "Custom HTML")
 				f.Hint = "Full HTML. Values are HTML-escaped, except voucher_form and promos. Unknown or empty variables become empty. Shown in a sandbox without gobill cookie access"
-				f.Vars = isolirVarList
+				f.Vars = IsolirVarList
 				return f
 			}(),
 			{Name: "isolir_preview", Label: "Isolation page preview (sample data):", Type: "note", Value: "/admin/settings/isolir/preview", Btn: "Open preview"},

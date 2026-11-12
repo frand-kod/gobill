@@ -1,4 +1,4 @@
-package web
+package settings
 
 // Promosi: short promo blocks. The isolir page gets promoBlocks; the portal dashboard gets one card at the
 // bottom. Admin CRUD is under Settings > Promosi (/admin/settings/promo), SuperAdmin only.
@@ -24,11 +24,11 @@ import (
 
 const promoBase = "/admin/settings/promo"
 
-func (s *Server) removeUpload(name string) {
+func (s *Handlers) removeUpload(name string) {
 	if !core.UploadName.MatchString(name) {
 		return
 	}
-	dir, err := s.ax.UploadDir()
+	dir, err := s.UploadDir()
 	if err != nil {
 		slog.Error("remove promo image", "err", err)
 		return
@@ -39,7 +39,7 @@ func (s *Server) removeUpload(name string) {
 }
 
 // promoSchedule is the Schedule cell: "Always", or the dates the promo is on.
-func (s *Server) promoSchedule(p db.Promo) string {
+func (s *Handlers) promoSchedule(p db.Promo) string {
 	day := func(x sql.NullInt64) string { return time.Unix(x.Int64, 0).In(s.Location()).Format("2006-01-02") }
 	switch {
 	case p.StartsAt.Valid && p.EndsAt.Valid:
@@ -52,7 +52,7 @@ func (s *Server) promoSchedule(p db.Promo) string {
 	return s.T("Always")
 }
 
-func (s *Server) promoList(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) promoList(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Queries.ListPromos(r.Context())
 	if err != nil {
 		s.Fail(w, "list promos", err)
@@ -75,7 +75,7 @@ func (s *Server) promoList(w http.ResponseWriter, r *http.Request) {
 		}
 		lp.Rows = append(lp.Rows, listRow{ID: p.ID, Cells: []string{p.Title, strings.Join(places, ", "), s.promoSchedule(p), status}})
 	}
-	s.Render(w, r, http.StatusOK, "list", Page{Title: "Promotions", Tabs: adminx.SettingsNav(r), Flash: s.Sessions.PopString(r.Context(), "flash"),
+	s.Render(w, r, http.StatusOK, "list", core.Page{Title: "Promotions", Tabs: adminx.SettingsNav(r), Flash: s.Sessions.PopString(r.Context(), "flash"),
 		Error: s.Sessions.PopString(r.Context(), "error"), Data: lp})
 }
 
@@ -102,20 +102,20 @@ func promoFields(v, e map[string]string, image string) []field {
 	return fs
 }
 
-func (s *Server) promoForm(w http.ResponseWriter, r *http.Request, status int, id int64, v, e map[string]string, image string) {
+func (s *Handlers) promoForm(w http.ResponseWriter, r *http.Request, status int, id int64, v, e map[string]string, image string) {
 	head, action := "Add Promo", promoBase+"/new"
 	if id != 0 {
 		head, action = "Edit Promo", fmt.Sprintf("%s/%d", promoBase, id)
 	}
 	fp := formPage{Heading: head, Action: action, Cancel: promoBase, Fields: promoFields(v, e, image)}
-	s.Render(w, r, status, "form", Page{Title: head, Tabs: adminx.SettingsNav(r), Data: fp})
+	s.Render(w, r, status, "form", core.Page{Title: head, Tabs: adminx.SettingsNav(r), Data: fp})
 }
 
-func (s *Server) promoNew(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) promoNew(w http.ResponseWriter, r *http.Request) {
 	s.promoForm(w, r, http.StatusOK, 0, map[string]string{"show_isolir": "1", "active": "1"}, nil, "")
 }
 
-func (s *Server) promoEdit(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) promoEdit(w http.ResponseWriter, r *http.Request) {
 	p, err := s.Queries.GetPromo(r.Context(), httpx.PathID(r))
 	if errors.Is(err, sql.ErrNoRows) {
 		http.NotFound(w, r)
@@ -137,7 +137,7 @@ func (s *Server) promoEdit(w http.ResponseWriter, r *http.Request) {
 
 // promoSave creates (POST /new) or updates (POST /{id}). A new image is stored only when the rest is valid,
 // and the replaced or removed image is deleted from disk after the row is saved.
-func (s *Server) promoSave(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) promoSave(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	if id == 0 && r.PathValue("id") != "" {
 		http.NotFound(w, r)
@@ -175,7 +175,7 @@ func (s *Server) promoSave(w http.ResponseWriter, r *http.Request) {
 	}
 	added := ""
 	if len(e) == 0 && r.MultipartForm != nil && len(r.MultipartForm.File["image"]) > 0 {
-		name, err := s.ax.StoreUpload(r.MultipartForm.File["image"][0])
+		name, err := s.StoreUpload(r.MultipartForm.File["image"][0])
 		if err != nil {
 			e["image"] = err.Error()
 		} else {
@@ -202,10 +202,10 @@ func (s *Server) promoSave(w http.ResponseWriter, r *http.Request) {
 	if id != 0 {
 		act, msg = "promo.update", "Data Updated Successfully"
 	}
-	s.done(w, r, promoBase, msg, act, v["title"])
+	s.Done(w, r, promoBase, msg, act, v["title"])
 }
 
-func (s *Server) promoDelete(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) promoDelete(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	p, err := s.Queries.GetPromo(ctx, httpx.PathID(r))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -220,11 +220,11 @@ func (s *Server) promoDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.removeUpload(p.Image)
-	s.done(w, r, promoBase, "Data Deleted Successfully", "promo.delete", p.Title)
+	s.Done(w, r, promoBase, "Data Deleted Successfully", "promo.delete", p.Title)
 }
 
 // promoMove swaps a promo with its neighbour (dir -1 up, +1 down) and renumbers the positions 1..n.
-func (s *Server) promoMove(dir int) http.HandlerFunc {
+func (s *Handlers) promoMove(dir int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		if err := s.promos().Move(ctx, httpx.PathID(r), dir); err != nil {
@@ -235,6 +235,6 @@ func (s *Server) promoMove(dir int) http.HandlerFunc {
 	}
 }
 
-func (s *Server) promos() *promo.Service {
-	return &promo.Service{DB: s.conn, Q: s.Queries, Loc: s.Location(), Now: time.Now}
+func (s *Handlers) promos() *promo.Service {
+	return &promo.Service{DB: s.Conn, Q: s.Queries, Loc: s.Location(), Now: time.Now}
 }

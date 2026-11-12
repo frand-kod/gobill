@@ -1,4 +1,4 @@
-package web
+package adminx
 
 // Static QRIS upload (the admin posts a photo, only its text is kept) and the public amount-locked QRIS page
 // linked from the recharge WhatsApp message.
@@ -14,19 +14,18 @@ import (
 	"strings"
 
 	"github.com/frand-kod/gobill/internal/payment"
-	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"github.com/makiuchi-d/gozxing"
 	zxqr "github.com/makiuchi-d/gozxing/qrcode"
 )
 
-// qrisUpload reads the QRIS photo posted as qris_image into v["qris_payload"]. It returns the error
+// QrisUpload reads the QRIS photo posted as qris_image into v["qris_payload"]. It returns the error
 // text to show, or "" when nothing was posted or it was read.
-func qrisUpload(r *http.Request, v map[string]string) string {
+func QrisUpload(r *http.Request, v map[string]string) string {
 	if r.MultipartForm == nil || len(r.MultipartForm.File["qris_image"]) == 0 {
 		return ""
 	}
 	fh := r.MultipartForm.File["qris_image"][0]
-	if fh.Size > adminx.MaxUpload {
+	if fh.Size > MaxUpload {
 		return "File must be 2 MB or less"
 	}
 	f, err := fh.Open()
@@ -34,14 +33,14 @@ func qrisUpload(r *http.Request, v map[string]string) string {
 		return "QRIS image could not be read"
 	}
 	defer f.Close()
-	b, err := io.ReadAll(io.LimitReader(f, adminx.MaxUpload))
+	b, err := io.ReadAll(io.LimitReader(f, MaxUpload))
 	if err != nil {
 		return "QRIS image could not be read"
 	}
 	if t := http.DetectContentType(b); t != "image/png" && t != "image/jpeg" {
 		return "Use a PNG or JPG image"
 	}
-	text, err := qrisFromImage(b)
+	text, err := QrisFromImage(b)
 	if err != nil {
 		return err.Error()
 	}
@@ -49,8 +48,8 @@ func qrisUpload(r *http.Request, v map[string]string) string {
 	return ""
 }
 
-// qrisFromImage decodes the QR code in a PNG or JPEG and returns its text when it is a valid QRIS.
-func qrisFromImage(b []byte) (string, error) {
+// QrisFromImage decodes the QR code in a PNG or JPEG and returns its text when it is a valid QRIS.
+func QrisFromImage(b []byte) (string, error) {
 	img, _, err := image.Decode(bytes.NewReader(b))
 	if err != nil {
 		return "", errors.New("QRIS image could not be read")
