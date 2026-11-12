@@ -3,8 +3,11 @@ package web
 // Settings page: form, render and validation hook.
 
 import (
-	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"net/http"
+
+	"github.com/frand-kod/gobill/internal/service/restore"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/admin/network"
 
 	"github.com/frand-kod/gobill/internal/settings"
 	"github.com/frand-kod/gobill/internal/web/core"
@@ -27,7 +30,7 @@ func (s *Server) settingsErrors(v map[string]string) map[string]string {
 // settingsTab reads the sub-page from the path. It 404s an unknown page and 403s a role that may not open it.
 func (s *Server) settingsTab(w http.ResponseWriter, r *http.Request) (string, bool) {
 	tab := r.PathValue("tab")
-	for _, t := range settingsTabs {
+	for _, t := range adminx.SettingsTabs {
 		if t.Slug == "wireguard" && !wg.Built {
 			continue // the nowg build has no such tab
 		}
@@ -63,19 +66,8 @@ func (s *Server) settingsForm(w http.ResponseWriter, r *http.Request) {
 	s.renderSettings(w, r, http.StatusOK, tab, values, nil)
 }
 
-// settingsNav is the sub-page menu for the caller's role (SuperOnly tabs only for SuperAdmin).
-func settingsNav(r *http.Request) []core.Option {
-	var nav []core.Option
-	for _, t := range settingsTabs {
-		if (!t.SuperOnly || adminFrom(r).Role == "SuperAdmin") && (t.Slug != "wireguard" || wg.Built) {
-			nav = append(nav, core.Option{Value: "/admin/settings/" + t.Slug, Label: t.Label})
-		}
-	}
-	return nav
-}
-
 func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status int, tab string, v, e map[string]string) {
-	nav := settingsNav(r)
+	nav := adminx.SettingsNav(r)
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
 		s.Fail(w, "load settings", err)
@@ -145,7 +137,7 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 	if tab == "system" && adminFrom(r).Role == "SuperAdmin" { // backup is SuperAdmin only, as in the old dbstatus page
 		links := []field{{Name: "backup", Label: "Database backup", Type: "link", Value: "/admin/settings/system/backup", Section: "System", Hint: s.backupStatus(st)},
 			{Name: "key", Label: "Encryption key", Type: "link", Value: keyPage, Btn: "Open key page",
-				Hint: fmt.Sprintf(s.T("Fingerprint: %s. Keep a copy outside the backup mirror."), keyFingerprint(s.SecretKey)), Section: "System"},
+				Hint: fmt.Sprintf(s.T("Fingerprint: %s. Keep a copy outside the backup mirror."), restore.KeyFingerprint(s.SecretKey)), Section: "System"},
 			{Name: "import", Label: "Import PHPNuxBill", Type: "link", Value: importPage, Btn: "Open import page",
 				Hint: "Replaces the data in this app. A backup is made first.", Section: "System"},
 			{Name: "restore", Label: "Restore database", Type: "link", Value: restorePage, Btn: "Open restore page",
@@ -158,7 +150,7 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 			}
 		}
 		fp.Fields = slices.Insert(fp.Fields, at, links...)
-		warn = s.keyWarning(r)
+		warn = s.ax.KeyWarning(r)
 	}
 	s.Render(w, r, status, "form", Page{Title: "Settings", Flash: s.Sessions.PopString(r.Context(), "flash"), Error: s.Sessions.PopString(r.Context(), "error"), Tabs: nav, Data: fp, Warn: warn})
 }

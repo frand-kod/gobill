@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/service/settingsave"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/view"
 
@@ -36,8 +37,8 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 			files++
 		}
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, files*maxUpload+64<<10)
-	if err := r.ParseMultipartForm(maxUpload); err != nil && !errors.Is(err, http.ErrNotMultipart) {
+	r.Body = http.MaxBytesReader(w, r.Body, files*adminx.MaxUpload+64<<10)
+	if err := r.ParseMultipartForm(adminx.MaxUpload); err != nil && !errors.Is(err, http.ErrNotMultipart) {
 		e := map[string]string{}
 		for _, k := range keys {
 			if settingsFile[k] || k == "qris_payload" {
@@ -93,7 +94,7 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 		if !settingsFile[k] || r.MultipartForm == nil || len(r.MultipartForm.File[k]) == 0 {
 			continue
 		}
-		name, err := s.storeUpload(r.MultipartForm.File[k][0])
+		name, err := s.ax.StoreUpload(r.MultipartForm.File[k][0])
 		if err != nil {
 			e[k] = err.Error()
 			continue
@@ -123,7 +124,7 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 			replaced = append(replaced, st[k])
 		}
 	}
-	s.removeUnused(r.Context(), replaced)
+	s.ax.RemoveUnused(r.Context(), replaced)
 
 	if tab == "isolir" && st["isolir_enabled"] == "yes" && v["isolir_enabled"] != "yes" && s.Billing != nil {
 		// switching isolation off ends the running ones; the settings stay saved if this fails

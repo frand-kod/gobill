@@ -18,25 +18,6 @@ import (
 	"github.com/skip2/go-qrcode"
 )
 
-// settingsTabs are the sub-pages in menu order. Integrations is SuperAdmin only; the rest
-// are SuperAdmin and Admin, as in the old settings controller. Payment waits for Tripay.
-var settingsTabs = []struct {
-	Slug, Label string
-	SuperOnly   bool
-}{
-	{"app", "General", false},
-	{"localisation", "Localisation", false},
-	{"billing", "Customers & Billing", false},
-	{"payment", "Payments", true},
-	{"integrations", "Integrations", true},
-	{"notifications", "Notifications", false},
-	{"isolir", "Isolation", true},
-	{"wireguard", "WireGuard", true},
-	{"promo", "Promotions", true},
-	{"appearance", "Appearance", false},
-	{"system", "System & Security", false},
-}
-
 // settingsSecret are write-only: never rendered, and an empty post keeps the stored value.
 var settingsSecret = db.SecretSettings
 

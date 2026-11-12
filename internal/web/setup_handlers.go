@@ -11,7 +11,6 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	adminbilling "github.com/frand-kod/gobill/internal/web/admin/billing"
 	"html"
 	"html/template"
 	"net/http"
@@ -20,6 +19,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	adminbilling "github.com/frand-kod/gobill/internal/web/admin/billing"
+	"github.com/frand-kod/gobill/internal/web/core"
 
 	"github.com/frand-kod/gobill/internal/settings"
 	"github.com/frand-kod/gobill/internal/web/httpx"
@@ -88,9 +91,9 @@ func (s *Server) setupShow(w http.ResponseWriter, r *http.Request) {
 // setupStart answers the first-run dialog. to is "new" (Mulai baru), "import" or "" (Mulai setup cepat).
 func (s *Server) setupStart(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	cur := settings.Get(ctx, s.Queries, setupKey)
+	cur := settings.Get(ctx, s.Queries, core.SetupKey)
 	if cur == "" {
-		if err := s.Queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupKey, Value: "started"}); err != nil {
+		if err := s.Queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: core.SetupKey, Value: "started"}); err != nil {
 			s.Fail(w, "setup start", err)
 			return
 		}
@@ -111,7 +114,7 @@ func (s *Server) setupStart(w http.ResponseWriter, r *http.Request) {
 
 // setupDismiss is Lewati: the dialog never comes back.
 func (s *Server) setupDismiss(w http.ResponseWriter, r *http.Request) {
-	if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: setupKey, Value: "dismissed"}); err != nil {
+	if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: core.SetupKey, Value: "dismissed"}); err != nil {
 		s.Fail(w, "setup dismiss", err)
 		return
 	}
@@ -120,7 +123,7 @@ func (s *Server) setupDismiss(w http.ResponseWriter, r *http.Request) {
 
 // setupFinish is "Ke Dashboard" on the last page.
 func (s *Server) setupFinish(w http.ResponseWriter, r *http.Request) {
-	if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: setupKey, Value: "done"}); err != nil {
+	if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: core.SetupKey, Value: "done"}); err != nil {
 		s.Fail(w, "setup finish", err)
 		return
 	}
@@ -436,7 +439,7 @@ func (s *Server) wizSaveWA(r *http.Request, kind int) (wizResult, error) {
 
 // wizSaveQRIS stores the QRIS text read from an uploaded image (the same decoder as Settings > Payment).
 func (s *Server) wizSaveQRIS(r *http.Request, ws wizState) (wizResult, error) {
-	_ = r.ParseMultipartForm(maxUpload) // a plain POST has no files; the form values still parse
+	_ = r.ParseMultipartForm(adminx.MaxUpload) // a plain POST has no files; the form values still parse
 	current := ws.st["qris_payload"]
 	text := strings.TrimSpace(r.PostFormValue("qris_payload"))
 	if r.PostFormValue("qris_payload_remove") == "1" {

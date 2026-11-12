@@ -19,6 +19,7 @@ import (
 
 	"github.com/frand-kod/gobill/internal/service/restore"
 	"github.com/frand-kod/gobill/internal/settings"
+	"github.com/frand-kod/gobill/internal/web/core"
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/importer"
@@ -314,8 +315,8 @@ func (s *Server) importConfirm(w http.ResponseWriter, r *http.Request) {
 	if err := s.Queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupModeKey, Value: "import"}); err != nil {
 		slog.Error("import setup mode", "err", err)
 	}
-	if cur := settings.Get(ctx, s.Queries, setupKey); cur == "" {
-		if err := s.Queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupKey, Value: "started"}); err != nil {
+	if cur := settings.Get(ctx, s.Queries, core.SetupKey); cur == "" {
+		if err := s.Queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: core.SetupKey, Value: "started"}); err != nil {
 			slog.Error("import setup state", "err", err)
 		}
 	}

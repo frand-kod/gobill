@@ -17,6 +17,7 @@ import (
 	"github.com/frand-kod/gobill/internal/metrics"
 	"github.com/frand-kod/gobill/internal/notify"
 	"github.com/frand-kod/gobill/internal/radius"
+	"github.com/frand-kod/gobill/internal/service/restore"
 )
 
 const sparkPoints = 96 // 24 h as 15-minute buckets
@@ -114,7 +115,7 @@ func (s *Server) statusPage(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "status", err)
 		return
 	}
-	s.Render(w, r, http.StatusOK, "status", Page{Title: "System Status", Data: d, Warn: strings.TrimSpace(s.proxyWarning(r) + " " + s.keyWarning(r))})
+	s.Render(w, r, http.StatusOK, "status", Page{Title: "System Status", Data: d, Warn: strings.TrimSpace(s.proxyWarning(r) + " " + s.ax.KeyWarning(r))})
 }
 
 func (s *Server) statusJSON(w http.ResponseWriter, r *http.Request) {
@@ -144,7 +145,7 @@ func (s *Server) statusData(r *http.Request) (statusData, error) {
 		Version: s.Version, Started: metrics.Started().In(loc).Format(backupLayout),
 		Uptime: fmt.Sprintf("%dd %02dh %02dm", int(up.Hours())/24, int(up.Hours())%24, int(up.Minutes())%60),
 		HeapMB: float64(ms.HeapAlloc) / (1 << 20), SysMB: float64(ms.Sys) / (1 << 20), Goroutines: runtime.NumGoroutine(),
-		MetricsOn: st["metrics_token"] != "", KeyFP: keyFingerprint(s.SecretKey), DaysToFull: -1,
+		MetricsOn: st["metrics_token"] != "", KeyFP: restore.KeyFingerprint(s.SecretKey), DaysToFull: -1,
 		Accepted24h: metrics.Recent("radius_auth_accepted_total", 1440),
 		Rejected24h: metrics.Recent("radius_auth_rejected_total", 1440),
 		PayOK:       metrics.Value("payment_callbacks_total", "result", "ok"),

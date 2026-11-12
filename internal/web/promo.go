@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -23,10 +25,10 @@ import (
 const promoBase = "/admin/settings/promo"
 
 func (s *Server) removeUpload(name string) {
-	if !uploadName.MatchString(name) {
+	if !core.UploadName.MatchString(name) {
 		return
 	}
-	dir, err := s.uploadDir()
+	dir, err := s.ax.UploadDir()
 	if err != nil {
 		slog.Error("remove promo image", "err", err)
 		return
@@ -73,7 +75,7 @@ func (s *Server) promoList(w http.ResponseWriter, r *http.Request) {
 		}
 		lp.Rows = append(lp.Rows, listRow{ID: p.ID, Cells: []string{p.Title, strings.Join(places, ", "), s.promoSchedule(p), status}})
 	}
-	s.Render(w, r, http.StatusOK, "list", Page{Title: "Promotions", Tabs: settingsNav(r), Flash: s.Sessions.PopString(r.Context(), "flash"),
+	s.Render(w, r, http.StatusOK, "list", Page{Title: "Promotions", Tabs: adminx.SettingsNav(r), Flash: s.Sessions.PopString(r.Context(), "flash"),
 		Error: s.Sessions.PopString(r.Context(), "error"), Data: lp})
 }
 
@@ -106,7 +108,7 @@ func (s *Server) promoForm(w http.ResponseWriter, r *http.Request, status int, i
 		head, action = "Edit Promo", fmt.Sprintf("%s/%d", promoBase, id)
 	}
 	fp := formPage{Heading: head, Action: action, Cancel: promoBase, Fields: promoFields(v, e, image)}
-	s.Render(w, r, status, "form", Page{Title: head, Tabs: settingsNav(r), Data: fp})
+	s.Render(w, r, status, "form", Page{Title: head, Tabs: adminx.SettingsNav(r), Data: fp})
 }
 
 func (s *Server) promoNew(w http.ResponseWriter, r *http.Request) {
@@ -154,9 +156,9 @@ func (s *Server) promoSave(w http.ResponseWriter, r *http.Request) {
 		}
 		old = p
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, maxUpload+64<<10)
+	r.Body = http.MaxBytesReader(w, r.Body, adminx.MaxUpload+64<<10)
 	e := map[string]string{}
-	if err := r.ParseMultipartForm(maxUpload); err != nil && !errors.Is(err, http.ErrNotMultipart) {
+	if err := r.ParseMultipartForm(adminx.MaxUpload); err != nil && !errors.Is(err, http.ErrNotMultipart) {
 		e["image"] = "File must be 2 MB or less"
 	}
 	v := httpx.FormVals(r, "title", "body", "link", "starts", "ends")
@@ -173,7 +175,7 @@ func (s *Server) promoSave(w http.ResponseWriter, r *http.Request) {
 	}
 	added := ""
 	if len(e) == 0 && r.MultipartForm != nil && len(r.MultipartForm.File["image"]) > 0 {
-		name, err := s.storeUpload(r.MultipartForm.File["image"][0])
+		name, err := s.ax.StoreUpload(r.MultipartForm.File["image"][0])
 		if err != nil {
 			e["image"] = err.Error()
 		} else {

@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"github.com/makiuchi-d/gozxing"
 	zxqr "github.com/makiuchi-d/gozxing/qrcode"
 )
@@ -25,7 +26,7 @@ func qrisUpload(r *http.Request, v map[string]string) string {
 		return ""
 	}
 	fh := r.MultipartForm.File["qris_image"][0]
-	if fh.Size > maxUpload {
+	if fh.Size > adminx.MaxUpload {
 		return "File must be 2 MB or less"
 	}
 	f, err := fh.Open()
@@ -33,7 +34,7 @@ func qrisUpload(r *http.Request, v map[string]string) string {
 		return "QRIS image could not be read"
 	}
 	defer f.Close()
-	b, err := io.ReadAll(io.LimitReader(f, maxUpload))
+	b, err := io.ReadAll(io.LimitReader(f, adminx.MaxUpload))
 	if err != nil {
 		return "QRIS image could not be read"
 	}

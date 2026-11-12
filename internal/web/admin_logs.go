@@ -133,34 +133,6 @@ func (s *Server) logList(w http.ResponseWriter, r *http.Request) {
 	s.renderList(w, r, lp)
 }
 
-// dateRange reads ?from and ?to (YYYY-MM-DD, billing zone); to is inclusive. Unix 0 = open end.
-func (s *Server) dateRange(r *http.Request) (from, to string, fromTS, toTS int64) {
-	parse := func(k string) (string, time.Time, bool) {
-		v := r.URL.Query().Get(k)
-		t, err := time.ParseInLocation("2006-01-02", v, s.Location())
-		return v, t, err == nil
-	}
-	if v, t, ok := parse("from"); ok {
-		from, fromTS = v, t.Unix()
-	}
-	if v, t, ok := parse("to"); ok {
-		to, toTS = v, t.AddDate(0, 0, 1).Unix()
-	}
-	return
-}
-
-func (s *Server) writeCSV(w http.ResponseWriter, name string, head []string, rows [][]string) {
-	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`-`+time.Now().Format("20060102")+`.csv"`)
-	cw := csv.NewWriter(w)
-	cw.Write(head)
-	for _, rec := range rows {
-		httpx.CSVSafe(rec)
-		cw.Write(rec)
-	}
-	cw.Flush()
-}
-
 // exportChunk is how many log rows a CSV export reads at a time, so a long log is never held in memory whole.
 const exportChunk = 1000
 
@@ -196,7 +168,7 @@ func (s *Server) exportCSV(w http.ResponseWriter, name string, head []string, pa
 var radiusLogCols = []string{"User", "NAS", "IP", "MAC", "Start", "Stop", "Duration", "Upload", "Download", "End reason"}
 
 func (s *Server) radiusLogParams(r *http.Request) db.SearchRadiusLogsParams {
-	_, _, f, t := s.dateRange(r)
+	_, _, f, t := s.ax.DateRange(r)
 	return db.SearchRadiusLogsParams{Q: strings.TrimSpace(r.URL.Query().Get("q")), FromTs: f, ToTs: t}
 }
 
@@ -223,7 +195,7 @@ func (s *Server) radiusLog(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "radius log", err)
 		return
 	}
-	from, to, _, _ := s.dateRange(r)
+	from, to, _, _ := s.ax.DateRange(r)
 	lp := listPage{Heading: "Radius Logs", Base: "/admin/logs/radius", Q: q, Searchable: true, Dates: true, From: from, To: to, Cols: radiusLogCols, Clean: "/admin/logs/clean/radius"}
 	for i, c := range s.radiusLogRows(ss) {
 		lp.Rows = append(lp.Rows, listRow{ID: ss[i].ID, Cells: c})
@@ -253,7 +225,7 @@ func (s *Server) radiusLogExport(w http.ResponseWriter, r *http.Request) {
 var msgLogCols = []string{"Date", "Type", "Recipient", "Subject", "Status", "Message"}
 
 func (s *Server) msgLogParams(r *http.Request) db.SearchMessageLogsParams {
-	_, _, f, t := s.dateRange(r)
+	_, _, f, t := s.ax.DateRange(r)
 	return db.SearchMessageLogsParams{Q: strings.TrimSpace(r.URL.Query().Get("q")), FromTs: f, ToTs: t}
 }
 
@@ -279,7 +251,7 @@ func (s *Server) msgLog(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "message log", err)
 		return
 	}
-	from, to, _, _ := s.dateRange(r)
+	from, to, _, _ := s.ax.DateRange(r)
 	lp := listPage{Heading: "Message Logs", Base: "/admin/logs/messages", Q: q, Searchable: true, Dates: true, From: from, To: to, Cols: msgLogCols, Clean: "/admin/logs/clean/messages"}
 	for i, c := range s.msgLogRows(ms) {
 		lp.Rows = append(lp.Rows, listRow{ID: ms[i].ID, Cells: c})
@@ -312,7 +284,7 @@ var authLogCols = []string{"Date", "User", "NAS", "MAC", "Result", "Reason"}
 var authLogListCols = []string{"Date", "User", "NAS", "MAC", "Status", "Reason"}
 
 func (s *Server) authLogParams(r *http.Request) db.SearchRadiusAuthLogParams {
-	_, _, f, t := s.dateRange(r)
+	_, _, f, t := s.ax.DateRange(r)
 	return db.SearchRadiusAuthLogParams{Q: strings.TrimSpace(r.URL.Query().Get("q")), FromTs: f, ToTs: t}
 }
 
@@ -347,7 +319,7 @@ func (s *Server) radiusAuthLog(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "auth log", err)
 		return
 	}
-	from, to, _, _ := s.dateRange(r)
+	from, to, _, _ := s.ax.DateRange(r)
 	lp := listPage{Heading: "Login attempts", Base: "/admin/logs/auth", Q: q, Searchable: true, Dates: true, From: from, To: to, Cols: authLogListCols, Clean: "/admin/logs/clean/auth"}
 	for i, c := range s.authLogRows(rows, true) {
 		lp.Rows = append(lp.Rows, listRow{ID: rows[i].ID, Cells: c})

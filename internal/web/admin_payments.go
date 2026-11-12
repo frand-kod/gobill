@@ -34,7 +34,7 @@ func (s *Server) pgList(w http.ResponseWriter, r *http.Request) {
 var pgAuditCols = []string{"Transaction ID", "Gateway Ref", "Username", "Package Name", "Package Price", "Channel", "Status", "Created On", "Expires On", "Paid Date"}
 
 func (s *Server) pgAuditParams(r *http.Request) db.SearchPaymentRequestsParams {
-	_, _, f, t := s.dateRange(r)
+	_, _, f, t := s.ax.DateRange(r)
 	return db.SearchPaymentRequestsParams{Q: strings.TrimSpace(r.URL.Query().Get("q")), Status: r.URL.Query().Get("status"), FromTs: f, ToTs: t}
 }
 
@@ -61,7 +61,7 @@ func (s *Server) pgAudit(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "payment audit", err)
 		return
 	}
-	from, to, _, _ := s.dateRange(r)
+	from, to, _, _ := s.ax.DateRange(r)
 	lp := listPage{Heading: "Payment Audit", Base: "/admin/payment-gateway/audit", Q: q, Searchable: true, Dates: true, From: from, To: to,
 		Cols: pgAuditCols, ViewLink: true, Filters: []filter{{Name: "status", Val: p.Status, Opts: pgStatuses, Label: "Status"}}}
 	for i, c := range s.pgAuditRows(rs) {
@@ -85,7 +85,7 @@ func (s *Server) pgAuditExport(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "export payment audit", err)
 		return
 	}
-	s.writeCSV(w, "payment-audit", pgAuditCols, s.pgAuditRows(rs))
+	s.ax.WriteCSV(w, "payment-audit", pgAuditCols, s.pgAuditRows(rs))
 }
 
 func (s *Server) pgAuditView(w http.ResponseWriter, r *http.Request) {

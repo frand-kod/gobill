@@ -134,3 +134,6 @@ func ClientIP(r *http.Request) string {
 	}
 	return host
 }
+
+// SetupKey is the settings key of the setup wizard state: "" (not started), "started", "dismissed" or "done".
+const SetupKey = "setup_wizard"

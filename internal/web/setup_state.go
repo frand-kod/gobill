@@ -8,11 +8,11 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
-// Settings keys the wizard keeps. setupKey is "" (not started), "started", "dismissed" (Lewati) or "done".
+// Settings keys the wizard keeps. core.SetupKey (the wizard state) is "" (not started), "started", "dismissed" (Lewati) or "done".
 const (
-	setupKey      = "setup_wizard"
 	setupModeKey  = "setup_mode"   // "new", or "import" once a PHPNuxBill import finished
 	setupRouter   = "setup_router" // "radius", "api" or "both"
 	setupVoucher  = "setup_test_voucher"
@@ -158,7 +158,7 @@ func (ws wizState) done(slug string) bool {
 	case "customer":
 		return c.Customers+c.Vouchers > 0
 	case "finish":
-		return ws.raw[setupKey] == "done"
+		return ws.raw[core.SetupKey] == "done"
 	}
 	return false
 }
@@ -184,10 +184,10 @@ func (s *Server) setupNavFor(ctx context.Context, path string) (*setupNav, error
 	if err != nil {
 		return nil, err
 	}
-	state := ws.raw[setupKey]
+	state := ws.raw[core.SetupKey]
 	done, total := ws.progress()
 	if state == "" && total > 0 && done == total {
-		if err := s.Queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: setupKey, Value: "done"}); err != nil {
+		if err := s.Queries.UpsertSetting(ctx, db.UpsertSettingParams{Key: core.SetupKey, Value: "done"}); err != nil {
 			return nil, err
 		}
 		state = "done"

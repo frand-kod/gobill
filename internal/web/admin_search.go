@@ -8,10 +8,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	adminbilling "github.com/frand-kod/gobill/internal/web/admin/billing"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	adminbilling "github.com/frand-kod/gobill/internal/web/admin/billing"
 
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/view"
@@ -170,7 +172,7 @@ func (s *Server) addGroup(gs []searchGroup, title string, items []searchItem) []
 // settingsFields, so a new field is searchable without a change here.
 func (s *Server) settingsEntries(role string) []searchEntry {
 	var out []searchEntry
-	for _, tab := range settingsTabs {
+	for _, tab := range adminx.SettingsTabs {
 		roles := roleMgr
 		if tab.SuperOnly {
 			roles = roleSuper

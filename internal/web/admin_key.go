@@ -17,24 +17,8 @@ import (
 
 const keyPage = "/admin/settings/system/key"
 
-func keyFingerprint(key []byte) string { return restore.KeyFingerprint(key) }
-
-// KeyFingerprint is keyFingerprint for the backup job, which stores it in the backup.
-func KeyFingerprint(key []byte) string { return keyFingerprint(key) }
-
-// keyWarning is the SuperAdmin warning shown until the key is marked saved for the current
-// fingerprint. A new key (new fingerprint) shows it again. Empty for other roles.
-func (s *Server) keyWarning(r *http.Request) string {
-	if a := adminFrom(r); a == nil || a.Role != "SuperAdmin" {
-		return ""
-	}
-	st, err := s.LoadSettings(r.Context())
-	fp := keyFingerprint(s.SecretKey)
-	if err != nil || st["key_saved_fp"] == fp {
-		return ""
-	}
-	return s.T("The encryption key is not saved outside this server and the backup mirror does not copy it. Without it a restored backup cannot open router passwords and API keys. Open Settings > System & Security > Encryption key. Fingerprint: ") + fp
-}
+// KeyFingerprint is for the backup job, which stores it in the backup.
+func KeyFingerprint(key []byte) string { return restore.KeyFingerprint(key) }
 
 type keyView struct {
 	Fingerprint string
@@ -48,13 +32,13 @@ func (s *Server) keyForm(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "load settings", err)
 		return
 	}
-	fp := keyFingerprint(s.SecretKey)
+	fp := restore.KeyFingerprint(s.SecretKey)
 	s.Render(w, r, http.StatusOK, "key", Page{Title: "Encryption key", Flash: s.Sessions.PopString(r.Context(), "flash"),
 		Data: keyView{Fingerprint: fp, Saved: st["key_saved_fp"] == fp, TOTP: adminFrom(r).TotpEnabled == 1}})
 }
 
 func (s *Server) keySaved(w http.ResponseWriter, r *http.Request) {
-	fp := keyFingerprint(s.SecretKey)
+	fp := restore.KeyFingerprint(s.SecretKey)
 	if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "key_saved_fp", Value: fp}); err != nil {
 		s.Fail(w, "save key flag", err)
 		return
@@ -96,7 +80,7 @@ func (s *Server) keyDownload(w http.ResponseWriter, r *http.Request) {
 		s.FlashTo(w, r, keyPage, msg)
 		return
 	}
-	s.logActivity(r, "settings.key.download", keyFingerprint(s.SecretKey))
+	s.logActivity(r, "settings.key.download", restore.KeyFingerprint(s.SecretKey))
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Disposition", `attachment; filename="gobill.db.key"`)

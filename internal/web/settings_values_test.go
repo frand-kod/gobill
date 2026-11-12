@@ -14,6 +14,8 @@ import (
 	"testing"
 
 	"github.com/frand-kod/gobill/internal/notify"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/wg"
 )
 
@@ -84,7 +86,7 @@ func getBody(t *testing.T, h http.Handler, c *http.Cookie, path string) string {
 func TestSettingsEveryFieldShowsStoredValue(t *testing.T) {
 	s, h, _ := settingsSetup(t)
 	c := login(t, h, "alice")
-	for _, tab := range settingsTabs {
+	for _, tab := range adminx.SettingsTabs {
 		if tab.Slug == "wireguard" && !wg.Built {
 			continue // the nowg build has no such tab
 		}
@@ -173,7 +175,7 @@ func postSettingsMultipart(t *testing.T, h http.Handler, c *http.Cookie, tab str
 func TestSettingsImagePreviewReplaceRemove(t *testing.T) {
 	s, h, q := settingsSetup(t)
 	c := login(t, h, "alice")
-	dir, err := s.uploadDir()
+	dir, err := s.ax.UploadDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +205,7 @@ func TestSettingsImagePreviewReplaceRemove(t *testing.T) {
 		t.Fatalf("replace: %d", w.Code)
 	}
 	second := settingValues(t, q)["logo"]
-	if second == first || !uploadName.MatchString(second) {
+	if second == first || !core.UploadName.MatchString(second) {
 		t.Fatalf("logo not replaced: %q", second)
 	}
 	if _, err := os.Stat(filepath.Join(dir, first)); !os.IsNotExist(err) {
@@ -238,7 +240,7 @@ func TestSettingsSecretsMarkedSavedNotEchoed(t *testing.T) {
 	c := login(t, h, "alice")
 	const saved = "Saved. Leave empty to keep the current secret"
 	errField := map[string][2]string{"integrations": {"smtp_port", "70000"}, "payment": {"tripay_mode", "bogus"}, "system": {"radius_rest_allow", "not an ip"}}
-	for _, tab := range settingsTabs {
+	for _, tab := range adminx.SettingsTabs {
 		for _, f := range s.settingsFields(tab.Slug, nil, nil, nil) {
 			if f.Type != "password" {
 				continue
@@ -303,7 +305,7 @@ func TestSettingsUnsetYesNoShowsRuntimeDefault(t *testing.T) {
 	s, h, _ := settingsSetup(t)
 	c := login(t, h, "alice")
 	n := 0
-	for _, tab := range settingsTabs {
+	for _, tab := range adminx.SettingsTabs {
 		if tab.Slug == "wireguard" && !wg.Built {
 			continue
 		}
