@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/quota"
 	"net"
 	"time"
 
@@ -61,7 +62,7 @@ func CoA(ctx context.Context, q *db.Queries, key []byte, port string, s db.Radiu
 	}
 	now = now.In(appLoc())
 	rate := rateLimit(lr.RateUp, lr.RateDown, lr.RateUpUnit, lr.RateDownUnit, lr.Burst)
-	if boostOn(lr.BoostWindow, now) {
+	if quota.BoostOn(lr.BoostWindow, now) {
 		if b := rateLimit(lr.BoostRateUp, lr.BoostRateDown, lr.BoostRateUpUnit, lr.BoostRateDownUnit, lr.BoostBurst); b != "" {
 			rate = b
 		}
@@ -76,7 +77,7 @@ func CoA(ctx context.Context, q *db.Queries, key []byte, port string, s db.Radiu
 	// the usage sum of authorize); it is recomputed at the next login.
 	if lr.Limited == 1 && (lr.LimitType.String == "Time_Limit" || lr.LimitType.String == "Both_Limit") {
 		timeout = 0
-	} else if ok, left := windowLeft(lr.LoginWindow, now); ok && left > 0 && (timeout <= 0 || left < timeout) {
+	} else if ok, left := quota.WindowLeft(lr.LoginWindow, now); ok && left > 0 && (timeout <= 0 || left < timeout) {
 		timeout = left // keep the cap Access-Accept set at the end of the login window
 	}
 	return request(ctx, q, key, port, s, radius.CodeCoARequest, func(p *radius.Packet, nasType string) {

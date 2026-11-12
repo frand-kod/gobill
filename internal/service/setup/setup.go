@@ -10,7 +10,7 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/isolir"
-	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/qris"
 	"github.com/frand-kod/gobill/internal/service/plan"
 	"github.com/frand-kod/gobill/internal/settings"
 )
@@ -60,7 +60,7 @@ func (s *Service) WhatsApp(ctx context.Context, w WhatsApp) error {
 
 // QRIS stores the static QRIS text, written only when it differs from current. Empty text removes it.
 func (s *Service) QRIS(ctx context.Context, current, text string) (errs map[string]string, err error) {
-	if text != "" && payment.QRISValid(text) != nil {
+	if text != "" && qris.Valid(text) != nil {
 		return map[string]string{"qris_payload": "Paste the full static QRIS text, the CRC must match"}, nil
 	}
 	if text == current {

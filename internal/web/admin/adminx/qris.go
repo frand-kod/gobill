@@ -13,7 +13,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/qris"
 	"github.com/makiuchi-d/gozxing"
 	zxqr "github.com/makiuchi-d/gozxing/qrcode"
 )
@@ -62,7 +62,7 @@ func QrisFromImage(b []byte) (string, error) {
 	if err != nil {
 		return "", errors.New("QRIS image could not be read")
 	}
-	if err := payment.QRISValid(res.GetText()); err != nil {
+	if err := qris.Valid(res.GetText()); err != nil {
 		return "", errors.New("Not a valid QRIS")
 	}
 	return strings.TrimSpace(res.GetText()), nil

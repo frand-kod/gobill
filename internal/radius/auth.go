@@ -3,6 +3,7 @@ package radius
 import (
 	"context"
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/quota"
 	"log/slog"
 	"math"
 	"net"
@@ -250,7 +251,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 		return Decision{Reject: msg}
 	}
 	var winLeft int64 // seconds to the end of the login window, 0 = no window
-	if ok, left := windowLeft(pl.LoginWindow, s.now().In(s.loc())); !ok {
+	if ok, left := quota.WindowLeft(pl.LoginWindow, s.now().In(s.loc())); !ok {
 		return Decision{Reject: msgOutsideWindow + " (" + pl.LoginWindow + ")"}
 	} else {
 		winLeft = left
@@ -295,7 +296,7 @@ func (s *Server) authorize(ctx context.Context, rq AuthRequest, vl bool) Decisio
 		d.Timeout = left
 	}
 	d.Rate = rateLimit(pl.RateUp, pl.RateDown, pl.RateUpUnit, pl.RateDownUnit, pl.Burst)
-	if boostOn(pl.BoostWindow, s.now().In(s.loc())) { // before FUP: past the data limit the FUP rate wins
+	if quota.BoostOn(pl.BoostWindow, s.now().In(s.loc())) { // before FUP: past the data limit the FUP rate wins
 		if b := rateLimit(pl.BoostRateUp, pl.BoostRateDown, pl.BoostRateUpUnit, pl.BoostRateDownUnit, pl.BoostBurst); b != "" {
 			d.Rate = b
 		}

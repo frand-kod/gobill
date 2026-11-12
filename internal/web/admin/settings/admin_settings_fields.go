@@ -15,7 +15,7 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
-	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/qris"
 	"github.com/skip2/go-qrcode"
 )
 
@@ -269,19 +269,19 @@ func (s *Handlers) SettingsFields(tab string, v, e, st map[string]string) []fiel
 			{Name: "duitku_test", Label: "Test connection", Type: "test", Value: "/admin/settings/payment/duitku-test", Btn: "Check connection",
 				Hint: "Save first. Checks the saved key and merchant code with Duitku's payment method list"},
 		}, "Duitku", "")...)
-		qris := field{Name: "qris_payload", Label: "Static QRIS", Type: "qris", Value: v["qris_payload"], Error: e["qris_payload"],
+		qf := field{Name: "qris_payload", Label: "Static QRIS", Type: "qris", Value: v["qris_payload"], Error: e["qris_payload"],
 			Hint: "Upload the merchant's static QRIS photo (PNG/JPG). The system only stores its text"}
-		if m, n := payment.QRISInfo(v["qris_payload"]); m != "" {
-			qris.Hint = s.T("Active") + ": " + m
+		if m, n := qris.Info(v["qris_payload"]); m != "" {
+			qf.Hint = s.T("Active") + ": " + m
 			if n != "" {
-				qris.Hint += " (NMID " + n + ")"
+				qf.Hint += " (NMID " + n + ")"
 			}
 			// the stored code redrawn (no image is kept), so the admin can check it scans
 			if png, err := qrcode.Encode(v["qris_payload"], qrcode.Medium, 256); err == nil {
-				qris.Img = template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))
+				qf.Img = template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))
 			}
 		}
-		return append(out, section([]field{qris}, "QRIS", "")...)
+		return append(out, section([]field{qf}, "QRIS", "")...)
 	case "isolir":
 		out := section([]field{
 			sel("isolir_enabled", "Isolation enabled", settingsYesNo...).WithHint("A RADIUS customer whose plan expires is isolated instead of disconnected, unless the plan has its own expired plan. The router needs setup, see the MikroTik router setup section below. Switching to No ends all running isolations when you save").WithWarn("Turn isolation off? Every customer now isolated is released when you save.", "no"),

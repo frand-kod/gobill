@@ -9,7 +9,6 @@ import (
 
 	"github.com/frand-kod/gobill/internal/clock"
 	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/radius"
 )
 
 // Item is one check: Short is the short text for the status line, Text the full sentence (the tests read it).
@@ -50,6 +49,8 @@ type Service struct {
 	Dur   func(sec int64) string
 	Bytes func(n int64) string
 	Now   clock.Func
+	// StaleFor is how long (seconds) a session on a NAS may stay silent before it counts as stale.
+	StaleFor func(nas string) int64
 }
 
 // Diagnose looks at the customer from the outside in. subs are the customer's subscriptions, online
@@ -147,7 +148,7 @@ func (s *Service) Diagnose(ctx context.Context, c db.Customer, subs []db.Subscri
 				x = o
 			}
 		}
-		if age := now - x.UpdatedAt; age > radius.StaleFor(x.NasIp) {
+		if age := now - x.UpdatedAt; age > s.StaleFor(x.NasIp) {
 			add("Connection", "warn", t("Silent"), t("A session is open but silent for %s (the device may be off)", s.Dur(age)))
 			tip("Device is silent: check the customer's modem or ONT is on and the cable is connected")
 		} else {

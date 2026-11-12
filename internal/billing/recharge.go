@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/money"
-	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/qris"
 	"strconv"
 	"strings"
 	"time"
@@ -365,7 +365,7 @@ func (s *Service) qrisLink(p *pending, n Notifier) string {
 		strings.HasPrefix(m, "Customer - Balance") || strings.HasPrefix(m, "Tripay - ") || strings.HasPrefix(m, "Voucher - ") {
 		return ""
 	}
-	return fmt.Sprintf("%s/qris/%d/%s", strings.TrimRight(n.Config()["app_url"], "/"), p.trxID, payment.QRISToken(s.Key, p.trxID))
+	return fmt.Sprintf("%s/qris/%d/%s", strings.TrimRight(n.Config()["app_url"], "/"), p.trxID, qris.Token(s.Key, p.trxID))
 }
 
 // RechargePreview is what a recharge would do, computed without writing anything.

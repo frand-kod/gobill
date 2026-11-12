@@ -2,6 +2,7 @@ package radius
 
 import (
 	"fmt"
+	"github.com/frand-kod/gobill/internal/quota"
 	"strings"
 	"testing"
 	"time"
@@ -50,17 +51,6 @@ func TestLoginWindow(t *testing.T) {
 	}
 }
 
-func TestParseWindowErrors(t *testing.T) {
-	for _, bad := range []string{"Mon", "Mon 25:00-26:00", "Foo 08:00-09:00", "08:00-08:00", "Mon 8-9", "Mon 08:00-09:60"} {
-		if _, err := ParseWindow(bad); err == nil {
-			t.Errorf("%q must not parse", bad)
-		}
-	}
-	if r, err := ParseWindow("Fri-Mon 08:00-17:00"); err != nil || len(r) != 1 || r[0].days != 1<<5|1<<6|1<<0|1<<1 {
-		t.Errorf("wrapping day range: %v %v", r, err)
-	}
-}
-
 func boostSetup(t *testing.T, window string) *env {
 	t.Helper()
 	e := setup(t)
@@ -86,7 +76,7 @@ func TestBoostRateAtAuth(t *testing.T) {
 // A session that started inside the boost window is moved back by one CoA once the window is over.
 func TestBoostJobSendsCoAAtWindowEnd(t *testing.T) {
 	e := boostSetup(t, "Mon 13:00-14:00")
-	if boostOn("Mon 13:00-14:00", time.Now().UTC()) {
+	if quota.BoostOn("Mon 13:00-14:00", time.Now().UTC()) {
 		t.Skip("the real clock is inside the test window")
 	}
 	sealed, _ := secret.Seal(e.s.Key, nasSecret)

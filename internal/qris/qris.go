@@ -1,4 +1,5 @@
-package payment
+// Package qris reads, checks and builds QRIS (EMVCo) payloads. It imports nothing internal.
+package qris
 
 import (
 	"crypto/hmac"
@@ -11,7 +12,7 @@ import (
 )
 
 // QRIS is an EMVCo TLV string: tag (2), length (2 decimal), value. Static QRIS has no amount;
-// QRISAmount sets tag 54 and a new CRC (tag 63) so the scanner fills in the price.
+// Amount sets tag 54 and a new CRC (tag 63) so the scanner fills in the price.
 
 type tlv struct{ tag, val string }
 
@@ -47,8 +48,8 @@ func crc16(s string) uint16 {
 	return crc
 }
 
-// QRISValid checks the header, the TLV structure and the CRC of a QRIS payload.
-func QRISValid(s string) error {
+// Valid checks the header, the TLV structure and the CRC of a QRIS payload.
+func Valid(s string) error {
 	s = strings.TrimSpace(s)
 	if !strings.HasPrefix(s, "000201") {
 		return errors.New("QRIS: must start with 000201")
@@ -66,12 +67,12 @@ func QRISValid(s string) error {
 	return nil
 }
 
-// QRISAmount returns the static payload locked to amount (rupiah), with a fresh CRC.
-func QRISAmount(static string, amount int64) (string, error) {
+// Amount returns the static payload locked to amount (rupiah), with a fresh CRC.
+func Amount(static string, amount int64) (string, error) {
 	if amount <= 0 {
 		return "", errors.New("QRIS: amount must be above 0")
 	}
-	if err := QRISValid(static); err != nil {
+	if err := Valid(static); err != nil {
 		return "", err
 	}
 	tlvs, err := qrisParse(strings.TrimSpace(static))
@@ -102,8 +103,8 @@ func QRISAmount(static string, amount int64) (string, error) {
 	return b.String(), nil
 }
 
-// QRISDetails are the parts of a QRIS a customer checks before paying.
-type QRISDetails struct {
+// Details are the parts of a QRIS a customer checks before paying.
+type Details struct {
 	MerchantName string // tag 59
 	City         string // tag 60
 	NMID         string // tag 51, sub-tag 02
@@ -117,9 +118,9 @@ var providers = []struct{ prefix, name string }{
 	{"COM.OVO", "OVO"}, {"ID.LINKAJA", "LinkAja"}, {"ID.CO.CONTOH", "Contoh"},
 }
 
-// QRISDetailsOf reads the merchant details of a payload. Missing or invalid fields are "".
-func QRISDetailsOf(s string) QRISDetails {
-	var d QRISDetails
+// DetailsOf reads the merchant details of a payload. Missing or invalid fields are "".
+func DetailsOf(s string) Details {
+	var d Details
 	tlvs, err := qrisParse(strings.TrimSpace(s))
 	if err != nil {
 		return d
@@ -161,23 +162,23 @@ func QRISDetailsOf(s string) QRISDetails {
 	return d
 }
 
-// QRISInfo returns the merchant name (tag 59) and NMID (tag 51, sub-tag 02) of a payload, "" when absent.
-func QRISInfo(s string) (merchant, nmid string) {
-	d := QRISDetailsOf(s)
+// Info returns the merchant name (tag 59) and NMID (tag 51, sub-tag 02) of a payload, "" when absent.
+func Info(s string) (merchant, nmid string) {
+	d := DetailsOf(s)
 	return d.MerchantName, d.NMID
 }
 
-// QRISToken is the public URL token of transaction id's QRIS page: 16 hex chars of HMAC-SHA256.
-func QRISToken(key []byte, id int64) string {
+// Token is the public URL token of transaction id's QRIS page: 16 hex chars of HMAC-SHA256.
+func Token(key []byte, id int64) string {
 	h := hmac.New(sha256.New, key)
 	h.Write([]byte("qris:" + strconv.FormatInt(id, 10)))
 	return hex.EncodeToString(h.Sum(nil))[:16]
 }
 
-// DummyQRIS is a sample static QRIS of exactly length characters (when length is above the fixed
+// Dummy is a sample static QRIS of exactly length characters (when length is above the fixed
 // part, about 125), with a valid CRC. It has the EMV structure of a real code but fake merchant
 // data, so previews and tests never show a merchant's own code. Spare length goes into tag 99.
-func DummyQRIS(length int) string {
+func Dummy(length int) string {
 	name := "CONTOH QRIS"
 	merchant := tlvOf("00", "ID.CO.CONTOH.WWW", "01", "936000000001", "02", "ID1000000001")
 	fixed := func(name string) string {

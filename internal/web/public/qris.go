@@ -13,7 +13,7 @@ import (
 	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/view"
 
-	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/qris"
 	"github.com/skip2/go-qrcode"
 )
 
@@ -23,7 +23,7 @@ type qrisData struct {
 
 func (s *Handlers) qrisPage(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || !hmac.Equal([]byte(r.PathValue("token")), []byte(payment.QRISToken(s.SecretKey, id))) {
+	if err != nil || !hmac.Equal([]byte(r.PathValue("token")), []byte(qris.Token(s.SecretKey, id))) {
 		http.NotFound(w, r)
 		return
 	}
@@ -37,7 +37,7 @@ func (s *Handlers) qrisPage(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	code, err := payment.QRISAmount(st["qris_payload"], t.Price)
+	code, err := qris.Amount(st["qris_payload"], t.Price)
 	if err != nil {
 		s.Fail(w, "qris", err)
 		return
@@ -48,6 +48,6 @@ func (s *Handlers) qrisPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	qr := template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))
-	d := qrisData{Card: s.qrisCard(st, payment.QRISDetailsOf(st["qris_payload"]), qr, view.Money(t.Price), t.Invoice+" · "+t.PlanName, false)}
+	d := qrisData{Card: s.qrisCard(st, qris.DetailsOf(st["qris_payload"]), qr, view.Money(t.Price), t.Invoice+" · "+t.PlanName, false)}
 	s.Render(w, r, 200, "p_qris", core.Page{Title: "Pay via QRIS", Data: d})
 }
