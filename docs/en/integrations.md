@@ -133,6 +133,20 @@ Notes:
 - The system does not verify QRIS payments. Payment confirmation is still done manually.
 - Recharges already paid with balance, a gateway, or a voucher do not get this link.
 
+## REST API
+
+`/api/v1` returns JSON. It is read-only for now.
+
+- Send the token in the header `Authorization: Bearer <token>`. Cookies are ignored.
+- A token looks like `gbt_` followed by 43 characters. It belongs to one admin and has that admin's role.
+- Only the hash is stored. The token is shown once when it is created. A token can expire or be revoked.
+- Endpoints: `me`, `customers` (with `?q=`), `customers/{id}`, `subscriptions?customer_id=`, `plans`, `routers`, `nas`, `radius/sessions`.
+- Customers and subscriptions need SuperAdmin, Admin, Agent or Sales. The rest need SuperAdmin or Admin. `me` is open to every admin.
+- Lists take `?page=` and `?per_page=` (up to 100) and answer `{"data": [...], "page", "per_page", "has_more"}`.
+- Errors are `{"error": "..."}` with status 400, 401, 403, 404 or 429. The limit is 120 requests a minute per token.
+
+There is no page to create tokens yet.
+
 ## See also
 
 - [Configuration](configuration.md): general and business settings.

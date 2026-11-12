@@ -133,6 +133,20 @@ Catatan:
 - Sistem tidak memverifikasi pembayaran QRIS. Konfirmasi pembayaran tetap dilakukan manual.
 - Recharge yang sudah dibayar lewat saldo, gateway, atau voucher tidak mendapat tautan ini.
 
+## REST API
+
+`/api/v1` mengembalikan JSON. Untuk sekarang hanya baca.
+
+- Kirim token di header `Authorization: Bearer <token>`. Cookie diabaikan.
+- Token berbentuk `gbt_` diikuti 43 karakter. Token milik satu admin dan memakai peran admin itu.
+- Yang disimpan hanya hash-nya. Token hanya tampil sekali saat dibuat. Token bisa kedaluwarsa atau dicabut.
+- Endpoint: `me`, `customers` (dengan `?q=`), `customers/{id}`, `subscriptions?customer_id=`, `plans`, `routers`, `nas`, `radius/sessions`.
+- Pelanggan dan langganan butuh SuperAdmin, Admin, Agent atau Sales. Sisanya butuh SuperAdmin atau Admin. `me` terbuka untuk semua admin.
+- Daftar memakai `?page=` dan `?per_page=` (maksimal 100) dan menjawab `{"data": [...], "page", "per_page", "has_more"}`.
+- Galat berbentuk `{"error": "..."}` dengan status 400, 401, 403, 404 atau 429. Batasnya 120 permintaan per menit per token.
+
+Belum ada halaman untuk membuat token.
+
 ## Lihat juga
 
 - [Konfigurasi](configuration.md): pengaturan umum dan bisnis.
