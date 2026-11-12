@@ -133,6 +133,30 @@ Catatan:
 - Sistem tidak memverifikasi pembayaran QRIS. Konfirmasi pembayaran tetap dilakukan manual.
 - Recharge yang sudah dibayar lewat saldo, gateway, atau voucher tidak mendapat tautan ini.
 
+## REST API
+
+`/api/v1` mengembalikan JSON. Untuk sekarang hanya baca.
+
+- Kirim token di header `Authorization: Bearer <token>`. Cookie diabaikan.
+- Token berbentuk `gbt_` diikuti 43 karakter. Token milik satu admin dan memakai peran admin itu.
+- Yang disimpan hanya hash-nya. Token hanya tampil sekali saat dibuat. Token bisa kedaluwarsa atau dicabut.
+- Endpoint: `me`, `customers` (dengan `?q=`), `customers/{id}`, `subscriptions?customer_id=`, `plans`, `routers`, `nas`, `radius/sessions`.
+- Peran yang boleh memanggil tiap kelompok diatur di halaman API. Bawaannya pelanggan dan langganan butuh SuperAdmin, Admin, Agent atau Sales. Paket, router, NAS dan sesi butuh SuperAdmin atau Admin. `me` terbuka untuk semua admin.
+- Daftar memakai `?page=` dan `?per_page=` (maksimal 100) dan menjawab `{"data": [...], "page", "per_page", "has_more"}`.
+- Galat berbentuk `{"error": "..."}` dengan status 400, 401, 403, 404 atau 429. Batasnya 120 permintaan per menit per token.
+
+### Halaman API
+
+SuperAdmin membuka **API** di sidebar (`/admin/api`).
+
+- API mati secara bawaan. Centang **Aktifkan API** lalu simpan. Selama mati, semua permintaan dijawab 403 `API is disabled`.
+- Tabel mengatur peran yang boleh memanggil endpoint pelanggan dan jaringan. SuperAdmin selalu boleh. Perubahan berlaku di permintaan berikutnya.
+- **Buat token**: isi nama, pilih admin aktif dan masa berlaku 30, 90 atau 365 hari, atau tanpa batas.
+- Token hanya tampil sekali, tepat setelah dibuat. Salin saat itu juga. Token tidak bisa ditampilkan lagi.
+- Daftar menampilkan pemilik, waktu dibuat, terakhir dipakai, kedaluwarsa dan status. **Cabut** menghentikan token selamanya.
+- Token berhenti bekerja saat admin pemiliknya ditangguhkan.
+- Semua perubahan masuk log aktivitas, tanpa isi token.
+
 ## Lihat juga
 
 - [Konfigurasi](configuration.md): pengaturan umum dan bisnis.

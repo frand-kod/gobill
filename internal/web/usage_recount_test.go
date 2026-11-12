@@ -38,7 +38,7 @@ func TestUsageRecount(t *testing.T) {
 	behind := func() bool {
 		t.Helper()
 		subs, _ := q.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: cu.ID, Limit: 5})
-		return s.diagnose(ctx, cu, subs, "").Item("Usage log") != nil
+		return s.customers.Diagnose(ctx, cu, subs, "").Item("Usage log") != nil
 	}
 	used := func() int64 {
 		t.Helper()

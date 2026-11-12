@@ -65,7 +65,7 @@ func TestRadiusRestUserThrottle(t *testing.T) {
 
 func TestRadiusRestSharedWithUDP(t *testing.T) {
 	s, _ := restSetup(t, false)
-	s.Radius = &radius.Server{Q: s.queries, Key: s.SecretKey}
+	s.Radius = &radius.Server{Q: s.Queries, Key: s.SecretKey}
 	h := s.Handler()
 	bad := func([]byte) (bool, string) { return false, "" }
 	for i := 0; i < 5; i++ { // the "UDP" side

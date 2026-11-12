@@ -11,6 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/portal"
 )
 
 // secondCust makes customer u2 (with a portal password) and returns its session cookie.
@@ -141,13 +142,13 @@ func TestContactTaken(t *testing.T) {
 	e := payApp(t)
 	c2, _ := secondCust(t, e)
 	r := httptest.NewRequest("GET", "/", nil)
-	if ok, err := e.s.contactTaken(r, "email", "U2@Example.com", e.cust.ID); err != nil || !ok {
+	if ok, err := e.s.portal.ContactTaken(r, "email", "U2@Example.com", e.cust.ID); err != nil || !ok {
 		t.Fatalf("other's email: %v %v", ok, err)
 	}
-	if ok, _ := e.s.contactTaken(r, "email", "u2@example.com", c2.ID); ok {
+	if ok, _ := e.s.portal.ContactTaken(r, "email", "u2@example.com", c2.ID); ok {
 		t.Fatal("own email counted as taken")
 	}
-	if ok, _ := e.s.contactTaken(r, "email", "free@example.com", e.cust.ID); ok {
+	if ok, _ := e.s.portal.ContactTaken(r, "email", "free@example.com", e.cust.ID); ok {
 		t.Fatal("free email taken")
 	}
 	// phones are only unique when wa_unique_per_account = yes
@@ -155,19 +156,19 @@ func TestContactTaken(t *testing.T) {
 		ServiceType: "PPPoE", AutoRenewal: 1, Status: "Active", ID: c2.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if ok, _ := e.s.contactTaken(r, "phone", "081300000000", e.cust.ID); ok {
+	if ok, _ := e.s.portal.ContactTaken(r, "phone", "081300000000", e.cust.ID); ok {
 		t.Fatal("phone unique without the setting")
 	}
 	setting(t, e.billEnv, "wa_unique_per_account", "yes")
-	if ok, _ := e.s.contactTaken(r, "phone", "6281300000000", e.cust.ID); !ok {
+	if ok, _ := e.s.portal.ContactTaken(r, "phone", "6281300000000", e.cust.ID); !ok {
 		t.Fatal("phone not detected")
 	}
-	if ok, _ := e.s.contactTaken(r, "phone", "081300000000", c2.ID); ok {
+	if ok, _ := e.s.portal.ContactTaken(r, "phone", "081300000000", c2.ID); ok {
 		t.Fatal("own phone taken")
 	}
 }
 
-// After otpTries wrong codes the flow is dropped: the right code no longer verifies and the phone is unchanged.
+// After portal.OtpTries wrong codes the flow is dropped: the right code no longer verifies and the phone is unchanged.
 func TestContactOTPBruteForceLimit(t *testing.T) {
 	e, otp := forgotApp(t)
 	setting(t, e, "allow_phone_otp", "yes")
@@ -184,7 +185,7 @@ func TestContactOTPBruteForceLimit(t *testing.T) {
 	if good == wrong {
 		wrong = "111111"
 	}
-	for i := 1; i <= otpTries; i++ {
+	for i := 1; i <= portal.OtpTries; i++ {
 		w = do(e.h, "POST", "/portal/contact/phone/verify", url.Values{"otp": {wrong}}, ck)
 		if w.Code != 200 || strings.Contains(w.Body.String(), "Data Saved") {
 			t.Fatalf("wrong #%d: %d", i, w.Code)

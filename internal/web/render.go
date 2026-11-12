@@ -4,96 +4,38 @@ package web
 
 import (
 	"html/template"
-	"io/fs"
-	"log/slog"
 	"net/http"
-	"net/url"
 
-	"bytes"
-	"fmt"
-	gobill "github.com/frand-kod/gobill"
-	"github.com/frand-kod/gobill/internal/update"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"path"
 	"strings"
-	"time"
+
+	gobill "github.com/frand-kod/gobill"
 )
 
 func (s *Server) flashTo(w http.ResponseWriter, r *http.Request, to, msg string) {
-	s.sessions.Put(r.Context(), "flash", s.catalog.T(s.language(), msg))
+	s.Sessions.Put(r.Context(), "flash", s.T(msg))
 	http.Redirect(w, r, to, http.StatusSeeOther)
-}
-
-// safeRedirect returns u only when it is an absolute http(s) URL.
-func safeRedirect(u string) string {
-	p, err := url.Parse(strings.TrimSpace(u))
-	if err != nil || (p.Scheme != "http" && p.Scheme != "https") || p.Host == "" {
-		return ""
-	}
-	return p.String()
 }
 
 // ---- templates ----
 
-// navActive returns the entry of keys that owns path: the longest key equal to path or one of its parents.
-// "/admin" only matches itself, otherwise the dashboard would be active on every admin page.
-// Returns "" when no key matches.
-func navActive(path string, keys ...string) string {
-	best := ""
-	for _, k := range keys {
-		if len(k) <= len(best) {
-			continue
-		}
-		if path == k || (k != "/admin" && strings.HasPrefix(path, k+"/")) {
-			best = k
-		}
-	}
-	return best
-}
-
 func (s *Server) parseTemplates() error {
-	icons, err := loadIcons()
+	funcs, err := view.Funcs()
 	if err != nil {
 		return err
 	}
-	funcs := template.FuncMap{
-		"T": func(text string) string { return s.catalog.T(s.language(), text) },
-		// TT translates the part before ": ", so headings like "Edit Contact: budi" work.
-		"TT": func(text string) string {
-			if head, rest, ok := strings.Cut(text, ": "); ok {
-				return s.catalog.T(s.language(), head) + ": " + rest
-			}
-			return s.catalog.T(s.language(), text)
-		},
-		"hasPrefix": strings.HasPrefix,
-		// dict builds the map a sub-template takes several arguments through: {{template "x" dict "A" 1 "B" .Y}}
-		"dict": func(kv ...any) (map[string]any, error) {
-			if len(kv)%2 != 0 {
-				return nil, fmt.Errorf("dict: odd number of arguments")
-			}
-			m := make(map[string]any, len(kv)/2)
-			for i := 0; i < len(kv); i += 2 {
-				k, ok := kv[i].(string)
-				if !ok {
-					return nil, fmt.Errorf("dict: key %v is not a string", kv[i])
-				}
-				m[k] = kv[i+1]
-			}
-			return m, nil
-		},
-		"asset":     s.asset,
-		"navActive": navActive,
-		"money":     money,
-		"badge":     badge,
-		"dot":       func(v string) string { return badgeDot(badge(v)) },
-		"ts":        s.ts,
-		"icon": func(name string) (template.HTML, error) {
-			svg, ok := icons[name]
-			if !ok {
-				return "", fmt.Errorf("unknown icon %q", name)
-			}
-			return svg, nil
-		},
+	funcs["T"] = func(text string) string { return s.T(text) }
+	// TT translates the part before ": ", so headings like "Edit Contact: budi" work.
+	funcs["TT"] = func(text string) string {
+		if head, rest, ok := strings.Cut(text, ": "); ok {
+			return s.T(head) + ": " + rest
+		}
+		return s.T(text)
 	}
+	funcs["asset"] = s.asset
+	funcs["ts"] = s.TS
 	pages := map[string][]string{
 		"login":            {"base.html", "login.html"},
 		"login_2fa":        {"base.html", "login_2fa.html"},
@@ -118,6 +60,7 @@ func (s *Server) parseTemplates() error {
 		"network":          {"base.html", "admin/app.html", "admin/network.html"},
 		"import":           {"base.html", "admin/app.html", "admin/import.html"},
 		"restore":          {"base.html", "admin/app.html", "admin/restore.html"},
+		"apiaccess":        {"base.html", "admin/app.html", "admin/apiaccess.html"},
 		"key":              {"base.html", "admin/app.html", "admin/key.html"},
 		"search":           {"base.html", "admin/app.html", "admin/search.html"},
 
@@ -141,7 +84,7 @@ func (s *Server) parseTemplates() error {
 		"admin_password": {"base.html", "admin/app.html", "admin/admin_password.html"},
 		"setup":          {"base.html", "admin/app.html", "admin/setup.html", "admin/formfields.html", "admin/customer_pick.html", "admin/tplvars.html"},
 	}
-	s.templates = map[string]*template.Template{}
+	s.Templates = map[string]*template.Template{}
 	for name, files := range pages {
 		for i, f := range files {
 			files[i] = path.Join("web/templates", f)
@@ -150,91 +93,7 @@ func (s *Server) parseTemplates() error {
 		if err != nil {
 			return err
 		}
-		s.templates[name] = t
+		s.Templates[name] = t
 	}
 	return nil
-}
-
-// loadIcons reads web/static/icons/*.svg and marks each icon decorative. The license comment
-// stays in the markup: the ISC license needs its notice in every copy of the icon.
-func loadIcons() (map[string]template.HTML, error) {
-	files, err := fs.Glob(gobill.FS, "web/static/icons/*.svg")
-	if err != nil {
-		return nil, err
-	}
-	icons := map[string]template.HTML{}
-	for _, f := range files {
-		b, err := fs.ReadFile(gobill.FS, f)
-		if err != nil {
-			return nil, err
-		}
-		i := bytes.Index(b, []byte("<svg"))
-		if i < 0 {
-			return nil, fmt.Errorf("%s: no <svg element", f)
-		}
-		svg := bytes.Replace(b, []byte("<svg"), []byte(`<svg aria-hidden="true"`), 1)
-		icons[strings.TrimSuffix(path.Base(f), ".svg")] = template.HTML(svg)
-	}
-	return icons, nil
-}
-
-// render writes a page. The body is buffered so a template error gives a 500, not half a page.
-func (s *Server) render(w http.ResponseWriter, r *http.Request, status int, name string, p Page) {
-	p.Admin = adminFrom(r)
-	p.Path = r.URL.Path
-	ctx := r.Context()
-	for _, a := range []struct {
-		dst *string
-		key string
-	}{{&p.Flash, "flash"}, {&p.Error, "error"}, {&p.Warn, "warn"}, {&p.Detail, "detail"}, {&p.ErrLink, "errlink"}} {
-		if v := s.sessions.PopString(ctx, a.key); *a.dst == "" {
-			*a.dst = v
-		}
-	}
-	if s.sessions.PopString(ctx, "flash_sticky") != "" {
-		p.Sticky = true
-	}
-	if p.Intro.Title == "" {
-		p.Intro = introFor(name, r.URL.Path)
-	}
-	p.Intro = s.translateIntro(p.Intro)
-	p.Lang = s.language()
-	p.Version = s.Version
-	p.Brand = s.brand(r.Context())
-	if p.Admin != nil && p.Admin.Role == "SuperAdmin" && s.UpdateInfo != nil {
-		if tag, link := s.UpdateInfo(); update.Newer(tag, s.Version) {
-			p.UpdateTag, p.UpdateURL = tag, link
-		}
-	}
-	if p.Admin != nil && p.Admin.Role == "SuperAdmin" {
-		if n, err := s.setupNavFor(ctx, r.URL.Path); err != nil {
-			slog.Warn("setup nav", "err", err)
-		} else {
-			p.Setup = n
-		}
-	}
-	if p.Admin != nil {
-		if items, err := s.bellItems(ctx, time.Now()); err != nil {
-			slog.Warn("admin bell", "err", err)
-		} else {
-			p.Notices = attentionFor(items, p.Admin)
-			for _, it := range p.Notices {
-				p.NoticeTotal += it.Count
-				p.NoticeErr = p.NoticeErr || it.Err
-			}
-		}
-	}
-	p.Dir = "ltr"
-	if p.Lang == "arabic" {
-		p.Dir = "rtl"
-	}
-	var buf bytes.Buffer
-	if err := s.templates[name].ExecuteTemplate(&buf, "base", p); err != nil {
-		slog.Error("render", "page", name, "err", err)
-		s.errorPage(w, "-")
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(status)
-	buf.WriteTo(w)
 }

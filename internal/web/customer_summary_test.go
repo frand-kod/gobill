@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"github.com/frand-kod/gobill/internal/db"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -54,7 +56,7 @@ func TestCustomerSummaryFields(t *testing.T) {
 	if s1["username"] != "sumcust" || s1["fullname"] != "Sum Cust" || s1["status"] != "Active" || s1["blocks_recharge"] != false {
 		t.Errorf("identity/status: %+v", s1)
 	}
-	if s1["balance"] != money(0) || s1["voucher"] != nil {
+	if s1["balance"] != view.Money(0) || s1["voucher"] != nil {
 		t.Errorf("balance/voucher: %+v", s1)
 	}
 	subs := subsOf(t, s1)
@@ -68,7 +70,7 @@ func TestCustomerSummaryFields(t *testing.T) {
 	if len(trx) != 1 {
 		t.Fatalf("transactions: %+v", trx)
 	}
-	if tr := trx[0].(map[string]any); tr["plan"] != "Home" || tr["price"] != money(100000) || tr["method"] != "Cash - Alice" || tr["invoice"] == "" || tr["date"] == "" {
+	if tr := trx[0].(map[string]any); tr["plan"] != "Home" || tr["price"] != view.Money(100000) || tr["method"] != "Cash - Alice" || tr["invoice"] == "" || tr["date"] == "" {
 		t.Errorf("transaction row: %+v", tr)
 	}
 

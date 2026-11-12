@@ -2,47 +2,15 @@ package web
 
 import (
 	"encoding/json"
+	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
-
-// Two interim updates give the rate: the octets since the previous update over the seconds between them.
-func TestLiveRateFromTwoSamples(t *testing.T) {
-	var r liveRate
-	r.add(liveSample{at: 100})
-	if _, _, ok := r.bps(); ok {
-		t.Fatal("one sample gives a rate")
-	}
-	r.add(liveSample{at: 100, in: 9, out: 9}) // the same interim update again is not a sample
-	if _, _, ok := r.bps(); ok {
-		t.Fatal("a repeated update counted as a sample")
-	}
-	// 60 s later: 7.5 MB sent to the user = 1 Mbps down, 375 kB received = 50 kbps up
-	r.add(liveSample{at: 160, in: 375000, out: 7500000})
-	down, up, ok := r.bps()
-	if !ok || down != 1e6 || up != 5e4 {
-		t.Fatalf("rate %v %v %v, want 1e6 5e4 true", down, up, ok)
-	}
-	// counters that go backwards (a reset) give no rate
-	r.add(liveSample{at: 220})
-	if _, _, ok := r.bps(); ok {
-		t.Fatal("a counter reset gave a rate")
-	}
-}
-
-// The monitor forgets sessions that are no longer open.
-func TestLiveMonitorPrunesClosedSessions(t *testing.T) {
-	var m liveMonitor
-	m.refresh([]db.RadiusSession{{ID: 1, UpdatedAt: 100}, {ID: 2, UpdatedAt: 100}})
-	m.refresh([]db.RadiusSession{{ID: 2, UpdatedAt: 100}})
-	if len(m.rates) != 1 || m.rates[2] == nil {
-		t.Fatalf("rates kept %d sessions, want only 2", len(m.rates))
-	}
-}
 
 // Winbox thresholds: green below 50%, yellow from 50% to 75%, red above 75%. Segments are 20% each.
 func TestMeterThresholds(t *testing.T) {
@@ -53,11 +21,11 @@ func TestMeterThresholds(t *testing.T) {
 	}{
 		{0, 0, "ok"}, {49, 2, "ok"}, {50, 3, "warn"}, {75, 4, "warn"}, {76, 4, "err"}, {100, 5, "err"}, {130, 5, "err"},
 	} {
-		if m := meterOf(c.pct); m.Segs != c.segs || m.Tone != c.tone {
-			t.Errorf("meterOf(%v) = %+v, want %d %s", c.pct, m, c.segs, c.tone)
+		if m := core.MeterOf(c.pct); m.Segs != c.segs || m.Tone != c.tone {
+			t.Errorf("core.MeterOf(%v) = %+v, want %d %s", c.pct, m, c.segs, c.tone)
 		}
 	}
-	b := meterOf(49).bars()
+	b := core.MeterOf(49).Bars()
 	if len(b) != 5 || b[0] != "bg-meter-ok" || b[1] != "bg-meter-ok" || b[2] != "bg-line" {
 		t.Fatalf("bars for 49%%: %v", b)
 	}
@@ -65,25 +33,25 @@ func TestMeterThresholds(t *testing.T) {
 
 // The meter follows the larger of the two shares; the text shows both directions.
 func TestSpeedOfUsesLargerShare(t *testing.T) {
-	plan := planSpeed{Name: "Gold", MaxDown: 10e6, MaxUp: 1e6, DownLabel: "10 Mbps"}
-	text, m := speedOf(3.2e6, 0.9e6, true, plan)
+	plan := core.PlanSpeed{Name: "Gold", MaxDown: 10e6, MaxUp: 1e6, DownLabel: "10 Mbps"}
+	text, m := core.SpeedOf(3.2e6, 0.9e6, true, plan)
 	if text != "↓3,2 Mbps / 10 Mbps ↑900 kbps" {
 		t.Fatalf("text %q", text)
 	}
 	if m.Tone != "err" || m.Segs != 5 { // upload is at 90% of its limit
 		t.Fatalf("meter %+v, want red and full", m)
 	}
-	if text, m := speedOf(0, 0, false, plan); text != "—" || m.Segs != 0 {
+	if text, m := core.SpeedOf(0, 0, false, plan); text != "—" || m.Segs != 0 {
 		t.Fatalf("no samples: %q %+v", text, m)
 	}
-	if _, m := speedOf(5e6, 0, true, planSpeed{}); m.Segs != 0 {
+	if _, m := core.SpeedOf(5e6, 0, true, core.PlanSpeed{}); m.Segs != 0 {
 		t.Fatal("a plan without a limit has no meter")
 	}
 }
 
 // The first plan of a login (newest expiry) is the one shown, under both login names.
 func TestPlanSpeedsNewestFirst(t *testing.T) {
-	m := planSpeeds([]db.ListActivePlanRatesRow{
+	m := core.PlanSpeeds([]db.ListActivePlanRatesRow{
 		{Username: "u1", PlanName: "Gold", RateDown: 10, RateDownUnit: "Mbps"},
 		{Username: "u1", PlanName: "Old", RateDown: 2, RateDownUnit: "Mbps"},
 		{Username: "c2", PppoeUsername: "pp2", PlanName: "Silver", RateDown: 512, RateDownUnit: "Kbps"},
@@ -107,7 +75,7 @@ func TestRadiusSessionsJSON(t *testing.T) {
 	if rec := do(h, "GET", "/admin/radius/sessions.json", nil, nil); rec.Code == http.StatusOK || strings.Contains(rec.Body.String(), `"rows"`) {
 		t.Fatalf("feed without login: %d", rec.Code)
 	}
-	feed := func() (v liveView) {
+	feed := func() (v network.LiveView) {
 		t.Helper()
 		rec := do(h, "GET", "/admin/radius/sessions.json", nil, c)
 		if rec.Code != http.StatusOK {

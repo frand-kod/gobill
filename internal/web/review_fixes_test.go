@@ -8,6 +8,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+
 	"github.com/frand-kod/gobill/internal/db"
 )
 
@@ -17,7 +20,7 @@ func TestPortalVoucherThrottled(t *testing.T) {
 	p := e.plan(t, "Gold", "PPPoE", 10000)
 	e.q.CreateVoucher(t.Context(), db.CreateVoucherParams{Code: "GOODCODE1", PlanID: p.ID})
 	c, _ := custLogin(t, e, "u1", "pw12345")
-	for i := 0; i < maxFailedLogins; i++ {
+	for i := 0; i < core.MaxFailedLogins; i++ {
 		do(e.h, "POST", "/portal/voucher", url.Values{"code": {"BAD" + strconv.Itoa(i)}}, c)
 	}
 	if w := do(e.h, "POST", "/portal/voucher", url.Values{"code": {"GOODCODE1"}}, c); w.Code != http.StatusTooManyRequests {
@@ -61,18 +64,18 @@ func TestForgotOTPPhoneLimit(t *testing.T) {
 
 func TestOTPAllowLimits(t *testing.T) {
 	s := &Server{}
-	if !s.otpAllow("1.1.1.1", "081") || s.otpAllow("1.1.1.1", "081") {
+	if !s.OtpAllow("1.1.1.1", "081") || s.OtpAllow("1.1.1.1", "081") {
 		t.Fatal("per-phone cooldown")
 	}
 	for i := 0; i < 4; i++ { // ip has used 1; distinct phones
-		if !s.otpAllow("1.1.1.1", "09"+strconv.Itoa(i)) {
+		if !s.OtpAllow("1.1.1.1", "09"+strconv.Itoa(i)) {
 			t.Fatalf("send %d refused early", i)
 		}
 	}
-	if s.otpAllow("1.1.1.1", "0999") {
+	if s.OtpAllow("1.1.1.1", "0999") {
 		t.Fatal("per-IP limit not enforced")
 	}
-	if !s.otpAllow("2.2.2.2", "0999") {
+	if !s.OtpAllow("2.2.2.2", "0999") {
 		t.Fatal("other IP should pass")
 	}
 }
@@ -92,7 +95,7 @@ func TestRegisterOTPSendLimited(t *testing.T) {
 
 func TestCSVSafeTriggers(t *testing.T) {
 	rec := []string{"=1", "+1", "-1", "@a", "\tx", "\rx", "ok", ""}
-	csvSafe(rec)
+	httpx.CSVSafe(rec)
 	for i, w := range []string{"'=1", "'+1", "'-1", "'@a", "'\tx", "'\rx", "ok", ""} {
 		if rec[i] != w {
 			t.Fatalf("%d: %q", i, rec[i])

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/admin/reports"
 )
 
 // searchURLs returns every result URL of the palette for q, with the cookie's role.
@@ -19,7 +20,7 @@ func searchURLs(t *testing.T, h http.Handler, c *http.Cookie, q string) []string
 	w := do(h, "GET", "/admin/search.json?q="+url.QueryEscape(q), nil, c)
 	wantCode(t, w, 200, "search.json "+q)
 	var out struct {
-		Groups []searchGroup `json:"groups"`
+		Groups []reports.SearchGroup `json:"groups"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
 		t.Fatalf("json: %v: %s", err, w.Body)
@@ -145,8 +146,8 @@ func TestSearchWildcardsAreLiteralAndQueryTruncated(t *testing.T) {
 	if u := searchURLs(t, h, staff, "_"); !hasURL(u, "/admin/customers/1") {
 		t.Errorf("_ must match the literal underscore in pp_budi: %v", u)
 	}
-	if got := searchQuery(strings.Repeat("a", 100)); len([]rune(got)) != searchMaxQ {
-		t.Errorf("query not cut to %d: %d", searchMaxQ, len([]rune(got)))
+	if got := reports.SearchQuery(strings.Repeat("a", 100)); len([]rune(got)) != reports.SearchMaxQ {
+		t.Errorf("query not cut to %d: %d", reports.SearchMaxQ, len([]rune(got)))
 	}
 	// a long query still answers (cut to 64 characters, so the match is on the first 64 only)
 	if u := searchURLs(t, h, staff, "budi01"+strings.Repeat("z", 80)); len(u) != 0 {

@@ -4,9 +4,11 @@ package billing
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/settings"
 
 	"context"
 	"errors"
+	"github.com/frand-kod/gobill/internal/clock"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/device"
 	"github.com/frand-kod/gobill/internal/notify"
@@ -23,15 +25,30 @@ var (
 	ErrVoucherInvalid      = errors.New("voucher not valid or already used")
 )
 
+// Notifier is what billing needs from the notification side. notify.Notifier implements it.
+type Notifier interface {
+	Go(name string, fn func(context.Context) error)
+	Config() map[string]string
+	SendTimeout() time.Duration
+	Telegram(ctx context.Context, text string) error
+	WhatsApp(ctx context.Context, phone, text string) error
+	Reminder(ctx context.Context, c db.Customer, days int, pkg string, vars map[string]string) error
+	Expired(ctx context.Context, c db.Customer, pkg string, vars map[string]string) error
+	RechargeSuccess(ctx context.Context, c db.Customer, vars map[string]string) error
+	RechargeBalance(ctx context.Context, c db.Customer, vars map[string]string) error
+	Custom(ctx context.Context, c db.Customer, name, subject string, vars map[string]string) error
+	Webhook(ctx context.Context, event string, payload any) error
+}
+
 // Service ports phpnuxbill Package::rechargeUser and cron.php expiry.
 type Service struct {
 	DB  *sql.DB
 	Q   *db.Queries
 	Key []byte         // decrypts routers.password_enc and customers.secret_enc
 	Loc *time.Location // zone used for day/month/billing-day math
-	Now func() time.Time
+	Now clock.Func
 	// N sends notifications; nil means none. Swap at runtime with Reload.
-	N  *notify.Notifier
+	N  Notifier
 	mu sync.RWMutex
 	// DeviceFor builds the driver for a plan; nil means the default (by plans.device).
 	DeviceFor func(plan db.Plan, router db.Router) (device.Device, error)
@@ -41,7 +58,7 @@ type Service struct {
 }
 
 // Reload swaps the notifier and time zone (after settings change).
-func (s *Service) Reload(n *notify.Notifier, loc *time.Location) {
+func (s *Service) Reload(n Notifier, loc *time.Location) {
 	s.mu.Lock()
 	s.N, s.Loc = n, loc
 	s.mu.Unlock()
@@ -54,23 +71,17 @@ func (s *Service) Location() *time.Location {
 	if s.Loc != nil {
 		return s.Loc
 	}
-	if l, err := time.LoadLocation("Asia/Jakarta"); err == nil {
-		return l
-	}
-	return time.FixedZone("WIB", 7*3600)
+	return clock.Jakarta()
 }
 
-func (s *Service) notifier() *notify.Notifier {
+func (s *Service) notifier() Notifier {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.N
 }
 
 func (s *Service) now() time.Time {
-	t := time.Now()
-	if s.Now != nil {
-		t = s.Now()
-	}
+	t := s.Now.Now()
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if s.Loc != nil {
@@ -93,18 +104,7 @@ func (s *Service) tx(ctx context.Context, fn func(*db.Queries) error) error {
 
 func nullID(id int64) sql.NullInt64 { return sql.NullInt64{Int64: id, Valid: id > 0} }
 
-func setting(ctx context.Context, q *db.Queries, key string) string {
-	rows, err := q.ListSettings(ctx)
-	if err != nil {
-		return ""
-	}
-	for _, r := range rows {
-		if r.Key == key {
-			return r.Value
-		}
-	}
-	return ""
-}
+func setting(ctx context.Context, q *db.Queries, key string) string { return settings.Get(ctx, q, key) }
 
 // telegram sends an operator alert in the background; never blocks or fails billing.
 func (s *Service) telegram(text string) {
@@ -121,7 +121,7 @@ func (s *Service) Alert(ctx context.Context, text string) error {
 	if n == nil {
 		return nil
 	}
-	ch := n.Settings["alert_channel"]
+	ch := n.Config()["alert_channel"]
 	if ch == "" {
 		ch = "telegram"
 	}
@@ -129,7 +129,7 @@ func (s *Service) Alert(ctx context.Context, text string) error {
 	if ch == "telegram" || ch == "both" {
 		errs = append(errs, n.Telegram(ctx, text))
 	}
-	if to := alertWATo(n.Settings); (ch == "wa" || ch == "both") && to != "" && notify.WAConfigured(n.Settings) {
+	if to := alertWATo(n.Config()); (ch == "wa" || ch == "both") && to != "" && notify.WAConfigured(n.Config()) {
 		errs = append(errs, n.WhatsApp(ctx, to, text))
 	}
 	return errors.Join(errs...)

@@ -17,11 +17,11 @@ func TestSettleRefundOnPaidIsLoggedNotReversed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := e.s.settlePayment(t.Context(), pr, payment.Paid); err != nil {
+	if err := e.s.SettlePayment(t.Context(), pr, payment.Paid); err != nil {
 		t.Fatal(err)
 	}
 	pr, _ = e.q.GetPaymentRequestByRef(t.Context(), "R1")
-	if err := e.s.settlePayment(t.Context(), pr, payment.Refunded); err != nil {
+	if err := e.s.SettlePayment(t.Context(), pr, payment.Refunded); err != nil {
 		t.Fatal(err)
 	}
 	var n, trx int

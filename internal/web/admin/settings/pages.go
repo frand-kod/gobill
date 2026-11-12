@@ -1,0 +1,60 @@
+package settings
+
+// Editable static content pages (admin editor and public view).
+
+import (
+	"database/sql"
+	"net/http"
+
+	"errors"
+	"strings"
+
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/core"
+)
+
+// Old pages.php: four static pages (announcement, terms, privacy, registration) edited as plain text.
+
+// pageTabs is the menu shared by the page editor and the custom-field list.
+func pageTabs() []core.Option {
+	var tabs []core.Option
+	for _, p := range []struct{ slug, title string }{{"announcement", "Announcement"}, {"tos", "Terms and Conditions"},
+		{"privacy", "Privacy Policy"}, {"registration", "Registration Info"}} {
+		tabs = append(tabs, core.Option{Value: "/admin/pages/" + p.slug, Label: p.title})
+	}
+	return append(tabs, core.Option{Value: "/admin/fields", Label: "Custom Fields"})
+}
+
+func (s *Handlers) pageEdit(w http.ResponseWriter, r *http.Request) {
+	p, err := s.Queries.GetPage(r.Context(), r.PathValue("slug"))
+	if errors.Is(err, sql.ErrNoRows) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.Fail(w, "get page", err)
+		return
+	}
+	fp := formPage{Heading: p.Title, Action: "/admin/pages/" + p.Slug, Cancel: "/admin", Fields: []field{{
+		Name: "body", Label: "Content", Type: "textarea", Value: p.Body,
+		Hint: "Plain text. Line breaks are kept; HTML is shown as text.",
+	}}}
+	s.Render(w, r, http.StatusOK, "form", core.Page{Title: p.Title, Tabs: pageTabs(), Data: fp})
+}
+
+func (s *Handlers) pageSave(w http.ResponseWriter, r *http.Request) {
+	slug := r.PathValue("slug")
+	p, err := s.Queries.GetPage(r.Context(), slug)
+	if errors.Is(err, sql.ErrNoRows) {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.Fail(w, "get page", err)
+		return
+	}
+	body := strings.ReplaceAll(r.PostFormValue("body"), "\r\n", "\n")
+	if err := s.Queries.UpdatePageBody(r.Context(), db.UpdatePageBodyParams{Body: body, Slug: slug}); err != nil {
+		s.Fail(w, "save page", err)
+		return
+	}
+	s.Done(w, r, "/admin/pages/"+slug, "Data Updated Successfully", "page.update", p.Title)
+}

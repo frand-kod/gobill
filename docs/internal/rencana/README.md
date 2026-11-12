@@ -44,6 +44,7 @@ Detail dan alasan: [keputusan-stack.md](keputusan-stack.md).
 | [keputusan-stack.md](keputusan-stack.md) | ADR: perbandingan opsi dan keputusan stack |
 | [arsitektur-awal.md](arsitektur-awal.md) | Struktur aplikasi baru, interface, schema, aturan khusus STB |
 | [roadmap.md](roadmap.md) | Fase kerja dan kriteria selesai |
+| [modularisasi.md](modularisasi.md) | Rencana pemecahan modul, menuju server API dan pemisahan BE/FE |
 
 ## Keputusan terbuka
 

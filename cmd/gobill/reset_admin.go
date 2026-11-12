@@ -17,18 +17,19 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/frand-kod/gobill/internal/config"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/secret"
 )
 
 const resetUsage = "usage: gobill reset-admin-password <username> [--disable-2fa]"
 
-func runResetAdminPassword(args []string) error {
+func runResetAdminPassword(cfg config.Config, args []string) error {
 	user, disable, err := parseResetArgs(args)
 	if err != nil {
 		return err
 	}
-	dbPath := env("GOBILL_DB", "./gobill.db")
+	dbPath := cfg.DB
 	if _, err := os.Stat(dbPath); err != nil {
 		return fmt.Errorf("database %s: %w (set GOBILL_DB to the file the service uses)", dbPath, err)
 	}

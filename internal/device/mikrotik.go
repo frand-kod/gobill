@@ -41,6 +41,27 @@ func DialTCP(ctx context.Context, addr string) (net.Conn, error) {
 	return (&net.Dialer{}).DialContext(ctx, "tcp", addr)
 }
 
+// dialUDP, when set, carries RADIUS CoA and Disconnect requests (internal/wg dials routers inside the
+// tunnel through it). It is atomic: the tunnel sets and clears it while requests are in flight.
+var dialUDP atomic.Pointer[DialFunc]
+
+// SetDialUDP installs the tunnel UDP dialer; nil removes it.
+func SetDialUDP(f DialFunc) {
+	if f == nil {
+		dialUDP.Store(nil)
+		return
+	}
+	dialUDP.Store(&f)
+}
+
+// UDPDialer returns the tunnel UDP dialer, or nil when none is set.
+func UDPDialer() DialFunc {
+	if f := dialUDP.Load(); f != nil {
+		return *f
+	}
+	return nil
+}
+
 const dialTimeout = 3 * time.Second
 
 // Router is the connection info of one MikroTik. A driver is bound to one router,

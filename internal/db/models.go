@@ -72,6 +72,17 @@ type AgentLedger struct {
 	CreatedAt int64
 }
 
+type ApiToken struct {
+	ID         int64
+	AdminID    int64
+	Name       string
+	TokenHash  string
+	CreatedAt  int64
+	LastUsedAt sql.NullInt64
+	ExpiresAt  int64
+	RevokedAt  sql.NullInt64
+}
+
 type Bandwidth struct {
 	ID           int64
 	Name         string

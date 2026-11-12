@@ -28,7 +28,7 @@ func reload(t *testing.T, e *env) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	n.TelegramAPI = old.TelegramAPI
+	n.TelegramAPI = old.(*notify.Notifier).TelegramAPI
 	e.s.Reload(n, jkt)
 }
 

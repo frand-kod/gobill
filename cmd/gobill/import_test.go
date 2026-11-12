@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/frand-kod/gobill/internal/config"
 )
 
 // --force takes a pre-import snapshot of the target; a dry run does not.
@@ -19,13 +21,13 @@ func TestImportForceSnapshots(t *testing.T) {
 		m, _ := filepath.Glob(filepath.Join(dir, "backup", "*-pre-import.db"))
 		return m
 	}
-	if err := runImport(append(args, "--dry-run", "--force")); err != nil {
+	if err := runImport(config.Config{}, append(args, "--dry-run", "--force")); err != nil {
 		t.Fatal(err)
 	}
 	if n := len(snaps()); n != 0 {
 		t.Fatalf("dry run wrote %d snapshots", n)
 	}
-	if err := runImport(append(args, "--force")); err != nil {
+	if err := runImport(config.Config{}, append(args, "--force")); err != nil {
 		t.Fatal(err)
 	}
 	if n := len(snaps()); n != 1 {

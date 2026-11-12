@@ -1,0 +1,286 @@
+package billing
+
+// Agent consignment batches: SuperAdmin/Admin create batches and record payments and returns;
+// an Agent only reads its own batches (usage, unused codes, debt).
+
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"net/http"
+	"strconv"
+
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
+	"github.com/frand-kod/gobill/internal/billing"
+	"github.com/frand-kod/gobill/internal/db"
+)
+
+const batchBase = "/admin/agent-batches"
+
+// batchScope is the agent id whose batches the admin may see; 0 = every agent (managers).
+func batchScope(a *db.Admin) int64 {
+	if httpx.OneOf(a.Role, "SuperAdmin", "Admin") {
+		return 0
+	}
+	return a.ID
+}
+
+// batchFor loads the batch of the path. An Agent asking for another agent's batch gets the same 404
+// as for a batch that does not exist.
+func (s *Handlers) batchFor(w http.ResponseWriter, r *http.Request) (db.AgentBatch, bool) {
+	b, err := s.Queries.GetAgentBatch(r.Context(), httpx.PathID(r))
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && batchScope(adminx.AdminFrom(r)) != 0 && b.AgentID != adminx.AdminFrom(r).ID) {
+		http.NotFound(w, r)
+		return b, false
+	} else if err != nil {
+		s.Fail(w, "get agent batch", err)
+		return b, false
+	}
+	return b, true
+}
+
+func nonNeg(s string) (int64, bool) {
+	n, err := strconv.ParseInt(s, 10, 64)
+	return n, err == nil && n >= 0
+}
+
+func (s *Handlers) abList(w http.ResponseWriter, r *http.Request) {
+	_, pg := view.Paging(r)
+	scope := batchScope(adminx.AdminFrom(r))
+	rows, err := s.Queries.ListAgentBatches(r.Context(), db.ListAgentBatchesParams{AgentID: scope, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
+	if err != nil {
+		s.Fail(w, "list agent batches", err)
+		return
+	}
+	total, err := s.Queries.CountAgentBatches(r.Context(), scope)
+	if err != nil {
+		s.Fail(w, "count agent batches", err)
+		return
+	}
+	lp := listPage{Heading: "Agent batches", Base: batchBase, ViewLink: true, NoDelete: true, DeleteOnly: true,
+		CanCreate: scope == 0,
+		Note:      "Used is the least the agent has sold; the real sales are not known to the system.",
+		Cols:      []string{"Batch", "Agent", "Plan Name", "Paid", "Bonus", "Price", "Used", "Unused", "Returned", "Debt"}}
+	for _, b := range rows {
+		lp.Rows = append(lp.Rows, listRow{ID: b.ID, Cells: batchCells(b)})
+	}
+	lp.Finish(pg, total)
+	s.RenderList(w, r, lp)
+}
+
+func batchCells(b db.ListAgentBatchesRow) []string {
+	unused := b.PaidCount + b.BonusCount - b.Used - b.Returned
+	return []string{"#" + strconv.FormatInt(b.ID, 10), b.AgentName, b.PlanName, strconv.FormatInt(b.PaidCount, 10), strconv.FormatInt(b.BonusCount, 10),
+		view.Money(b.UnitPrice), strconv.FormatInt(b.Used, 10), strconv.FormatInt(unused, 10), strconv.FormatInt(b.Returned, 10), view.Money(b.Debt)}
+}
+
+func (s *Handlers) abView(w http.ResponseWriter, r *http.Request) {
+	b, ok := s.batchFor(w, r)
+	if !ok {
+		return
+	}
+	_, pg := view.Paging(r)
+	sum, err := s.Queries.ListAgentBatches(r.Context(), db.ListAgentBatchesParams{BatchID: b.ID, PageLimit: 1})
+	if err != nil || len(sum) != 1 {
+		s.Fail(w, "agent batch summary", errors.Join(err, errors.New("no summary row")))
+		return
+	}
+	codes, err := s.Queries.ListBatchVouchers(r.Context(), db.ListBatchVouchersParams{BatchID: b.ID, Limit: pg.Limit(), Offset: pg.Offset()})
+	if err != nil {
+		s.Fail(w, "list batch vouchers", err)
+		return
+	}
+	total, err := s.Queries.CountBatchVouchers(r.Context(), b.ID)
+	if err != nil {
+		s.Fail(w, "count batch vouchers", err)
+		return
+	}
+	c := batchCells(sum[0])
+	manage := batchScope(adminx.AdminFrom(r)) == 0
+	base := fmt.Sprint(batchBase, "/", b.ID)
+	lp := listPage{Heading: "Agent batch", Base: base, NoDelete: true, DeleteOnly: true,
+		Note: fmt.Sprintf("%s #%d: %s, %s %s, %s %s, %s %s, %s %s, %s %s", s.T("Batch"), b.ID, c[1],
+			s.T("Used"), c[6], s.T("Unused"), c[7],
+			s.T("Returned"), c[8], s.T("Price"), c[5], s.T("Debt"), c[9]),
+		Cols: []string{"Code Voucher", "Status", "Used"}}
+	if manage {
+		lp.Links = []option{{Value: base + "/payment", Label: "Record payment"}, {Value: batchBase, Label: "Agent batches"}}
+		lp.Bulk = []bulkAction{{Path: "return", Label: "Return selected", Danger: true, All: false, Page: false}}
+	} else {
+		lp.Links = []option{{Value: batchBase, Label: "Agent batches"}}
+	}
+	for _, v := range codes {
+		status, used := v.Status, ""
+		if v.Returned == 1 {
+			status = "Returned"
+		}
+		if v.UsedAt.Valid {
+			used = s.TS(v.UsedAt.Int64)
+		}
+		lp.Rows = append(lp.Rows, listRow{ID: v.ID, Cells: []string{v.Code, status, used}})
+	}
+	lp.Finish(pg, total)
+	s.RenderList(w, r, lp)
+}
+
+func (s *Handlers) abFields(r *http.Request, v, e map[string]string) ([]field, error) {
+	plans, _, err := s.PlanOptions(r, true)
+	if err != nil {
+		return nil, err
+	}
+	agents, err := s.Queries.ListAgents(r.Context())
+	if err != nil {
+		return nil, err
+	}
+	agent := text("agent", "Agent", v, e).As("select")
+	for _, a := range agents {
+		if a.Status == "Active" {
+			agent.Options = append(agent.Options, option{Value: fmt.Sprint(a.ID), Label: a.Username})
+		}
+	}
+	plan := text("plan", "Service Plan", v, e).As("select")
+	plan.Options = plans
+	return []field{agent, plan,
+		text("paid", "Paid vouchers", v, e).As("number").Req(),
+		text("bonus", "Bonus vouchers", v, e).As("number").WithHint("Given up front with the paid ones, e.g. 10 paid + 4 bonus"),
+		text("price", "Price per paid voucher", v, e).As("number").Req().WithHint("Rupiah; the debt is paid x price"),
+		text("note", "Note", v, e)}, nil
+}
+
+func (s *Handlers) abForm(w http.ResponseWriter, r *http.Request, status int, v, e map[string]string) {
+	fs, err := s.abFields(r, v, e)
+	if err != nil {
+		s.Fail(w, "agent batch form", err)
+		return
+	}
+	s.RenderForm(w, r, status, formPage{Heading: "Add Agent batch", Action: batchBase, Cancel: batchBase, Fields: fs})
+}
+
+func (s *Handlers) abNew(w http.ResponseWriter, r *http.Request) {
+	s.abForm(w, r, 200, map[string]string{"paid": "10", "bonus": "0"}, nil)
+}
+
+func (s *Handlers) abCreate(w http.ResponseWriter, r *http.Request) {
+	v := httpx.FormVals(r, "agent", "plan", "paid", "bonus", "price", "note")
+	e := map[string]string{}
+	agentID, ok := httpx.PosInt(v["agent"])
+	if ag, err := s.Queries.GetAdmin(r.Context(), agentID); !ok || err != nil || ag.Role != "Agent" || ag.Status != "Active" {
+		e["agent"] = "Agent not found"
+	}
+	planID, ok := httpx.PosInt(v["plan"])
+	if _, err := s.Queries.GetPlan(r.Context(), planID); !ok || err != nil {
+		e["plan"] = "This field is required"
+	}
+	if iso, _ := s.IsolirIDs(r.Context()); ok && planID == iso {
+		e["plan"] = billing.ErrIsolirPlan.Error()
+	}
+	paid, ok1 := nonNeg(v["paid"])
+	bonus, ok2 := nonNeg(v["bonus"])
+	if v["bonus"] == "" {
+		bonus, ok2 = 0, true
+	}
+	if !ok1 || !ok2 || paid+bonus < 1 || paid+bonus > maxVouchers {
+		e["paid"] = fmt.Sprintf(s.T("Enter a number between 1 and %d"), maxVouchers)
+	}
+	price, ok := nonNeg(v["price"])
+	if !ok || price > 100_000_000 {
+		e["price"] = "Invalid value"
+	}
+	if len(v["note"]) > 200 {
+		e["note"] = "Invalid value"
+	}
+	if len(e) > 0 {
+		s.abForm(w, r, http.StatusUnprocessableEntity, v, e)
+		return
+	}
+	id, err := s.Billing.CreateAgentBatch(r.Context(), billing.BatchParams{AgentID: agentID, PlanID: planID, AdminID: adminx.AdminFrom(r).ID,
+		Paid: paid, Bonus: bonus, Price: price, Note: v["note"],
+		NewCode: func() (string, error) { return randomCode(UpperChars, MinVoucherLen) }})
+	if errors.Is(err, billing.ErrBatchInvalid) {
+		e["agent"] = "Invalid value"
+		s.abForm(w, r, http.StatusUnprocessableEntity, v, e)
+		return
+	} else if err != nil {
+		s.Fail(w, "create agent batch", err)
+		return
+	}
+	s.Done(w, r, fmt.Sprint(batchBase, "/", id), "Agent batch created", "agent_batch.create",
+		fmt.Sprintf("batch %d: agent %d, %d+%d x %d", id, agentID, paid, bonus, price))
+}
+
+func (s *Handlers) abPayForm(w http.ResponseWriter, r *http.Request, status int, b db.AgentBatch, v, e map[string]string) {
+	debt, err := s.Queries.AgentBatchDebt(r.Context(), b.ID)
+	if err != nil {
+		s.Fail(w, "agent batch debt", err)
+		return
+	}
+	amount := text("amount", "Amount", v, e).As("number").Req().WithHint(fmt.Sprintf("%s %s", s.T("Debt"), view.Money(debt)))
+	back := fmt.Sprint(batchBase, "/", b.ID)
+	s.RenderForm(w, r, status, formPage{Heading: "Record payment", Action: back + "/payment", Cancel: back,
+		Fields: []field{amount, text("note", "Note", v, e)}})
+}
+
+func (s *Handlers) abPayment(w http.ResponseWriter, r *http.Request) {
+	if b, ok := s.batchFor(w, r); ok {
+		s.abPayForm(w, r, 200, b, map[string]string{}, nil)
+	}
+}
+
+func (s *Handlers) abPay(w http.ResponseWriter, r *http.Request) {
+	b, ok := s.batchFor(w, r)
+	if !ok {
+		return
+	}
+	v := httpx.FormVals(r, "amount", "note")
+	e := map[string]string{}
+	amount, ok := httpx.PosInt(v["amount"])
+	if !ok || amount > 100_000_000_000 {
+		e["amount"] = "Invalid value"
+	}
+	if len(v["note"]) > 200 {
+		e["note"] = "Invalid value"
+	}
+	if len(e) == 0 {
+		switch err := s.Billing.RecordAgentPayment(r.Context(), b.ID, amount, v["note"], adminx.AdminFrom(r).ID); {
+		case errors.Is(err, billing.ErrOverpay):
+			e["amount"] = "Payment is more than the debt"
+		case err != nil:
+			s.Fail(w, "record agent payment", err)
+			return
+		default:
+			s.Done(w, r, fmt.Sprint(batchBase, "/", b.ID), "Payment recorded", "agent_batch.payment", fmt.Sprintf("batch %d: %d", b.ID, amount))
+			return
+		}
+	}
+	s.abPayForm(w, r, http.StatusUnprocessableEntity, b, v, e)
+}
+
+func (s *Handlers) abReturn(w http.ResponseWriter, r *http.Request) {
+	b, ok := s.batchFor(w, r)
+	if !ok {
+		return
+	}
+	back := fmt.Sprint(batchBase, "/", b.ID)
+	ids, ok := httpx.ParseIDs(r)
+	if !ok {
+		s.Sessions.Put(r.Context(), "error", s.T("Select at least one row"))
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	switch err := s.Billing.ReturnAgentVouchers(r.Context(), b.ID, ids, adminx.AdminFrom(r).ID); {
+	case errors.Is(err, billing.ErrReturnLimit):
+		s.Sessions.Put(r.Context(), "error", s.T("Returns are more than the paid vouchers of the batch"))
+	case errors.Is(err, billing.ErrNotReturnable):
+		s.Sessions.Put(r.Context(), "error", s.T("Only unused codes of this batch can be returned"))
+	case err != nil:
+		s.Fail(w, "return agent vouchers", err)
+		return
+	default:
+		s.Done(w, r, back, "Vouchers returned", "agent_batch.return", fmt.Sprintf("batch %d: %d codes", b.ID, len(ids)))
+		return
+	}
+	http.Redirect(w, r, back, http.StatusSeeOther)
+}

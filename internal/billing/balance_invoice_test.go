@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/frand-kod/gobill/internal/money"
 	"github.com/frand-kod/gobill/internal/notify"
 )
 
@@ -32,7 +33,7 @@ func TestBalanceTopUpSendsBalanceInvoice(t *testing.T) {
 	}
 	select {
 	case msg := <-sent:
-		want := "Saldo " + notify.Money(before) + " -> " + notify.Money(before+7000)
+		want := "Saldo " + money.Message(before) + " -> " + money.Message(before+7000)
 		if !strings.Contains(msg, want) || !strings.Contains(msg, "INV-") || !strings.Contains(msg, "Balance") {
 			t.Fatalf("top-up message: %q, want %q", msg, want)
 		}

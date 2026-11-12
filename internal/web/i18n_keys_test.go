@@ -23,7 +23,7 @@ var uiKeyPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`\be\["\w+"\]\s*=\s*"((?:[^"\\]|\\.)*)"`),
 	regexp.MustCompile(`(?:^|[^.\w])show\("((?:[^"\\]|\\.)*)"\)`),
 	regexp.MustCompile(`\b(?:profilePage|plansPage|forgotRender|msgBulkPage|msgSendPage)\(w, r, [^,]+, (?:v, nil, |"[^"]*", )?"((?:[^"\\]|\\.)*)"\)`),
-	regexp.MustCompile(`\.hint\("((?:[^"\\]|\\.)*)"`),
+	regexp.MustCompile(`\.WithHint\("((?:[^"\\]|\\.)*)"`),
 	regexp.MustCompile(`\bs\.(?:done|flashTo)\(w, r, [^,]+, "((?:[^"\\]|\\.)*)"`),
 	// field constructors take the label second: text("name", "Label", v, e)
 	regexp.MustCompile(`\b(?:text|sel|area|upl|chk|notif)\("[^"]*", "((?:[^"\\]|\\.)*)"`),
@@ -31,12 +31,19 @@ var uiKeyPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`\}, "((?:[^"\\]|\\.)*)", ""\)`),
 }
 
+// optionLabelRe matches the keyed Option literals ({Value: x, Label: "y"}): option labels are data, not UI keys.
+var optionLabelRe = regexp.MustCompile(`Value:\s*[^,]+,\s*Label:\s*"(?:[^"\\]|\\.)*"`)
+
 // indonesianWords are function words and UI nouns that never appear in English UI text.
 var indonesianWords = regexp.MustCompile(`(?i)\b(dan|yang|untuk|tidak|dengan|dari|sudah|belum|gagal|berhasil|silakan|silahkan|simpan|hapus|tambah|pelanggan|paket|di|ke|bisa|mohon|kembali|pengaturan|kadaluarsa|kedaluwarsa|terlalu|tersedia|aktif|nonaktif|bawaan|kosong|atau|saat|jika|agar|akan|ada|lihat|ubah|bila|oleh|pada|hanya|semua|tampilkan|pilih|gunakan|dipakai|kirim|terakhir|baru|hari|sesi|akun|kode|isi|ulang|huruf|angka|garis|bawah|contoh|maks|wajib|diisi|tulis|sembunyikan|saldo|tagihan|langganan|pesan|nomor|alamat|sandi|dihapus|disimpan|diubah|dibuat|dikirim|diaktifkan|mulai|kecepatan|tanggal|jumlah|harga|keterangan|catatan|laporan|pembayaran|unggah|gambar|tanpa|sendiri|lalu|sebelum|setelah|bagian|halaman|bulan|tahun|menit|bukan|diperbarui|ditemukan|menghubungi|hubungi)\b`)
 
 // uiKeyAllow lists keys that look Indonesian but are technical or brand names.
 var uiKeyAllow = map[string]bool{
 	"github.com/aldinokemal/go-whatsapp-web-multidevice": true, // GOWA project link
+	// select option labels shown as written. The scan only saw them while the literals were unkeyed.
+	"All Routers": true, "CHAP": true, "Ethernet": true, "failed": true, "lowercase": true, "MikroTik": true, "New Bulk Message": true,
+	"Numbers": true, "paid": true, "PAP": true, "pending": true, "Production": true, "RADIUS (gobill)": true, "Random case": true,
+	"Sandbox": true, "UPPERCASE": true, "VPN": true,
 }
 
 // uiKeysInSources returns the UI keys of the templates and the internal/web Go sources.
@@ -64,8 +71,9 @@ func uiKeysInSources(t *testing.T) map[string]string {
 			return err
 		}
 		b, _ := fs.ReadFile(os.DirFS("."), p)
+		src := optionLabelRe.ReplaceAllString(string(b), "")
 		for _, re := range uiKeyPatterns {
-			for _, m := range re.FindAllStringSubmatch(string(b), -1) {
+			for _, m := range re.FindAllStringSubmatch(src, -1) {
 				if k, err := strconv.Unquote(`"` + m[1] + `"`); err == nil {
 					keys[k] = p
 				}
@@ -119,7 +127,7 @@ func TestUIKeysAreEnglish(t *testing.T) {
 // values such as the default isolir message) and scripts are left out; only the visible text is checked.
 func TestEnglishAdminPagesHaveNoIndonesian(t *testing.T) {
 	s, _ := newTestApp(t)
-	s.lang.Store("english")
+	s.Lang.Store("english")
 	h := s.Handler()
 	cookie := login(t, h, "alice")
 	visible := regexp.MustCompile(`(?s)<textarea.*?</textarea>|<script.*?</script>|<style.*?</style>|<[^>]*>`)

@@ -10,6 +10,17 @@ import (
 	"database/sql"
 )
 
+const countActiveSubscriptionsOfPlan = `-- name: CountActiveSubscriptionsOfPlan :one
+SELECT count(*) FROM subscriptions WHERE plan_id = ? AND status = 'active'
+`
+
+func (q *Queries) CountActiveSubscriptionsOfPlan(ctx context.Context, planID int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countActiveSubscriptionsOfPlan, planID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createPlan = `-- name: CreatePlan :one
 INSERT INTO plans (name, type, billing, price, validity, validity_unit, time_limit, time_unit,
                    data_limit, data_unit, shared_users, bandwidth_id, router_id, pool_id, enabled,

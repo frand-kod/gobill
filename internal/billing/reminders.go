@@ -41,7 +41,7 @@ func (s *Service) ReminderJob(trusted func() bool) func(context.Context) error {
 // reminderEvery is how often the reminder job looks for unsent reminders.
 const reminderEvery = 15 * time.Minute
 
-func (s *Service) sendReminders(ctx context.Context, n *notify.Notifier, now time.Time) error {
+func (s *Service) sendReminders(ctx context.Context, n Notifier, now time.Time) error {
 	y, m, d := now.Date()
 	day0 := time.Date(y, m, d, 0, 0, 0, 0, now.Location())
 	subs, err := s.Q.ListActiveExpiringBetween(ctx, db.ListActiveExpiringBetweenParams{
@@ -100,14 +100,14 @@ func (s *Service) sendReminders(ctx context.Context, n *notify.Notifier, now tim
 		})
 	}
 	// one goroutine, paced by message_delay like bulk messages
-	delay := notify.MessageDelay(n.Settings)
+	delay := notify.MessageDelay(n.Config())
 	go func() {
 		sent := false
 		for _, send := range sends {
 			if sent {
 				time.Sleep(delay) // only between real sends: claimed ones cost nothing
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), n.Timeout)
+			ctx, cancel := context.WithTimeout(context.Background(), n.SendTimeout())
 			var err error
 			sent, err = send(ctx)
 			if err != nil {

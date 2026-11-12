@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 )
 
 // The customer picker reads /admin/search with an empty or non-empty q and a limit (capped at 20).
@@ -64,7 +66,7 @@ func TestCustomerPickerSearch(t *testing.T) {
 	}
 
 	// the picker payload carries the balance formatted
-	if r := get("/admin/customers/pick?q=act01&limit=1"); len(r) != 1 || r[0].Balance != money(0) {
+	if r := get("/admin/customers/pick?q=act01&limit=1"); len(r) != 1 || r[0].Balance != view.Money(0) {
 		t.Errorf("picker row: %+v", r)
 	}
 

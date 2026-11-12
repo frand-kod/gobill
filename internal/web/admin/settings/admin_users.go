@@ -1,0 +1,356 @@
+package settings
+
+// Admin account management and own-password change.
+
+import (
+	"database/sql"
+	"errors"
+	"log/slog"
+	"net/http"
+
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
+	"fmt"
+	"strconv"
+
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/secret"
+	"github.com/frand-kod/gobill/internal/service/admin"
+	"golang.org/x/crypto/bcrypt"
+)
+
+// Role rules follow the old settings.php users-* cases, but stricter: the old code let an
+// Admin hand out SuperAdmin and an Agent pick any role; here a role must be in assignable.
+
+// assignable lists the roles the actor may give to other admins.
+func assignable(a *db.Admin) []string {
+	switch a.Role {
+	case "SuperAdmin":
+		return []string{"SuperAdmin", "Admin", "Report", "Agent", "Sales"}
+	case "Admin":
+		return []string{"Report", "Agent", "Sales"}
+	case "Agent":
+		return []string{"Sales"}
+	}
+	return nil
+}
+
+// canManage: SuperAdmin manages all; Admin the lower roles; Agent only its own Sales. Everyone manages self.
+func canManage(a *db.Admin, t db.Admin) bool {
+	if a.ID == t.ID {
+		return true
+	}
+	switch a.Role {
+	case "SuperAdmin":
+		return true
+	case "Admin":
+		return t.Role != "SuperAdmin" && t.Role != "Admin"
+	case "Agent":
+		return t.Role == "Sales" && t.RootID.Valid && t.RootID.Int64 == a.ID
+	}
+	return false
+}
+
+// adminScope is the SearchAdmins scope: what the actor may see.
+func adminScope(a *db.Admin) string {
+	switch a.Role {
+	case "SuperAdmin":
+		return "all"
+	case "Admin":
+		return "admin"
+	}
+	return "agent"
+}
+
+func roleOptions(roles []string) []option {
+	var o []option
+	for _, r := range roles {
+		o = append(o, option{Value: r, Label: r})
+	}
+	return o
+}
+
+// adminFields builds the form; a nil target is "create". Self cannot change role, status or password here.
+func (s *Handlers) adminFields(r *http.Request, target *db.Admin, v, e map[string]string) []field {
+	actor := core.AdminFrom(r)
+	self := target != nil && target.ID == actor.ID
+	out := section([]field{
+		text("username", "Username", v, e).Req(),
+		text("fullname", "Full Name", v, e).Req(),
+		text("email", "Email", v, e).As("email"),
+		text("phone", "Phone Number", v, e),
+		text("city", "City", v, e),
+	}, "Admin", "")
+	var acc []field
+	if !self {
+		pw := text("password", "Password", v, e).As("password")
+		pw.Value = "" // never rendered back
+		pw.Hint = "10 to 72 characters"
+		cp := text("cpassword", "Confirm Password", v, e).As("password")
+		cp.Value = ""
+		if target == nil {
+			pw.Required = true
+		} else {
+			pw.Hint = "Leave empty to keep the current password"
+		}
+		acc = append(acc, pw, cp)
+		if actor.Role != "Agent" {
+			acc = append(acc, field{Name: "role", Label: "User Type", Type: "select", Value: v["role"], Error: e["role"],
+				Options: roleOptions(assignable(actor)), Bind: true})
+			agents, _ := s.Queries.ListAgents(r.Context())
+			ro := []option{{Value: "", Label: "-"}}
+			for _, a := range agents {
+				ro = append(ro, option{Value: strconv.FormatInt(a.ID, 10), Label: a.Username})
+			}
+			acc = append(acc, field{Name: "root", Label: "Agent", Type: "select", Value: v["root"], Error: e["root"],
+				Options: ro, Show: "role=='Sales'"})
+		}
+		if target != nil {
+			acc = append(acc, field{Name: "status", Label: "Status", Type: "select", Value: v["status"],
+				Options: []option{{Value: "Active", Label: "Active"}, {Value: "Inactive", Label: "Inactive"}}})
+			if actor.Role == "SuperAdmin" && !self {
+				acc = append(acc, field{Name: "resetpw", Label: "Password", Type: "formbtn", Hint: "Sets a new random password, shown once. The admin is signed out everywhere.",
+					Value: "/admin/users/" + strconv.FormatInt(target.ID, 10) + "/password/reset", Btn: "Reset password",
+					Confirm: "Reset this admin's password? They will be signed out everywhere."})
+			}
+			if actor.Role == "SuperAdmin" && !self && target.TotpEnabled == 1 {
+				acc = append(acc, field{Name: "reset2fa", Label: "Two-factor login", Type: "formbtn", Hint: "Use when the admin lost the authenticator and recovery codes.",
+					Value: "/admin/users/" + strconv.FormatInt(target.ID, 10) + "/2fa/reset", Btn: "Reset 2FA",
+					Confirm: "Reset this admin's two-factor login? They can sign in with the password alone until they set it up again."})
+			}
+		}
+	}
+	return append(out, section(acc, "Account", "")...)
+}
+
+func (s *Handlers) adminList(w http.ResponseWriter, r *http.Request) {
+	actor := core.AdminFrom(r)
+	q, pg := view.Paging(r)
+	rows, err := s.Queries.SearchAdmins(r.Context(), db.SearchAdminsParams{
+		Q: sql.NullString{String: q, Valid: true}, Scope: adminScope(actor), Actor: actor.ID, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
+	if err != nil {
+		s.Fail(w, "list admins", err)
+		return
+	}
+	lp := listPage{Heading: "Admin Users", Base: "/admin/users", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
+		NoDelete: actor.Role == "Agent", Cols: []string{"Username", "Full Name", "User Type", "Status", "Last Login"}}
+	for _, a := range rows {
+		last := "-"
+		if a.LastLoginAt.Valid {
+			last = s.TS(a.LastLoginAt.Int64)
+		}
+		lp.Rows = append(lp.Rows, listRow{ID: a.ID, Cells: []string{a.Username, a.Fullname, a.Role, a.Status, last}})
+	}
+	total, err := s.Queries.CountFilteredAdmins(r.Context(), db.CountFilteredAdminsParams{Q: sql.NullString{String: q, Valid: true}, Scope: adminScope(actor), Actor: actor.ID})
+	if err != nil {
+		s.Fail(w, "count admins", err)
+		return
+	}
+	lp.Finish(pg, total)
+	s.RenderList(w, r, lp)
+}
+
+func (s *Handlers) adminNew(w http.ResponseWriter, r *http.Request) {
+	v := map[string]string{"role": assignable(core.AdminFrom(r))[0]}
+	s.RenderForm(w, r, 200, formPage{Heading: "Add User", Action: "/admin/users", Cancel: "/admin/users", Fields: s.adminFields(r, nil, v, nil)})
+}
+
+// loadManaged loads the target of {id}; 404 unless the actor may manage it.
+func (s *Handlers) loadManaged(w http.ResponseWriter, r *http.Request) (db.Admin, bool) {
+	t, err := s.Queries.GetAdmin(r.Context(), httpx.PathID(r))
+	if err == sql.ErrNoRows || (err == nil && !canManage(core.AdminFrom(r), t)) {
+		http.NotFound(w, r)
+		return t, false
+	} else if err != nil {
+		s.Fail(w, "get admin", err)
+		return t, false
+	}
+	return t, true
+}
+
+func (s *Handlers) adminEdit(w http.ResponseWriter, r *http.Request) {
+	t, ok := s.loadManaged(w, r)
+	if !ok {
+		return
+	}
+	v := map[string]string{"username": t.Username, "fullname": t.Fullname, "email": t.Email, "phone": t.Phone,
+		"city": t.City, "role": t.Role, "status": t.Status}
+	if t.RootID.Valid {
+		v["root"] = strconv.FormatInt(t.RootID.Int64, 10)
+	}
+	s.RenderForm(w, r, 200, formPage{Heading: "Edit User", Action: fmt.Sprint("/admin/users/", t.ID), Cancel: "/admin/users", Fields: s.adminFields(r, &t, v, nil)})
+}
+
+func (s *Handlers) adminSave(w http.ResponseWriter, r *http.Request) {
+	actor := core.AdminFrom(r)
+	id := httpx.PathID(r)
+	var t *db.Admin
+	if id != 0 {
+		cur, ok := s.loadManaged(w, r)
+		if !ok {
+			return
+		}
+		t = &cur
+	}
+	v := httpx.FormVals(r, "username", "fullname", "email", "phone", "city", "role", "status", "root")
+	res, err := s.Admins().Save(r.Context(), admin.SaveInput{ActorID: actor.ID, ActorRole: actor.Role, Assignable: assignable(actor),
+		Target: t, V: v, Pass: r.PostFormValue("password"), CPass: r.PostFormValue("cpassword")})
+	if errors.Is(err, admin.ErrForbidden) {
+		s.Deny(w, r, http.StatusForbidden)
+		return
+	} else if err != nil {
+		s.Fail(w, "save admin", err)
+		return
+	}
+	v["role"], v["status"] = res.Role, res.Status
+	if len(res.Errs) > 0 {
+		heading, action := "Add User", "/admin/users"
+		if t != nil {
+			heading, action = "Edit User", fmt.Sprint("/admin/users/", t.ID)
+		}
+		s.RenderForm(w, r, 422, formPage{Heading: heading, Action: action, Cancel: "/admin/users", Fields: s.adminFields(r, t, v, res.Errs)})
+		return
+	}
+	if t == nil {
+		s.Done(w, r, "/admin/users", "Account Created Successfully", "users.create", res.Desc)
+		return
+	}
+	s.Done(w, r, "/admin/users", "User Updated Successfully", "users.update", res.Desc)
+}
+
+func (s *Handlers) adminDelete(w http.ResponseWriter, r *http.Request) {
+	actor := core.AdminFrom(r)
+	t, ok := s.loadManaged(w, r)
+	if !ok {
+		return
+	}
+	if t.ID == actor.ID {
+		s.Sessions.Put(r.Context(), "error", s.T("Sorry You can't delete yourself"))
+		http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
+		return
+	}
+	n, err := s.Queries.DeleteAdmin(r.Context(), t.ID)
+	if err != nil {
+		s.Fail(w, "delete admin", err)
+		return
+	}
+	if n == 0 {
+		s.Sessions.Put(r.Context(), "error", s.T("The last active SuperAdmin cannot be deleted"))
+		http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
+		return
+	}
+	s.Done(w, r, "/admin/users", "User deleted Successfully", "users.delete", t.Username+" ("+t.Role+")")
+}
+
+// ---- change own password ----
+
+func pwFields(e map[string]string, forced bool) []field {
+	cur := text("current", "Current Password", nil, e).As("password").Req()
+	cur.Cur = true
+	var top []field
+	if forced { // imported sha1 hash: auth.go sends every page here until the password is changed
+		top = []field{{Name: "legacy", Type: "alert", Label: "Your password is from the old system and is stored in a weak format. Choose a new one to continue. You cannot open other pages until you do."}}
+	}
+	return append(section(append(top, cur,
+		text("password", "New Password", nil, e).As("password").Req().WithHint("10 to 72 characters"),
+		text("cpassword", "Confirm New Password", nil, e).As("password").Req()), "", ""), section([]field{
+		{Name: "2fa", Label: "Two-factor login", Type: "link", Value: "/admin/2fa", Btn: "Manage 2FA"},
+	}, "Two-factor login", "")...)
+}
+
+// pwPage is the change-password form; while the password is the imported sha1 one, Cancel (which loops back here) is Logout.
+func (s *Handlers) pwPage(a *db.Admin, e map[string]string) formPage {
+	forced := a.LegacySha1 != ""
+	cancel := "/admin"
+	if forced {
+		cancel = "/logout"
+	}
+	return formPage{Heading: "Change Password", Action: "/admin/password", Cancel: cancel, Fields: pwFields(e, forced)}
+}
+
+func (s *Handlers) passwordForm(w http.ResponseWriter, r *http.Request) {
+	s.RenderForm(w, r, 200, s.pwPage(core.AdminFrom(r), nil))
+}
+
+func (s *Handlers) passwordSave(w http.ResponseWriter, r *http.Request) {
+	actor := core.AdminFrom(r)
+	cur, pass, cpass := r.PostFormValue("current"), r.PostFormValue("password"), r.PostFormValue("cpassword")
+	e := map[string]string{}
+	again := func(status int) {
+		s.RenderForm(w, r, status, s.pwPage(actor, e))
+	}
+	// The current password is a guess target for a hijacked session: share the login throttle.
+	ip := core.ClientIP(r)
+	if s.TooManyFailures(ip) {
+		e["current"] = "Too many failed attempts. Try again in 15 minutes."
+		again(http.StatusTooManyRequests)
+		return
+	}
+	if bcrypt.CompareHashAndPassword([]byte(actor.PasswordHash), []byte(cur)) != nil {
+		s.RecordFailure(ip)
+		e["current"] = "Incorrect Current Password"
+		again(422)
+		return
+	}
+	if n := len(pass); n < 10 || n > 72 {
+		e["password"] = "Password should be 10 to 72 characters"
+	} else if pass != cpass {
+		e["cpassword"] = "Passwords does not match"
+	}
+	if len(e) > 0 {
+		again(422)
+		return
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(pass), core.BcryptCost)
+	if err != nil {
+		s.Fail(w, "hash password", err)
+		return
+	}
+	sv, err := s.Queries.SetAdminPassword(r.Context(), db.SetAdminPasswordParams{PasswordHash: string(hash), ID: actor.ID})
+	if err != nil {
+		s.Fail(w, "set password", err)
+		return
+	}
+	// Other sessions of this admin die with the bumped version; this one gets a new token.
+	if err := s.Sessions.RenewToken(r.Context()); err != nil {
+		slog.Error("renew session", "err", err)
+		s.ErrorPage(w, "-")
+		return
+	}
+	s.Sessions.Put(r.Context(), "sv", sv)
+	s.Done(w, r, "/admin", "Password changed successfully", "users.password", actor.Username)
+}
+
+// ---- SuperAdmin resets another admin's password ----
+
+// adminPasswordReset sets a random password for another admin and shows it once. The admin's other
+// sessions end with the bumped session_version, so they must log in again. The activity log names the
+// admin, never the password.
+func (s *Handlers) adminPasswordReset(w http.ResponseWriter, r *http.Request) {
+	t, ok := s.loadManaged(w, r)
+	if !ok {
+		return
+	}
+	back := "/admin/users/" + strconv.FormatInt(t.ID, 10) + "/edit"
+	if t.ID == core.AdminFrom(r).ID {
+		s.FlashTo(w, r, back, "Change your own password under Password")
+		return
+	}
+	pw := secret.RandomPassword(16)
+	hash, err := bcrypt.GenerateFromPassword([]byte(pw), core.BcryptCost)
+	if err != nil {
+		s.Fail(w, "hash password", err)
+		return
+	}
+	if _, err := s.Queries.SetAdminPassword(r.Context(), db.SetAdminPasswordParams{PasswordHash: string(hash), ID: t.ID}); err != nil {
+		s.Fail(w, "reset admin password", err)
+		return
+	}
+	s.LogActivity(r, "users.password.reset", t.Username)
+	s.Render(w, r, 200, "admin_password", core.Page{Title: "Reset password", Data: adminPasswordPage{Username: t.Username, Password: pw, Back: back}})
+}
+
+// adminPasswordPage shows the new password once.
+type adminPasswordPage struct{ Username, Password, Back string }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"net/url"
 	"strings"
 	"testing"
@@ -11,6 +12,7 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/device"
 	"github.com/frand-kod/gobill/internal/i18n"
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	gobill "github.com/frand-kod/gobill"
 )
@@ -86,8 +88,8 @@ func TestWALink(t *testing.T) {
 		{"0812", "62", ""},
 		{"", "62", ""},
 	} {
-		if got := waLink(c.phone, c.cc); got != c.want {
-			t.Errorf("waLink(%q) = %q, want %q", c.phone, got, c.want)
+		if got := view.WaLink(c.phone, c.cc); got != c.want {
+			t.Errorf("view.WaLink(%q) = %q, want %q", c.phone, got, c.want)
 		}
 	}
 }
@@ -95,17 +97,17 @@ func TestWALink(t *testing.T) {
 // (10) Raw errors become plain advice.
 func TestFriendlyErrors(t *testing.T) {
 	for _, c := range []struct{ err, want string }{
-		{"dial tcp 1.2.3.4:8728: i/o timeout", msgRouterTimeout},
-		{"dial tcp 1.2.3.4:8728: connect: connection refused", msgRouterRefused},
-		{"lookup nope.local: no such host", msgRouterHost},
-		{"from RouterOS device: invalid user name or password (6)", msgRouterLogin},
-		{"something odd", msgRouterOther},
+		{"dial tcp 1.2.3.4:8728: i/o timeout", adminx.MsgRouterTimeout},
+		{"dial tcp 1.2.3.4:8728: connect: connection refused", adminx.MsgRouterRefused},
+		{"lookup nope.local: no such host", adminx.MsgRouterHost},
+		{"from RouterOS device: invalid user name or password (6)", adminx.MsgRouterLogin},
+		{"something odd", adminx.MsgRouterOther},
 	} {
-		if got := routerErr(errors.New(c.err), msgRouterOther); got != c.want {
+		if got := adminx.RouterErr(errors.New(c.err), adminx.MsgRouterOther); got != c.want {
 			t.Errorf("%q -> %q", c.err, got)
 		}
 	}
-	if planErrMsg(false, 0) != msgPlanMissing || planErrMsg(true, 0) != msgPlanOff || planErrMsg(true, 1) != msgPlanBad {
+	if adminx.PlanErrMsg(false, 0) != adminx.MsgPlanMissing || adminx.PlanErrMsg(true, 0) != adminx.MsgPlanOff || adminx.PlanErrMsg(true, 1) != adminx.MsgPlanBad {
 		t.Error("planErrMsg")
 	}
 }
@@ -188,8 +190,8 @@ func TestIntrosTranslated(t *testing.T) {
 			check(in.Tip)
 		}
 	}
-	for _, m := range []string{msgRouterTimeout, msgRouterRefused, msgRouterHost, msgRouterLogin, msgRouterOther, msgNASOther,
-		msgPlanMissing, msgPlanOff, msgPlanBad, msgNoBalance, msgRechargeFail, msgNotSynced} {
+	for _, m := range []string{adminx.MsgRouterTimeout, adminx.MsgRouterRefused, adminx.MsgRouterHost, adminx.MsgRouterLogin, adminx.MsgRouterOther, adminx.MsgNASOther,
+		adminx.MsgPlanMissing, adminx.MsgPlanOff, adminx.MsgPlanBad, adminx.MsgNoBalance, adminx.MsgRechargeFail, adminx.MsgNotSynced} {
 		check(m)
 	}
 	for _, s := range []string{"Add a router (or a NAS for RADIUS)", "Set a speed (Bandwidth)", "Create a plan", "Add a customer or make vouchers"} {

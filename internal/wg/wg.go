@@ -10,7 +10,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/settings"
 	"log/slog"
+	"net"
 	"net/netip"
 	"os"
 	"strconv"
@@ -18,7 +20,6 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/radius"
 	"github.com/frand-kod/gobill/internal/secret"
 )
 
@@ -62,13 +63,7 @@ func LoadConfig(st map[string]string) (Config, error) {
 }
 
 // ParseSubnet accepts a private IPv4 range from /16 to /29, so there are addresses for gobill and a router.
-func ParseSubnet(s string) (netip.Prefix, error) {
-	p, err := netip.ParsePrefix(s)
-	if err != nil || !p.Addr().Is4() || p.Bits() < 16 || p.Bits() > 29 || !p.Addr().IsPrivate() {
-		return p, errors.New("want a private IPv4 range from /16 to /29, e.g. 10.99.0.0/24")
-	}
-	return p.Masked(), nil
-}
+func ParseSubnet(s string) (netip.Prefix, error) { return settings.ParseSubnet(s) }
 
 // GenKey makes a Curve25519 keypair, both base64.
 func GenKey() (priv, pub string) {
@@ -115,13 +110,18 @@ type Stat struct {
 	Rx, Tx    int64
 }
 
+// RadiusServer answers RADIUS packets read from a tunnel socket (*radius.Server).
+type RadiusServer interface {
+	ServeConn(ctx context.Context, pc net.PacketConn, acct bool) error
+}
+
 // Manager owns the tunnel. Reload reads the settings and peers from the database and brings it up, down
 // or to a new config; AddPeer, RemovePeer and ResetPeer change one peer without touching the others.
 type Manager struct {
 	Q                  *db.Queries
 	Key                []byte
-	Radius             *radius.Server // serves the tunnel side of RADIUS; nil = none
-	AuthPort, AcctPort int            // RADIUS ports inside the tunnel
+	Radius             RadiusServer // serves the tunnel side of RADIUS; nil = none
+	AuthPort, AcctPort int          // RADIUS ports inside the tunnel
 
 	mu   sync.Mutex
 	t    tunnel
@@ -173,13 +173,9 @@ func (m *Manager) Reload(ctx context.Context) error {
 }
 
 func (m *Manager) reload(ctx context.Context) error {
-	rows, err := m.Q.ListSettings(ctx)
+	st, err := settings.List(ctx, m.Q)
 	if err != nil {
 		return err
-	}
-	st := make(map[string]string, len(rows))
-	for _, r := range rows {
-		st[r.Key] = r.Value
 	}
 	m.t.down() // a new port, subnet or key needs a new device; peers start again from their stored endpoint
 	if st["wg_enabled"] != "yes" || Disabled() || !Built {

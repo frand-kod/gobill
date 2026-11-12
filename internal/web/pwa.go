@@ -9,45 +9,20 @@ import (
 	"net/http"
 	"path"
 	"strings"
+
+	"github.com/frand-kod/gobill/internal/web/core"
 )
-
-var accentColors = map[string]string{"teal": "#0b7f79", "orange": "#f38020"}
-
-// pwaColors returns the theme colour (the accent) and the background colour from the theme defaults.
-func pwaColors(accent, mode string) (theme, bg string) {
-	if theme = accentColors[accent]; theme == "" {
-		theme = strings.ToLower(accent)
-	}
-	if theme == "" {
-		theme = accentColors["teal"]
-	}
-	bg = "#eceef2"
-	if mode == "dark" {
-		bg = "#171b21"
-	}
-	return
-}
-
-// pwaIcon is the uploaded favicon or logo (png, jpg, webp) if there is one, else "" for the shipped default.
-func pwaIcon(m map[string]string) string {
-	for _, k := range []string{"login_page_favicon", "logo"} {
-		if f := m[k]; f != "" && !strings.HasSuffix(f, ".ico") {
-			return "/uploads/" + f
-		}
-	}
-	return ""
-}
 
 // manifest serves the web app manifest; suffix is appended to the company name ("" or " Admin").
 func (s *Server) manifest(suffix, start, scope string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		st, err := s.loadSettings(r.Context())
+		st, err := s.LoadSettings(r.Context())
 		if err != nil {
-			s.fail(w, "manifest settings", err)
+			s.Fail(w, "manifest settings", err)
 			return
 		}
-		mode, accent, _ := themeDefaults(st)
-		theme, bg := pwaColors(accent, mode)
+		mode, accent, _ := core.ThemeDefaults(st)
+		theme, bg := core.PwaColors(accent, mode)
 		company := strings.TrimSpace(st["company_name"])
 		if company == "" {
 			company = "gobill"
@@ -60,7 +35,7 @@ func (s *Server) manifest(suffix, start, scope string) http.HandlerFunc {
 			{"src": "/static/icons/app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
 			{"src": "/static/icons/app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
 		}
-		if u := pwaIcon(st); u != "" {
+		if u := core.PwaIcon(st); u != "" {
 			icons = []map[string]string{{"src": u, "sizes": "192x192 512x512", "type": mime.TypeByExtension(path.Ext(u)), "purpose": "any"}}
 		}
 		w.Header().Set("Content-Type", "application/manifest+json; charset=utf-8")

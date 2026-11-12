@@ -1,0 +1,238 @@
+package customers
+
+// Custom customer field definitions and values.
+
+import (
+	"database/sql"
+	"net/http"
+
+	"github.com/frand-kod/gobill/internal/service/customer"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+
+	"context"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/frand-kod/gobill/internal/db"
+)
+
+// Old customfield.php: admin-defined fields, values stored per customer.
+
+var cfTypes = []string{"text", "number", "select", "date"}
+
+var cfNames = []string{"name", "type", "options", "required", "sort_order"}
+
+// cfKey is the form input name of a custom field value.
+func cfKey(id int64) string { return fmt.Sprint("cf_", id) }
+
+// cfOptions splits the comma-separated options of a select field.
+func cfOptions(s string) []string {
+	var out []string
+	for _, o := range strings.Split(s, ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			out = append(out, o)
+		}
+	}
+	return out
+}
+
+func cfFields(v, e map[string]string) []field {
+	req := text("required", "Required", v, e).As("checkbox")
+	req.Checked = v["required"] == "1"
+	return section([]field{
+		text("name", "Field Name", v, e).Req(),
+		text("type", "Type", v, e).Opts(cfTypes...).Req(),
+		text("options", "Options", v, e).WithHint("For Select type: comma separated, e.g. Gold, Silver"),
+		req,
+		text("sort_order", "Order", v, e).As("number"),
+	}, "Custom Field", "")
+}
+
+func (s *Handlers) cfList(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.Queries.ListCustomFields(r.Context())
+	if err != nil {
+		s.Fail(w, "list custom fields", err)
+		return
+	}
+	lp := listPage{Heading: "Custom Fields", Base: "/admin/fields", CanCreate: true, CanEdit: true,
+		Cols: []string{"Name", "Type", "Options", "Required", "Order"}, Links: []option{{Value: "/admin/pages/announcement", Label: "Pages"}}}
+	for _, f := range rows {
+		req := "No"
+		if f.Required == 1 {
+			req = "Yes"
+		}
+		lp.Rows = append(lp.Rows, listRow{ID: f.ID, Cells: []string{f.Name, f.Type, f.Options, req, fmt.Sprint(f.SortOrder)}})
+	}
+	s.RenderList(w, r, lp)
+}
+
+func (s *Handlers) cfNew(w http.ResponseWriter, r *http.Request) {
+	v := map[string]string{"type": "text", "sort_order": "0"}
+	s.RenderForm(w, r, 200, formPage{Heading: "Add Custom Field", Action: "/admin/fields", Cancel: "/admin/fields", Fields: cfFields(v, nil)})
+}
+
+func (s *Handlers) cfEdit(w http.ResponseWriter, r *http.Request) {
+	id := httpx.PathID(r)
+	f, err := s.Queries.GetCustomField(r.Context(), id)
+	if err == sql.ErrNoRows {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.Fail(w, "get custom field", err)
+		return
+	}
+	v := map[string]string{"name": f.Name, "type": f.Type, "options": f.Options, "sort_order": fmt.Sprint(f.SortOrder)}
+	if f.Required == 1 {
+		v["required"] = "1"
+	}
+	s.RenderForm(w, r, 200, formPage{Heading: "Edit Custom Field", Action: fmt.Sprint("/admin/fields/", id), Cancel: "/admin/fields", Fields: cfFields(v, nil)})
+}
+
+// cfSave serves both create (no {id} in the path) and update.
+func (s *Handlers) cfSave(w http.ResponseWriter, r *http.Request) {
+	id := httpx.PathID(r)
+	v := httpx.FormVals(r, cfNames...)
+	e := map[string]string{}
+	if v["name"] == "" {
+		e["name"] = "This field is required"
+	}
+	if !httpx.OneOf(v["type"], cfTypes...) {
+		e["type"] = "Invalid value"
+	}
+	if v["type"] == "select" && len(cfOptions(v["options"])) == 0 {
+		e["options"] = "Options are required for Select type"
+	}
+	order := int64(0)
+	if v["sort_order"] != "" {
+		n, err := strconv.ParseInt(v["sort_order"], 10, 64)
+		if err != nil {
+			e["sort_order"] = "Enter a whole number"
+		}
+		order = n
+	}
+	req := int64(0)
+	if v["required"] == "1" {
+		req = 1
+	}
+	if len(e) == 0 {
+		var err error
+		if id == 0 {
+			_, err = s.Queries.CreateCustomField(r.Context(), db.CreateCustomFieldParams{Name: v["name"], Type: v["type"],
+				Options: v["options"], Required: req, SortOrder: order})
+		} else {
+			err = s.Queries.UpdateCustomField(r.Context(), db.UpdateCustomFieldParams{Name: v["name"], Type: v["type"],
+				Options: v["options"], Required: req, SortOrder: order, ID: id})
+		}
+		switch {
+		case httpx.IsUnique(err):
+			e["name"] = "Name already exists"
+		case err != nil:
+			s.Fail(w, "save custom field", err)
+			return
+		default:
+			act, msg := "field.create", "Data Created Successfully"
+			if id != 0 {
+				act, msg = "field.update", "Data Updated Successfully"
+			}
+			s.Done(w, r, "/admin/fields", msg, act, v["name"])
+			return
+		}
+	}
+	action, head := "/admin/fields", "Add Custom Field"
+	if id != 0 {
+		action, head = fmt.Sprint("/admin/fields/", id), "Edit Custom Field"
+	}
+	s.RenderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/fields", Fields: cfFields(v, e)})
+}
+
+func (s *Handlers) cfDelete(w http.ResponseWriter, r *http.Request) {
+	name := ""
+	if f, err := s.Queries.GetCustomField(r.Context(), httpx.PathID(r)); err == nil {
+		name = f.Name
+	}
+	s.Remove(w, r, "/admin/fields", "field", "Custom field is in use", name, func(id int64) error {
+		return s.Queries.DeleteCustomField(r.Context(), id)
+	})
+}
+
+// cfFormFields is the custom-field load hook: one input per field, filled from v
+// (posted values) and, for a saved customer (custID != 0), from the stored values.
+// The same list feeds the customer detail page.
+func (s *Handlers) cfFormFields(ctx context.Context, custID int64, v, e map[string]string) ([]field, error) {
+	defs, err := s.Queries.ListCustomFields(ctx)
+	if err != nil {
+		return nil, err
+	}
+	stored := map[int64]string{}
+	if custID != 0 {
+		vals, err := s.Queries.ListCustomerFieldValues(ctx, custID)
+		if err != nil {
+			return nil, err
+		}
+		for _, x := range vals {
+			stored[x.FieldID] = x.Value
+		}
+	}
+	var fs []field
+	for _, d := range defs {
+		k := cfKey(d.ID)
+		if _, ok := v[k]; !ok {
+			v[k] = stored[d.ID]
+		}
+		f := field{Name: k, Label: d.Name, Type: d.Type, Value: v[k], Error: e[k], Required: d.Required == 1}
+		if d.Type == "select" {
+			f.Options = adminx.AnyOpts("-", cfOptions(d.Options)...)
+		}
+		fs = append(fs, f)
+	}
+	return section(fs, "Custom Fields", ""), nil
+}
+
+// cfCheck is the custom-field save hook: it reads and validates the posted values
+// into v and e, and returns what to store. Nothing is written here.
+func (s *Handlers) cfCheck(ctx context.Context, r *http.Request, v, e map[string]string) ([]customer.CFValue, error) {
+	defs, err := s.Queries.ListCustomFields(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []customer.CFValue
+	for _, d := range defs {
+		k := cfKey(d.ID)
+		val := strings.TrimSpace(r.PostFormValue(k))
+		v[k] = val
+		switch {
+		case val == "":
+			if d.Required == 1 {
+				e[k] = "This field is required"
+			}
+		case len(val) > 255:
+			e[k] = "Maximum 255 characters"
+		case d.Type == "number":
+			if _, err := strconv.ParseFloat(val, 64); err != nil {
+				e[k] = "Enter a number"
+			}
+		case d.Type == "date":
+			if _, err := time.Parse("2006-01-02", val); err != nil {
+				e[k] = "Enter a valid date"
+			}
+		case d.Type == "select":
+			if !httpx.OneOf(val, cfOptions(d.Options)...) {
+				e[k] = "Invalid value"
+			}
+		}
+		out = append(out, customer.CFValue{FieldID: d.ID, Value: val})
+	}
+	return out, nil
+}
+
+// customerForm is the customer form: the built-in fields followed by the custom ones.
+func (s *Handlers) customerForm(ctx context.Context, id int64, v, e map[string]string, editing bool) ([]field, error) {
+	cf, err := s.cfFormFields(ctx, id, v, e)
+	if err != nil {
+		return nil, err
+	}
+	return append(custFields(v, e, editing), cf...), nil
+}

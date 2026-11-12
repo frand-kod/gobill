@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 )
 
 // navKeys is the set of keys app.html passes to navActive, in the same order.
@@ -33,7 +35,7 @@ func TestNavActiveResolution(t *testing.T) {
 		"/admin/settingsx":              "",
 	}
 	for path, want := range cases {
-		if got := navActive(path, navKeys...); got != want {
+		if got := view.NavActive(path, navKeys...); got != want {
 			t.Errorf("navActive(%q) = %q, want %q", path, got, want)
 		}
 	}

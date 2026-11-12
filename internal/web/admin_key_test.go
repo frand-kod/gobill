@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"encoding/hex"
+	adminsettings "github.com/frand-kod/gobill/internal/web/admin/settings"
 	"net/http"
 	"net/url"
 	"strings"
@@ -19,7 +20,7 @@ func keyApp(t *testing.T) (*Server, http.Handler) {
 func TestKeyDownloadRoleAndPassword(t *testing.T) {
 	s, h := keyApp(t)
 	alice, rita := login(t, h, "alice"), login(t, h, "rita")
-	dl := keyPage + "/download"
+	dl := adminsettings.KeyPage + "/download"
 	if w := do(h, "POST", dl, url.Values{"current": {"secret123"}}, rita); w.Code != http.StatusForbidden {
 		t.Fatalf("non-SuperAdmin: %d", w.Code)
 	}
@@ -50,10 +51,10 @@ func TestKeyWarningUntilSaved(t *testing.T) {
 			t.Fatalf("%s: no key warning", p)
 		}
 	}
-	if w := do(h, "POST", keyPage+"/saved", nil, rita); w.Code != http.StatusForbidden {
+	if w := do(h, "POST", adminsettings.KeyPage+"/saved", nil, rita); w.Code != http.StatusForbidden {
 		t.Fatalf("mark saved by non-SuperAdmin: %d", w.Code)
 	}
-	do(h, "POST", keyPage+"/saved", nil, alice)
+	do(h, "POST", adminsettings.KeyPage+"/saved", nil, alice)
 	for _, p := range []string{"/admin/status", "/admin/settings/system"} {
 		if warned(p) {
 			t.Fatalf("%s: warning still shown after marking saved", p)

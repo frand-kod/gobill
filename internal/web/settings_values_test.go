@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	adminsettings "github.com/frand-kod/gobill/internal/web/admin/settings"
 	"html"
 	"mime/multipart"
 	"net/http"
@@ -14,6 +15,8 @@ import (
 	"testing"
 
 	"github.com/frand-kod/gobill/internal/notify"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/wg"
 )
 
@@ -35,7 +38,7 @@ var settingSample = map[string]string{
 
 // settingSampleFor picks the value a test saves into a non-secret field: the last real choice of a
 // select (so it differs from the first option), or a per-type sample.
-func settingSampleFor(f field) string {
+func settingSampleFor(f adminx.Field) string {
 	if v, ok := settingSample[f.Name]; ok {
 		return v
 	}
@@ -84,14 +87,14 @@ func getBody(t *testing.T, h http.Handler, c *http.Cookie, path string) string {
 func TestSettingsEveryFieldShowsStoredValue(t *testing.T) {
 	s, h, _ := settingsSetup(t)
 	c := login(t, h, "alice")
-	for _, tab := range settingsTabs {
+	for _, tab := range adminx.SettingsTabs {
 		if tab.Slug == "wireguard" && !wg.Built {
 			continue // the nowg build has no such tab
 		}
-		fields := s.settingsFields(tab.Slug, nil, nil, nil)
+		fields := s.settings.SettingsFields(tab.Slug, nil, nil, nil)
 		form, want, checked := url.Values{}, map[string]string{}, map[string]bool{}
 		for i, f := range fields {
-			if settingsSpeed[f.Name] || f.Name == "wg_confirm" { // a confirmation, never stored // kept in the isolir bandwidth row, see TestIsolirSpeedSavesBandwidth
+			if adminsettings.SettingsSpeed[f.Name] || f.Name == "wg_confirm" { // a confirmation, never stored // kept in the isolir bandwidth row, see TestIsolirSpeedSavesBandwidth
 				continue
 			}
 			switch f.Type {
@@ -112,7 +115,7 @@ func TestSettingsEveryFieldShowsStoredValue(t *testing.T) {
 		}
 		body := getBody(t, h, c, "/admin/settings/"+tab.Slug)
 		for _, f := range fields {
-			if settingsSpeed[f.Name] || f.Name == "wg_confirm" { // a confirmation, never stored
+			if adminsettings.SettingsSpeed[f.Name] || f.Name == "wg_confirm" { // a confirmation, never stored
 				continue
 			}
 			switch f.Type {
@@ -173,7 +176,7 @@ func postSettingsMultipart(t *testing.T, h http.Handler, c *http.Cookie, tab str
 func TestSettingsImagePreviewReplaceRemove(t *testing.T) {
 	s, h, q := settingsSetup(t)
 	c := login(t, h, "alice")
-	dir, err := s.uploadDir()
+	dir, err := s.ax.UploadDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +206,7 @@ func TestSettingsImagePreviewReplaceRemove(t *testing.T) {
 		t.Fatalf("replace: %d", w.Code)
 	}
 	second := settingValues(t, q)["logo"]
-	if second == first || !uploadName.MatchString(second) {
+	if second == first || !core.UploadName.MatchString(second) {
 		t.Fatalf("logo not replaced: %q", second)
 	}
 	if _, err := os.Stat(filepath.Join(dir, first)); !os.IsNotExist(err) {
@@ -238,8 +241,8 @@ func TestSettingsSecretsMarkedSavedNotEchoed(t *testing.T) {
 	c := login(t, h, "alice")
 	const saved = "Saved. Leave empty to keep the current secret"
 	errField := map[string][2]string{"integrations": {"smtp_port", "70000"}, "payment": {"tripay_mode", "bogus"}, "system": {"radius_rest_allow", "not an ip"}}
-	for _, tab := range settingsTabs {
-		for _, f := range s.settingsFields(tab.Slug, nil, nil, nil) {
+	for _, tab := range adminx.SettingsTabs {
+		for _, f := range s.settings.SettingsFields(tab.Slug, nil, nil, nil) {
 			if f.Type != "password" {
 				continue
 			}
@@ -303,17 +306,17 @@ func TestSettingsUnsetYesNoShowsRuntimeDefault(t *testing.T) {
 	s, h, _ := settingsSetup(t)
 	c := login(t, h, "alice")
 	n := 0
-	for _, tab := range settingsTabs {
+	for _, tab := range adminx.SettingsTabs {
 		if tab.Slug == "wireguard" && !wg.Built {
 			continue
 		}
 		body := getBody(t, h, c, "/admin/settings/"+tab.Slug)
-		for _, f := range s.settingsFields(tab.Slug, nil, nil, nil) {
+		for _, f := range s.settings.SettingsFields(tab.Slug, nil, nil, nil) {
 			if f.Type != "select" || len(f.Options) != 2 || f.Options[0].Value != "yes" {
 				continue
 			}
 			want := "no"
-			if settingsYesByDefault[f.Name] {
+			if adminsettings.SettingsYesByDefault[f.Name] {
 				want = "yes"
 			}
 			if !strings.Contains(selectBlock(body, f.Name), `value="`+want+`" selected`) {

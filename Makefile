@@ -4,6 +4,11 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o gobill ./cmd/gobill
 
+# Run locally with all state under dev/, so no DB, key or password lands in the repo root.
+run:
+	mkdir -p dev
+	GOBILL_DB=dev/dev.db GOBILL_BACKUP_DIR=dev/backup go run ./cmd/gobill
+
 test:
 	go vet ./...
 	go test ./...
@@ -35,4 +40,4 @@ sign:
 	gh release upload "$(TAG)" dist/sign/SHA256SUMS dist/sign/SHA256SUMS.sig --clobber # SHA256SUMS changed: it now has the VERSION line
 	gh release edit "$(TAG)" --draft=false --latest
 
-.PHONY: build test fuzz css sign
+.PHONY: build run test fuzz css sign

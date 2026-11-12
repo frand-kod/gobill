@@ -82,7 +82,7 @@ func TestSubscriptionAdmin(t *testing.T) {
 
 	// edit: the new expiry is read in the billing zone (UTC here) and persisted
 	want := time.Now().UTC().AddDate(0, 0, 20).Truncate(time.Minute)
-	wantCode(t, do(e.h, "POST", base, url.Values{"plan": {itoa(p.ID)}, "expires_at": {want.Format(localTime)}}, e.c), 303, "edit")
+	wantCode(t, do(e.h, "POST", base, url.Values{"plan": {itoa(p.ID)}, "expires_at": {want.Format("2006-01-02T15:04")}}, e.c), 303, "edit")
 	if got, _ := e.q.GetSubscription(t.Context(), subs[0].ID); got.ExpiresAt != want.Unix() {
 		t.Fatalf("expiry %v, want %v", time.Unix(got.ExpiresAt, 0), want)
 	}

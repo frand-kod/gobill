@@ -1,0 +1,234 @@
+package network
+
+// NAS (RADIUS client) CRUD and secret checks.
+
+import (
+	"crypto/subtle"
+	"database/sql"
+	"net/http"
+	"net/netip"
+	"strconv"
+
+	"github.com/frand-kod/gobill/internal/web/httpx"
+
+	"fmt"
+	"strings"
+
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/secret"
+)
+
+func nasFields(v, e map[string]string, editing bool) []field {
+	pw := text("secret", "Shared Secret", v, e).As("password").Req()
+	pw.Gen = true
+	pw.Hint = "At least 16 characters. Use Generate, then copy it to the MikroTik before saving: it is shown only once"
+	if editing {
+		pw.Required = false
+		pw.Hint = "Leave empty to keep the current secret. Generate shows a new one once: copy it to the MikroTik"
+	}
+	// the stored secret is never rendered back; a value the admin just typed or generated is kept on a 422
+	ma := text("require_message_auth", "Message-Authenticator", v, e).As("select")
+	ma.Options = []option{{Value: "0", Label: "Auto (recommended)"}, {Value: "1", Label: "Always required"}, {Value: "2", Label: "Not required (legacy NAS)"}}
+	if ma.Value == "" {
+		ma.Value = "0"
+	}
+	ma.Hint = "Auto: once this NAS has sent a valid Message-Authenticator, requests without one are dropped. RouterOS 6.49.18+ and 7.15+ send it; add /radius set require-message-auth=yes-for-request-resp on the router too"
+	typ := text("type", "NAS type", v, e).As("select")
+	typ.Options = []option{{Value: "mikrotik", Label: "MikroTik"}, {Value: "wispr", Label: "WISPr (CoovaChilli, OpenWrt)"}, {Value: "standard", Label: "Standard (no speed or quota attributes)"}}
+	if typ.Value == "" {
+		typ.Value = "mikrotik"
+	}
+	typ.Hint = "Which speed and quota attributes this NAS gets. WISPr and Standard cannot isolate: isolated customers are rejected"
+	out := section([]field{
+		text("name", "NAS Name", v, e).Req(),
+		text("ip", "IP / CIDR", v, e).Req(),
+		text("description", "Description", v, e), typ, ma,
+	}, "NAS", "")
+	return append(out, section([]field{pw}, "RADIUS secret", "")...)
+}
+
+// validNASAddr accepts a single IP or a CIDR prefix.
+func validNASAddr(s string) bool {
+	if _, err := netip.ParsePrefix(s); err == nil {
+		return true
+	}
+	_, err := netip.ParseAddr(s)
+	return err == nil
+}
+
+// WeakSecret explains why a RADIUS shared secret is unacceptable, "" if it is fine.
+func WeakSecret(p string) string {
+	if len(p) < 16 {
+		return "Secret must be at least 16 characters"
+	}
+	if strings.Trim(p, p[:1]) == "" || strings.Trim(p, "0123456789") == "" {
+		return "Secret must not be one repeated character or only digits"
+	}
+	return ""
+}
+
+// secretReused reports whether another NAS (not id) already uses secret p.
+func (s *Handlers) secretReused(r *http.Request, id int64, p string) (bool, error) {
+	rows, err := s.Queries.ListNAS(r.Context())
+	for _, n := range rows {
+		if n.ID == id {
+			continue
+		}
+		if o, err := secret.Open(s.SecretKey, n.SecretEnc); err == nil && subtle.ConstantTimeCompare(o, []byte(p)) == 1 {
+			return true, nil
+		}
+	}
+	return false, err
+}
+
+// maStatus is the NAS list text for its require_message_auth policy and whether it has sent one.
+func maStatus(policy, seen int64) string {
+	switch {
+	case policy == 1:
+		return "required"
+	case policy == 2:
+		return "off (legacy)"
+	case seen == 1:
+		return "MA: seen"
+	}
+	return "MA: not seen yet"
+}
+
+func (s *Handlers) nasList(w http.ResponseWriter, r *http.Request) {
+	rows, err := s.Queries.ListNAS(r.Context())
+	if err != nil {
+		s.Fail(w, "list nas", err)
+		return
+	}
+	lp := listPage{Heading: "NAS", Base: "/admin/nas", CanCreate: true, CanEdit: true,
+		Cols:  []string{"Name", "IP / CIDR", "Description", "Secret", "Message-Authenticator"},
+		Links: []option{{Value: "/admin/radius/test-login", Label: "Test login"}}}
+	for _, n := range rows {
+		weak := "" // legacy rows keep working; only flagged
+		if p, err := secret.Open(s.SecretKey, n.SecretEnc); err == nil && WeakSecret(string(p)) != "" {
+			weak = "secret lemah"
+		}
+		lp.Rows = append(lp.Rows, listRow{ID: n.ID, Cells: []string{n.Name, n.Ip, n.Description, weak, maStatus(n.RequireMessageAuth, n.MaSeen)}})
+	}
+	s.RenderList(w, r, lp)
+}
+
+func (s *Handlers) nasNew(w http.ResponseWriter, r *http.Request) {
+	s.RenderForm(w, r, 200, formPage{Heading: "Add NAS", Action: "/admin/nas", Cancel: "/admin/nas", Fields: nasFields(nil, nil, false)})
+}
+
+func (s *Handlers) nasEdit(w http.ResponseWriter, r *http.Request) {
+	id := httpx.PathID(r)
+	n, err := s.Queries.GetNAS(r.Context(), id)
+	if err == sql.ErrNoRows {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.Fail(w, "get nas", err)
+		return
+	}
+	v := map[string]string{"name": n.Name, "ip": n.Ip, "description": n.Description, "require_message_auth": fmt.Sprint(n.RequireMessageAuth), "type": n.Type}
+	s.RenderForm(w, r, 200, formPage{Heading: "Edit NAS", Action: fmt.Sprint("/admin/nas/", id), Cancel: "/admin/nas", Fields: nasFields(v, nil, true)})
+}
+
+func (s *Handlers) NASSave(w http.ResponseWriter, r *http.Request) {
+	id := httpx.PathID(r)
+	v := httpx.FormVals(r, "name", "ip", "description", "require_message_auth", "type")
+	pass := r.PostFormValue("secret")
+	v["secret"] = pass
+	e := map[string]string{}
+	for _, k := range []string{"name", "ip"} {
+		if v[k] == "" {
+			e[k] = "This field is required"
+		}
+	}
+	switch v["type"] {
+	case "":
+		v["type"] = "mikrotik"
+	case "mikrotik", "wispr", "standard":
+	default:
+		e["type"] = "Choose a NAS type"
+	}
+	if v["ip"] != "" && !validNASAddr(v["ip"]) {
+		e["ip"] = "Enter a valid IP address or CIDR"
+	}
+	var enc []byte
+	if id != 0 {
+		n, err := s.Queries.GetNAS(r.Context(), id)
+		if err == sql.ErrNoRows {
+			http.NotFound(w, r)
+			return
+		} else if err != nil {
+			s.Fail(w, "get nas", err)
+			return
+		}
+		enc = n.SecretEnc
+	} else if pass == "" {
+		e["secret"] = "This field is required"
+	}
+	if pass != "" {
+		if m := WeakSecret(pass); m != "" {
+			e["secret"] = m
+		} else if dup, err := s.secretReused(r, id, pass); err != nil {
+			s.Fail(w, "list nas", err)
+			return
+		} else if dup {
+			e["secret"] = "Secret is already used by another NAS"
+		}
+	}
+	if len(e) == 0 {
+		if pass != "" {
+			var err error
+			if enc, err = secret.Seal(s.SecretKey, []byte(pass)); err != nil {
+				s.Fail(w, "seal nas secret", err)
+				return
+			}
+		}
+		var err error
+		var rma int64 // 0 auto, 1 always, 2 never
+		if p := v["require_message_auth"]; p == "1" || p == "2" {
+			rma, _ = strconv.ParseInt(p, 10, 64)
+		}
+		nid := id
+		if id == 0 {
+			var n db.Na
+			n, err = s.Queries.CreateNAS(r.Context(), db.CreateNASParams{Name: v["name"], Ip: v["ip"], SecretEnc: enc, Description: v["description"], RequireMessageAuth: rma})
+			nid = n.ID
+		} else {
+			err = s.Queries.UpdateNAS(r.Context(), db.UpdateNASParams{Name: v["name"], Ip: v["ip"], SecretEnc: enc, Description: v["description"], RequireMessageAuth: rma, ID: id})
+		}
+		if err == nil {
+			err = s.Queries.SetNASType(r.Context(), db.SetNASTypeParams{Type: v["type"], ID: nid})
+		}
+		switch {
+		case httpx.IsUnique(err):
+			if strings.Contains(err.Error(), "nas.ip") {
+				e["ip"] = "IP already exists"
+			} else {
+				e["name"] = "Name already exists"
+			}
+		case err != nil:
+			s.Fail(w, "save nas", err)
+			return
+		default:
+			act, msg := "nas.create", "Data Created Successfully"
+			if id != 0 {
+				act, msg = "nas.update", "Data Updated Successfully"
+			}
+			s.Done(w, r, "/admin/nas", msg, act, v["name"])
+			return
+		}
+	}
+	action, head := "/admin/nas", "Add NAS"
+	if id != 0 {
+		action, head = fmt.Sprint("/admin/nas/", id), "Edit NAS"
+	}
+	s.RenderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/nas", Fields: nasFields(v, e, id != 0)})
+}
+
+func (s *Handlers) nasDelete(w http.ResponseWriter, r *http.Request) {
+	n, _ := s.Queries.GetNAS(r.Context(), httpx.PathID(r))
+	s.Remove(w, r, "/admin/nas", "nas", "NAS is in use", n.Name, func(id int64) error {
+		return s.Queries.DeleteNAS(r.Context(), id)
+	})
+}

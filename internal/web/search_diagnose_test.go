@@ -16,6 +16,7 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/secret"
+	"github.com/frand-kod/gobill/internal/service/diagnose"
 )
 
 func newCust(t *testing.T, q *db.Queries, user, full, phone, pppoe, status string) db.Customer {
@@ -102,7 +103,7 @@ func TestHeaderSearch(t *testing.T) {
 }
 
 // has reports whether one of the advice lines of d is want.
-func has(d diagnosis, want string) bool {
+func has(d diagnose.Diagnosis, want string) bool {
 	for _, a := range d.Advice {
 		if a == want {
 			return true
@@ -135,13 +136,13 @@ func TestDiagnose(t *testing.T) {
 			s.conn.ExecContext(ctx, "UPDATE subscriptions SET status = ? WHERE id = ?", status, sb.ID)
 		}
 	}
-	diag := func(c db.Customer) diagnosis {
+	diag := func(c db.Customer) diagnose.Diagnosis {
 		t.Helper()
 		subs, _ := q.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 50})
-		return s.diagnose(ctx, c, subs, "")
+		return s.customers.Diagnose(ctx, c, subs, "")
 	}
-	tr := func(k string) string { return s.catalog.T(s.language(), k) }
-	level := func(d diagnosis, label string) string {
+	tr := func(k string) string { return s.Catalog.T(s.Language(), k) }
+	level := func(d diagnose.Diagnosis, label string) string {
 		for _, it := range d.Items {
 			if it.Label == label {
 				return it.Cls

@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	adminsettings "github.com/frand-kod/gobill/internal/web/admin/settings"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -46,7 +47,7 @@ func importUpload(t *testing.T, h http.Handler, c *http.Cookie, files map[string
 		fw.Write([]byte(content))
 	}
 	mw.Close()
-	r := httptest.NewRequest("POST", importPage, &buf)
+	r := httptest.NewRequest("POST", adminsettings.ImportPage, &buf)
 	r.Header.Set("Content-Type", mw.FormDataContentType())
 	r.AddCookie(c)
 	w := httptest.NewRecorder()
@@ -68,7 +69,7 @@ func preview(t *testing.T, h http.Handler, c *http.Cookie) string {
 
 // tempImports is the set of upload files in the temp dir, to see what a test left behind.
 func tempImports(t *testing.T) map[string]bool {
-	names, err := filepath.Glob(filepath.Join(os.TempDir(), importPrefix+"*"))
+	names, err := filepath.Glob(filepath.Join(os.TempDir(), adminsettings.ImportPrefix+"*"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,9 +102,9 @@ func countRows(t *testing.T, s *Server, q string) int {
 func TestImportIsSuperAdminOnly(t *testing.T) {
 	_, h, _ := importApp(t)
 	c := login(t, h, "rita")
-	wantCode(t, do(h, "GET", importPage, nil, c), 403, "page")
+	wantCode(t, do(h, "GET", adminsettings.ImportPage, nil, c), 403, "page")
 	wantCode(t, importUpload(t, h, c, map[string]string{"backup": importFixture}), 403, "preview")
-	wantCode(t, do(h, "POST", importPage+"/confirm", url.Values{"token": {"x"}}, c), 403, "confirm")
+	wantCode(t, do(h, "POST", adminsettings.ImportPage+"/confirm", url.Values{"token": {"x"}}, c), 403, "confirm")
 }
 
 func TestImportPreviewShowsCountsAndChangesNothing(t *testing.T) {
@@ -128,7 +129,7 @@ func TestImportPreviewShowsCountsAndChangesNothing(t *testing.T) {
 		t.Fatal("preview should keep one upload file for the confirm")
 	}
 	// the preview's upload is removed by the cancel, and the next preview replaces it
-	wantCode(t, do(h, "POST", importPage+"/cancel", nil, c), 303, "cancel")
+	wantCode(t, do(h, "POST", adminsettings.ImportPage+"/cancel", nil, c), 303, "cancel")
 	if left := newImports(t, before); len(left) != 0 {
 		t.Fatalf("cancel left files: %v", left)
 	}
@@ -139,9 +140,9 @@ func TestImportConfirmNeedsCurrentToken(t *testing.T) {
 	stale := preview(t, h, c)
 	current := preview(t, h, c) // the second preview replaces the first token
 
-	wantCode(t, do(h, "POST", importPage+"/confirm", url.Values{"understand": {"1"}, "current": {"secret123"}}, c), 422, "no token")
-	wantCode(t, do(h, "POST", importPage+"/confirm", url.Values{"token": {stale}, "understand": {"1"}, "current": {"secret123"}}, c), 422, "stale token")
-	wantCode(t, do(h, "POST", importPage+"/confirm", url.Values{"token": {current}}, c), 422, "no confirm box")
+	wantCode(t, do(h, "POST", adminsettings.ImportPage+"/confirm", url.Values{"understand": {"1"}, "current": {"secret123"}}, c), 422, "no token")
+	wantCode(t, do(h, "POST", adminsettings.ImportPage+"/confirm", url.Values{"token": {stale}, "understand": {"1"}, "current": {"secret123"}}, c), 422, "stale token")
+	wantCode(t, do(h, "POST", adminsettings.ImportPage+"/confirm", url.Values{"token": {current}}, c), 422, "no confirm box")
 	if n := countRows(t, s, "SELECT count(*) FROM customers"); n != 0 {
 		t.Fatalf("refused confirm still imported: %d customers", n)
 	}
@@ -152,7 +153,7 @@ func TestImportConfirmBacksUpReplacesAndEndsSession(t *testing.T) {
 	before := tempImports(t)
 	token := preview(t, h, c)
 
-	w := do(h, "POST", importPage+"/confirm", url.Values{"token": {token}, "understand": {"1"}, "current": {"secret123"}}, c)
+	w := do(h, "POST", adminsettings.ImportPage+"/confirm", url.Values{"token": {token}, "understand": {"1"}, "current": {"secret123"}}, c)
 	wantCode(t, w, 303, "confirm")
 	if loc := w.Header().Get("Location"); loc != "/admin/login" {
 		t.Fatalf("redirect to %q", loc)

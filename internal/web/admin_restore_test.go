@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/frand-kod/gobill/internal/secret"
+	"github.com/frand-kod/gobill/internal/service/restore"
 )
 
 const restorePageURL = "/admin/settings/system/restore"
@@ -168,7 +169,7 @@ func TestRestoreRefusesOtherKey(t *testing.T) {
 // names both fingerprints. Without sealed values it is accepted with a warning naming both.
 func TestRestoreRefusesOtherKeyFingerprint(t *testing.T) {
 	s, h, c := restoreApp(t)
-	mine := keyFingerprint(s.SecretKey)
+	mine := restore.KeyFingerprint(s.SecretKey)
 	stamp := func(fp string, sealed bool) []byte {
 		return backupFile(t, s, func(b *sql.DB) {
 			if _, err := b.Exec("INSERT OR REPLACE INTO settings (key, value) VALUES ('key_fp', ?)", fp); err != nil {

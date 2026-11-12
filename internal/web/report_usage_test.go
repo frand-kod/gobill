@@ -5,6 +5,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/admin/reports"
+	"github.com/frand-kod/gobill/internal/web/view"
 )
 
 // usageEnv fixes the clock at 2026-03-15 12:00 and seeds usage: u1 today and 20 days ago, u2 45 days ago,
@@ -12,7 +15,7 @@ import (
 func usageEnv(t *testing.T) (*billEnv, time.Time) {
 	t.Helper()
 	e := englishApp(t)
-	now := time.Date(2026, 3, 15, 12, 0, 0, 0, e.srv.location())
+	now := time.Date(2026, 3, 15, 12, 0, 0, 0, e.srv.Location())
 	e.srv.clock = func() time.Time { return now }
 	day := func(back int) string { return now.AddDate(0, 0, -back).Format("2006-01-02") }
 	for _, r := range []struct {
@@ -34,19 +37,19 @@ func usageEnv(t *testing.T) (*billEnv, time.Time) {
 	return e, now
 }
 
-func statNum(w usageWin) string {
+func statNum(w reports.UsageWin) string {
 	return `class="stat-num">` + w.TotalNum + `<span class="ms-1 text-sm font-medium text-ink-2">` + w.TotalUnit + `</span>`
 }
 
 // The report usage over 30 days equals the dashboard 30 day card, ignores sessions, and stops at from and to.
 func TestReportUsageMatchesDashboard(t *testing.T) {
 	e, now := usageEnv(t)
-	d, err := e.srv.dashboardData(t.Context(), now)
+	d, err := e.srv.reports.DashboardData(t.Context(), now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	month := d.Usage.Month
-	if month.Empty || month.Total != humanBytes(6<<20+3<<10) {
+	if month.Empty || month.Total != view.HumanBytes(6<<20+3<<10) {
 		t.Fatalf("dashboard 30 day total %q", month.Total)
 	}
 	to := now.Format("2006-01-02")
@@ -58,7 +61,7 @@ func TestReportUsageMatchesDashboard(t *testing.T) {
 	}
 	// only today: u1 4 MiB + u2 3 KiB; the 20 day old, 45 day old and tomorrow rows are out
 	day := do(e.h, "GET", "/admin/reports/period?from="+to+"&to="+to, nil, e.c).Body.String()
-	n, u := humanBytesParts(4<<20 + 3<<10)
+	n, u := view.HumanBytesParts(4<<20 + 3<<10)
 	if want := `class="stat-num">` + n + `<span class="ms-1 text-sm font-medium text-ink-2">` + u + `</span>`; !strings.Contains(day, want) {
 		t.Errorf("one day range: want %q", want)
 	}
@@ -73,7 +76,7 @@ func TestReportUsageMatchesDashboard(t *testing.T) {
 // With no from and to the Period Report starts at the dashboard income period (reset_day) and ends today.
 func TestReportDefaultRangeIsDashboardPeriod(t *testing.T) {
 	e, now := usageEnv(t)
-	loc := e.srv.location()
+	loc := e.srv.Location()
 	for _, rd := range []string{"", "10", "20"} { // calendar month; cycle began this month; cycle began last month
 		setting(t, e, "reset_day", rd)
 		for i, at := range []time.Time{time.Date(2026, 2, 25, 9, 0, 0, 0, loc), time.Date(2026, 3, 3, 9, 0, 0, 0, loc),
@@ -83,11 +86,11 @@ func TestReportDefaultRangeIsDashboardPeriod(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		dash, err := e.srv.dashboardData(t.Context(), now)
+		dash, err := e.srv.reports.DashboardData(t.Context(), now)
 		if err != nil {
 			t.Fatal(err)
 		}
-		d, _, err := e.srv.reportLoad(httptest.NewRequest("GET", "/admin/reports/period", nil).WithContext(t.Context()), true)
+		d, _, err := e.srv.reports.ReportLoad(httptest.NewRequest("GET", "/admin/reports/period", nil).WithContext(t.Context()), true)
 		if err != nil {
 			t.Fatal(err)
 		}

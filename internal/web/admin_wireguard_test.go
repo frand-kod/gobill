@@ -1,8 +1,6 @@
 package web
 
 import (
-	"errors"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -18,7 +16,7 @@ func wgSetup(t *testing.T) (*Server, http.Handler, *db.Queries, *http.Cookie) {
 	t.Helper()
 	s, q := newTestApp(t)
 	s.SecretKey = make([]byte, 32)
-	s.lang.Store("english")
+	s.Lang.Store("english")
 	s.WG = &wg.Manager{Q: q, Key: s.SecretKey}
 	h := s.Handler()
 	return s, h, q, login(t, h, "alice")
@@ -65,7 +63,7 @@ func TestWGSettingsSave(t *testing.T) {
 	if w.Code != http.StatusSeeOther {
 		t.Fatalf("save: %d %s", w.Code, w.Body)
 	}
-	st, _ := s.loadSettings(t.Context())
+	st, _ := s.LoadSettings(t.Context())
 	if st["wg_enabled"] != "yes" || st["wg_port"] != "38211" || st["wg_subnet"] != "10.77.0.0/24" || st["wg_endpoint"] != "vpn.example.com" {
 		t.Fatalf("settings not stored: %v", st)
 	}
@@ -151,7 +149,7 @@ func TestWGProvisionImpactAndRevoke(t *testing.T) {
 	if w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "2 routers have a tunnel and will be cut") {
 		t.Fatalf("unconfirmed change: %d", w.Code)
 	}
-	if st, _ := s.loadSettings(t.Context()); st["wg_port"] != "38212" {
+	if st, _ := s.LoadSettings(t.Context()); st["wg_port"] != "38212" {
 		t.Fatalf("unconfirmed change was saved: %q", st["wg_port"])
 	}
 	change["wg_confirm"] = "1"
@@ -221,13 +219,13 @@ func TestWGKillSwitch(t *testing.T) {
 	s, h, q, c := wgSetup(t)
 	t.Setenv("GOBILL_WG", "off")
 	wgSave(h, c, map[string]string{"wg_enabled": "yes", "wg_port": "38214", "wg_subnet": "10.77.0.0/24", "wg_endpoint": "vpn.example.com"})
-	if st, _ := s.loadSettings(t.Context()); st["wg_enabled"] != "yes" {
+	if st, _ := s.LoadSettings(t.Context()); st["wg_enabled"] != "yes" {
 		t.Fatal("the setting itself should still save")
 	}
 	if s.WG.Running() {
 		t.Fatal("tunnel runs although GOBILL_WG=off")
 	}
-	if st, _ := s.loadSettings(t.Context()); st["wg_private"] != "" {
+	if st, _ := s.LoadSettings(t.Context()); st["wg_private"] != "" {
 		t.Fatal("a key was made although GOBILL_WG=off")
 	}
 	r := wgRouter(t, q, "alpha")
@@ -237,34 +235,5 @@ func TestWGKillSwitch(t *testing.T) {
 	}
 	if page := do(h, "GET", "/admin/settings/wireguard", nil, c).Body.String(); !strings.Contains(page, "GOBILL_WG=off") {
 		t.Error("the tab does not say the kill-switch is on")
-	}
-}
-
-func TestWGAddress(t *testing.T) {
-	local := []net.IP{net.ParseIP("203.0.113.5")}
-	look := func(m map[string]string) func(string) ([]net.IP, error) {
-		return func(h string) ([]net.IP, error) {
-			if ip, ok := m[h]; ok {
-				return []net.IP{net.ParseIP(ip)}, nil
-			}
-			return nil, errors.New("no such host")
-		}
-	}
-	l := look(map[string]string{"here.test": "203.0.113.5", "nat.test": "198.51.100.7", "lan.test": "192.168.1.5"})
-	for _, c := range []struct {
-		host string
-		ok   bool
-		sub  string
-	}{
-		{"", false, "No public endpoint"},
-		{"gone.test", false, "does not resolve"},
-		{"lan.test", false, "private address"},
-		{"here.test", true, "of this server"},
-		{"nat.test", true, "not one of this server"},
-	} {
-		msg, ok := wgAddress(c.host, l, local)
-		if ok != c.ok || !strings.Contains(msg, c.sub) {
-			t.Errorf("%q: ok=%v %q", c.host, ok, msg)
-		}
 	}
 }

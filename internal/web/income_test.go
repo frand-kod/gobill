@@ -15,7 +15,7 @@ func TestDashboardIncome(t *testing.T) {
 	if err := q.UpsertSetting(ctx, db.UpsertSettingParams{Key: "reset_day", Value: "15"}); err != nil {
 		t.Fatal(err)
 	}
-	loc := s.location()
+	loc := s.Location()
 	now := time.Date(2025, 3, 20, 12, 0, 0, 0, loc)
 	add := func(method, typ string, price int64, at time.Time) {
 		_, err := s.conn.Exec(`INSERT INTO transactions (invoice, username, plan_name, router_name, type, price, method, created_at, period_start, period_end)
@@ -30,7 +30,7 @@ func TestDashboardIncome(t *testing.T) {
 	add("Customer - Balance", "PPPoE", 7000, time.Date(2025, 3, 20, 10, 0, 0, 0, loc))      // paid from balance
 	add("Customer - Balance", "Balance", 3000, time.Date(2025, 3, 20, 10, 5, 0, 0, loc))    // transfer row
 	add("Balance - Gift from bob", "PPPoE", 2000, time.Date(2025, 3, 20, 10, 6, 0, 0, loc)) // gift
-	d, err := s.dashboardData(ctx, now)
+	d, err := s.reports.DashboardData(ctx, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestDashboardIncome(t *testing.T) {
 		t.Fatalf("today %d month %d", d.IncomeToday, d.IncomeMonth)
 	}
 	// before reset_day the window starts in the previous month
-	d, _ = s.dashboardData(ctx, time.Date(2025, 3, 20, 12, 0, 0, 0, loc).AddDate(0, 0, -6))
+	d, _ = s.reports.DashboardData(ctx, time.Date(2025, 3, 20, 12, 0, 0, 0, loc).AddDate(0, 0, -6))
 	if d.IncomeMonth != 5000 {
 		t.Fatalf("month before reset %d", d.IncomeMonth)
 	}

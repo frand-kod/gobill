@@ -2,7 +2,6 @@ package web
 
 import (
 	"database/sql"
-	"html/template"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +14,7 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/isolir"
 	"github.com/frand-kod/gobill/internal/secret"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 const isoQRIS = "00020101021126520016ID.CO.CONTOH.WWW01129360000000010212ID10000000015204549953033605802ID5911CONTOH QRIS6006CONTOH9954XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX63048687"
@@ -142,7 +142,7 @@ func TestIsolirCustomModeSandboxedAndVariables(t *testing.T) {
 		"isolir_html": `<h1>Hi [[name]]</h1><p>[[plan_name]] [[known]] [[nope]]</p>[[voucher_form]]<script>var a=1</script>`})
 	isoCustomer(t, s, q, "203.0.113.7", true)
 	w := isoReq(h, "GET", "/isolir", "203.0.113.7", nil)
-	if got := w.Header().Get("Content-Security-Policy"); got != isolirCSP || strings.Contains(got, "allow-same-origin") {
+	if got := w.Header().Get("Content-Security-Policy"); got != "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" || strings.Contains(got, "allow-same-origin") {
 		t.Fatalf("CSP %q", got)
 	}
 	body := w.Body.String()
@@ -165,16 +165,6 @@ func TestIsolirCustomBlankFallsBackToDefault(t *testing.T) {
 	}
 }
 
-func TestRenderIsolirCustomEscapesValues(t *testing.T) {
-	out := renderIsolirCustom(`[[name]]|[[promos]]|[[qris_image]]|[[qris_merchant]]|[[nope]]|[[voucher_form]]`, isolirView{
-		Name: `<a>"x"</a>`, Promos: template.HTML("<b>p</b>"), VoucherForm: "<form>v</form>"})
-	// old QRIS variables are no longer filled: they become empty so old custom pages still render
-	want := `&lt;a&gt;&#34;x&#34;&lt;/a&gt;|<b>p</b>||||<form>v</form>`
-	if out != want {
-		t.Fatalf("got %q\nwant %q", out, want)
-	}
-}
-
 func TestIsolirVoucherWithoutSessionAndRateLimited(t *testing.T) {
 	s, h, q := isoSetup(t)
 	cross := []string{"Origin", "null", "Sec-Fetch-Site", "cross-site"} // the sandboxed page posts like this
@@ -183,7 +173,7 @@ func TestIsolirVoucherWithoutSessionAndRateLimited(t *testing.T) {
 		t.Fatalf("unknown client: %d %s", w.Code, w.Body)
 	}
 	isoCustomer(t, s, q, "203.0.113.7", true)
-	for i := 0; i < maxFailedLogins; i++ {
+	for i := 0; i < core.MaxFailedLogins; i++ {
 		w = isoReq(h, "POST", "/isolir/voucher", "203.0.113.7", url.Values{"code": {"NOPE"}}, cross...)
 		if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Voucher tidak valid") {
 			t.Fatalf("try %d: %d %s", i, w.Code, w.Body)
@@ -359,7 +349,7 @@ func TestIsolirSetupCommandsUseListenAddress(t *testing.T) {
 	isoSettings(t, q, map[string]string{"app_url": "https://billing.example.com"})
 	s.ListenAddr = "192.168.99.2:8090"
 	cmds := map[string]string{}
-	for _, f := range s.isolirSetupFields(map[string]string{"app_url": "https://billing.example.com"}) {
+	for _, f := range s.settings.IsolirSetupFields(map[string]string{"app_url": "https://billing.example.com"}) {
 		cmds[f.Name] = f.Value
 	}
 	for name, want := range map[string]string{
@@ -373,7 +363,7 @@ func TestIsolirSetupCommandsUseListenAddress(t *testing.T) {
 		}
 	}
 	s.ListenAddr = ":8090"
-	if host, port := s.gobillAddr(); host != lanIPv4() || port != "8090" {
+	if host, port := s.ax.GobillAddr(); host != isolir.LanIPv4() || port != "8090" {
 		t.Errorf("wildcard listen gave %s:%s", host, port)
 	}
 }
@@ -391,25 +381,6 @@ func TestIsolirLogoutButton(t *testing.T) {
 	if !strings.Contains(body, `href="http://192.168.20.1/logout"`) || !strings.Contains(body, "Keluar / pakai akun lain") {
 		t.Fatal("logout button missing or wrong link")
 	}
-}
-
-// [[logout_url]] is the logout address in custom HTML, empty when unset, and it is escaped.
-func TestIsolirLogoutURLVariable(t *testing.T) {
-	if got := renderIsolirCustom("[[logout_url]]", isolirView{}); got != "" {
-		t.Fatalf("unset: %q", got)
-	}
-	v := isolirView{LogoutURL: isoLogout("http://fourkeys.net")}
-	if got := renderIsolirCustom(`<a href="[[logout_url]]">x</a>`, v); got != `<a href="http://fourkeys.net/logout">x</a>` {
-		t.Fatalf("set: %q", got)
-	}
-	if got := isoLogout(`http://x"y`); strings.Contains(renderIsolirCustom("[[logout_url]]", isolirView{LogoutURL: got}), `"`) {
-		t.Fatal("quote not escaped")
-	}
-}
-
-// isoLogout is the logout address for a hotspot address, as the page builds it.
-func isoLogout(base string) string {
-	return isolirLogoutURL(map[string]string{"isolir_hotspot_url": base + "/"})
 }
 
 // The settings page takes only http or https hotspot addresses.
@@ -445,7 +416,7 @@ func TestIsolirRouterRulesBlock(t *testing.T) {
 	s, _, _ := isoSetup(t)
 	s.ListenAddr = "192.168.99.2:8090"
 	block := func(st map[string]string) string {
-		for _, f := range s.isolirSetupFields(st) {
+		for _, f := range s.settings.IsolirSetupFields(st) {
 			if f.Name == "isolir_cmd_rules" {
 				return f.Value
 			}
@@ -497,11 +468,11 @@ func TestIsolirRouterRulesBlock(t *testing.T) {
 func TestIsolirAllowHostsValidated(t *testing.T) {
 	s, _, _ := isoSetup(t)
 	for _, bad := range []string{"foo bar", "http://x", "*bad", "*.", "a..b"} {
-		if e := s.settingsErrors(map[string]string{"isolir_allow_hosts": "wa.me\n" + bad}); e["isolir_allow_hosts"] == "" {
+		if e := s.settings.SettingsErrors(map[string]string{"isolir_allow_hosts": "wa.me\n" + bad}); e["isolir_allow_hosts"] == "" {
 			t.Errorf("%q accepted", bad)
 		}
 	}
-	if e := s.settingsErrors(map[string]string{"isolir_allow_hosts": "wa.me\r\n\r\n*.whatsapp.net\r\n"}); e["isolir_allow_hosts"] != "" {
+	if e := s.settings.SettingsErrors(map[string]string{"isolir_allow_hosts": "wa.me\r\n\r\n*.whatsapp.net\r\n"}); e["isolir_allow_hosts"] != "" {
 		t.Errorf("valid list rejected: %v", e)
 	}
 }

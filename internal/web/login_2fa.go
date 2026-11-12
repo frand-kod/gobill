@@ -11,6 +11,7 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/metrics"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 // pending2FAWindow is how long a password-verified admin has to enter the second factor.
@@ -24,10 +25,10 @@ const (
 // pending2FA returns the admin id waiting for a second factor, or 0 when none is waiting or it expired.
 func (s *Server) pending2FA(r *http.Request) int64 {
 	ctx := r.Context()
-	if time.Now().Unix() > s.sessions.GetInt64(ctx, "pending_2fa_until") {
+	if time.Now().Unix() > s.Sessions.GetInt64(ctx, "pending_2fa_until") {
 		return 0
 	}
-	return s.sessions.GetInt64(ctx, "pending_2fa")
+	return s.Sessions.GetInt64(ctx, "pending_2fa")
 }
 
 func (s *Server) login2FAForm(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +36,7 @@ func (s *Server) login2FAForm(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 		return
 	}
-	s.render(w, r, http.StatusOK, "login_2fa", Page{Title: "Two-factor login"})
+	s.Render(w, r, http.StatusOK, "login_2fa", Page{Title: "Two-factor login"})
 }
 
 func (s *Server) login2FASubmit(w http.ResponseWriter, r *http.Request) {
@@ -45,63 +46,63 @@ func (s *Server) login2FASubmit(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 		return
 	}
-	admin, err := s.queries.GetAdmin(ctx, id)
+	admin, err := s.Queries.GetAdmin(ctx, id)
 	if err != nil || admin.Status != "Active" || admin.TotpEnabled != 1 {
-		s.sessions.Remove(ctx, "pending_2fa")
+		s.Sessions.Remove(ctx, "pending_2fa")
 		http.Redirect(w, r, "/admin/login", http.StatusSeeOther)
 		return
 	}
 	// Same throttle keys as the password step: 2FA guesses count against the IP and the account.
-	ip, uk := clientIP(r), "u:"+strings.ToLower(admin.Username)
-	if !s.loginReserve(ip, admin.Username) {
-		s.render(w, r, http.StatusTooManyRequests, "login_2fa", Page{
+	ip, uk := core.ClientIP(r), "u:"+strings.ToLower(admin.Username)
+	if !s.LoginReserve(ip, admin.Username) {
+		s.Render(w, r, http.StatusTooManyRequests, "login_2fa", Page{
 			Title: "Two-factor login",
 			Error: "Too many failed attempts. Try again in 15 minutes.",
 		})
 		return
 	}
-	s.userDelay(uk)
-	ak, code := fmt.Sprint("2fa:", id), cleanCode(r.PostFormValue("code"))
-	s.mu.Lock()
-	hardLocked := len(s.recent(ak)) >= max2FAFailures
-	s.mu.Unlock()
+	s.UserDelay(uk)
+	ak, code := fmt.Sprint("2fa:", id), core.CleanCode(r.PostFormValue("code"))
+	s.Mu.Lock()
+	hardLocked := len(s.Recent(ak)) >= max2FAFailures
+	s.Mu.Unlock()
 	var ok bool
 	if hardLocked { // only a recovery code gets through while the account is locked
-		ok = s.useRecoveryCode(r, admin.ID, code)
+		ok = s.UseRecoveryCode(r, admin.ID, code)
 	} else {
 		ok = s.verify2FA(r, admin, code)
 	}
 	if !ok {
 		metrics.Inc("login_failures_total", "scope", "2fa")
-		s.recordFailure(uk)
-		s.recordFailure(ak)
-		if tries := s.sessions.GetInt64(ctx, "pending_2fa_tries") + 1; tries >= max2FAPerLogin {
-			s.sessions.Remove(ctx, "pending_2fa")
-			s.sessions.Remove(ctx, "pending_2fa_until")
-			s.sessions.Remove(ctx, "pending_2fa_tries")
-			s.render(w, r, http.StatusOK, "login", Page{Title: "Admin sign in", Error: "Too many wrong codes. Sign in again."})
+		s.RecordFailure(uk)
+		s.RecordFailure(ak)
+		if tries := s.Sessions.GetInt64(ctx, "pending_2fa_tries") + 1; tries >= max2FAPerLogin {
+			s.Sessions.Remove(ctx, "pending_2fa")
+			s.Sessions.Remove(ctx, "pending_2fa_until")
+			s.Sessions.Remove(ctx, "pending_2fa_tries")
+			s.Render(w, r, http.StatusOK, "login", Page{Title: "Admin sign in", Error: "Too many wrong codes. Sign in again."})
 			return
 		} else {
-			s.sessions.Put(ctx, "pending_2fa_tries", tries)
+			s.Sessions.Put(ctx, "pending_2fa_tries", tries)
 		}
-		s.render(w, r, http.StatusOK, "login_2fa", Page{Title: "Two-factor login", Error: "Invalid code"})
+		s.Render(w, r, http.StatusOK, "login_2fa", Page{Title: "Two-factor login", Error: "Invalid code"})
 		return
 	}
-	s.loginForgive(ip, admin.Username)
-	s.clearFailures(loginKey(ip, admin.Username))
-	s.clearFailures(uk)
-	s.clearFailures(ak)
-	s.sessions.Remove(ctx, "pending_2fa_tries")
-	s.sessions.Remove(ctx, "pending_2fa")
-	s.sessions.Remove(ctx, "pending_2fa_until")
+	s.LoginForgive(ip, admin.Username)
+	s.ClearFailures(core.LoginKey(ip, admin.Username))
+	s.ClearFailures(uk)
+	s.ClearFailures(ak)
+	s.Sessions.Remove(ctx, "pending_2fa_tries")
+	s.Sessions.Remove(ctx, "pending_2fa")
+	s.Sessions.Remove(ctx, "pending_2fa_until")
 	s.finishLogin(w, r, admin)
 }
 
 // verify2FA accepts the current TOTP code or an unused recovery code.
 func (s *Server) verify2FA(r *http.Request, admin db.Admin, code string) bool {
-	key, err := s.totpOpen(admin.TotpSecretEnc)
+	key, err := s.TotpOpen(admin.TotpSecretEnc)
 	if err != nil {
 		return false
 	}
-	return s.totpVerify(admin.ID, key, code) || s.useRecoveryCode(r, admin.ID, code)
+	return s.TotpVerify(admin.ID, key, code) || s.UseRecoveryCode(r, admin.ID, code)
 }

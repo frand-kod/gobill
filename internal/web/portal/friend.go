@@ -1,0 +1,59 @@
+package portal
+
+// Tell-a-friend invitation form.
+
+import (
+	"net/http"
+
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+
+	"errors"
+	"strings"
+
+	"github.com/frand-kod/gobill/internal/billing"
+	"github.com/frand-kod/gobill/internal/db"
+)
+
+type friendData struct {
+	Plan     db.Plan
+	Username string
+}
+
+func (s *Handlers) friendPage(w http.ResponseWriter, r *http.Request, code int, username, errMsg string) {
+	p, err := s.Queries.GetPlan(r.Context(), httpx.PathID(r))
+	if err != nil || p.Enabled != 1 || p.Type == "Balance" || p.Billing != "prepaid" {
+		http.NotFound(w, r)
+		return
+	}
+	s.Prender(w, r, code, "p_friend", core.Page{Title: "Buy for friend", Error: errMsg, Data: friendData{p, username}})
+}
+
+func (s *Handlers) pFriendForm(w http.ResponseWriter, r *http.Request) {
+	if p, err := s.Queries.GetPlan(r.Context(), httpx.PathID(r)); err != nil || !billing.SellablePlan(p) { // no form for admin-only or Rp 0 plans
+		http.NotFound(w, r)
+		return
+	}
+	s.friendPage(w, r, 200, strings.TrimSpace(r.URL.Query().Get("u")), "")
+}
+
+func (s *Handlers) pFriend(w http.ResponseWriter, r *http.Request) {
+	if s.Billing == nil {
+		s.Fail(w, "portal friend", errors.New("billing not configured"))
+		return
+	}
+	user := strings.TrimSpace(r.PostFormValue("username"))
+	err := s.Billing.SendPlan(r.Context(), customerFrom(r).ID, user, httpx.PathID(r))
+	for _, e := range []error{billing.ErrSelfTransfer, billing.ErrTargetNotFound, billing.ErrInsufficientBalance, billing.ErrInactive,
+		billing.ErrTransferDisabled, billing.ErrPlanNotFound, billing.ErrFriendPlanDiffers, billing.ErrAdminOnlyPlan} {
+		if errors.Is(err, e) {
+			s.friendPage(w, r, 200, user, s.T(e.Error()))
+			return
+		}
+	}
+	if err != nil {
+		s.Fail(w, "portal friend", err)
+		return
+	}
+	s.FlashTo(w, r, "/portal/activation", "Success to send package")
+}

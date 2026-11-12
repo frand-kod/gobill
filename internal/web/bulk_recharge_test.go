@@ -3,11 +3,14 @@ package web
 import (
 	"database/sql"
 	"fmt"
+	adminbilling "github.com/frand-kod/gobill/internal/web/admin/billing"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
 )
@@ -70,7 +73,7 @@ func TestBulkRecharge(t *testing.T) {
 	before := trxCount(e.cust)
 	w := do(e.h, "POST", "/admin/customers/recharge", ids(e.cust, u2, off, nop), e.c)
 	b := w.Body.String()
-	if w.Code != 200 || !strings.Contains(b, "Isi ulang 2 pelanggan, total "+money(20000)) {
+	if w.Code != 200 || !strings.Contains(b, "Isi ulang 2 pelanggan, total "+view.Money(20000)) {
 		t.Fatalf("confirm: %d\n%s", w.Code, b)
 	}
 	if !strings.Contains(b, "Tidak ada paket untuk diperpanjang") || !strings.Contains(b, "tidak aktif") {
@@ -83,7 +86,7 @@ func TestBulkRecharge(t *testing.T) {
 
 	// tampered ids are ignored: the run posts u3 and off, but only the stored u1 and u2 are charged
 	w = do(e.h, "POST", "/admin/customers/recharge/run", runForm(tok, ids(u3, off)), e.c)
-	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != bulkResultPath {
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != adminbilling.BulkResultPath {
 		t.Fatalf("run: %d %s", w.Code, w.Header().Get("Location"))
 	}
 	if trxCount(e.cust) != before+1 || trxCount(u2) != 2 || trxCount(u3) != 1 || trxCount(off) != 0 {
@@ -96,7 +99,7 @@ func TestBulkRecharge(t *testing.T) {
 	// the result page shows the summary; a reload shows it again and charges nothing
 	after := len(*e.calls)
 	for i := 0; i < 2; i++ {
-		w = do(e.h, "GET", bulkResultPath, nil, e.c)
+		w = do(e.h, "GET", adminbilling.BulkResultPath, nil, e.c)
 		if w.Code != 200 || !strings.Contains(w.Body.String(), "2 diisi ulang, 0 gagal") {
 			t.Fatalf("result %d: %d\n%s", i, w.Code, w.Body.String())
 		}
@@ -136,13 +139,13 @@ func TestBulkRecharge(t *testing.T) {
 	rita := login(t, e.h, "rita")
 	wantCode(t, do(e.h, "POST", "/admin/customers/recharge", ids(e.cust), rita), 403, "confirm for Report")
 	wantCode(t, do(e.h, "POST", "/admin/customers/recharge/run", runForm("x"), rita), 403, "run for Report")
-	wantCode(t, do(e.h, "GET", bulkResultPath, nil, rita), 403, "result for Report")
+	wantCode(t, do(e.h, "GET", adminbilling.BulkResultPath, nil, rita), 403, "result for Report")
 	mk(t, e.q, "agnes", "Agent", 1)
 	wantCode(t, do(e.h, "POST", "/admin/customers/recharge", ids(u2), login(t, e.h, "agnes")), 200, "confirm for Agent")
 
 	// cap and empty selection at confirm: sent back to the list with an error, nothing charged
 	many := url.Values{}
-	for i := 0; i < bulkRechargeMax+1; i++ {
+	for i := 0; i < adminbilling.BulkRechargeMax+1; i++ {
 		many.Add("ids", fmt.Sprint(900000+i))
 	}
 	calls = len(*e.calls)

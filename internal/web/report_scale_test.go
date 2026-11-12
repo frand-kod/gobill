@@ -9,6 +9,8 @@ import (
 
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/admin/reports"
+	"github.com/frand-kod/gobill/internal/web/view"
 )
 
 // seedMixed inserts varied rows across three days: types, methods, routers and the excluded balance moves.
@@ -42,7 +44,7 @@ func TestReportTotalsMatchRowList(t *testing.T) {
 		"from=2026-03-11&to=2026-03-09", // inverted range: nothing
 	} {
 		req := httptest.NewRequest("GET", "/admin/reports/period?"+qs, nil)
-		d, a, err := s.reportLoad(req, true)
+		d, a, err := s.reports.ReportLoad(req, true)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -51,10 +53,10 @@ func TestReportTotalsMatchRowList(t *testing.T) {
 			t.Fatal(err)
 		}
 		var sum int64
-		byType, byMethod := map[string]*repTotal{}, map[string]*repTotal{}
-		add := func(m map[string]*repTotal, k string, p int64) {
+		byType, byMethod := map[string]*reports.RepTotal{}, map[string]*reports.RepTotal{}
+		add := func(m map[string]*reports.RepTotal, k string, p int64) {
 			if m[k] == nil {
-				m[k] = &repTotal{Name: k}
+				m[k] = &reports.RepTotal{Name: k}
 			}
 			m[k].Count++
 			m[k].Sum += p
@@ -82,15 +84,15 @@ func TestReportTotalsMatchRowList(t *testing.T) {
 		}
 		// pages of 20 concatenate to the full list, in the same order
 		var paged []string
-		for off := int64(0); ; off += perPage {
-			rows, err := s.reportRows(t.Context(), a, perPage, off)
+		for off := int64(0); ; off += view.PerPage {
+			rows, err := s.reports.ReportRows(t.Context(), a, view.PerPage, off)
 			if err != nil {
 				t.Fatal(err)
 			}
 			for _, r := range rows {
 				paged = append(paged, r.Invoice)
 			}
-			if len(rows) < perPage {
+			if len(rows) < view.PerPage {
 				break
 			}
 		}
@@ -115,8 +117,8 @@ func TestReportPaginationKeepsFilter(t *testing.T) {
 	p1 := do(h, "GET", target, nil, c).Body.String()
 	p2 := do(h, "GET", target+"&page=2", nil, c).Body.String()
 	rowTag := `<a class="link" href="/admin/transactions/`
-	if n := strings.Count(p1, rowTag); n != perPage {
-		t.Fatalf("page 1 rows %d, want %d", n, perPage)
+	if n := strings.Count(p1, rowTag); n != view.PerPage {
+		t.Fatalf("page 1 rows %d, want %d", n, view.PerPage)
 	}
 	if !strings.Contains(p1, "page=2") {
 		t.Fatal("page 1 has no Next link")
@@ -136,7 +138,7 @@ func TestReportPaginationKeepsFilter(t *testing.T) {
 		t.Fatal("total row missing")
 	}
 	req := httptest.NewRequest("GET", target, nil)
-	d, _, err := s.reportLoad(req, true)
+	d, _, err := s.reports.ReportLoad(req, true)
 	if err != nil || d.Count != 27 {
 		t.Fatalf("count %d %v, want 27", d.Count, err)
 	}
@@ -152,7 +154,7 @@ func TestReportPrintCapAndExportAll(t *testing.T) {
 		t.Fatal(err)
 	}
 	at := time.Date(2026, 3, 10, 12, 0, 0, 0, jkt).Unix()
-	for i := 0; i < reportPrintCap+1; i++ {
+	for i := 0; i < reports.ReportPrintCap+1; i++ {
 		if _, err := tx.Exec(`INSERT INTO transactions (invoice, username, plan_name, router_name, type, price, method, created_at, period_start, period_end)
 			VALUES (?, 'u', 'p', 'r', 'PPPoE', 1, 'Cash', ?, 0, 0)`, fmt.Sprintf("BULK-%05d", i), at); err != nil {
 			t.Fatal(err)
@@ -165,12 +167,12 @@ func TestReportPrintCapAndExportAll(t *testing.T) {
 	if !strings.Contains(p, "5000") {
 		t.Fatal("print: truncation notice missing")
 	}
-	if strings.Contains(p, fmt.Sprintf("BULK-%05d", reportPrintCap)) {
+	if strings.Contains(p, fmt.Sprintf("BULK-%05d", reports.ReportPrintCap)) {
 		t.Fatal("print: row beyond the cap printed")
 	}
 	csv := do(h, "GET", "/admin/reports/export?date=2026-03-10", nil, c).Body.String()
-	if n := strings.Count(csv, "\n"); n != reportPrintCap+2 { // header + all rows + trailing newline of last
-		t.Fatalf("export lines %d, want %d", n, reportPrintCap+2)
+	if n := strings.Count(csv, "\n"); n != reports.ReportPrintCap+2 { // header + all rows + trailing newline of last
+		t.Fatalf("export lines %d, want %d", n, reports.ReportPrintCap+2)
 	}
 }
 
@@ -191,8 +193,8 @@ func TestPortalOrdersPaginationAndIsolation(t *testing.T) {
 	cc, _ := custLogin(t, e, "u1", "pw12345")
 
 	p1 := do(e.h, "GET", "/portal/orders", nil, cc).Body.String()
-	if n := strings.Count(p1, `invoice">MINE-`); n != perPage {
-		t.Fatalf("orders page 1: %d rows, want %d", n, perPage)
+	if n := strings.Count(p1, `invoice">MINE-`); n != view.PerPage {
+		t.Fatalf("orders page 1: %d rows, want %d", n, view.PerPage)
 	}
 	if !strings.Contains(p1, `href="/portal/orders?page=2"`) || strings.Contains(p1, "THEIRS") {
 		t.Fatal("orders page 1: next link or isolation wrong")

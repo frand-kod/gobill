@@ -10,6 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/admin/reports"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	gobill "github.com/frand-kod/gobill"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/i18n"
@@ -21,12 +25,12 @@ func TestMonitorLabelMapsTranslated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for k, v := range actionLabels {
+	for k, v := range reports.ActionLabels {
 		if cat["indonesia"][v] == "" {
 			t.Errorf("action %q: label %q not translated", k, v)
 		}
 	}
-	for k, v := range rejectLabels {
+	for k, v := range adminx.RejectLabels {
 		if cat["indonesia"][v] == "" {
 			t.Errorf("reject %q: label %q not translated", k, v)
 		}
@@ -41,13 +45,13 @@ func TestActivityLogLabelsAndActor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := e.s.actionLabel("logs.clean"); got != "Logs cleaned" {
+	if got := e.s.reports.ActionLabel("logs.clean"); got != "Logs cleaned" {
 		t.Errorf("logs.clean label = %q", got)
 	}
-	if got := e.s.actionLabel("made.up.action"); got != "made.up.action" {
+	if got := e.s.reports.ActionLabel("made.up.action"); got != "made.up.action" {
 		t.Errorf("unknown action label = %q, want the key", got)
 	}
-	if got := e.s.actorLabel(ctx, "admin", 9999); got != "admin #9999" {
+	if got := e.s.reports.ActorLabel(ctx, "admin", 9999); got != "admin #9999" {
 		t.Errorf("missing admin actor = %q", got)
 	}
 	if err := e.q.CreateActivityLog(ctx, db.CreateActivityLogParams{ActorType: "admin", ActorID: admin.ID, Action: "logs.clean", Description: "actor-marker"}); err != nil {
@@ -75,7 +79,7 @@ func TestLogCleanFlashCount(t *testing.T) {
 	if body := do(e.h, "GET", "/admin/logs", nil, e.c).Body.String(); !strings.Contains(body, "0 logs deleted") {
 		t.Errorf("flash after clean does not name the count")
 	}
-	if got := fmt.Sprintf(e.s.catalog.T("indonesia", "%d logs deleted"), 3); got != "3 log dihapus" {
+	if got := fmt.Sprintf(e.s.Catalog.T("indonesia", "%d logs deleted"), 3); got != "3 log dihapus" {
 		t.Errorf("indonesian flash = %q", got)
 	}
 }
@@ -104,11 +108,11 @@ func TestDashboardIncomeLabelResetDay(t *testing.T) {
 	}
 }
 
-// The sales chart reads the currency prefix and separator from money() through data attributes.
+// The sales chart reads the currency prefix and separator from view.Money() through data attributes.
 func TestDashboardChartMoneyAttributes(t *testing.T) {
 	e := englishApp(t)
 	body := do(e.h, "GET", "/admin", nil, e.c).Body.String()
-	for _, want := range []string{`data-money-prefix="Rp "`, fmt.Sprintf(`data-money-sep="%s"`, groupSep())} {
+	for _, want := range []string{`data-money-prefix="Rp "`, fmt.Sprintf(`data-money-sep="%s"`, view.GroupSep())} {
 		if !strings.Contains(body, want) {
 			t.Errorf("sales chart missing %s", want)
 		}
@@ -122,7 +126,7 @@ func TestDashboardRowsAndCappedCount(t *testing.T) {
 	ctx := t.Context()
 	p := e.plan(t, "cap", "PPPoE", 1000)
 	now := time.Now().Unix()
-	for i := 0; i < dashListLimit+5; i++ {
+	for i := 0; i < reports.DashListLimit+5; i++ {
 		c, err := e.q.CreateCustomer(ctx, db.CreateCustomerParams{Username: fmt.Sprintf("cap%02d", i), PasswordHash: "h", Fullname: "Cap", ServiceType: "PPPoE", AutoRenewal: 1, Status: "Active"})
 		if err != nil {
 			t.Fatal(err)
@@ -136,7 +140,7 @@ func TestDashboardRowsAndCappedCount(t *testing.T) {
 	if !strings.Contains(body, `aria-label="Recharge cap00"`) || !strings.Contains(body, `href="/admin/recharge?customer=cap00"`) {
 		t.Error("expiring row: recharge icon does not name the customer or go to the recharge page")
 	}
-	if !strings.Contains(body, `data-limit="`+strconv.Itoa(dashListLimit)+`"`) {
+	if !strings.Contains(body, `data-limit="`+strconv.Itoa(reports.DashListLimit)+`"`) {
 		t.Error("customers card has no data-limit")
 	}
 	if !strings.Contains(body, `">50+</span>`) {

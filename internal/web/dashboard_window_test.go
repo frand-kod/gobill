@@ -9,7 +9,7 @@ import (
 // The charts show the last 12 months, oldest first, across a year boundary, with the same income rules as the tiles.
 func TestDashboardRolling12Months(t *testing.T) {
 	s, _ := newTestApp(t)
-	loc := s.location()
+	loc := s.Location()
 	now := time.Date(2026, 2, 10, 12, 0, 0, 0, loc)
 	add := func(method string, price int64, at time.Time) {
 		if _, err := s.conn.Exec(`INSERT INTO transactions (invoice, username, plan_name, router_name, type, price, method, created_at, period_start, period_end)
@@ -22,7 +22,7 @@ func TestDashboardRolling12Months(t *testing.T) {
 	add("Cash - A", 4000, time.Date(2026, 2, 1, 0, 30, 0, 0, loc))            // current month
 	add("Cash - A", 8000, time.Date(2025, 2, 20, 9, 0, 0, 0, loc))            // 13 months back: outside
 	add("Customer - Balance", 16000, time.Date(2025, 12, 5, 9, 0, 0, 0, loc)) // paid from balance: excluded
-	d, err := s.dashboardData(t.Context(), now)
+	d, err := s.reports.DashboardData(t.Context(), now)
 	if err != nil {
 		t.Fatal(err)
 	}

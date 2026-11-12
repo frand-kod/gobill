@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/service/promo"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 func promoForm(title string) url.Values {
@@ -121,7 +123,7 @@ func TestPromoValidation(t *testing.T) {
 		t.Fatalf("invalid promos saved: %d", len(list))
 	}
 	for _, ok := range []string{"https://wa.me/628123", "http://intranet.test/promo"} {
-		if !promoLinkOK(ok) {
+		if !promo.LinkOK(ok) {
 			t.Fatalf("link refused: %s", ok)
 		}
 	}
@@ -134,7 +136,7 @@ func TestPromoImageLifecycle(t *testing.T) {
 	s, q := newTestApp(t)
 	h := s.Handler()
 	super := login(t, h, "alice")
-	dir, err := s.uploadDir()
+	dir, err := s.ax.UploadDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +145,7 @@ func TestPromoImageLifecycle(t *testing.T) {
 		t.Fatalf("create with image: %d %s", w.Code, w.Body.String())
 	}
 	p := mustOnePromo(t, q)
-	if !uploadName.MatchString(p.Image) {
+	if !core.UploadName.MatchString(p.Image) {
 		t.Fatalf("image name %q", p.Image)
 	}
 	file := filepath.Join(dir, p.Image)
@@ -209,7 +211,7 @@ func TestPromoBlocksRules(t *testing.T) {
 	insertPromo(t, q, db.CreatePromoParams{Title: "Portal only", ShowIsolir: 0, ShowPortal: 1, Active: 1, Position: 0})
 	insertPromo(t, q, db.CreatePromoParams{Title: "<script>x</script>", Body: "<b>hi</b>", Link: "https://wa.me/1", Image: "0123456789abcdef0123456789abcdef.png", ShowIsolir: 1, Active: 1, Position: 1})
 
-	html := string(s.promoBlocks(ctx, "isolir"))
+	html := string(s.PromoBlocks(ctx, "isolir"))
 	for _, hidden := range []string{"Inactive", "Ended", "Later", "Portal only"} {
 		if strings.Contains(html, hidden) {
 			t.Fatalf("%q shown on isolir", hidden)
@@ -225,10 +227,10 @@ func TestPromoBlocksRules(t *testing.T) {
 	if !strings.Contains(html, `target="_blank" rel="noopener"`) || !strings.Contains(html, `loading="lazy"`) {
 		t.Fatal("link or lazy image attributes missing")
 	}
-	if got := s.promoBlocks(ctx, "portal"); !strings.Contains(string(got), "Portal only") {
+	if got := s.PromoBlocks(ctx, "portal"); !strings.Contains(string(got), "Portal only") {
 		t.Fatal("portal place missing its promo")
 	}
-	if s.promoBlocks(ctx, "nobody") != "" {
+	if s.PromoBlocks(ctx, "nobody") != "" {
 		t.Fatal("unknown place rendered something")
 	}
 }

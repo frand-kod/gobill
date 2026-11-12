@@ -5,6 +5,7 @@ package billing
 import (
 	"database/sql"
 	"encoding/json"
+	"github.com/frand-kod/gobill/internal/settings"
 	"log/slog"
 	"slices"
 	"sync"
@@ -40,7 +41,7 @@ func (rs *routerState) load(ctx context.Context, q *db.Queries) {
 	}
 	rs.loaded = true
 	rs.fails, rs.down = map[int64]int{}, map[int64]bool{}
-	v, _ := q.GetSetting(ctx, routerDownKey)
+	v := settings.Get(ctx, q, routerDownKey)
 	var ids []int64
 	_ = json.Unmarshal([]byte(v), &ids)
 	for _, id := range ids {

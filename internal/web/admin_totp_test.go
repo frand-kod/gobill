@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 // RFC 6238 appendix B: SHA-1 secret "12345678901234567890"; 8-digit values truncated to 6 digits.
@@ -18,7 +20,7 @@ func TestTOTPRFC6238(t *testing.T) {
 		T    int64
 		want string
 	}{{59, "287082"}, {1111111109, "081804"}, {1111111111, "050471"}} {
-		if got := totpCode(key, c.T/30); got != c.want {
+		if got := core.TotpCode(key, c.T/30); got != c.want {
 			t.Errorf("T=%d: got %s want %s", c.T, got, c.want)
 		}
 	}
@@ -43,15 +45,15 @@ func enrollTOTP(t *testing.T, s *Server, h http.Handler, cookie *http.Cookie, us
 	if w := do(h, "POST", "/admin/2fa/setup", nil, cookie); w.Code != http.StatusSeeOther {
 		t.Fatalf("setup: %d", w.Code)
 	}
-	a, err := s.queries.GetAdminByUsername(t.Context(), user)
+	a, err := s.Queries.GetAdminByUsername(t.Context(), user)
 	if err != nil {
 		t.Fatal(err)
 	}
-	key, err := s.totpOpen(a.TotpSecretEnc)
+	key, err := s.TotpOpen(a.TotpSecretEnc)
 	if err != nil {
 		t.Fatal(err)
 	}
-	w := do(h, "POST", "/admin/2fa/confirm", url.Values{"code": {totpCode(key, time.Now().Unix()/30)}}, cookie)
+	w := do(h, "POST", "/admin/2fa/confirm", url.Values{"code": {core.TotpCode(key, time.Now().Unix()/30)}}, cookie)
 	if w.Code != http.StatusOK {
 		t.Fatalf("confirm: %d", w.Code)
 	}
@@ -119,7 +121,7 @@ func TestTOTPEnrollThenLogin(t *testing.T) {
 		t.Fatalf("wrong code: %d", w.Code)
 	}
 	next := time.Now().Unix()/30 + 1
-	w = secondStep(h, pending, totpCode(key, next))
+	w = secondStep(h, pending, core.TotpCode(key, next))
 	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/admin" {
 		t.Fatalf("right code: %d %q", w.Code, w.Header().Get("Location"))
 	}
@@ -134,7 +136,7 @@ func TestTOTPReplayRejected(t *testing.T) {
 	h := s.Handler()
 	key, _ := enrollTOTP(t, s, h, login(t, h, "alice"), "alice")
 
-	code := totpCode(key, time.Now().Unix()/30+1)
+	code := core.TotpCode(key, time.Now().Unix()/30+1)
 	if w := secondStep(h, sessionCookie(passwordStep(h, "alice")), code); w.Code != http.StatusSeeOther {
 		t.Fatalf("first use: %d", w.Code)
 	}
@@ -150,14 +152,14 @@ func TestTOTPWrongCodeThrottled(t *testing.T) {
 	key, _ := enrollTOTP(t, s, h, login(t, h, "alice"), "alice")
 
 	var pending *http.Cookie
-	for i := 0; i < maxFailedLogins; i++ { // a fresh password step each time: one pending login only allows max2FAPerLogin guesses
+	for i := 0; i < core.MaxFailedLogins; i++ { // a fresh password step each time: one pending login only allows max2FAPerLogin guesses
 		pending = sessionCookie(passwordStep(h, "alice"))
 		if w := secondStep(h, pending, "000000"); w.Code != 200 {
 			t.Fatalf("attempt %d: %d", i, w.Code)
 		}
 	}
 	// the correct code is refused too: the account is locked for the window
-	if w := secondStep(h, pending, totpCode(key, time.Now().Unix()/30+1)); w.Code != http.StatusTooManyRequests {
+	if w := secondStep(h, pending, core.TotpCode(key, time.Now().Unix()/30+1)); w.Code != http.StatusTooManyRequests {
 		t.Fatalf("throttle: %d", w.Code)
 	}
 	// a correct password does not reset the count
@@ -194,7 +196,7 @@ func TestTOTPDisableAndSuperAdminReset(t *testing.T) {
 
 	// disable needs the password and a valid code
 	base := time.Now().Unix() / 30
-	if w := do(h, "POST", "/admin/2fa/disable", url.Values{"current": {"wrong"}, "code": {totpCode(key, base+1)}}, cookie); w.Code != http.StatusSeeOther {
+	if w := do(h, "POST", "/admin/2fa/disable", url.Values{"current": {"wrong"}, "code": {core.TotpCode(key, base+1)}}, cookie); w.Code != http.StatusSeeOther {
 		t.Fatalf("disable: %d", w.Code)
 	}
 	var on int
@@ -202,7 +204,7 @@ func TestTOTPDisableAndSuperAdminReset(t *testing.T) {
 	if on != 1 {
 		t.Fatal("disabled with a wrong password")
 	}
-	do(h, "POST", "/admin/2fa/disable", url.Values{"current": {"secret123"}, "code": {totpCode(key, base+1)}}, cookie)
+	do(h, "POST", "/admin/2fa/disable", url.Values{"current": {"secret123"}, "code": {core.TotpCode(key, base+1)}}, cookie)
 	s.conn.QueryRow("SELECT totp_enabled FROM admins WHERE username = 'alice'").Scan(&on)
 	if on != 0 {
 		t.Fatal("not disabled")
@@ -211,7 +213,7 @@ func TestTOTPDisableAndSuperAdminReset(t *testing.T) {
 	// rita turns 2FA on; only a SuperAdmin may reset it
 	ritaCookie := login(t, h, "rita")
 	enrollTOTP(t, s, h, ritaCookie, "rita")
-	rita, err := s.queries.GetAdminByUsername(t.Context(), "rita")
+	rita, err := s.Queries.GetAdminByUsername(t.Context(), "rita")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +224,7 @@ func TestTOTPDisableAndSuperAdminReset(t *testing.T) {
 	if w := do(h, "POST", reset, nil, cookie); w.Code != http.StatusSeeOther {
 		t.Fatalf("SuperAdmin reset: %d", w.Code)
 	}
-	a, _ := s.queries.GetAdminByUsername(t.Context(), "rita")
+	a, _ := s.Queries.GetAdminByUsername(t.Context(), "rita")
 	if a.TotpEnabled != 0 || a.TotpSecretEnc != "" {
 		t.Fatal("reset did not clear 2FA")
 	}

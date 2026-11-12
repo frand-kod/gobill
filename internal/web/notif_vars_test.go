@@ -1,6 +1,7 @@
 package web
 
 import (
+	adminsettings "github.com/frand-kod/gobill/internal/web/admin/settings"
 	"net/http"
 	"strings"
 	"testing"
@@ -71,7 +72,7 @@ func TestVarDescriptionsTranslated(t *testing.T) {
 	for _, vs := range notify.Vars {
 		all = append(all, vs...)
 	}
-	all = append(all, isolirVarList...)
+	all = append(all, adminsettings.IsolirVarList...)
 	for _, v := range all {
 		if id[v.Desc] == "" {
 			t.Errorf("%s: %q has no Indonesian text", v.Name, v.Desc)

@@ -8,12 +8,13 @@ import (
 
 	gobill "github.com/frand-kod/gobill"
 	"github.com/frand-kod/gobill/internal/i18n"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 )
 
 // The tab order and slugs are what the sidebar and the search index rely on.
 func TestSettingsTabOrder(t *testing.T) {
 	var got []string
-	for _, tab := range settingsTabs {
+	for _, tab := range adminx.SettingsTabs {
 		got = append(got, tab.Slug+"="+tab.Label)
 	}
 	want := "app=General localisation=Localisation billing=Customers & Billing payment=Payments integrations=Integrations " +
@@ -27,8 +28,8 @@ func TestSettingsTabOrder(t *testing.T) {
 func TestSettingsKeysOnOneTab(t *testing.T) {
 	s, _, _ := settingsSetup(t)
 	owner := map[string]string{}
-	for _, tab := range settingsTabs {
-		for _, n := range fieldNames(s.settingsFields(tab.Slug, nil, nil, nil)) {
+	for _, tab := range adminx.SettingsTabs {
+		for _, n := range adminx.FieldNames(s.settings.SettingsFields(tab.Slug, nil, nil, nil)) {
 			if prev, ok := owner[n]; ok {
 				t.Errorf("%s is on tabs %s and %s", n, prev, tab.Slug)
 			}
@@ -61,13 +62,13 @@ func TestSettingsTitlesTranslated(t *testing.T) {
 			t.Errorf("%s: section %q has no key in lang/indonesia.json", where, title)
 		}
 	}
-	for _, tab := range settingsTabs {
+	for _, tab := range adminx.SettingsTabs {
 		check(tab.Slug, tab.Label)
-		for _, f := range s.settingsFields(tab.Slug, nil, nil, nil) {
+		for _, f := range s.settings.SettingsFields(tab.Slug, nil, nil, nil) {
 			check(tab.Slug, f.Section)
 		}
 	}
-	for _, f := range s.isolirSetupFields(nil) {
+	for _, f := range s.settings.IsolirSetupFields(nil) {
 		check("isolir setup", f.Section)
 	}
 	check("integrations", "New token") // the one-time metrics token card

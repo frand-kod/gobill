@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/money"
 	"github.com/frand-kod/gobill/internal/notify"
 	"strings"
 	"time"
@@ -52,7 +53,7 @@ func (s *Service) DailySummaryText(ctx context.Context, now time.Time) (string, 
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "Ringkasan harian %s\n", today.Format("2006-01-02"))
-	fmt.Fprintf(&b, "Pemasukan kemarin: %s\n", notify.Money(income))
+	fmt.Fprintf(&b, "Pemasukan kemarin: %s\n", money.Message(income))
 	fmt.Fprintf(&b, "Pelanggan baru kemarin: %d\n", newCust)
 	fmt.Fprintf(&b, "Langganan habis hari ini: %d", len(due))
 	if len(names) > 0 {
@@ -100,7 +101,7 @@ func (s *Service) SendDailySummary(ctx context.Context) ([]string, error) {
 	if n == nil {
 		return nil, errors.New("notifier not ready")
 	}
-	tg, wa := dailySummaryTargets(n.Settings)
+	tg, wa := dailySummaryTargets(n.Config())
 	if !tg && wa == "" {
 		return nil, ErrSummaryNotConfigured
 	}

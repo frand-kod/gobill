@@ -34,9 +34,9 @@ func TestFlashInToastContainer(t *testing.T) {
 func TestToastRolesAndTimers(t *testing.T) {
 	s, _ := newTestApp(t)
 	var b bytes.Buffer
-	p := Page{Title: "Test", Admin: &db.Admin{Role: "SuperAdmin", Username: "alice"}, Brand: s.brand(t.Context()),
+	p := Page{Title: "Test", Admin: &db.Admin{Role: "SuperAdmin", Username: "alice"}, Brand: s.Brand(t.Context()),
 		Flash: "saved-msg", Warn: "warn-msg", Error: "error-msg", Detail: "sql detail"}
-	if err := s.templates["list"].ExecuteTemplate(&b, "base", p); err != nil {
+	if err := s.Templates["list"].ExecuteTemplate(&b, "base", p); err != nil {
 		t.Fatal(err)
 	}
 	out := b.String()

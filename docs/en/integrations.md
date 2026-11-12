@@ -133,6 +133,30 @@ Notes:
 - The system does not verify QRIS payments. Payment confirmation is still done manually.
 - Recharges already paid with balance, a gateway, or a voucher do not get this link.
 
+## REST API
+
+`/api/v1` returns JSON. It is read-only for now.
+
+- Send the token in the header `Authorization: Bearer <token>`. Cookies are ignored.
+- A token looks like `gbt_` followed by 43 characters. It belongs to one admin and has that admin's role.
+- Only the hash is stored. The token is shown once when it is created. A token can expire or be revoked.
+- Endpoints: `me`, `customers` (with `?q=`), `customers/{id}`, `subscriptions?customer_id=`, `plans`, `routers`, `nas`, `radius/sessions`.
+- Which roles may call each group is set on the API page. By default customers and subscriptions need SuperAdmin, Admin, Agent or Sales. Plans, routers, NAS and sessions need SuperAdmin or Admin. `me` is open to every admin.
+- Lists take `?page=` and `?per_page=` (up to 100) and answer `{"data": [...], "page", "per_page", "has_more"}`.
+- Errors are `{"error": "..."}` with status 400, 401, 403, 404 or 429. The limit is 120 requests a minute per token.
+
+### API page
+
+SuperAdmin opens **API** in the sidebar (`/admin/api`).
+
+- The API is off by default. Tick **Turn on the API** and save. While it is off, every request answers 403 `API is disabled`.
+- The table sets which roles may call customers and network endpoints. SuperAdmin is always allowed. A change takes effect on the next request.
+- **Create token**: give a name, pick an active admin and a lifetime of 30, 90 or 365 days, or never.
+- The token is shown once, right after you create it. Copy it then. It cannot be shown again.
+- The list shows owner, creation, last use, expiry and status. **Revoke** stops a token for good.
+- A token stops working when its admin is suspended.
+- Every change is written to the activity log, never with the token itself.
+
 ## See also
 
 - [Configuration](configuration.md): general and business settings.

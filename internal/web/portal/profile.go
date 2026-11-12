@@ -1,0 +1,268 @@
+package portal
+
+// Customer profile, password and contact change with OTP.
+
+import (
+	"context"
+	"log/slog"
+	"net/http"
+
+	"github.com/frand-kod/gobill/internal/service/customer"
+	"github.com/frand-kod/gobill/internal/web/core"
+
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/notify"
+	"golang.org/x/crypto/bcrypt"
+)
+
+// ---- profile ----
+
+func (s *Handlers) pProfileForm(w http.ResponseWriter, r *http.Request) {
+	s.profilePage(w, r, 200, "")
+}
+
+func (s *Handlers) pProfile(w http.ResponseWriter, r *http.Request) {
+	c := customerFrom(r)
+	fullname := strings.TrimSpace(r.PostFormValue("fullname"))
+	if fullname == "" {
+		s.profilePage(w, r, 200, "Full Name is required")
+		return
+	}
+	st, err := s.LoadSettings(r.Context())
+	if err != nil {
+		s.Fail(w, "portal profile", err)
+		return
+	}
+	phone, email := db.CanonicalPhone(r.PostFormValue("phone")), strings.TrimSpace(r.PostFormValue("email"))
+	if st["allow_phone_otp"] == "yes" { // changed only through the OTP flow
+		phone = c.Phone
+	}
+	if st["allow_email_otp"] == "yes" {
+		email = c.Email
+	}
+	err = s.Queries.UpdateCustomer(r.Context(), db.UpdateCustomerParams{
+		Fullname: fullname, Address: strings.TrimSpace(r.PostFormValue("address")), Phone: phone, Email: email, Coordinates: c.Coordinates,
+		ServiceType: c.ServiceType, PppoeUsername: c.PppoeUsername, PppoeIp: c.PppoeIp, SecretEnc: c.SecretEnc,
+		AutoRenewal: c.AutoRenewal, Status: c.Status, BillingDay: c.BillingDay, ID: c.ID})
+	if err != nil {
+		s.Fail(w, "portal profile", err)
+		return
+	}
+	s.Sessions.Put(r.Context(), "flash", s.T("Data Saved"))
+	http.Redirect(w, r, "/portal/profile", http.StatusSeeOther)
+}
+
+func (s *Handlers) pPassword(w http.ResponseWriter, r *http.Request) {
+	c := customerFrom(r)
+	st, err := s.LoadSettings(r.Context())
+	if err != nil {
+		s.Fail(w, "portal password", err)
+		return
+	}
+	npass := r.PostFormValue("npass")
+	// A wrong current password is a guess against the login: throttle it like the login does.
+	pwKey := fmt.Sprintf("c:pw:%d", c.ID)
+	if s.TooManyFailures(pwKey) {
+		s.profilePage(w, r, 200, "Too many failed attempts. Try again in 15 minutes.")
+		return
+	}
+	msg := ""
+	if bcrypt.CompareHashAndPassword([]byte(c.PasswordHash), []byte(r.PostFormValue("password"))) != nil {
+		s.RecordFailure(pwKey)
+		msg = "Incorrect current password"
+	} else if msg = s.CustomerPasswordErr(st, c.Username, npass); msg == "" && npass != r.PostFormValue("cnpass") {
+		msg = "Passwords does not match"
+	}
+	if msg != "" {
+		s.profilePage(w, r, 200, msg)
+		return
+	}
+	s.ClearFailures(pwKey)
+	err = s.CustomerSvc().SetPassword(r.Context(), c.ID, npass)
+	if err == nil {
+		err = s.keepSession(r, c.ID)
+	}
+	if err == nil {
+		s.Billing.SyncCustomer(r.Context(), c.ID, 0) // old app pushes the new password to the router
+	}
+	if err != nil {
+		s.Fail(w, "portal password", err)
+		return
+	}
+	s.Sessions.Put(r.Context(), "flash", s.T("Password changed successfully"))
+	http.Redirect(w, r, "/portal/profile", http.StatusSeeOther)
+}
+
+// ---- phone / email change with OTP ----
+
+type contactData struct {
+	OTPPhone, OTPEmail bool   // change goes through an OTP (allow_phone_otp / allow_email_otp)
+	Pending, Value     string // a code was sent for kind Pending to Value
+	LastLogin          string
+	Transfer           bool // allow_balance_transfer: the Send Balance form
+	Minimum            string
+}
+
+func (s *Handlers) profilePage(w http.ResponseWriter, r *http.Request, code int, errMsg string) {
+	st, err := s.LoadSettings(r.Context())
+	if err != nil {
+		s.Fail(w, "portal profile", err)
+		return
+	}
+	d := contactData{OTPPhone: st["allow_phone_otp"] == "yes", OTPEmail: st["allow_email_otp"] == "yes",
+		Transfer: st["enable_balance"] != "no" && st["allow_balance_transfer"] == "yes", Minimum: st["minimum_transfer"]}
+	if c := customerFrom(r); c.LastLoginAt.Valid {
+		d.LastLogin = s.TS(c.LastLoginAt.Int64)
+	}
+	if k := s.Sessions.GetString(r.Context(), "ct_kind"); k != "" && time.Now().Unix() < s.Sessions.GetInt64(r.Context(), "ct_exp") {
+		d.Pending, d.Value = k, s.Sessions.GetString(r.Context(), "ct_val")
+	}
+	s.Prender(w, r, code, "p_profile", core.Page{Title: "Profile", Error: errMsg, Data: d})
+}
+
+func (s *Handlers) contactClear(r *http.Request) {
+	for _, k := range []string{"ct_kind", "ct_val", "ct_hash", "ct_exp"} {
+		s.Sessions.Remove(r.Context(), k)
+	}
+}
+
+// msgPhoneTaken is the error for a WhatsApp number another account already uses (wa_unique_per_account = yes).
+const msgPhoneTaken = customer.MsgPhoneTaken
+
+// ContactTaken reports whether another customer already uses this phone or email.
+func (s *Handlers) ContactTaken(r *http.Request, kind, val string, self int64) (bool, error) {
+	if kind == "phone" {
+		return s.PhoneTaken(r.Context(), val, self)
+	}
+	ids, err := s.Queries.ListOtherCustomerIDsByEmail(r.Context(), db.ListOtherCustomerIDsByEmailParams{Email: val, Self: self})
+	return len(ids) > 0, err
+}
+
+// PhoneTaken reports whether another customer uses this WhatsApp number. Only checked when
+// wa_unique_per_account is yes: by default several accounts may share one number (family, RT/RW).
+func (s *Handlers) PhoneTaken(ctx context.Context, phone string, self int64) (bool, error) {
+	return s.CustomerSvc().PhoneTaken(ctx, phone, self)
+}
+
+func (s *Handlers) pContactOTP(w http.ResponseWriter, r *http.Request) {
+	ctx, kind, c := r.Context(), r.PathValue("kind"), customerFrom(r)
+	st, err := s.LoadSettings(ctx)
+	if err != nil || (kind != "phone" && kind != "email") || st["allow_"+kind+"_otp"] != "yes" {
+		http.NotFound(w, r)
+		return
+	}
+	if core.OtpOff(st) {
+		s.profilePage(w, r, 200, "Verification code is not available right now")
+		return
+	}
+	val := strings.TrimSpace(r.PostFormValue("value"))
+	if kind == "phone" {
+		val = db.CanonicalPhone(val)
+		if len(val) < 10 {
+			s.profilePage(w, r, 200, "Invalid phone number format")
+			return
+		}
+		if !notify.SMSConfigured(st) && !notify.WAConfigured(st) {
+			s.profilePage(w, r, 200, "SMS server not Available, Please try again later")
+			return
+		}
+	} else if !strings.Contains(val, "@") || len(val) < 5 {
+		s.profilePage(w, r, 200, "Email is not Valid")
+		return
+	}
+	if taken, err := s.ContactTaken(r, kind, val, c.ID); err != nil {
+		s.Fail(w, "portal contact", err)
+		return
+	} else if taken {
+		msg := "Already registered by another customer"
+		if kind == "phone" {
+			msg = msgPhoneTaken
+		}
+		s.profilePage(w, r, 200, msg)
+		return
+	}
+	if exp := s.Sessions.GetInt64(ctx, "ct_exp"); s.Sessions.GetString(ctx, "ct_kind") == kind && time.Now().Unix() < exp {
+		s.profilePage(w, r, 200, fmt.Sprintf(s.T("Please wait %d seconds before sending another code"), exp-time.Now().Unix()))
+		return
+	}
+	if !s.OtpAllow(core.ClientIP(r), val) {
+		s.profilePage(w, r, 200, "Too many verification code requests, please try again later")
+		return
+	}
+	otp, err := core.NewOTP()
+	var hash []byte
+	if err == nil {
+		hash, err = bcrypt.GenerateFromPassword([]byte(otp), core.BcryptCost)
+	}
+	if err != nil {
+		s.Fail(w, "portal contact otp", err)
+		return
+	}
+	if kind == "phone" {
+		err = s.SendOTP(ctx, st, val, "Verification code", otp)
+	} else {
+		var n *notify.Notifier
+		if n, err = notify.Load(ctx, s.Queries); err == nil {
+			err = n.Email(ctx, val, "["+st["company_name"]+"] "+s.T("Verification code"), otp)
+		}
+	}
+	if err != nil {
+		slog.Error("send contact otp", "err", err)
+		s.profilePage(w, r, 200, "Failed to send verification code")
+		return
+	}
+	s.Sessions.Put(ctx, "ct_kind", kind)
+	s.Sessions.Put(ctx, "ct_val", val)
+	s.Sessions.Put(ctx, "ct_hash", string(hash))
+	s.Sessions.Put(ctx, "ct_exp", time.Now().Add(otpTTL).Unix())
+	s.FlashTo(w, r, "/portal/profile#verify", "Verification code sent")
+}
+
+func (s *Handlers) pContactVerify(w http.ResponseWriter, r *http.Request) {
+	ctx, kind, c := r.Context(), r.PathValue("kind"), customerFrom(r)
+	if st, err := s.LoadSettings(ctx); err != nil {
+		s.Fail(w, "contact verify settings", err)
+		return
+	} else if core.OtpOff(st) {
+		s.profilePage(w, r, 200, "Verification code is not available right now")
+		return
+	}
+	if s.Sessions.GetString(ctx, "ct_kind") != kind || time.Now().Unix() > s.Sessions.GetInt64(ctx, "ct_exp") {
+		s.contactClear(r)
+		s.profilePage(w, r, 200, "Verification code expired")
+		return
+	}
+	// The try count is per issued code and kept on the server: a session counter loses decrements
+	// when requests run in parallel.
+	hash := s.Sessions.GetString(ctx, "ct_hash")
+	left := s.Reserve("otp:"+hash, OtpTries)
+	if left < 0 || bcrypt.CompareHashAndPassword([]byte(hash), []byte(strings.TrimSpace(r.PostFormValue("otp")))) != nil {
+		if left <= 0 {
+			s.contactClear(r)
+			s.profilePage(w, r, 200, "Too many invalid attempts, please request a new Verification Code")
+			return
+		}
+		s.profilePage(w, r, 200, "Wrong Verification code")
+		return
+	}
+	s.ClearFailures("otp:" + hash)
+	val := s.Sessions.GetString(ctx, "ct_val")
+	s.contactClear(r)
+	phone, email := c.Phone, c.Email
+	if kind == "phone" {
+		phone = val
+	} else {
+		email = val
+	}
+	if err := s.Queries.UpdateCustomer(ctx, db.UpdateCustomerParams{Fullname: c.Fullname, Address: c.Address, Phone: phone, Email: email,
+		ServiceType: c.ServiceType, PppoeUsername: c.PppoeUsername, PppoeIp: c.PppoeIp, SecretEnc: c.SecretEnc,
+		AutoRenewal: c.AutoRenewal, Status: c.Status, BillingDay: c.BillingDay, Coordinates: c.Coordinates, ID: c.ID}); err != nil {
+		s.Fail(w, "portal contact", err)
+		return
+	}
+	s.FlashTo(w, r, "/portal/profile", "Data Saved")
+}

@@ -49,8 +49,8 @@ func TestCustomFieldRequiredAndSave(t *testing.T) {
 		for k, v := range base {
 			f[k] = v
 		}
-		f.Set(cfKey(shoe.ID), shoeVal)
-		f.Set(cfKey(tier.ID), tierVal)
+		f.Set(fmt.Sprint("cf_", shoe.ID), shoeVal)
+		f.Set(fmt.Sprint("cf_", tier.ID), tierVal)
 		return do(e.h, "POST", fmt.Sprint("/admin/customers/", e.cust.ID), f, c)
 	}
 

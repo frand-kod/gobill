@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -44,7 +45,7 @@ func (s *syncBuf) String() string {
 }
 
 // xlate is the text the app shows for an English message, in the language the tests run in.
-func xlate(e *billEnv, msg string) string { return e.s.catalog.T(e.s.language(), msg) }
+func xlate(e *billEnv, msg string) string { return e.s.Catalog.T(e.s.Language(), msg) }
 
 // afterPost is the page a post redirects to, read with the session that post set (its flash).
 func afterPost(e *billEnv, w *httptest.ResponseRecorder) string {
@@ -114,7 +115,7 @@ func TestAddCustomerRouterFailureWarns(t *testing.T) {
 	w := do(e.h, "POST", "/admin/customers", addForm("budi03", "PPPoE", itoa(p.ID), "Active"), e.c)
 	wantCode(t, w, 303, "add, router down")
 	page := afterPost(e, w)
-	if !strings.Contains(page, xlate(e, "Customer created and plan activated, paid in Cash")) || !strings.Contains(page, xlate(e, msgNotSynced)) {
+	if !strings.Contains(page, xlate(e, "Customer created and plan activated, paid in Cash")) || !strings.Contains(page, xlate(e, adminx.MsgNotSynced)) {
 		t.Fatal("router failure not shown after create")
 	}
 }

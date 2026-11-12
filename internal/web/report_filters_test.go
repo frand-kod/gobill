@@ -17,7 +17,7 @@ const repDay = "1970-01-01"
 
 func TestReportRouterSentinels(t *testing.T) {
 	s, h, _, c := crudApp(t)
-	s.lang.Store("english")
+	s.Lang.Store("english")
 	seedRaw(t, s, "INV-R1", "", "Voucher - X", 100)
 	seedRaw(t, s, "INV-B1", "balance", "Bank - Y", 200)
 	seedRaw(t, s, "INV-M1", "mikro", "Admin - Cash", 400)
@@ -39,7 +39,7 @@ func TestReportRouterSentinels(t *testing.T) {
 
 func TestReportReportRoleHasNoInvoiceLinks(t *testing.T) {
 	s, h, _, c := crudApp(t)
-	s.lang.Store("english")
+	s.Lang.Store("english")
 	seedRaw(t, s, "INV-L1", "mikro", "Admin - Cash", 100)
 	url := "/admin/reports?date=" + repDay
 	if b := do(h, "GET", url, nil, c).Body.String(); !strings.Contains(b, `/invoice"`) {
@@ -53,7 +53,7 @@ func TestReportReportRoleHasNoInvoiceLinks(t *testing.T) {
 
 func TestReportBackwardsRangeSwaps(t *testing.T) {
 	s, h, _, c := crudApp(t)
-	s.lang.Store("english")
+	s.Lang.Store("english")
 	seedRaw(t, s, "INV-S1", "mikro", "Admin - Cash", 100)
 	seedRaw(t, s, "INV-S2", "mikro", "Admin - Cash", 50)
 	a := do(h, "GET", "/admin/reports/period?from="+repDay+"&to=1970-01-02", nil, c).Body.String()
@@ -65,7 +65,7 @@ func TestReportBackwardsRangeSwaps(t *testing.T) {
 
 func TestReportMethodSelect(t *testing.T) {
 	s, h, _, c := crudApp(t)
-	s.lang.Store("english")
+	s.Lang.Store("english")
 	seedRaw(t, s, "INV-X1", "mikro", "Admin - Cash", 100)
 	seedRaw(t, s, "INV-X2", "mikro", "Bank - BCA", 40)
 	b := do(h, "GET", "/admin/reports?date="+repDay+"&method=Bank+-+BCA", nil, c).Body.String()
@@ -80,7 +80,7 @@ func TestReportMethodSelect(t *testing.T) {
 
 func TestReportPrintLayout(t *testing.T) {
 	s, h, _, c := crudApp(t)
-	s.lang.Store("english")
+	s.Lang.Store("english")
 	seedRaw(t, s, "INV-P1", "", "Voucher - X", 100)
 	seedRaw(t, s, "INV-P2", "mikro", "Admin - Cash", 300)
 	p := do(h, "GET", "/admin/reports/print?date="+repDay+"&type=Hotspot", nil, c).Body.String()

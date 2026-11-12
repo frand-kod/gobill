@@ -151,13 +151,13 @@ func (s *Server) docsLang(w http.ResponseWriter, r *http.Request) string {
 	lang := r.URL.Query().Get("lang")
 	if validDocsLang(lang) {
 		http.SetCookie(w, &http.Cookie{Name: docsLangCookie, Value: lang, Path: "/admin/docs",
-			MaxAge: 365 * 24 * 3600, HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: s.sessions.Cookie.Secure})
+			MaxAge: 365 * 24 * 3600, HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: s.Sessions.Cookie.Secure})
 		return lang
 	}
 	if c, err := r.Cookie(docsLangCookie); err == nil && validDocsLang(c.Value) {
 		return c.Value
 	}
-	if s.language() == "indonesia" {
+	if s.Language() == "indonesia" {
 		return "id"
 	}
 	return "en"
@@ -260,7 +260,7 @@ func (s *Server) docsIndex(w http.ResponseWriter, r *http.Request) {
 	lang := s.docsLang(w, r)
 	gs := s.guides[lang]
 	v := docsView{Index: gs.list, Lang: lang, Groups: gs.groups, Toggle: docsToggle("/admin/docs", lang)}
-	s.render(w, r, http.StatusOK, "docs", Page{Title: "Guide", Data: v})
+	s.Render(w, r, http.StatusOK, "docs", Page{Title: "Guide", Data: v})
 }
 
 func (s *Server) docsPage(w http.ResponseWriter, r *http.Request) {
@@ -272,5 +272,5 @@ func (s *Server) docsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := docsView{Guide: g, Slug: g.Slug, Index: gs.list, Lang: lang, Groups: gs.groups, Toggle: docsToggle("/admin/docs/"+g.Slug, lang)}
-	s.render(w, r, http.StatusOK, "docs", Page{Title: g.Title, Data: v})
+	s.Render(w, r, http.StatusOK, "docs", Page{Title: g.Title, Data: v})
 }

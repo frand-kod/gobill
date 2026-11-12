@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/admin/reports"
 )
 
 // S1 + money#5: reports use the dashboard income: purchases paid from balance (the top-up already counted)
@@ -47,14 +48,14 @@ func TestReportAgentDeposits(t *testing.T) {
 		ex(`INSERT INTO transactions (invoice, username, plan_name, router_name, type, price, method, created_at, period_start, period_end)
 			VALUES (?, 'u', 'P', 'r', 'Hotspot', 5000, ?, 1000, 0, 0)`, "INV-"+itoa(int64(i+1)), m)
 	}
-	get := func(url string) reportData {
-		d, _, err := s.reportLoad(httptest.NewRequest("GET", url, nil), true)
+	get := func(url string) reports.ReportData {
+		d, _, err := s.reports.ReportLoad(httptest.NewRequest("GET", url, nil), true)
 		if err != nil {
 			t.Fatal(err)
 		}
 		return d
 	}
-	day := time.Unix(1000, 0).In(s.location()).Format("2006-01-02")
+	day := time.Unix(1000, 0).In(s.Location()).Format("2006-01-02")
 	d := get("/?from=" + day + "&to=" + day)
 	// DIRECT 5000 + deposits 4000; AG1's 5000 is the agent's sale
 	if d.Sum != 9000 || d.Count != 3 || d.RowCount != 1 || len(d.ByMethod) != 2 {
@@ -64,11 +65,11 @@ func TestReportAgentDeposits(t *testing.T) {
 		t.Fatalf("type filter must hide deposits, sum %d", d.Sum)
 	}
 	// the dashboard / daily summary query and the CSV export agree with the report
-	if n, err := s.queries.SumTransactionsBetween(t.Context(), db.SumTransactionsBetweenParams{FromTs: 0, ToTs: 2000}); err != nil || n != 9000 {
+	if n, err := s.Queries.SumTransactionsBetween(t.Context(), db.SumTransactionsBetweenParams{FromTs: 0, ToTs: 2000}); err != nil || n != 9000 {
 		t.Fatalf("dashboard income %d %v", n, err)
 	}
 	w := httptest.NewRecorder()
-	s.reportExport(w, httptest.NewRequest("GET", "/?from="+day+"&to="+day, nil))
+	s.reports.ReportExport(w, httptest.NewRequest("GET", "/?from="+day+"&to="+day, nil))
 	if body := w.Body.String(); strings.Count(body, "\n") != 4 || !strings.Contains(body, "AGENT-") || strings.Contains(body, "Voucher - AG1") {
 		t.Fatalf("csv:\n%s", body)
 	}

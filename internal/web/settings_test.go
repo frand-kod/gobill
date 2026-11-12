@@ -12,6 +12,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/view"
+
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -24,7 +28,7 @@ func settingsSetup(t *testing.T) (*Server, http.Handler, *db.Queries) {
 	if _, err := q.CreateAdmin(t.Context(), db.CreateAdminParams{Username: "bob", Fullname: "Bob", PasswordHash: string(hash), Role: "Admin"}); err != nil {
 		t.Fatal(err)
 	}
-	s.lang.Store("english") // assertions below match English messages
+	s.Lang.Store("english") // assertions below match English messages
 	return s, s.Handler(), q
 }
 
@@ -254,7 +258,7 @@ func TestSettingsUploadRules(t *testing.T) {
 			t.Fatalf("non-image accepted: %d", w.Code)
 		}
 	}
-	if w := postLogo(t, h, c, append(uploadPNG, make([]byte, maxUpload)...)); w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "2 MB") {
+	if w := postLogo(t, h, c, append(uploadPNG, make([]byte, adminx.MaxUpload)...)); w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "2 MB") {
 		t.Fatalf("oversize accepted: %d", w.Code)
 	}
 	if got := settingValues(t, q)["logo"]; got != "" {
@@ -264,10 +268,10 @@ func TestSettingsUploadRules(t *testing.T) {
 		t.Fatalf("png: %d %s", w.Code, w.Body.String())
 	}
 	name := settingValues(t, q)["logo"]
-	if !uploadName.MatchString(name) {
+	if !core.UploadName.MatchString(name) {
 		t.Fatalf("stored name %q", name)
 	}
-	dir, err := s.uploadDir()
+	dir, err := s.ax.UploadDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -283,7 +287,7 @@ func TestSettingsUploadRules(t *testing.T) {
 
 func TestUploadsServeRejectsTraversal(t *testing.T) {
 	s, _, _ := settingsSetup(t)
-	dir, err := s.uploadDir()
+	dir, err := s.ax.UploadDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -313,7 +317,7 @@ func TestUploadsServeRejectsTraversal(t *testing.T) {
 
 func TestDBBackupSuperAdminOnly(t *testing.T) {
 	s, h, _ := settingsSetup(t)
-	backup := s.sessions.LoadAndSave(s.requireAdmin("SuperAdmin", "Admin")(http.HandlerFunc(s.dbBackup)))
+	backup := s.Sessions.LoadAndSave(s.requireAdmin("SuperAdmin", "Admin")(http.HandlerFunc(s.settings.DbBackup)))
 	w := do(backup, "GET", "/backup", nil, login(t, h, "alice"))
 	if w.Code != http.StatusOK || !strings.HasPrefix(w.Body.String(), "SQLite format 3\x00") {
 		t.Fatalf("superadmin: %d", w.Code)
@@ -328,13 +332,13 @@ func TestDBBackupSuperAdminOnly(t *testing.T) {
 
 func TestMoneyUsesThousandsSep(t *testing.T) {
 	_, h, _ := settingsSetup(t)
-	t.Cleanup(func() { setThousandsSep(".") })
-	if got := money(1234000); got != "Rp 1.234.000" {
+	t.Cleanup(func() { view.SetThousandsSep(".") })
+	if got := view.Money(1234000); got != "Rp 1.234.000" {
 		t.Fatalf("default: %q", got)
 	}
 	do(h, "POST", "/admin/settings/localisation", url.Values{"language": {"english"}, "timezone": {"Asia/Jakarta"},
 		"thousands_sep": {","}}, login(t, h, "alice"))
-	if got := money(1234000); got != "Rp 1,234,000" {
+	if got := view.Money(1234000); got != "Rp 1,234,000" {
 		t.Fatalf("thousands_sep: %q", got)
 	}
 }
@@ -456,7 +460,7 @@ func TestSettingsGeneralHiddenKeysKept(t *testing.T) {
 func TestSettingsTwoLargeUploads(t *testing.T) {
 	_, h, q := settingsSetup(t)
 	c := login(t, h, "alice")
-	big := append(append([]byte{}, uploadPNG...), make([]byte, 3*maxUpload/4)...)
+	big := append(append([]byte{}, uploadPNG...), make([]byte, 3*adminx.MaxUpload/4)...)
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	mw.WriteField("company_name", "Acme")

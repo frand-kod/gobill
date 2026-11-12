@@ -1,0 +1,160 @@
+package plans
+
+// IP pool CRUD and router sync.
+
+import (
+	"database/sql"
+	"log/slog"
+	"net/http"
+
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
+	"fmt"
+	"strconv"
+
+	"github.com/frand-kod/gobill/internal/db"
+)
+
+func poolFields(v, e map[string]string, routers []db.Router) []field {
+	sel := text("router_id", "Router", v, e).As("select").Req()
+	for _, x := range routers {
+		sel.Options = append(sel.Options, option{Value: fmt.Sprint(x.ID), Label: x.Name})
+	}
+	return append(section([]field{
+		text("name", "Pool Name", v, e).Req(),
+		text("local_ip", "Local IP", v, e),
+		text("range_ip", "IP Range", v, e).Req().WithHint("e.g. 10.10.10.2-10.10.10.254"),
+	}, "Pool", ""), section([]field{sel}, "Router", "")...)
+}
+
+func (s *Handlers) poolList(w http.ResponseWriter, r *http.Request) {
+	q, pg := view.Paging(r)
+	rows, err := s.Queries.SearchPools(r.Context(), db.SearchPoolsParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
+	if err != nil {
+		s.Fail(w, "list pools", err)
+		return
+	}
+	routers, err := s.RouterNames(r)
+	if err != nil {
+		s.Fail(w, "list routers", err)
+		return
+	}
+	names := map[int64]string{}
+	for _, x := range routers {
+		names[x.ID] = x.Name
+	}
+	lp := listPage{Heading: "Pool", Base: "/admin/pool", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
+		Cols: []string{"Pool Name", "Local IP", "IP Range", "Router"}}
+	for _, p := range rows {
+		lp.Rows = append(lp.Rows, listRow{ID: p.ID, Cells: []string{p.Name, p.LocalIp, p.RangeIp, names[p.RouterID]}})
+	}
+	total, err := s.Queries.CountPools(r.Context(), q)
+	if err != nil {
+		s.Fail(w, "count pools", err)
+		return
+	}
+	lp.Finish(pg, total)
+	s.RenderList(w, r, lp)
+}
+
+func (s *Handlers) poolNew(w http.ResponseWriter, r *http.Request) {
+	routers, err := s.RouterNames(r)
+	if err != nil {
+		s.Fail(w, "list routers", err)
+		return
+	}
+	s.RenderForm(w, r, 200, formPage{Heading: "Add Pool", Action: "/admin/pool", Cancel: "/admin/pool", Fields: poolFields(nil, nil, routers)})
+}
+
+func (s *Handlers) poolEdit(w http.ResponseWriter, r *http.Request) {
+	id := httpx.PathID(r)
+	p, err := s.Queries.GetPool(r.Context(), id)
+	if err == sql.ErrNoRows {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.Fail(w, "get pool", err)
+		return
+	}
+	routers, err := s.RouterNames(r)
+	if err != nil {
+		s.Fail(w, "list routers", err)
+		return
+	}
+	v := map[string]string{"name": p.Name, "local_ip": p.LocalIp, "range_ip": p.RangeIp, "router_id": fmt.Sprint(p.RouterID)}
+	s.RenderForm(w, r, 200, formPage{Heading: "Edit Pool", Action: fmt.Sprint("/admin/pool/", id), Cancel: "/admin/pool", Fields: poolFields(v, nil, routers)})
+}
+
+func (s *Handlers) poolSave(w http.ResponseWriter, r *http.Request) {
+	id := httpx.PathID(r)
+	v := httpx.FormVals(r, "name", "local_ip", "range_ip", "router_id")
+	e := map[string]string{}
+	for _, k := range []string{"name", "range_ip"} {
+		if v[k] == "" {
+			e[k] = "This field is required"
+		}
+	}
+	rid, _ := strconv.ParseInt(v["router_id"], 10, 64)
+	if _, err := s.Queries.GetRouter(r.Context(), rid); err != nil {
+		e["router_id"] = "Choose a router"
+	}
+	if len(e) == 0 {
+		var err error
+		saved := db.Pool{ID: id, Name: v["name"], LocalIp: v["local_ip"], RangeIp: v["range_ip"], RouterID: rid}
+		old, _ := s.Queries.GetPool(r.Context(), id)
+		if id == 0 {
+			saved, err = s.Queries.CreatePool(r.Context(), db.CreatePoolParams{Name: v["name"], LocalIp: v["local_ip"], RangeIp: v["range_ip"], RouterID: rid})
+		} else {
+			err = s.Queries.UpdatePool(r.Context(), db.UpdatePoolParams{Name: v["name"], LocalIp: v["local_ip"], RangeIp: v["range_ip"], RouterID: rid, ID: id})
+		}
+		switch {
+		case httpx.IsUnique(err):
+			e["name"] = "Name already exists"
+		case err != nil:
+			s.Fail(w, "save pool", err)
+			return
+		default:
+			act, msg, op := "pool.create", "Data Created Successfully", "add"
+			if id != 0 {
+				act, msg, op = "pool.update", "Data Updated Successfully", "update"
+			}
+			s.syncPool(r, op, saved, old.Name)
+			s.Done(w, r, "/admin/pool", msg, act, v["name"])
+			return
+		}
+	}
+	routers, err := s.RouterNames(r)
+	if err != nil {
+		s.Fail(w, "list routers", err)
+		return
+	}
+	action, head := "/admin/pool", "Add Pool"
+	if id != 0 {
+		action, head = fmt.Sprint("/admin/pool/", id), "Edit Pool"
+	}
+	s.RenderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/pool", Fields: poolFields(v, e, routers)})
+}
+
+// syncPool tells the pool's router about a change; a failure keeps the DB change and warns.
+func (s *Handlers) syncPool(r *http.Request, op string, p db.Pool, oldName string) {
+	if s.Billing == nil {
+		return
+	}
+	if err := s.Billing.SyncPool(r.Context(), op, p, oldName); err != nil {
+		slog.Error("sync pool", "op", op, "pool", p.Name, "err", err)
+		s.LogActivity(r, "pool.sync_failed", fmt.Sprintf("%s %s: %v", op, p.Name, err))
+		s.Sessions.Put(r.Context(), "error", s.T("Saved, but the router could not be updated")+": "+err.Error())
+	}
+}
+
+func (s *Handlers) poolDelete(w http.ResponseWriter, r *http.Request) {
+	p, _ := s.Queries.GetPool(r.Context(), httpx.PathID(r))
+	s.Remove(w, r, "/admin/pool", "pool", "Pool is used by a plan", p.Name, func(id int64) error {
+		if err := s.Queries.DeletePool(r.Context(), id); err != nil {
+			return err
+		}
+		s.syncPool(r, "remove", p, "")
+		return nil
+	})
+}

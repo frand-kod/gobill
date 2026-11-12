@@ -12,7 +12,7 @@ import (
 
 func TestUpdateBadgeForSuperAdminOnly(t *testing.T) {
 	s, q := newTestApp(t)
-	s.lang.Store("english")
+	s.Lang.Store("english")
 	hash, _ := bcrypt.GenerateFromPassword([]byte("secret123"), bcrypt.MinCost)
 	if _, err := q.CreateAdmin(t.Context(), db.CreateAdminParams{Username: "bob", Fullname: "Bob", PasswordHash: string(hash), Role: "Admin"}); err != nil {
 		t.Fatal(err)

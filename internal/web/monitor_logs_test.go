@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
+	"github.com/frand-kod/gobill/internal/web/admin/reports"
 )
 
 func TestRadiusLogFilterAndCSV(t *testing.T) {
@@ -216,10 +217,10 @@ func TestIdleTimeoutApplied(t *testing.T) {
 	}
 }
 
-// The CSV export reads exportChunk rows at a time; a log longer than one chunk must come out whole.
+// The CSV export reads reports.ExportChunk rows at a time; a log longer than one chunk must come out whole.
 func TestMessageLogExportPagesWholeLog(t *testing.T) {
 	_, h, q, c := crudApp(t)
-	n := exportChunk*2 + 7
+	n := reports.ExportChunk*2 + 7
 	for i := 0; i < n; i++ {
 		if err := q.CreateMessageLog(t.Context(), db.CreateMessageLogParams{Channel: "sms", Recipient: "0812", Body: "m", Status: "ok"}); err != nil {
 			t.Fatal(err)

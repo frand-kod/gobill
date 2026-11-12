@@ -19,7 +19,7 @@ func TestCustomerListEndsOn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	loc := s.location()
+	loc := s.Location()
 	now := time.Now().In(loc)
 	// last second of today in the app time zone, so the fixture is "today" at any wall-clock hour
 	today := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc).Unix() - 1

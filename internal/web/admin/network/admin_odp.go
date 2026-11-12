@@ -1,0 +1,184 @@
+package network
+
+// ODP (distribution point) CRUD.
+
+import (
+	"database/sql"
+	"net/http"
+
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
+	"fmt"
+	"strconv"
+
+	"github.com/frand-kod/gobill/internal/db"
+)
+
+var odpNames = []string{"name", "coordinates", "address", "port_amount", "attenuation", "coverage", "description", "router_id"}
+
+// odpFields builds the ODP form; routers fills the optional router select.
+func odpFields(v, e map[string]string, routers []db.Router) []field {
+	ro := []option{{Value: "", Label: "-"}}
+	for _, x := range routers {
+		ro = append(ro, option{Value: fmt.Sprint(x.ID), Label: x.Name})
+	}
+	rt := text("router_id", "Router", v, e)
+	rt.Type, rt.Options = "select", ro
+	out := section([]field{
+		text("name", "ODP Name", v, e).Req(),
+		text("coordinates", "Coordinates", v, e).As("coords").WithHint("lat,lng, e.g. -6.2,106.8. Optional; shown on the ODP map."),
+		rt,
+	}, "Basic", "")
+	return append(out, section([]field{
+		text("port_amount", "Port Amount", v, e).As("number"),
+		text("attenuation", "Attenuation", v, e),
+		text("coverage", "Coverage (m)", v, e).As("number"),
+		text("address", "Address", v, e),
+		text("description", "Description", v, e),
+	}, "Specification", "")...)
+}
+
+func (s *Handlers) odpList(w http.ResponseWriter, r *http.Request) {
+	q, pg := view.Paging(r)
+	rows, err := s.Queries.SearchODPs(r.Context(), db.SearchODPsParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
+	if err != nil {
+		s.Fail(w, "list odps", err)
+		return
+	}
+	lp := listPage{Heading: "ODP", Base: "/admin/odp", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
+		Cols: []string{"Name", "Port Amount", "Attenuation", "Address", "Coverage", "Coordinates"}}
+	for _, o := range rows {
+		lp.Rows = append(lp.Rows, listRow{ID: o.ID, Cells: []string{o.Name, fmt.Sprint(o.PortAmount), o.Attenuation, o.Address,
+			fmt.Sprint(o.Coverage), o.Coordinates}})
+	}
+	total, err := s.Queries.CountODPs(r.Context(), q)
+	if err != nil {
+		s.Fail(w, "count odps", err)
+		return
+	}
+	lp.Finish(pg, total)
+	s.RenderList(w, r, lp)
+}
+
+func (s *Handlers) odpRouters(w http.ResponseWriter, r *http.Request) ([]db.Router, bool) {
+	rs, err := s.Queries.ListRouters(r.Context(), db.ListRoutersParams{Limit: 500})
+	if err != nil {
+		s.Fail(w, "list routers", err)
+		return nil, false
+	}
+	return rs, true
+}
+
+func (s *Handlers) odpNew(w http.ResponseWriter, r *http.Request) {
+	rs, ok := s.odpRouters(w, r)
+	if !ok {
+		return
+	}
+	s.RenderForm(w, r, 200, formPage{Heading: "Add ODP", Action: "/admin/odp", Cancel: "/admin/odp", Fields: odpFields(map[string]string{}, nil, rs)})
+}
+
+func (s *Handlers) odpEdit(w http.ResponseWriter, r *http.Request) {
+	id := httpx.PathID(r)
+	o, err := s.Queries.GetODP(r.Context(), id)
+	if err == sql.ErrNoRows {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		s.Fail(w, "get odp", err)
+		return
+	}
+	rs, ok := s.odpRouters(w, r)
+	if !ok {
+		return
+	}
+	v := map[string]string{"name": o.Name, "coordinates": o.Coordinates, "address": o.Address, "port_amount": fmt.Sprint(o.PortAmount),
+		"attenuation": o.Attenuation, "coverage": fmt.Sprint(o.Coverage), "description": o.Description}
+	if o.RouterID.Valid {
+		v["router_id"] = fmt.Sprint(o.RouterID.Int64)
+	}
+	s.RenderForm(w, r, 200, formPage{Heading: "Edit ODP", Action: fmt.Sprint("/admin/odp/", id), Cancel: "/admin/odp", Fields: odpFields(v, nil, rs)})
+}
+
+// odpSave serves both create (no {id} in the path) and update.
+func (s *Handlers) odpSave(w http.ResponseWriter, r *http.Request) {
+	id := httpx.PathID(r)
+	v := httpx.FormVals(r, odpNames...)
+	e := map[string]string{}
+	if v["name"] == "" {
+		e["name"] = "This field is required"
+	}
+	coords, ok := checkCoords(v["coordinates"])
+	if !ok {
+		e["coordinates"] = "Enter coordinates as lat,lng, e.g. -6.2,106.8"
+	}
+	ports, err := strconv.ParseInt(orZero(v["port_amount"]), 10, 64)
+	if err != nil || ports < 0 {
+		e["port_amount"] = "Enter a number, 0 or more"
+	}
+	cover, err := strconv.ParseInt(orZero(v["coverage"]), 10, 64)
+	if err != nil || cover < 0 {
+		e["coverage"] = "Enter meters, 0 or more"
+	}
+	router := sql.NullInt64{}
+	if v["router_id"] != "" {
+		rid, ok := httpx.PosInt(v["router_id"])
+		if !ok {
+			e["router_id"] = "Invalid value"
+		}
+		router = sql.NullInt64{Int64: rid, Valid: ok}
+	}
+	if len(e) == 0 {
+		var err error
+		if id == 0 {
+			_, err = s.Queries.CreateODP(r.Context(), db.CreateODPParams{Name: v["name"], Coordinates: coords, Address: v["address"],
+				PortAmount: ports, Attenuation: v["attenuation"], Coverage: cover, Description: v["description"], RouterID: router})
+		} else {
+			err = s.Queries.UpdateODP(r.Context(), db.UpdateODPParams{Name: v["name"], Coordinates: coords, Address: v["address"],
+				PortAmount: ports, Attenuation: v["attenuation"], Coverage: cover, Description: v["description"], RouterID: router, ID: id})
+		}
+		switch {
+		case httpx.IsUnique(err):
+			e["name"] = "Name already exists"
+		case httpx.IsFK(err):
+			e["router_id"] = "Invalid value"
+		case err != nil:
+			s.Fail(w, "save odp", err)
+			return
+		default:
+			act, msg := "odp.create", "Data Created Successfully"
+			if id != 0 {
+				act, msg = "odp.update", "Data Updated Successfully"
+			}
+			s.Done(w, r, "/admin/odp", msg, act, v["name"])
+			return
+		}
+	}
+	rs, ok := s.odpRouters(w, r)
+	if !ok {
+		return
+	}
+	action, head := "/admin/odp", "Add ODP"
+	if id != 0 {
+		action, head = fmt.Sprint("/admin/odp/", id), "Edit ODP"
+	}
+	s.RenderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/odp", Fields: odpFields(v, e, rs)})
+}
+
+func (s *Handlers) odpDelete(w http.ResponseWriter, r *http.Request) {
+	name := ""
+	if o, err := s.Queries.GetODP(r.Context(), httpx.PathID(r)); err == nil {
+		name = o.Name
+	}
+	s.Remove(w, r, "/admin/odp", "odp", "ODP is in use", name, func(id int64) error {
+		return s.Queries.DeleteODP(r.Context(), id)
+	})
+}
+
+// orZero turns an empty optional number into "0".
+func orZero(s string) string {
+	if s == "" {
+		return "0"
+	}
+	return s
+}

@@ -12,6 +12,7 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/metrics"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 // Admin never sees the wizard: 403 on every page, and no dialog, sidebar item or link.
@@ -235,15 +236,15 @@ func TestSetupEveryStepRenders(t *testing.T) {
 	if w := do(h, "GET", "/admin/setup", nil, c); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/admin/setup/welcome" {
 		t.Fatalf("index: %d %q", w.Code, w.Header().Get("Location"))
 	}
-	for _, st := range wizSteps {
-		if w := do(h, "GET", "/admin/setup/"+st.Slug, nil, c); w.Code != http.StatusOK {
-			t.Errorf("step %s: %d", st.Slug, w.Code)
+	for _, slug := range []string{"welcome", "company", "router", "bandwidth", "plan", "whatsapp", "qris", "tripay", "isolir", "customer", "finish"} {
+		if w := do(h, "GET", "/admin/setup/"+slug, nil, c); w.Code != http.StatusOK {
+			t.Errorf("step %s: %d", slug, w.Code)
 		}
 	}
 	if _, err := q.CreateBandwidth(t.Context(), db.CreateBandwidthParams{Name: "5 Mbps", RateDown: 5, RateDownUnit: "Mbps", RateUp: 5, RateUpUnit: "Mbps"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: setupModeKey, Value: "import"}); err != nil {
+	if err := q.UpsertSetting(t.Context(), db.UpsertSettingParams{Key: core.SetupModeKey, Value: "import"}); err != nil {
 		t.Fatal(err)
 	}
 	if body := do(h, "GET", "/admin/setup/bandwidth", nil, c).Body.String(); !strings.Contains(body, "Verifikasi") {
