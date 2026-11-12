@@ -98,6 +98,18 @@ func TestDupCacheExpiresAndCaps(t *testing.T) {
 	}
 }
 
+func TestUserThrottleReset(t *testing.T) {
+	e := setup(t)
+	for round := 0; round < 2; round++ { // a good login clears the count, so 9+9 wrong never lock
+		for i := 0; i < voucherMaxFails-1; i++ {
+			e.auth(t, pap("alice", "bad"))
+		}
+		if r := e.auth(t, pap("alice", "pw")); r.Code != radius.CodeAccessAccept {
+			t.Fatalf("round %d: rejected below the cap", round)
+		}
+	}
+}
+
 func TestUserThrottle(t *testing.T) {
 	e := setup(t)
 	for i := 0; i < voucherMaxFails; i++ {
@@ -105,13 +117,13 @@ func TestUserThrottle(t *testing.T) {
 			t.Fatalf("attempt %d: %s", i, rfc2865.ReplyMessage_GetString(r))
 		}
 	}
-	if r := e.auth(t, pap("alice", "pw")); rfc2865.ReplyMessage_GetString(r) != "Too many attempts, try again later" {
+	if r := e.auth(t, pap("alice", "pw")); r.Code != radius.CodeAccessReject || rfc2865.ReplyMessage_GetString(r) != badPassword {
 		t.Fatalf("11th not throttled: %v %s", r.Code, rfc2865.ReplyMessage_GetString(r))
 	}
 	if _, err := e.conn.Exec(`INSERT INTO customers (username,fullname,password_hash,service_type,secret_enc,status) SELECT 'bob','B',password_hash,service_type,secret_enc,status FROM customers WHERE username='alice'`); err != nil {
 		t.Fatal(err)
 	}
-	if r := e.auth(t, pap("bob", "pw")); rfc2865.ReplyMessage_GetString(r) == "Too many attempts, try again later" {
+	if r := e.auth(t, pap("bob", "pw")); rfc2865.ReplyMessage_GetString(r) == badPassword {
 		t.Fatal("other user throttled")
 	}
 	e.now = e.now.Add(16 * time.Minute)

@@ -58,7 +58,8 @@ func TestRadiusRestUserThrottle(t *testing.T) {
 		post(h, "/radius.php?action=authorize", f("bad"), "")
 	}
 	w := post(h, "/radius.php?action=authorize", f("pw"), "")
-	if w.Code != 401 || !strings.Contains(w.Body.String(), "Too many attempts") {
+	// the right password is refused with the wrong-password text: a lockout does not reveal the user
+	if w.Code != 401 || !strings.Contains(w.Body.String(), "Username or Password is wrong") {
 		t.Fatalf("not throttled: %d %s", w.Code, w.Body)
 	}
 }
@@ -75,7 +76,7 @@ func TestRadiusRestSharedWithUDP(t *testing.T) {
 		post(h, "/radius.php?action=authorize", url.Values{"username": {"bob"}, "password": {"bad"}}, "")
 	}
 	w := post(h, "/radius.php?action=authorize", url.Values{"username": {"bob"}, "password": {"pw"}}, "")
-	if !strings.Contains(w.Body.String(), "Too many attempts") {
+	if w.Code != 401 || !strings.Contains(w.Body.String(), "Username or Password is wrong") {
 		t.Fatalf("not shared: %d %s", w.Code, w.Body)
 	}
 }
