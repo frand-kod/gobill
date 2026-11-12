@@ -43,6 +43,10 @@ func (s *Handlers) pFriend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := strings.TrimSpace(r.PostFormValue("username"))
+	if !s.lookupAllow(customerFrom(r).ID) {
+		s.friendPage(w, r, http.StatusTooManyRequests, user, s.T("Too many attempts. Try again later."))
+		return
+	}
 	err := s.Billing.SendPlan(r.Context(), customerFrom(r).ID, user, httpx.PathID(r))
 	for _, e := range []error{billing.ErrSelfTransfer, billing.ErrTargetNotFound, billing.ErrInsufficientBalance, billing.ErrInactive,
 		billing.ErrTransferDisabled, billing.ErrPlanNotFound, billing.ErrFriendPlanDiffers, billing.ErrAdminOnlyPlan} {

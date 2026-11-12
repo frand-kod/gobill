@@ -48,21 +48,22 @@ func (s *Handlers) keySaved(w http.ResponseWriter, r *http.Request) {
 // when the 2FA secret cannot be opened.
 func (s *Handlers) stepUp(r *http.Request) (string, error) {
 	a, ip := core.AdminFrom(r), core.ClientIP(r)
-	if s.TooManyFailures(ip) {
+	if s.Reserve(ip, core.MaxFailedLogins) < 0 {
 		return "Too many failed attempts. Try again in 15 minutes.", nil
 	}
 	ok := bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte(r.PostFormValue("current"))) == nil
 	if a.TotpEnabled == 1 {
 		k, err := s.TotpOpen(a.TotpSecretEnc)
 		if err != nil {
+			s.Unreserve(ip)
 			return "", err
 		}
 		ok = s.TotpVerify(a.ID, k, core.CleanCode(r.PostFormValue("code"))) && ok
 	}
 	if !ok {
-		s.RecordFailure(ip)
 		return "Incorrect password or code", nil
 	}
+	s.Unreserve(ip)
 	return "", nil
 }
 

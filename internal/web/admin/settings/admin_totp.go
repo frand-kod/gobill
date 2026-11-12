@@ -82,20 +82,21 @@ func (s *Handlers) admin2FAConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ip := core.ClientIP(r)
-	if s.TooManyFailures(ip) {
+	if s.Reserve(ip, core.MaxFailedLogins) < 0 {
 		s.FlashTo(w, r, "/admin/2fa", "Too many failed attempts. Try again in 15 minutes.")
 		return
 	}
 	key, err := s.TotpOpen(a.TotpSecretEnc)
 	if err != nil {
+		s.Unreserve(ip)
 		s.Fail(w, "open totp secret", err)
 		return
 	}
 	if !s.TotpVerify(a.ID, key, core.CleanCode(r.PostFormValue("code"))) {
-		s.RecordFailure(ip)
 		s.FlashTo(w, r, "/admin/2fa", "Invalid code")
 		return
 	}
+	s.Unreserve(ip)
 	codes := core.NewRecoveryCodes()
 	if err := s.Queries.DeleteRecoveryCodes(ctx, a.ID); err != nil {
 		s.Fail(w, "clear recovery codes", err)
@@ -116,6 +117,9 @@ func (s *Handlers) admin2FAConfirm(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "enable totp", err)
 		return
 	}
+	if !s.endOtherSessions(w, r, a.ID) {
+		return
+	}
 	s.LogActivity(r, "users.2fa.enable", a.Username)
 	a.TotpEnabled = 1 // this request renders the enabled page with the codes
 	s.render2FA(w, r, http.StatusOK, codes)
@@ -129,27 +133,31 @@ func (s *Handlers) admin2FADisable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ip := core.ClientIP(r)
-	if s.TooManyFailures(ip) {
+	if s.Reserve(ip, core.MaxFailedLogins) < 0 {
 		s.FlashTo(w, r, "/admin/2fa", "Too many failed attempts. Try again in 15 minutes.")
 		return
 	}
 	key, err := s.TotpOpen(a.TotpSecretEnc)
 	if err != nil {
+		s.Unreserve(ip)
 		s.Fail(w, "open totp secret", err)
 		return
 	}
 	pwOK := bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte(r.PostFormValue("current"))) == nil
 	if !pwOK || !s.TotpVerify(a.ID, key, core.CleanCode(r.PostFormValue("code"))) {
-		s.RecordFailure(ip)
 		s.FlashTo(w, r, "/admin/2fa", "Incorrect password or code")
 		return
 	}
+	s.Unreserve(ip)
 	if err := s.Queries.ClearAdminTOTP(ctx, a.ID); err != nil {
 		s.Fail(w, "clear totp", err)
 		return
 	}
 	if err := s.Queries.DeleteRecoveryCodes(ctx, a.ID); err != nil {
 		s.Fail(w, "clear recovery codes", err)
+		return
+	}
+	if !s.endOtherSessions(w, r, a.ID) {
 		return
 	}
 	s.Done(w, r, "/admin/2fa", "Two-factor login turned off", "users.2fa.disable", a.Username)
@@ -169,5 +177,21 @@ func (s *Handlers) adminTOTPReset(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "clear recovery codes", err)
 		return
 	}
+	if _, err := s.Queries.BumpAdminSession(r.Context(), t.ID); err != nil {
+		s.Fail(w, "end sessions", err)
+		return
+	}
 	s.Done(w, r, "/admin/users/"+strconv.FormatInt(t.ID, 10)+"/edit", "Two-factor login reset", "users.2fa.reset", t.Username)
+}
+
+// endOtherSessions logs the admin out everywhere else after a 2FA change by bumping the session
+// version; this session takes the new version and stays. It writes the error page and says false on failure.
+func (s *Handlers) endOtherSessions(w http.ResponseWriter, r *http.Request, id int64) bool {
+	sv, err := s.Queries.BumpAdminSession(r.Context(), id)
+	if err != nil {
+		s.Fail(w, "end other sessions", err)
+		return false
+	}
+	s.Sessions.Put(r.Context(), "sv", sv)
+	return true
 }

@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"net/url"
 	"strings"
 	"testing"
@@ -21,6 +22,8 @@ func postLogin(h http.Handler, user, pass, host string) *httptest.ResponseRecord
 
 func TestAppURLFillsOnceOnAdminLogin(t *testing.T) {
 	s, _ := newTestApp(t)
+	s.trust.Store(true) // the test client at 192.0.2.1 stands in for the reverse proxy
+	s.proxies.Store([]netip.Prefix{netip.MustParsePrefix("192.0.2.1/32")})
 	h := s.Handler()
 	if w := postLogin(h, "alice", "wrong", "evil.test"); w.Code != http.StatusOK {
 		t.Fatalf("failed login: %d", w.Code)
@@ -37,5 +40,17 @@ func TestAppURLFillsOnceOnAdminLogin(t *testing.T) {
 	postLogin(h, "rita", "secret123", "other.test")
 	if st, _ := s.LoadSettings(t.Context()); st["app_url"] != "https://billing.test" {
 		t.Fatalf("second login overwrote app_url: %q", st["app_url"])
+	}
+}
+
+// Forwarded-scheme headers from a peer that is not a trusted proxy must not make app_url https.
+func TestAppURLIgnoresProxyHeadersWhenUntrusted(t *testing.T) {
+	s, _ := newTestApp(t)
+	h := s.Handler()
+	if w := postLogin(h, "alice", "secret123", "billing.test"); w.Code != http.StatusSeeOther {
+		t.Fatalf("login: %d", w.Code)
+	}
+	if st, _ := s.LoadSettings(t.Context()); st["app_url"] != "http://billing.test" {
+		t.Fatalf("app_url = %q, want http://billing.test", st["app_url"])
 	}
 }

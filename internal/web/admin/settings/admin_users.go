@@ -283,17 +283,17 @@ func (s *Handlers) passwordSave(w http.ResponseWriter, r *http.Request) {
 	}
 	// The current password is a guess target for a hijacked session: share the login throttle.
 	ip := core.ClientIP(r)
-	if s.TooManyFailures(ip) {
+	if s.Reserve(ip, core.MaxFailedLogins) < 0 {
 		e["current"] = "Too many failed attempts. Try again in 15 minutes."
 		again(http.StatusTooManyRequests)
 		return
 	}
 	if bcrypt.CompareHashAndPassword([]byte(actor.PasswordHash), []byte(cur)) != nil {
-		s.RecordFailure(ip)
 		e["current"] = "Incorrect Current Password"
 		again(422)
 		return
 	}
+	s.Unreserve(ip)
 	if n := len(pass); n < 10 || n > 72 {
 		e["password"] = "Password should be 10 to 72 characters"
 	} else if pass != cpass {

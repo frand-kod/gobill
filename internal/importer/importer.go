@@ -446,7 +446,8 @@ func (m *imp) transaction() error {
 
 func (m *imp) voucher() error {
 	t := m.table("vouchers")
-	return m.each(t, `SELECT id, code, id_plan, status, user, COALESCE(used_date,''), COALESCE(created_at,''), generated_by FROM tbl_voucher ORDER BY id`, 8, func(r row) {
+	short := 0
+	err := m.each(t, `SELECT id, code, id_plan, status, user, COALESCE(used_date,''), COALESCE(created_at,''), generated_by FROM tbl_voucher ORDER BY id`, 8, func(r row) {
 		created, err := ParseWhen(r[6], "", m.o.Loc)
 		if err != nil {
 			created = time.Now().Unix()
@@ -461,10 +462,19 @@ func (m *imp) voucher() error {
 				usedBy = id
 			}
 		}
-		m.put(t, r[0], `INSERT INTO vouchers (id, code, plan_id, status, used_by, used_at, generated_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			r.i(0), r[1], r.i(2), status, usedBy, usedAt, orNil(r.i(7), m.admins[r.i(7)]), created)
+		if m.put(t, r[0], `INSERT INTO vouchers (id, code, plan_id, status, used_by, used_at, generated_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			r.i(0), r[1], r.i(2), status, usedBy, usedAt, orNil(r.i(7), m.admins[r.i(7)]), created) && status == "unused" && len(r[1]) < shortVoucher {
+			short++
+		}
 	})
+	if short > 0 {
+		t.Notes = append(t.Notes, fmt.Sprintf("Warning: %d unused vouchers have codes shorter than %d characters and are easy to guess. Delete or regenerate them.", short, shortVoucher))
+	}
+	return err
 }
+
+// shortVoucher is the shortest voucher code treated as safe. Old codes are copied as they are.
+const shortVoucher = 8
 
 func (m *imp) logs() error {
 	t := m.table("activity_logs")
