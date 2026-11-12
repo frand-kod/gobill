@@ -47,6 +47,29 @@ Fill in **Settings > Integrations**, section "WhatsApp — GOWA":
 
 gobill sends `POST <alt_wga_server_url>/send/message` with the body `{"phone":"628xxx@s.whatsapp.net","message":"..."}`. This is the same method as the "Alternative WhatsApp Gateway" plugin in PHPNuxBill. Numbers that start with `0` are converted using `country_code_phone`.
 
+### Commands over WhatsApp (GOWA only)
+
+Customers and admins can send short commands to the WhatsApp number. gobill answers in the same chat. The commands only read data.
+
+Set up GOWA with these environment values:
+
+```
+WHATSAPP_WEBHOOK=https://<gobill address>/wa/inbound
+WHATSAPP_WEBHOOK_EVENTS=message
+WHATSAPP_WEBHOOK_SECRET=<a secret of at least 16 characters>
+```
+
+Then in **Settings > Integrations**, section "WhatsApp — GOWA", fill in "GOWA webhook secret" with the same secret and set "Answer WhatsApp commands" to Yes. It is off by default. Without the secret, `/wa/inbound` returns 404. A request with a wrong signature gets 401.
+
+gobill finds the sender by phone number. An active admin is matched on the phone in the admin profile. A customer is matched on the customer phone. If two customers share a number, gobill asks them to use the portal and shows no data. An unknown number gets a short generic reply. Each number may send 20 commands per 15 minutes. Group chats and your own messages are ignored. Every command is written to the activity log with the source `wa`.
+
+| Who | Commands |
+|---|---|
+| Customer | `cek` (status and days left), `tagihan` (balance and unpaid payment), `kuota` (usage), `paket` (plans for sale), `bayar` (portal link), `bantuan` |
+| Admin (SuperAdmin, Admin) | `cari <text>` (up to 5 customers), `isolir` (isolated now) |
+| Admin (SuperAdmin, Admin, Report) | `ringkasan` (customers, active packages, isolated, income today) |
+| Every admin | `bantuan` |
+
 ### Option 2: message gateway `wa_url`
 
 `wa_url` is a URL template with the placeholders `[number]` and `[text]`. The same setting is used for SMS. Other WhatsApp gateways, such as Fonnte, Wablas, and WAHA, have no dedicated integration yet. For now, use `wa_url` if the gateway supports GET with `[number]` and `[text]`.

@@ -7,6 +7,7 @@ package public
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/frand-kod/gobill/internal/radius"
@@ -35,6 +36,12 @@ type Handlers struct {
 	Prov func() *provision.Service
 	// Prender renders a page of the customer layout.
 	Prender func(w http.ResponseWriter, r *http.Request, status int, name string, p core.Page)
+
+	// waSend sends a WhatsApp reply; nil = through the notifier. Tests replace it.
+	waSend func(ctx context.Context, phone, text string) error
+	waWG   sync.WaitGroup // replies in flight
+	waMu   sync.Mutex
+	waSeen map[string]time.Time // message id -> first seen, see waFirstSeen
 }
 
 // New returns the public handlers on top of the shared core.

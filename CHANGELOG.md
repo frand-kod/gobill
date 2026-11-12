@@ -17,6 +17,10 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 - **Hari isolir negatif kini dibaca 30 hari, bukan "sampai bayar".** Isi `0` untuk sampai bayar.
 - **Allow-list menolak host berawalan atau berakhiran `-`.** Alamat IPv4 mentah tetap boleh, tetapi hanya masuk address-list, tanpa rule `tls-host`.
 
+### Fitur
+
+- **Perintah WhatsApp lewat GOWA.** Pelanggan mengirim `cek`, `tagihan`, `kuota`, `paket`, `bayar`. Admin mengirim `cari`, `isolir`, `ringkasan`. Perintah hanya membaca data. Endpoint baru `POST /wa/inbound` memeriksa tanda tangan `X-Hub-Signature-256`. Setting baru `alt_wga_webhook_secret` dan `wa_inbound` (bawaan mati) ada di Pengaturan > Integrasi. Lihat `docs/id/integrations.md`.
+
 ### Perubahan
 
 - **Menyimpan setting Isolir memberi peringatan** jika plan Isolir dijual atau bukan plan RADIUS. Simpan tetap berhasil.
