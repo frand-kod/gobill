@@ -17,11 +17,11 @@ import (
 var bwNames = []string{"name", "rate_down", "rate_down_unit", "rate_up", "rate_up_unit", "burst"}
 
 func bwFields(v, e map[string]string) []field {
-	return append(section([]field{text("name", "Bandwidth Name", v, e).req()}, "Basic", ""), section([]field{
-		text("rate_down", "Rate Download", v, e).as("number").req(),
-		text("rate_down_unit", "Unit", v, e).opts("Kbps", "Mbps"),
-		text("rate_up", "Rate Upload", v, e).as("number").req(),
-		text("rate_up_unit", "Unit", v, e).opts("Kbps", "Mbps"),
+	return append(section([]field{text("name", "Bandwidth Name", v, e).Req()}, "Basic", ""), section([]field{
+		text("rate_down", "Rate Download", v, e).As("number").Req(),
+		text("rate_down_unit", "Unit", v, e).Opts("Kbps", "Mbps"),
+		text("rate_up", "Rate Upload", v, e).As("number").Req(),
+		text("rate_up_unit", "Unit", v, e).Opts("Kbps", "Mbps"),
 		text("burst", "Burst", v, e),
 	}, "Speed", "")...)
 }
@@ -37,20 +37,20 @@ func (s *Server) bwList(w http.ResponseWriter, r *http.Request) {
 	lp := listPage{Heading: "Bandwidth", Base: "/admin/bandwidth", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
 		Cols: []string{"Name", "Download", "Upload", "Burst"}}
 	for _, b := range rows {
-		lp.Rows = append(lp.Rows, listRow{b.ID, []string{b.Name, fmt.Sprint(b.RateDown, " ", b.RateDownUnit), fmt.Sprint(b.RateUp, " ", b.RateUpUnit), b.Burst}})
+		lp.Rows = append(lp.Rows, listRow{ID: b.ID, Cells: []string{b.Name, fmt.Sprint(b.RateDown, " ", b.RateDownUnit), fmt.Sprint(b.RateUp, " ", b.RateUpUnit), b.Burst}})
 	}
 	total, err := s.Queries.CountBandwidths(r.Context(), db.CountBandwidthsParams{Term: q, HiddenID: isoBW})
 	if err != nil {
 		s.Fail(w, "count bandwidths", err)
 		return
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
 func (s *Server) bwNew(w http.ResponseWriter, r *http.Request) {
 	v := map[string]string{"rate_down_unit": "Mbps", "rate_up_unit": "Mbps"}
-	s.renderForm(w, r, 200, formPage{"Add Bandwidth", "/admin/bandwidth", "/admin/bandwidth", bwFields(v, nil)})
+	s.renderForm(w, r, 200, formPage{Heading: "Add Bandwidth", Action: "/admin/bandwidth", Cancel: "/admin/bandwidth", Fields: bwFields(v, nil)})
 }
 
 func (s *Server) bwEdit(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +65,7 @@ func (s *Server) bwEdit(w http.ResponseWriter, r *http.Request) {
 	}
 	v := map[string]string{"name": b.Name, "rate_down": fmt.Sprint(b.RateDown), "rate_down_unit": b.RateDownUnit,
 		"rate_up": fmt.Sprint(b.RateUp), "rate_up_unit": b.RateUpUnit, "burst": b.Burst}
-	s.renderForm(w, r, 200, formPage{"Edit Bandwidth", fmt.Sprint("/admin/bandwidth/", id), "/admin/bandwidth", bwFields(v, nil)})
+	s.renderForm(w, r, 200, formPage{Heading: "Edit Bandwidth", Action: fmt.Sprint("/admin/bandwidth/", id), Cancel: "/admin/bandwidth", Fields: bwFields(v, nil)})
 }
 
 // bwSave serves both create (no {id} in the path) and update.
@@ -118,7 +118,7 @@ func (s *Server) bwSave(w http.ResponseWriter, r *http.Request) {
 	if id != 0 {
 		action, head = fmt.Sprint("/admin/bandwidth/", id), "Edit Bandwidth"
 	}
-	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{head, action, "/admin/bandwidth", bwFields(v, e)})
+	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/bandwidth", Fields: bwFields(v, e)})
 }
 
 func (s *Server) bwDelete(w http.ResponseWriter, r *http.Request) {

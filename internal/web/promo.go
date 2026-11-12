@@ -57,7 +57,7 @@ func (s *Server) promoList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp := listPage{Heading: "Promotions", Base: promoBase, CanCreate: true, CanEdit: true,
-		Actions: []rowAction{{"up", "Move up", "", false}, {"down", "Move down", "", false}},
+		Actions: []rowAction{{Path: "up", Label: "Move up", Field: "", Confirm: false}, {Path: "down", Label: "Move down", Field: "", Confirm: false}},
 		Cols:    []string{"Title", "Places", "Schedule", "Status"}}
 	for _, p := range rows {
 		var places []string
@@ -71,7 +71,7 @@ func (s *Server) promoList(w http.ResponseWriter, r *http.Request) {
 		if p.Active == 1 {
 			status = "Active"
 		}
-		lp.Rows = append(lp.Rows, listRow{p.ID, []string{p.Title, strings.Join(places, ", "), s.promoSchedule(p), status}})
+		lp.Rows = append(lp.Rows, listRow{ID: p.ID, Cells: []string{p.Title, strings.Join(places, ", "), s.promoSchedule(p), status}})
 	}
 	s.Render(w, r, http.StatusOK, "list", Page{Title: "Promotions", Tabs: settingsNav(r), Flash: s.Sessions.PopString(r.Context(), "flash"),
 		Error: s.Sessions.PopString(r.Context(), "error"), Data: lp})
@@ -84,9 +84,9 @@ func promoFields(v, e map[string]string, image string) []field {
 	fs := section([]field{
 		{Name: "image", Label: "Image", Type: "file", Value: image, Error: e["image"],
 			Hint: "PNG, JPG, WebP or ICO. 2 MB at most. Optional."},
-		text("title", "Title", v, e).req(),
-		text("body", "Text", v, e).as("textarea").hint("Plain text. Line breaks are kept."),
-		text("link", "Link", v, e).as("url").hint("Optional. Only https:// or http://, e.g. https://wa.me/628123456789"),
+		text("title", "Title", v, e).Req(),
+		text("body", "Text", v, e).As("textarea").WithHint("Plain text. Line breaks are kept."),
+		text("link", "Link", v, e).As("url").WithHint("Optional. Only https:// or http://, e.g. https://wa.me/628123456789"),
 	}, "Content", "")
 	fs = append(fs, section([]field{
 		chk("show_isolir", "Show on the isolir page", "On by default"),
@@ -94,8 +94,8 @@ func promoFields(v, e map[string]string, image string) []field {
 		chk("active", "Active", "Off hides the promo everywhere"),
 	}, "Where", "")...)
 	fs = append(fs, section([]field{
-		text("starts", "Start date", v, e).as("date").hint("Optional. Empty = from now on."),
-		text("ends", "End date", v, e).as("date").hint("Optional. The last day it is shown."),
+		text("starts", "Start date", v, e).As("date").WithHint("Optional. Empty = from now on."),
+		text("ends", "End date", v, e).As("date").WithHint("Optional. The last day it is shown."),
 	}, "Schedule", "")...)
 	return fs
 }

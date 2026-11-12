@@ -20,11 +20,11 @@ import (
 func reconChoices(kind string) []option {
 	switch kind {
 	case billing.ReconDiffer:
-		return []option{{billing.ActPush, "Follow gobill"}, {billing.ActRouter, "Follow router (password only)"}, {billing.ActSkip, "Skip"}}
+		return []option{{Value: billing.ActPush, Label: "Follow gobill"}, {Value: billing.ActRouter, Label: "Follow router (password only)"}, {Value: billing.ActSkip, Label: "Skip"}}
 	case billing.ReconGobill:
-		return []option{{billing.ActPush, "Push to router"}, {billing.ActSkip, "Skip"}}
+		return []option{{Value: billing.ActPush, Label: "Push to router"}, {Value: billing.ActSkip, Label: "Skip"}}
 	}
-	return []option{{billing.ActSkip, "Leave on router"}, {billing.ActImport, "Import into gobill"}}
+	return []option{{Value: billing.ActSkip, Label: "Leave on router"}, {Value: billing.ActImport, Label: "Import into gobill"}}
 }
 
 // routerReconcile shows the comparison (GET); on POST it checks the choices, shows the count summary
@@ -115,5 +115,5 @@ func (s *Server) routerReconcile(w http.ResponseWriter, r *http.Request) {
 	if !post {
 		cancel = "/admin/routers"
 	}
-	s.renderForm(w, r, 200, formPage{"Reconcile router", base, cancel, append(head, fields...)})
+	s.renderForm(w, r, 200, formPage{Heading: "Reconcile router", Action: base, Cancel: cancel, Fields: append(head, fields...)})
 }

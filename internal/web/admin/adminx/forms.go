@@ -1,8 +1,10 @@
-package web
+package adminx
 
-// Form field definitions, field builders and form page rendering.
+// Form field definitions, Field builders and form page rendering.
 
 import (
+	"encoding/json"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"html/template"
 	"net/http"
 
@@ -11,14 +13,14 @@ import (
 	"github.com/frand-kod/gobill/internal/notify"
 )
 
-// field describes one form input; the shared "form" template renders a []field.
-type field struct {
+// Field describes one form input; the shared "form" template renders a []Field.
+type Field struct {
 	Name, Label, Type, Value, Error, Hint string
-	Options                               []option
+	Options                               []Option
 	Required, Checked                     bool
 	Section, SectionShow                  string       // form card title, and the Alpine condition showing the whole card
 	Show                                  string       // Alpine condition showing this field
-	Bind                                  bool         // field feeds the form's Alpine state (x-model)
+	Bind                                  bool         // Field feeds the form's Alpine state (x-model)
 	Gen                                   bool         // "Generate" button fills the field with a random value
 	Fold                                  bool         // its card sits inside a collapsed "Advanced options"
 	Numeric                               bool         // number input: digit keypad on phones (inputmode=numeric)
@@ -33,7 +35,7 @@ type field struct {
 	Vars                                  []notify.Var // textarea: variables as chips that insert [[name]] at the cursor
 	Reset                                 string       // textarea: POST URL of a "Reset to default" button under it, "" = none
 	Wide                                  bool         // spans both columns of the card grid
-	Parts                                 []field      // row: the controls on one line under the row's label
+	Parts                                 []Field      // row: the controls on one line under the row's label
 	Class                                 string       // row part: extra classes on its control (width)
 	ReqIf                                 string       // Alpine condition under which the field is required: shows the * and aria-required
 	Chips                                 []string     // text input: example values as buttons that insert the text at the cursor
@@ -41,20 +43,20 @@ type field struct {
 	Gate                                  string       // JS condition under which the field is submitted; set by Groups, "" = always
 }
 
-type formPage struct {
+type FormPage struct {
 	Heading, Action, Cancel string
-	Fields                  []field
+	Fields                  []Field
 }
 
-// group is a titled card of fields on the form page.
-type group struct {
+// Group is a titled card of fields on the form page.
+type Group struct {
 	Title, Show string
 	Fold        bool
-	Fields      []field
+	Fields      []Field
 }
 
 // Open reports whether a folded card must start open: one of its fields has an error.
-func (g group) Open() bool {
+func (g Group) Open() bool {
 	for _, f := range g.Fields {
 		if f.Error != "" {
 			return true
@@ -64,11 +66,11 @@ func (g group) Open() bool {
 }
 
 // Groups splits the fields into cards by consecutive Section.
-func (fp formPage) Groups() []group {
-	var gs []group
+func (fp FormPage) Groups() []Group {
+	var gs []Group
 	for _, f := range fp.Fields {
 		if n := len(gs); n == 0 || gs[n-1].Title != f.Section {
-			gs = append(gs, group{Title: f.Section, Show: f.SectionShow, Fold: f.Fold})
+			gs = append(gs, Group{Title: f.Section, Show: f.SectionShow, Fold: f.Fold})
 		}
 		gs[len(gs)-1].Fields = append(gs[len(gs)-1].Fields, f)
 	}
@@ -96,8 +98,8 @@ func (fp formPage) Groups() []group {
 }
 
 // Errors lists the fields with an error, for the summary at the top of the form.
-func (fp formPage) Errors() []field {
-	var out []field
+func (fp FormPage) Errors() []Field {
+	var out []Field
 	for _, f := range fp.Fields {
 		if f.Error != "" && f.Type != "hidden" {
 			out = append(out, f)
@@ -107,7 +109,7 @@ func (fp formPage) Errors() []field {
 }
 
 // Describe is the id list for aria-describedby: the hint and the error, when present.
-func (f field) Describe() string {
+func (f Field) Describe() string {
 	var ids []string
 	if f.Hint != "" {
 		ids = append(ids, f.Name+"-hint")
@@ -119,7 +121,7 @@ func (f field) Describe() string {
 }
 
 // XData is the Alpine state: the current value of every Bind field.
-func (fp formPage) XData() string {
+func (fp FormPage) XData() string {
 	m := map[string]any{}
 	for _, f := range fp.Fields {
 		if f.Bind {
@@ -130,80 +132,80 @@ func (fp formPage) XData() string {
 			}
 		}
 	}
-	return jsonStr(m)
+	return JSONStr(m)
 }
 
 // section puts fields in one titled card; show is an optional Alpine condition for the card.
-func section(fs []field, title, show string) []field {
+func Section(fs []Field, title, show string) []Field {
 	for i := range fs {
 		fs[i].Section, fs[i].SectionShow = title, show
 	}
 	return fs
 }
 
-func text(name, label string, v, e map[string]string) field {
-	return field{Name: name, Label: label, Type: "text", Value: v[name], Error: e[name]}
+func Text(name, label string, v, e map[string]string) Field {
+	return Field{Name: name, Label: label, Type: "text", Value: v[name], Error: e[name]}
 }
 
-// customerPick is a username field shown as the searchable customer picker (type "customer").
-func customerPick(name, label string, v, e map[string]string) field {
-	return field{Name: name, Label: label, Type: "customer", Value: v[name], Error: e[name]}
+// CustomerPick is a username field shown as the searchable customer picker (type "customer").
+func CustomerPick(name, label string, v, e map[string]string) Field {
+	return Field{Name: name, Label: label, Type: "customer", Value: v[name], Error: e[name]}
 }
 
-func (f field) withBalance() field { f.Balance = true; return f }
+func (f Field) WithBalance() Field { f.Balance = true; return f }
 
 // PickConfig is the Alpine state of the customer picker: the username already chosen (may be empty).
-func (f field) PickConfig() string {
-	return jsonStr(map[string]any{"value": f.Value, "balance": f.Balance})
+func (f Field) PickConfig() string {
+	return JSONStr(map[string]any{"value": f.Value, "balance": f.Balance})
 }
 
-// wholeErr is the message for a whole-number field given a decimal ("12.5", "12,5"); "" for anything else.
-func wholeErr(v string) string {
+// WholeErr is the message for a whole-number field given a decimal ("12.5", "12,5"); "" for anything else.
+func WholeErr(v string) string {
 	if strings.ContainsAny(v, ".,") {
 		return "Use whole numbers without dots or commas"
 	}
 	return ""
 }
 
-func (f field) as(typ string) field { f.Type = typ; return f }
+func (f Field) As(typ string) Field { f.Type = typ; return f }
 
-func (f field) req() field { f.Required = true; return f }
+func (f Field) Req() Field { f.Required = true; return f }
 
-func (f field) show(c string) field { f.Show = c; return f }
+func (f Field) WithShow(c string) Field { f.Show = c; return f }
 
-func (f field) bind() field { f.Bind = true; return f }
+func (f Field) WithBind() Field { f.Bind = true; return f }
 
-func (f field) reqIf(c string) field { f.ReqIf = c; return f }
+func (f Field) WithReqIf(c string) Field { f.ReqIf = c; return f }
 
-func (f field) chips(c ...string) field { f.Chips = c; return f }
+func (f Field) WithChips(c ...string) Field { f.Chips = c; return f }
 
-func (f field) hint(h string) field { f.Hint = h; return f }
+func (f Field) WithHint(h string) Field { f.Hint = h; return f }
 
-func (f field) warn(text, to string) field { f.Warn, f.WarnTo = text, to; return f }
+func (f Field) WithWarn(text, to string) Field { f.Warn, f.WarnTo = text, to; return f }
 
-func (f field) wide() field { f.Wide = true; return f }
+func (f Field) WithWide() Field { f.Wide = true; return f }
 
-func (f field) class(c string) field { f.Class = c; return f }
+func (f Field) WithClass(c string) Field { f.Class = c; return f }
 
 // row puts controls on one line under one label; the row's hint and error are shown once for all of them.
-func row(name, label string, parts ...field) field {
-	return field{Name: name, Label: label, Type: "row", Parts: parts}
+func Row(name, label string, parts ...Field) Field {
+	return Field{Name: name, Label: label, Type: "row", Parts: parts}
 }
 
-func (f field) opts(o ...string) field {
+func (f Field) Opts(o ...string) Field {
 	f.Type = "select"
 	for _, x := range o {
-		f.Options = append(f.Options, option{x, x})
+		f.Options = append(f.Options, Option{x, x})
 	}
 	return f
 }
 
-func (s *Server) renderForm(w http.ResponseWriter, r *http.Request, status int, fp formPage) {
-	s.Render(w, r, status, "form", Page{Title: fp.Heading, Data: fp})
+func (s *Base) RenderForm(w http.ResponseWriter, r *http.Request, status int, fp FormPage) {
+	s.Render(w, r, status, "form", core.Page{Title: fp.Heading, Data: fp})
 }
 
 // Submit is the submit button label: lookup and test pages run an action instead of saving.
-func (fp formPage) Submit() string {
+func (fp FormPage) Submit() string {
 	switch fp.Action {
 	case "/admin/radius/ip-lookup":
 		return "Search"
@@ -214,7 +216,7 @@ func (fp formPage) Submit() string {
 }
 
 // HasVars reports whether a field has variable chips, so the form loads their script.
-func (fp formPage) HasVars() bool {
+func (fp FormPage) HasVars() bool {
 	for _, f := range fp.Fields {
 		if len(f.Vars) > 0 || len(f.Chips) > 0 {
 			return true
@@ -224,7 +226,7 @@ func (fp formPage) HasVars() bool {
 }
 
 // HasFile reports whether a field posts a file, so the form needs multipart encoding.
-func (fp formPage) HasFile() bool {
+func (fp FormPage) HasFile() bool {
 	for _, f := range fp.Fields {
 		if f.Type == "file" || f.Type == "qris" {
 			return true
@@ -232,3 +234,12 @@ func (fp formPage) HasFile() bool {
 	}
 	return false
 }
+
+// JSONStr is v as JSON text, for Alpine state in templates.
+func JSONStr(v any) string {
+	b, _ := json.Marshal(v)
+	return string(b)
+}
+
+// Option is one choice of a select or a toolbar link: Value is the form value or href.
+type Option struct{ Value, Label string }

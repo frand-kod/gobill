@@ -42,6 +42,7 @@ func TestImportRules(t *testing.T) {
 		// "=web" denies only the web package itself, not its sub-packages
 		{"web/core", []string{"=web", "web/portal"}},
 		{"web/portal", []string{"=web"}},
+		{"web/admin", []string{"=web", "web/portal", "web/setup", "web/public"}},
 		// kernel packages import nothing internal
 		{"money", []string{""}},
 		{"clock", []string{""}},

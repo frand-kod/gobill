@@ -86,16 +86,16 @@ func (s *Server) runBulk(st map[string]string, cs []db.Customer, channel, from, 
 }
 
 func msgBulkFields(v, e map[string]string, routers []db.Router) []field {
-	ro := []option{{"", "All Routers"}}
+	ro := []option{{Value: "", Label: "All Routers"}}
 	for _, rt := range routers {
-		ro = append(ro, option{strconv.FormatInt(rt.ID, 10), rt.Name})
+		ro = append(ro, option{Value: strconv.FormatInt(rt.ID, 10), Label: rt.Name})
 	}
 	return section([]field{
-		{Name: "service", Label: "Service Type", Type: "select", Value: v["service"], Options: []option{{"all", "All"}, {"PPPoE", "PPPoE"}, {"Hotspot", "Hotspot"}, {"VPN", "VPN"}}},
+		{Name: "service", Label: "Service Type", Type: "select", Value: v["service"], Options: []option{{Value: "all", Label: "All"}, {Value: "PPPoE", Label: "PPPoE"}, {Value: "Hotspot", Label: "Hotspot"}, {Value: "VPN", Label: "VPN"}}},
 		{Name: "router", Label: "Router", Type: "select", Value: v["router"], Options: ro},
-		{Name: "status", Label: "Subscription Status", Type: "select", Value: v["status"], Options: []option{{"all", "All"}, {"active", "Active"}, {"expired", "Expired"}}},
+		{Name: "status", Label: "Subscription Status", Type: "select", Value: v["status"], Options: []option{{Value: "all", Label: "All"}, {Value: "active", Label: "Active"}, {Value: "expired", Label: "Expired"}}},
 		channelField(v, e),
-		text("subject", "Subject", v, e).hint("Used for email and inbox"),
+		text("subject", "Subject", v, e).WithHint("Used for email and inbox"),
 		{Name: "message", Label: "Message", Type: "textarea", Value: v["message"], Error: e["message"], Required: true, Hint: msgPlaceholders},
 	}, "Bulk Message", "")
 }
@@ -107,7 +107,7 @@ func (s *Server) msgBulkPage(w http.ResponseWriter, r *http.Request, code int, v
 		return
 	}
 	s.Render(w, r, code, "form", Page{Title: "Bulk Message", Error: errMsg,
-		Data: formPage{"Bulk Message", "/admin/message/bulk", "/admin/message/bulk", msgBulkFields(v, e, routers)}})
+		Data: formPage{Heading: "Bulk Message", Action: "/admin/message/bulk", Cancel: "/admin/message/bulk", Fields: msgBulkFields(v, e, routers)}})
 }
 
 func (s *Server) msgBulkForm(w http.ResponseWriter, r *http.Request) {
@@ -172,10 +172,10 @@ func (s *Server) msgBulkStart(w http.ResponseWriter, r *http.Request) {
 // ---- bulk message to selected customers (list checkboxes) ----
 
 func msgSelectedPage(v, e map[string]string) formPage {
-	return formPage{"Send message to selected", "/admin/message/selected", "/admin/customers", section([]field{
+	return formPage{Heading: "Send message to selected", Action: "/admin/message/selected", Cancel: "/admin/customers", Fields: section([]field{
 		{Name: "ids", Type: "hidden", Value: v["ids"]},
 		channelField(v, e),
-		text("subject", "Subject", v, e).hint("Used for email and inbox"),
+		text("subject", "Subject", v, e).WithHint("Used for email and inbox"),
 		{Name: "message", Label: "Message", Type: "textarea", Value: v["message"], Error: e["message"], Required: true, Hint: msgPlaceholders},
 	}, "Bulk Message", "")}
 }
@@ -250,16 +250,16 @@ func (s *Server) msgSelectedSend(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) msgBulkStatus(w http.ResponseWriter, r *http.Request) {
 	lp := listPage{Heading: "Bulk Message Status", Base: "/admin/message/bulk/status", Cols: []string{"Customer", "Phone", "Status"},
-		Links: []option{{"/admin/message/bulk/status", "Refresh"}, {"/admin/message/bulk", "New Bulk Message"}}}
+		Links: []option{{Value: "/admin/message/bulk/status", Label: "Refresh"}, {Value: "/admin/message/bulk", Label: "New Bulk Message"}}}
 	bulk.mu.Lock()
 	state := "Finished"
 	if bulk.active {
 		state = "Running"
 	}
-	lp.Rows = append(lp.Rows, listRow{0, []string{"Progress", fmt.Sprintf("%d of %d", bulk.done, bulk.total),
+	lp.Rows = append(lp.Rows, listRow{ID: 0, Cells: []string{"Progress", fmt.Sprintf("%d of %d", bulk.done, bulk.total),
 		fmt.Sprintf("%s: %d sent, %d failed", state, bulk.sent, bulk.failed)}})
 	for _, row := range bulk.rows {
-		lp.Rows = append(lp.Rows, listRow{0, []string{row.name, row.phone, row.status}})
+		lp.Rows = append(lp.Rows, listRow{ID: 0, Cells: []string{row.name, row.phone, row.status}})
 	}
 	bulk.mu.Unlock()
 	s.renderList(w, r, lp)

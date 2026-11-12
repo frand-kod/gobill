@@ -37,6 +37,10 @@ var indonesianWords = regexp.MustCompile(`(?i)\b(dan|yang|untuk|tidak|dengan|dar
 // uiKeyAllow lists keys that look Indonesian but are technical or brand names.
 var uiKeyAllow = map[string]bool{
 	"github.com/aldinokemal/go-whatsapp-web-multidevice": true, // GOWA project link
+	// select option labels shown as written. The scan only saw them while the literals were unkeyed.
+	"All Routers": true, "CHAP": true, "Ethernet": true, "failed": true, "lowercase": true, "MikroTik": true, "New Bulk Message": true,
+	"Numbers": true, "paid": true, "PAP": true, "pending": true, "Production": true, "RADIUS (gobill)": true, "Random case": true,
+	"Sandbox": true, "UPPERCASE": true, "VPN": true,
 }
 
 // uiKeysInSources returns the UI keys of the templates and the internal/web Go sources.

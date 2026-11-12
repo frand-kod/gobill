@@ -77,7 +77,7 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if tab == "wireguard" {
-		n, rewrite, off, err := s.wgImpact(r.Context(), st, v)
+		n, rewrite, off, err := s.net.WGImpact(r.Context(), st, v)
 		if err != nil {
 			s.Fail(w, "count wireguard peers", err)
 			return
@@ -108,7 +108,7 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 	var rewrite bool
 	if tab == "wireguard" {
 		var err error
-		if _, rewrite, _, err = s.wgImpact(r.Context(), st, v); err != nil {
+		if _, rewrite, _, err = s.net.WGImpact(r.Context(), st, v); err != nil {
 			s.Fail(w, "count wireguard peers", err)
 			return
 		}

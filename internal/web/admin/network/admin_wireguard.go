@@ -1,4 +1,4 @@
-package web
+package network
 
 // WireGuard: the Settings tab (/admin/settings/wireguard) and the per-router peer actions (internal/wg).
 // Every action here is SuperAdmin only: it hands out a private key and a RADIUS secret.
@@ -26,8 +26,8 @@ import (
 	"github.com/frand-kod/gobill/internal/wg"
 )
 
-// wgDefaults fills the tunnel settings and the switch with their defaults.
-func wgDefaults(st map[string]string) map[string]string {
+// WGDefaults fills the tunnel settings and the switch with their defaults.
+func WGDefaults(st map[string]string) map[string]string {
 	out := map[string]string{"wg_enabled": "no", "wg_port": strconv.Itoa(wg.DefaultPort), "wg_subnet": wg.DefaultSubnet, "wg_endpoint": ""}
 	for k := range out {
 		if st[k] != "" {
@@ -48,11 +48,11 @@ func wgOff() string {
 	return ""
 }
 
-// wgImpact tells what saving v changes for the routers that already have a tunnel: n is how many, and
+// WGImpact tells what saving v changes for the routers that already have a tunnel: n is how many, and
 // rewrite means they must be provisioned again (port, endpoint or subnet changed). Switching off cuts
 // them too, but leaves their keys valid.
-func (s *Server) wgImpact(ctx context.Context, st, v map[string]string) (n int64, rewrite, off bool, err error) {
-	old, nw := wgDefaults(st), wgDefaults(v)
+func (s *Handlers) WGImpact(ctx context.Context, st, v map[string]string) (n int64, rewrite, off bool, err error) {
+	old, nw := WGDefaults(st), WGDefaults(v)
 	rewrite = old["wg_port"] != nw["wg_port"] || old["wg_endpoint"] != nw["wg_endpoint"] || old["wg_subnet"] != nw["wg_subnet"]
 	off = old["wg_enabled"] == "yes" && nw["wg_enabled"] != "yes"
 	n, err = s.Queries.CountWgPeers(ctx)
@@ -111,9 +111,9 @@ func wgLookup(host string) ([]net.IP, error) {
 	return out, err
 }
 
-// wgStatusFields is the status card of the tab: the tunnel, the public address and UDP.
-func (s *Server) wgStatusFields(ctx context.Context, st map[string]string) []field {
-	d := wgDefaults(st)
+// WGStatusFields is the status card of the tab: the tunnel, the public address and UDP.
+func (s *Handlers) WGStatusFields(ctx context.Context, st map[string]string) []field {
+	d := WGDefaults(st)
 	sec := s.T("Status")
 	state := s.T("Off")
 	switch {
@@ -147,8 +147,8 @@ func (s *Server) wgStatusFields(ctx context.Context, st map[string]string) []fie
 		field{Name: "wg_udp", Label: s.T("UDP reachability"), Type: "pre", Section: sec, Value: udp})
 }
 
-// wgWarning is the line the setup wizard shows when WireGuard is on but the server cannot be reached.
-func (s *Server) wgWarning(ctx context.Context) string {
+// WGWarning is the line the setup wizard shows when WireGuard is on but the server cannot be reached.
+func (s *Handlers) WGWarning(ctx context.Context) string {
 	st, err := s.LoadSettings(ctx)
 	if err != nil || s.WG == nil || wgOff() != "" || st["wg_enabled"] != "yes" {
 		return ""
@@ -160,8 +160,8 @@ func (s *Server) wgWarning(ctx context.Context) string {
 	return s.T("WireGuard: ") + s.T(msg)
 }
 
-// wgUsable loads the tunnel config, failing when WireGuard is not on for provisioning.
-func (s *Server) wgUsable(ctx context.Context) (wg.Config, map[string]string, error) {
+// WGUsable loads the tunnel config, failing when WireGuard is not on for provisioning.
+func (s *Handlers) WGUsable(ctx context.Context) (wg.Config, map[string]string, error) {
 	if s.WG == nil || wgOff() != "" {
 		return wg.Config{}, nil, errors.New("WireGuard is not available in this build or is switched off by GOBILL_WG")
 	}
@@ -184,7 +184,7 @@ func (s *Server) wgUsable(ctx context.Context) (wg.Config, map[string]string, er
 
 // routerWGProvision is POST /admin/routers/{id}/wg/provision, for the first provisioning and again:
 // it always makes a new keypair and the old key stops working at once. The commands are shown once.
-func (s *Server) routerWGProvision(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) routerWGProvision(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	back := fmt.Sprint("/admin/routers/", id, "/edit")
 	rt, err := s.Queries.GetRouter(r.Context(), id)
@@ -195,13 +195,13 @@ func (s *Server) routerWGProvision(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "get router", err)
 		return
 	}
-	cfg, _, err := s.wgUsable(r.Context())
+	cfg, _, err := s.WGUsable(r.Context())
 	if err != nil {
 		s.Sessions.Put(r.Context(), "error", s.T(err.Error()))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
-	res, err := s.prov().Provision(r.Context(), rt, cfg)
+	res, err := s.Prov().Provision(r.Context(), rt, cfg)
 	var ae *provision.AddressError
 	if errors.As(err, &ae) {
 		s.Sessions.Put(r.Context(), "error", s.T(ae.Error()))
@@ -227,12 +227,12 @@ func (s *Server) routerWGProvision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Sessions.Put(r.Context(), "wg_once", fetchLine(core.BaseURL(r)+"/provision/"+res.Token))
-	s.done(w, r, back, "WireGuard peer is ready. Paste the line into the router", "router.wg.provision", rt.Name)
+	s.Done(w, r, back, "WireGuard peer is ready. Paste the line into the router", "router.wg.provision", rt.Name)
 }
 
 // wgRevoke drops the peer of a router at once, and the NAS row made for its tunnel address so the next
 // router that gets the address does not inherit the secret. No peer = nothing to do.
-func (s *Server) wgRevoke(ctx context.Context, id int64) error {
+func (s *Handlers) wgRevoke(ctx context.Context, id int64) error {
 	p, err := s.Queries.GetWgPeer(ctx, id)
 	if err == sql.ErrNoRows {
 		return nil
@@ -298,7 +298,7 @@ func fetchLine(u string) string {
 }
 
 // wgRelease cuts the peer from the tunnel and deletes the NAS row of its address.
-func (s *Server) wgRelease(ctx context.Context, p db.WgPeer) error {
+func (s *Handlers) wgRelease(ctx context.Context, p db.WgPeer) error {
 	if s.WG != nil {
 		if err := s.WG.RemovePeer(p.PublicKey); err != nil {
 			return err
@@ -307,17 +307,17 @@ func (s *Server) wgRelease(ctx context.Context, p db.WgPeer) error {
 	return provision.DropNAS(ctx, s.Queries, p.Ip)
 }
 
-func (s *Server) routerWGRevoke(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) routerWGRevoke(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	if err := s.wgRevoke(r.Context(), id); err != nil {
 		s.Fail(w, "revoke wireguard peer", err)
 		return
 	}
-	s.done(w, r, fmt.Sprint("/admin/routers/", id, "/edit"), "WireGuard peer revoked", "router.wg.revoke", fmt.Sprint(id))
+	s.Done(w, r, fmt.Sprint("/admin/routers/", id, "/edit"), "WireGuard peer revoked", "router.wg.revoke", fmt.Sprint(id))
 }
 
 // routerWGReset is POST /admin/routers/{id}/wg/reset: forget the handshake state of the peer.
-func (s *Server) routerWGReset(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) routerWGReset(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	back := fmt.Sprint("/admin/routers/", id, "/edit")
 	p, err := s.Queries.GetWgPeer(r.Context(), id)
@@ -332,7 +332,7 @@ func (s *Server) routerWGReset(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "reset wireguard peer", err)
 		return
 	}
-	s.done(w, r, back, "Peer session reset", "router.wg.reset", fmt.Sprint(id))
+	s.Done(w, r, back, "Peer session reset", "router.wg.reset", fmt.Sprint(id))
 }
 
 // wgStage is one step of getting a router online. Each has its own message, so a failed step says what
@@ -350,7 +350,7 @@ func (st wgStage) String() string {
 }
 
 // wgHandshake and wgRadius are the stages that can be read without calling the router.
-func (s *Server) wgHandshake(p db.WgPeer, port string) wgStage {
+func (s *Handlers) wgHandshake(p db.WgPeer, port string) wgStage {
 	var hs time.Time
 	if s.WG != nil {
 		hs = s.WG.Stats()[p.PublicKey].Handshake
@@ -366,7 +366,7 @@ func (s *Server) wgHandshake(p db.WgPeer, port string) wgStage {
 	return wgStage{true, fmt.Sprintf(s.T("Handshake: OK, %s ago"), ago(hs))}
 }
 
-func (s *Server) wgRadius(p db.WgPeer) wgStage {
+func (s *Handlers) wgRadius(p db.WgPeer) wgStage {
 	if s.WG == nil || s.WG.RadiusSeen(p.Ip).IsZero() {
 		return wgStage{false, s.T("RADIUS: no packet from this router yet")}
 	}
@@ -374,7 +374,7 @@ func (s *Server) wgRadius(p db.WgPeer) wgStage {
 }
 
 // wgAPI and wgCoA call the router.
-func (s *Server) wgAPI(ctx context.Context, rt db.Router, p db.WgPeer) wgStage {
+func (s *Handlers) wgAPI(ctx context.Context, rt db.Router, p db.WgPeer) wgStage {
 	if rt.Host != p.Ip {
 		return wgStage{false, fmt.Sprintf(s.T("The router Host is %s, not the tunnel address %s: the API does not use the tunnel"), rt.Host, p.Ip)}
 	}
@@ -388,7 +388,7 @@ func (s *Server) wgAPI(ctx context.Context, rt db.Router, p db.WgPeer) wgStage {
 	return wgStage{true, s.T("API login OK") + " (" + ident + ")"}
 }
 
-func (s *Server) wgCoA(ctx context.Context, p db.WgPeer) wgStage {
+func (s *Handlers) wgCoA(ctx context.Context, p db.WgPeer) wgStage {
 	if err := radius.ProbeCoA(ctx, s.Queries, s.SecretKey, p.Ip); err != nil {
 		return wgStage{false, s.T("CoA failed") + ": " + err.Error()}
 	}
@@ -396,7 +396,7 @@ func (s *Server) wgCoA(ctx context.Context, p db.WgPeer) wgStage {
 }
 
 // routerWGCheck is POST /admin/routers/{id}/wg/check: all four stages, shown on the router page.
-func (s *Server) routerWGCheck(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) routerWGCheck(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	back := fmt.Sprint("/admin/routers/", id, "/edit")
 	rt, err := s.Queries.GetRouter(r.Context(), id)
@@ -411,7 +411,7 @@ func (s *Server) routerWGCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	st, _ := s.LoadSettings(r.Context())
 	var lines []string
-	for _, x := range []wgStage{s.wgHandshake(p, wgDefaults(st)["wg_port"]), s.wgAPI(r.Context(), rt, p), s.wgRadius(p), s.wgCoA(r.Context(), p)} {
+	for _, x := range []wgStage{s.wgHandshake(p, WGDefaults(st)["wg_port"]), s.wgAPI(r.Context(), rt, p), s.wgRadius(p), s.wgCoA(r.Context(), p)} {
 		lines = append(lines, x.String())
 	}
 	s.Sessions.Put(r.Context(), "wg_stages", strings.Join(lines, "\n"))
@@ -431,7 +431,7 @@ func ago(t time.Time) string {
 }
 
 // wgToken says what happened to the provisioning link of a router: waiting, used (from where, when) or expired.
-func (s *Server) wgToken(ctx context.Context, id int64, hs time.Time) string {
+func (s *Handlers) wgToken(ctx context.Context, id int64, hs time.Time) string {
 	k, err := s.Queries.GetWgToken(ctx, id)
 	if err != nil {
 		return ""
@@ -451,7 +451,7 @@ func (s *Server) wgToken(ctx context.Context, id int64, hs time.Time) string {
 
 // routerWGFields is the WireGuard card of the router page: the stages that can be read without calling
 // the router, the last full check, the buttons, and, right after provisioning, the line to paste. port is the tunnel port.
-func (s *Server) routerWGFields(ctx context.Context, rt db.Router, once, port string) []field {
+func (s *Handlers) routerWGFields(ctx context.Context, rt db.Router, once, port string) []field {
 	sec := s.T("WireGuard tunnel")
 	var out []field
 	if once != "" {

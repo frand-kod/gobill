@@ -46,22 +46,22 @@ func (s *Server) isoList(w http.ResponseWriter, r *http.Request) {
 	}
 	lp := listPage{Heading: "Isolations", Base: "/admin/isolations", Q: p.Q, Searchable: true,
 		Cols:    []string{"Username", "Name", "Started On", "Ends On", "Ended On", "Reason", "Status"},
-		Filters: []filter{{"status", p.Status, []option{{"", "Status"}, {"running", "running"}, {"ended", "ended"}}, "Status"}}}
-	lp.Links = []option{{"/admin/isolations/export?" + lp.query().Encode(), "Export CSV"}}
+		Filters: []filter{{Name: "status", Val: p.Status, Opts: []option{{Value: "", Label: "Status"}, {Value: "running", Label: "running"}, {Value: "ended", Label: "ended"}}, Label: "Status"}}}
+	lp.Links = []option{{Value: "/admin/isolations/export?" + lp.Query().Encode(), Label: "Export CSV"}}
 	now := time.Now().Unix()
 	for _, x := range rows {
 		ended := ""
 		if x.EndedAt > 0 {
 			ended = s.TS(x.EndedAt)
 		}
-		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Username, x.Fullname, s.TS(x.StartedAt), s.TS(x.EndsAt), ended, x.EndReason, isoState(x.EndedAt, x.EndsAt, now)}})
+		lp.Rows = append(lp.Rows, listRow{ID: x.ID, Cells: []string{x.Username, x.Fullname, s.TS(x.StartedAt), s.TS(x.EndsAt), ended, x.EndReason, isoState(x.EndedAt, x.EndsAt, now)}})
 	}
 	total, err := s.Queries.CountFilteredIsolations(r.Context(), db.CountFilteredIsolationsParams{Q: p.Q, Status: p.Status})
 	if err != nil {
 		s.Fail(w, "count isolations", err)
 		return
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }
 

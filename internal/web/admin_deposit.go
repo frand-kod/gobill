@@ -55,13 +55,13 @@ func takeFormToken(tok string) bool {
 }
 
 func depositPage(v, e map[string]string, plans []option) formPage {
-	pl := text("plan", "Balance Package", v, e).as("select")
-	pl.Options = append([]option{{"", "-"}}, plans...)
-	return formPage{"Refill Balance", "/admin/deposit", "/admin/customers", section([]field{
-		customerPick("customer", "Username", v, e).req().withBalance(),
-		pl.hint("Pick a package, or leave empty and enter an amount"),
-		numeric(text("amount", "Balance Amount", v, e).as("number")),
-		text("note", "Note", v, e).as("textarea"),
+	pl := text("plan", "Balance Package", v, e).As("select")
+	pl.Options = append([]option{{Value: "", Label: "-"}}, plans...)
+	return formPage{Heading: "Refill Balance", Action: "/admin/deposit", Cancel: "/admin/customers", Fields: section([]field{
+		customerPick("customer", "Username", v, e).Req().WithBalance(),
+		pl.WithHint("Pick a package, or leave empty and enter an amount"),
+		numeric(text("amount", "Balance Amount", v, e).As("number")),
+		text("note", "Note", v, e).As("textarea"),
 		{Name: "token", Type: "hidden", Value: newFormToken()},
 	}, "Refill Balance", "")}
 }

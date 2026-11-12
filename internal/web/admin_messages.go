@@ -26,7 +26,7 @@ const msgPlaceholders = "Placeholders: [[name]], [[user_name]], [[phone]], [[com
 
 func channelField(v, e map[string]string) field {
 	return field{Name: "channel", Label: "Send Via", Type: "select", Value: v["channel"], Error: e["channel"], Required: true,
-		Options: []option{{"sms", "SMS"}, {"wa", "WhatsApp"}, {"email", "Email"}, {"inbox", "Inbox"}}}
+		Options: []option{{Value: "sms", Label: "SMS"}, {Value: "wa", Label: "WhatsApp"}, {Value: "email", Label: "Email"}, {Value: "inbox", Label: "Inbox"}}}
 }
 
 // messageFor fills a message the way the automated ones are filled (notify.Fill): the customer's
@@ -74,14 +74,14 @@ func (s *Server) deliver(ctx context.Context, n *notify.Notifier, st map[string]
 // ---- single message ----
 
 func msgSendFields(v, e map[string]string, customers []db.Customer) []field {
-	co := []option{{"", "Select a customer"}}
+	co := []option{{Value: "", Label: "Select a customer"}}
 	for _, c := range customers {
-		co = append(co, option{strconv.FormatInt(c.ID, 10), c.Username + " - " + c.Fullname})
+		co = append(co, option{Value: strconv.FormatInt(c.ID, 10), Label: c.Username + " - " + c.Fullname})
 	}
 	return section([]field{
 		{Name: "customer_id", Label: "Customer", Type: "select", Value: v["customer_id"], Error: e["customer_id"], Required: true, Options: co},
 		channelField(v, e),
-		text("subject", "Subject", v, e).hint("Used for email and inbox"),
+		text("subject", "Subject", v, e).WithHint("Used for email and inbox"),
 		{Name: "message", Label: "Message", Type: "textarea", Value: v["message"], Error: e["message"], Required: true, Hint: msgPlaceholders},
 	}, "Message", "")
 }
@@ -94,7 +94,7 @@ func (s *Server) msgSendPage(w http.ResponseWriter, r *http.Request, code int, v
 		return
 	}
 	s.Render(w, r, code, "form", Page{Title: "Send Message", Flash: flash, Error: errMsg,
-		Data: formPage{"Send Message", "/admin/message/send", "/admin/message/send", msgSendFields(v, e, customers)}})
+		Data: formPage{Heading: "Send Message", Action: "/admin/message/send", Cancel: "/admin/message/send", Fields: msgSendFields(v, e, customers)}})
 }
 
 func (s *Server) msgSendForm(w http.ResponseWriter, r *http.Request) {

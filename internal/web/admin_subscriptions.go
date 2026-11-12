@@ -47,9 +47,9 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "list routers", err)
 		return
 	}
-	routers := []option{{"", "Router"}}
+	routers := []option{{Value: "", Label: "Router"}}
 	for _, x := range rts {
-		routers = append(routers, option{fmt.Sprint(x.ID), x.Name})
+		routers = append(routers, option{Value: fmt.Sprint(x.ID), Label: x.Name})
 	}
 	sort, dir, param := listSort(r, "username", "plan", "created", "expires")
 	p.Sort = param
@@ -63,15 +63,15 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "list plans", err)
 		return
 	}
-	plans := append([]option{{"", "Plan"}}, planOpts...)
+	plans := append([]option{{Value: "", Label: "Plan"}}, planOpts...)
 	lp := listPage{Heading: "Subscriptions", Base: "/admin/subscriptions", Q: p.Q, Searchable: true,
 		CanEdit: httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin", "Agent", "Sales"), NoDelete: true,
 		DeleteOnly: !httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin"), // Agent/Sales get Extend only (PHP plan/extend has no role check)
 		Cols:       []string{"Username", "Plan Name", "Type", "Created On", "Expires On", "Method", "Location", "Status"},
 		SortKeys:   []string{"username", "plan", "", "created", "expires", "", "", ""}, Sort: sort, Dir: dir,
-		Filters: []filter{{"status", p.Status, []option{{"", "Status"}, {"active", "active"}, {"expired", "expired"}}, "Status"},
-			{"type", p.Type, anyOpts("Type", "Hotspot", "PPPoE"), "Type"}, {"router", g("router"), routers, "Router"}, {"plan", g("plan"), plans, "Plan"}},
-		Actions: []rowAction{{"extend", "Extend", "days", true}, {"deactivate", "Deactivate", "", true}, {"sync", "Sync", "", false}}}
+		Filters: []filter{{Name: "status", Val: p.Status, Opts: []option{{Value: "", Label: "Status"}, {Value: "active", Label: "active"}, {Value: "expired", Label: "expired"}}, Label: "Status"},
+			{Name: "type", Val: p.Type, Opts: anyOpts("Type", "Hotspot", "PPPoE"), Label: "Type"}, {Name: "router", Val: g("router"), Opts: routers, Label: "Router"}, {Name: "plan", Val: g("plan"), Opts: plans, Label: "Plan"}},
+		Actions: []rowAction{{Path: "extend", Label: "Extend", Field: "days", Confirm: true}, {Path: "deactivate", Label: "Deactivate", Field: "", Confirm: true}, {Path: "sync", Label: "Sync", Field: "", Confirm: false}}}
 	if lp.DeleteOnly {
 		lp.Actions = lp.Actions[:1]
 	}
@@ -79,15 +79,15 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 		lp.Actions = lp.Actions[1:]
 	}
 	for _, x := range rows {
-		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Username, x.PlanName, x.Type, s.TS(x.StartedAt), s.SubExpiry(x.PendingStart, x.ExpiresAt), x.Method, x.RouterName, x.Status}})
+		lp.Rows = append(lp.Rows, listRow{ID: x.ID, Cells: []string{x.Username, x.PlanName, x.Type, s.TS(x.StartedAt), s.SubExpiry(x.PendingStart, x.ExpiresAt), x.Method, x.RouterName, x.Status}})
 	}
-	lp.Links = []option{{"/admin/subscriptions/export?" + lp.query().Encode(), "Export CSV"}}
+	lp.Links = []option{{Value: "/admin/subscriptions/export?" + lp.Query().Encode(), Label: "Export CSV"}}
 	total, err := s.Queries.CountFilteredSubscriptions(r.Context(), db.CountFilteredSubscriptionsParams{Q: p.Q, Status: p.Status, Type: p.Type, RouterID: p.RouterID, PlanID: p.PlanID})
 	if err != nil {
 		s.Fail(w, "count subscriptions", err)
 		return
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
@@ -117,14 +117,14 @@ func (s *Server) subFields(r *http.Request, v, e map[string]string) ([]field, er
 	if err != nil {
 		return nil, err
 	}
-	pl := text("plan", "Service Plan", v, e).as("select").req()
+	pl := text("plan", "Service Plan", v, e).As("select").Req()
 	for _, o := range opts {
 		id, _ := httpx.PosInt(o.Value)
 		if plans[id].Type != "Balance" {
 			pl.Options = append(pl.Options, o)
 		}
 	}
-	return section([]field{pl, text("expires_at", "Expires On", v, e).as("datetime-local").req()}, "Subscription", ""), nil
+	return section([]field{pl, text("expires_at", "Expires On", v, e).As("datetime-local").Req()}, "Subscription", ""), nil
 }
 
 func (s *Server) subGet(w http.ResponseWriter, r *http.Request) (sub db.Subscription, username string, ok bool) {
@@ -158,7 +158,7 @@ func (s *Server) subForm(w http.ResponseWriter, r *http.Request, code int, id in
 		s.Fail(w, "subscription form", err)
 		return
 	}
-	s.renderForm(w, r, code, formPage{"Edit Subscription: " + user, fmt.Sprint("/admin/subscriptions/", id), "/admin/subscriptions", fs})
+	s.renderForm(w, r, code, formPage{Heading: "Edit Subscription: " + user, Action: fmt.Sprint("/admin/subscriptions/", id), Cancel: "/admin/subscriptions", Fields: fs})
 }
 
 func (s *Server) subSave(w http.ResponseWriter, r *http.Request) {

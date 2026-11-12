@@ -35,7 +35,7 @@ const (
 )
 
 var (
-	vchStatuses = []option{{"", "All"}, {"unused", "Unused"}, {"used", "Used"}}
+	vchStatuses = []option{{Value: "", Label: "All"}, {Value: "unused", Label: "Unused"}, {Value: "used", Label: "Used"}}
 	prefixRe    = regexp.MustCompile(`^[A-Za-z0-9\-_.,]*$`) // old PHP alphanumeric(x, "-_.,")
 )
 
@@ -74,7 +74,7 @@ func (s *Server) planOptions(r *http.Request, enabledOnly bool) ([]option, map[i
 	for _, p := range plans {
 		byID[p.ID] = p // rows and names still resolve; only the options leave the isolir plan out
 		if p.ID != isoPlan && (!enabledOnly || p.Enabled == 1) {
-			opts = append(opts, option{fmt.Sprint(p.ID), fmt.Sprintf("%s (%s)", p.Name, view.Money(p.Price))})
+			opts = append(opts, option{Value: fmt.Sprint(p.ID), Label: fmt.Sprintf("%s (%s)", p.Name, view.Money(p.Price))})
 		}
 	}
 	return opts, byID, nil
@@ -126,13 +126,13 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 	}
 	lp := listPage{Heading: "Voucher", Base: "/admin/vouchers", Q: q, Searchable: true, DeleteOnly: true,
 		CanCreate: httpx.OneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), CanEdit: httpx.OneOf(role, "SuperAdmin", "Admin"),
-		Filters: []filter{{"status", status, vchStatuses, "Status"}},
+		Filters: []filter{{Name: "status", Val: status, Opts: vchStatuses, Label: "Status"}},
 		Cols:    []string{"Code Voucher", "Plan Name", "Status", "Created", "Used"}}
 	if lp.CanEdit {
-		lp.Bulk = []bulkAction{{"delete-many", "Delete selected", true, false, false}, {"remove-old", "Delete used vouchers older than 3 months", true, true, false}}
+		lp.Bulk = []bulkAction{{Path: "delete-many", Label: "Delete selected", Danger: true, All: false, Page: false}, {Path: "remove-old", Label: "Delete used vouchers older than 3 months", Danger: true, All: true, Page: false}}
 	}
 	if lp.CanCreate {
-		lp.Links = []option{{"/admin/vouchers/redeem", "Redeem Voucher"}, {"/admin/vouchers/print?limit=36", "Print"}}
+		lp.Links = []option{{Value: "/admin/vouchers/redeem", Label: "Redeem Voucher"}, {Value: "/admin/vouchers/print?limit=36", Label: "Print"}}
 	}
 	for _, v := range rows {
 		used := ""
@@ -143,14 +143,14 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 		if v.Status == "unused" && !canSee { // an unused code is free service
 			code = maskCode(code)
 		}
-		lp.Rows = append(lp.Rows, listRow{v.ID, []string{code, plans[v.PlanID].Name, v.Status, s.TS(v.CreatedAt), used}})
+		lp.Rows = append(lp.Rows, listRow{ID: v.ID, Cells: []string{code, plans[v.PlanID].Name, v.Status, s.TS(v.CreatedAt), used}})
 	}
 	total, err := s.Queries.CountVouchers(r.Context(), db.CountVouchersParams{Q: q, Status: qStatus, Viewer: voucherViewer(adminFrom(r))})
 	if err != nil {
 		s.Fail(w, "count vouchers", err)
 		return
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
@@ -159,15 +159,15 @@ func (s *Server) vchFields(r *http.Request, v, e map[string]string) ([]field, er
 	if err != nil {
 		return nil, err
 	}
-	plan := text("plan", "Service Plan", v, e).as("select")
+	plan := text("plan", "Service Plan", v, e).As("select")
 	plan.Options = opts
-	format := text("voucher_format", "Voucher Format", v, e).as("select")
-	format.Options = []option{{"up", "UPPERCASE"}, {"low", "lowercase"}, {"rand", "Random case"}, {"numbers", "Numbers"}}
-	pn := text("print_now", "Print Now", v, e).as("checkbox")
+	format := text("voucher_format", "Voucher Format", v, e).As("select")
+	format.Options = []option{{Value: "up", Label: "UPPERCASE"}, {Value: "low", Label: "lowercase"}, {Value: "rand", Label: "Random case"}, {Value: "numbers", Label: "Numbers"}}
+	pn := text("print_now", "Print Now", v, e).As("checkbox")
 	pn.Checked = v["print_now"] == "1"
-	out := section([]field{plan, text("numbervoucher", "Number of Vouchers", v, e).as("number").req(), pn}, "Voucher", "")
+	out := section([]field{plan, text("numbervoucher", "Number of Vouchers", v, e).As("number").Req(), pn}, "Voucher", "")
 	code := section([]field{format, text("prefix", "Prefix", v, e),
-		text("lengthcode", "Length Code", v, e).as("number").req().hint("8-32, numbers: 10-32")}, "Code", "")
+		text("lengthcode", "Length Code", v, e).As("number").Req().WithHint("8-32, numbers: 10-32")}, "Code", "")
 	for i := range code {
 		code[i].Fold = true // "Advanced options": the defaults are fine for most vouchers
 	}
@@ -180,7 +180,7 @@ func (s *Server) vchForm(w http.ResponseWriter, r *http.Request, status int, v, 
 		s.Fail(w, "voucher form", err)
 		return
 	}
-	s.renderForm(w, r, status, formPage{"Add Vouchers", "/admin/vouchers", "/admin/vouchers", fs})
+	s.renderForm(w, r, status, formPage{Heading: "Add Vouchers", Action: "/admin/vouchers", Cancel: "/admin/vouchers", Fields: fs})
 }
 
 func (s *Server) vchNew(w http.ResponseWriter, r *http.Request) {
@@ -371,8 +371,8 @@ func (s *Server) vchRedeemForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func redeemPage(v, e map[string]string) formPage {
-	return formPage{"Redeem Voucher", "/admin/vouchers/redeem", "/admin/vouchers",
-		[]field{customerPick("customer", "Username", v, e).req(), text("code", "Code Voucher", v, e).req()}}
+	return formPage{Heading: "Redeem Voucher", Action: "/admin/vouchers/redeem", Cancel: "/admin/vouchers",
+		Fields: []field{customerPick("customer", "Username", v, e).Req(), text("code", "Code Voucher", v, e).Req()}}
 }
 
 func (s *Server) vchRedeem(w http.ResponseWriter, r *http.Request) {

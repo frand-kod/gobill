@@ -228,14 +228,14 @@ func (s *Server) reportPage(period bool) http.HandlerFunc {
 		})
 		d.Rows = rows
 		d.Types = anyOpts("Type", "Hotspot", "PPPoE", "Balance")
-		d.Routers = append(anyOpts("Routers"), option{"-radius", "RADIUS (no router)"}, option{"balance", "Balance"})
+		d.Routers = append(anyOpts("Routers"), option{Value: "-radius", Label: "RADIUS (no router)"}, option{Value: "balance", Label: "Balance"})
 		rs, err := s.Queries.ListRouters(r.Context(), db.ListRoutersParams{Limit: 1000})
 		if err != nil {
 			s.Fail(w, "report routers", err)
 			return
 		}
 		for _, x := range rs {
-			d.Routers = append(d.Routers, option{x.Name, x.Name})
+			d.Routers = append(d.Routers, option{Value: x.Name, Label: x.Name})
 		}
 		opts, _, err := s.planOptions(r, false)
 		if err != nil {
@@ -246,7 +246,7 @@ func (s *Server) reportPage(period bool) http.HandlerFunc {
 			s.Fail(w, "report methods", err)
 			return
 		}
-		d.Plans = append([]option{{"", "Plan"}}, opts...)
+		d.Plans = append([]option{{Value: "", Label: "Plan"}}, opts...)
 		title := "Daily Report"
 		if period {
 			title = "Period Report"
@@ -386,16 +386,16 @@ func (s *Server) trxList(w http.ResponseWriter, r *http.Request) {
 		if c, err := s.Queries.GetCustomer(r.Context(), cid); err == nil {
 			label = c.Username
 		}
-		lp.Filters = []filter{{"customer", strconv.FormatInt(cid, 10), []option{{strconv.FormatInt(cid, 10), label}}, "Customer"}}
+		lp.Filters = []filter{{Name: "customer", Val: strconv.FormatInt(cid, 10), Opts: []option{{Value: strconv.FormatInt(cid, 10), Label: label}}, Label: "Customer"}}
 	}
 	for _, t := range rows {
-		lp.Rows = append(lp.Rows, listRow{t.ID, []string{t.Invoice, s.TS(t.CreatedAt), t.Username, t.PlanName, t.Type, t.Method, view.Money(t.Price)}})
+		lp.Rows = append(lp.Rows, listRow{ID: t.ID, Cells: []string{t.Invoice, s.TS(t.CreatedAt), t.Username, t.PlanName, t.Type, t.Method, view.Money(t.Price)}})
 	}
 	total, err := s.Queries.CountSearchTransactions(r.Context(), db.CountSearchTransactionsParams{Q: q, CustomerID: cid})
 	if err != nil {
 		s.Fail(w, "count transactions", err)
 		return
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }

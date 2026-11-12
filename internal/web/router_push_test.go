@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"net/http"
 	"strings"
 	"sync"
@@ -18,9 +19,7 @@ import (
 // pushApp is a web app whose router answers through exec; sent lists the commands that reached it.
 func pushApp(t *testing.T, exec func([]string) ([]map[string]string, error)) (h http.Handler, c *http.Cookie, q *db.Queries, rid string, sent func() []string) {
 	s, h, q, c := crudApp(t)
-	syncs.mu.Lock()
-	syncs.runs = map[int64]*syncRun{}
-	syncs.mu.Unlock()
+	network.ResetSyncs()
 	var mu sync.Mutex
 	var cmds []string
 	s.Billing = &billing.Service{DB: s.conn, Q: q, Key: s.SecretKey,
@@ -134,9 +133,7 @@ func TestRouterListLastPushLink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	syncs.mu.Lock()
-	syncs.runs[r2.ID] = &syncRun{}
-	syncs.mu.Unlock()
+	network.MarkSynced(r2.ID)
 	body := do(h, "GET", "/admin/routers", nil, c).Body.String()
 	// the default language is Indonesian, so the label is "Dorongan terakhir" (Last push)
 	if !strings.Contains(body, `href="/admin/routers/`+itoa(r2.ID)+`/sync">Dorongan terakhir: r2</a>`) {

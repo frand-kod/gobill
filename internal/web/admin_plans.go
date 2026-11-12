@@ -59,91 +59,91 @@ func (s *Server) planRefs(r *http.Request) (x planRefs, err error) {
 var scheduleChips = []string{"Mon-Fri 08:00-17:00", "Sat,Sun 09:00-12:00", "* 22:00-06:00", "; "}
 
 func planFields(v, e map[string]string, x planRefs, self int64) []field {
-	sel := func(name, label string) field { return text(name, label, v, e).as("select") }
-	bw, rt, pool, exp := sel("bandwidth_id", "Bandwidth Name").bind(), sel("router_id", "Router"), sel("pool_id", "Pool Name"), sel("expired_plan_id", "Expired Plan")
+	sel := func(name, label string) field { return text(name, label, v, e).As("select") }
+	bw, rt, pool, exp := sel("bandwidth_id", "Bandwidth Name").WithBind(), sel("router_id", "Router"), sel("pool_id", "Pool Name"), sel("expired_plan_id", "Expired Plan")
 	fup := sel("fup_bandwidth_id", "Speed after the data limit")
-	fup.Options = []option{{"", "No FUP: reject at the limit"}}
+	fup.Options = []option{{Value: "", Label: "No FUP: reject at the limit"}}
 	boost := sel("boost_bandwidth_id", "Boost bandwidth")
-	boost.Options = []option{{"", "No boost"}}
-	rt.Options, pool.Options, exp.Options = []option{{"", "Choose a router"}}, []option{{"", "No pool"}}, []option{{"", "Default: Isolation, or disconnect"}}
+	boost.Options = []option{{Value: "", Label: "No boost"}}
+	rt.Options, pool.Options, exp.Options = []option{{Value: "", Label: "Choose a router"}}, []option{{Value: "", Label: "No pool"}}, []option{{Value: "", Label: "Default: Isolation, or disconnect"}}
 	for _, b := range x.bw {
-		bw.Options = append(bw.Options, option{fmt.Sprint(b.ID), b.Name})
+		bw.Options = append(bw.Options, option{Value: fmt.Sprint(b.ID), Label: b.Name})
 	}
 	for _, b := range x.bw {
-		boost.Options = append(boost.Options, option{fmt.Sprint(b.ID), b.Name})
-		fup.Options = append(fup.Options, option{fmt.Sprint(b.ID), b.Name})
+		boost.Options = append(boost.Options, option{Value: fmt.Sprint(b.ID), Label: b.Name})
+		fup.Options = append(fup.Options, option{Value: fmt.Sprint(b.ID), Label: b.Name})
 	}
 	for _, o := range x.rt {
-		rt.Options = append(rt.Options, option{fmt.Sprint(o.ID), o.Name})
+		rt.Options = append(rt.Options, option{Value: fmt.Sprint(o.ID), Label: o.Name})
 	}
 	for _, p := range x.pools {
-		pool.Options = append(pool.Options, option{fmt.Sprint(p.ID), p.Name})
+		pool.Options = append(pool.Options, option{Value: fmt.Sprint(p.ID), Label: p.Name})
 	}
 	for _, p := range x.plans {
 		if p.ID != self {
-			exp.Options = append(exp.Options, option{fmt.Sprint(p.ID), p.Name})
+			exp.Options = append(exp.Options, option{Value: fmt.Sprint(p.ID), Label: p.Name})
 		}
 	}
 	check := func(name, label string) field {
-		f := text(name, label, v, e).as("checkbox")
+		f := text(name, label, v, e).As("checkbox")
 		f.Checked = v[name] == "1"
 		return f
 	}
-	dev := text("device", "Device", v, e).as("select").bind()
-	dev.Options = []option{{"Radius", "RADIUS (gobill)"}, {"", "MikroTik API (by plan type)"}, {"MikrotikHotspot", "MikroTik API (Hotspot driver)"},
-		{"MikrotikPppoe", "MikroTik API (PPPoE driver)"}, {"Dummy", "Dummy"}}
+	dev := text("device", "Device", v, e).As("select").WithBind()
+	dev.Options = []option{{Value: "Radius", Label: "RADIUS (gobill)"}, {Value: "", Label: "MikroTik API (by plan type)"}, {Value: "MikrotikHotspot", Label: "MikroTik API (Hotspot driver)"},
+		{Value: "MikrotikPppoe", Label: "MikroTik API (PPPoE driver)"}, {Value: "Dummy", Label: "Dummy"}}
 	dev.Hint = "RADIUS (gobill) needs no router. MikroTik API and Dummy need one."
-	aud := text("audience", "Who can use this plan", v, e).as("select")
-	aud.Options = []option{{"public", "Public — sold on the customer portal"}, {"admin", "Admin only — only an admin can give it"}}
+	aud := text("audience", "Who can use this plan", v, e).As("select")
+	aud.Options = []option{{Value: "public", Label: "Public — sold on the customer portal"}, {Value: "admin", Label: "Admin only — only an admin can give it"}}
 	const notBalance, hotspot, pppoe, radius = "type !== 'Balance'", "type === 'Hotspot'", "type === 'PPPoE'", "device !== 'Radius'"
 	validity := row("validity", "Validity",
-		text("validity", "Plan Validity", v, e).as("number").bind(),
-		text("validity_unit", "Validity Unit", v, e).opts("Mins", "Hrs", "Days", "Months", "Period").bind().class("w-40 flex-none")).show(notBalance)
+		text("validity", "Plan Validity", v, e).As("number").WithBind(),
+		text("validity_unit", "Validity Unit", v, e).Opts("Mins", "Hrs", "Days", "Months", "Period").WithBind().WithClass("w-40 flex-none")).WithShow(notBalance)
 	validity.Error = e["validity"]
 	out := section([]field{
-		text("name", "Plan Name", v, e).req().wide(),
-		text("type", "Service", v, e).opts("Hotspot", "PPPoE", "Balance").bind(),
-		text("billing", "Billing (Prepaid/Postpaid)", v, e).opts("prepaid", "postpaid").bind(),
-		bw.show(notBalance).reqIf(notBalance),
-		row("availability", "Availability", check("enabled", "Enable"), aud).wide().
-			hint("Enable turns the plan on or off. Public: sold on the customer portal. Admin only: hidden from the portal, so customers cannot buy, extend or auto-renew it, but an admin can still give it."),
+		text("name", "Plan Name", v, e).Req().WithWide(),
+		text("type", "Service", v, e).Opts("Hotspot", "PPPoE", "Balance").WithBind(),
+		text("billing", "Billing (Prepaid/Postpaid)", v, e).Opts("prepaid", "postpaid").WithBind(),
+		bw.WithShow(notBalance).WithReqIf(notBalance),
+		row("availability", "Availability", check("enabled", "Enable"), aud).WithWide().
+			WithHint("Enable turns the plan on or off. Public: sold on the customer portal. Admin only: hidden from the portal, so customers cannot buy, extend or auto-renew it, but an admin can still give it."),
 	}, "Basic", "")
 	out = append(out, section([]field{
-		text("price", "Plan Price", v, e).as("number").req().bind(),
+		text("price", "Plan Price", v, e).As("number").Req().WithBind(),
 		validity,
-		text("billing_day", "Billing Day", v, e).as("number").hint("Day of month, 1-31. Required for postpaid plans. Empty on a Period plan: day 20").reqIf("billing === 'postpaid'").show("billing === 'postpaid' || validity_unit === 'Period'"),
+		text("billing_day", "Billing Day", v, e).As("number").WithHint("Day of month, 1-31. Required for postpaid plans. Empty on a Period plan: day 20").WithReqIf("billing === 'postpaid'").WithShow("billing === 'postpaid' || validity_unit === 'Period'"),
 	}, "Price & validity", "")...)
 	out = append(out, section([]field{
-		exp.show(notBalance).hint("Default: a RADIUS customer is isolated when isolation is enabled, otherwise disconnected. Pick a plan to send them there instead."),
+		exp.WithShow(notBalance).WithHint("Default: a RADIUS customer is isolated when isolation is enabled, otherwise disconnected. Pick a plan to send them there instead."),
 	}, "When the plan ends", notBalance)...)
 	out = append(out, section([]field{
-		check("limited", "Limited").bind(),
-		text("limit_type", "Limit Type", v, e).opts("", "Time_Limit", "Data_Limit", "Both_Limit").bind().show("limited").
-			hint("PPPoE plans on RADIUS can only use Data_Limit."),
-		text("time_limit", "Time Limit", v, e).as("number").show("limited && limit_type !== 'Data_Limit'"),
-		text("time_unit", "Time Unit", v, e).opts("Mins", "Hrs").show("limited && limit_type !== 'Data_Limit'"),
-		text("data_limit", "Data Limit", v, e).as("number").show("limited && limit_type !== 'Time_Limit'"),
-		text("data_unit", "Data Unit", v, e).opts("MB", "GB").show("limited && limit_type !== 'Time_Limit'"),
-		fup.show("limited && limit_type !== 'Time_Limit' && device === 'Radius'").
-			hint("FUP (fair usage): past the data limit the customer stays online at this speed until the plan ends, instead of being rejected. RADIUS (gobill) only."),
-		text("idle_timeout", "Idle timeout (seconds)", v, e).as("number").show("device === 'Radius'").
-			hint("The NAS drops a session that sends no traffic for this long. Empty = not sent. RADIUS (gobill) only."),
-		text("shared_users", "Device limit", v, e).as("number").bind().show(hotspot).
-			hint("How many devices can be online with this plan at once. When the limit is full, Settings > Customers & Billing decides: kick the oldest device or reject the new login."),
+		check("limited", "Limited").WithBind(),
+		text("limit_type", "Limit Type", v, e).Opts("", "Time_Limit", "Data_Limit", "Both_Limit").WithBind().WithShow("limited").
+			WithHint("PPPoE plans on RADIUS can only use Data_Limit."),
+		text("time_limit", "Time Limit", v, e).As("number").WithShow("limited && limit_type !== 'Data_Limit'"),
+		text("time_unit", "Time Unit", v, e).Opts("Mins", "Hrs").WithShow("limited && limit_type !== 'Data_Limit'"),
+		text("data_limit", "Data Limit", v, e).As("number").WithShow("limited && limit_type !== 'Time_Limit'"),
+		text("data_unit", "Data Unit", v, e).Opts("MB", "GB").WithShow("limited && limit_type !== 'Time_Limit'"),
+		fup.WithShow("limited && limit_type !== 'Time_Limit' && device === 'Radius'").
+			WithHint("FUP (fair usage): past the data limit the customer stays online at this speed until the plan ends, instead of being rejected. RADIUS (gobill) only."),
+		text("idle_timeout", "Idle timeout (seconds)", v, e).As("number").WithShow("device === 'Radius'").
+			WithHint("The NAS drops a session that sends no traffic for this long. Empty = not sent. RADIUS (gobill) only."),
+		text("shared_users", "Device limit", v, e).As("number").WithBind().WithShow(hotspot).
+			WithHint("How many devices can be online with this plan at once. When the limit is full, Settings > Customers & Billing decides: kick the oldest device or reject the new login."),
 	}, "Limits", hotspot+" || "+pppoe+" && device === 'Radius'")...)
 	out = append(out, section([]field{
-		dev.show(notBalance),
-		rt.show(radius).reqIf(radius),
-		pool.show(pppoe),
+		dev.WithShow(notBalance),
+		rt.WithShow(radius).WithReqIf(radius),
+		pool.WithShow(pppoe),
 	}, "Network & device", notBalance)...)
 	out = append(out, section([]field{
-		text("login_window", "Login hours", v, e).hint("When customers of this plan may log in, in the app time zone. Day names are English: Mon, Tue, Wed, Thu, Fri, Sat, Sun. Separate rules with ;. A window past midnight is fine: 22:00-06:00. Empty = always. The session is cut at the end of the window. RADIUS (gobill) only.").chips(scheduleChips...).wide(),
-		boost.hint("Speed used during the boost hours instead of the plan's own bandwidth. A customer past the data limit still gets the FUP speed. RADIUS (gobill) only."),
-		text("boost_window", "Boost hours", v, e).hint("Same format as Login hours, e.g. * 00:00-06:00 for a night boost. Online customers are switched within a minute.").chips(scheduleChips...),
+		text("login_window", "Login hours", v, e).WithHint("When customers of this plan may log in, in the app time zone. Day names are English: Mon, Tue, Wed, Thu, Fri, Sat, Sun. Separate rules with ;. A window past midnight is fine: 22:00-06:00. Empty = always. The session is cut at the end of the window. RADIUS (gobill) only.").WithChips(scheduleChips...).WithWide(),
+		boost.WithHint("Speed used during the boost hours instead of the plan's own bandwidth. A customer past the data limit still gets the FUP speed. RADIUS (gobill) only."),
+		text("boost_window", "Boost hours", v, e).WithHint("Same format as Login hours, e.g. * 00:00-06:00 for a night boost. Online customers are switched within a minute.").WithChips(scheduleChips...),
 	}, "Schedule", "device === 'Radius'")...)
 	scripts := section([]field{
-		text("on_login", "On Login", v, e).as("textarea"),
-		text("on_logout", "On Logout", v, e).as("textarea")}, "Router scripts", notBalance)
+		text("on_login", "On Login", v, e).As("textarea"),
+		text("on_logout", "On Logout", v, e).As("textarea")}, "Router scripts", notBalance)
 	for i := range scripts {
 		scripts[i].Fold = true
 	}
@@ -164,7 +164,7 @@ func (s *Server) planHelp() formHelp {
 
 // renderPlanForm renders the plan form page with its extras.
 func (s *Server) renderPlanForm(w http.ResponseWriter, r *http.Request, status int, head, action string, fs []field) {
-	s.Render(w, r, status, "form", Page{Title: head, Data: formPage{head, action, "/admin/plans", fs}, Help: s.planHelp()})
+	s.Render(w, r, status, "form", Page{Title: head, Data: formPage{Heading: head, Action: action, Cancel: "/admin/plans", Fields: fs}, Help: s.planHelp()})
 }
 
 func planFormValues(p db.Plan) map[string]string {
@@ -219,7 +219,7 @@ func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
 		if p.FupBandwidthID.Valid {
 			feats = append(feats, "FUP")
 		}
-		lp.Rows = append(lp.Rows, listRow{p.ID, []string{p.Name, p.Type + " / " + p.Billing, view.Money(p.Price),
+		lp.Rows = append(lp.Rows, listRow{ID: p.ID, Cells: []string{p.Name, p.Type + " / " + p.Billing, view.Money(p.Price),
 			fmt.Sprint(p.Validity, " ", p.ValidityUnit), routers[p.RouterID.Int64], aud, strings.Join(feats, ", "), st}})
 	}
 	total, err := s.Queries.CountPlans(r.Context(), db.CountPlansParams{Term: q, HiddenID: isoPlan})
@@ -227,7 +227,7 @@ func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "count plans", err)
 		return
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }
 

@@ -77,7 +77,7 @@ func (s *Server) setupShow(w http.ResponseWriter, r *http.Request) {
 	}
 	warn := s.proxyWarning(r)
 	if st.Slug == "router" { // a tunnel the routers cannot reach is worth a word before they are set up
-		if wgw := s.wgWarning(r.Context()); wgw != "" {
+		if wgw := s.net.WGWarning(r.Context()); wgw != "" {
 			warn = strings.TrimSpace(warn + " " + wgw)
 		}
 	}
@@ -283,7 +283,7 @@ func (s *Server) wizSaveRouter(r *http.Request, kind int) (wizResult, error) {
 				form.Set("require_message_auth", "1")
 			}
 		}
-		if ok, errs := s.wizReplay(r, http.HandlerFunc(s.nasSave), id, form); !ok {
+		if ok, errs := s.wizReplay(r, http.HandlerFunc(s.net.NASSave), id, form); !ok {
 			wizMerge(e, "nas_", errs)
 		} else if v["nas_secret"] != "" {
 			res.secret = v["nas_secret"]
@@ -310,7 +310,7 @@ func (s *Server) wizSaveRouter(r *http.Request, kind int) (wizResult, error) {
 				form.Del("enabled")
 			}
 		}
-		if ok, errs := s.wizReplay(r, http.HandlerFunc(s.routerSave), id, form); !ok {
+		if ok, errs := s.wizReplay(r, http.HandlerFunc(s.net.RouterSave), id, form); !ok {
 			wizMerge(e, "router_", errs)
 		} else if kind == wizTest {
 			s.wizPing(r, v["router_host"])
@@ -780,10 +780,10 @@ func (s *Server) wizPage(r *http.Request, st wizStep, ws wizState, v, e map[stri
 		if err != nil {
 			return view, err
 		}
-		f := text("voucher_plan", "Plan for the test voucher", v, e).as("select").req()
+		f := text("voucher_plan", "Plan for the test voucher", v, e).As("select").Req()
 		f.Hint = "Creates one test voucher code. Real customers can be added later on the Customers page."
 		for _, p := range plans {
-			f.Options = append(f.Options, option{strconv.FormatInt(p.ID, 10), p.Name})
+			f.Options = append(f.Options, option{Value: strconv.FormatInt(p.ID, 10), Label: p.Name})
 		}
 		view.Form.Fields = section([]field{f}, "Test voucher", "")
 	case "finish":

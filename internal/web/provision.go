@@ -8,6 +8,7 @@ package web
 import (
 	"crypto/subtle"
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -68,7 +69,7 @@ func (s *Server) provisionScript(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "get wireguard peer", err)
 		return
 	}
-	cfg, st, err := s.wgUsable(ctx)
+	cfg, st, err := s.net.WGUsable(ctx)
 	if err != nil {
 		http.Error(w, "gobill WireGuard is not available", http.StatusServiceUnavailable)
 		return
@@ -99,7 +100,7 @@ func (s *Server) provisionScript(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "open router api password", err)
 		return
 	}
-	script, err := provision.Block{Private: string(priv), ServerPub: serverPub, Endpoint: wgDefaults(st)["wg_endpoint"], Secret: radiusSecret, APIPass: string(apiPass),
+	script, err := provision.Block{Private: string(priv), ServerPub: serverPub, Endpoint: network.WGDefaults(st)["wg_endpoint"], Secret: radiusSecret, APIPass: string(apiPass),
 		Port: cfg.Port, Self: cfg.Self(), Peer: netip.MustParseAddr(p.Ip), Bits: cfg.Subnet.Bits()}.Script()
 	if err != nil {
 		s.Fail(w, "build provision script", err)

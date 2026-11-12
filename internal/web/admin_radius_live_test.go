@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"net/http"
 	"strings"
 	"testing"
@@ -74,7 +75,7 @@ func TestRadiusSessionsJSON(t *testing.T) {
 	if rec := do(h, "GET", "/admin/radius/sessions.json", nil, nil); rec.Code == http.StatusOK || strings.Contains(rec.Body.String(), `"rows"`) {
 		t.Fatalf("feed without login: %d", rec.Code)
 	}
-	feed := func() (v liveView) {
+	feed := func() (v network.LiveView) {
 		t.Helper()
 		rec := do(h, "GET", "/admin/radius/sessions.json", nil, c)
 		if rec.Code != http.StatusOK {

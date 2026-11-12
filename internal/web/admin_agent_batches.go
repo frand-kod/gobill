@@ -64,9 +64,9 @@ func (s *Server) abList(w http.ResponseWriter, r *http.Request) {
 		Note:      "Used is the least the agent has sold; the real sales are not known to the system.",
 		Cols:      []string{"Batch", "Agent", "Plan Name", "Paid", "Bonus", "Price", "Used", "Unused", "Returned", "Debt"}}
 	for _, b := range rows {
-		lp.Rows = append(lp.Rows, listRow{b.ID, batchCells(b)})
+		lp.Rows = append(lp.Rows, listRow{ID: b.ID, Cells: batchCells(b)})
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
@@ -106,10 +106,10 @@ func (s *Server) abView(w http.ResponseWriter, r *http.Request) {
 			s.T("Returned"), c[8], s.T("Price"), c[5], s.T("Debt"), c[9]),
 		Cols: []string{"Code Voucher", "Status", "Used"}}
 	if manage {
-		lp.Links = []option{{base + "/payment", "Record payment"}, {batchBase, "Agent batches"}}
-		lp.Bulk = []bulkAction{{"return", "Return selected", true, false, false}}
+		lp.Links = []option{{Value: base + "/payment", Label: "Record payment"}, {Value: batchBase, Label: "Agent batches"}}
+		lp.Bulk = []bulkAction{{Path: "return", Label: "Return selected", Danger: true, All: false, Page: false}}
 	} else {
-		lp.Links = []option{{batchBase, "Agent batches"}}
+		lp.Links = []option{{Value: batchBase, Label: "Agent batches"}}
 	}
 	for _, v := range codes {
 		status, used := v.Status, ""
@@ -119,9 +119,9 @@ func (s *Server) abView(w http.ResponseWriter, r *http.Request) {
 		if v.UsedAt.Valid {
 			used = s.TS(v.UsedAt.Int64)
 		}
-		lp.Rows = append(lp.Rows, listRow{v.ID, []string{v.Code, status, used}})
+		lp.Rows = append(lp.Rows, listRow{ID: v.ID, Cells: []string{v.Code, status, used}})
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
@@ -134,18 +134,18 @@ func (s *Server) abFields(r *http.Request, v, e map[string]string) ([]field, err
 	if err != nil {
 		return nil, err
 	}
-	agent := text("agent", "Agent", v, e).as("select")
+	agent := text("agent", "Agent", v, e).As("select")
 	for _, a := range agents {
 		if a.Status == "Active" {
-			agent.Options = append(agent.Options, option{fmt.Sprint(a.ID), a.Username})
+			agent.Options = append(agent.Options, option{Value: fmt.Sprint(a.ID), Label: a.Username})
 		}
 	}
-	plan := text("plan", "Service Plan", v, e).as("select")
+	plan := text("plan", "Service Plan", v, e).As("select")
 	plan.Options = plans
 	return []field{agent, plan,
-		text("paid", "Paid vouchers", v, e).as("number").req(),
-		text("bonus", "Bonus vouchers", v, e).as("number").hint("Given up front with the paid ones, e.g. 10 paid + 4 bonus"),
-		text("price", "Price per paid voucher", v, e).as("number").req().hint("Rupiah; the debt is paid x price"),
+		text("paid", "Paid vouchers", v, e).As("number").Req(),
+		text("bonus", "Bonus vouchers", v, e).As("number").WithHint("Given up front with the paid ones, e.g. 10 paid + 4 bonus"),
+		text("price", "Price per paid voucher", v, e).As("number").Req().WithHint("Rupiah; the debt is paid x price"),
 		text("note", "Note", v, e)}, nil
 }
 
@@ -155,7 +155,7 @@ func (s *Server) abForm(w http.ResponseWriter, r *http.Request, status int, v, e
 		s.Fail(w, "agent batch form", err)
 		return
 	}
-	s.renderForm(w, r, status, formPage{"Add Agent batch", batchBase, batchBase, fs})
+	s.renderForm(w, r, status, formPage{Heading: "Add Agent batch", Action: batchBase, Cancel: batchBase, Fields: fs})
 }
 
 func (s *Server) abNew(w http.ResponseWriter, r *http.Request) {
@@ -216,10 +216,10 @@ func (s *Server) abPayForm(w http.ResponseWriter, r *http.Request, status int, b
 		s.Fail(w, "agent batch debt", err)
 		return
 	}
-	amount := text("amount", "Amount", v, e).as("number").req().hint(fmt.Sprintf("%s %s", s.T("Debt"), view.Money(debt)))
+	amount := text("amount", "Amount", v, e).As("number").Req().WithHint(fmt.Sprintf("%s %s", s.T("Debt"), view.Money(debt)))
 	back := fmt.Sprint(batchBase, "/", b.ID)
-	s.renderForm(w, r, status, formPage{"Record payment", back + "/payment", back,
-		[]field{amount, text("note", "Note", v, e)}})
+	s.renderForm(w, r, status, formPage{Heading: "Record payment", Action: back + "/payment", Cancel: back,
+		Fields: []field{amount, text("note", "Note", v, e)}})
 }
 
 func (s *Server) abPayment(w http.ResponseWriter, r *http.Request) {

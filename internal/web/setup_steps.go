@@ -36,30 +36,30 @@ type wizView struct {
 
 func wizCompanyFields(v, e map[string]string) []field {
 	return section([]field{
-		text("company_name", "Company Name", v, e).req().hint("Name of your business. Shown on invoices, messages and the login page."),
-		text("app_url", "App URL", v, e).hint("Public address of this app, e.g. https://billing.example.com. Used for links in WhatsApp messages (QRIS, invoice)."),
-		text("phone", "Phone Number", v, e).hint("Operator phone or WhatsApp. Shown to customers on the portal."),
+		text("company_name", "Company Name", v, e).Req().WithHint("Name of your business. Shown on invoices, messages and the login page."),
+		text("app_url", "App URL", v, e).WithHint("Public address of this app, e.g. https://billing.example.com. Used for links in WhatsApp messages (QRIS, invoice)."),
+		text("phone", "Phone Number", v, e).WithHint("Operator phone or WhatsApp. Shown to customers on the portal."),
 	}, "Business", "")
 }
 
 func wizRouterFields(v, e map[string]string) []field {
-	mode := text("router_mode", "How does gobill connect to MikroTik?", v, e).as("select").bind().req()
-	mode.Options = []option{{"radius", "RADIUS (recommended)"}, {"api", "API"}, {"both", "Both"}}
+	mode := text("router_mode", "How does gobill connect to MikroTik?", v, e).As("select").WithBind().Req()
+	mode.Options = []option{{Value: "radius", Label: "RADIUS (recommended)"}, {Value: "api", Label: "API"}, {Value: "both", Label: "Both"}}
 	out := section([]field{mode}, "Connection", "")
-	nasSecret := text("nas_secret", "Shared Secret", v, e).as("password").hint("At least 16 characters. Use Generate, then copy the commands before you leave this page.")
+	nasSecret := text("nas_secret", "Shared Secret", v, e).As("password").WithHint("At least 16 characters. Use Generate, then copy the commands before you leave this page.")
 	nasSecret.Value, nasSecret.Gen = "", true
 	out = append(out, section([]field{
-		text("nas_name", "NAS Name", v, e).req(),
-		text("nas_ip", "IP / CIDR", v, e).req().hint("The MikroTik address that talks to gobill, e.g. 192.168.88.1."),
+		text("nas_name", "NAS Name", v, e).Req(),
+		text("nas_ip", "IP / CIDR", v, e).Req().WithHint("The MikroTik address that talks to gobill, e.g. 192.168.88.1."),
 		nasSecret,
 	}, "NAS (RADIUS)", "router_mode !== 'api'")...)
-	pw := text("router_password", "Password", v, e).as("password").hint("Leave empty to keep the current password")
+	pw := text("router_password", "Password", v, e).As("password").WithHint("Leave empty to keep the current password")
 	pw.Value = ""
 	out = append(out, section([]field{
-		text("router_name", "Router Name", v, e).req(),
-		text("router_host", "Host", v, e).req(),
-		text("router_port", "Port", v, e).as("number").req(),
-		text("router_username", "Username", v, e).req(),
+		text("router_name", "Router Name", v, e).Req(),
+		text("router_host", "Host", v, e).Req(),
+		text("router_port", "Port", v, e).As("number").Req(),
+		text("router_username", "Username", v, e).Req(),
 		pw,
 		{Name: "router_test", Type: "test", Value: "/admin/setup/router/test", Btn: "Test connection", Hint: "Saves the router first, then checks the connection."},
 	}, "Router (API)", "router_mode !== 'radius'")...)
@@ -69,7 +69,7 @@ func wizRouterFields(v, e map[string]string) []field {
 func wizSpeedFields(v, e map[string]string) []field {
 	var fs []field
 	for i := range wizSpeeds {
-		f := text(speedKey(i), "Speed (Mbps)", v, e).as("number")
+		f := text(speedKey(i), "Speed (Mbps)", v, e).As("number")
 		f.Hint = "Empty = skip this speed."
 		fs = append(fs, f)
 	}
@@ -81,9 +81,9 @@ func (s *Server) wizPlanFields(ctx context.Context, ws wizState, v, e map[string
 	if err != nil {
 		return nil, err
 	}
-	bw := text("plan_bandwidth", "Speed for these plans", v, e).as("select").req()
+	bw := text("plan_bandwidth", "Speed for these plans", v, e).As("select").Req()
 	for _, b := range bws {
-		bw.Options = append(bw.Options, option{strconv.FormatInt(b.ID, 10), b.Name})
+		bw.Options = append(bw.Options, option{Value: strconv.FormatInt(b.ID, 10), Label: b.Name})
 	}
 	out := []field{bw}
 	if ws.effectiveRouter() == "api" {
@@ -91,14 +91,14 @@ func (s *Server) wizPlanFields(ctx context.Context, ws wizState, v, e map[string
 		if err != nil {
 			return nil, err
 		}
-		rt := text("plan_router", "Router", v, e).as("select").req()
+		rt := text("plan_router", "Router", v, e).As("select").Req()
 		for _, x := range routers {
-			rt.Options = append(rt.Options, option{strconv.FormatInt(x.ID, 10), x.Name})
+			rt.Options = append(rt.Options, option{Value: strconv.FormatInt(x.ID, 10), Label: x.Name})
 		}
 		out = append(out, rt)
 	}
 	for i, p := range wizPlans {
-		f := text(priceKey(i), p.Label, v, e).as("number")
+		f := text(priceKey(i), p.Label, v, e).As("number")
 		f.Hint = "Empty = skip this plan."
 		out = append(out, f)
 	}
@@ -106,18 +106,18 @@ func (s *Server) wizPlanFields(ctx context.Context, ws wizState, v, e map[string
 }
 
 func wizWhatsAppFields(v, e map[string]string, importing bool) []field {
-	pw := text("alt_wga_password", "Password", v, e).as("password").hint("Leave empty to keep the saved password")
+	pw := text("alt_wga_password", "Password", v, e).As("password").WithHint("Leave empty to keep the saved password")
 	pw.Value = ""
 	out := []field{
-		text("alt_wga_server_url", "WA server URL", v, e).hint("Address of your GOWA gateway, e.g. http://127.0.0.1:3000"),
+		text("alt_wga_server_url", "WA server URL", v, e).WithHint("Address of your GOWA gateway, e.g. http://127.0.0.1:3000"),
 		text("alt_wga_device_id", "Device ID", v, e),
 		text("alt_wga_username", "Username", v, e),
 		pw,
 	}
 	if importing {
-		n := text("notify_customers", "Send notifications to customers", v, e).as("select")
-		n.Options = []option{{"yes", "Yes"}, {"no", "No"}}
-		out = append(out, n.hint("No stops every message to customers. Operator alerts are not affected."))
+		n := text("notify_customers", "Send notifications to customers", v, e).As("select")
+		n.Options = []option{{Value: "yes", Label: "Yes"}, {Value: "no", Label: "No"}}
+		out = append(out, n.WithHint("No stops every message to customers. Operator alerts are not affected."))
 	}
 	out = append(out, field{Name: "wa_test_phone", Label: "Test number", Type: "test", Inp: "tel", Value: "/admin/setup/whatsapp/test",
 		Btn: "Send test message", Error: e["wa_test_phone"], Hint: "Enter a number to receive a test message."})
@@ -142,16 +142,16 @@ func wizQRISFields(v, e map[string]string) []field {
 func wizTripayFields(v, e map[string]string, st map[string]string) []field {
 	on := field{Name: "tripay_on", Label: "Use Tripay for payments", Type: "checkbox", Checked: v["tripay_on"] == "1"}
 	sec := func(name, label string) field {
-		f := text(name, label, nil, e).as("password")
+		f := text(name, label, nil, e).As("password")
 		f.Hint = "Leave empty to keep the current secret"
 		if st[name] != "" {
 			f.Hint = "Saved. Leave empty to keep the current secret"
 		}
 		return f
 	}
-	mode := text("tripay_mode", "Tripay Mode", v, e).as("select")
-	mode.Options = []option{{"sandbox", "Sandbox"}, {"production", "Production"}}
+	mode := text("tripay_mode", "Tripay Mode", v, e).As("select")
+	mode.Options = []option{{Value: "sandbox", Label: "Sandbox"}, {Value: "production", Label: "Production"}}
 	return section([]field{on, sec("tripay_api_key", "Tripay API Key"), sec("tripay_private_key", "Tripay Private Key"),
 		text("tripay_merchant_code", "Tripay Merchant Code", v, e), mode,
-		text("tripay_channel", "Default Channel", v, e).hint("Optional channel code, e.g. QRIS")}, "Tripay", "")
+		text("tripay_channel", "Default Channel", v, e).WithHint("Optional channel code, e.g. QRIS")}, "Tripay", "")
 }

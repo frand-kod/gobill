@@ -3,6 +3,7 @@ package web
 // Settings page: form, render and validation hook.
 
 import (
+	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/settings"
@@ -111,7 +112,7 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 		}
 	}
 	if tab == "wireguard" { // never saved = the default shown
-		for k, x := range wgDefaults(st) {
+		for k, x := range network.WGDefaults(st) {
 			if v[k] == "" && k != "wg_endpoint" {
 				v[k] = x
 			}
@@ -128,7 +129,7 @@ func (s *Server) renderSettings(w http.ResponseWriter, r *http.Request, status i
 				fp.Fields[i].Hint = fmt.Sprintf(s.T("%d routers have a tunnel. Changing the port, endpoint or subnet cuts them until they are provisioned again, and switching WireGuard off cuts them too"), n)
 			}
 		}
-		fp.Fields = append(fp.Fields, s.wgStatusFields(r.Context(), st)...)
+		fp.Fields = append(fp.Fields, s.net.WGStatusFields(r.Context(), st)...)
 	}
 	if tab == "payment" { // the URL to paste into the Tripay merchant dashboard
 		fp.Fields[0].Hint = "Callback URL for Tripay: " + core.BaseURL(r) + "/callback/tripay" + ", Duitku: " + core.BaseURL(r) + "/callback/duitku"
