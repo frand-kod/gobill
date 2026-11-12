@@ -123,7 +123,9 @@ func (s *Server) fillAppURL(r *http.Request) {
 		return
 	}
 	scheme := "http"
-	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" || strings.Contains(r.Header.Get("CF-Visitor"), `"scheme":"https"`) {
+	// the proxy headers count only from a trusted proxy, like X-Forwarded-For
+	viaProxy := s.trust.Load() && s.fromProxy(originalPeer(r))
+	if r.TLS != nil || viaProxy && (r.Header.Get("X-Forwarded-Proto") == "https" || strings.Contains(r.Header.Get("CF-Visitor"), `"scheme":"https"`)) {
 		scheme = "https"
 	}
 	if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "app_url", Value: scheme + "://" + r.Host}); err != nil {

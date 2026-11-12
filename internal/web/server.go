@@ -146,7 +146,7 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	s.reports.SettingsFields = func(tab string) []adminx.Field { return s.settings.SettingsFields(tab, nil, nil, nil) }
 	s.setup = &setup.Handlers{Base: s.ax, NetH: s.net, PlansH: s.plans, BillingH: s.billing, SettingsH: s.settings, PlanSvc: s.Plans}
 	s.public = public.New(&s.Core)
-	s.public.IsolirOn, s.public.RadiusServer, s.public.OriginalPeer = s.isolir.Load, s.radiusServer, originalPeer
+	s.public.IsolirOn, s.public.Now, s.public.RadiusServer, s.public.OriginalPeer = s.isolir.Load, s.now, s.radiusServer, originalPeer
 	s.public.WGUsable, s.public.WGEndpoint, s.public.Prov = s.net.WGUsable, func(st map[string]string) string { return network.WGDefaults(st)["wg_endpoint"] }, s.prov
 	s.public.Prender = s.portal.Prender
 	if err := s.parseTemplates(); err != nil {

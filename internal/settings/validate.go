@@ -16,7 +16,7 @@ import (
 
 func oneOf(v string, list ...string) bool { return slices.Contains(list, v) }
 
-var hostRe = regexp.MustCompile(`^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)*$`)
+var hostRe = regexp.MustCompile(`^(\*\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$`)
 
 // HostLines splits an allow-list into lowercase hosts, one per line. Blank lines are dropped.
 func HostLines(v string) []string {
@@ -132,6 +132,9 @@ func Validate(v map[string]string, languages []string) map[string]string {
 	}
 	if _, ok := v["wg_port"]; ok {
 		wgErrors(v, e)
+	}
+	if x := v["radius_rest_secret"]; x != "" && len(x) < 16 {
+		e["radius_rest_secret"] = "Secret must be at least 16 characters"
 	}
 	if x, ok := v["isolir_mode"]; ok && x != "default" && x != "custom" {
 		e["isolir_mode"] = "Choose one"

@@ -105,3 +105,14 @@ func TestValidate(t *testing.T) {
 		t.Errorf("empty input must give no errors: %v", e)
 	}
 }
+
+func TestValidateRadiusRestSecretLength(t *testing.T) {
+	if e := Validate(map[string]string{"radius_rest_secret": "short"}, nil); e["radius_rest_secret"] == "" {
+		t.Fatal("short secret accepted")
+	}
+	for _, ok := range []string{"", "0123456789abcdef"} {
+		if e := Validate(map[string]string{"radius_rest_secret": ok}, nil); e["radius_rest_secret"] != "" {
+			t.Fatalf("%q refused: %v", ok, e)
+		}
+	}
+}

@@ -166,8 +166,8 @@ func (s *Handlers) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ip := "c:" + core.ClientIP(r)
+	reserved := s.Reserve(ip, core.MaxFailedLogins) >= 0 // counted now, so parallel guesses cannot all pass
 	bad := func() {
-		s.RecordFailure(ip)
 		s.Prender(w, r, 200, "p_login", core.Page{Title: "Customer sign in", Error: "Voucher Not Valid"})
 	}
 	code := strings.TrimSpace(r.PostFormValue("voucher"))
@@ -177,7 +177,7 @@ func (s *Handlers) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 		}
 		return -1
 	}, r.PostFormValue("username"))
-	if s.TooManyFailures(ip) || code == "" || len(username) < 3 || len(username) > 55 {
+	if !reserved || code == "" || len(username) < 3 || len(username) > 55 {
 		bad()
 		return
 	}
@@ -213,10 +213,13 @@ func (s *Handlers) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, billing.ErrVoucherInvalid):
 		bad()
 	case errors.Is(err, billing.ErrInactive):
+		s.Unreserve(ip)
 		s.FlashTo(w, r, "/login", "account is not active")
 	case err != nil:
+		s.Unreserve(ip)
 		s.Fail(w, "voucher login", err)
 	default:
+		s.Unreserve(ip)
 		to := "/login"
 		if u := httpx.SafeRedirect(st["voucher_redirect"]); u != "" {
 			to = u

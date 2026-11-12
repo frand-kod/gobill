@@ -1626,5 +1626,6 @@
     "Enter a name and pick how long the token lasts": "Enter a name and pick how long the token lasts",
     "Pick an active admin": "Pick an active admin",
     "Token not found or already revoked": "Token not found or already revoked",
-    "Token revoked": "Token revoked"
+    "Token revoked": "Token revoked",
+    "The isolir plan is on sale or is not a RADIUS plan. Isolated customers may get the wrong profile. Set the plan to RADIUS and not for sale.": "The isolir plan is on sale or is not a RADIUS plan. Isolated customers may get the wrong profile. Set the plan to RADIUS and not for sale."
 }

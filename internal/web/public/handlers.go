@@ -7,6 +7,7 @@ package public
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/frand-kod/gobill/internal/radius"
 	"github.com/frand-kod/gobill/internal/service/provision"
@@ -20,6 +21,8 @@ type Handlers struct {
 
 	// IsolirOn reports the isolir_enabled setting; the gate does no query while it is false.
 	IsolirOn func() bool
+	// Now is the clock of the isolir gate; the server passes its own, which tests can fix.
+	Now func() time.Time
 	// RadiusServer is the shared RADIUS decision engine behind /radius.php.
 	RadiusServer func() *radius.Server
 	// OriginalPeer is the TCP peer address before the real-IP middleware rewrote RemoteAddr.
@@ -35,4 +38,4 @@ type Handlers struct {
 }
 
 // New returns the public handlers on top of the shared core.
-func New(c *core.Core) *Handlers { return &Handlers{Core: c} }
+func New(c *core.Core) *Handlers { return &Handlers{Core: c, Now: time.Now} }

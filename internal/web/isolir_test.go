@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -251,6 +252,28 @@ func TestIsolirSettingsDefaultsShownAndSaveCreatesPlan(t *testing.T) {
 	}
 }
 
+// A saved isolir plan that is on sale or not RADIUS gives a warning, not an error.
+func TestIsolirSaveWarnsOnWrongPlan(t *testing.T) {
+	_, h, q := settingsSetup(t)
+	alice := login(t, h, "alice")
+	p, err := q.CreatePlan(t.Context(), db.CreatePlanParams{Name: "Topup", Type: "Balance", Billing: "prepaid", Validity: 30, ValidityUnit: "Days", Enabled: 1, Device: "Dummy"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	isoSettings(t, q, map[string]string{"isolir_plan_id": strconv.FormatInt(p.ID, 10)})
+	form := url.Values{"isolir_enabled": {"yes"}, "isolir_days": {"30"}, "isolir_title": {"T"}, "isolir_message": {"M"},
+		"isolir_show_voucher": {"yes"}, "isolir_address_list": {"isolir"}, "isolir_mode": {"default"}}
+	if w := do(h, "POST", "/admin/settings/isolir", form, alice); w.Code != http.StatusSeeOther {
+		t.Fatalf("save: %d %s", w.Code, w.Body)
+	}
+	if body := getBody(t, h, alice, "/admin/settings/isolir"); !strings.Contains(body, "is on sale or is not a RADIUS plan") {
+		t.Error("no warning for a plan on sale")
+	}
+	if body := getBody(t, h, alice, "/admin/settings/isolir"); strings.Contains(body, "is on sale or is not a RADIUS plan") {
+		t.Error("warning shown twice")
+	}
+}
+
 func TestIsolirResetDefaults(t *testing.T) {
 	_, h, q := settingsSetup(t)
 	alice := login(t, h, "alice")
@@ -327,6 +350,20 @@ func TestIsolirGateLeavesOthersAlone(t *testing.T) {
 	}
 	if w := isoReq(h, "GET", "/", "198.51.100.9", nil); w.Code != http.StatusSeeOther {
 		t.Errorf("client without session: code %d", w.Code)
+	}
+}
+
+// The gate reads the server clock: once the isolation has run out the client is no longer hijacked.
+func TestIsolirGateUsesServerClock(t *testing.T) {
+	s, h, q := isoSetup(t)
+	isoCustomer(t, s, q, "203.0.113.7", true)
+	isoEnable(t, s, q)
+	if w := isoReq(h, "GET", "/random", "203.0.113.7", nil); w.Code != http.StatusOK {
+		t.Fatalf("isolated client: %d", w.Code)
+	}
+	s.clock = func() time.Time { return time.Now().AddDate(0, 0, 31) }
+	if w := isoReq(h, "GET", "/random", "203.0.113.7", nil); w.Code == http.StatusOK {
+		t.Fatalf("isolation ran out but client still hijacked")
 	}
 }
 
@@ -455,6 +492,15 @@ func TestIsolirRouterRulesBlock(t *testing.T) {
 	if !strings.HasSuffix(b, "action=drop comment=\"isolir: block the rest\"") {
 		t.Errorf("drop is not the last rule:\n%s", b)
 	}
+	// a stored empty list gives the default name, as RADIUS does
+	if e := block(map[string]string{"isolir_address_list": ""}); !strings.Contains(e, "src-address-list=isolir dst-address-type") || strings.Contains(e, "src-address-list= ") {
+		t.Errorf("empty list name not defaulted:\n%s", e)
+	}
+	// a raw IP is in the allow address-list but has no tls-host rule
+	ip := block(map[string]string{"isolir_allow_hosts": "8.8.4.4\nwa.me"})
+	if !strings.Contains(ip, "address=8.8.4.4 ") || strings.Contains(ip, "tls-host=8.8.4.4") || !strings.Contains(ip, "tls-host=wa.me ") {
+		t.Errorf("IP rules wrong:\n%s", ip)
+	}
 	// unset: the default list and the default allow-list (WhatsApp)
 	d := block(nil)
 	for _, want := range []string{"src-address-list=isolir dst-address-type", "list=isolir-allow address=wa.me", "tls-host=*.whatsapp.net", "tls-host=g.whatsapp.net"} {
@@ -467,7 +513,7 @@ func TestIsolirRouterRulesBlock(t *testing.T) {
 // Allow-list lines must be hostnames or *. wildcards; blank lines are fine.
 func TestIsolirAllowHostsValidated(t *testing.T) {
 	s, _, _ := isoSetup(t)
-	for _, bad := range []string{"foo bar", "http://x", "*bad", "*.", "a..b"} {
+	for _, bad := range []string{"foo bar", "http://x", "*bad", "*.", "a..b", "-x.com", "x-.com"} {
 		if e := s.settings.SettingsErrors(map[string]string{"isolir_allow_hosts": "wa.me\n" + bad}); e["isolir_allow_hosts"] == "" {
 			t.Errorf("%q accepted", bad)
 		}
