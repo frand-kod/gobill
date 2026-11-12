@@ -10,6 +10,7 @@ import (
 
 	gobill "github.com/frand-kod/gobill"
 	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/admin/billing"
 	"github.com/frand-kod/gobill/internal/web/admin/customers"
 	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"github.com/frand-kod/gobill/internal/web/admin/plans"
@@ -120,6 +121,7 @@ func (s *Server) Handler() http.Handler {
 	network.Register(mux, s.net, mw)
 	customers.Register(mux, s.customers, mw)
 	plans.Register(mux, s.plans, mw)
+	billing.Register(mux, s.billing, mw)
 
 	// auth: root redirect, static files, uploads, admin login/logout, own password
 	mux.HandleFunc("GET /{$}", s.root)
@@ -150,15 +152,6 @@ func (s *Server) Handler() http.Handler {
 	// F5 maps and ODP (maps.go, odp.go). Old PHP: customer map is open to all admins; router, ODP and their maps are managers only.
 
 	// recharge and billing: recharge, deposit, customer plans, transactions, payment gateway admin
-	mux.Handle("POST /admin/customers/{id}/recharge/confirm", staff(http.HandlerFunc(s.custRechargeConfirm)))
-	mux.Handle("POST /admin/customers/{id}/recharge", staff(http.HandlerFunc(s.custRecharge)))
-	mux.Handle("POST /admin/customers/recharge", staff(http.HandlerFunc(s.bulkRechargeConfirm)))
-	mux.Handle("POST /admin/customers/recharge/run", staff(http.HandlerFunc(s.bulkRechargeRun)))
-	mux.Handle("GET /admin/customers/recharge/result", staff(http.HandlerFunc(s.bulkRechargeResult)))
-	mux.Handle("GET /admin/recharge", staff(http.HandlerFunc(s.rechargePick)))
-	mux.Handle("POST /admin/recharge", staff(http.HandlerFunc(s.rechargeStart)))
-	mux.Handle("GET /admin/deposit", money(http.HandlerFunc(s.depositForm)))
-	mux.Handle("POST /admin/deposit", money(http.HandlerFunc(s.depositSave)))
 	mux.Handle("GET /admin/subscriptions", all(http.HandlerFunc(s.subList)))
 	mux.Handle("GET /admin/subscriptions/export", noReport(http.HandlerFunc(s.subExport)))
 	mux.Handle("GET /admin/isolations", all(http.HandlerFunc(s.isoList)))
@@ -173,36 +166,9 @@ func (s *Server) Handler() http.Handler {
 
 	// vouchers and coupons
 	// Old PHP plan.php: voucher list is open to all admins, generate/redeem to staff, delete to managers.
-	mux.Handle("GET /admin/vouchers", all(http.HandlerFunc(s.vchList)))
-	mux.Handle("GET /admin/vouchers/new", money(http.HandlerFunc(s.vchNew)))
-	mux.Handle("POST /admin/vouchers", money(http.HandlerFunc(s.vchGenerate)))
-	mux.Handle("GET /admin/vouchers/print", staff(http.HandlerFunc(s.vchPrint)))
-	mux.Handle("GET /admin/vouchers/view", staff(http.HandlerFunc(s.vchView)))
-	mux.Handle("GET /admin/vouchers/redeem", staff(http.HandlerFunc(s.vchRedeemForm)))
-	mux.Handle("POST /admin/vouchers/redeem", staff(http.HandlerFunc(s.vchRedeem)))
-	mux.Handle("POST /admin/vouchers/delete-many", managers(http.HandlerFunc(s.vchDeleteMany)))
-	mux.Handle("POST /admin/vouchers/remove-old", managers(http.HandlerFunc(s.vchRemoveOld)))
-	mux.Handle("POST /admin/vouchers/{id}/delete", managers(http.HandlerFunc(s.vchDelete)))
 
 	// agent consignment batches: managers write, an Agent reads its own
-	agentRead := s.requireAdmin("SuperAdmin", "Admin", "Agent")
-	mux.Handle("GET /admin/agent-batches", agentRead(http.HandlerFunc(s.abList)))
-	mux.Handle("GET /admin/agent-batches/new", managers(http.HandlerFunc(s.abNew)))
-	mux.Handle("POST /admin/agent-batches", managers(http.HandlerFunc(s.abCreate)))
-	mux.Handle("GET /admin/agent-batches/{id}", agentRead(http.HandlerFunc(s.abView)))
-	mux.Handle("GET /admin/agent-batches/{id}/payment", managers(http.HandlerFunc(s.abPayment)))
-	mux.Handle("POST /admin/agent-batches/{id}/payment", managers(http.HandlerFunc(s.abPay)))
-	mux.Handle("POST /admin/agent-batches/{id}/return", managers(http.HandlerFunc(s.abReturn)))
 	// Old PHP coupons.php: every action is SuperAdmin/Admin/Sales only.
-	cpn := s.requireAdmin("SuperAdmin", "Admin", "Sales")
-	mux.Handle("GET /admin/coupons", cpn(http.HandlerFunc(s.cpnList)))
-	mux.Handle("GET /admin/coupons/new", cpn(http.HandlerFunc(s.cpnNew)))
-	mux.Handle("POST /admin/coupons", cpn(http.HandlerFunc(s.cpnSave)))
-	mux.Handle("GET /admin/coupons/{id}/edit", cpn(http.HandlerFunc(s.cpnEdit)))
-	mux.Handle("POST /admin/coupons/{id}", cpn(http.HandlerFunc(s.cpnSave)))
-	mux.Handle("POST /admin/coupons/{id}/toggle", cpn(http.HandlerFunc(s.cpnToggle)))
-	mux.Handle("POST /admin/coupons/delete-many", cpn(http.HandlerFunc(s.cpnDeleteMany)))
-	mux.Handle("POST /admin/coupons/{id}/delete", cpn(http.HandlerFunc(s.cpnDelete)))
 
 	// plans and network: bandwidth, plans, pools, routers, NAS, online sessions, ODP and router/ODP maps
 	mux.Handle("GET /admin/routers/{id}/reconcile", managers(http.HandlerFunc(s.routerReconcile)))

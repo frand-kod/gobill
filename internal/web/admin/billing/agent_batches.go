@@ -1,4 +1,4 @@
-package web
+package billing
 
 // Agent consignment batches: SuperAdmin/Admin create batches and record payments and returns;
 // an Agent only reads its own batches (usage, unused codes, debt).
@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/view"
 
@@ -29,9 +30,9 @@ func batchScope(a *db.Admin) int64 {
 
 // batchFor loads the batch of the path. An Agent asking for another agent's batch gets the same 404
 // as for a batch that does not exist.
-func (s *Server) batchFor(w http.ResponseWriter, r *http.Request) (db.AgentBatch, bool) {
+func (s *Handlers) batchFor(w http.ResponseWriter, r *http.Request) (db.AgentBatch, bool) {
 	b, err := s.Queries.GetAgentBatch(r.Context(), httpx.PathID(r))
-	if errors.Is(err, sql.ErrNoRows) || (err == nil && batchScope(adminFrom(r)) != 0 && b.AgentID != adminFrom(r).ID) {
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && batchScope(adminx.AdminFrom(r)) != 0 && b.AgentID != adminx.AdminFrom(r).ID) {
 		http.NotFound(w, r)
 		return b, false
 	} else if err != nil {
@@ -46,9 +47,9 @@ func nonNeg(s string) (int64, bool) {
 	return n, err == nil && n >= 0
 }
 
-func (s *Server) abList(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) abList(w http.ResponseWriter, r *http.Request) {
 	_, pg := view.Paging(r)
-	scope := batchScope(adminFrom(r))
+	scope := batchScope(adminx.AdminFrom(r))
 	rows, err := s.Queries.ListAgentBatches(r.Context(), db.ListAgentBatchesParams{AgentID: scope, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
 		s.Fail(w, "list agent batches", err)
@@ -67,7 +68,7 @@ func (s *Server) abList(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{ID: b.ID, Cells: batchCells(b)})
 	}
 	lp.Finish(pg, total)
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }
 
 func batchCells(b db.ListAgentBatchesRow) []string {
@@ -76,7 +77,7 @@ func batchCells(b db.ListAgentBatchesRow) []string {
 		view.Money(b.UnitPrice), strconv.FormatInt(b.Used, 10), strconv.FormatInt(unused, 10), strconv.FormatInt(b.Returned, 10), view.Money(b.Debt)}
 }
 
-func (s *Server) abView(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) abView(w http.ResponseWriter, r *http.Request) {
 	b, ok := s.batchFor(w, r)
 	if !ok {
 		return
@@ -98,7 +99,7 @@ func (s *Server) abView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c := batchCells(sum[0])
-	manage := batchScope(adminFrom(r)) == 0
+	manage := batchScope(adminx.AdminFrom(r)) == 0
 	base := fmt.Sprint(batchBase, "/", b.ID)
 	lp := listPage{Heading: "Agent batch", Base: base, NoDelete: true, DeleteOnly: true,
 		Note: fmt.Sprintf("%s #%d: %s, %s %s, %s %s, %s %s, %s %s, %s %s", s.T("Batch"), b.ID, c[1],
@@ -122,11 +123,11 @@ func (s *Server) abView(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{ID: v.ID, Cells: []string{v.Code, status, used}})
 	}
 	lp.Finish(pg, total)
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }
 
-func (s *Server) abFields(r *http.Request, v, e map[string]string) ([]field, error) {
-	plans, _, err := s.planOptions(r, true)
+func (s *Handlers) abFields(r *http.Request, v, e map[string]string) ([]field, error) {
+	plans, _, err := s.PlanOptions(r, true)
 	if err != nil {
 		return nil, err
 	}
@@ -149,20 +150,20 @@ func (s *Server) abFields(r *http.Request, v, e map[string]string) ([]field, err
 		text("note", "Note", v, e)}, nil
 }
 
-func (s *Server) abForm(w http.ResponseWriter, r *http.Request, status int, v, e map[string]string) {
+func (s *Handlers) abForm(w http.ResponseWriter, r *http.Request, status int, v, e map[string]string) {
 	fs, err := s.abFields(r, v, e)
 	if err != nil {
 		s.Fail(w, "agent batch form", err)
 		return
 	}
-	s.renderForm(w, r, status, formPage{Heading: "Add Agent batch", Action: batchBase, Cancel: batchBase, Fields: fs})
+	s.RenderForm(w, r, status, formPage{Heading: "Add Agent batch", Action: batchBase, Cancel: batchBase, Fields: fs})
 }
 
-func (s *Server) abNew(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) abNew(w http.ResponseWriter, r *http.Request) {
 	s.abForm(w, r, 200, map[string]string{"paid": "10", "bonus": "0"}, nil)
 }
 
-func (s *Server) abCreate(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) abCreate(w http.ResponseWriter, r *http.Request) {
 	v := httpx.FormVals(r, "agent", "plan", "paid", "bonus", "price", "note")
 	e := map[string]string{}
 	agentID, ok := httpx.PosInt(v["agent"])
@@ -195,9 +196,9 @@ func (s *Server) abCreate(w http.ResponseWriter, r *http.Request) {
 		s.abForm(w, r, http.StatusUnprocessableEntity, v, e)
 		return
 	}
-	id, err := s.Billing.CreateAgentBatch(r.Context(), billing.BatchParams{AgentID: agentID, PlanID: planID, AdminID: adminFrom(r).ID,
+	id, err := s.Billing.CreateAgentBatch(r.Context(), billing.BatchParams{AgentID: agentID, PlanID: planID, AdminID: adminx.AdminFrom(r).ID,
 		Paid: paid, Bonus: bonus, Price: price, Note: v["note"],
-		NewCode: func() (string, error) { return randomCode(upperChars, minVoucherLen) }})
+		NewCode: func() (string, error) { return randomCode(UpperChars, MinVoucherLen) }})
 	if errors.Is(err, billing.ErrBatchInvalid) {
 		e["agent"] = "Invalid value"
 		s.abForm(w, r, http.StatusUnprocessableEntity, v, e)
@@ -206,11 +207,11 @@ func (s *Server) abCreate(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "create agent batch", err)
 		return
 	}
-	s.done(w, r, fmt.Sprint(batchBase, "/", id), "Agent batch created", "agent_batch.create",
+	s.Done(w, r, fmt.Sprint(batchBase, "/", id), "Agent batch created", "agent_batch.create",
 		fmt.Sprintf("batch %d: agent %d, %d+%d x %d", id, agentID, paid, bonus, price))
 }
 
-func (s *Server) abPayForm(w http.ResponseWriter, r *http.Request, status int, b db.AgentBatch, v, e map[string]string) {
+func (s *Handlers) abPayForm(w http.ResponseWriter, r *http.Request, status int, b db.AgentBatch, v, e map[string]string) {
 	debt, err := s.Queries.AgentBatchDebt(r.Context(), b.ID)
 	if err != nil {
 		s.Fail(w, "agent batch debt", err)
@@ -218,17 +219,17 @@ func (s *Server) abPayForm(w http.ResponseWriter, r *http.Request, status int, b
 	}
 	amount := text("amount", "Amount", v, e).As("number").Req().WithHint(fmt.Sprintf("%s %s", s.T("Debt"), view.Money(debt)))
 	back := fmt.Sprint(batchBase, "/", b.ID)
-	s.renderForm(w, r, status, formPage{Heading: "Record payment", Action: back + "/payment", Cancel: back,
+	s.RenderForm(w, r, status, formPage{Heading: "Record payment", Action: back + "/payment", Cancel: back,
 		Fields: []field{amount, text("note", "Note", v, e)}})
 }
 
-func (s *Server) abPayment(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) abPayment(w http.ResponseWriter, r *http.Request) {
 	if b, ok := s.batchFor(w, r); ok {
 		s.abPayForm(w, r, 200, b, map[string]string{}, nil)
 	}
 }
 
-func (s *Server) abPay(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) abPay(w http.ResponseWriter, r *http.Request) {
 	b, ok := s.batchFor(w, r)
 	if !ok {
 		return
@@ -243,21 +244,21 @@ func (s *Server) abPay(w http.ResponseWriter, r *http.Request) {
 		e["note"] = "Invalid value"
 	}
 	if len(e) == 0 {
-		switch err := s.Billing.RecordAgentPayment(r.Context(), b.ID, amount, v["note"], adminFrom(r).ID); {
+		switch err := s.Billing.RecordAgentPayment(r.Context(), b.ID, amount, v["note"], adminx.AdminFrom(r).ID); {
 		case errors.Is(err, billing.ErrOverpay):
 			e["amount"] = "Payment is more than the debt"
 		case err != nil:
 			s.Fail(w, "record agent payment", err)
 			return
 		default:
-			s.done(w, r, fmt.Sprint(batchBase, "/", b.ID), "Payment recorded", "agent_batch.payment", fmt.Sprintf("batch %d: %d", b.ID, amount))
+			s.Done(w, r, fmt.Sprint(batchBase, "/", b.ID), "Payment recorded", "agent_batch.payment", fmt.Sprintf("batch %d: %d", b.ID, amount))
 			return
 		}
 	}
 	s.abPayForm(w, r, http.StatusUnprocessableEntity, b, v, e)
 }
 
-func (s *Server) abReturn(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) abReturn(w http.ResponseWriter, r *http.Request) {
 	b, ok := s.batchFor(w, r)
 	if !ok {
 		return
@@ -269,7 +270,7 @@ func (s *Server) abReturn(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
-	switch err := s.Billing.ReturnAgentVouchers(r.Context(), b.ID, ids, adminFrom(r).ID); {
+	switch err := s.Billing.ReturnAgentVouchers(r.Context(), b.ID, ids, adminx.AdminFrom(r).ID); {
 	case errors.Is(err, billing.ErrReturnLimit):
 		s.Sessions.Put(r.Context(), "error", s.T("Returns are more than the paid vouchers of the batch"))
 	case errors.Is(err, billing.ErrNotReturnable):
@@ -278,7 +279,7 @@ func (s *Server) abReturn(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "return agent vouchers", err)
 		return
 	default:
-		s.done(w, r, back, "Vouchers returned", "agent_batch.return", fmt.Sprintf("batch %d: %d codes", b.ID, len(ids)))
+		s.Done(w, r, back, "Vouchers returned", "agent_batch.return", fmt.Sprintf("batch %d: %d codes", b.ID, len(ids)))
 		return
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)

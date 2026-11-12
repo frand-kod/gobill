@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	adminbilling "github.com/frand-kod/gobill/internal/web/admin/billing"
 	"net/http"
 	"net/url"
 	"strings"
@@ -247,7 +248,7 @@ func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searc
 	out = s.addGroup(out, "Transactions", items)
 
 	if allowed(roleStaff, a.Role) {
-		vs, err := s.Queries.SearchVouchersPrefix(ctx, db.SearchVouchersPrefixParams{Q: q, Viewer: voucherViewer(a), Limit: n})
+		vs, err := s.Queries.SearchVouchersPrefix(ctx, db.SearchVouchersPrefixParams{Q: q, Viewer: adminbilling.VoucherViewer(a), Limit: n})
 		if err != nil {
 			return nil, err
 		}

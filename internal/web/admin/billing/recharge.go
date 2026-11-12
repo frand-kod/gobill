@@ -1,4 +1,4 @@
-package web
+package billing
 
 // Admin-side customer recharge with confirmation.
 
@@ -10,10 +10,11 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/view"
 
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -39,7 +40,7 @@ type rechargeConfirm struct {
 func isFragment(r *http.Request) bool { return r.Header.Get("X-Fragment") == "1" }
 
 // rechargeErrors answers a fragment request with the messages to show inside the dialog (422).
-func (s *Server) rechargeErrors(w http.ResponseWriter, msgs ...string) {
+func (s *Handlers) rechargeErrors(w http.ResponseWriter, msgs ...string) {
 	for i, m := range msgs {
 		msgs[i] = s.T(m)
 	}
@@ -51,8 +52,8 @@ func (s *Server) rechargeErrors(w http.ResponseWriter, msgs ...string) {
 }
 
 // custRechargeConfirm shows what the recharge will do (old recharge-confirm); it writes nothing.
-func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
-	c, ok := s.custGet(w, r)
+func (s *Handlers) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
+	c, ok := s.CustGet(w, r)
 	if !ok {
 		return
 	}
@@ -76,16 +77,16 @@ func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pv, err := s.Billing.Preview(r.Context(), c.ID, planID)
-	if err != nil || pv.Plan.Enabled != 1 && !httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin") {
+	if err != nil || pv.Plan.Enabled != 1 && !httpx.OneOf(adminx.AdminFrom(r).Role, "SuperAdmin", "Admin") {
 		pl, perr := s.Queries.GetPlan(r.Context(), planID)
-		fail(planErrMsg(perr == nil, pl.Enabled))
+		fail(adminx.PlanErrMsg(perr == nil, pl.Enabled))
 		return
 	}
-	d := rechargeConfirm{C: c, Plan: pv.Plan.Name, PlanID: planID, Method: method, MethodLabel: label, Price: view.Money(pv.Price), Balance: view.Money(c.Balance), After: view.Money(c.Balance), Fragment: isFragment(r), Token: newFormToken()}
+	d := rechargeConfirm{C: c, Plan: pv.Plan.Name, PlanID: planID, Method: method, MethodLabel: label, Price: view.Money(pv.Price), Balance: view.Money(c.Balance), After: view.Money(c.Balance), Fragment: isFragment(r), Token: NewFormToken()}
 	if !pv.Expiry.IsZero() {
 		d.Expiry = pv.Expiry.In(s.Location()).Format("2006-01-02 15:04")
 	}
-	if method == methodZero {
+	if method == adminx.MethodZero {
 		pv.Price, d.Price, d.Zero = 0, view.Money(0), true
 	}
 	if pv.Plan.Type == "Balance" {
@@ -104,12 +105,12 @@ func (s *Server) custRechargeConfirm(w http.ResponseWriter, r *http.Request) {
 		w.Write(buf.Bytes())
 		return
 	}
-	s.Render(w, r, 200, "recharge_confirm", Page{Title: "Recharge Account", Data: d})
+	s.Render(w, r, 200, "recharge_confirm", core.Page{Title: "Recharge Account", Data: d})
 }
 
 // custRecharge activates a plan for the customer, paid in cash or from their balance.
-func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
-	c, ok := s.custGet(w, r)
+func (s *Handlers) custRecharge(w http.ResponseWriter, r *http.Request) {
+	c, ok := s.CustGet(w, r)
 	if !ok {
 		return
 	}
@@ -128,8 +129,8 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 	}
 	planID, _ := httpx.PosInt(r.PostFormValue("plan"))
 	plan, err := s.Queries.GetPlan(r.Context(), planID)
-	if err != nil || plan.Enabled != 1 && !httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin") {
-		fail(planErrMsg(err == nil, plan.Enabled))
+	if err != nil || plan.Enabled != 1 && !httpx.OneOf(adminx.AdminFrom(r).Role, "SuperAdmin", "Admin") {
+		fail(adminx.PlanErrMsg(err == nil, plan.Enabled))
 		return
 	}
 	method, label, ok := s.rechargeMethod(r)
@@ -137,88 +138,27 @@ func (s *Server) custRecharge(w http.ResponseWriter, r *http.Request) {
 		fail("Invalid payment method")
 		return
 	}
-	devFailed, err := s.chargePlan(r, c, plan, method, label)
+	devFailed, err := s.ChargePlan(r, c, plan, method, label)
 	if errors.Is(err, billing.ErrInsufficientBalance) {
 		s.Sessions.Put(r.Context(), "errlink", "/admin/deposit?customer="+url.QueryEscape(c.Username))
 	}
 	if err != nil {
-		fail(rechargeFailMsg(err, c, plan))
+		fail(adminx.RechargeFailMsg(err, c, plan))
 		return
 	}
 	if devFailed { // money and transaction are saved; only the router missed the change
-		s.logActivity(r, "customer.recharge", c.Username+" ["+plan.Name+"] router not updated")
-		s.Sessions.Put(r.Context(), "warn", s.T(msgNotSynced))
+		s.LogActivity(r, "customer.recharge", c.Username+" ["+plan.Name+"] router not updated")
+		s.Sessions.Put(r.Context(), "warn", s.T(adminx.MsgNotSynced))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 		return
 	}
-	s.done(w, r, back, "Recharge Successful", "customer.recharge", c.Username+" ["+plan.Name+"]")
-}
-
-// chargePlan activates plan for c as the Recharge page does: method is Zero, Balance or a payment
-// method, label its display name. devFailed reports that the money is saved and only the router
-// missed the change (see rechargeFailMsg for err).
-func (s *Server) chargePlan(r *http.Request, c db.Customer, plan db.Plan, method, label string) (devFailed bool, err error) {
-	if s.Billing == nil {
-		return false, errors.New("billing service not configured")
-	}
-	admin := adminFrom(r)
-	// PHP records "<method> - <admin name>" (Recharge Zero for free ones); balance payments keep
-	// "Customer - Balance" so the dashboard can leave them out (S1).
-	rec := titleWords(label) + " - " + admin.Fullname
-	ctx, failed := billing.TrackDeviceFailure(r.Context())
-	switch method {
-	case methodZero:
-		err = s.Billing.RechargeZero(ctx, c.ID, plan.ID, "Recharge Zero - "+admin.Fullname, admin.ID)
-	case "Balance":
-		err = s.Billing.RechargeWithBalance(ctx, c.ID, plan.ID, admin.ID)
-	default:
-		err = s.Billing.Recharge(ctx, c.ID, plan.ID, rec, admin.ID)
-	}
-	return *failed, err
-}
-
-// rechargeFailMsg is the message for a recharge that charged nothing, the texts the Recharge page shows.
-func rechargeFailMsg(err error, c db.Customer, plan db.Plan) string {
-	switch {
-	case errors.Is(err, billing.ErrInsufficientBalance):
-		return msgNoBalance
-	case errors.Is(err, billing.ErrInactive):
-		return "account is not active"
-	}
-	slog.Error("recharge", "customer", c.Username, "plan", plan.Name, "err", err)
-	return msgRechargeFail
-}
-
-const methodZero = "Zero"
-
-// rechargeMethods lists what the admin recharge form offers: the payment_usings setting (PHP
-// plan.php:80, default Cash), then Balance and Recharge Zero.
-func (s *Server) rechargeMethods(ctx context.Context) []option {
-	st, _ := s.LoadSettings(ctx)
-	var out []option
-	seen := map[string]bool{"balance": true, "zero": true}
-	for _, u := range strings.Split(st["payment_usings"], ",") {
-		if u = strings.TrimSpace(u); u != "" && !seen[strings.ToLower(u)] {
-			seen[strings.ToLower(u)] = true
-			out = append(out, option{Value: u, Label: u})
-		}
-	}
-	if len(out) == 0 {
-		out = append(out, option{Value: "Cash", Label: "Cash"})
-	}
-	if st["enable_balance"] != "no" { // like billing: balance is on unless explicitly off
-		out = append(out, option{Value: "Balance", Label: "Balance"})
-	}
-	if s.strictAccess(ctx) && !ctxIsManager(ctx) { // strict: free recharge is for managers
-		return out
-	}
-	return append(out, option{Value: methodZero, Label: "Recharge Zero"})
+	s.Done(w, r, back, "Recharge Successful", "customer.recharge", c.Username+" ["+plan.Name+"]")
 }
 
 // rechargeMethod validates the posted method against rechargeMethods; label is its display name.
-func (s *Server) rechargeMethod(r *http.Request) (value, label string, ok bool) {
+func (s *Handlers) rechargeMethod(r *http.Request) (value, label string, ok bool) {
 	v := r.PostFormValue("method")
-	for _, o := range s.rechargeMethods(r.Context()) {
+	for _, o := range s.RechargeMethods(r.Context()) {
 		if o.Value == v {
 			return v, o.Label, true
 		}
@@ -240,19 +180,19 @@ func (p rechargePage) CustomerField() field {
 }
 
 // rechargeOptions lists the plans this role may recharge (same rule as the customer page).
-func (s *Server) rechargeOptions(r *http.Request) ([]option, error) {
-	manage := httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin")
-	plans, _, err := s.planOptions(r, !manage) // PHP: SuperAdmin/Admin may recharge a disabled plan
+func (s *Handlers) rechargeOptions(r *http.Request) ([]option, error) {
+	manage := httpx.OneOf(adminx.AdminFrom(r).Role, "SuperAdmin", "Admin")
+	plans, _, err := s.PlanOptions(r, !manage) // PHP: SuperAdmin/Admin may recharge a disabled plan
 	return plans, err
 }
 
-func (s *Server) rechargeForm(w http.ResponseWriter, r *http.Request, status int, d rechargePage, plans []option) {
-	d.Plans, d.Methods, d.Summary = plans, s.rechargeMethods(r.Context()), s.summaryLabels()
-	s.Render(w, r, status, "recharge", Page{Title: "Recharge Account", Data: d})
+func (s *Handlers) rechargeForm(w http.ResponseWriter, r *http.Request, status int, d rechargePage, plans []option) {
+	d.Plans, d.Methods, d.Summary = plans, s.RechargeMethods(r.Context()), s.SummaryLabels()
+	s.Render(w, r, status, "recharge", core.Page{Title: "Recharge Account", Data: d})
 }
 
 // rechargePick: GET /admin/recharge, optionally ?customer=<username> to prefill.
-func (s *Server) rechargePick(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) rechargePick(w http.ResponseWriter, r *http.Request) {
 	plans, err := s.rechargeOptions(r)
 	if err != nil {
 		s.Fail(w, "list plans", err)
@@ -263,7 +203,7 @@ func (s *Server) rechargePick(w http.ResponseWriter, r *http.Request) {
 
 // rechargeStart: POST /admin/recharge. Resolves the username, checks the plan and method, then
 // shows the existing confirm page for that customer. It writes nothing.
-func (s *Server) rechargeStart(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) rechargeStart(w http.ResponseWriter, r *http.Request) {
 	plans, err := s.rechargeOptions(r)
 	if err != nil {
 		s.Fail(w, "list plans", err)
@@ -290,7 +230,7 @@ func (s *Server) rechargeStart(w http.ResponseWriter, r *http.Request) {
 	case d.Plan == "":
 		d.ErrPlan = "Choose a service plan first"
 	case !allowed:
-		d.ErrPlan = msgPlanMissing
+		d.ErrPlan = adminx.MsgPlanMissing
 	}
 	if _, _, ok := s.rechargeMethod(r); !ok {
 		d.ErrMethod = "Invalid payment method"

@@ -1,4 +1,4 @@
-package web
+package billing
 
 // Admin balance deposit form and save.
 
@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/view"
 
@@ -28,7 +30,8 @@ var formTokens = struct {
 
 const msgFormReplayed = "This form was already submitted or has expired. Nothing was charged. Open the form again."
 
-func newFormToken() string {
+// NewFormToken issues a one-time token for a money form.
+func NewFormToken() string {
 	tok, err := newBulkToken()
 	if err != nil {
 		return "" // an empty token is never accepted, so the form simply fails closed
@@ -62,7 +65,7 @@ func depositPage(v, e map[string]string, plans []option) formPage {
 		pl.WithHint("Pick a package, or leave empty and enter an amount"),
 		numeric(text("amount", "Balance Amount", v, e).As("number")),
 		text("note", "Note", v, e).As("textarea"),
-		{Name: "token", Type: "hidden", Value: newFormToken()},
+		{Name: "token", Type: "hidden", Value: NewFormToken()},
 	}, "Refill Balance", "")}
 }
 
@@ -74,8 +77,8 @@ type depositConfirm struct {
 	Customer, Plan, Amount, Note, Token string
 }
 
-func (s *Server) balancePlans(r *http.Request) (opts []option, err error) {
-	all, plans, err := s.planOptions(r, true)
+func (s *Handlers) balancePlans(r *http.Request) (opts []option, err error) {
+	all, plans, err := s.PlanOptions(r, true)
 	for _, o := range all {
 		id, _ := httpx.PosInt(o.Value)
 		if plans[id].Type == "Balance" {
@@ -85,16 +88,16 @@ func (s *Server) balancePlans(r *http.Request) (opts []option, err error) {
 	return opts, err
 }
 
-func (s *Server) depositForm(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) depositForm(w http.ResponseWriter, r *http.Request) {
 	opts, err := s.balancePlans(r)
 	if err != nil {
 		s.Fail(w, "list plans", err)
 		return
 	}
-	s.renderForm(w, r, 200, depositPage(map[string]string{"customer": r.URL.Query().Get("customer")}, nil, opts))
+	s.RenderForm(w, r, 200, depositPage(map[string]string{"customer": r.URL.Query().Get("customer")}, nil, opts))
 }
 
-func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) depositSave(w http.ResponseWriter, r *http.Request) {
 	opts, err := s.balancePlans(r)
 	if err != nil {
 		s.Fail(w, "list plans", err)
@@ -136,7 +139,7 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 		if len(e) == 0 {
 			d := depositConfirm{Customer: c.Username, Plan: v["plan"], Amount: v["amount"], Note: v["note"], Token: r.PostFormValue("token")}
 			d.Summary = fmt.Sprintf(s.T("Add %s to %s; balance becomes %s"), view.Money(amount), c.Username, view.Money(c.Balance+amount))
-			s.Render(w, r, 200, "deposit_confirm", Page{Title: "Refill Balance", Data: d})
+			s.Render(w, r, 200, "deposit_confirm", core.Page{Title: "Refill Balance", Data: d})
 			return
 		}
 	}
@@ -146,7 +149,7 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// the service writes the transaction and the activity log
-		switch err := s.Billing.Deposit(r.Context(), c.ID, planID, amount, v["note"], adminFrom(r).ID); {
+		switch err := s.Billing.Deposit(r.Context(), c.ID, planID, amount, v["note"], adminx.AdminFrom(r).ID); {
 		case errors.Is(err, billing.ErrBadDeposit):
 			e["plan"] = "Invalid value"
 		case err != nil:
@@ -163,5 +166,5 @@ func (s *Server) depositSave(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	s.renderForm(w, r, http.StatusUnprocessableEntity, depositPage(v, e, opts))
+	s.RenderForm(w, r, http.StatusUnprocessableEntity, depositPage(v, e, opts))
 }

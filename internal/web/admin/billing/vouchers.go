@@ -1,4 +1,4 @@
-package web
+package billing
 
 // Voucher generation, list, print, view and redeem.
 
@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/view"
 
@@ -28,7 +30,7 @@ import (
 const (
 	maxVouchers = 500
 	// no 0/O/1/I/l: codes get typed from paper
-	upperChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	UpperChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 	lowerChars = "abcdefghjkmnpqrstuvwxyz23456789"
 	mixedChars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
 	digitChars = "0123456789"
@@ -41,7 +43,7 @@ var (
 
 // Minimum generated code lengths (brute-force resistance); shorter existing codes still redeem.
 const (
-	minVoucherLen        = 8
+	MinVoucherLen        = 8
 	minVoucherLenNumbers = 10
 )
 
@@ -63,26 +65,9 @@ func randomCode(charset string, n int) (string, error) {
 	return string(out), nil
 }
 
-func (s *Server) planOptions(r *http.Request, enabledOnly bool) ([]option, map[int64]db.Plan, error) {
-	plans, err := s.Queries.ListPlans(r.Context(), db.ListPlansParams{Limit: 1000})
-	if err != nil {
-		return nil, nil, err
-	}
-	var opts []option
-	byID := map[int64]db.Plan{}
-	isoPlan, _ := s.IsolirIDs(r.Context())
-	for _, p := range plans {
-		byID[p.ID] = p // rows and names still resolve; only the options leave the isolir plan out
-		if p.ID != isoPlan && (!enabledOnly || p.Enabled == 1) {
-			opts = append(opts, option{Value: fmt.Sprint(p.ID), Label: fmt.Sprintf("%s (%s)", p.Name, view.Money(p.Price))})
-		}
-	}
-	return opts, byID, nil
-}
-
-// voucherViewer is the admin whose vouchers a role may see: 0 = all. Agent and Sales see the vouchers they
+// VoucherViewer is the admin whose vouchers a role may see: 0 = all. Agent and Sales see the vouchers they
 // generated, those of their own Sales, and (Agent) the codes of their consignment batches. Report is not limited.
-func voucherViewer(a *db.Admin) int64 {
+func VoucherViewer(a *db.Admin) int64 {
 	if httpx.OneOf(a.Role, "Agent", "Sales") {
 		return a.ID
 	}
@@ -97,13 +82,13 @@ func maskCode(c string) string {
 	return c[:2] + "****"
 }
 
-func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) vchList(w http.ResponseWriter, r *http.Request) {
 	q, pg := view.Paging(r)
 	status := r.URL.Query().Get("status")
 	if status != "unused" && status != "used" {
 		status = ""
 	}
-	role := adminFrom(r).Role
+	role := adminx.AdminFrom(r).Role
 	canSee := httpx.OneOf(role, "SuperAdmin", "Admin", "Agent", "Sales")
 	// A masked role must not find an unused code by its full text (an unused code is free service), so its
 	// search matches used codes only. "none" matches no row: unused codes are listed only without a search.
@@ -114,12 +99,12 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 			qStatus = "none"
 		}
 	}
-	rows, err := s.Queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Q: q, Status: qStatus, Viewer: voucherViewer(adminFrom(r)), PageLimit: pg.Limit(), PageOffset: pg.Offset()})
+	rows, err := s.Queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Q: q, Status: qStatus, Viewer: VoucherViewer(adminx.AdminFrom(r)), PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
 		s.Fail(w, "list vouchers", err)
 		return
 	}
-	_, plans, err := s.planOptions(r, false)
+	_, plans, err := s.PlanOptions(r, false)
 	if err != nil {
 		s.Fail(w, "list plans", err)
 		return
@@ -145,17 +130,17 @@ func (s *Server) vchList(w http.ResponseWriter, r *http.Request) {
 		}
 		lp.Rows = append(lp.Rows, listRow{ID: v.ID, Cells: []string{code, plans[v.PlanID].Name, v.Status, s.TS(v.CreatedAt), used}})
 	}
-	total, err := s.Queries.CountVouchers(r.Context(), db.CountVouchersParams{Q: q, Status: qStatus, Viewer: voucherViewer(adminFrom(r))})
+	total, err := s.Queries.CountVouchers(r.Context(), db.CountVouchersParams{Q: q, Status: qStatus, Viewer: VoucherViewer(adminx.AdminFrom(r))})
 	if err != nil {
 		s.Fail(w, "count vouchers", err)
 		return
 	}
 	lp.Finish(pg, total)
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }
 
-func (s *Server) vchFields(r *http.Request, v, e map[string]string) ([]field, error) {
-	opts, _, err := s.planOptions(r, true)
+func (s *Handlers) vchFields(r *http.Request, v, e map[string]string) ([]field, error) {
+	opts, _, err := s.PlanOptions(r, true)
 	if err != nil {
 		return nil, err
 	}
@@ -174,20 +159,20 @@ func (s *Server) vchFields(r *http.Request, v, e map[string]string) ([]field, er
 	return append(out, code...), nil
 }
 
-func (s *Server) vchForm(w http.ResponseWriter, r *http.Request, status int, v, e map[string]string) {
+func (s *Handlers) vchForm(w http.ResponseWriter, r *http.Request, status int, v, e map[string]string) {
 	fs, err := s.vchFields(r, v, e)
 	if err != nil {
 		s.Fail(w, "voucher form", err)
 		return
 	}
-	s.renderForm(w, r, status, formPage{Heading: "Add Vouchers", Action: "/admin/vouchers", Cancel: "/admin/vouchers", Fields: fs})
+	s.RenderForm(w, r, status, formPage{Heading: "Add Vouchers", Action: "/admin/vouchers", Cancel: "/admin/vouchers", Fields: fs})
 }
 
-func (s *Server) vchNew(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) vchNew(w http.ResponseWriter, r *http.Request) {
 	s.vchForm(w, r, 200, map[string]string{"numbervoucher": "10", "voucher_format": "up", "lengthcode": "8", "print_now": "1"}, nil)
 }
 
-func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) vchGenerate(w http.ResponseWriter, r *http.Request) {
 	v := httpx.FormVals(r, "plan", "numbervoucher", "voucher_format", "prefix", "lengthcode", "print_now")
 	e := map[string]string{}
 	planID, ok := httpx.PosInt(v["plan"])
@@ -201,11 +186,11 @@ func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {
 	if !ok || count > maxVouchers {
 		e["numbervoucher"] = fmt.Sprintf(s.T("Enter a number between 1 and %d"), maxVouchers)
 	}
-	charset := map[string]string{"up": upperChars, "low": lowerChars, "rand": mixedChars, "numbers": digitChars}[v["voucher_format"]]
+	charset := map[string]string{"up": UpperChars, "low": lowerChars, "rand": mixedChars, "numbers": digitChars}[v["voucher_format"]]
 	if charset == "" {
 		e["voucher_format"] = "Invalid value"
 	}
-	minLen := int64(minVoucherLen)
+	minLen := int64(MinVoucherLen)
 	if v["voucher_format"] == "numbers" {
 		minLen = minVoucherLenNumbers
 	}
@@ -221,7 +206,7 @@ func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for n := int64(0); n < count; n++ {
-		if err := s.newVoucher(r, planID, v["prefix"], charset, int(length)); err != nil {
+		if err := s.NewVoucher(r, planID, v["prefix"], charset, int(length)); err != nil {
 			s.Fail(w, "create voucher", err)
 			return
 		}
@@ -230,18 +215,18 @@ func (s *Server) vchGenerate(w http.ResponseWriter, r *http.Request) {
 	if v["print_now"] == "1" {
 		back = fmt.Sprintf("/admin/vouchers/print?plan=%d&limit=%d", planID, count)
 	}
-	s.done(w, r, back, "Create Vouchers Successfully", "voucher.generate", fmt.Sprintf("%d x plan %d", count, planID))
+	s.Done(w, r, back, "Create Vouchers Successfully", "voucher.generate", fmt.Sprintf("%d x plan %d", count, planID))
 }
 
-// newVoucher inserts one voucher, redrawing the code on the (unlikely) UNIQUE clash.
-func (s *Server) newVoucher(r *http.Request, planID int64, prefix, charset string, length int) error {
+// NewVoucher inserts one voucher, redrawing the code on the (unlikely) UNIQUE clash.
+func (s *Handlers) NewVoucher(r *http.Request, planID int64, prefix, charset string, length int) error {
 	for try := 0; try < 5; try++ {
 		code, err := randomCode(charset, length)
 		if err != nil {
 			return err
 		}
 		_, err = s.Queries.CreateVoucher(r.Context(), db.CreateVoucherParams{Code: prefix + code, PlanID: planID,
-			GeneratedBy: sql.NullInt64{Int64: adminFrom(r).ID, Valid: true}})
+			GeneratedBy: sql.NullInt64{Int64: adminx.AdminFrom(r).ID, Valid: true}})
 		if !httpx.IsUnique(err) {
 			return err
 		}
@@ -249,31 +234,31 @@ func (s *Server) newVoucher(r *http.Request, planID int64, prefix, charset strin
 	return errors.New("could not find a free voucher code")
 }
 
-func (s *Server) vchDelete(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) vchDelete(w http.ResponseWriter, r *http.Request) {
 	name := ""
 	if v, err := s.Queries.GetVoucher(r.Context(), httpx.PathID(r)); err == nil {
 		name = v.Code
 	}
-	s.remove(w, r, "/admin/vouchers", "voucher", "Voucher is in use", name, func(id int64) error {
+	s.Remove(w, r, "/admin/vouchers", "voucher", "Voucher is in use", name, func(id int64) error {
 		return s.Queries.DeleteVoucher(r.Context(), id)
 	})
 }
 
 // vchDeleteMany deletes the selected vouchers, used ones too (old PHP voucher-delete-many).
-func (s *Server) vchDeleteMany(w http.ResponseWriter, r *http.Request) {
-	s.bulkDelete(w, r, "/admin/vouchers", "voucher", "Voucher is in use", func(q *db.Queries, ids []int64) (int64, error) {
+func (s *Handlers) vchDeleteMany(w http.ResponseWriter, r *http.Request) {
+	s.BulkDelete(w, r, "/admin/vouchers", "voucher", "Voucher is in use", func(q *db.Queries, ids []int64) (int64, error) {
 		return q.DeleteVouchersByIDs(r.Context(), ids)
 	})
 }
 
 // vchRemoveOld deletes used vouchers older than 3 months (old PHP remove-voucher); ids are ignored.
-func (s *Server) vchRemoveOld(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) vchRemoveOld(w http.ResponseWriter, r *http.Request) {
 	n, err := s.Queries.DeleteOldUsedVouchers(r.Context(), sql.NullInt64{Int64: time.Now().AddDate(0, -3, 0).Unix(), Valid: true})
 	if err != nil {
 		s.Fail(w, "remove old vouchers", err)
 		return
 	}
-	s.bulkDone(w, r, "/admin/vouchers", "voucher.remove_old", n)
+	s.BulkDone(w, r, "/admin/vouchers", "voucher.remove_old", n)
 }
 
 type printItem struct {
@@ -294,18 +279,18 @@ type printLayout struct {
 }
 
 // vchPrint lays out the newest unused vouchers (optionally of one plan) for printing.
-func (s *Server) vchPrint(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) vchPrint(w http.ResponseWriter, r *http.Request) {
 	planID, _ := strconv.ParseInt(r.URL.Query().Get("plan"), 10, 64)
 	limit, ok := httpx.PosInt(r.URL.Query().Get("limit"))
 	if !ok || limit > maxVouchers {
 		limit = 36
 	}
-	rows, err := s.Queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Status: "unused", PlanID: planID, Viewer: voucherViewer(adminFrom(r)), PageLimit: limit})
+	rows, err := s.Queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Status: "unused", PlanID: planID, Viewer: VoucherViewer(adminx.AdminFrom(r)), PageLimit: limit})
 	if err != nil {
 		s.Fail(w, "print vouchers", err)
 		return
 	}
-	_, plans, err := s.planOptions(r, false)
+	_, plans, err := s.PlanOptions(r, false)
 	if err != nil {
 		s.Fail(w, "list plans", err)
 		return
@@ -335,11 +320,11 @@ func (s *Server) vchPrint(w http.ResponseWriter, r *http.Request) {
 		pp.Items = append(pp.Items, printItem{v.Code, p.Name, view.Money(p.Price),
 			template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))})
 	}
-	s.Render(w, r, 200, "print", Page{Title: "Voucher", Data: pp})
+	s.Render(w, r, 200, "print", core.Page{Title: "Voucher", Data: pp})
 }
 
 // vchView shows the newest unused codes of a plan as plain text after generating (old voucher/view).
-func (s *Server) vchView(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) vchView(w http.ResponseWriter, r *http.Request) {
 	planID, _ := strconv.ParseInt(r.URL.Query().Get("plan"), 10, 64)
 	limit, ok := httpx.PosInt(r.URL.Query().Get("limit"))
 	if !ok || limit > maxVouchers {
@@ -350,7 +335,7 @@ func (s *Server) vchView(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	rows, err := s.Queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Status: "unused", PlanID: planID, Viewer: voucherViewer(adminFrom(r)), PageLimit: limit})
+	rows, err := s.Queries.SearchVouchers(r.Context(), db.SearchVouchersParams{Status: "unused", PlanID: planID, Viewer: VoucherViewer(adminx.AdminFrom(r)), PageLimit: limit})
 	if err != nil {
 		s.Fail(w, "view vouchers", err)
 		return
@@ -359,15 +344,15 @@ func (s *Server) vchView(w http.ResponseWriter, r *http.Request) {
 	for i, v := range rows {
 		codes[i] = v.Code
 	}
-	s.Render(w, r, 200, "voucher_view", Page{Title: "Voucher", Flash: s.Sessions.PopString(r.Context(), "flash"), Data: struct {
+	s.Render(w, r, 200, "voucher_view", core.Page{Title: "Voucher", Flash: s.Sessions.PopString(r.Context(), "flash"), Data: struct {
 		Plan, Codes, PrintURL string
 		Count                 int
 	}{plan.Name, strings.Join(codes, "\n"), fmt.Sprintf("/admin/vouchers/print?plan=%d&limit=%d", planID, limit), len(codes)}})
 }
 
-func (s *Server) vchRedeemForm(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) vchRedeemForm(w http.ResponseWriter, r *http.Request) {
 	v := map[string]string{"customer": r.URL.Query().Get("customer")}
-	s.renderForm(w, r, 200, redeemPage(v, nil))
+	s.RenderForm(w, r, 200, redeemPage(v, nil))
 }
 
 func redeemPage(v, e map[string]string) formPage {
@@ -375,7 +360,7 @@ func redeemPage(v, e map[string]string) formPage {
 		Fields: []field{customerPick("customer", "Username", v, e).Req(), text("code", "Code Voucher", v, e).Req()}}
 }
 
-func (s *Server) vchRedeem(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) vchRedeem(w http.ResponseWriter, r *http.Request) {
 	v := httpx.FormVals(r, "customer", "code")
 	e := map[string]string{}
 	c, err := s.Queries.GetCustomerByUsername(r.Context(), v["customer"])
@@ -388,9 +373,9 @@ func (s *Server) vchRedeem(w http.ResponseWriter, r *http.Request) {
 	if v["code"] == "" {
 		e["code"] = "This field is required"
 	}
-	if len(e) == 0 && voucherViewer(adminFrom(r)) != 0 {
+	if len(e) == 0 && VoucherViewer(adminx.AdminFrom(r)) != 0 {
 		// a code outside the admin's own vouchers answers like a code that does not exist
-		if _, err := s.Queries.VoucherVisibleByCode(r.Context(), db.VoucherVisibleByCodeParams{Code: v["code"], Viewer: voucherViewer(adminFrom(r))}); err != nil {
+		if _, err := s.Queries.VoucherVisibleByCode(r.Context(), db.VoucherVisibleByCodeParams{Code: v["code"], Viewer: VoucherViewer(adminx.AdminFrom(r))}); err != nil {
 			e["code"] = "Voucher not valid or already used"
 		}
 	}
@@ -408,9 +393,9 @@ func (s *Server) vchRedeem(w http.ResponseWriter, r *http.Request) {
 			s.Fail(w, "redeem voucher", err)
 			return
 		default:
-			s.done(w, r, fmt.Sprint("/admin/customers/", c.ID), "Voucher redeemed", "voucher.redeem", v["code"]+" -> "+c.Username)
+			s.Done(w, r, fmt.Sprint("/admin/customers/", c.ID), "Voucher redeemed", "voucher.redeem", v["code"]+" -> "+c.Username)
 			return
 		}
 	}
-	s.renderForm(w, r, http.StatusUnprocessableEntity, redeemPage(v, e))
+	s.RenderForm(w, r, http.StatusUnprocessableEntity, redeemPage(v, e))
 }

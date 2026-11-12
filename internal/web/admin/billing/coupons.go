@@ -1,4 +1,4 @@
-package web
+package billing
 
 // Coupon CRUD.
 
@@ -33,7 +33,7 @@ func cpnFields(v, e map[string]string) []field {
 	}, "Coupon", "")
 }
 
-func (s *Server) cpnList(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) cpnList(w http.ResponseWriter, r *http.Request) {
 	q, pg := view.Paging(r)
 	rows, err := s.Queries.SearchCoupons(r.Context(), db.SearchCouponsParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
@@ -54,16 +54,16 @@ func (s *Server) cpnList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp.Finish(pg, total)
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }
 
-func (s *Server) cpnNew(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) cpnNew(w http.ResponseWriter, r *http.Request) {
 	today := time.Now().Format("2006-01-02")
 	v := map[string]string{"type": "fixed", "status": "active", "start_date": today, "max_usage": "0", "min_order": "0", "max_discount": "0"}
-	s.renderForm(w, r, 200, formPage{Heading: "Add Coupon", Action: "/admin/coupons", Cancel: "/admin/coupons", Fields: cpnFields(v, nil)})
+	s.RenderForm(w, r, 200, formPage{Heading: "Add Coupon", Action: "/admin/coupons", Cancel: "/admin/coupons", Fields: cpnFields(v, nil)})
 }
 
-func (s *Server) cpnEdit(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) cpnEdit(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	c, err := s.Queries.GetCoupon(r.Context(), id)
 	if err == sql.ErrNoRows {
@@ -76,15 +76,15 @@ func (s *Server) cpnEdit(w http.ResponseWriter, r *http.Request) {
 	v := map[string]string{"code": c.Code, "type": c.Type, "value": fmt.Sprint(c.Value), "description": c.Description,
 		"max_usage": fmt.Sprint(c.MaxUsage), "min_order": fmt.Sprint(c.MinOrder), "max_discount": fmt.Sprint(c.MaxDiscount),
 		"start_date": c.StartDate, "end_date": c.EndDate, "status": c.Status}
-	s.renderForm(w, r, 200, formPage{Heading: "Edit Coupon", Action: fmt.Sprint("/admin/coupons/", id), Cancel: "/admin/coupons", Fields: cpnFields(v, nil)})
+	s.RenderForm(w, r, 200, formPage{Heading: "Edit Coupon", Action: fmt.Sprint("/admin/coupons/", id), Cancel: "/admin/coupons", Fields: cpnFields(v, nil)})
 }
 
-func (s *Server) cpnSave(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) cpnSave(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	v := httpx.FormVals(r, cpnKeys...)
 	e := map[string]string{}
 	if v["code"] == "" {
-		v["code"], _ = randomCode(upperChars, 8)
+		v["code"], _ = randomCode(UpperChars, 8)
 	} else if !prefixRe.MatchString(v["code"]) {
 		e["code"] = "Invalid characters"
 	}
@@ -134,7 +134,7 @@ func (s *Server) cpnSave(w http.ResponseWriter, r *http.Request) {
 			if id != 0 {
 				act, msg = "coupon.update", "Data Updated Successfully"
 			}
-			s.done(w, r, "/admin/coupons", msg, act, v["code"])
+			s.Done(w, r, "/admin/coupons", msg, act, v["code"])
 			return
 		}
 	}
@@ -142,27 +142,27 @@ func (s *Server) cpnSave(w http.ResponseWriter, r *http.Request) {
 	if id != 0 {
 		action, head = fmt.Sprint("/admin/coupons/", id), "Edit Coupon"
 	}
-	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/coupons", Fields: cpnFields(v, e)})
+	s.RenderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/coupons", Fields: cpnFields(v, e)})
 }
 
-func (s *Server) cpnToggle(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) cpnToggle(w http.ResponseWriter, r *http.Request) {
 	if err := s.Queries.ToggleCoupon(r.Context(), httpx.PathID(r)); err != nil {
 		s.Fail(w, "toggle coupon", err)
 		return
 	}
-	s.done(w, r, "/admin/coupons", "Data Updated Successfully", "coupon.toggle", fmt.Sprint(httpx.PathID(r)))
+	s.Done(w, r, "/admin/coupons", "Data Updated Successfully", "coupon.toggle", fmt.Sprint(httpx.PathID(r)))
 }
 
-func (s *Server) cpnDelete(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) cpnDelete(w http.ResponseWriter, r *http.Request) {
 	c, _ := s.Queries.GetCoupon(r.Context(), httpx.PathID(r))
-	s.remove(w, r, "/admin/coupons", "coupon", "Coupon is in use", c.Code, func(id int64) error {
+	s.Remove(w, r, "/admin/coupons", "coupon", "Coupon is in use", c.Code, func(id int64) error {
 		return s.Queries.DeleteCoupon(r.Context(), id)
 	})
 }
 
 // cpnDeleteMany deletes the selected coupons (old PHP coupons delete, SuperAdmin/Admin/Sales).
-func (s *Server) cpnDeleteMany(w http.ResponseWriter, r *http.Request) {
-	s.bulkDelete(w, r, "/admin/coupons", "coupon", "Coupon is in use", func(q *db.Queries, ids []int64) (int64, error) {
+func (s *Handlers) cpnDeleteMany(w http.ResponseWriter, r *http.Request) {
+	s.BulkDelete(w, r, "/admin/coupons", "coupon", "Coupon is in use", func(q *db.Queries, ids []int64) (int64, error) {
 		return q.DeleteCouponsByIDs(r.Context(), ids)
 	})
 }

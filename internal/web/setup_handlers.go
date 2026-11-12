@@ -11,6 +11,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	adminbilling "github.com/frand-kod/gobill/internal/web/admin/billing"
 	"html"
 	"html/template"
 	"net/http"
@@ -499,7 +500,7 @@ func (s *Server) wizSaveVoucher(r *http.Request) (wizResult, error) {
 			return wizResult{next: true}, nil
 		}
 	}
-	if err := s.newVoucher(r, planID, "", upperChars, minVoucherLen); err != nil {
+	if err := s.billing.NewVoucher(r, planID, "", adminbilling.UpperChars, adminbilling.MinVoucherLen); err != nil {
 		return wizResult{}, err
 	}
 	last, err := s.Queries.ListVouchers(ctx, db.ListVouchersParams{Limit: 1})

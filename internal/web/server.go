@@ -13,6 +13,7 @@ import (
 	"github.com/frand-kod/gobill/internal/service/plan"
 	"github.com/frand-kod/gobill/internal/settings"
 	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/admin/billing"
 	"github.com/frand-kod/gobill/internal/web/admin/customers"
 	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"github.com/frand-kod/gobill/internal/web/admin/plans"
@@ -45,6 +46,7 @@ type Server struct {
 	public    *public.Handlers
 	net       *network.Handlers
 	customers *customers.Handlers
+	billing   *billing.Handlers
 	plans     *plans.Handlers
 	conn      *sql.DB
 	guides    map[string]*guideSet // rendered "Panduan" pages per language ("id", "en"), see docs.go
@@ -143,6 +145,7 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	s.ax = &adminx.Base{Core: &s.Core, Shared: &s.Shared, Conn: conn, Deny: s.deny, RadiusServer: s.radiusServer, Prov: s.prov, GobillAddr: s.gobillAddr, Now: s.now}
 	s.net = network.New(s.ax)
 	s.customers = customers.New(s.ax)
+	s.billing = billing.New(s.ax)
 	s.plans = plans.New(s.ax, s.Plans)
 	s.public = public.New(&s.Core)
 	s.public.IsolirOn, s.public.RadiusServer, s.public.OriginalPeer = s.isolir.Load, s.radiusServer, originalPeer

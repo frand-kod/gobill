@@ -19,3 +19,7 @@ func (s *Server) custGet(w http.ResponseWriter, r *http.Request) (db.Customer, b
 }
 
 func (s *Server) summaryLabels() string { return s.ax.SummaryLabels() }
+
+func (s *Server) planOptions(r *http.Request, enabledOnly bool) ([]option, map[int64]db.Plan, error) {
+	return s.ax.PlanOptions(r, enabledOnly)
+}
