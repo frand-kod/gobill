@@ -1,4 +1,4 @@
-package web
+package setup
 
 // Quick Setup: the form fields of each step.
 
@@ -76,7 +76,7 @@ func wizSpeedFields(v, e map[string]string) []field {
 	return section(fs, "Speeds", "")
 }
 
-func (s *Server) wizPlanFields(ctx context.Context, ws wizState, v, e map[string]string) ([]field, error) {
+func (s *Handlers) wizPlanFields(ctx context.Context, ws wizState, v, e map[string]string) ([]field, error) {
 	bws, err := s.Queries.ListBandwidths(ctx, db.ListBandwidthsParams{Limit: 1000})
 	if err != nil {
 		return nil, err

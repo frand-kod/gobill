@@ -25,6 +25,7 @@ import (
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/portal"
 	"github.com/frand-kod/gobill/internal/web/public"
+	"github.com/frand-kod/gobill/internal/web/setup"
 
 	"context"
 	"log/slog"
@@ -48,6 +49,7 @@ type Server struct {
 	ax        *adminx.Base
 	portal    *portal.Handlers
 	public    *public.Handlers
+	setup     *setup.Handlers
 	net       *network.Handlers
 	apiPage   *apiaccess.Handlers
 	customers *customers.Handlers
@@ -90,7 +92,6 @@ type Page = core.Page
 
 type (
 	formHelp = core.FormHelp
-	setupNav = core.SetupNav
 	attnItem = core.AttnItem
 	bellItem = core.BellItem
 )
@@ -145,6 +146,7 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	s.reports = reports.New(s.ax, s.net)
 	s.settings = adminsettings.New(s.ax, s.net)
 	s.reports.SettingsFields = func(tab string) []field { return s.settings.SettingsFields(tab, nil, nil, nil) }
+	s.setup = &setup.Handlers{Base: s.ax, NetH: s.net, PlansH: s.plans, BillingH: s.billing, SettingsH: s.settings, PlanSvc: s.Plans}
 	s.public = public.New(&s.Core)
 	s.public.IsolirOn, s.public.RadiusServer, s.public.OriginalPeer = s.isolir.Load, s.radiusServer, originalPeer
 	s.public.WGUsable, s.public.WGEndpoint, s.public.Prov = s.net.WGUsable, func(st map[string]string) string { return network.WGDefaults(st)["wg_endpoint"] }, s.prov

@@ -45,6 +45,7 @@ func TestImportRules(t *testing.T) {
 		{"web/admin", []string{"=web", "web/portal", "web/setup", "web/public"}},
 		{"web/public", []string{"=web", "web/portal", "web/setup"}},
 		{"web/api", []string{"=web", "web/portal", "web/setup", "web/public", "web/admin"}},
+		{"web/setup", []string{"=web", "web/portal", "web/public", "web/api"}},
 		// kernel packages import nothing internal
 		{"money", []string{""}},
 		{"clock", []string{""}},

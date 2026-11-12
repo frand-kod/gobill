@@ -21,6 +21,7 @@ import (
 	"github.com/frand-kod/gobill/internal/web/api"
 	"github.com/frand-kod/gobill/internal/web/portal"
 	"github.com/frand-kod/gobill/internal/web/public"
+	"github.com/frand-kod/gobill/internal/web/setup"
 )
 
 // prefetchSafe is the session middleware with one change: a prefetch (Sec-Purpose, or Purpose on older
@@ -165,7 +166,7 @@ func (s *Server) Handler() http.Handler {
 	s.docsRoutes(mux, all)
 
 	superAdmin := s.requireAdmin("SuperAdmin")
-	s.setupRoutes(mux, superAdmin)
+	setup.Register(mux, s.setup, superAdmin)
 	mux.Handle("GET /admin/settings/isolir/preview", superAdmin(http.HandlerFunc(s.public.IsolirPreview)))
 
 	// messages: send, bulk, selected customers

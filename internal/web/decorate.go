@@ -25,7 +25,7 @@ func (s *Server) decorate(r *http.Request, name string, p *Page) {
 		}
 	}
 	if p.Admin != nil && p.Admin.Role == "SuperAdmin" {
-		if n, err := s.setupNavFor(ctx, r.URL.Path); err != nil {
+		if n, err := s.setup.NavFor(ctx, r.URL.Path); err != nil {
 			slog.Warn("setup nav", "err", err)
 		} else {
 			p.Setup = n

@@ -1,4 +1,4 @@
-package web
+package setup
 
 // Quick Setup: step list, saved state and progress.
 
@@ -95,7 +95,7 @@ type wizState struct {
 	router string            // setupRouter
 }
 
-func (s *Server) wizLoad(ctx context.Context) (wizState, error) {
+func (s *Handlers) wizLoad(ctx context.Context) (wizState, error) {
 	var ws wizState
 	var err error
 	if ws.cnt, err = s.Queries.CountSetup(ctx); err != nil {
@@ -178,7 +178,7 @@ func (ws wizState) progress() (done, total int) {
 
 // setupNavFor works out the layout state. An install that already has every required step predates
 // the wizard, so it is marked done instead of being offered the wizard.
-func (s *Server) setupNavFor(ctx context.Context, path string) (*setupNav, error) {
+func (s *Handlers) NavFor(ctx context.Context, path string) (*core.SetupNav, error) {
 	ws, err := s.wizLoad(ctx)
 	if err != nil {
 		return nil, err

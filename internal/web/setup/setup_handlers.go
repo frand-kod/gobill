@@ -1,4 +1,4 @@
-package web
+package setup
 
 // Quick Setup: routes, handlers and the save of each step.
 // The wizard owns no data. Each save replays the existing handler of that feature (NAS, router,
@@ -32,8 +32,8 @@ import (
 	"github.com/frand-kod/gobill/internal/service/setup"
 )
 
-// setupRoutes registers the wizard. Everything is SuperAdmin only.
-func (s *Server) setupRoutes(mux *http.ServeMux, sa func(http.Handler) http.Handler) {
+// Register registers the wizard. Everything is SuperAdmin only.
+func Register(mux *http.ServeMux, s *Handlers, sa func(http.Handler) http.Handler) {
 	mux.Handle("GET /admin/setup", sa(http.HandlerFunc(s.setupIndex)))
 	mux.Handle("GET /admin/setup/live.json", sa(http.HandlerFunc(s.setupLive)))
 	mux.Handle("POST /admin/setup/start", sa(http.HandlerFunc(s.setupStart)))
@@ -46,7 +46,7 @@ func (s *Server) setupRoutes(mux *http.ServeMux, sa func(http.Handler) http.Hand
 }
 
 // setupIndex opens the first step that is not done yet.
-func (s *Server) setupIndex(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) setupIndex(w http.ResponseWriter, r *http.Request) {
 	ws, err := s.wizLoad(r.Context())
 	if err != nil {
 		s.Fail(w, "setup", err)
@@ -63,7 +63,7 @@ func (s *Server) setupIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 // setupShow renders one step page.
-func (s *Server) setupShow(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) setupShow(w http.ResponseWriter, r *http.Request) {
 	st, _, ok := wizFind(r.PathValue("step"))
 	if !ok {
 		http.NotFound(w, r)
@@ -79,17 +79,17 @@ func (s *Server) setupShow(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "setup "+st.Slug, err)
 		return
 	}
-	warn := s.proxyWarning(r)
+	warn := s.ProxyWarning(r)
 	if st.Slug == "router" { // a tunnel the routers cannot reach is worth a word before they are set up
-		if wgw := s.net.WGWarning(r.Context()); wgw != "" {
+		if wgw := s.NetH.WGWarning(r.Context()); wgw != "" {
 			warn = strings.TrimSpace(warn + " " + wgw)
 		}
 	}
-	s.Render(w, r, http.StatusOK, "setup", Page{Title: "Quick setup", Data: view, Warn: warn})
+	s.Render(w, r, http.StatusOK, "setup", core.Page{Title: "Quick setup", Data: view, Warn: warn})
 }
 
 // setupStart answers the first-run dialog. to is "new" (Mulai baru), "import" or "" (Mulai setup cepat).
-func (s *Server) setupStart(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) setupStart(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	cur := settings.Get(ctx, s.Queries, core.SetupKey)
 	if cur == "" {
@@ -113,7 +113,7 @@ func (s *Server) setupStart(w http.ResponseWriter, r *http.Request) {
 }
 
 // setupDismiss is Lewati: the dialog never comes back.
-func (s *Server) setupDismiss(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) setupDismiss(w http.ResponseWriter, r *http.Request) {
 	if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: core.SetupKey, Value: "dismissed"}); err != nil {
 		s.Fail(w, "setup dismiss", err)
 		return
@@ -122,7 +122,7 @@ func (s *Server) setupDismiss(w http.ResponseWriter, r *http.Request) {
 }
 
 // setupFinish is "Ke Dashboard" on the last page.
-func (s *Server) setupFinish(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) setupFinish(w http.ResponseWriter, r *http.Request) {
 	if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: core.SetupKey, Value: "done"}); err != nil {
 		s.Fail(w, "setup finish", err)
 		return
@@ -131,7 +131,7 @@ func (s *Server) setupFinish(w http.ResponseWriter, r *http.Request) {
 }
 
 // setupSkip is Lewati langkah: go on without saving anything.
-func (s *Server) setupSkip(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) setupSkip(w http.ResponseWriter, r *http.Request) {
 	_, idx, ok := wizFind(r.PathValue("step"))
 	if !ok {
 		http.NotFound(w, r)
@@ -142,7 +142,7 @@ func (s *Server) setupSkip(w http.ResponseWriter, r *http.Request) {
 
 // setupLive is the JSON the live indicators poll: nas_seen once the NAS sent a RADIUS packet (metric
 // radius_nas_last_packet_timestamp, read as status.go does), voucher_online while a session of the voucher runs.
-func (s *Server) setupLive(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) setupLive(w http.ResponseWriter, r *http.Request) {
 	out := map[string]bool{}
 	q := r.URL.Query()
 	if ip := strings.TrimSpace(q.Get("nas")); ip != "" {
@@ -169,7 +169,7 @@ type wizResult struct {
 }
 
 // setupAct runs the save (wizSave) or the test (wizTest) of a step.
-func (s *Server) setupAct(kind int) http.HandlerFunc {
+func (s *Handlers) setupAct(kind int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		st, idx, ok := wizFind(r.PathValue("step"))
 		if !ok || st.Slug == "finish" {
@@ -201,7 +201,7 @@ func (s *Server) setupAct(kind int) http.HandlerFunc {
 			s.Fail(w, "setup "+st.Slug, err)
 			return
 		}
-		status, page := http.StatusOK, Page{Title: "Quick setup", Data: view}
+		status, page := http.StatusOK, core.Page{Title: "Quick setup", Data: view}
 		if len(res.e) > 0 {
 			status = http.StatusUnprocessableEntity
 			page.Error = s.T("Please check the highlighted fields")
@@ -214,7 +214,7 @@ func (s *Server) setupAct(kind int) http.HandlerFunc {
 }
 
 // wizSave runs the save of one step.
-func (s *Server) wizSave(r *http.Request, st wizStep, ws wizState, kind int) (wizResult, error) {
+func (s *Handlers) wizSave(r *http.Request, st wizStep, ws wizState, kind int) (wizResult, error) {
 	switch st.Slug {
 	case "company":
 		return s.wizSaveCompany(r)
@@ -239,15 +239,15 @@ func (s *Server) wizSave(r *http.Request, st wizStep, ws wizState, kind int) (wi
 }
 
 // wizPut writes settings the way the Settings pages do, see setup.Service.Put.
-func (s *Server) wizPut(ctx context.Context, kv map[string]string) error {
+func (s *Handlers) wizPut(ctx context.Context, kv map[string]string) error {
 	return s.setup().Put(ctx, kv)
 }
 
-func (s *Server) setup() *setup.Service {
-	return &setup.Service{Q: s.Queries, PlanSvc: s.Plans, Langs: s.Catalog.Languages(), Saved: s.ax.SettingsSaved}
+func (s *Handlers) setup() *setup.Service {
+	return &setup.Service{Q: s.Queries, PlanSvc: s.PlanSvc, Langs: s.Catalog.Languages(), Saved: s.SettingsSaved}
 }
 
-func (s *Server) wizSaveCompany(r *http.Request) (wizResult, error) {
+func (s *Handlers) wizSaveCompany(r *http.Request) (wizResult, error) {
 	v := httpx.FormVals(r, "company_name", "app_url", "phone")
 	e, err := s.setup().Company(r.Context(), v)
 	if err != nil {
@@ -261,7 +261,7 @@ func (s *Server) wizSaveCompany(r *http.Request) (wizResult, error) {
 
 // wizSaveRouter saves the NAS (RADIUS) and/or the router (API). An existing row with the same IP or
 // host is edited, never duplicated. The step stays open so the commands and the live indicator show.
-func (s *Server) wizSaveRouter(r *http.Request, kind int) (wizResult, error) {
+func (s *Handlers) wizSaveRouter(r *http.Request, kind int) (wizResult, error) {
 	ctx := r.Context()
 	v := httpx.FormVals(r, "router_mode", "nas_name", "nas_ip", "nas_secret", "router_name", "router_host", "router_port", "router_username", "router_password")
 	e := map[string]string{}
@@ -287,7 +287,7 @@ func (s *Server) wizSaveRouter(r *http.Request, kind int) (wizResult, error) {
 				form.Set("require_message_auth", "1")
 			}
 		}
-		if ok, errs := s.wizReplay(r, http.HandlerFunc(s.net.NASSave), id, form); !ok {
+		if ok, errs := s.wizReplay(r, http.HandlerFunc(s.NetH.NASSave), id, form); !ok {
 			wizMerge(e, "nas_", errs)
 		} else if v["nas_secret"] != "" {
 			res.secret = v["nas_secret"]
@@ -314,7 +314,7 @@ func (s *Server) wizSaveRouter(r *http.Request, kind int) (wizResult, error) {
 				form.Del("enabled")
 			}
 		}
-		if ok, errs := s.wizReplay(r, http.HandlerFunc(s.net.RouterSave), id, form); !ok {
+		if ok, errs := s.wizReplay(r, http.HandlerFunc(s.NetH.RouterSave), id, form); !ok {
 			wizMerge(e, "router_", errs)
 		} else if kind == wizTest {
 			s.wizPing(r, v["router_host"])
@@ -331,7 +331,7 @@ func (s *Server) wizSaveRouter(r *http.Request, kind int) (wizResult, error) {
 }
 
 // wizPing runs the Routers page connection test on a saved router and leaves the answer as a flash.
-func (s *Server) wizPing(r *http.Request, host string) {
+func (s *Handlers) wizPing(r *http.Request, host string) {
 	ctx, lang := r.Context(), s.Language()
 	id, err := s.wizRouterByHost(ctx, host)
 	if err != nil || id == 0 {
@@ -354,7 +354,7 @@ func (s *Server) wizPing(r *http.Request, host string) {
 }
 
 // wizSaveSpeeds creates the speed presets that are filled in and not yet there.
-func (s *Server) wizSaveSpeeds(r *http.Request) (wizResult, error) {
+func (s *Handlers) wizSaveSpeeds(r *http.Request) (wizResult, error) {
 	ctx := r.Context()
 	v := map[string]string{}
 	e := map[string]string{}
@@ -381,7 +381,7 @@ func (s *Server) wizSaveSpeeds(r *http.Request) (wizResult, error) {
 		if have[name] {
 			continue
 		}
-		ok, errs := s.wizReplay(r, http.HandlerFunc(s.plans.BwSave), 0, url.Values{"name": {name}, "rate_down": {rate}, "rate_down_unit": {"Mbps"},
+		ok, errs := s.wizReplay(r, http.HandlerFunc(s.PlansH.BwSave), 0, url.Values{"name": {name}, "rate_down": {rate}, "rate_down_unit": {"Mbps"},
 			"rate_up": {rate}, "rate_up_unit": {"Mbps"}, "burst": {""}})
 		if !ok {
 			e[key] = joinErrs(errs)
@@ -395,7 +395,7 @@ func (s *Server) wizSaveSpeeds(r *http.Request) (wizResult, error) {
 
 // wizSavePlans creates the plan templates that have a price and no plan of that name yet.
 // The plans follow the router mode: RADIUS plans have no router, API plans belong to the chosen router.
-func (s *Server) wizSavePlans(r *http.Request, ws wizState) (wizResult, error) {
+func (s *Handlers) wizSavePlans(r *http.Request, ws wizState) (wizResult, error) {
 	ctx := r.Context()
 	v := httpx.FormVals(r, "plan_bandwidth", "plan_router")
 	in := setup.PlansInput{Bandwidth: v["plan_bandwidth"], Router: v["plan_router"], RouterAPI: ws.effectiveRouter() == "api"}
@@ -408,8 +408,8 @@ func (s *Server) wizSavePlans(r *http.Request, ws wizState) (wizResult, error) {
 		return wizResult{}, err
 	}
 	for _, p := range created { // what the Plans page does after a save
-		s.ax.SyncPlan(r, "add", p, "")
-		s.logActivity(r, "plan.create", p.Name)
+		s.SyncPlan(r, "add", p, "")
+		s.LogActivity(r, "plan.create", p.Name)
 	}
 	for k, msg := range e {
 		e[k] = s.T(msg)
@@ -421,9 +421,9 @@ func (s *Server) wizSavePlans(r *http.Request, ws wizState) (wizResult, error) {
 }
 
 // wizSaveWA saves the gateway fields, or sends the test message through the same code as Integrations.
-func (s *Server) wizSaveWA(r *http.Request, kind int) (wizResult, error) {
+func (s *Handlers) wizSaveWA(r *http.Request, kind int) (wizResult, error) {
 	if kind == wizTest {
-		v, e, err := s.settings.WaTestSend(r)
+		v, e, err := s.SettingsH.WaTestSend(r)
 		if err != nil {
 			return wizResult{}, err
 		}
@@ -438,7 +438,7 @@ func (s *Server) wizSaveWA(r *http.Request, kind int) (wizResult, error) {
 }
 
 // wizSaveQRIS stores the QRIS text read from an uploaded image (the same decoder as Settings > Payment).
-func (s *Server) wizSaveQRIS(r *http.Request, ws wizState) (wizResult, error) {
+func (s *Handlers) wizSaveQRIS(r *http.Request, ws wizState) (wizResult, error) {
 	_ = r.ParseMultipartForm(adminx.MaxUpload) // a plain POST has no files; the form values still parse
 	current := ws.st["qris_payload"]
 	text := strings.TrimSpace(r.PostFormValue("qris_payload"))
@@ -460,7 +460,7 @@ func (s *Server) wizSaveQRIS(r *http.Request, ws wizState) (wizResult, error) {
 	return wizResult{next: true}, nil
 }
 
-func (s *Server) wizSaveTripay(r *http.Request) (wizResult, error) {
+func (s *Handlers) wizSaveTripay(r *http.Request) (wizResult, error) {
 	pf := r.PostFormValue
 	kv, e, err := s.setup().Tripay(r.Context(), setup.Tripay{On: pf("tripay_on") == "1", Merchant: pf("tripay_merchant_code"), Mode: pf("tripay_mode"),
 		Channel: pf("tripay_channel"), APIKey: pf("tripay_api_key"), PrivateKey: pf("tripay_private_key")})
@@ -474,7 +474,7 @@ func (s *Server) wizSaveTripay(r *http.Request) (wizResult, error) {
 }
 
 // wizSaveIsolir turns Isolir on or off. The isolir plan is created the first time, as the Settings page does.
-func (s *Server) wizSaveIsolir(r *http.Request) (wizResult, error) {
+func (s *Handlers) wizSaveIsolir(r *http.Request) (wizResult, error) {
 	if err := s.setup().Isolir(r.Context(), r.PostFormValue("isolir_on") == "1"); err != nil {
 		return wizResult{}, err
 	}
@@ -482,7 +482,7 @@ func (s *Server) wizSaveIsolir(r *http.Request) (wizResult, error) {
 }
 
 // wizSaveVoucher makes the one test voucher, unless the saved one still exists.
-func (s *Server) wizSaveVoucher(r *http.Request) (wizResult, error) {
+func (s *Handlers) wizSaveVoucher(r *http.Request) (wizResult, error) {
 	ctx := r.Context()
 	v := httpx.FormVals(r, "voucher_plan")
 	e := map[string]string{}
@@ -503,7 +503,7 @@ func (s *Server) wizSaveVoucher(r *http.Request) (wizResult, error) {
 			return wizResult{next: true}, nil
 		}
 	}
-	if err := s.billing.NewVoucher(r, planID, "", adminbilling.UpperChars, adminbilling.MinVoucherLen); err != nil {
+	if err := s.BillingH.NewVoucher(r, planID, "", adminbilling.UpperChars, adminbilling.MinVoucherLen); err != nil {
 		return wizResult{}, err
 	}
 	last, err := s.Queries.ListVouchers(ctx, db.ListVouchersParams{Limit: 1})
@@ -520,7 +520,7 @@ func (s *Server) wizSaveVoucher(r *http.Request) (wizResult, error) {
 }
 
 // wizNASByIP is the id of the NAS with that address, 0 when there is none.
-func (s *Server) wizNASByIP(ctx context.Context, ip string) (int64, error) {
+func (s *Handlers) wizNASByIP(ctx context.Context, ip string) (int64, error) {
 	rows, err := s.Queries.ListNAS(ctx)
 	if err != nil {
 		return 0, err
@@ -534,7 +534,7 @@ func (s *Server) wizNASByIP(ctx context.Context, ip string) (int64, error) {
 }
 
 // wizRouterByHost is the id of the router with that host, 0 when there is none.
-func (s *Server) wizRouterByHost(ctx context.Context, host string) (int64, error) {
+func (s *Handlers) wizRouterByHost(ctx context.Context, host string) (int64, error) {
 	rows, err := s.Queries.ListRouters(ctx, db.ListRoutersParams{Limit: 1000})
 	if err != nil {
 		return 0, err
@@ -575,7 +575,7 @@ var wizFieldErr = regexp.MustCompile(`id="([a-z_]+)-err">([^<]*)<`)
 
 // wizReplay runs an existing save handler on the posted values, the way its own form would post them.
 // It returns ok for a saved row; otherwise the field errors the handler rendered, keyed by its field names.
-func (s *Server) wizReplay(r *http.Request, h http.HandlerFunc, id int64, form url.Values) (bool, map[string]string) {
+func (s *Handlers) wizReplay(r *http.Request, h http.HandlerFunc, id int64, form url.Values) (bool, map[string]string) {
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, r.URL.Path, strings.NewReader(form.Encode()))
 	if err != nil {
 		return false, map[string]string{"": err.Error()}
@@ -641,7 +641,7 @@ func radiusCommands(host, ip, secret string) []string {
 }
 
 // wizDefaults are the values a step starts with: the saved data, or the suggestions.
-func (s *Server) wizDefaults(r *http.Request, slug string, ws wizState) (map[string]string, error) {
+func (s *Handlers) wizDefaults(r *http.Request, slug string, ws wizState) (map[string]string, error) {
 	ctx := r.Context()
 	st := ws.st
 	v := map[string]string{}
@@ -737,7 +737,7 @@ func (s *Server) wizDefaults(r *http.Request, slug string, ws wizState) (map[str
 }
 
 // wizView builds the page of one step. v and e are the posted values and errors, or nil for a fresh page.
-func (s *Server) wizPage(r *http.Request, st wizStep, ws wizState, v, e map[string]string, secret string) (wizView, error) {
+func (s *Handlers) wizPage(r *http.Request, st wizStep, ws wizState, v, e map[string]string, secret string) (wizView, error) {
 	ctx := r.Context()
 	_, idx, _ := wizFind(st.Slug)
 	view := wizView{Step: st, Num: idx + 1, Total: len(wizSteps), Done: ws.done(st.Slug), Import: ws.mode == "import",
@@ -778,7 +778,7 @@ func (s *Server) wizPage(r *http.Request, st wizStep, ws wizState, v, e map[stri
 		view.Form.Fields = wizTripayFields(v, e, ws.st)
 	case "isolir":
 		view.Form.Fields = append([]field{{Name: "isolir_on", Label: "Turn on Isolir", Type: "checkbox", Checked: v["isolir_on"] == "1",
-			Section: "Isolir", Hint: "RADIUS customers whose plan has expired are isolated and see the isolir page."}}, s.settings.IsolirSetupFields(ws.st)...)
+			Section: "Isolir", Hint: "RADIUS customers whose plan has expired are isolated and see the isolir page."}}, s.SettingsH.IsolirSetupFields(ws.st)...)
 	case "customer":
 		plans, err := s.Queries.ListPlans(ctx, db.ListPlansParams{Limit: 1000})
 		if err != nil {
@@ -807,7 +807,7 @@ func (s *Server) wizPage(r *http.Request, st wizStep, ws wizState, v, e map[stri
 }
 
 // wizHost is the LAN address the routers reach gobill on (see gobillAddr).
-func (s *Server) wizHost() string {
-	host, _ := s.ax.GobillAddr()
+func (s *Handlers) wizHost() string {
+	host, _ := s.GobillAddr()
 	return host
 }
