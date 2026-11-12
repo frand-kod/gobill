@@ -8,6 +8,19 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-11-13
+
+### Keamanan
+
+- **Tebakan voucher tidak lagi mengunci NAS.** Kegagalan voucher per NAS kini hanya memberi peringatan di log. Sebelumnya semua login di NAS itu ditolak.
+- **Kunci akun RADIUS tidak membuka siapa yang ada.** User yang terkunci karena password salah berkali-kali menerima pesan yang sama dengan password salah. Kejadiannya dicatat di log.
+- **Batas percobaan dipesan sebelum menebak.** Request paralel tidak bisa lagi melewati batas.
+- **Transfer saldo dan kirim ke teman di portal membatasi pencarian penerima.** Nama pelanggan tidak bisa ditebak beruntun.
+- **Menyalakan, mematikan, atau mereset 2FA mengakhiri sesi admin lain.**
+- **`radius_rest_secret` minimal 16 karakter.**
+- **Header skema dari proxy hanya dipercaya dari proxy tepercaya.**
+- **Impor memberi peringatan untuk voucher pendek yang belum terpakai.** Kode pendek mudah ditebak.
+
 ### Perbaikan
 
 - **Isolasi yang lewat batas waktu tidak lagi menumpuk.** Jika job belum menutup isolasi lama, isolasi baru menutupnya (alasan `expired`) sehingga customer hanya punya satu isolasi terbuka.
@@ -19,13 +32,19 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ### Fitur
 
-- **Perintah WhatsApp lewat GOWA.** Pelanggan mengirim `cek`, `tagihan`, `kuota`, `paket`, `bayar`. Admin mengirim `cari`, `isolir`, `ringkasan`. Perintah hanya membaca data. Endpoint baru `POST /wa/inbound` memeriksa tanda tangan `X-Hub-Signature-256`. Setting baru `alt_wga_webhook_secret` dan `wa_inbound` (bawaan mati) ada di Pengaturan > Integrasi. Lihat `docs/id/integrations.md`.
+- **Perintah WhatsApp lewat GOWA.** Bawaannya mati. Nyalakan `wa_inbound` dan isi `alt_wga_webhook_secret` di Pengaturan > Integrasi. Endpoint `POST /wa/inbound` memeriksa tanda tangan `X-Hub-Signature-256`. Lihat `docs/id/integrations.md`.
+  - Pelanggan: `cek`, `tagihan`, `kuota`, `paket`, `bayar` (link bayar gateway, sama dengan portal), `gangguan` (diagnosis akun, laporan ke admin bila tak ada penyebab), dan menu angka lewat `bantuan` atau `menu`. Perintah boleh diawali `/`.
+  - Admin: `cari`, `isolir`, `ringkasan`, `info`, `jatuhtempo`, `router`. `perpanjang` dan `putus` butuh kode konfirmasi 6 digit yang berlaku 5 menit.
+  - Admin yang nomornya juga dipakai satu pelanggan bisa memakai perintah pelanggan untuk akunnya sendiri.
+  - Fitur ini belum diuji dengan GOWA sungguhan. Laporkan jika ada pesan yang tidak dibalas.
+- **API v1 (baca saja).** `GET /api/v1/{me,customers,subscriptions,plans,routers,nas,radius/sessions}` dengan token bearer `gbt_…`. Bawaannya mati. SuperAdmin menyalakan API, mengatur peran per grup, dan membuat token di `/admin/api`. Batas 120 request per menit per token.
 
 ### Perubahan
 
 - **Menyimpan setting Isolir memberi peringatan** jika plan Isolir dijual atau bukan plan RADIUS. Simpan tetap berhasil.
 - **`gobill update` menolak file unduhan di atas 200 MiB.** Biner rilis hanya sekitar 20 MiB.
 - **Variabel baru `GOBILL_JOBS`.** Isi `0` untuk mematikan job latar di satu proses.
+- **Kode dipecah per modul.** Tidak ada perubahan perilaku. Aturan import antar paket dicek di CI dengan depguard.
 
 ## [0.3.5] - 2026-11-09
 
