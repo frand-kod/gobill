@@ -133,6 +133,9 @@ func Validate(v map[string]string, languages []string) map[string]string {
 	if _, ok := v["wg_port"]; ok {
 		wgErrors(v, e)
 	}
+	if x := v["radius_rest_secret"]; x != "" && len(x) < 16 {
+		e["radius_rest_secret"] = "Secret must be at least 16 characters"
+	}
 	if x, ok := v["isolir_mode"]; ok && x != "default" && x != "custom" {
 		e["isolir_mode"] = "Choose one"
 	}
