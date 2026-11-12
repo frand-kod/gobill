@@ -162,6 +162,10 @@ func (s *Handlers) pTransfer(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "portal transfer", errors.New("billing not configured"))
 		return
 	}
+	if !s.lookupAllow(customerFrom(r).ID) { // same cap as the lookup, so this is no way around it
+		s.profilePage(w, r, http.StatusTooManyRequests, s.T("Too many attempts. Try again later."))
+		return
+	}
 	amount, _ := strconv.ParseInt(strings.TrimSpace(r.PostFormValue("balance")), 10, 64)
 	username := strings.TrimSpace(r.PostFormValue("username"))
 	// the recipient's name for the flash, read before the transfer (an unknown user just leaves the name empty)
