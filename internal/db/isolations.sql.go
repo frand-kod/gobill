@@ -68,6 +68,26 @@ func (q *Queries) DeleteEndedIsolationsBefore(ctx context.Context, endedAt int64
 	return result.RowsAffected()
 }
 
+const endCustomerDueIsolations = `-- name: EndCustomerDueIsolations :execrows
+UPDATE isolations SET ended_at = ?1, end_reason = ?2
+WHERE customer_id = ?3 AND ended_at = 0 AND ends_at <= ?1
+`
+
+type EndCustomerDueIsolationsParams struct {
+	Now        int64
+	Reason     string
+	CustomerID int64
+}
+
+// Open isolations of the customer that ran past ends_at and were not ended by the job yet.
+func (q *Queries) EndCustomerDueIsolations(ctx context.Context, arg EndCustomerDueIsolationsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, endCustomerDueIsolations, arg.Now, arg.Reason, arg.CustomerID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const endCustomerIsolations = `-- name: EndCustomerIsolations :execrows
 UPDATE isolations SET ended_at = ?1, end_reason = ?2
 WHERE customer_id = ?3 AND ended_at = 0

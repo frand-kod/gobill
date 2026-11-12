@@ -146,9 +146,11 @@ func (s *Handlers) isolirCustomer(ctx context.Context, ip string) (c db.Customer
 
 // isolirIsolated reports whether the customer has an isolation that is running now.
 func (s *Handlers) isolirIsolated(ctx context.Context, customerID int64) bool {
-	// M3: kept as-is, see docs/internal/rencana/modularisasi.md (real clock, no isolir_enabled check;
-	// the gate checks the atomic flag instead)
-	return isolir.IsIsolated(ctx, s.Queries, customerID, time.Now())
+	st, err := s.LoadSettings(ctx)
+	if err != nil {
+		return false
+	}
+	return isolir.Active(ctx, s.Queries, st, customerID, s.Now())
 }
 
 // IsolirGate serves the isolir page to an isolated client for GET and HEAD requests, whatever Host

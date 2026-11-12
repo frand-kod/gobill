@@ -92,16 +92,16 @@ Status: selesai. Aturannya jadi fungsi paket `internal/isolir`, belum tipe `Serv
 
 Selesai jika lookup `isolir_plan_id` hanya ada di satu tempat.
 
-#### Isolir: perilaku yang belum seragam
+#### Isolir: diselesaikan di fix/isolir-rules
 
-M3 memindahkan aturan ke `internal/isolir` tanpa mengubah perilaku. Perbedaan di bawah sengaja dibiarkan dan ditandai `// M3: kept as-is` di kode. Test karakterisasi mengunci semuanya.
+Perbedaan perilaku yang dulu ditandai `// M3: kept as-is` sudah diseragamkan. Aturan barunya:
 
-1. "Terisolir" punya tiga arti. RADIUS (`isolir.PlanFor`) butuh `isolir_enabled=yes`, plan id tidak 0, dan isolasi berjalan. Gerbang web hanya cek flag atomic dan isolasi berjalan. Web memakai `time.Now()`, billing dan RADIUS memakai clock yang bisa diganti.
-2. "Berjalan" punya dua arti. `GetRunningIsolation` butuh `ends_at > now`. `ListRunningIsolations` dan `EndCustomerIsolations` hanya butuh `ended_at = 0`.
-3. `isolir.Isolate` memanggil `EnsurePlan` sebelum cek langganan aktif dan isolasi yang sudah ada. Plan bisa terbuat walau isolasi dilewati.
-4. `isolir_address_list` kosong: `Value` memberi "" tetapi `AddressListFor` memberi `isolir`. Rule RouterOS bisa berisi `src-address-list=` kosong, sementara RADIUS mengirim `isolir`.
-5. `EnsurePlan` menerima plan id apa saja yang tersimpan, walau bukan plan isolir.
-6. `Days("-3")` memberi 0 (sampai bayar). `ValidHost` menerima `-x.com` dan IP mentah.
+1. "Terisolir" punya satu arti: `isolir_enabled=yes` dan ada isolasi berjalan (`ended_at=0` dan `ends_at > now`). Fungsinya `isolir.Active`, dipakai RADIUS dan gerbang web. Plan id tidak ikut menentukan. RADIUS tetap butuh plan id untuk memilih profil. Gerbang web memakai clock server yang bisa diganti di test.
+2. `isolir.Isolate` mengakhiri isolasi terbuka milik customer yang sudah lewat `ends_at` dengan alasan `expired`, di transaksi yang sama, sebelum membuat isolasi baru. Jadi hanya ada satu baris terbuka.
+3. `EnsurePlan` dipanggil setelah cek langganan aktif dan cek sudah terisolir. Isolasi yang dilewati tidak membuat plan.
+4. Nama address-list dari `isolir.AddressList`: isi setting, atau `isolir` jika kosong. RADIUS dan rule RouterOS memakai fungsi yang sama.
+5. Simpan setting Isolir memberi peringatan (bukan error) jika `isolir_plan_id` menunjuk plan yang dijual atau bukan plan RADIUS. Saat berjalan, plan itu tetap diterima.
+6. `isolir.Days`: negatif atau tidak valid jadi 30 hari, `0` tetap sampai bayar. `ValidHost` menolak label yang diawali atau diakhiri `-`. IPv4 mentah tetap boleh di allow-list, tetapi hanya masuk address-list, tanpa rule `tls-host`.
 
 ### M4. Logika keluar dari handler
 

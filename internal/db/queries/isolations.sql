@@ -20,6 +20,11 @@ SELECT * FROM isolations WHERE ended_at = 0 AND ends_at <= sqlc.arg(now) ORDER B
 UPDATE isolations SET ended_at = sqlc.arg(now), end_reason = sqlc.arg(reason)
 WHERE id = sqlc.arg(id) AND ended_at = 0;
 
+-- name: EndCustomerDueIsolations :execrows
+-- Open isolations of the customer that ran past ends_at and were not ended by the job yet.
+UPDATE isolations SET ended_at = sqlc.arg(now), end_reason = sqlc.arg(reason)
+WHERE customer_id = sqlc.arg(customer_id) AND ended_at = 0 AND ends_at <= sqlc.arg(now);
+
 -- name: EndCustomerIsolations :execrows
 UPDATE isolations SET ended_at = sqlc.arg(now), end_reason = sqlc.arg(reason)
 WHERE customer_id = sqlc.arg(customer_id) AND ended_at = 0;

@@ -8,13 +8,18 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
-### Keamanan
+### Perbaikan
 
-- **Login voucher di satu NAS tidak bisa lagi dikunci oleh satu klien.** Percobaan gagal per NAS kini hanya memicu peringatan dan metrik `radius_voucher_nas_spray_total`. Batas per NAS dan MAC tetap berlaku.
-- **Login RADIUS non-voucher kini dibatasi percobaan salah password.** Setelah 10 kali salah dalam 15 menit, login ditolak dengan pesan yang sama seperti password salah. Kuncinya dicatat di log.
+- **Isolasi yang lewat batas waktu tidak lagi menumpuk.** Jika job belum menutup isolasi lama, isolasi baru menutupnya (alasan `expired`) sehingga customer hanya punya satu isolasi terbuka.
+- **Isolasi yang dilewati tidak lagi membuat plan Isolir.**
+- **Rule RouterOS memakai nama address-list `isolir` saat isiannya kosong.** Sebelumnya rule berisi `src-address-list=` kosong, sementara RADIUS mengirim `isolir`.
+- **Gerbang web isolir mengikuti definisi "terisolir" yang sama dengan RADIUS.** Isolasi harus berjalan dan Isolir harus aktif.
+- **Hari isolir negatif kini dibaca 30 hari, bukan "sampai bayar".** Isi `0` untuk sampai bayar.
+- **Allow-list menolak host berawalan atau berakhiran `-`.** Alamat IPv4 mentah tetap boleh, tetapi hanya masuk address-list, tanpa rule `tls-host`.
 
 ### Perubahan
 
+- **Menyimpan setting Isolir memberi peringatan** jika plan Isolir dijual atau bukan plan RADIUS. Simpan tetap berhasil.
 - **`gobill update` menolak file unduhan di atas 200 MiB.** Biner rilis hanya sekitar 20 MiB.
 - **Variabel baru `GOBILL_JOBS`.** Isi `0` untuk mematikan job latar di satu proses.
 
