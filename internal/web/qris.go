@@ -5,24 +5,17 @@ package web
 
 import (
 	"bytes"
-	"crypto/hmac"
-	"encoding/base64"
 	"errors"
-	"html/template"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
-
-	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/payment"
 	"github.com/makiuchi-d/gozxing"
 	zxqr "github.com/makiuchi-d/gozxing/qrcode"
-	"github.com/skip2/go-qrcode"
 )
 
 // qrisUpload reads the QRIS photo posted as qris_image into v["qris_payload"]. It returns the error
@@ -73,39 +66,4 @@ func qrisFromImage(b []byte) (string, error) {
 		return "", errors.New("Not a valid QRIS")
 	}
 	return strings.TrimSpace(res.GetText()), nil
-}
-
-type qrisData struct {
-	Card template.HTML // the QRIS card, see qrisCard
-}
-
-func (s *Server) qrisPage(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil || !hmac.Equal([]byte(r.PathValue("token")), []byte(payment.QRISToken(s.SecretKey, id))) {
-		http.NotFound(w, r)
-		return
-	}
-	st, err := s.LoadSettings(r.Context())
-	if err != nil {
-		s.Fail(w, "qris settings", err)
-		return
-	}
-	t, err := s.Queries.GetTransaction(r.Context(), id)
-	if err != nil || st["qris_payload"] == "" || t.Price <= 0 {
-		http.NotFound(w, r)
-		return
-	}
-	code, err := payment.QRISAmount(st["qris_payload"], t.Price)
-	if err != nil {
-		s.Fail(w, "qris", err)
-		return
-	}
-	png, err := qrcode.Encode(code, qrcode.Medium, 512)
-	if err != nil {
-		s.Fail(w, "qris png", err)
-		return
-	}
-	qr := template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))
-	d := qrisData{Card: s.qrisCard(st, payment.QRISDetailsOf(st["qris_payload"]), qr, view.Money(t.Price), t.Invoice+" · "+t.PlanName, false)}
-	s.Render(w, r, 200, "p_qris", Page{Title: "Pay via QRIS", Data: d})
 }

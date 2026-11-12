@@ -1,4 +1,4 @@
-package web
+package public
 
 // The QRIS card: the one way a QRIS code is shown to a customer (the /qris page, the isolir page and
 // its preview). It names the company and the QRIS merchant so the customer can check the payee in
@@ -73,7 +73,7 @@ type qrisCardData struct {
 // qrisCard renders the card for a QRIS code (qr is its data URI, amount the locked price). ref is
 // the invoice or customer reference, "" when none. details are the parsed merchant fields of the
 // static code. Sample marks the dummy code of the preview. "" when the card cannot be made.
-func (s *Server) qrisCard(st map[string]string, details payment.QRISDetails, qr template.URL, amount, ref string, sample bool) template.HTML {
+func (s *Handlers) qrisCard(st map[string]string, details payment.QRISDetails, qr template.URL, amount, ref string, sample bool) template.HTML {
 	company := strings.TrimSpace(st["company_name"])
 	d := qrisCardData{
 		Title: fmt.Sprintf(s.T("Payment to %s"), company), Amount: amount, Ref: ref,

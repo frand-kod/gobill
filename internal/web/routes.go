@@ -4,14 +4,13 @@ package web
 
 import (
 	"io/fs"
-	"log/slog"
 	"net/http"
 
-	"context"
 	"strings"
 
 	gobill "github.com/frand-kod/gobill"
 	"github.com/frand-kod/gobill/internal/web/portal"
+	"github.com/frand-kod/gobill/internal/web/public"
 )
 
 // prefetchSafe is the session middleware with one change: a prefetch (Sec-Purpose, or Purpose on older
@@ -72,12 +71,6 @@ func (s *Server) messageRoutes(mux *http.ServeMux, staff func(http.Handler) http
 	mux.Handle("GET /admin/message/bulk/status", staff(http.HandlerFunc(s.msgBulkStatus)))
 }
 
-func (s *Server) paymentRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /callback/tripay", s.tripayCallback)
-	mux.HandleFunc("POST /callback/duitku", s.tripayCallback) // same handler: the configured gateway verifies it
-	mux.HandleFunc("GET /qris/{id}/{token}", s.qrisPage)
-}
-
 // ---- admin (A71-A73) ----
 
 func (s *Server) paymentAdminRoutes(mux *http.ServeMux, managers func(http.Handler) http.Handler) {
@@ -89,17 +82,6 @@ func (s *Server) paymentAdminRoutes(mux *http.ServeMux, managers func(http.Handl
 
 func (s *Server) portalRoutes(mux *http.ServeMux) {
 	portal.Register(mux, s.portal)
-	mux.HandleFunc("GET /pages/{slug}", s.pagePublic)
-}
-
-// radiusRestRoutes serves the FreeRADIUS rlm_rest endpoint of old phpnuxbill (radius.php), so
-// an existing FreeRADIUS only needs a new connect_uri. Decisions come from radius.Server.
-func (s *Server) radiusRestRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /radius.php", s.radiusRest)
-	mux.HandleFunc("POST /radius/rest", s.radiusRest)
-	if m, err := s.LoadSettings(context.Background()); err == nil && strings.TrimSpace(m["radius_rest_allow"]) == "" && m["radius_rest_secret"] == "" {
-		slog.Warn("radius.php endpoint refuses ALL requests: neither radius_rest_allow nor radius_rest_secret is set. Before, an empty allow-list meant loopback only. If FreeRADIUS uses this endpoint, set radius_rest_allow (e.g. 127.0.0.1 or its IP) or radius_rest_secret (Settings > System > FreeRADIUS), see docs/en/freeradius-rest.md")
-	}
 }
 
 // docsRoutes serves the "Panduan" guides to any logged-in admin.
@@ -308,7 +290,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/settings/payment/duitku-test", superAdmin(http.HandlerFunc(s.duitkuTest)))
 	mux.Handle("POST /admin/settings/integrations/metrics-token", superAdmin(http.HandlerFunc(s.metricsTokenNew)))
 	mux.Handle("POST /admin/settings/integrations/metrics-token/disable", superAdmin(http.HandlerFunc(s.metricsTokenOff)))
-	mux.Handle("GET /admin/settings/isolir/preview", superAdmin(http.HandlerFunc(s.isolirPreview)))
+	mux.Handle("GET /admin/settings/isolir/preview", superAdmin(http.HandlerFunc(s.public.IsolirPreview)))
 	mux.Handle("POST /admin/settings/isolir/reset/{section}", superAdmin(http.HandlerFunc(s.isolirReset)))
 	mux.Handle("GET /admin/settings/system/import", superAdmin(http.HandlerFunc(s.importForm)))
 	mux.Handle("POST /admin/settings/system/import", superAdmin(http.HandlerFunc(s.importPreview)))
@@ -339,28 +321,15 @@ func (s *Server) Handler() http.Handler {
 
 	// customer portal
 	s.portalRoutes(mux)
-	s.paymentRoutes(mux)
-
-	// RADIUS REST endpoint and payment callbacks (no session; bypass the origin check below)
-	s.radiusRestRoutes(mux)
-
-	// the router fetches its provisioning script here; the one-time token is the credential
-	mux.HandleFunc("GET /provision/{token}", s.provisionScript)
-
-	// ISOLIR page for expired customers: public, identified by client IP; the voucher form posts
-	// from the sandboxed custom page (origin null), so it bypasses the origin check below
-	mux.HandleFunc("GET /isolir", s.isolirPage)
-	mux.HandleFunc("POST /isolir/voucher", s.isolirVoucher)
+	public.Register(mux, s.public)
 
 	// the Tripay server posts the callback without our origin; its HMAC signature authenticates it
 	cop := http.NewCrossOriginProtection()
-	cop.AddInsecureBypassPattern("POST /callback/tripay")
-	cop.AddInsecureBypassPattern("POST /callback/duitku")
-	cop.AddInsecureBypassPattern("POST /isolir/voucher")
-	cop.AddInsecureBypassPattern("POST /radius.php")
-	cop.AddInsecureBypassPattern("POST /radius/rest")
+	for _, p := range public.OriginBypass {
+		cop.AddInsecureBypassPattern(p)
+	}
 	// isolirGate sits inside realIP (it needs the real client IP) and outside the session chain
-	app := s.realIP(s.isolirGate(cop.Handler(s.prefetchSafe(s.idleGuard(s.maintenance(s.styledNotFound(mux)))))))
+	app := s.realIP(s.public.IsolirGate(cop.Handler(s.prefetchSafe(s.idleGuard(s.maintenance(s.styledNotFound(mux)))))))
 	// /health sits outside the session and maintenance chain so monitors always get an answer
 	top := http.NewServeMux()
 	top.HandleFunc("GET /health", s.health)

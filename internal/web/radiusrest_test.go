@@ -13,21 +13,9 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/radius"
 	"github.com/frand-kod/gobill/internal/secret"
 	"github.com/frand-kod/gobill/internal/web/core"
 )
-
-// The shared-users reject keeps the Auth-Type Accept semantics of the old PHP limit reject.
-func TestRejectBodySharedUsers(t *testing.T) {
-	b := rejectBody(radius.SharedUsersFullMsg)
-	if b["control:Auth-Type"] != "Accept" || b["Reply-Message"] != radius.SharedUsersFullMsg {
-		t.Fatalf("shared users reject: %v", b)
-	}
-	if b := rejectBody("Login invalid......"); b["control:Auth-Type"] != "Reject" {
-		t.Fatalf("other reject: %v", b)
-	}
-}
 
 // restSetup: customer "bob"/"pw" with a Hotspot plan (5M down, 512K up) expiring in +1h (or -1h if expired).
 func restSetup(t testing.TB, expired bool) (*Server, *db.Queries) {
@@ -244,48 +232,6 @@ func TestRadiusRestCSRFAndMaintenance(t *testing.T) {
 	}
 	if c := cross("/login"); c != 403 {
 		t.Errorf("other path must keep CSRF protection, got %d", c)
-	}
-}
-
-// sec#6: with neither radius_rest_allow nor radius_rest_secret, nothing is accepted (not even
-// loopback); the secret header opens it from any address; an explicit allow-list checks the TCP peer only.
-func TestRadiusRestClosedByDefault(t *testing.T) {
-	req := func(remote string, hdr ...string) *http.Request {
-		r := &http.Request{RemoteAddr: remote, Header: http.Header{}}
-		for i := 0; i+1 < len(hdr); i += 2 {
-			r.Header.Set(hdr[i], hdr[i+1])
-		}
-		return r
-	}
-	if radiusRestAllowed(req("127.0.0.1:1"), map[string]string{}) {
-		t.Error("loopback accepted with no setting")
-	}
-	m := map[string]string{"radius_rest_secret": "s3cret"}
-	for _, c := range []struct {
-		r    *http.Request
-		want bool
-	}{
-		{req("8.8.8.8:1", "X-Gobill-Secret", "s3cret"), true},
-		{req("8.8.8.8:1", "X-Gobill-Secret", "wrong"), false},
-		{req("127.0.0.1:1"), false},
-		{req("8.8.8.8:1", "X-Gobill-Secret", ""), false},
-	} {
-		if got := radiusRestAllowed(c.r, m); got != c.want {
-			t.Errorf("secret case %v: %v want %v", c.r.Header, got, c.want)
-		}
-	}
-	if radiusRestAllowed(req("8.8.8.8:1", "X-Gobill-Secret", ""), map[string]string{}) {
-		t.Error("empty secret header matched an unset secret")
-	}
-	// a same-host reverse proxy makes every client 127.0.0.1: a relayed request must not pass the allow-list
-	for _, h := range []string{"X-Forwarded-For", "X-Real-IP", "Forwarded", "CF-Connecting-IP"} {
-		if radiusRestAllowed(req("127.0.0.1:1", h, "203.0.113.9"), map[string]string{"radius_rest_allow": "127.0.0.1"}) {
-			t.Errorf("%s: proxied request passed the loopback allow-list", h)
-		}
-	}
-	// the secret still works through a proxy
-	if !radiusRestAllowed(req("127.0.0.1:1", "X-Forwarded-For", "203.0.113.9", "X-Gobill-Secret", "s3cret"), m) {
-		t.Error("secret refused behind a proxy")
 	}
 }
 

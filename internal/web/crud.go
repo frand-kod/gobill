@@ -3,6 +3,7 @@ package web
 // Generic CRUD helpers: ID parsing, bulk delete, activity log and error pages.
 
 import (
+	"github.com/frand-kod/gobill/internal/web/public"
 	"log/slog"
 	"net/http"
 
@@ -57,7 +58,7 @@ func (s *Server) bulkDone(w http.ResponseWriter, r *http.Request, back, action s
 func wantsPlain(r *http.Request) bool {
 	p := r.URL.Path
 	return strings.HasSuffix(p, ".json") || strings.HasPrefix(p, "/api/") || strings.HasPrefix(p, "/static/") ||
-		strings.HasPrefix(p, "/callback/") || isRadiusRest(p) || strings.Contains(r.Header.Get("Accept"), "json")
+		strings.HasPrefix(p, "/callback/") || public.IsRadiusRest(p) || strings.Contains(r.Header.Get("Accept"), "json")
 }
 
 // deny answers 403, 404 or 405: the styled page for browsers, the bare status text for API callers.

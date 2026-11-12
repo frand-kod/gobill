@@ -15,6 +15,7 @@ import (
 	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/portal"
+	"github.com/frand-kod/gobill/internal/web/public"
 
 	"context"
 	"log/slog"
@@ -36,6 +37,7 @@ import (
 type Server struct {
 	core.Core
 	portal *portal.Handlers
+	public *public.Handlers
 	conn   *sql.DB
 	guides map[string]*guideSet // rendered "Panduan" pages per language ("id", "en"), see docs.go
 
@@ -139,6 +141,10 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	s.ReloadSessionSettings(context.Background())
 	s.Asset, s.Decorate = s.asset, s.decorate
 	s.portal = portal.New(&s.Core)
+	s.public = public.New(&s.Core)
+	s.public.IsolirOn, s.public.RadiusServer, s.public.OriginalPeer = s.isolir.Load, s.radiusServer, originalPeer
+	s.public.WGUsable, s.public.WGEndpoint, s.public.Prov = s.wgUsable, func(st map[string]string) string { return wgDefaults(st)["wg_endpoint"] }, s.prov
+	s.public.Prender = s.portal.Prender
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
 	}

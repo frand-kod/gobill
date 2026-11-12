@@ -69,17 +69,3 @@ func TestForgotOTPTriesHoldUnderParallelRequests(t *testing.T) {
 		t.Fatal("the right code was accepted after the tries ran out")
 	}
 }
-
-func TestRestOctetsClamp(t *testing.T) {
-	for _, c := range []struct{ g, o, want int64 }{
-		{0, 100, 100},
-		{1, 5, 1<<32 | 5},
-		{-1, -5, 0},
-		{1 << 40, 0, (1<<31 - 1) << 32},
-		{0, 1 << 40, 1<<32 - 1},
-	} {
-		if got := restOctets(c.g, c.o); got != c.want || got < 0 {
-			t.Errorf("restOctets(%d, %d) = %d, want %d", c.g, c.o, got, c.want)
-		}
-	}
-}

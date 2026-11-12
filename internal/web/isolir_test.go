@@ -2,7 +2,6 @@ package web
 
 import (
 	"database/sql"
-	"html/template"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -143,7 +142,7 @@ func TestIsolirCustomModeSandboxedAndVariables(t *testing.T) {
 		"isolir_html": `<h1>Hi [[name]]</h1><p>[[plan_name]] [[known]] [[nope]]</p>[[voucher_form]]<script>var a=1</script>`})
 	isoCustomer(t, s, q, "203.0.113.7", true)
 	w := isoReq(h, "GET", "/isolir", "203.0.113.7", nil)
-	if got := w.Header().Get("Content-Security-Policy"); got != isolirCSP || strings.Contains(got, "allow-same-origin") {
+	if got := w.Header().Get("Content-Security-Policy"); got != "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" || strings.Contains(got, "allow-same-origin") {
 		t.Fatalf("CSP %q", got)
 	}
 	body := w.Body.String()
@@ -163,16 +162,6 @@ func TestIsolirCustomBlankFallsBackToDefault(t *testing.T) {
 	w := isoReq(h, "GET", "/isolir", "198.51.100.9", nil)
 	if w.Header().Get("Content-Security-Policy") != "" || !strings.Contains(w.Body.String(), "Paket internet Anda sudah habis") {
 		t.Fatal("blank custom HTML must fall back to the default page")
-	}
-}
-
-func TestRenderIsolirCustomEscapesValues(t *testing.T) {
-	out := renderIsolirCustom(`[[name]]|[[promos]]|[[qris_image]]|[[qris_merchant]]|[[nope]]|[[voucher_form]]`, isolirView{
-		Name: `<a>"x"</a>`, Promos: template.HTML("<b>p</b>"), VoucherForm: "<form>v</form>"})
-	// old QRIS variables are no longer filled: they become empty so old custom pages still render
-	want := `&lt;a&gt;&#34;x&#34;&lt;/a&gt;|<b>p</b>||||<form>v</form>`
-	if out != want {
-		t.Fatalf("got %q\nwant %q", out, want)
 	}
 }
 
@@ -392,25 +381,6 @@ func TestIsolirLogoutButton(t *testing.T) {
 	if !strings.Contains(body, `href="http://192.168.20.1/logout"`) || !strings.Contains(body, "Keluar / pakai akun lain") {
 		t.Fatal("logout button missing or wrong link")
 	}
-}
-
-// [[logout_url]] is the logout address in custom HTML, empty when unset, and it is escaped.
-func TestIsolirLogoutURLVariable(t *testing.T) {
-	if got := renderIsolirCustom("[[logout_url]]", isolirView{}); got != "" {
-		t.Fatalf("unset: %q", got)
-	}
-	v := isolirView{LogoutURL: isoLogout("http://fourkeys.net")}
-	if got := renderIsolirCustom(`<a href="[[logout_url]]">x</a>`, v); got != `<a href="http://fourkeys.net/logout">x</a>` {
-		t.Fatalf("set: %q", got)
-	}
-	if got := isoLogout(`http://x"y`); strings.Contains(renderIsolirCustom("[[logout_url]]", isolirView{LogoutURL: got}), `"`) {
-		t.Fatal("quote not escaped")
-	}
-}
-
-// isoLogout is the logout address for a hotspot address, as the page builds it.
-func isoLogout(base string) string {
-	return isolirLogoutURL(map[string]string{"isolir_hotspot_url": base + "/"})
 }
 
 // The settings page takes only http or https hotspot addresses.

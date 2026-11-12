@@ -58,16 +58,3 @@ func (s *Server) pageSave(w http.ResponseWriter, r *http.Request) {
 	}
 	s.done(w, r, "/admin/pages/"+slug, "Data Updated Successfully", "page.update", p.Title)
 }
-
-// pagePublic shows a static page to anyone. The body is escaped; whitespace-pre-line keeps the line breaks.
-func (s *Server) pagePublic(w http.ResponseWriter, r *http.Request) {
-	p, err := s.Queries.GetPage(r.Context(), r.PathValue("slug"))
-	if errors.Is(err, sql.ErrNoRows) {
-		http.NotFound(w, r)
-		return
-	} else if err != nil {
-		s.Fail(w, "get page", err)
-		return
-	}
-	s.portal.Prender(w, r, http.StatusOK, "p_page", Page{Title: p.Title, Data: p})
-}

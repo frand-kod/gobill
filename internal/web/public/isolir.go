@@ -1,4 +1,4 @@
-package web
+package public
 
 // ISOLIR: the public page an expired customer sees (identified by the client IP of the RADIUS
 // session), its voucher form, the custom HTML mode, the settings preview and reset, and the
@@ -7,10 +7,8 @@ package web
 import (
 	"context"
 	"errors"
-	"fmt"
 	"html"
 	"html/template"
-	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -23,14 +21,13 @@ import (
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/isolir"
-	"github.com/frand-kod/gobill/internal/notify"
 )
 
 // isolirCSP sandboxes the custom HTML: no allow-same-origin, so admin scripts cannot use gobill cookies.
 const isolirCSP = "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
 
 // isolirVoucherForm is the voucher box; it posts without a session (see routes: CSRF bypass).
-func (s *Server) isolirVoucherForm() template.HTML {
+func (s *Handlers) isolirVoucherForm() template.HTML {
 	return template.HTML(`<form method="post" action="/isolir/voucher" autocomplete="off"><label for="isolir-code" class="muted">` + s.T("Voucher code") + `</label><input id="isolir-code" name="code" placeholder="` + s.T("Voucher code") + `" autocapitalize="characters" required><p><button class="btn" type="submit">` + s.T("Activate voucher") + `</button></p></form>`)
 }
 
@@ -57,7 +54,7 @@ type isolirView struct {
 }
 
 // isolirPage is GET /isolir. Unknown clients get the generic page.
-func (s *Server) isolirPage(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) isolirPage(w http.ResponseWriter, r *http.Request) {
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
 		s.Fail(w, "isolir settings", err)
@@ -68,7 +65,7 @@ func (s *Server) isolirPage(w http.ResponseWriter, r *http.Request) {
 
 // isolirVoucher is POST /isolir/voucher. It redeems for the customer on this client IP, rate limited
 // per IP like the portal voucher form.
-func (s *Server) isolirVoucher(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) isolirVoucher(w http.ResponseWriter, r *http.Request) {
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
 		s.Fail(w, "isolir settings", err)
@@ -107,7 +104,7 @@ func (s *Server) isolirVoucher(w http.ResponseWriter, r *http.Request) {
 
 // isolirFor identifies the customer of a client IP: the most recent open RADIUS session on that
 // framed IP, its customer, and the last plan that is not the isolir plan.
-func (s *Server) isolirFor(ctx context.Context, ip string, st map[string]string, notice string) isolirView {
+func (s *Handlers) isolirFor(ctx context.Context, ip string, st map[string]string, notice string) isolirView {
 	v := isolirView{Notice: notice}
 	c, ok := s.isolirCustomer(ctx, ip)
 	if !ok {
@@ -138,7 +135,7 @@ func (s *Server) isolirFor(ctx context.Context, ip string, st map[string]string,
 
 // isolirCustomer finds the customer of a client IP: the owner of the most recent open RADIUS session
 // on that framed IP. ok is false when there is none.
-func (s *Server) isolirCustomer(ctx context.Context, ip string) (c db.Customer, ok bool) {
+func (s *Handlers) isolirCustomer(ctx context.Context, ip string) (c db.Customer, ok bool) {
 	sess, err := s.Queries.GetOpenRadiusSessionByFramedIP(ctx, ip)
 	if err != nil {
 		return c, false
@@ -148,18 +145,18 @@ func (s *Server) isolirCustomer(ctx context.Context, ip string) (c db.Customer, 
 }
 
 // isolirIsolated reports whether the customer has an isolation that is running now.
-func (s *Server) isolirIsolated(ctx context.Context, customerID int64) bool {
+func (s *Handlers) isolirIsolated(ctx context.Context, customerID int64) bool {
 	// M3: kept as-is, see docs/internal/rencana/modularisasi.md (real clock, no isolir_enabled check;
 	// the gate checks the atomic flag instead)
 	return isolir.IsIsolated(ctx, s.Queries, customerID, time.Now())
 }
 
-// isolirGate serves the isolir page to an isolated client for GET and HEAD requests, whatever Host
+// IsolirGate serves the isolir page to an isolated client for GET and HEAD requests, whatever Host
 // and path it asked for. It wraps the whole router, so it runs before the root redirect. Paths the
 // client needs to pay or log in stay reachable (isolirExempt). With isolir off it does no query.
-func (s *Server) isolirGate(next http.Handler) http.Handler {
+func (s *Handlers) IsolirGate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !s.isolir.Load() || (r.Method != http.MethodGet && r.Method != http.MethodHead) || isolirExempt(r.URL.Path) {
+		if !s.IsolirOn() || (r.Method != http.MethodGet && r.Method != http.MethodHead) || isolirExempt(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -188,7 +185,7 @@ func isolirExempt(p string) bool {
 
 // writeIsolir fills the parts every render shares and writes the page: the custom HTML when the
 // mode is custom and it is not blank, else the default layout. Custom HTML is sandboxed.
-func (s *Server) writeIsolir(w http.ResponseWriter, r *http.Request, st map[string]string, v isolirView, status int, notice ...string) {
+func (s *Handlers) writeIsolir(w http.ResponseWriter, r *http.Request, st map[string]string, v isolirView, status int, notice ...string) {
 	if len(notice) > 0 {
 		v.Notice = notice[0]
 	}
@@ -211,7 +208,7 @@ func (s *Server) writeIsolir(w http.ResponseWriter, r *http.Request, st map[stri
 	s.emitIsolir(w, st, v, status, custom, st["isolir_html"])
 }
 
-func (s *Server) emitIsolir(w http.ResponseWriter, st map[string]string, v isolirView, status int, custom bool, src string) {
+func (s *Handlers) emitIsolir(w http.ResponseWriter, st map[string]string, v isolirView, status int, custom bool, src string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if custom {
 		w.Header().Set("Content-Security-Policy", isolirCSP)
@@ -302,13 +299,13 @@ img.logo{display:block;max-height:48px;max-width:180px;margin-bottom:8px}
 </main></body></html>`
 
 // isolirDefault parses the default layout with T bound to the request language.
-func (s *Server) isolirDefault() *template.Template {
+func (s *Handlers) isolirDefault() *template.Template {
 	return template.Must(template.New("isolir").Funcs(template.FuncMap{"T": func(text string) string { return s.T(text) }}).Parse(isolirDefaultSrc))
 }
 
-// isolirPreview is GET /admin/settings/isolir/preview: the page with sample data, in a new tab. The
+// IsolirPreview is GET /admin/settings/isolir/preview: the page with sample data, in a new tab. The
 // custom HTML is used when it is not blank, so a draft can be checked after saving.
-func (s *Server) isolirPreview(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) IsolirPreview(w http.ResponseWriter, r *http.Request) {
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
 		s.Fail(w, "isolir settings", err)
@@ -329,96 +326,6 @@ func (s *Server) isolirPreview(w http.ResponseWriter, r *http.Request) {
 	v.PortalURL = isolirPortalURL(st)
 	v.Notice = "Sample view. Customer data is not real."
 	s.emitIsolir(w, st, v, http.StatusOK, strings.TrimSpace(st["isolir_html"]) != "", st["isolir_html"])
-}
-
-// isolirSections are the defaults each "Kembalikan ke default" action writes.
-var isolirSections = map[string]map[string]string{
-	"paket":   {"isolir_enabled": "no", "isolir_plan_id": "", "isolir_days": "30"},
-	"halaman": {"isolir_title": isolir.Defaults["isolir_title"], "isolir_message": isolir.Defaults["isolir_message"], "isolir_wa": "", "isolir_show_voucher": "yes", "isolir_address_list": isolir.DefaultAddrList},
-	"mode":    {"isolir_mode": "default"},
-	"html":    {"isolir_html": ""},
-}
-
-// isolirReset is POST /admin/settings/isolir/reset/{section}: writes the section's defaults.
-func (s *Server) isolirReset(w http.ResponseWriter, r *http.Request) {
-	sec := r.PathValue("section")
-	set, ok := isolirSections[sec]
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-	for k, v := range set {
-		if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: k, Value: v}); err != nil {
-			s.Fail(w, "isolir reset "+k, err)
-			return
-		}
-	}
-	s.settingsSaved(r.Context())
-	s.done(w, r, "/admin/settings/isolir", "Settings saved", "settings.reset", "isolir "+sec)
-}
-
-// isolirVarList are the variables of the custom HTML, the ones renderIsolirCustom fills.
-var isolirVarList = []notify.Var{
-	{Name: "company_name", Desc: "Company name"},
-	{Name: "logo_url", Desc: "Logo address"},
-	{Name: "title", Desc: "Title of the page (Title setting)"},
-	{Name: "message", Desc: "Message of the page (Message setting)"},
-	{Name: "username", Desc: "Customer's username"},
-	{Name: "name", Desc: "Customer's full name"},
-	{Name: "plan_name", Desc: "Package name"},
-	{Name: "expired_at", Desc: "Expiry date and time"},
-	{Name: "amount", Desc: "Price of the package"},
-	{Name: "logout_url", Desc: "Hotspot logout address, empty when the Hotspot address is not set"},
-	{Name: "portal_url", Desc: "Customer login address, where the package is paid or extended"},
-	{Name: "wa_admin_link", Desc: "WhatsApp link to the admin"},
-	{Name: "voucher_form", Desc: "Voucher form, rendered by gobill"},
-	{Name: "promos", Desc: "Promotions, rendered by gobill"},
-	{Name: "known", Desc: "yes or no: the client is a known customer"},
-	{Name: "notice", Desc: "Result of the last action, such as a voucher"},
-}
-
-// isolirSetupFields is the MikroTik setup helper: copyable RouterOS commands for the address gobill
-// listens on (see gobillAddr).
-func (s *Server) isolirSetupFields(st map[string]string) []field {
-	host, port := s.gobillAddr()
-	// M3: kept as-is, see docs/internal/rencana/modularisasi.md (Value gives "" for an empty list,
-	// RADIUS sends "isolir")
-	list := isolir.Value(st, "isolir_address_list")
-	hosts := isolir.HostLines(isolir.Value(st, "isolir_allow_hosts"))
-	sec := s.T("Setup router (MikroTik, RouterOS 6 and 7)")
-	return []field{
-		{Name: "isolir_cmd_rules", Label: s.T("1. Isolation rules (paste the whole block, in this order)"), Type: "pre", Section: sec,
-			Value: isolir.RouterRules(list, host, port, hosts),
-			Hint:  s.T("The rules must sit above any general accept rule in the forward chain, or isolated clients are not cut off. Only HTTP on port 80 is redirected to the isolir page. Hosts in Allowed while isolated are reachable; wildcard hosts are learned when the app opens a TLS connection. Changed the allowed hosts? Paste the block again.")},
-		{Name: "isolir_cmd_walled", Label: s.T("2. Walled garden hotspot for gobill"), Type: "pre", Section: sec,
-			Value: fmt.Sprintf("/ip hotspot walled-garden ip add dst-address=%s dst-port=%s action=accept", host, port),
-			Hint:  s.T("So the isolir page opens before hotspot login.")},
-		{Name: "isolir_cmd_bypass", Label: s.T("3. Bypass the hotspot for the gobill host"), Type: "pre", Section: sec,
-			Value: "/ip hotspot ip-binding add mac-address=<MAC-HOST-GOBILL> type=bypassed",
-			Hint:  s.T("Replace <MAC-HOST-GOBILL> with the MAC address of gobill's LAN card. Without this rule, the hotspot can capture gobill's own traffic.")},
-		{Name: "isolir_cmd_test", Label: s.T("Test from the LAN with curl"), Type: "pre", Section: sec,
-			Value: fmt.Sprintf(`curl -i -H "Host: example.com" http://%s:%s/`, host, port),
-			Hint:  s.T("gobill serves the isolir page to isolated clients at the root and at every other path. Do not test with /tool fetch: RouterOS sends a duplicate Host header and gets 400.")},
-		{Name: "isolir_cmd_note", Label: s.T("Note"), Type: "note", Section: sec,
-			Hint: s.T("The address-list is sent by RADIUS as Mikrotik-Address-List. RouterOS 6 resolves DNS allow-list entries to exact names only, so a host whose CDN address changes may sometimes fail, such as WhatsApp media. Add a bank app by putting its host in Allowed while isolated, then paste the block again.")},
-	}
-}
-
-// gobillAddr is the LAN address and port gobill listens on (GOBILL_HTTP). A host that is not an IP,
-// such as empty or 0.0.0.0, gives the first LAN IPv4 address of this host.
-func (s *Server) gobillAddr() (host, port string) {
-	addr := s.ListenAddr
-	if addr == "" {
-		addr = ":8080"
-	}
-	host, port, err := net.SplitHostPort(addr)
-	if err != nil {
-		host, port = "", "8080"
-	}
-	if ip := net.ParseIP(host); ip == nil || ip.IsUnspecified() {
-		host = isolir.LanIPv4()
-	}
-	return host, port
 }
 
 // isolirPortalURL is where an isolated customer pays: the login page, on the app URL when it is set.

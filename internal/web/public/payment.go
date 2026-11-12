@@ -1,4 +1,4 @@
-package web
+package public
 
 // Payment gateway selection, settlement and Tripay callback.
 
@@ -20,7 +20,7 @@ import (
 // tripayCallback is the server-to-server notification. CSRF-exempt (see Handler); the HMAC
 // signature is the authentication. A valid signature always gets {"success":true}, so the
 // gateway stops retrying even for unknown or already-handled references.
-func (s *Server) tripayCallback(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) tripayCallback(w http.ResponseWriter, r *http.Request) {
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
 		s.Fail(w, "tripay callback", err)

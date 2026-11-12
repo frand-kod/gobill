@@ -1,4 +1,4 @@
-package web
+package public
 
 // RADIUS REST API used by the FreeRADIUS server.
 
@@ -25,13 +25,14 @@ import (
 	"layeh.com/radius/rfc2866"
 )
 
-func isRadiusRest(path string) bool { return path == "/radius.php" || path == "/radius/rest" }
+// IsRadiusRest is true for the FreeRADIUS REST paths, which have no session, CSRF or maintenance page.
+func IsRadiusRest(path string) bool { return path == "/radius.php" || path == "/radius/rest" }
 
 // radiusRestAllowed: the endpoint is closed until the operator opens it. A request passes when it
 // carries the shared secret (setting radius_rest_secret, header X-Gobill-Secret) or comes from an
 // address in radius_rest_allow. With neither setting, everything is refused. The allow-list checks
 // the TCP peer, never X-Forwarded-For.
-func radiusRestAllowed(r *http.Request, m map[string]string) bool {
+func radiusRestAllowed(r *http.Request, m map[string]string, peer string) bool {
 	if want := m["radius_rest_secret"]; want != "" {
 		// hash first so the compare takes the same time whatever the lengths
 		a, b := sha256.Sum256([]byte(want)), sha256.Sum256([]byte(r.Header.Get("X-Gobill-Secret")))
@@ -50,7 +51,7 @@ func radiusRestAllowed(r *http.Request, m map[string]string) bool {
 			return false
 		}
 	}
-	a, ok := httpx.PeerAddr(originalPeer(r))
+	a, ok := httpx.PeerAddr(peer)
 	if !ok {
 		return false
 	}
@@ -95,13 +96,13 @@ func rejectBody(msg string) kv {
 	return kv{"control:Auth-Type": "Reject", "reply:Reply-Message": msg}
 }
 
-func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) radiusRest(w http.ResponseWriter, r *http.Request) {
 	m, err := s.LoadSettings(r.Context())
 	if err != nil {
 		jsonOut(w, 500, nil)
 		return
 	}
-	if !radiusRestAllowed(r, m) {
+	if !radiusRestAllowed(r, m, s.OriginalPeer(r)) {
 		metrics.Inc("radius_rest_forbidden_total")
 		jsonOut(w, http.StatusForbidden, kv{"Reply-Message": "forbidden"})
 		return
@@ -116,7 +117,7 @@ func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
 	if action == "" {
 		action = r.FormValue("action")
 	}
-	rs := s.radiusServer()
+	rs := s.RadiusServer()
 	user := r.FormValue("username")
 	switch action {
 	case "authorize", "authenticate":
@@ -182,7 +183,7 @@ func (s *Server) radiusRest(w http.ResponseWriter, r *http.Request) {
 }
 
 // acceptBody is the old process_radiust_rest() attribute list.
-func (s *Server) acceptBody(d radius.Decision) kv {
+func (s *Handlers) acceptBody(d radius.Decision) kv {
 	pl := d.Plan
 	b := kv{
 		"control:Auth-Type":   "Accept",
@@ -229,22 +230,6 @@ func (s *Server) acceptBody(d radius.Decision) kv {
 		}
 	}
 	return b
-}
-
-// radiusServer returns the shared instance (so throttles persist across requests);
-// tests without one get a single lazily built instance.
-func (s *Server) radiusServer() *radius.Server {
-	s.radiusOnce.Do(func() {
-		if s.Radius != nil {
-			return
-		}
-		s.Radius = &radius.Server{Q: s.Queries, Key: s.SecretKey, Trusted: func() bool { return s.ClockWarning == nil || s.ClockWarning() == "" }}
-		if s.Billing != nil {
-			s.Radius.Redeem = s.Billing.RedeemVoucher
-			s.Radius.Start = s.Billing.StartPending
-		}
-	})
-	return s.Radius
 }
 
 // terminateCause is an Acct-Terminate-Cause form value as its name: FreeRADIUS sends the name, a number is looked up.
