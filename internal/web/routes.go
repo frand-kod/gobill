@@ -10,7 +10,9 @@ import (
 
 	gobill "github.com/frand-kod/gobill"
 	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/admin/customers"
 	"github.com/frand-kod/gobill/internal/web/admin/network"
+	"github.com/frand-kod/gobill/internal/web/admin/plans"
 	"github.com/frand-kod/gobill/internal/web/portal"
 	"github.com/frand-kod/gobill/internal/web/public"
 )
@@ -54,9 +56,6 @@ func isPrefetch(r *http.Request) bool {
 // forgot username, and log cleanup.
 
 func (s *Server) extraRoutes(mux *http.ServeMux, managers func(http.Handler) http.Handler) {
-	mux.Handle("POST /admin/customers/{id}/deactivate", managers(http.HandlerFunc(s.custDeactivate)))
-	mux.Handle("POST /admin/customers/{id}/sync", managers(http.HandlerFunc(s.custSync)))
-	mux.Handle("POST /admin/customers/{id}/usage-recount", managers(http.HandlerFunc(s.custRecountUsage)))
 	mux.Handle("POST /admin/customers/{id}/login", managers(http.HandlerFunc(s.custLoginAs)))
 	mux.Handle("POST /admin/logs/clean/{kind}", managers(http.HandlerFunc(s.logClean)))
 
@@ -117,17 +116,10 @@ func (s *Server) Handler() http.Handler {
 	// phpnuxbill keeps the old PHP rules.
 	money := s.byMode(managers, staff)
 	noReport := s.byMode(staff, all)
-	crud := func(base string, list, nw, edit, save, del http.HandlerFunc) {
-		mux.Handle("GET "+base, managers(list))
-		mux.Handle("GET "+base+"/new", managers(nw))
-		mux.Handle("POST "+base, managers(save))
-		mux.Handle("GET "+base+"/{id}/edit", managers(edit))
-		mux.Handle("POST "+base+"/{id}", managers(save))
-		mux.Handle("POST "+base+"/{id}/delete", managers(del))
-	}
-
 	mw := adminx.Mw{All: all, Managers: managers, Staff: staff, NoReport: noReport, Money: money, SuperAdmin: s.requireAdmin("SuperAdmin"), Require: s.requireAdmin}
 	network.Register(mux, s.net, mw)
+	customers.Register(mux, s.customers, mw)
+	plans.Register(mux, s.plans, mw)
 
 	// auth: root redirect, static files, uploads, admin login/logout, own password
 	mux.HandleFunc("GET /{$}", s.root)
@@ -152,19 +144,9 @@ func (s *Server) Handler() http.Handler {
 	// customers: search, list, detail, edit, delete, actions, custom fields, maps
 	mux.Handle("GET /admin/search", all(http.HandlerFunc(s.searchPage)))
 	mux.Handle("GET /admin/search.json", noReport(http.HandlerFunc(s.searchJSON)))
-	mux.Handle("GET /admin/customers/pick", staff(http.HandlerFunc(s.custPick)))
-	mux.Handle("GET /admin/customers", all(http.HandlerFunc(s.custList)))
-	mux.Handle("GET /admin/customers/export", noReport(http.HandlerFunc(s.custExport)))
-	mux.Handle("GET /admin/customers/new", staff(http.HandlerFunc(s.custNew)))
-	mux.Handle("POST /admin/customers", staff(http.HandlerFunc(s.custSave)))
-	mux.Handle("GET /admin/customers/{id}", all(http.HandlerFunc(s.custView)))
-	mux.Handle("GET /admin/customers/{id}/edit", managers(http.HandlerFunc(s.custEdit)))
-	mux.Handle("POST /admin/customers/{id}", managers(http.HandlerFunc(s.custSave)))
 	mux.Handle("POST /admin/customers/message", staff(http.HandlerFunc(s.custMessageForm)))
-	mux.Handle("POST /admin/customers/{id}/delete", managers(http.HandlerFunc(s.custDelete)))
 	s.extraRoutes(mux, managers)
 	// Old customfield.php: custom fields CRUD (managers only).
-	crud("/admin/fields", s.cfList, s.cfNew, s.cfEdit, s.cfSave, s.cfDelete)
 	// F5 maps and ODP (maps.go, odp.go). Old PHP: customer map is open to all admins; router, ODP and their maps are managers only.
 
 	// recharge and billing: recharge, deposit, customer plans, transactions, payment gateway admin
@@ -173,7 +155,6 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/customers/recharge", staff(http.HandlerFunc(s.bulkRechargeConfirm)))
 	mux.Handle("POST /admin/customers/recharge/run", staff(http.HandlerFunc(s.bulkRechargeRun)))
 	mux.Handle("GET /admin/customers/recharge/result", staff(http.HandlerFunc(s.bulkRechargeResult)))
-	mux.Handle("GET /admin/customers/{id}/summary", staff(http.HandlerFunc(s.custSummary)))
 	mux.Handle("GET /admin/recharge", staff(http.HandlerFunc(s.rechargePick)))
 	mux.Handle("POST /admin/recharge", staff(http.HandlerFunc(s.rechargeStart)))
 	mux.Handle("GET /admin/deposit", money(http.HandlerFunc(s.depositForm)))
@@ -224,9 +205,6 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/coupons/{id}/delete", cpn(http.HandlerFunc(s.cpnDelete)))
 
 	// plans and network: bandwidth, plans, pools, routers, NAS, online sessions, ODP and router/ODP maps
-	crud("/admin/bandwidth", s.bwList, s.bwNew, s.bwEdit, s.bwSave, s.bwDelete)
-	crud("/admin/plans", s.planList, s.planNew, s.planEdit, s.planSave, s.planDelete)
-	crud("/admin/pool", s.poolList, s.poolNew, s.poolEdit, s.poolSave, s.poolDelete)
 	mux.Handle("GET /admin/routers/{id}/reconcile", managers(http.HandlerFunc(s.routerReconcile)))
 	mux.Handle("POST /admin/routers/{id}/reconcile", managers(http.HandlerFunc(s.routerReconcile)))
 	mux.Handle("GET /admin/network/{kind}/{id}", managers(http.HandlerFunc(s.networkDetail)))

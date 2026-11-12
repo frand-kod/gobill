@@ -8,6 +8,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -16,10 +17,7 @@ import (
 func init() { settingsSuperField["role_access_mode"] = true }
 
 // strictAccess reports whether role_access_mode is strict (anything but "phpnuxbill").
-func (s *Server) strictAccess(ctx context.Context) bool {
-	st, err := s.LoadSettings(ctx)
-	return err != nil || st["role_access_mode"] != "phpnuxbill"
-}
+func (s *Server) strictAccess(ctx context.Context) bool { return s.ax.StrictAccess(ctx) }
 
 // byMode picks the strict or the PHPNuxBill middleware per request, so a settings change applies at once.
 func (s *Server) byMode(strict, php func(http.Handler) http.Handler) func(http.Handler) http.Handler {
@@ -36,10 +34,7 @@ func (s *Server) byMode(strict, php func(http.Handler) http.Handler) func(http.H
 }
 
 // ctxIsManager: the admin on ctx (set by requireAdmin) is SuperAdmin or Admin.
-func ctxIsManager(ctx context.Context) bool {
-	a, _ := ctx.Value(ctxKey{}).(*db.Admin)
-	return a != nil && httpx.OneOf(a.Role, "SuperAdmin", "Admin")
-}
+func ctxIsManager(ctx context.Context) bool { return adminx.CtxIsManager(ctx) }
 
 // canOpenInvoices matches the invoice route (noReport): strict mode keeps the Report role out.
 func (s *Server) canOpenInvoices(ctx context.Context) bool {

@@ -1,4 +1,4 @@
-package web
+package plans
 
 // Bandwidth profile CRUD.
 
@@ -26,7 +26,7 @@ func bwFields(v, e map[string]string) []field {
 	}, "Speed", "")...)
 }
 
-func (s *Server) bwList(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) bwList(w http.ResponseWriter, r *http.Request) {
 	q, pg := view.Paging(r)
 	_, isoBW := s.IsolirIDs(r.Context()) // the isolir profile is set in Settings > Isolir
 	rows, err := s.Queries.SearchBandwidths(r.Context(), db.SearchBandwidthsParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset(), HiddenID: isoBW})
@@ -45,15 +45,15 @@ func (s *Server) bwList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp.Finish(pg, total)
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }
 
-func (s *Server) bwNew(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) bwNew(w http.ResponseWriter, r *http.Request) {
 	v := map[string]string{"rate_down_unit": "Mbps", "rate_up_unit": "Mbps"}
-	s.renderForm(w, r, 200, formPage{Heading: "Add Bandwidth", Action: "/admin/bandwidth", Cancel: "/admin/bandwidth", Fields: bwFields(v, nil)})
+	s.RenderForm(w, r, 200, formPage{Heading: "Add Bandwidth", Action: "/admin/bandwidth", Cancel: "/admin/bandwidth", Fields: bwFields(v, nil)})
 }
 
-func (s *Server) bwEdit(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) bwEdit(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	b, err := s.Queries.GetBandwidth(r.Context(), id)
 	if err == sql.ErrNoRows {
@@ -65,11 +65,11 @@ func (s *Server) bwEdit(w http.ResponseWriter, r *http.Request) {
 	}
 	v := map[string]string{"name": b.Name, "rate_down": fmt.Sprint(b.RateDown), "rate_down_unit": b.RateDownUnit,
 		"rate_up": fmt.Sprint(b.RateUp), "rate_up_unit": b.RateUpUnit, "burst": b.Burst}
-	s.renderForm(w, r, 200, formPage{Heading: "Edit Bandwidth", Action: fmt.Sprint("/admin/bandwidth/", id), Cancel: "/admin/bandwidth", Fields: bwFields(v, nil)})
+	s.RenderForm(w, r, 200, formPage{Heading: "Edit Bandwidth", Action: fmt.Sprint("/admin/bandwidth/", id), Cancel: "/admin/bandwidth", Fields: bwFields(v, nil)})
 }
 
-// bwSave serves both create (no {id} in the path) and update.
-func (s *Server) bwSave(w http.ResponseWriter, r *http.Request) {
+// BwSave serves both create (no {id} in the path) and update; the setup wizard replays it too.
+func (s *Handlers) BwSave(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	v := httpx.FormVals(r, bwNames...)
 	e := map[string]string{}
@@ -110,7 +110,7 @@ func (s *Server) bwSave(w http.ResponseWriter, r *http.Request) {
 			if id != 0 {
 				act, msg = "bandwidth.update", "Data Updated Successfully"
 			}
-			s.done(w, r, "/admin/bandwidth", msg, act, v["name"])
+			s.Done(w, r, "/admin/bandwidth", msg, act, v["name"])
 			return
 		}
 	}
@@ -118,15 +118,15 @@ func (s *Server) bwSave(w http.ResponseWriter, r *http.Request) {
 	if id != 0 {
 		action, head = fmt.Sprint("/admin/bandwidth/", id), "Edit Bandwidth"
 	}
-	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/bandwidth", Fields: bwFields(v, e)})
+	s.RenderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/bandwidth", Fields: bwFields(v, e)})
 }
 
-func (s *Server) bwDelete(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) bwDelete(w http.ResponseWriter, r *http.Request) {
 	name := ""
 	if b, err := s.Queries.GetBandwidth(r.Context(), httpx.PathID(r)); err == nil {
 		name = b.Name
 	}
-	s.remove(w, r, "/admin/bandwidth", "bandwidth", "Bandwidth is used by a plan", name, func(id int64) error {
+	s.Remove(w, r, "/admin/bandwidth", "bandwidth", "Bandwidth is used by a plan", name, func(id int64) error {
 		return s.Queries.DeleteBandwidth(r.Context(), id)
 	})
 }

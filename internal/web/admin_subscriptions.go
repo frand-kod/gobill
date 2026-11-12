@@ -42,7 +42,7 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 	p := subQuery(r)
 	p.PageLimit, p.PageOffset = pg.Limit(), pg.Offset()
 	g := r.URL.Query().Get
-	rts, err := s.routerNames(r)
+	rts, err := s.ax.RouterNames(r)
 	if err != nil {
 		s.Fail(w, "list routers", err)
 		return

@@ -1,4 +1,4 @@
-package web
+package customers
 
 // Customer status strip: the checks live in internal/service/diagnose, this only gives it the language and the formats.
 
@@ -12,7 +12,8 @@ import (
 	"github.com/frand-kod/gobill/internal/service/diagnose"
 )
 
-func (s *Server) diagnose(ctx context.Context, c db.Customer, subs []db.Subscription, online string) diagnose.Diagnosis {
+// Diagnose runs the status checks for one customer.
+func (s *Handlers) Diagnose(ctx context.Context, c db.Customer, subs []db.Subscription, online string) diagnose.Diagnosis {
 	return (&diagnose.Service{Q: s.Queries, TS: s.TS, Dur: view.HumanDur, Bytes: view.HumanBytes,
 		T: func(k string, a ...any) string {
 			k = s.T(k)

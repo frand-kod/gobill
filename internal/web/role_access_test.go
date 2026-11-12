@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -66,11 +67,16 @@ func TestRoleMatrixStrict(t *testing.T) {
 	}
 }
 
-// Every route that routes.go wraps in view.Money(...) or noReport(...) must be in strictMatrix.
+// Every route that routes.go (or an admin package routes.go) wraps in view.Money(...) or noReport(...) must be in strictMatrix.
 func TestRoleMatrixCoversRoutes(t *testing.T) {
-	src, err := os.ReadFile("routes.go")
-	if err != nil {
-		t.Fatal(err)
+	files, _ := filepath.Glob("admin/*/routes.go")
+	var src []byte
+	for _, f := range append([]string{"routes.go"}, files...) {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		src = append(src, b...)
 	}
 	have := map[string]bool{}
 	for _, r := range strictMatrix {

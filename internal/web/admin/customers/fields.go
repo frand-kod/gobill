@@ -1,4 +1,4 @@
-package web
+package customers
 
 // Custom customer field definitions and values.
 
@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/service/customer"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"context"
@@ -50,7 +51,7 @@ func cfFields(v, e map[string]string) []field {
 	}, "Custom Field", "")
 }
 
-func (s *Server) cfList(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) cfList(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Queries.ListCustomFields(r.Context())
 	if err != nil {
 		s.Fail(w, "list custom fields", err)
@@ -65,15 +66,15 @@ func (s *Server) cfList(w http.ResponseWriter, r *http.Request) {
 		}
 		lp.Rows = append(lp.Rows, listRow{ID: f.ID, Cells: []string{f.Name, f.Type, f.Options, req, fmt.Sprint(f.SortOrder)}})
 	}
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }
 
-func (s *Server) cfNew(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) cfNew(w http.ResponseWriter, r *http.Request) {
 	v := map[string]string{"type": "text", "sort_order": "0"}
-	s.renderForm(w, r, 200, formPage{Heading: "Add Custom Field", Action: "/admin/fields", Cancel: "/admin/fields", Fields: cfFields(v, nil)})
+	s.RenderForm(w, r, 200, formPage{Heading: "Add Custom Field", Action: "/admin/fields", Cancel: "/admin/fields", Fields: cfFields(v, nil)})
 }
 
-func (s *Server) cfEdit(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) cfEdit(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	f, err := s.Queries.GetCustomField(r.Context(), id)
 	if err == sql.ErrNoRows {
@@ -87,11 +88,11 @@ func (s *Server) cfEdit(w http.ResponseWriter, r *http.Request) {
 	if f.Required == 1 {
 		v["required"] = "1"
 	}
-	s.renderForm(w, r, 200, formPage{Heading: "Edit Custom Field", Action: fmt.Sprint("/admin/fields/", id), Cancel: "/admin/fields", Fields: cfFields(v, nil)})
+	s.RenderForm(w, r, 200, formPage{Heading: "Edit Custom Field", Action: fmt.Sprint("/admin/fields/", id), Cancel: "/admin/fields", Fields: cfFields(v, nil)})
 }
 
 // cfSave serves both create (no {id} in the path) and update.
-func (s *Server) cfSave(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) cfSave(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	v := httpx.FormVals(r, cfNames...)
 	e := map[string]string{}
@@ -136,7 +137,7 @@ func (s *Server) cfSave(w http.ResponseWriter, r *http.Request) {
 			if id != 0 {
 				act, msg = "field.update", "Data Updated Successfully"
 			}
-			s.done(w, r, "/admin/fields", msg, act, v["name"])
+			s.Done(w, r, "/admin/fields", msg, act, v["name"])
 			return
 		}
 	}
@@ -144,15 +145,15 @@ func (s *Server) cfSave(w http.ResponseWriter, r *http.Request) {
 	if id != 0 {
 		action, head = fmt.Sprint("/admin/fields/", id), "Edit Custom Field"
 	}
-	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/fields", Fields: cfFields(v, e)})
+	s.RenderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/fields", Fields: cfFields(v, e)})
 }
 
-func (s *Server) cfDelete(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) cfDelete(w http.ResponseWriter, r *http.Request) {
 	name := ""
 	if f, err := s.Queries.GetCustomField(r.Context(), httpx.PathID(r)); err == nil {
 		name = f.Name
 	}
-	s.remove(w, r, "/admin/fields", "field", "Custom field is in use", name, func(id int64) error {
+	s.Remove(w, r, "/admin/fields", "field", "Custom field is in use", name, func(id int64) error {
 		return s.Queries.DeleteCustomField(r.Context(), id)
 	})
 }
@@ -160,7 +161,7 @@ func (s *Server) cfDelete(w http.ResponseWriter, r *http.Request) {
 // cfFormFields is the custom-field load hook: one input per field, filled from v
 // (posted values) and, for a saved customer (custID != 0), from the stored values.
 // The same list feeds the customer detail page.
-func (s *Server) cfFormFields(ctx context.Context, custID int64, v, e map[string]string) ([]field, error) {
+func (s *Handlers) cfFormFields(ctx context.Context, custID int64, v, e map[string]string) ([]field, error) {
 	defs, err := s.Queries.ListCustomFields(ctx)
 	if err != nil {
 		return nil, err
@@ -183,7 +184,7 @@ func (s *Server) cfFormFields(ctx context.Context, custID int64, v, e map[string
 		}
 		f := field{Name: k, Label: d.Name, Type: d.Type, Value: v[k], Error: e[k], Required: d.Required == 1}
 		if d.Type == "select" {
-			f.Options = anyOpts("-", cfOptions(d.Options)...)
+			f.Options = adminx.AnyOpts("-", cfOptions(d.Options)...)
 		}
 		fs = append(fs, f)
 	}
@@ -192,7 +193,7 @@ func (s *Server) cfFormFields(ctx context.Context, custID int64, v, e map[string
 
 // cfCheck is the custom-field save hook: it reads and validates the posted values
 // into v and e, and returns what to store. Nothing is written here.
-func (s *Server) cfCheck(ctx context.Context, r *http.Request, v, e map[string]string) ([]customer.CFValue, error) {
+func (s *Handlers) cfCheck(ctx context.Context, r *http.Request, v, e map[string]string) ([]customer.CFValue, error) {
 	defs, err := s.Queries.ListCustomFields(ctx)
 	if err != nil {
 		return nil, err
@@ -228,7 +229,7 @@ func (s *Server) cfCheck(ctx context.Context, r *http.Request, v, e map[string]s
 }
 
 // customerForm is the customer form: the built-in fields followed by the custom ones.
-func (s *Server) customerForm(ctx context.Context, id int64, v, e map[string]string, editing bool) ([]field, error) {
+func (s *Handlers) customerForm(ctx context.Context, id int64, v, e map[string]string, editing bool) ([]field, error) {
 	cf, err := s.cfFormFields(ctx, id, v, e)
 	if err != nil {
 		return nil, err

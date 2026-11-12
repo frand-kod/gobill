@@ -1,4 +1,4 @@
-package web
+package customers
 
 // Customer actions: deactivate, sync and welcome message.
 
@@ -13,14 +13,15 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/notify"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 // ---- customer detail actions ----
 
 // custAct runs a billing action for the customer and redirects back to the detail page.
-func (s *Server) custAct(w http.ResponseWriter, r *http.Request, action, okMsg string, do func(ctx context.Context, id, adminID int64) (int, error)) {
-	c, ok := s.custGet(w, r)
+func (s *Handlers) custAct(w http.ResponseWriter, r *http.Request, action, okMsg string, do func(ctx context.Context, id, adminID int64) (int, error)) {
+	c, ok := s.CustGet(w, r)
 	if !ok {
 		return
 	}
@@ -29,7 +30,7 @@ func (s *Server) custAct(w http.ResponseWriter, r *http.Request, action, okMsg s
 		return
 	}
 	back := fmt.Sprint("/admin/customers/", c.ID)
-	n, err := do(r.Context(), c.ID, adminFrom(r).ID)
+	n, err := do(r.Context(), c.ID, adminx.AdminFrom(r).ID)
 	switch {
 	case err != nil:
 		slog.Error(action, "customer", c.Username, "err", err)
@@ -39,23 +40,23 @@ func (s *Server) custAct(w http.ResponseWriter, r *http.Request, action, okMsg s
 		s.Sessions.Put(r.Context(), "error", s.T("Cannot find active plan"))
 		http.Redirect(w, r, back, http.StatusSeeOther)
 	default:
-		s.done(w, r, back, okMsg, action, c.Username)
+		s.Done(w, r, back, okMsg, action, c.Username)
 	}
 }
 
-func (s *Server) custDeactivate(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) custDeactivate(w http.ResponseWriter, r *http.Request) {
 	s.custAct(w, r, "customer.deactivate", "Success deactivate customer to Mikrotik", s.billingDeactivate)
 }
 
-func (s *Server) custSync(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) custSync(w http.ResponseWriter, r *http.Request) {
 	s.custAct(w, r, "customer.sync", "Success sync customer to router", s.billingSync)
 }
 
-func (s *Server) billingDeactivate(ctx context.Context, id, adminID int64) (int, error) {
+func (s *Handlers) billingDeactivate(ctx context.Context, id, adminID int64) (int, error) {
 	return s.Billing.DeactivateCustomer(ctx, id, adminID)
 }
 
-func (s *Server) billingSync(ctx context.Context, id, adminID int64) (int, error) {
+func (s *Handlers) billingSync(ctx context.Context, id, adminID int64) (int, error) {
 	return s.Billing.SyncCustomer(ctx, id, adminID)
 }
 
@@ -73,7 +74,7 @@ func welcomeChannels(v map[string]string) (out []string) {
 // welcome sends welcome_message on the chosen channels, in the background. The password is the
 // masked "********" unless send_credentials_on_create is yes, then the real one (pass). The
 // message log keeps the mask, never the password.
-func (s *Server) welcome(ctx context.Context, c db.Customer, vias []string, pass string) {
+func (s *Handlers) welcome(ctx context.Context, c db.Customer, vias []string, pass string) {
 	if len(vias) == 0 {
 		return
 	}
@@ -102,8 +103,8 @@ func (s *Server) welcome(ctx context.Context, c db.Customer, vias []string, pass
 // custRecountUsage raises the used data and time of the customer's active subscriptions to what the
 // sessions still in the log hold: for after a downgrade to a version without the counters, when the
 // diagnosis shows the log ahead. It never lowers a counter, so a pruned log cannot give quota back.
-func (s *Server) custRecountUsage(w http.ResponseWriter, r *http.Request) {
-	c, ok := s.custGet(w, r)
+func (s *Handlers) custRecountUsage(w http.ResponseWriter, r *http.Request) {
+	c, ok := s.CustGet(w, r)
 	if !ok {
 		return
 	}
@@ -121,5 +122,5 @@ func (s *Server) custRecountUsage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	s.done(w, r, fmt.Sprint("/admin/customers/", c.ID), "Usage recounted from the session log", "customer.usage_recount", c.Username)
+	s.Done(w, r, fmt.Sprint("/admin/customers/", c.ID), "Usage recounted from the session log", "customer.usage_recount", c.Username)
 }

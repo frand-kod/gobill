@@ -377,7 +377,7 @@ func (s *Server) wizSaveSpeeds(r *http.Request) (wizResult, error) {
 		if have[name] {
 			continue
 		}
-		ok, errs := s.wizReplay(r, http.HandlerFunc(s.bwSave), 0, url.Values{"name": {name}, "rate_down": {rate}, "rate_down_unit": {"Mbps"},
+		ok, errs := s.wizReplay(r, http.HandlerFunc(s.plans.BwSave), 0, url.Values{"name": {name}, "rate_down": {rate}, "rate_down_unit": {"Mbps"},
 			"rate_up": {rate}, "rate_up_unit": {"Mbps"}, "burst": {""}})
 		if !ok {
 			e[key] = joinErrs(errs)
@@ -404,7 +404,7 @@ func (s *Server) wizSavePlans(r *http.Request, ws wizState) (wizResult, error) {
 		return wizResult{}, err
 	}
 	for _, p := range created { // what the Plans page does after a save
-		s.syncPlan(r, "add", p, "")
+		s.ax.SyncPlan(r, "add", p, "")
 		s.logActivity(r, "plan.create", p.Name)
 	}
 	for k, msg := range e {

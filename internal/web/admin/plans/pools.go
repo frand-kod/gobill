@@ -1,4 +1,4 @@
-package web
+package plans
 
 // IP pool CRUD and router sync.
 
@@ -16,11 +16,6 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 )
 
-// routerNames lists up to 1000 routers; pools are meaningless without one.
-func (s *Server) routerNames(r *http.Request) ([]db.Router, error) {
-	return s.Queries.ListRouters(r.Context(), db.ListRoutersParams{Limit: 1000})
-}
-
 func poolFields(v, e map[string]string, routers []db.Router) []field {
 	sel := text("router_id", "Router", v, e).As("select").Req()
 	for _, x := range routers {
@@ -33,14 +28,14 @@ func poolFields(v, e map[string]string, routers []db.Router) []field {
 	}, "Pool", ""), section([]field{sel}, "Router", "")...)
 }
 
-func (s *Server) poolList(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) poolList(w http.ResponseWriter, r *http.Request) {
 	q, pg := view.Paging(r)
 	rows, err := s.Queries.SearchPools(r.Context(), db.SearchPoolsParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
 		s.Fail(w, "list pools", err)
 		return
 	}
-	routers, err := s.routerNames(r)
+	routers, err := s.RouterNames(r)
 	if err != nil {
 		s.Fail(w, "list routers", err)
 		return
@@ -60,19 +55,19 @@ func (s *Server) poolList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp.Finish(pg, total)
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }
 
-func (s *Server) poolNew(w http.ResponseWriter, r *http.Request) {
-	routers, err := s.routerNames(r)
+func (s *Handlers) poolNew(w http.ResponseWriter, r *http.Request) {
+	routers, err := s.RouterNames(r)
 	if err != nil {
 		s.Fail(w, "list routers", err)
 		return
 	}
-	s.renderForm(w, r, 200, formPage{Heading: "Add Pool", Action: "/admin/pool", Cancel: "/admin/pool", Fields: poolFields(nil, nil, routers)})
+	s.RenderForm(w, r, 200, formPage{Heading: "Add Pool", Action: "/admin/pool", Cancel: "/admin/pool", Fields: poolFields(nil, nil, routers)})
 }
 
-func (s *Server) poolEdit(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) poolEdit(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	p, err := s.Queries.GetPool(r.Context(), id)
 	if err == sql.ErrNoRows {
@@ -82,16 +77,16 @@ func (s *Server) poolEdit(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "get pool", err)
 		return
 	}
-	routers, err := s.routerNames(r)
+	routers, err := s.RouterNames(r)
 	if err != nil {
 		s.Fail(w, "list routers", err)
 		return
 	}
 	v := map[string]string{"name": p.Name, "local_ip": p.LocalIp, "range_ip": p.RangeIp, "router_id": fmt.Sprint(p.RouterID)}
-	s.renderForm(w, r, 200, formPage{Heading: "Edit Pool", Action: fmt.Sprint("/admin/pool/", id), Cancel: "/admin/pool", Fields: poolFields(v, nil, routers)})
+	s.RenderForm(w, r, 200, formPage{Heading: "Edit Pool", Action: fmt.Sprint("/admin/pool/", id), Cancel: "/admin/pool", Fields: poolFields(v, nil, routers)})
 }
 
-func (s *Server) poolSave(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) poolSave(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	v := httpx.FormVals(r, "name", "local_ip", "range_ip", "router_id")
 	e := map[string]string{}
@@ -125,11 +120,11 @@ func (s *Server) poolSave(w http.ResponseWriter, r *http.Request) {
 				act, msg, op = "pool.update", "Data Updated Successfully", "update"
 			}
 			s.syncPool(r, op, saved, old.Name)
-			s.done(w, r, "/admin/pool", msg, act, v["name"])
+			s.Done(w, r, "/admin/pool", msg, act, v["name"])
 			return
 		}
 	}
-	routers, err := s.routerNames(r)
+	routers, err := s.RouterNames(r)
 	if err != nil {
 		s.Fail(w, "list routers", err)
 		return
@@ -138,24 +133,24 @@ func (s *Server) poolSave(w http.ResponseWriter, r *http.Request) {
 	if id != 0 {
 		action, head = fmt.Sprint("/admin/pool/", id), "Edit Pool"
 	}
-	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/pool", Fields: poolFields(v, e, routers)})
+	s.RenderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/pool", Fields: poolFields(v, e, routers)})
 }
 
 // syncPool tells the pool's router about a change; a failure keeps the DB change and warns.
-func (s *Server) syncPool(r *http.Request, op string, p db.Pool, oldName string) {
+func (s *Handlers) syncPool(r *http.Request, op string, p db.Pool, oldName string) {
 	if s.Billing == nil {
 		return
 	}
 	if err := s.Billing.SyncPool(r.Context(), op, p, oldName); err != nil {
 		slog.Error("sync pool", "op", op, "pool", p.Name, "err", err)
-		s.logActivity(r, "pool.sync_failed", fmt.Sprintf("%s %s: %v", op, p.Name, err))
+		s.LogActivity(r, "pool.sync_failed", fmt.Sprintf("%s %s: %v", op, p.Name, err))
 		s.Sessions.Put(r.Context(), "error", s.T("Saved, but the router could not be updated")+": "+err.Error())
 	}
 }
 
-func (s *Server) poolDelete(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) poolDelete(w http.ResponseWriter, r *http.Request) {
 	p, _ := s.Queries.GetPool(r.Context(), httpx.PathID(r))
-	s.remove(w, r, "/admin/pool", "pool", "Pool is used by a plan", p.Name, func(id int64) error {
+	s.Remove(w, r, "/admin/pool", "pool", "Pool is used by a plan", p.Name, func(id int64) error {
 		if err := s.Queries.DeletePool(r.Context(), id); err != nil {
 			return err
 		}

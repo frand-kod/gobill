@@ -1,4 +1,4 @@
-package web
+package customers
 
 // Customer summary for the recharge page: status, balance, active subscriptions and the last
 // transactions of the chosen customer, plus the double-charge guard data.
@@ -65,8 +65,8 @@ type customerSummary struct {
 
 // custSummary: GET /admin/customers/{id}/summary?plan=<id>. Read-only. plan is optional and only
 // used to say what a recharge with it would do to the active subscriptions (same rule as billing).
-func (s *Server) custSummary(w http.ResponseWriter, r *http.Request) {
-	c, ok := s.custGet(w, r)
+func (s *Handlers) custSummary(w http.ResponseWriter, r *http.Request) {
+	c, ok := s.CustGet(w, r)
 	if !ok {
 		return
 	}
@@ -148,7 +148,7 @@ func (s *Server) custSummary(w http.ResponseWriter, r *http.Request) {
 // summaryUsage is the usage line of one active subscription: data and time used of the plan limit
 // (planQuota, the numbers the RADIUS check enforces), or the data used since the plan started when it has
 // no limit; a time-only limit also shows the data. "" for a non-RADIUS plan. full: a limit is used up.
-func (s *Server) summaryUsage(ctx context.Context, c db.Customer, subID, planID int64) (line string, full bool, err error) {
+func (s *Handlers) summaryUsage(ctx context.Context, c db.Customer, subID, planID int64) (line string, full bool, err error) {
 	sub, err := s.Queries.GetSubscription(ctx, subID)
 	if err != nil {
 		return "", false, err
@@ -180,29 +180,4 @@ func (s *Server) summaryUsage(ctx context.Context, c db.Customer, subID, planID 
 		parts = append([]string{s.T("Quota used up")}, parts...)
 	}
 	return strings.Join(parts, " · "), full, nil
-}
-
-// summaryLabels are the summary panel's strings in the page language; the script only fills values in.
-// %s and %d placeholders are filled in order by the script.
-func (s *Server) summaryLabels() string {
-	return jsonStr(map[string]string{
-		"empty":     s.T("Select a customer to see the summary"),
-		"error":     s.T("Could not load the summary"),
-		"voucher":   s.T("Voucher account"),
-		"voucherNo": s.T("Voucher code"),
-		"balance":   s.T("Balance"),
-		"active":    s.T("Active subscriptions"),
-		"none":      s.T("No active subscription"),
-		"txns":      s.T("Last 5 transactions"),
-		"noTxns":    s.T("No transactions yet"),
-		"date":      s.T("Date"),
-		"invoice":   s.T("Invoice"),
-		"plan":      s.T("Service Plan"),
-		"price":     s.T("Price"),
-		"view":      s.T("View customer"),
-		"blocked":   s.T("This account is not active. Recharge will be refused until it is turned on."),
-		"still":     s.T("Still active: %s until %s (%d days left)."),
-		"extend":    s.T("Recharging this same plan extends it from that date."),
-		"replace":   s.T("Recharging a different plan replaces it."),
-	})
 }

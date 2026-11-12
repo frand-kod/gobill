@@ -1,16 +1,16 @@
-package web
+package plans
 
 // Plan CRUD and router sync.
 
 import (
 	"database/sql"
 	"errors"
-	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
 
 	"github.com/frand-kod/gobill/internal/service/plan"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/view"
 
@@ -34,7 +34,7 @@ type planRefs struct {
 	plans []db.Plan
 }
 
-func (s *Server) planRefs(r *http.Request) (x planRefs, err error) {
+func (s *Handlers) planRefs(r *http.Request) (x planRefs, err error) {
 	ctx := r.Context()
 	if x.bw, err = s.Queries.ListBandwidths(ctx, db.ListBandwidthsParams{Limit: 1000}); err != nil {
 		return
@@ -152,19 +152,19 @@ func planFields(v, e map[string]string, x planRefs, self int64) []field {
 
 // planHelp is the plan form's extras: the docs link, a live summary and a sticky save bar. The
 // summary is an Alpine expression over the bound fields; its word comes from the catalog.
-func (s *Server) planHelp() formHelp {
+func (s *Handlers) planHelp() core.FormHelp {
 	word := jsonStr(s.T("device"))
 	sum := `(type === 'Balance' ? [type] : [type,
 		bandwidth_id && $root.bandwidth_id.selectedOptions[0]?.text,
 		validity && validity_unit && validity + ' ' + $root.validity_unit.selectedOptions[0]?.text,
 		type === 'Hotspot' && shared_users && shared_users + ' ' + ` + word + `])
 		.concat('Rp' + (Number(price) || 0).toLocaleString('id-ID')).filter(Boolean).join(' · ')`
-	return formHelp{Docs: "/admin/docs/configuration", Summary: sum, Narrow: true, Sticky: true}
+	return core.FormHelp{Docs: "/admin/docs/configuration", Summary: sum, Narrow: true, Sticky: true}
 }
 
 // renderPlanForm renders the plan form page with its extras.
-func (s *Server) renderPlanForm(w http.ResponseWriter, r *http.Request, status int, head, action string, fs []field) {
-	s.Render(w, r, status, "form", Page{Title: head, Data: formPage{Heading: head, Action: action, Cancel: "/admin/plans", Fields: fs}, Help: s.planHelp()})
+func (s *Handlers) renderPlanForm(w http.ResponseWriter, r *http.Request, status int, head, action string, fs []field) {
+	s.Render(w, r, status, "form", core.Page{Title: head, Data: formPage{Heading: head, Action: action, Cancel: "/admin/plans", Fields: fs}, Help: s.planHelp()})
 }
 
 func planFormValues(p db.Plan) map[string]string {
@@ -182,7 +182,7 @@ func planFormValues(p db.Plan) map[string]string {
 		"expired_plan_id": n(p.ExpiredPlanID), "billing_day": n(p.BillingDay), "device": p.Device, "fup_bandwidth_id": n(p.FupBandwidthID), "idle_timeout": n(p.IdleTimeout), "login_window": p.LoginWindow, "boost_window": p.BoostWindow, "boost_bandwidth_id": n(p.BoostBandwidthID), "enabled": fmt.Sprint(p.Enabled), "on_login": p.OnLogin, "on_logout": p.OnLogout, "audience": p.Audience}
 }
 
-func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) planList(w http.ResponseWriter, r *http.Request) {
 	q, pg := view.Paging(r)
 	isoPlan, _ := s.IsolirIDs(r.Context())
 	rows, err := s.Queries.SearchPlans(r.Context(), db.SearchPlansParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset(), HiddenID: isoPlan})
@@ -191,7 +191,7 @@ func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	routers := map[int64]string{}
-	if rs, err := s.routerNames(r); err == nil {
+	if rs, err := s.RouterNames(r); err == nil {
 		for _, x := range rs {
 			routers[x.ID] = x.Name
 		}
@@ -228,10 +228,10 @@ func (s *Server) planList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp.Finish(pg, total)
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }
 
-func (s *Server) planNew(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) planNew(w http.ResponseWriter, r *http.Request) {
 	x, err := s.planRefs(r)
 	if err != nil {
 		s.Fail(w, "plan refs", err)
@@ -261,7 +261,7 @@ func newPlanDevice(setting, typ string) string {
 }
 
 // isolirManaged flashes an error and reports true when id is the isolir plan, which is edited only in Settings > Isolir.
-func (s *Server) isolirManaged(w http.ResponseWriter, r *http.Request, id int64) bool {
+func (s *Handlers) isolirManaged(w http.ResponseWriter, r *http.Request, id int64) bool {
 	if iso, _ := s.IsolirIDs(r.Context()); iso == 0 || iso != id {
 		return false
 	}
@@ -270,7 +270,7 @@ func (s *Server) isolirManaged(w http.ResponseWriter, r *http.Request, id int64)
 	return true
 }
 
-func (s *Server) planEdit(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) planEdit(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	if s.isolirManaged(w, r, id) {
 		return
@@ -292,7 +292,7 @@ func (s *Server) planEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 // planSave serves both create (no {id} in the path) and update.
-func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) planSave(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	if s.isolirManaged(w, r, id) {
 		return
@@ -312,8 +312,8 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 		if id != 0 {
 			act, msg, op = "plan.update", "Data Updated Successfully", "update"
 		}
-		s.syncPlan(r, op, res.Plan, res.Old.Name)
-		s.done(w, r, "/admin/plans", msg, act, v["name"])
+		s.SyncPlan(r, op, res.Plan, res.Old.Name)
+		s.Done(w, r, "/admin/plans", msg, act, v["name"])
 		return
 	}
 	x, rerr := s.planRefs(r)
@@ -328,29 +328,16 @@ func (s *Server) planSave(w http.ResponseWriter, r *http.Request) {
 	s.renderPlanForm(w, r, http.StatusUnprocessableEntity, head, action, planFields(v, e, x, id))
 }
 
-// syncPlan tells the plan's router about a change. The DB change stays if the router fails;
-// the admin gets a warning and the failure is logged.
-func (s *Server) syncPlan(r *http.Request, op string, p db.Plan, oldName string) {
-	if s.Billing == nil {
-		return
-	}
-	if err := s.Billing.SyncPlan(r.Context(), op, p, oldName); err != nil {
-		slog.Error("sync plan", "op", op, "plan", p.Name, "err", err)
-		s.logActivity(r, "plan.sync_failed", fmt.Sprintf("%s %s: %v", op, p.Name, err))
-		s.Sessions.Put(r.Context(), "error", s.T("Saved, but the router could not be updated")+": "+err.Error())
-	}
-}
-
-func (s *Server) planDelete(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) planDelete(w http.ResponseWriter, r *http.Request) {
 	if s.isolirManaged(w, r, httpx.PathID(r)) {
 		return
 	}
 	p, _ := s.Queries.GetPlan(r.Context(), httpx.PathID(r))
-	s.remove(w, r, "/admin/plans", "plan", "Plan is in use and cannot be deleted", p.Name, func(id int64) error {
+	s.Remove(w, r, "/admin/plans", "plan", "Plan is in use and cannot be deleted", p.Name, func(id int64) error {
 		if err := s.Queries.DeletePlan(r.Context(), id); err != nil {
 			return err
 		}
-		s.syncPlan(r, "remove", p, "")
+		s.SyncPlan(r, "remove", p, "")
 		return nil
 	})
 }

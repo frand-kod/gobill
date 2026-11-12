@@ -139,7 +139,7 @@ func TestDiagnose(t *testing.T) {
 	diag := func(c db.Customer) diagnose.Diagnosis {
 		t.Helper()
 		subs, _ := q.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 50})
-		return s.diagnose(ctx, c, subs, "")
+		return s.customers.Diagnose(ctx, c, subs, "")
 	}
 	tr := func(k string) string { return s.Catalog.T(s.Language(), k) }
 	level := func(d diagnose.Diagnosis, label string) string {
