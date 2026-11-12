@@ -7,6 +7,7 @@ import (
 	"math"
 	"net"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -114,6 +115,16 @@ func rejectReason(msg string) string {
 	return "other"
 }
 
+var lastSprayWarn atomic.Int64
+
+// warnNASSpray counts the event and logs at most once a minute.
+func warnNASSpray(nas string, now int64) {
+	metrics.Inc("radius_voucher_nas_spray_total")
+	if last := lastSprayWarn.Load(); now-last >= 60 && lastSprayWarn.CompareAndSwap(last, now) {
+		slog.Warn("radius: many failed voucher logins on one NAS, possible guessing spray", "nas", nas)
+	}
+}
+
 func (s *Server) decide(ctx context.Context, rq AuthRequest) Decision {
 	// Old radius.php: password == username (or empty, or CHAP of either) means "voucher login".
 	vl := rq.User != "" && (func() bool { ok, _ := rq.Check([]byte(rq.User)); return ok }() ||
@@ -122,9 +133,13 @@ func (s *Server) decide(ctx context.Context, rq AuthRequest) Decision {
 		return s.authorize(ctx, rq, false)
 	}
 	key, nasKey, now := rq.NAS+"|"+rq.MAC, "nas|"+rq.NAS, s.now().Unix()
-	// the MAC is client-chosen, so also cap failures per NAS
-	if voucherFails.blocked(key, now, voucherMaxFails) || voucherFails.blocked(nasKey, now, voucherMaxFails*10) {
+	if voucherFails.blocked(key, now, voucherMaxFails) {
 		return Decision{Reject: "Too many attempts, try again later"}
+	}
+	// The MAC is client-chosen, so one client can spray random MACs. The per-NAS count only
+	// alerts: rejecting on it would let that client lock every voucher login on the NAS.
+	if voucherFails.blocked(nasKey, now, voucherMaxFails*10) {
+		warnNASSpray(rq.NAS, now)
 	}
 	d := s.authorize(ctx, rq, true)
 	if d.Reject != "" {
