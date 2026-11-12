@@ -8,17 +8,18 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
-### Keamanan
+### Perbaikan
 
-- **Batas percobaan tahan request paralel di semua form tebakan.** Aktivasi voucher, OTP registrasi, redeem voucher, ganti password, konfirmasi dan matikan 2FA, halaman kunci admin, dan voucher isolir kini menghitung percobaan sebelum dicek.
-- **Import PHPNuxBill memberi peringatan untuk voucher belum terpakai dengan kode kurang dari 8 karakter.** Kode tetap disalin apa adanya. Hapus atau buat ulang voucher itu.
-- **Kirim saldo dan kirim paket ke teman memakai batas pencarian yang sama dengan form lookup.**
-- **Mengubah 2FA mengeluarkan sesi admin lain.** Berlaku saat 2FA dinyalakan, dimatikan, atau di-reset SuperAdmin. Sesi yang sedang dipakai tetap berlaku.
-- **`radius_rest_secret` minimal 16 karakter.**
-- **Header `X-Forwarded-Proto` dan `CF-Visitor` hanya dipercaya dari proxy tepercaya** saat mengisi `app_url`.
+- **Isolasi yang lewat batas waktu tidak lagi menumpuk.** Jika job belum menutup isolasi lama, isolasi baru menutupnya (alasan `expired`) sehingga customer hanya punya satu isolasi terbuka.
+- **Isolasi yang dilewati tidak lagi membuat plan Isolir.**
+- **Rule RouterOS memakai nama address-list `isolir` saat isiannya kosong.** Sebelumnya rule berisi `src-address-list=` kosong, sementara RADIUS mengirim `isolir`.
+- **Gerbang web isolir mengikuti definisi "terisolir" yang sama dengan RADIUS.** Isolasi harus berjalan dan Isolir harus aktif.
+- **Hari isolir negatif kini dibaca 30 hari, bukan "sampai bayar".** Isi `0` untuk sampai bayar.
+- **Allow-list menolak host berawalan atau berakhiran `-`.** Alamat IPv4 mentah tetap boleh, tetapi hanya masuk address-list, tanpa rule `tls-host`.
 
 ### Perubahan
 
+- **Menyimpan setting Isolir memberi peringatan** jika plan Isolir dijual atau bukan plan RADIUS. Simpan tetap berhasil.
 - **`gobill update` menolak file unduhan di atas 200 MiB.** Biner rilis hanya sekitar 20 MiB.
 - **Variabel baru `GOBILL_JOBS`.** Isi `0` untuk mematikan job latar di satu proses.
 

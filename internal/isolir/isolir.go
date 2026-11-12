@@ -66,13 +66,13 @@ func Value(st map[string]string, key string) string {
 	return v
 }
 
-// Days parses isolir_days; unset or invalid is DefaultDays, negative is 0.
+// Days parses isolir_days; unset, invalid or negative is DefaultDays, 0 is until paid.
 func Days(v string) int {
 	n, err := strconv.Atoi(v)
-	if err != nil {
+	if err != nil || n < 0 {
 		return DefaultDays
 	}
-	return max(n, 0)
+	return n
 }
 
 // Until is the end of an isolation starting now: days later, or Forever when days is 0.
@@ -89,8 +89,6 @@ func PlanID(v string) int64 {
 	return n
 }
 
-// M3: kept as-is, see docs/internal/rencana/modularisasi.md (any stored plan id is accepted, even
-// when it is not an isolir plan).
 // EnsurePlan returns the isolir plan id. It keeps the stored plan when it exists, else reuses a
 // plan named PlanName on the Radius device, else creates it with a 64k/64k bandwidth. The plan is
 // disabled so the portal does not sell it. The id is stored in isolir_plan_id.
@@ -105,6 +103,13 @@ func EnsurePlan(ctx context.Context, q *db.Queries) (int64, error) {
 		return 0, err
 	}
 	return id, q.UpsertSetting(ctx, db.UpsertSettingParams{Key: "isolir_plan_id", Value: strconv.FormatInt(id, 10)})
+}
+
+// PlanLooksWrong reports whether the stored isolir plan exists but is on sale or not a RADIUS plan.
+// Runtime still accepts it; the settings page only warns.
+func PlanLooksWrong(ctx context.Context, q *db.Queries) bool {
+	p, err := q.GetPlan(ctx, StoredPlanID(ctx, q))
+	return err == nil && (p.Enabled != 0 || p.Device != "Radius")
 }
 
 func findOrCreatePlan(ctx context.Context, q *db.Queries) (int64, error) {
@@ -132,13 +137,17 @@ func findOrCreatePlan(ctx context.Context, q *db.Queries) (int64, error) {
 
 // AddressListFor is the Mikrotik-Address-List for a plan: the isolir list when planID is the isolir
 // plan, else "". The name is isolir_address_list, DefaultAddrList when unset or empty. st is the
-// M3: kept as-is, see docs/internal/rencana/modularisasi.md (an empty list gives "isolir" here, but
-// Value gives "" to the router rules).
 // settings table (RADIUS passes its cached copy, so a login costs no query here).
 func AddressListFor(st map[string]string, planID int64) string {
 	if planID == 0 || PlanIDIn(st) != planID {
 		return ""
 	}
+	return AddressList(st)
+}
+
+// AddressList is isolir_address_list, DefaultAddrList when unset or empty. RADIUS and the RouterOS
+// rules both use it.
+func AddressList(st map[string]string) string {
 	if v := st["isolir_address_list"]; v != "" {
 		return v
 	}

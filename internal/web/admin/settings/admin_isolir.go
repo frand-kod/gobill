@@ -62,9 +62,7 @@ var IsolirVarList = []notify.Var{
 // listens on (see gobillAddr).
 func (s *Handlers) IsolirSetupFields(st map[string]string) []field {
 	host, port := s.GobillAddr()
-	// M3: kept as-is, see docs/internal/rencana/modularisasi.md (Value gives "" for an empty list,
-	// RADIUS sends "isolir")
-	list := isolir.Value(st, "isolir_address_list")
+	list := isolir.AddressList(st)
 	hosts := isolir.HostLines(isolir.Value(st, "isolir_allow_hosts"))
 	sec := s.T("Setup router (MikroTik, RouterOS 6 and 7)")
 	return []field{

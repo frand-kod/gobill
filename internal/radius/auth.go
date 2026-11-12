@@ -7,6 +7,7 @@ import (
 	"math"
 	"net"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -68,9 +69,12 @@ func (s *Server) Authorize(ctx context.Context, rq AuthRequest) Decision {
 	// ponytail: per-user throttle is in-memory, per process (see failLimiter). A retransmit never
 	// gets here: dupCache absorbs it, so retries cannot lock a user out.
 	now := s.now().Unix()
-	if rq.User != "" && s.userFails.blocked(rq.User, now, voucherMaxFails) {
-		metrics.Inc("radius_auth_rejected_total", "reason", "other")
-		return Decision{Reject: "Too many attempts, try again later"}
+	ukey := strings.ToLower(rq.User) // one counter for every spelling of a name, so case changes do not reset it
+	if ukey != "" && s.userFails.blocked(ukey, now, voucherMaxFails) {
+		// same message as a wrong password, so a lockout does not reveal that the user exists
+		slog.Warn("radius: user locked after repeated bad passwords", "user", rq.User, "nas", rq.NAS)
+		metrics.Inc("radius_auth_rejected_total", "reason", "bad_password")
+		return Decision{Reject: badPassword}
 	}
 	d := s.decide(ctx, rq)
 	if d.Reject == "" && d.AddressList != "" && rq.NASType != "" && rq.NASType != NASMikrotik {
@@ -79,10 +83,10 @@ func (s *Server) Authorize(ctx context.Context, rq AuthRequest) Decision {
 	s.logAuth(ctx, rq, d)
 	switch d.Reject {
 	case "":
-		s.userFails.reset(rq.User)
+		s.userFails.reset(ukey)
 		metrics.Inc("radius_auth_accepted_total")
 	case badPassword:
-		s.userFails.fail(rq.User, now)
+		s.userFails.fail(ukey, now)
 		metrics.Inc("radius_auth_rejected_total", "reason", "bad_password")
 	default:
 		metrics.Inc("radius_auth_rejected_total", "reason", rejectReason(d.Reject))
@@ -114,6 +118,16 @@ func rejectReason(msg string) string {
 	return "other"
 }
 
+var lastSprayWarn atomic.Int64
+
+// warnNASSpray counts the event and logs at most once a minute.
+func warnNASSpray(nas string, now int64) {
+	metrics.Inc("radius_voucher_nas_spray_total")
+	if last := lastSprayWarn.Load(); now-last >= 60 && lastSprayWarn.CompareAndSwap(last, now) {
+		slog.Warn("radius: many failed voucher logins on one NAS, possible guessing spray", "nas", nas)
+	}
+}
+
 func (s *Server) decide(ctx context.Context, rq AuthRequest) Decision {
 	// Old radius.php: password == username (or empty, or CHAP of either) means "voucher login".
 	vl := rq.User != "" && (func() bool { ok, _ := rq.Check([]byte(rq.User)); return ok }() ||
@@ -122,9 +136,13 @@ func (s *Server) decide(ctx context.Context, rq AuthRequest) Decision {
 		return s.authorize(ctx, rq, false)
 	}
 	key, nasKey, now := rq.NAS+"|"+rq.MAC, "nas|"+rq.NAS, s.now().Unix()
-	// the MAC is client-chosen, so also cap failures per NAS
-	if voucherFails.blocked(key, now, voucherMaxFails) || voucherFails.blocked(nasKey, now, voucherMaxFails*10) {
+	if voucherFails.blocked(key, now, voucherMaxFails) {
 		return Decision{Reject: "Too many attempts, try again later"}
+	}
+	// The MAC is client-chosen, so one client can spray random MACs. The per-NAS count only
+	// alerts: rejecting on it would let that client lock every voucher login on the NAS.
+	if voucherFails.blocked(nasKey, now, voucherMaxFails*10) {
+		warnNASSpray(rq.NAS, now)
 	}
 	d := s.authorize(ctx, rq, true)
 	if d.Reject != "" {

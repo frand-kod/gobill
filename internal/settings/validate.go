@@ -16,7 +16,7 @@ import (
 
 func oneOf(v string, list ...string) bool { return slices.Contains(list, v) }
 
-var hostRe = regexp.MustCompile(`^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)*$`)
+var hostRe = regexp.MustCompile(`^(\*\.)?[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$`)
 
 // HostLines splits an allow-list into lowercase hosts, one per line. Blank lines are dropped.
 func HostLines(v string) []string {
