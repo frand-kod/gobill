@@ -263,9 +263,8 @@ func TestIsolirExpirySendsNoNotice(t *testing.T) {
 	}
 }
 
-// isolate skips a customer who still has an active subscription, but EnsurePlan already ran: the
-// isolir plan and isolir_plan_id exist even though no isolation started.
-func TestIsolateSkipsOtherActivePlanButEnsuresPlan(t *testing.T) {
+// isolate skips a customer who still has an active subscription, and creates no isolir plan.
+func TestIsolateSkipsOtherActivePlanCreatesNoPlan(t *testing.T) {
 	ctx, e := context.Background(), setup(t)
 	enableIsolir(t, e, "5")
 	radiusPlans(t, e)
@@ -278,15 +277,14 @@ func TestIsolateSkipsOtherActivePlanButEnsuresPlan(t *testing.T) {
 		t.Fatal(err)
 	}
 	notIsolated(t, e)
-	v, err := e.q.GetSetting(ctx, "isolir_plan_id")
-	if err != nil || isolir.PlanID(v) == 0 {
-		t.Fatalf("isolir_plan_id = %q, %v; want the plan created anyway", v, err)
+	if v, _ := e.q.GetSetting(ctx, "isolir_plan_id"); isolir.PlanID(v) != 0 {
+		t.Fatalf("isolir_plan_id = %q, want no plan for a skipped isolation", v)
 	}
 }
 
 // A second isolate while one runs adds no row. An isolation past ends_at that the job has not ended
-// yet does not count as running, so isolate starts a new one next to it.
-func TestIsolateNoDuplicateButStaleRowDoesNotBlock(t *testing.T) {
+// yet does not count as running: isolate ends it as "expired" and starts a new one, so one row is open.
+func TestIsolateNoDuplicateEndsStaleRow(t *testing.T) {
 	ctx, e := context.Background(), setup(t)
 	enableIsolir(t, e, "5")
 	radiusPlans(t, e)
@@ -304,9 +302,11 @@ func TestIsolateNoDuplicateButStaleRowDoesNotBlock(t *testing.T) {
 	if err := e.s.isolate(ctx, e.q, day, cust); err != nil {
 		t.Fatal(err)
 	}
-	if rows := isolationRows(t, e); len(rows) != 2 || rows[0].EndedAt != 0 {
-		t.Fatalf("want the stale row left open and a new one, got %+v", rows)
+	rows := isolationRows(t, e)
+	if len(rows) != 2 || rows[0].EndedAt != e.now.Unix() || rows[0].EndReason != "expired" || rows[1].EndedAt != 0 {
+		t.Fatalf("want the stale row ended as expired and one open row, got %+v", rows)
 	}
+	runningIsolation(t, e)
 }
 
 // endIsolation ends every open row of the customer, also one past ends_at, and reports it.
