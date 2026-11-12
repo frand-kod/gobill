@@ -134,12 +134,12 @@ func (s *Handlers) pRegister(w http.ResponseWriter, r *http.Request) {
 		}
 		ip := "c:" + core.ClientIP(r)
 		code := s.Sessions.GetString(ctx, "reg_otp")
-		if s.TooManyFailures(ip) || code == "" || f("otp_code") != code ||
+		if s.Reserve(ip, core.MaxFailedLogins) < 0 || code == "" || f("otp_code") != code ||
 			s.Sessions.GetString(ctx, "reg_otp_phone") != d.Phone || time.Now().Unix() > s.Sessions.GetInt64(ctx, "reg_otp_exp") {
-			s.RecordFailure(ip)
 			show("Wrong Verification code")
 			return
 		}
+		s.Unreserve(ip)
 		s.Sessions.Remove(ctx, "reg_otp")
 	}
 	// per-IP cap on new accounts (same limiter as OTP sends, own key)

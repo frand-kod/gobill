@@ -82,20 +82,21 @@ func (s *Handlers) admin2FAConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ip := core.ClientIP(r)
-	if s.TooManyFailures(ip) {
+	if s.Reserve(ip, core.MaxFailedLogins) < 0 {
 		s.FlashTo(w, r, "/admin/2fa", "Too many failed attempts. Try again in 15 minutes.")
 		return
 	}
 	key, err := s.TotpOpen(a.TotpSecretEnc)
 	if err != nil {
+		s.Unreserve(ip)
 		s.Fail(w, "open totp secret", err)
 		return
 	}
 	if !s.TotpVerify(a.ID, key, core.CleanCode(r.PostFormValue("code"))) {
-		s.RecordFailure(ip)
 		s.FlashTo(w, r, "/admin/2fa", "Invalid code")
 		return
 	}
+	s.Unreserve(ip)
 	codes := core.NewRecoveryCodes()
 	if err := s.Queries.DeleteRecoveryCodes(ctx, a.ID); err != nil {
 		s.Fail(w, "clear recovery codes", err)
@@ -129,21 +130,22 @@ func (s *Handlers) admin2FADisable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ip := core.ClientIP(r)
-	if s.TooManyFailures(ip) {
+	if s.Reserve(ip, core.MaxFailedLogins) < 0 {
 		s.FlashTo(w, r, "/admin/2fa", "Too many failed attempts. Try again in 15 minutes.")
 		return
 	}
 	key, err := s.TotpOpen(a.TotpSecretEnc)
 	if err != nil {
+		s.Unreserve(ip)
 		s.Fail(w, "open totp secret", err)
 		return
 	}
 	pwOK := bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte(r.PostFormValue("current"))) == nil
 	if !pwOK || !s.TotpVerify(a.ID, key, core.CleanCode(r.PostFormValue("code"))) {
-		s.RecordFailure(ip)
 		s.FlashTo(w, r, "/admin/2fa", "Incorrect password or code")
 		return
 	}
+	s.Unreserve(ip)
 	if err := s.Queries.ClearAdminTOTP(ctx, a.ID); err != nil {
 		s.Fail(w, "clear totp", err)
 		return

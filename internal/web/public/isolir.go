@@ -73,16 +73,18 @@ func (s *Handlers) isolirVoucher(w http.ResponseWriter, r *http.Request) {
 	}
 	ip := core.ClientIP(r)
 	key := "iso:" + ip
-	if s.TooManyFailures(key) {
+	if s.Reserve(key, core.MaxFailedLogins) < 0 {
 		s.writeIsolir(w, r, st, s.isolirFor(r.Context(), ip, st, "Too many attempts. Try again in 15 minutes."), http.StatusTooManyRequests)
 		return
 	}
 	v := s.isolirFor(r.Context(), ip, st, "")
 	if !v.Known {
+		s.Unreserve(key)
 		s.writeIsolir(w, r, st, v, http.StatusOK, "Enter the voucher on the hotspot login page.")
 		return
 	}
 	if s.Billing == nil {
+		s.Unreserve(key)
 		s.Fail(w, "isolir voucher", errors.New("billing not configured"))
 		return
 	}
@@ -90,13 +92,16 @@ func (s *Handlers) isolirVoucher(w http.ResponseWriter, r *http.Request) {
 	notice := "Voucher activated. Try opening the internet again."
 	switch err := s.Billing.RedeemVoucher(r.Context(), code, v.CustomerID); {
 	case code == "" || errors.Is(err, billing.ErrVoucherInvalid):
-		s.RecordFailure(key)
 		notice = "Voucher is not valid."
 	case errors.Is(err, billing.ErrInactive):
+		s.Unreserve(key)
 		notice = "Account is not active."
 	case err != nil:
+		s.Unreserve(key)
 		s.Fail(w, "isolir voucher", err)
 		return
+	default:
+		s.Unreserve(key)
 	}
 	// the page is rebuilt so the plan reflects the redeem
 	s.writeIsolir(w, r, st, s.isolirFor(r.Context(), ip, st, notice), http.StatusOK)

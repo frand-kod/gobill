@@ -66,18 +66,20 @@ func (s *Handlers) pPassword(w http.ResponseWriter, r *http.Request) {
 	npass := r.PostFormValue("npass")
 	// A wrong current password is a guess against the login: throttle it like the login does.
 	pwKey := fmt.Sprintf("c:pw:%d", c.ID)
-	if s.TooManyFailures(pwKey) {
+	if s.Reserve(pwKey, core.MaxFailedLogins) < 0 {
 		s.profilePage(w, r, 200, "Too many failed attempts. Try again in 15 minutes.")
 		return
 	}
 	msg := ""
 	if bcrypt.CompareHashAndPassword([]byte(c.PasswordHash), []byte(r.PostFormValue("password"))) != nil {
-		s.RecordFailure(pwKey)
 		msg = "Incorrect current password"
 	} else if msg = s.CustomerPasswordErr(st, c.Username, npass); msg == "" && npass != r.PostFormValue("cnpass") {
 		msg = "Passwords does not match"
 	}
 	if msg != "" {
+		if msg != "Incorrect current password" {
+			s.Unreserve(pwKey) // the password was right, only the new one is bad
+		}
 		s.profilePage(w, r, 200, msg)
 		return
 	}

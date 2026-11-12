@@ -19,10 +19,17 @@ var (
 	LoginDelayMax  = 3 * time.Second
 )
 
-func (s *Core) TooManyFailures(ip string) bool {
-	s.Mu.Lock()
-	defer s.Mu.Unlock()
-	return len(s.Recent(ip)) >= MaxFailedLogins
+// ReserveAll reserves one attempt on every key, or none when any is at limit.
+func (s *Core) ReserveAll(limit int, keys ...string) bool {
+	for i, k := range keys {
+		if s.Reserve(k, limit) < 0 {
+			for _, d := range keys[:i] {
+				s.Unreserve(d)
+			}
+			return false
+		}
+	}
+	return true
 }
 
 // Lock key is ip|username so customers sharing one CGNAT IP don't lock each other out; a loose

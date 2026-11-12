@@ -33,23 +33,25 @@ func (s *Handlers) pVoucher(w http.ResponseWriter, r *http.Request) {
 	}
 	code := strings.TrimSpace(r.PostFormValue("code"))
 	keys := []string{"vip:" + core.ClientIP(r), "vc:" + strconv.FormatInt(customerFrom(r).ID, 10)}
-	for _, k := range keys {
-		if s.TooManyFailures(k) {
-			s.Prender(w, r, http.StatusTooManyRequests, "p_voucher", core.Page{Title: "Voucher Activation", Error: "Too many failed attempts. Try again in 15 minutes."})
-			return
-		}
+	if !s.ReserveAll(core.MaxFailedLogins, keys...) {
+		s.Prender(w, r, http.StatusTooManyRequests, "p_voucher", core.Page{Title: "Voucher Activation", Error: "Too many failed attempts. Try again in 15 minutes."})
+		return
 	}
+	// the attempts are already counted; only a wrong code keeps them
 	switch err := s.Billing.RedeemVoucher(r.Context(), code, customerFrom(r).ID); {
 	case code == "" || errors.Is(err, billing.ErrVoucherInvalid):
-		for _, k := range keys {
-			s.RecordFailure(k)
-		}
 		s.Prender(w, r, 200, "p_voucher", core.Page{Title: "Voucher Activation", Error: "Voucher Not Valid"})
 	case errors.Is(err, billing.ErrInactive):
+		s.Unreserve(keys[0])
+		s.Unreserve(keys[1])
 		s.Prender(w, r, 200, "p_voucher", core.Page{Title: "Voucher Activation", Error: "account is not active"})
 	case err != nil:
+		s.Unreserve(keys[0])
+		s.Unreserve(keys[1])
 		s.Fail(w, "portal voucher", err)
 	default:
+		s.Unreserve(keys[0])
+		s.Unreserve(keys[1])
 		to := "/portal/orders"
 		if u := httpx.SafeRedirect(st["voucher_redirect"]); u != "" {
 			to = u
