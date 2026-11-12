@@ -8,6 +8,15 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Keamanan
+
+- **Batas percobaan tahan request paralel di semua form tebakan.** Aktivasi voucher, OTP registrasi, redeem voucher, ganti password, konfirmasi dan matikan 2FA, halaman kunci admin, dan voucher isolir kini menghitung percobaan sebelum dicek.
+- **Import PHPNuxBill memberi peringatan untuk voucher belum terpakai dengan kode kurang dari 8 karakter.** Kode tetap disalin apa adanya. Hapus atau buat ulang voucher itu.
+- **Kirim saldo dan kirim paket ke teman memakai batas pencarian yang sama dengan form lookup.**
+- **Mengubah 2FA mengeluarkan sesi admin lain.** Berlaku saat 2FA dinyalakan, dimatikan, atau di-reset SuperAdmin. Sesi yang sedang dipakai tetap berlaku.
+- **`radius_rest_secret` minimal 16 karakter.**
+- **Header `X-Forwarded-Proto` dan `CF-Visitor` hanya dipercaya dari proxy tepercaya** saat mengisi `app_url`.
+
 ### Perubahan
 
 - **`gobill update` menolak file unduhan di atas 200 MiB.** Biner rilis hanya sekitar 20 MiB.
