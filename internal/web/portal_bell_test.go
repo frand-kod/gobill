@@ -13,7 +13,7 @@ import (
 
 func bellItems(t *testing.T, e *billEnv) []bellItem {
 	t.Helper()
-	items, err := e.s.portalBell(httptest.NewRequest("GET", "/portal", nil).WithContext(t.Context()), &e.cust)
+	items, err := e.s.portal.PortalBell(httptest.NewRequest("GET", "/portal", nil).WithContext(t.Context()), &e.cust)
 	if err != nil {
 		t.Fatal(err)
 	}

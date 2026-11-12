@@ -1,4 +1,4 @@
-package web
+package portal
 
 // Customer payment checkout and status check.
 
@@ -26,7 +26,7 @@ import (
 
 // pPay is the gateway branch of the order: pending row, gateway transaction, redirect to pay_url.
 // Coupons are validated against the plan price and reserved when the order is created (payOrder).
-func (s *Server) pPay(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pPay(w http.ResponseWriter, r *http.Request) {
 	c := customerFrom(r)
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
@@ -92,7 +92,7 @@ func (s *Server) pPay(w http.ResponseWriter, r *http.Request) {
 }
 
 // pTopUp is allow_balance_custom (only with a gateway): a custom amount paid online is added to the balance.
-func (s *Server) pTopUp(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pTopUp(w http.ResponseWriter, r *http.Request) {
 	c := customerFrom(r)
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
@@ -122,7 +122,7 @@ func (s *Server) pTopUp(w http.ResponseWriter, r *http.Request) {
 
 // payOrder stores the pending payment, creates the gateway transaction and redirects to its pay URL.
 // planID 0 = custom balance top-up.
-func (s *Server) payOrder(w http.ResponseWriter, r *http.Request, g Gateway, c *db.Customer, planID int64, planName string, amount int64, code, channel string) {
+func (s *Handlers) payOrder(w http.ResponseWriter, r *http.Request, g core.Gateway, c *db.Customer, planID int64, planName string, amount int64, code, channel string) {
 	if code != "" { // reserve the coupon use now; refused when it ran out since the price was shown
 		if err := billing.ReserveCoupon(r.Context(), s.Queries, code); err != nil {
 			if m := couponErr(err); m != "" {
@@ -165,7 +165,7 @@ func (s *Server) payOrder(w http.ResponseWriter, r *http.Request, g Gateway, c *
 }
 
 // ownPayment loads the payment of the logged-in customer (404 for anyone else's).
-func (s *Server) ownPayment(w http.ResponseWriter, r *http.Request) (db.PaymentRequest, bool) {
+func (s *Handlers) ownPayment(w http.ResponseWriter, r *http.Request) (db.PaymentRequest, bool) {
 	pr, err := s.Queries.GetPaymentRequest(r.Context(), httpx.PathID(r))
 	if err != nil || !pr.CustomerID.Valid || pr.CustomerID.Int64 != customerFrom(r).ID { // NULL = customer deleted: not yours
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -177,7 +177,7 @@ func (s *Server) ownPayment(w http.ResponseWriter, r *http.Request) (db.PaymentR
 	return pr, true
 }
 
-func (s *Server) pPayView(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pPayView(w http.ResponseWriter, r *http.Request) {
 	pr, ok := s.ownPayment(w, r)
 	if !ok {
 		return
@@ -186,7 +186,7 @@ func (s *Server) pPayView(w http.ResponseWriter, r *http.Request) {
 	if pr.PlanID == 0 {
 		pl.Name = "Custom Balance"
 	}
-	s.prender(w, r, 200, "p_payment", Page{Title: "Order Details", Data: struct {
+	s.Prender(w, r, 200, "p_payment", core.Page{Title: "Order Details", Data: struct {
 		P       db.PaymentRequest
 		Plan    string
 		Channel string
@@ -194,7 +194,7 @@ func (s *Server) pPayView(w http.ResponseWriter, r *http.Request) {
 }
 
 // pendingPay is the customer's newest unpaid payment that has not expired, nil when there is none.
-func (s *Server) pendingPay(ctx context.Context, customerID int64) *db.PaymentRequest {
+func (s *Handlers) pendingPay(ctx context.Context, customerID int64) *db.PaymentRequest {
 	pr, err := s.Queries.GetPendingPaymentRequestByCustomer(ctx, db.GetPendingPaymentRequestByCustomerParams{CustomerID: sql.NullInt64{Int64: customerID, Valid: true}, ExpiresAt: time.Now().Unix()})
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
@@ -206,7 +206,7 @@ func (s *Server) pendingPay(ctx context.Context, customerID int64) *db.PaymentRe
 }
 
 // pPayCheck asks the gateway for the status, for when the callback did not arrive.
-func (s *Server) pPayCheck(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pPayCheck(w http.ResponseWriter, r *http.Request) {
 	pr, ok := s.ownPayment(w, r)
 	if !ok {
 		return
@@ -223,7 +223,7 @@ func (s *Server) pPayCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	back := "/portal/payments/" + strconv.FormatInt(pr.ID, 10)
 	if pr.Status == "pending" && pr.GatewayRef != "" {
-		if wait := s.payCheckWait(pr.ID); wait > 0 {
+		if wait := s.PayCheckWait(pr.ID); wait > 0 {
 			s.Sessions.Put(r.Context(), "flash", fmt.Sprintf(s.T("Wait %d seconds before checking again"), wait))
 			http.Redirect(w, r, back, http.StatusSeeOther)
 			return
@@ -242,29 +242,29 @@ func (s *Server) pPayCheck(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
-// payCheckGap is the minimum time between gateway status calls for one payment (Duitku blocks the
+// PayCheckGap is the minimum time between gateway status calls for one payment (Duitku blocks the
 // merchant for about an hour on excess status calls).
-const payCheckGap = 30 * time.Second
+const PayCheckGap = 30 * time.Second
 
-// payCheckWait records a status call for payment id. It returns 0 when the call may go ahead, otherwise the
+// PayCheckWait records a status call for payment id. It returns 0 when the call may go ahead, otherwise the
 // whole seconds left until the next one may.
 // ponytail: in memory and per process; entries are dropped as they age out. Use a DB column if several instances ever run.
-func (s *Server) payCheckWait(id int64) int {
-	s.payCheckMu.Lock()
-	defer s.payCheckMu.Unlock()
+func (s *Handlers) PayCheckWait(id int64) int {
+	s.PayCheckMu.Lock()
+	defer s.PayCheckMu.Unlock()
 	now := time.Now()
-	for k, t := range s.payCheckAt {
-		if now.Sub(t) >= payCheckGap {
-			delete(s.payCheckAt, k)
+	for k, t := range s.PayCheckAt {
+		if now.Sub(t) >= PayCheckGap {
+			delete(s.PayCheckAt, k)
 		}
 	}
-	if t, busy := s.payCheckAt[id]; busy {
-		left := payCheckGap - now.Sub(t)
+	if t, busy := s.PayCheckAt[id]; busy {
+		left := PayCheckGap - now.Sub(t)
 		return max(1, int((left+time.Second-1)/time.Second))
 	}
-	if s.payCheckAt == nil {
-		s.payCheckAt = map[int64]time.Time{}
+	if s.PayCheckAt == nil {
+		s.PayCheckAt = map[int64]time.Time{}
 	}
-	s.payCheckAt[id] = now
+	s.PayCheckAt[id] = now
 	return 0
 }

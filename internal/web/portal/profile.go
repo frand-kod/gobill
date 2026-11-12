@@ -1,4 +1,4 @@
-package web
+package portal
 
 // Customer profile, password and contact change with OTP.
 
@@ -21,11 +21,11 @@ import (
 
 // ---- profile ----
 
-func (s *Server) pProfileForm(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pProfileForm(w http.ResponseWriter, r *http.Request) {
 	s.profilePage(w, r, 200, "")
 }
 
-func (s *Server) pProfile(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pProfile(w http.ResponseWriter, r *http.Request) {
 	c := customerFrom(r)
 	fullname := strings.TrimSpace(r.PostFormValue("fullname"))
 	if fullname == "" {
@@ -56,7 +56,7 @@ func (s *Server) pProfile(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/portal/profile", http.StatusSeeOther)
 }
 
-func (s *Server) pPassword(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pPassword(w http.ResponseWriter, r *http.Request) {
 	c := customerFrom(r)
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
@@ -82,7 +82,7 @@ func (s *Server) pPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.ClearFailures(pwKey)
-	err = s.setPassword(r.Context(), c.ID, npass)
+	err = s.CustomerSvc().SetPassword(r.Context(), c.ID, npass)
 	if err == nil {
 		err = s.keepSession(r, c.ID)
 	}
@@ -107,7 +107,7 @@ type contactData struct {
 	Minimum            string
 }
 
-func (s *Server) profilePage(w http.ResponseWriter, r *http.Request, code int, errMsg string) {
+func (s *Handlers) profilePage(w http.ResponseWriter, r *http.Request, code int, errMsg string) {
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
 		s.Fail(w, "portal profile", err)
@@ -121,10 +121,10 @@ func (s *Server) profilePage(w http.ResponseWriter, r *http.Request, code int, e
 	if k := s.Sessions.GetString(r.Context(), "ct_kind"); k != "" && time.Now().Unix() < s.Sessions.GetInt64(r.Context(), "ct_exp") {
 		d.Pending, d.Value = k, s.Sessions.GetString(r.Context(), "ct_val")
 	}
-	s.prender(w, r, code, "p_profile", Page{Title: "Profile", Error: errMsg, Data: d})
+	s.Prender(w, r, code, "p_profile", core.Page{Title: "Profile", Error: errMsg, Data: d})
 }
 
-func (s *Server) contactClear(r *http.Request) {
+func (s *Handlers) contactClear(r *http.Request) {
 	for _, k := range []string{"ct_kind", "ct_val", "ct_hash", "ct_exp"} {
 		s.Sessions.Remove(r.Context(), k)
 	}
@@ -133,22 +133,22 @@ func (s *Server) contactClear(r *http.Request) {
 // msgPhoneTaken is the error for a WhatsApp number another account already uses (wa_unique_per_account = yes).
 const msgPhoneTaken = customer.MsgPhoneTaken
 
-// contactTaken reports whether another customer already uses this phone or email.
-func (s *Server) contactTaken(r *http.Request, kind, val string, self int64) (bool, error) {
+// ContactTaken reports whether another customer already uses this phone or email.
+func (s *Handlers) ContactTaken(r *http.Request, kind, val string, self int64) (bool, error) {
 	if kind == "phone" {
-		return s.phoneTaken(r.Context(), val, self)
+		return s.PhoneTaken(r.Context(), val, self)
 	}
 	ids, err := s.Queries.ListOtherCustomerIDsByEmail(r.Context(), db.ListOtherCustomerIDsByEmailParams{Email: val, Self: self})
 	return len(ids) > 0, err
 }
 
-// phoneTaken reports whether another customer uses this WhatsApp number. Only checked when
+// PhoneTaken reports whether another customer uses this WhatsApp number. Only checked when
 // wa_unique_per_account is yes: by default several accounts may share one number (family, RT/RW).
-func (s *Server) phoneTaken(ctx context.Context, phone string, self int64) (bool, error) {
+func (s *Handlers) PhoneTaken(ctx context.Context, phone string, self int64) (bool, error) {
 	return s.CustomerSvc().PhoneTaken(ctx, phone, self)
 }
 
-func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pContactOTP(w http.ResponseWriter, r *http.Request) {
 	ctx, kind, c := r.Context(), r.PathValue("kind"), customerFrom(r)
 	st, err := s.LoadSettings(ctx)
 	if err != nil || (kind != "phone" && kind != "email") || st["allow_"+kind+"_otp"] != "yes" {
@@ -174,7 +174,7 @@ func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
 		s.profilePage(w, r, 200, "Email is not Valid")
 		return
 	}
-	if taken, err := s.contactTaken(r, kind, val, c.ID); err != nil {
+	if taken, err := s.ContactTaken(r, kind, val, c.ID); err != nil {
 		s.Fail(w, "portal contact", err)
 		return
 	} else if taken {
@@ -222,7 +222,7 @@ func (s *Server) pContactOTP(w http.ResponseWriter, r *http.Request) {
 	s.FlashTo(w, r, "/portal/profile#verify", "Verification code sent")
 }
 
-func (s *Server) pContactVerify(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pContactVerify(w http.ResponseWriter, r *http.Request) {
 	ctx, kind, c := r.Context(), r.PathValue("kind"), customerFrom(r)
 	if st, err := s.LoadSettings(ctx); err != nil {
 		s.Fail(w, "contact verify settings", err)
@@ -239,7 +239,7 @@ func (s *Server) pContactVerify(w http.ResponseWriter, r *http.Request) {
 	// The try count is per issued code and kept on the server: a session counter loses decrements
 	// when requests run in parallel.
 	hash := s.Sessions.GetString(ctx, "ct_hash")
-	left := s.Reserve("otp:"+hash, otpTries)
+	left := s.Reserve("otp:"+hash, OtpTries)
 	if left < 0 || bcrypt.CompareHashAndPassword([]byte(hash), []byte(strings.TrimSpace(r.PostFormValue("otp")))) != nil {
 		if left <= 0 {
 			s.contactClear(r)

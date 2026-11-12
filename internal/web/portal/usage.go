@@ -1,4 +1,4 @@
-package web
+package portal
 
 // Customer live card, daily usage chart and connection history. Everything is read for the logged-in
 // customer's own login names (loginNames) only.
@@ -19,9 +19,9 @@ import (
 	"github.com/frand-kod/gobill/internal/radius"
 )
 
-// pLive is the live card: the open session and its speed when online, else the last time the device was seen.
+// PLive is the live card: the open session and its speed when online, else the last time the device was seen.
 // The dashboard renders it and /portal/usage.json returns it, polled every 15 s.
-type pLive struct {
+type PLive struct {
 	Online bool     `json:"online"`
 	Seen   string   `json:"seen"`   // offline: last time the device was seen, "" when never
 	Device string   `json:"device"` // masked MAC
@@ -38,26 +38,26 @@ type pLive struct {
 }
 
 // JSON is the live card for the x-data of the card.
-func (l pLive) JSON() string {
+func (l PLive) JSON() string {
 	b, _ := json.Marshal(l)
 	return string(b)
 }
 
 // pLiveOf reads the customer's open session. The speed uses the same samples, plan limits and meter as the
 // admin live page (liveMonitor, speedOf).
-func (s *Server) pLiveOf(ctx context.Context, c db.Customer, now int64, w core.PWords) (pLive, error) {
-	l := pLive{Down: "—", Up: "—", Label: "—", Bars: core.SpeedMeter{}.Bars()}
+func (s *Handlers) pLiveOf(ctx context.Context, c db.Customer, now int64, w core.PWords) (PLive, error) {
+	l := PLive{Down: "—", Up: "—", Label: "—", Bars: core.SpeedMeter{}.Bars()}
 	var open []db.RadiusSession
 	var last *db.RadiusSession
 	for _, n := range core.LoginNames(c) {
 		ss, err := s.Queries.ListOpenRadiusSessionsByUser(ctx, n)
 		if err != nil {
-			return pLive{}, err
+			return PLive{}, err
 		}
 		open = append(open, ss...)
 		recent, err := s.Queries.ListRecentRadiusSessionsByUser(ctx, n)
 		if err != nil {
-			return pLive{}, err
+			return PLive{}, err
 		}
 		if len(recent) > 0 && (last == nil || recent[0].StartedAt > last.StartedAt) {
 			last = &recent[0]
@@ -98,7 +98,7 @@ func (s *Server) pLiveOf(ctx context.Context, c db.Customer, now int64, w core.P
 }
 
 // pUsageJSON is the live card as JSON. Only the logged-in customer's sessions are read.
-func (s *Server) pUsageJSON(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pUsageJSON(w http.ResponseWriter, r *http.Request) {
 	l, err := s.pLiveOf(r.Context(), *customerFrom(r), time.Now().Unix(), s.PTexts())
 	if err != nil {
 		slog.Error("portal usage json", "err", err)
@@ -129,7 +129,7 @@ type pConnPage struct {
 
 // pConnHistory is the customer's connection history, one page at a time. A day that continues on the next
 // page shows as two groups; ponytail: group in SQL if that is ever confusing.
-func (s *Server) pConnHistory(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pConnHistory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	_, pg := view.Paging(r)
 	names := core.LoginNames(*customerFrom(r))
@@ -166,5 +166,5 @@ func (s *Server) pConnHistory(w http.ResponseWriter, r *http.Request) {
 	out.Nav = view.NewPageNav(pg, total, len(ss), more, func(page, per int) string {
 		return view.PageHref("/portal/connection", url.Values{}, page, per)
 	})
-	s.prender(w, r, http.StatusOK, "p_connection", Page{Title: "Connection History", Data: out})
+	s.Prender(w, r, http.StatusOK, "p_connection", core.Page{Title: "Connection History", Data: out})
 }

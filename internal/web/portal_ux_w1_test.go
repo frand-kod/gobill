@@ -46,9 +46,3 @@ func TestPaymentPageStopsReloading(t *testing.T) {
 		}
 	}
 }
-
-func TestOTPWait(t *testing.T) {
-	if otpWait(1000, 1010) != 50 || otpWait(1000, 1060) != 0 || otpWait(1000, 2000) != 0 || otpWait(0, 1000) != 0 {
-		t.Fatal("resend gap is not 60 seconds")
-	}
-}

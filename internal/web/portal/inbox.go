@@ -1,4 +1,4 @@
-package web
+package portal
 
 // Customer inbox.
 
@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -18,17 +19,17 @@ type inboxData struct {
 	View *db.CustomersInbox
 }
 
-func (s *Server) pInbox(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pInbox(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Queries.ListInboxByCustomer(r.Context(), db.ListInboxByCustomerParams{CustomerID: customerFrom(r).ID, Limit: 100})
 	if err != nil {
 		s.Fail(w, "portal inbox", err)
 		return
 	}
-	s.prender(w, r, 200, "p_inbox", Page{Title: "Inbox", Data: inboxData{List: rows}})
+	s.Prender(w, r, 200, "p_inbox", core.Page{Title: "Inbox", Data: inboxData{List: rows}})
 }
 
 // pInboxView shows one message of this customer and marks it read.
-func (s *Server) pInboxView(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pInboxView(w http.ResponseWriter, r *http.Request) {
 	c := customerFrom(r)
 	m, err := s.Queries.GetInboxMessage(r.Context(), db.GetInboxMessageParams{ID: httpx.PathID(r), CustomerID: c.ID})
 	if err == sql.ErrNoRows {
@@ -42,5 +43,5 @@ func (s *Server) pInboxView(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "portal inbox read", err)
 		return
 	}
-	s.prender(w, r, 200, "p_inbox", Page{Title: "Inbox", Data: inboxData{View: &m}})
+	s.Prender(w, r, 200, "p_inbox", core.Page{Title: "Inbox", Data: inboxData{View: &m}})
 }

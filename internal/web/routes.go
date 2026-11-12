@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	gobill "github.com/frand-kod/gobill"
+	"github.com/frand-kod/gobill/internal/web/portal"
 )
 
 // prefetchSafe is the session middleware with one change: a prefetch (Sec-Purpose, or Purpose on older
@@ -59,11 +60,6 @@ func (s *Server) extraRoutes(mux *http.ServeMux, managers func(http.Handler) htt
 	mux.Handle("POST /admin/logs/clean/{kind}", managers(http.HandlerFunc(s.logClean)))
 
 	mux.HandleFunc("POST /portal/impersonate/end", s.pImpersonateEnd)
-	mux.Handle("GET /portal/activation", s.requireCustomer(s.pActivations))
-	mux.Handle("GET /portal/plans/{id}/friend", s.requireCustomer(s.pFriendForm))
-	mux.Handle("POST /portal/plans/{id}/friend", s.requireCustomer(s.pFriend))
-	mux.HandleFunc("GET /portal/forgot/username", s.pForgotUserForm)
-	mux.HandleFunc("POST /portal/forgot/username", s.pForgotUser)
 }
 
 // messageRoutes registers the admin side; staff is the SuperAdmin/Admin/Agent/Sales middleware.
@@ -76,16 +72,7 @@ func (s *Server) messageRoutes(mux *http.ServeMux, staff func(http.Handler) http
 	mux.Handle("GET /admin/message/bulk/status", staff(http.HandlerFunc(s.msgBulkStatus)))
 }
 
-func (s *Server) inboxRoutes(mux *http.ServeMux) {
-	mux.Handle("GET /portal/inbox", s.requireCustomer(s.pInbox))
-	mux.Handle("GET /portal/inbox/{id}", s.requireCustomer(s.pInboxView))
-}
-
 func (s *Server) paymentRoutes(mux *http.ServeMux) {
-	mux.Handle("POST /portal/plans/{id}/pay", s.requireCustomer(s.pPay))
-	mux.Handle("POST /portal/topup", s.requireCustomer(s.pTopUp))
-	mux.Handle("GET /portal/payments/{id}", s.requireCustomer(s.pPayView))
-	mux.Handle("POST /portal/payments/{id}/check", s.requireCustomer(s.pPayCheck))
 	mux.HandleFunc("POST /callback/tripay", s.tripayCallback)
 	mux.HandleFunc("POST /callback/duitku", s.tripayCallback) // same handler: the configured gateway verifies it
 	mux.HandleFunc("GET /qris/{id}/{token}", s.qrisPage)
@@ -101,42 +88,8 @@ func (s *Server) paymentAdminRoutes(mux *http.ServeMux, managers func(http.Handl
 }
 
 func (s *Server) portalRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /login", s.pLoginForm)
-	mux.HandleFunc("POST /login", s.pLogin)
-	mux.HandleFunc("POST /portal/logout", s.pLogout)
-	mux.HandleFunc("POST /portal/login/activation", s.pVoucherLogin)
-	mux.HandleFunc("GET /portal/register", s.pRegisterForm)
-	mux.HandleFunc("POST /portal/register", s.pRegister)
-	mux.Handle("GET /portal", s.requireCustomer(s.pDashboard))
-	mux.Handle("POST /portal/bell/seen", s.requireCustomer(s.pBellSeen))
-	mux.Handle("GET /portal/profile", s.requireCustomer(s.pProfileForm))
-	mux.Handle("POST /portal/profile", s.requireCustomer(s.pProfile))
-	mux.Handle("POST /portal/password", s.requireCustomer(s.pPassword))
-	mux.Handle("GET /portal/orders", s.requireCustomer(s.pOrders))
-	mux.Handle("GET /portal/connection", s.requireCustomer(s.pConnHistory))
-	mux.Handle("GET /portal/usage.json", s.requireCustomer(s.pUsageJSON))
-	mux.Handle("GET /portal/orders/{id}/invoice", s.requireCustomer(s.pInvoice))
-	mux.Handle("GET /portal/plans", s.requireCustomer(s.pPlans))
-	mux.Handle("POST /portal/plans/{id}/balance", s.requireCustomer(s.pBuyBalance))
-	s.inboxRoutes(mux)
-	s.portalRoutes2(mux)
-	mux.HandleFunc("GET /portal/forgot", s.pForgotForm)
-	mux.HandleFunc("POST /portal/forgot", s.pForgotSend)
-	mux.HandleFunc("POST /portal/forgot/verify", s.pForgotVerify)
-	mux.HandleFunc("POST /portal/forgot/reset", s.pForgotReset)
+	portal.Register(mux, s.portal)
 	mux.HandleFunc("GET /pages/{slug}", s.pagePublic)
-}
-
-// Portal features that mirror home.php / voucher.php / accounts.php extras.
-
-func (s *Server) portalRoutes2(mux *http.ServeMux) {
-	mux.Handle("GET /portal/voucher", s.requireCustomer(s.pVoucherForm))
-	mux.Handle("POST /portal/voucher", s.requireCustomer(s.pVoucher))
-	mux.Handle("POST /portal/transfer", s.requireCustomer(s.pTransfer))
-	mux.Handle("GET /portal/transfer/lookup", s.requireCustomer(s.pTransferLookup))
-	mux.Handle("POST /portal/extend/{id}", s.requireCustomer(s.pExtend))
-	mux.Handle("POST /portal/contact/{kind}/otp", s.requireCustomer(s.pContactOTP))
-	mux.Handle("POST /portal/contact/{kind}/verify", s.requireCustomer(s.pContactVerify))
 }
 
 // radiusRestRoutes serves the FreeRADIUS rlm_rest endpoint of old phpnuxbill (radius.php), so

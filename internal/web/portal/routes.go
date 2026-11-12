@@ -1,0 +1,47 @@
+package portal
+
+import "net/http"
+
+// Register adds the portal routes. Customer pages go through requireCustomer, the login, register and
+// forgot-password pages are open.
+func Register(mux *http.ServeMux, h *Handlers) {
+	mux.HandleFunc("GET /portal/forgot/username", h.pForgotUserForm)
+	mux.HandleFunc("POST /portal/forgot/username", h.pForgotUser)
+	mux.HandleFunc("GET /login", h.pLoginForm)
+	mux.HandleFunc("POST /login", h.pLogin)
+	mux.HandleFunc("POST /portal/logout", h.pLogout)
+	mux.HandleFunc("POST /portal/login/activation", h.pVoucherLogin)
+	mux.HandleFunc("GET /portal/register", h.pRegisterForm)
+	mux.HandleFunc("POST /portal/register", h.pRegister)
+	mux.HandleFunc("GET /portal/forgot", h.pForgotForm)
+	mux.HandleFunc("POST /portal/forgot", h.pForgotSend)
+	mux.HandleFunc("POST /portal/forgot/verify", h.pForgotVerify)
+	mux.HandleFunc("POST /portal/forgot/reset", h.pForgotReset)
+	mux.Handle("GET /portal/activation", h.requireCustomer(h.pActivations))
+	mux.Handle("GET /portal/plans/{id}/friend", h.requireCustomer(h.pFriendForm))
+	mux.Handle("POST /portal/plans/{id}/friend", h.requireCustomer(h.pFriend))
+	mux.Handle("GET /portal/inbox", h.requireCustomer(h.pInbox))
+	mux.Handle("GET /portal/inbox/{id}", h.requireCustomer(h.pInboxView))
+	mux.Handle("POST /portal/plans/{id}/pay", h.requireCustomer(h.pPay))
+	mux.Handle("POST /portal/topup", h.requireCustomer(h.pTopUp))
+	mux.Handle("GET /portal/payments/{id}", h.requireCustomer(h.pPayView))
+	mux.Handle("POST /portal/payments/{id}/check", h.requireCustomer(h.pPayCheck))
+	mux.Handle("GET /portal", h.requireCustomer(h.pDashboard))
+	mux.Handle("POST /portal/bell/seen", h.requireCustomer(h.pBellSeen))
+	mux.Handle("GET /portal/profile", h.requireCustomer(h.pProfileForm))
+	mux.Handle("POST /portal/profile", h.requireCustomer(h.pProfile))
+	mux.Handle("POST /portal/password", h.requireCustomer(h.pPassword))
+	mux.Handle("GET /portal/orders", h.requireCustomer(h.pOrders))
+	mux.Handle("GET /portal/connection", h.requireCustomer(h.pConnHistory))
+	mux.Handle("GET /portal/usage.json", h.requireCustomer(h.pUsageJSON))
+	mux.Handle("GET /portal/orders/{id}/invoice", h.requireCustomer(h.pInvoice))
+	mux.Handle("GET /portal/plans", h.requireCustomer(h.pPlans))
+	mux.Handle("POST /portal/plans/{id}/balance", h.requireCustomer(h.pBuyBalance))
+	mux.Handle("GET /portal/voucher", h.requireCustomer(h.pVoucherForm))
+	mux.Handle("POST /portal/voucher", h.requireCustomer(h.pVoucher))
+	mux.Handle("POST /portal/transfer", h.requireCustomer(h.pTransfer))
+	mux.Handle("GET /portal/transfer/lookup", h.requireCustomer(h.pTransferLookup))
+	mux.Handle("POST /portal/extend/{id}", h.requireCustomer(h.pExtend))
+	mux.Handle("POST /portal/contact/{kind}/otp", h.requireCustomer(h.pContactOTP))
+	mux.Handle("POST /portal/contact/{kind}/verify", h.requireCustomer(h.pContactVerify))
+}

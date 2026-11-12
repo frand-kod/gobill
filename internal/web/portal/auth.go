@@ -1,4 +1,4 @@
-package web
+package portal
 
 // Customer portal login, logout, session guard and page rendering.
 
@@ -31,7 +31,7 @@ func customerFrom(r *http.Request) *db.Customer {
 	return c
 }
 
-func (s *Server) requireCustomer(next http.HandlerFunc) http.Handler {
+func (s *Handlers) requireCustomer(next http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := s.Sessions.GetInt64(r.Context(), "customer_id")
 		c, err := s.Queries.GetCustomer(r.Context(), id)
@@ -48,12 +48,13 @@ func (s *Server) requireCustomer(next http.HandlerFunc) http.Handler {
 	})
 }
 
-func (s *Server) prender(w http.ResponseWriter, r *http.Request, status int, name string, p Page) {
+// Prender renders a portal page: the customer, inbox badge and bell are added to the page.
+func (s *Handlers) Prender(w http.ResponseWriter, r *http.Request, status int, name string, p core.Page) {
 	p.Customer = customerFrom(r)
 	if p.Customer != nil {
 		var err error
 		p.Unread, _ = s.Queries.CountUnreadInbox(r.Context(), p.Customer.ID)
-		if p.Bell, err = s.portalBell(r, p.Customer); err != nil {
+		if p.Bell, err = s.PortalBell(r, p.Customer); err != nil {
 			slog.Warn("portal bell", "err", err)
 		}
 		for _, b := range p.Bell {
@@ -71,15 +72,15 @@ func (s *Server) prender(w http.ResponseWriter, r *http.Request, status int, nam
 
 // ---- login ----
 
-func (s *Server) pLoginForm(w http.ResponseWriter, r *http.Request) {
-	s.prender(w, r, 200, "p_login", Page{Title: "Customer sign in"})
+func (s *Handlers) pLoginForm(w http.ResponseWriter, r *http.Request) {
+	s.Prender(w, r, 200, "p_login", core.Page{Title: "Customer sign in"})
 }
 
-func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pLogin(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.PostFormValue("username"))
 	ip, uk := "c:"+core.ClientIP(r), "cu:"+strings.ToLower(username)
 	if !s.LoginReserve(ip, username) {
-		s.prender(w, r, http.StatusTooManyRequests, "p_login", Page{Title: "Customer sign in", Error: "Too many failed attempts. Try again in 15 minutes."})
+		s.Prender(w, r, http.StatusTooManyRequests, "p_login", core.Page{Title: "Customer sign in", Error: "Too many failed attempts. Try again in 15 minutes."})
 		return
 	}
 	s.UserDelay(uk)
@@ -92,13 +93,13 @@ func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
 	if err == nil && ok && (c.Status == "Banned" || c.Status == "Disabled") {
 		// only after a correct password, so this does not reveal which usernames exist
 		s.LoginForgive(ip, username)
-		s.prender(w, r, 200, "p_login", Page{Title: "Customer sign in", Error: "This account cannot be used, contact the admin", Data: username})
+		s.Prender(w, r, 200, "p_login", core.Page{Title: "Customer sign in", Error: "This account cannot be used, contact the admin", Data: username})
 		return
 	}
 	if err != nil || !ok {
 		metrics.Inc("login_failures_total", "scope", "portal")
 		s.RecordFailure(uk)
-		s.prender(w, r, 200, "p_login", Page{Title: "Customer sign in", Error: "Invalid Username or Password", Data: username})
+		s.Prender(w, r, 200, "p_login", core.Page{Title: "Customer sign in", Error: "Invalid Username or Password", Data: username})
 		return
 	}
 	s.LoginForgive(ip, username)
@@ -112,7 +113,7 @@ func (s *Server) pLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 // portalSignIn starts a fresh portal session for the customer.
-func (s *Server) portalSignIn(r *http.Request, c db.Customer) error {
+func (s *Handlers) portalSignIn(r *http.Request, c db.Customer) error {
 	if err := s.Sessions.RenewToken(r.Context()); err != nil {
 		return err
 	}
@@ -125,7 +126,7 @@ func (s *Server) portalSignIn(r *http.Request, c db.Customer) error {
 }
 
 // keepSession re-stamps the acting session with the customer's bumped session_version.
-func (s *Server) keepSession(r *http.Request, id int64) error {
+func (s *Handlers) keepSession(r *http.Request, id int64) error {
 	c, err := s.Queries.GetCustomer(r.Context(), id)
 	if err != nil {
 		return err
@@ -137,7 +138,7 @@ func (s *Server) keepSession(r *http.Request, id int64) error {
 	return nil
 }
 
-func (s *Server) pLogout(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pLogout(w http.ResponseWriter, r *http.Request) {
 	s.Sessions.Remove(r.Context(), "customer_id")
 	s.Sessions.Remove(r.Context(), "impersonator")
 	for _, k := range s.Sessions.Keys(r.Context()) { // pending contact-change OTP (ct_*) must not survive logout
@@ -153,7 +154,7 @@ func (s *Server) pLogout(w http.ResponseWriter, r *http.Request) {
 // pVoucherLogin is the old login/activation: in "Voucher Only" mode a username plus a voucher code
 // creates the customer (password and PPPoE secret = the code) when missing, then redeems the voucher.
 // An existing customer keeps their password (old PHP overwrote it with the code).
-func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	st, err := s.LoadSettings(ctx)
 	if err != nil || s.Billing == nil {
@@ -167,7 +168,7 @@ func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 	ip := "c:" + core.ClientIP(r)
 	bad := func() {
 		s.RecordFailure(ip)
-		s.prender(w, r, 200, "p_login", Page{Title: "Customer sign in", Error: "Voucher Not Valid"})
+		s.Prender(w, r, 200, "p_login", core.Page{Title: "Customer sign in", Error: "Voucher Not Valid"})
 	}
 	code := strings.TrimSpace(r.PostFormValue("voucher"))
 	username := strings.Map(func(c rune) rune {
@@ -196,7 +197,7 @@ func (s *Server) pVoucherLogin(w http.ResponseWriter, r *http.Request) {
 		if len(username) < 21 && strings.Trim(username, "+0123456789 -()") == "" { // a phone number, not a voucher code
 			phone = db.CanonicalPhone(username)
 		}
-		if taken, err := s.phoneTaken(ctx, phone, 0); err != nil { // a number another account uses is not taken twice
+		if taken, err := s.PhoneTaken(ctx, phone, 0); err != nil { // a number another account uses is not taken twice
 			s.Fail(w, "voucher login", err)
 			return
 		} else if taken {

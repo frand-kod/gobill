@@ -1,10 +1,11 @@
-package web
+package portal
 
 // Tell-a-friend invitation form.
 
 import (
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"errors"
@@ -19,16 +20,16 @@ type friendData struct {
 	Username string
 }
 
-func (s *Server) friendPage(w http.ResponseWriter, r *http.Request, code int, username, errMsg string) {
+func (s *Handlers) friendPage(w http.ResponseWriter, r *http.Request, code int, username, errMsg string) {
 	p, err := s.Queries.GetPlan(r.Context(), httpx.PathID(r))
 	if err != nil || p.Enabled != 1 || p.Type == "Balance" || p.Billing != "prepaid" {
 		http.NotFound(w, r)
 		return
 	}
-	s.prender(w, r, code, "p_friend", Page{Title: "Buy for friend", Error: errMsg, Data: friendData{p, username}})
+	s.Prender(w, r, code, "p_friend", core.Page{Title: "Buy for friend", Error: errMsg, Data: friendData{p, username}})
 }
 
-func (s *Server) pFriendForm(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pFriendForm(w http.ResponseWriter, r *http.Request) {
 	if p, err := s.Queries.GetPlan(r.Context(), httpx.PathID(r)); err != nil || !billing.SellablePlan(p) { // no form for admin-only or Rp 0 plans
 		http.NotFound(w, r)
 		return
@@ -36,7 +37,7 @@ func (s *Server) pFriendForm(w http.ResponseWriter, r *http.Request) {
 	s.friendPage(w, r, 200, strings.TrimSpace(r.URL.Query().Get("u")), "")
 }
 
-func (s *Server) pFriend(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pFriend(w http.ResponseWriter, r *http.Request) {
 	if s.Billing == nil {
 		s.Fail(w, "portal friend", errors.New("billing not configured"))
 		return

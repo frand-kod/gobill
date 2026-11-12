@@ -1,4 +1,4 @@
-package web
+package portal
 
 // Customer plan purchase, extend, balance top-up and transfer.
 
@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/view"
 
@@ -39,11 +40,11 @@ type plansData struct {
 	Voucher  bool              // vouchers are on: link them in the how-to-pay note
 }
 
-func (s *Server) pPlans(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pPlans(w http.ResponseWriter, r *http.Request) {
 	s.plansPage(w, r, 200, "")
 }
 
-func (s *Server) plansPage(w http.ResponseWriter, r *http.Request, code int, errMsg string) {
+func (s *Handlers) plansPage(w http.ResponseWriter, r *http.Request, code int, errMsg string) {
 	c := customerFrom(r)
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
@@ -91,7 +92,7 @@ func (s *Server) plansPage(w http.ResponseWriter, r *http.Request, code int, err
 			}
 		}
 	}
-	s.prender(w, r, code, "p_plans", Page{Title: "Order Package", Error: errMsg, Data: pd})
+	s.Prender(w, r, code, "p_plans", core.Page{Title: "Order Package", Error: errMsg, Data: pd})
 }
 
 // couponErr returns the user-facing message of a coupon validation error, or "".
@@ -106,7 +107,7 @@ func couponErr(err error) string {
 
 // pBuyBalance pays a plan from the customer's balance.
 // The online gateway (Tripay) order is pPay in payment.go.
-func (s *Server) pBuyBalance(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pBuyBalance(w http.ResponseWriter, r *http.Request) {
 	c := customerFrom(r)
 	st, err := s.LoadSettings(r.Context())
 	if err != nil || s.Billing == nil {
@@ -156,7 +157,7 @@ func (s *Server) pBuyBalance(w http.ResponseWriter, r *http.Request) {
 
 // ---- balance transfer ----
 
-func (s *Server) pTransfer(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pTransfer(w http.ResponseWriter, r *http.Request) {
 	if s.Billing == nil {
 		s.Fail(w, "portal transfer", errors.New("billing not configured"))
 		return
@@ -187,7 +188,7 @@ func (s *Server) pTransfer(w http.ResponseWriter, r *http.Request) {
 }
 
 // pTransferLookup names the recipient for the confirm dialog. 404 when the username is unknown or transfers are off.
-func (s *Server) pTransferLookup(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pTransferLookup(w http.ResponseWriter, r *http.Request) {
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
 		s.Fail(w, "portal transfer lookup", err)
@@ -216,7 +217,7 @@ func (s *Server) pTransferLookup(w http.ResponseWriter, r *http.Request) {
 
 // ---- self extend ----
 
-func (s *Server) pExtend(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pExtend(w http.ResponseWriter, r *http.Request) {
 	if s.Billing == nil {
 		s.Fail(w, "portal extend", errors.New("billing not configured"))
 		return
@@ -246,7 +247,7 @@ func maskName(full string) string {
 }
 
 // lookupAllow caps recipient lookups at 30 per customer per 15 minutes (shares the OTP map and lock).
-func (s *Server) lookupAllow(id int64) bool {
+func (s *Handlers) lookupAllow(id int64) bool {
 	s.Mu.Lock()
 	defer s.Mu.Unlock()
 	if s.OtpSent == nil {

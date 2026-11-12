@@ -69,5 +69,5 @@ func (s *Server) pagePublic(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "get page", err)
 		return
 	}
-	s.prender(w, r, http.StatusOK, "p_page", Page{Title: p.Title, Data: p})
+	s.portal.Prender(w, r, http.StatusOK, "p_page", Page{Title: p.Title, Data: p})
 }

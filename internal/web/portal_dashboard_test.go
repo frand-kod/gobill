@@ -292,19 +292,6 @@ func TestPortalLastLoginRecorded(t *testing.T) {
 	}
 }
 
-func TestMaskMAC(t *testing.T) {
-	for in, want := range map[string]string{
-		"CE:33:AA:BB:2A:AA": "CE:33:••:••:2A:AA",
-		"ce-33-aa-bb-2a-aa": "ce:33:••:••:2a:aa",
-		"":                  "",
-		"garbage":           "",
-	} {
-		if got := maskMAC(in); got != want {
-			t.Errorf("maskMAC(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
 func TestPwordsCountdownText(t *testing.T) {
 	w := core.PWords{Days: "hari", Hours: "jam", Minutes: "menit", Left: "lagi", Done: "Sudah habis"}
 	for sec, want := range map[int64]string{

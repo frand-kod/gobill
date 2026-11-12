@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/web/core"
+	"github.com/frand-kod/gobill/internal/web/portal"
 )
 
 // /portal/usage.json is the logged-in customer's own live card: another customer's session never shows.
@@ -25,12 +26,12 @@ func TestPortalUsageJSONIsolationAndRate(t *testing.T) {
 	if _, err := e.s.conn.ExecContext(t.Context(), `UPDATE radius_sessions SET updated_at = ? WHERE session_id = 'mine'`, now-60); err != nil {
 		t.Fatal(err)
 	}
-	get := func() (pLive, string) {
+	get := func() (portal.PLive, string) {
 		w := do(e.h, "GET", "/portal/usage.json", nil, c)
 		if w.Code != 200 || !strings.Contains(w.Header().Get("Content-Type"), "application/json") {
 			t.Fatalf("usage.json: %d %s", w.Code, w.Header().Get("Content-Type"))
 		}
-		var v pLive
+		var v portal.PLive
 		if err := json.Unmarshal(w.Body.Bytes(), &v); err != nil {
 			t.Fatal(err)
 		}

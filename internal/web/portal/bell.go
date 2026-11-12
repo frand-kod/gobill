@@ -1,4 +1,4 @@
-package web
+package portal
 
 // Portal bell: announcement, live promo and the customer's own notices, with read state per account.
 
@@ -15,6 +15,7 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/service/diagnose"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 func verOf(parts ...any) string {
@@ -22,14 +23,14 @@ func verOf(parts ...any) string {
 	return hex.EncodeToString(h[:8])
 }
 
-// portalBell lists the items of this customer with Unread set from portal_seen.
-func (s *Server) portalBell(r *http.Request, c *db.Customer) ([]bellItem, error) {
+// PortalBell lists the items of this customer with Unread set from portal_seen.
+func (s *Handlers) PortalBell(r *http.Request, c *db.Customer) ([]core.BellItem, error) {
 	ctx, now := r.Context(), time.Now().Unix()
-	var items []bellItem
+	var items []core.BellItem
 	if ann, err := s.Queries.GetPage(ctx, "announcement"); err != nil {
 		return nil, err
 	} else if ann.Body != "" {
-		items = append(items, bellItem{Key: "announcement", Ver: verOf(ann.Body), Title: s.T("Announcement"), Text: oneLine(ann.Body), Href: "/portal"})
+		items = append(items, core.BellItem{Key: "announcement", Ver: verOf(ann.Body), Title: s.T("Announcement"), Text: oneLine(ann.Body), Href: "/portal"})
 	}
 	if pp, err := s.PromoPortal(ctx); err != nil {
 		return nil, err
@@ -38,7 +39,7 @@ func (s *Server) portalBell(r *http.Request, c *db.Customer) ([]bellItem, error)
 		if href == "" {
 			href = "/portal"
 		}
-		items = append(items, bellItem{Key: "promo", Ver: pp.Key, Title: s.T("Promotions"), Text: pp.First.Title, Href: href})
+		items = append(items, core.BellItem{Key: "promo", Ver: pp.Key, Title: s.T("Promotions"), Text: pp.First.Title, Href: href})
 	}
 	subs, err := s.Queries.ListSubscriptionsByCustomer(ctx, db.ListSubscriptionsByCustomerParams{CustomerID: c.ID, Limit: 50})
 	if err != nil {
@@ -55,15 +56,15 @@ func (s *Server) portalBell(r *http.Request, c *db.Customer) ([]bellItem, error)
 			slog.Warn("portal bell plan", "err", err) // no plan name: skip these two items
 		} else {
 			if sub.ExpiresAt-now <= 3*86400 {
-				items = append(items, bellItem{Key: "expiry", Ver: verOf(sub.ID, sub.ExpiresAt), Title: s.T("Plan ends soon"),
+				items = append(items, core.BellItem{Key: "expiry", Ver: verOf(sub.ID, sub.ExpiresAt), Title: s.T("Plan ends soon"),
 					Text: fmt.Sprintf(s.T("%s ends on %s"), p.Name, s.TS(sub.ExpiresAt)), Href: "/portal/plans"})
 			}
 			q := diagnose.PlanQuota(*sub, p)
 			if (q.HasData && q.Data >= q.DataLim) || (q.HasTime && q.Time >= q.TimeLim) {
-				items = append(items, bellItem{Key: "quota", Ver: verOf(sub.ID, sub.StartedAt, 100), Title: s.T("Quota used up"),
+				items = append(items, core.BellItem{Key: "quota", Ver: verOf(sub.ID, sub.StartedAt, 100), Title: s.T("Quota used up"),
 					Text: s.T("Buy or extend a plan to keep using the service"), Href: "/portal/plans"})
 			} else if (q.HasData && q.Data*100 > q.DataLim*80) || (q.HasTime && q.Time*100 > q.TimeLim*80) {
-				items = append(items, bellItem{Key: "quota", Ver: verOf(sub.ID, sub.StartedAt, 80), Title: s.T("Quota almost used up"),
+				items = append(items, core.BellItem{Key: "quota", Ver: verOf(sub.ID, sub.StartedAt, 80), Title: s.T("Quota almost used up"),
 					Text: s.T("Buy or extend a plan before it runs out"), Href: "/portal/plans"})
 			}
 		}
@@ -71,7 +72,7 @@ func (s *Server) portalBell(r *http.Request, c *db.Customer) ([]bellItem, error)
 	// the newest payment attempt that ended in the last 7 days
 	if pr, err := s.Queries.GetLatestFinishedPaymentByCustomer(ctx, db.GetLatestFinishedPaymentByCustomerParams{CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, CreatedAt: now - 7*86400}); err == nil {
 		title := map[string]string{"paid": "Payment received", "failed": "Payment failed", "expired": "Payment expired"}[pr.Status]
-		items = append(items, bellItem{Key: "payment", Ver: verOf(pr.ID, pr.Status), Title: s.T(title), Text: pr.Ref, Href: "/portal/payments/" + strconv.FormatInt(pr.ID, 10)})
+		items = append(items, core.BellItem{Key: "payment", Ver: verOf(pr.ID, pr.Status), Title: s.T(title), Text: pr.Ref, Href: "/portal/payments/" + strconv.FormatInt(pr.ID, 10)})
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
@@ -105,7 +106,7 @@ func oneLine(s string) string {
 
 // pBellSeen marks the items the page showed (form values "key:ver") as seen, if they are still current.
 // An admin viewing as the customer (impersonating) never changes the customer's read state.
-func (s *Server) pBellSeen(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pBellSeen(w http.ResponseWriter, r *http.Request) {
 	if s.Sessions.GetInt64(r.Context(), "impersonator") != 0 {
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -116,7 +117,7 @@ func (s *Server) pBellSeen(w http.ResponseWriter, r *http.Request) {
 	for _, v := range r.PostForm["seen"] {
 		shown[v] = true
 	}
-	items, err := s.portalBell(r, c)
+	items, err := s.PortalBell(r, c)
 	if err != nil {
 		s.Fail(w, "portal bell", err)
 		return

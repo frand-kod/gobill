@@ -14,6 +14,7 @@ import (
 	"github.com/frand-kod/gobill/internal/settings"
 	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/portal"
 
 	"context"
 	"log/slog"
@@ -34,6 +35,7 @@ import (
 // Server wires the database, sessions, translations and templates together.
 type Server struct {
 	core.Core
+	portal *portal.Handlers
 	conn   *sql.DB
 	guides map[string]*guideSet // rendered "Panduan" pages per language ("id", "en"), see docs.go
 
@@ -136,6 +138,7 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	s.Lang.Store(st["language"])
 	s.ReloadSessionSettings(context.Background())
 	s.Asset, s.Decorate = s.asset, s.decorate
+	s.portal = portal.New(&s.Core)
 	if err := s.parseTemplates(); err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-package web
+package portal
 
 // Customer forgot-password and forgot-username flow.
 
@@ -21,13 +21,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func (s *Server) pForgotUserForm(w http.ResponseWriter, r *http.Request) {
-	s.prender(w, r, 200, "p_forgot_user", Page{Title: "Forgot Usernames"})
+func (s *Handlers) pForgotUserForm(w http.ResponseWriter, r *http.Request) {
+	s.Prender(w, r, 200, "p_forgot_user", core.Page{Title: "Forgot Usernames"})
 }
 
-// usernamesFor returns the usernames registered with the email, or with the phone number in canonical
+// UsernamesFor returns the usernames registered with the email, or with the phone number in canonical
 // form, so "0812-345", "+62 812 345" and "62812345" find the same account.
-func (s *Server) usernamesFor(ctx context.Context, contact string, isMail bool) ([]string, error) {
+func (s *Handlers) UsernamesFor(ctx context.Context, contact string, isMail bool) ([]string, error) {
 	var names []string
 	if isMail {
 		rows, err := s.Queries.SearchCustomers(ctx, db.SearchCustomersParams{Q: contact, PageLimit: 50})
@@ -57,16 +57,16 @@ func (s *Server) usernamesFor(ctx context.Context, contact string, isMail bool) 
 // pForgotUser is old forgot step 6: the usernames registered with an email or phone are sent to
 // that contact. The answer is the same whether or not anything matched (no account enumeration);
 // sending runs in the background so timing does not tell either.
-func (s *Server) pForgotUser(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pForgotUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	contact := strings.TrimSpace(r.PostFormValue("contact"))
 	isMail := strings.Contains(contact, "@")
 	if contact == "" || !isMail && len(db.CanonicalPhone(contact)) < 6 {
-		s.prender(w, r, 200, "p_forgot_user", Page{Title: "Forgot Usernames", Error: "Invalid phone number format"})
+		s.Prender(w, r, 200, "p_forgot_user", core.Page{Title: "Forgot Usernames", Error: "Invalid phone number format"})
 		return
 	}
 	if !s.OtpAllow(core.ClientIP(r), strings.ToLower(contact)) {
-		s.prender(w, r, http.StatusTooManyRequests, "p_forgot_user", Page{Title: "Forgot Usernames", Error: "Too many verification code requests, please try again later"})
+		s.Prender(w, r, http.StatusTooManyRequests, "p_forgot_user", core.Page{Title: "Forgot Usernames", Error: "Too many verification code requests, please try again later"})
 		return
 	}
 	st, err := s.LoadSettings(ctx)
@@ -74,7 +74,7 @@ func (s *Server) pForgotUser(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "forgot usernames", err)
 		return
 	}
-	names, err := s.usernamesFor(ctx, contact, isMail)
+	names, err := s.UsernamesFor(ctx, contact, isMail)
 	if err != nil {
 		s.Fail(w, "forgot usernames", err)
 		return
@@ -98,7 +98,7 @@ func (s *Server) pForgotUser(w http.ResponseWriter, r *http.Request) {
 			}
 		}()
 	}
-	s.prender(w, r, 200, "p_forgot_user", Page{Title: "Forgot Usernames",
+	s.Prender(w, r, 200, "p_forgot_user", core.Page{Title: "Forgot Usernames",
 		Flash: s.T("If the contact is registered, the usernames have been sent")})
 }
 
@@ -108,7 +108,7 @@ func (s *Server) pForgotUser(w http.ResponseWriter, r *http.Request) {
 const (
 	otpTTL   = 10 * time.Minute
 	otpGap   = 60 * time.Second // a new code can be asked for this long after the last one
-	otpTries = 5
+	OtpTries = 5
 )
 
 // otpWait is the seconds left before a new code may be sent, 0 when it may be sent now.
@@ -117,14 +117,14 @@ func otpWait(sentAt, now int64) int64 {
 }
 
 // forgotClear drops the whole forgot-password state.
-func (s *Server) forgotClear(r *http.Request) {
+func (s *Handlers) forgotClear(r *http.Request) {
 	for _, k := range []string{"forgot_user", "forgot_hash", "forgot_exp", "forgot_ok", "forgot_at"} {
 		s.Sessions.Remove(r.Context(), k)
 	}
 }
 
 // forgotRender shows the step the session is in: user -> code -> reset.
-func (s *Server) forgotRender(w http.ResponseWriter, r *http.Request, status int, flash, msg string) {
+func (s *Handlers) forgotRender(w http.ResponseWriter, r *http.Request, status int, flash, msg string) {
 	ctx := r.Context()
 	user := s.Sessions.GetString(ctx, "forgot_user")
 	step := "user"
@@ -133,11 +133,11 @@ func (s *Server) forgotRender(w http.ResponseWriter, r *http.Request, status int
 	} else if user != "" {
 		step = "code"
 	}
-	s.prender(w, r, status, "p_forgot", Page{Title: "Forgot Password", Flash: flash, Error: msg,
+	s.Prender(w, r, status, "p_forgot", core.Page{Title: "Forgot Password", Flash: flash, Error: msg,
 		Data: struct{ Step, Username string }{step, user}})
 }
 
-func (s *Server) pForgotForm(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pForgotForm(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("cancel") != "" {
 		s.forgotClear(r)
 	}
@@ -146,7 +146,7 @@ func (s *Server) pForgotForm(w http.ResponseWriter, r *http.Request) {
 
 // pForgotSend starts the flow: a code is generated for every username, but only sent
 // when the username and a phone exist, so the answer never shows which accounts exist.
-func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pForgotSend(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	username := strings.TrimSpace(r.PostFormValue("username"))
 	if username == "" {
@@ -217,8 +217,8 @@ func (s *Server) pForgotSend(w http.ResponseWriter, r *http.Request) {
 	s.forgotRender(w, r, http.StatusOK, s.T("If your Username is found, Verification Code has been Sent to Your Phone/Email/Whatsapp"), "")
 }
 
-// pForgotVerify checks the code. Each wrong code uses one of otpTries; the last one drops the flow.
-func (s *Server) pForgotVerify(w http.ResponseWriter, r *http.Request) {
+// pForgotVerify checks the code. Each wrong code uses one of OtpTries; the last one drops the flow.
+func (s *Handlers) pForgotVerify(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	ip := "f:" + core.ClientIP(r)
 	if st, err := s.LoadSettings(ctx); err != nil {
@@ -241,7 +241,7 @@ func (s *Server) pForgotVerify(w http.ResponseWriter, r *http.Request) {
 	hash := s.Sessions.GetString(ctx, "forgot_hash")
 	// The try count is per issued code and kept on the server: a session counter loses decrements
 	// when requests run in parallel.
-	left := s.Reserve("otp:"+hash, otpTries)
+	left := s.Reserve("otp:"+hash, OtpTries)
 	code := strings.TrimSpace(r.PostFormValue("otp_code"))
 	if left < 0 || bcrypt.CompareHashAndPassword([]byte(hash), []byte(code)) != nil {
 		if left <= 0 {
@@ -259,7 +259,7 @@ func (s *Server) pForgotVerify(w http.ResponseWriter, r *http.Request) {
 }
 
 // pForgotReset sets the new password of the verified customer, then sends them to login.
-func (s *Server) pForgotReset(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pForgotReset(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	user := s.Sessions.GetString(ctx, "forgot_user")
 	if user == "" || !s.Sessions.GetBool(ctx, "forgot_ok") || time.Now().Unix() > s.Sessions.GetInt64(ctx, "forgot_exp") {
@@ -286,7 +286,7 @@ func (s *Server) pForgotReset(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "forgot reset", err)
 		return
 	}
-	if err = s.setPassword(ctx, c.ID, npass); err != nil {
+	if err = s.CustomerSvc().SetPassword(ctx, c.ID, npass); err != nil {
 		s.Fail(w, "forgot reset", err)
 		return
 	}

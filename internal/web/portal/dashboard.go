@@ -1,4 +1,4 @@
-package web
+package portal
 
 // Customer portal dashboard, orders, invoices and activations.
 
@@ -42,7 +42,7 @@ func pageOf(trx []db.Transaction, pg view.Pager, total int64, base string) pTrxP
 }
 
 // pActivations lists the customer's own plan purchases and activations, one page at a time.
-func (s *Server) pActivations(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pActivations(w http.ResponseWriter, r *http.Request) {
 	_, pg := view.Paging(r)
 	cust := sql.NullInt64{Int64: customerFrom(r).ID, Valid: true}
 	trx, err := s.Queries.ListActivationsByCustomer(r.Context(), db.ListActivationsByCustomerParams{CustomerID: cust, Limit: pg.Limit(), Offset: pg.Offset()})
@@ -55,7 +55,7 @@ func (s *Server) pActivations(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "count portal activations", err)
 		return
 	}
-	s.prender(w, r, 200, "p_activation", Page{Title: "Activation History", Data: pageOf(trx, pg, total, "/portal/activation")})
+	s.Prender(w, r, 200, "p_activation", core.Page{Title: "Activation History", Data: pageOf(trx, pg, total, "/portal/activation")})
 }
 
 // ---- dashboard, orders ----
@@ -109,7 +109,7 @@ type pDashData struct {
 	Extend    *pExtend // no active plan and extend_expired is on: renew the last ended plan
 	Buy       bool     // the customer can pay here (a gateway, or balance to spend): show the buy button
 	Usage     pUsage
-	Live      pLive         // the live card: online now, else last seen
+	Live      PLive         // the live card: online now, else last seen
 	Days      []core.DayBar // the 7-day usage chart
 	Today     pTotal        // today's usage
 	Period    pTotal        // usage since the plan started
@@ -134,9 +134,9 @@ func maskMAC(mac string) string {
 	return strings.Join(p, ":")
 }
 
-func (s *Server) pDashboard(w http.ResponseWriter, r *http.Request) { s.pDash(w, r, 200, "") }
+func (s *Handlers) pDashboard(w http.ResponseWriter, r *http.Request) { s.pDash(w, r, 200, "") }
 
-func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg string) {
+func (s *Handlers) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg string) {
 	c := customerFrom(r)
 	ctx := r.Context()
 	st, err := s.LoadSettings(ctx)
@@ -218,7 +218,7 @@ func (s *Server) pDash(w http.ResponseWriter, r *http.Request, code int, errMsg 
 		s.Fail(w, "portal outage", err)
 		return
 	}
-	s.prender(w, r, code, "p_dashboard", Page{Title: "Dashboard", Error: errMsg, Data: d})
+	s.Prender(w, r, code, "p_dashboard", core.Page{Title: "Dashboard", Error: errMsg, Data: d})
 }
 
 // validityPct is the share of the subscription's validity that has passed, 0..100.
@@ -231,7 +231,7 @@ func validityPct(start, end, now int64) int {
 
 // pUsage: data and time used since the subscription started, the same sums the RADIUS login check uses.
 // used is the data octets of the same period; it is shown when the plan has no data limit.
-func (s *Server) pUsage(ctx context.Context, c db.Customer, sub db.Subscription, p db.Plan, w core.PWords, used int64) pUsage {
+func (s *Handlers) pUsage(ctx context.Context, c db.Customer, sub db.Subscription, p db.Plan, w core.PWords, used int64) pUsage {
 	if p.Limited == 1 && p.Device != "Radius" {
 		return pUsage{Note: s.T("Usage is not recorded for this plan")}
 	}
@@ -257,7 +257,7 @@ func meter(used, lim int64, text func(int64) string) pMeter {
 }
 
 // pSession maps one RADIUS session to a history row; the duration of an open session runs to now.
-func (s *Server) pSession(x db.RadiusSession, now int64, w core.PWords) pSess {
+func (s *Handlers) pSession(x db.RadiusSession, now int64, w core.PWords) pSess {
 	end := now
 	if x.StoppedAt.Valid {
 		end = x.StoppedAt.Int64
@@ -267,7 +267,7 @@ func (s *Server) pSession(x db.RadiusSession, now int64, w core.PWords) pSess {
 }
 
 // pOrders lists the customer's own transactions, view.PerPage at a time.
-func (s *Server) pOrders(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pOrders(w http.ResponseWriter, r *http.Request) {
 	_, pg := view.Paging(r)
 	cust := sql.NullInt64{Int64: customerFrom(r).ID, Valid: true}
 	trx, err := s.Queries.ListTransactionsByCustomer(r.Context(), db.ListTransactionsByCustomerParams{CustomerID: cust, Limit: pg.Limit(), Offset: pg.Offset()})
@@ -282,11 +282,11 @@ func (s *Server) pOrders(w http.ResponseWriter, r *http.Request) {
 	}
 	data := pageOf(trx, pg, total, "/portal/orders")
 	data.Pay = s.pendingPay(r.Context(), customerFrom(r).ID)
-	s.prender(w, r, 200, "p_orders", Page{Title: "Order History", Data: data})
+	s.Prender(w, r, 200, "p_orders", core.Page{Title: "Order History", Data: data})
 }
 
 // pInvoice shows the invoice only for the customer's own transaction.
-func (s *Server) pInvoice(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pInvoice(w http.ResponseWriter, r *http.Request) {
 	t, err := s.Queries.GetTransaction(r.Context(), httpx.PathID(r))
 	if err != nil || !t.CustomerID.Valid || t.CustomerID.Int64 != customerFrom(r).ID {
 		http.NotFound(w, r)

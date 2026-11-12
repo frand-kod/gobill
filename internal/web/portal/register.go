@@ -1,4 +1,4 @@
-package web
+package portal
 
 // Customer self-registration: username, password and WhatsApp number, with optional WA OTP.
 
@@ -41,7 +41,7 @@ func validRegUsername(u string) bool {
 	return true
 }
 
-func (s *Server) pRegisterForm(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pRegisterForm(w http.ResponseWriter, r *http.Request) {
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
 		s.Fail(w, "register", err)
@@ -51,7 +51,7 @@ func (s *Server) pRegisterForm(w http.ResponseWriter, r *http.Request) {
 		s.FlashTo(w, r, "/login", "Registration Disabled")
 		return
 	}
-	s.prender(w, r, 200, "p_register", Page{Title: "Register", Data: regFlags(regData{}, st)})
+	s.Prender(w, r, 200, "p_register", core.Page{Title: "Register", Data: regFlags(regData{}, st)})
 }
 
 func regFlags(d regData, st map[string]string) regData {
@@ -59,7 +59,7 @@ func regFlags(d regData, st map[string]string) regData {
 	return d
 }
 
-func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pRegister(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	st, err := s.LoadSettings(ctx)
 	if err != nil {
@@ -73,7 +73,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 	f := r.PostFormValue
 	d := regFlags(regData{Username: strings.ToLower(strings.TrimSpace(f("username"))), Phone: db.CanonicalPhone(f("phone_number"))}, st)
 	show := func(msg string) {
-		s.prender(w, r, 200, "p_register", Page{Title: "Register", Data: d, Error: msg})
+		s.Prender(w, r, 200, "p_register", core.Page{Title: "Register", Data: d, Error: msg})
 	}
 	if !validRegUsername(d.Username) {
 		show("Username should be 4 to 32 characters, lowercase letters and digits only")
@@ -102,7 +102,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "register", err)
 		return
 	}
-	if taken, err := s.contactTaken(r, "phone", d.Phone, 0); err != nil {
+	if taken, err := s.ContactTaken(r, "phone", d.Phone, 0); err != nil {
 		s.Fail(w, "register", err)
 		return
 	} else if taken {
@@ -129,7 +129,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 				show("Failed to send verification code")
 				return
 			}
-			s.prender(w, r, 200, "p_register", Page{Title: "Register", Data: d, Flash: s.T("Verification code sent")})
+			s.Prender(w, r, 200, "p_register", core.Page{Title: "Register", Data: d, Flash: s.T("Verification code sent")})
 			return
 		}
 		ip := "c:" + core.ClientIP(r)
@@ -144,7 +144,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	// per-IP cap on new accounts (same limiter as OTP sends, own key)
 	if !s.OtpAllow("reg:"+core.ClientIP(r), "") {
-		s.prender(w, r, http.StatusTooManyRequests, "p_register", Page{Title: "Register", Data: d, Error: "Too many registrations from this address. Try again later."})
+		s.Prender(w, r, http.StatusTooManyRequests, "p_register", core.Page{Title: "Register", Data: d, Error: "Too many registrations from this address. Try again later."})
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(f("password")), core.BcryptCost)
@@ -172,7 +172,7 @@ func (s *Server) pRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 // registered sends the welcome message and, when reg_nofify_admin is on, alerts the admin (alert_channel).
-func (s *Server) registered(ctx context.Context, st map[string]string, c db.Customer) {
+func (s *Handlers) registered(ctx context.Context, st map[string]string, c db.Customer) {
 	n, err := notify.Load(ctx, s.Queries)
 	if err != nil {
 		slog.Error("register notify", "err", err)
