@@ -47,6 +47,29 @@ Isi di **Pengaturan > Integrasi**, bagian "WhatsApp — GOWA":
 
 gobill mengirim `POST <alt_wga_server_url>/send/message` dengan body `{"phone":"628xxx@s.whatsapp.net","message":"..."}`. Cara ini sama dengan plugin "Alternative WhatsApp Gateway" di PHPNuxBill. Nomor yang diawali `0` diubah memakai `country_code_phone`.
 
+### Perintah lewat WhatsApp (hanya GOWA)
+
+Pelanggan dan admin bisa mengirim perintah singkat ke nomor WhatsApp. gobill menjawab di chat yang sama. Perintah hanya membaca data.
+
+Atur GOWA dengan nilai environment ini:
+
+```
+WHATSAPP_WEBHOOK=https://<alamat gobill>/wa/inbound
+WHATSAPP_WEBHOOK_EVENTS=message
+WHATSAPP_WEBHOOK_SECRET=<secret minimal 16 karakter>
+```
+
+Lalu di **Pengaturan > Integrasi**, bagian "WhatsApp — GOWA", isi "Secret webhook GOWA" dengan secret yang sama dan set "Jawab perintah WhatsApp" ke Yes. Bawaannya mati. Tanpa secret, `/wa/inbound` menjawab 404. Request dengan tanda tangan salah menerima 401.
+
+gobill mengenali pengirim dari nomor telepon. Admin aktif dicocokkan dengan telepon di profil admin. Pelanggan dicocokkan dengan telepon pelanggan. Jika dua pelanggan memakai nomor yang sama, gobill meminta mereka memakai portal dan tidak menampilkan data. Nomor tak dikenal menerima balasan umum yang singkat. Tiap nomor boleh mengirim 20 perintah per 15 menit. Chat grup dan pesan dari nomor sendiri diabaikan. Setiap perintah dicatat di log aktivitas dengan sumber `wa`.
+
+| Siapa | Perintah |
+|---|---|
+| Pelanggan | `cek` (status dan sisa hari), `tagihan` (saldo dan pembayaran yang belum selesai), `kuota` (pemakaian), `paket` (paket yang dijual), `bayar` (link portal), `bantuan` |
+| Admin (SuperAdmin, Admin) | `cari <teks>` (maksimal 5 pelanggan), `isolir` (yang terisolir sekarang) |
+| Admin (SuperAdmin, Admin, Report) | `ringkasan` (pelanggan, paket aktif, terisolir, pendapatan hari ini) |
+| Semua admin | `bantuan` |
+
 ### Cara 2: gateway pesan `wa_url`
 
 `wa_url` adalah URL template dengan placeholder `[number]` dan `[text]`. Pengaturan ini juga dipakai untuk SMS. Gateway WhatsApp lain, misalnya Fonnte, Wablas, dan WAHA, belum punya integrasi khusus. Untuk sementara, pakai `wa_url` jika gateway itu mendukung GET dengan `[number]` dan `[text]`.

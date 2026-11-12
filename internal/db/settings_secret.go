@@ -16,7 +16,7 @@ import (
 var SettingsKey []byte
 
 // SecretSettings are the settings stored encrypted.
-var SecretSettings = map[string]bool{"telegram_bot": true, "smtp_pass": true, "webhook_secret": true, "alt_wga_password": true, "tripay_api_key": true, "tripay_private_key": true, "duitku_api_key": true, "metrics_token": true, "radius_rest_secret": true, "wg_private": true}
+var SecretSettings = map[string]bool{"telegram_bot": true, "smtp_pass": true, "webhook_secret": true, "alt_wga_password": true, "alt_wga_webhook_secret": true, "tripay_api_key": true, "tripay_private_key": true, "duitku_api_key": true, "metrics_token": true, "radius_rest_secret": true, "wg_private": true}
 
 // SettingsGen counts the settings saved through UpsertSetting; the settings cache reloads when it moves.
 var SettingsGen atomic.Uint64

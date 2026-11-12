@@ -24,6 +24,9 @@ func Register(mux *http.ServeMux, h *Handlers) {
 	// the router fetches its provisioning script here; the one-time token is the credential
 	mux.HandleFunc("GET /provision/{token}", h.provisionScript)
 
+	// incoming WhatsApp messages from GOWA; the HMAC signature is the credential
+	mux.HandleFunc("POST /wa/inbound", h.waInbound)
+
 	// ISOLIR page for expired customers: public, identified by client IP
 	mux.HandleFunc("GET /isolir", h.isolirPage)
 	mux.HandleFunc("POST /isolir/voucher", h.isolirVoucher)
@@ -32,4 +35,4 @@ func Register(mux *http.ServeMux, h *Handlers) {
 // OriginBypass are the POST routes that skip the origin check: the gateway callbacks (authenticated by
 // their signature), the RADIUS REST endpoint (no browser) and the isolir voucher form, which posts from a
 // sandboxed page with origin null.
-var OriginBypass = []string{"POST /callback/tripay", "POST /callback/duitku", "POST /isolir/voucher", "POST /radius.php", "POST /radius/rest"}
+var OriginBypass = []string{"POST /callback/tripay", "POST /callback/duitku", "POST /isolir/voucher", "POST /radius.php", "POST /radius/rest", "POST /wa/inbound"}
