@@ -70,8 +70,6 @@ type Server struct {
 	// UpdateInfo returns the newest known release tag and its page, see job.UpdateCheck.
 	UpdateInfo func() (tag, link string)
 	Plans      *plan.Service
-	// CoAPort is the NAS Disconnect-Request port; empty = 3799.
-	CoAPort string
 
 	// admin bell counts, cached for noticeCacheFor, see bellItems
 	noticeMu    sync.Mutex
@@ -145,7 +143,7 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	s.plans = plans.New(s.ax, s.Plans)
 	s.reports = reports.New(s.ax, s.net)
 	s.settings = adminsettings.New(s.ax, s.net)
-	s.reports.SettingsFields = func(tab string) []field { return s.settings.SettingsFields(tab, nil, nil, nil) }
+	s.reports.SettingsFields = func(tab string) []adminx.Field { return s.settings.SettingsFields(tab, nil, nil, nil) }
 	s.setup = &setup.Handlers{Base: s.ax, NetH: s.net, PlansH: s.plans, BillingH: s.billing, SettingsH: s.settings, PlanSvc: s.Plans}
 	s.public = public.New(&s.Core)
 	s.public.IsolirOn, s.public.RadiusServer, s.public.OriginalPeer = s.isolir.Load, s.radiusServer, originalPeer
@@ -244,3 +242,6 @@ type peerKey struct{}
 
 // Gateway is what the payment flows need from an online gateway (Tripay, Duitku).
 type Gateway = core.Gateway
+
+// SweepUploads is the job body that removes abandoned import and restore uploads, see web/admin/settings.
+func (s *Server) SweepUploads(ctx context.Context) error { return s.settings.SweepUploads(ctx) }

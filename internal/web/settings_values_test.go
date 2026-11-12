@@ -38,7 +38,7 @@ var settingSample = map[string]string{
 
 // settingSampleFor picks the value a test saves into a non-secret field: the last real choice of a
 // select (so it differs from the first option), or a per-type sample.
-func settingSampleFor(f field) string {
+func settingSampleFor(f adminx.Field) string {
 	if v, ok := settingSample[f.Name]; ok {
 		return v
 	}

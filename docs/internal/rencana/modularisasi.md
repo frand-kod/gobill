@@ -51,6 +51,8 @@ Aturan dependensi:
 
 ### M0. Kebersihan repo
 
+Status: selesai.
+
 - Perbaiki `.dockerignore` agar semua docs yang di-embed ikut. Pakai `!docs/id/*.md` dan `!docs/en/*.md`.
 - Keluarkan binary `nuxbill` dari git. Tambahkan `/nuxbill` ke `.gitignore` dan `.dockerignore`.
 - Tambahkan target `make run` dengan `GOBILL_DB=dev/dev.db`, supaya DB, key, dan password tidak lagi tercecer di root.
@@ -59,6 +61,8 @@ Aturan dependensi:
 Selesai jika `docker build` lulus dan `git ls-files` tidak berisi binary.
 
 ### M1. Helper bersama
+
+Status: sebagian. `money` dan `clock` selesai, `device` dan `wg` tidak lagi meng-import `radius`. `LimitBytes` dan `NormMAC` masih di `radius`, belum jadi `internal/quota`.
 
 - `internal/money`: satu fungsi format uang. Ganti `notify.Money`, `web.money`, dan `web.moneyFormat`.
 - `internal/clock`: satu sumber waktu dan zona. Ganti `billing.now/Location`, `radius.now/loc`, dan `metrics.Now`.
@@ -69,6 +73,8 @@ Selesai jika `go list` tidak menunjukkan `device → radius` dan test lulus.
 
 ### M2. Settings store
 
+Status: selesai.
+
 - Buat `internal/settings` dengan `Get`, `All`, cache, dan invalidasi saat simpan.
 - Ganti semua pembacaan setting langsung: `billing/service.go:96`, `billing/health.go:69`, `billing/isolir.go:53`, `billing/routers.go:43`, `isolir/isolir.go:107`, `radius.go:477-495`, `notify.Load`, dan `web.loadSettings`.
 - Pindahkan validasi setting (`settingsErrors`, 166 baris) dari `web` ke `settings.Validate`.
@@ -76,6 +82,8 @@ Selesai jika `go list` tidak menunjukkan `device → radius` dan test lulus.
 Selesai jika tidak ada lagi `GetSetting` atau `ListSettings` di luar `internal/settings`.
 
 ### M3. Isolir punya satu pemilik
+
+Status: selesai. Aturannya jadi fungsi paket `internal/isolir`, belum tipe `Service`.
 
 - Tulis test untuk `internal/isolir` lebih dulu. Paket ini sekarang belum punya test.
 - Satukan aturan ke `isolir.Service`: `IsIsolated`, `Isolate`, `End`, `PlanFor`.
@@ -97,6 +105,8 @@ M3 memindahkan aturan ke `internal/isolir` tanpa mengubah perilaku. Perbedaan di
 
 ### M4. Logika keluar dari handler
 
+Status: selesai. Service ada untuk provision, customer, plan, restore, settings, diagnose, promo, setup, dan admin.
+
 Urutan dari yang paling berisiko:
 
 1. `service/provision`: `routerWGProvision` dan `script()` dari `admin_wireguard.go`. **Tahap ini sekaligus menambah `rosQuote`** untuk semua nilai di script RouterOS. Lihat temuan keamanan #1.
@@ -114,12 +124,16 @@ Selesai jika `grep -n 'BeginTx\|ExecContext\|QueryContext' internal/web` hanya m
 
 ### M5. Interface di batas domain
 
+Status: sebagian. `Notifier` dan `UsageRecorder` selesai. Dispatcher efek perangkat dan notifikasi belum ada.
+
 - `billing` bergantung pada interface `Notifier`, bukan `*notify.Notifier` konkret.
 - Interface `Gateway` per provider payment, kalau belum ada.
 - Efek ke perangkat dan notifikasi dikumpulkan di satu dispatcher. Transaksi DB tidak lagi bercampur dengan panggilan jaringan.
 - `radius/acctbatch.go` tidak lagi menulis usage subscription langsung. Pakai fungsi milik billing.
 
 ### M6. Pecah file besar
+
+Status: sebagian. `radius`, `notify`, `importer`, dan query radius selesai. `billing/health.go` belum pindah ke `internal/health`.
 
 Ini hanya memindahkan isi file. Setelah M4 isinya sudah jauh lebih kecil.
 
@@ -128,9 +142,11 @@ Ini hanya memindahkan isi file. Setelah M4 isinya sudah jauh lebih kecil.
 - `importer/importer.go`: `tables.go`, `devices.go`, `settings.go`, `run.go`.
 - `billing/health.go` pindah ke `internal/health`.
 - `db/queries/radius.sql` dipecah menjadi `nas.sql`, `radius_sessions.sql`, dan `radius_reports.sql`. Query billing pindah ke file billing. Generate ulang hanya file yang disentuh.
-- Hapus query mati setelah dicek di test: `ListSettingsRaw`, `GetTransactionByInvoice`, `ListTransactions`, `ActivePlanNameByLogin`, `SumRadiusSessionTime`, `SumRadiusUsage`.
+- Hapus query mati setelah dicek di test: `ListSettingsRaw`, `GetTransactionByInvoice`, `ListTransactions`, `SumRadiusSessionTime`, `SumRadiusUsage`.
 
 ### M7. Wiring di `cmd`
+
+Status: sebagian. `config`, `app`, `GOBILL_JOBS`, dan `selfupdate` dengan `io.LimitReader` selesai. `web.New(Deps{...})` belum, field masih diisi setelah konstruksi.
 
 - `internal/config`: semua `GOBILL_*` dibaca sekali ke satu struct.
 - `internal/app`: `Open(cfg)` untuk DB, migrasi, dan key. `Jobs(ctx, svc)` berisi daftar job.
@@ -140,6 +156,8 @@ Ini hanya memindahkan isi file. Setelah M4 isinya sudah jauh lebih kecil.
 
 ### M8. Pecah `internal/web`
 
+Status: sebagian. `httpx`, `view`, `core`, `portal`, `public`, `setup`, `api`, dan `admin/*` sudah jadi paket, dan tiap paket mendaftarkan route-nya sendiri. Sisa di root: login dan sesi, middleware, `docs`, `health`, render dan decorate, serta `Server` yang merakit semuanya. `Server` belum dipecah jadi `Deps` per paket.
+
 - Ekstrak `httpx`, `middleware`, dan `view` sebagai paket dengan helper exported.
 - Pecah `Server` jadi `Deps` per sub-paket: `admin`, `portal`, `setup`, `public`.
 - Pecah `routes.go` (`Handler()` 250 baris). Setiap sub-paket mendaftarkan route-nya sendiri.
@@ -147,6 +165,8 @@ Ini hanya memindahkan isi file. Setelah M4 isinya sudah jauh lebih kecil.
 - Test HTTP ikut pindah. Test logika sudah pindah ke service di M4.
 
 ### M9. API
+
+Status: sebagian. `web/api` dengan token bearer dan DTO sudah ada, dengan endpoint baca di `/api/v1`. Belum ada: DTO Transaction, endpoint katalog `lang`, dan pemindahan halaman yang JS-nya memakai `fetch`.
 
 - Paket `web/api` di bawah `/api/v1`. Mulai dari 4 endpoint JSON yang sudah ada: `status`, `search`, `radius/sessions`, `portal/usage`.
 - DTO untuk Customer, Admin, NAS, Router, Plan, Subscription, Transaction. Model sqlc tidak pernah di-encode langsung, karena berisi `PasswordHash`, `SecretEnc`, dan `TotpSecretEnc`.

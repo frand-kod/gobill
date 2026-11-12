@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/service/restore"
 	"log/slog"
 	"net"
 	"net/http"
@@ -206,7 +207,7 @@ func Run(cfg config.Config, version string) error {
 	}
 	app.SettingsChanged = func(ctx context.Context) { reload(ctx); app.ReloadSessionSettings(ctx) }
 	app.Billing = svc
-	backup := &job.Backup{Conn: conn, Q: db.New(conn), Trusted: guard.Trusted, Dir: backupDir, KeyFP: web.KeyFingerprint(key),
+	backup := &job.Backup{Conn: conn, Q: db.New(conn), Trusted: guard.Trusted, Dir: backupDir, KeyFP: restore.KeyFingerprint(key),
 		Mirror: cfg.BackupMirror}
 	app.BackupDir, app.BackupMirror = backup.Dir, backup.Mirror
 	updates := &selfupdate.Check{Q: db.New(conn)}

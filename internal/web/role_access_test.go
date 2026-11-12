@@ -70,6 +70,8 @@ func TestRoleMatrixStrict(t *testing.T) {
 // Every route that routes.go (or an admin package routes.go) wraps in view.Money(...) or noReport(...) must be in strictMatrix.
 func TestRoleMatrixCoversRoutes(t *testing.T) {
 	files, _ := filepath.Glob("admin/*/routes.go")
+	more, _ := filepath.Glob("*/routes.go")
+	files = append(files, more...)
 	var src []byte
 	for _, f := range append([]string{"routes.go"}, files...) {
 		b, err := os.ReadFile(f)

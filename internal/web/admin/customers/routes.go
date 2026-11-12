@@ -24,4 +24,13 @@ func Register(mux *http.ServeMux, h *Handlers, mw adminx.Mw) {
 	mux.Handle("POST /admin/customers/{id}/usage-recount", managers(http.HandlerFunc(h.custRecountUsage)))
 	mux.Handle("GET /admin/customers/{id}/summary", staff(http.HandlerFunc(h.custSummary)))
 	mw.Crud(mux, "/admin/fields", h.cfList, h.cfNew, h.cfEdit, h.cfSave, h.cfDelete)
+	mux.Handle("POST /admin/customers/{id}/login", mw.Managers(http.HandlerFunc(h.custLoginAs)))
+	mux.HandleFunc("POST /portal/impersonate/end", h.pImpersonateEnd)
+	mux.Handle("GET /admin/message/send", mw.Staff(http.HandlerFunc(h.msgSendForm)))
+	mux.Handle("POST /admin/message/send", mw.Staff(http.HandlerFunc(h.msgSend)))
+	mux.Handle("GET /admin/message/bulk", mw.Staff(http.HandlerFunc(h.msgBulkForm)))
+	mux.Handle("POST /admin/message/bulk", mw.Staff(http.HandlerFunc(h.msgBulkStart)))
+	mux.Handle("POST /admin/message/selected", mw.Staff(http.HandlerFunc(h.msgSelectedSend)))
+	mux.Handle("GET /admin/message/bulk/status", mw.Staff(http.HandlerFunc(h.msgBulkStatus)))
+	mux.Handle("POST /admin/customers/message", mw.Staff(http.HandlerFunc(h.custMessageForm)))
 }

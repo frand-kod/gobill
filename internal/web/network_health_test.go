@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"net/http"
 	"strings"
 	"testing"
@@ -199,7 +200,7 @@ func TestNetworkLiveCheck(t *testing.T) {
 	// a timeout is mapped to the plain message; the raw text stays in technical details
 	fail = errors.New("dial tcp 10.1.0.1:8728: i/o timeout")
 	body = do(h, "POST", check, nil, c).Body.String()
-	if !strings.Contains(body, s.Catalog.T(s.Language(), msgRouterTimeout)) || !strings.Contains(body, "i/o timeout") {
+	if !strings.Contains(body, s.Catalog.T(s.Language(), adminx.MsgRouterTimeout)) || !strings.Contains(body, "i/o timeout") {
 		t.Fatalf("timeout not mapped: %s", body)
 	}
 	if strings.Contains(body, "7.14.3") {

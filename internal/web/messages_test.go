@@ -13,7 +13,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/notify"
 )
 
 // msgCustomer creates a customer with password pw12345, optionally with a phone.
@@ -26,17 +25,6 @@ func msgCustomer(t *testing.T, q *db.Queries, user, svc, phone string) db.Custom
 		t.Fatal(err)
 	}
 	return c
-}
-
-func TestMessagePlaceholders(t *testing.T) {
-	c := db.Customer{Username: "budi", Fullname: "Budi", Phone: "0812"}
-	n := &notify.Notifier{Settings: map[string]string{"app_url": "https://bill.example"}}
-	st := map[string]string{"company_name": "ACME"}
-	got := messageFor(n, c, st, "Hi [[name]] ([[username]], [[phone]]) from [[company]] [[payment_link]] [[unknown]]")
-	want := "Hi Budi (budi, 0812) from ACME https://bill.example/portal/plans "
-	if got != want {
-		t.Fatalf("got %q, want %q", got, want)
-	}
 }
 
 func TestBulkRecipientFilter(t *testing.T) {
@@ -87,21 +75,6 @@ func TestBulkRecipientFilter(t *testing.T) {
 		if got := strings.Join(ids(tc.svc, tc.router, tc.status), " "); got != tc.want {
 			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
 		}
-	}
-}
-
-func TestBulkInboxSends(t *testing.T) {
-	s, _, q, _ := crudApp(t)
-	c := msgCustomer(t, q, "bulk1", "PPPoE", "")
-	msgCustomer(t, q, "bulk2", "PPPoE", "")
-	cs, _ := q.ListMessageRecipients(t.Context(), db.ListMessageRecipientsParams{})
-	bulk.start(len(cs))
-	s.runBulk(map[string]string{"message_delay": "0"}, cs, "inbox", "alice", "Promo", "Hi [[name]]")
-	if n, _ := q.CountUnreadInbox(t.Context(), c.ID); n != 1 {
-		t.Fatalf("unread for bulk1 = %d", n)
-	}
-	if bulk.sent != len(cs) || bulk.active {
-		t.Fatalf("progress sent=%d total=%d active=%v", bulk.sent, bulk.total, bulk.active)
 	}
 }
 

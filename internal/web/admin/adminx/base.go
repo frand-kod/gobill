@@ -65,6 +65,8 @@ type Shared struct {
 	ClockWarning func() string
 	// BackupMirror is the optional off-site backup folder (GOBILL_BACKUP_MIRROR), shown to SuperAdmin.
 	BackupMirror string
+	// CoAPort is the NAS Disconnect-Request port; empty = 3799.
+	CoAPort string
 }
 
 // SettingsSaved is called after settings were committed: it drops the settings cache and runs the SettingsChanged hook.

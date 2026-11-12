@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -114,7 +115,7 @@ func TestAddCustomerRouterFailureWarns(t *testing.T) {
 	w := do(e.h, "POST", "/admin/customers", addForm("budi03", "PPPoE", itoa(p.ID), "Active"), e.c)
 	wantCode(t, w, 303, "add, router down")
 	page := afterPost(e, w)
-	if !strings.Contains(page, xlate(e, "Customer created and plan activated, paid in Cash")) || !strings.Contains(page, xlate(e, msgNotSynced)) {
+	if !strings.Contains(page, xlate(e, "Customer created and plan activated, paid in Cash")) || !strings.Contains(page, xlate(e, adminx.MsgNotSynced)) {
 		t.Fatal("router failure not shown after create")
 	}
 }

@@ -1,4 +1,4 @@
-package web
+package billing
 
 // Read-only list of isolations (isolir), one row per isolation record, with CSV export.
 
@@ -35,7 +35,7 @@ func isoQuery(r *http.Request) db.FilterIsolationsParams {
 	return db.FilterIsolationsParams{Q: q, Status: status}
 }
 
-func (s *Server) isoList(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) isoList(w http.ResponseWriter, r *http.Request) {
 	_, pg := view.Paging(r)
 	p := isoQuery(r)
 	p.PageLimit, p.PageOffset = pg.Limit(), pg.Offset()
@@ -62,11 +62,11 @@ func (s *Server) isoList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp.Finish(pg, total)
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }
 
 // isoExport streams the current filter (all pages) as CSV, like subExport.
-func (s *Server) isoExport(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) isoExport(w http.ResponseWriter, r *http.Request) {
 	p := isoQuery(r)
 	p.PageLimit = -1
 	rows, err := s.Queries.FilterIsolations(r.Context(), p)

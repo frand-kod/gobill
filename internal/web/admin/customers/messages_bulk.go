@@ -1,8 +1,10 @@
-package web
+package customers
 
 // Bulk message jobs: progress, status and selected-customer sending.
 
 import (
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/web/httpx"
@@ -66,7 +68,7 @@ func (j *bulkJob) finish() {
 func messageDelay(st map[string]string) time.Duration { return notify.MessageDelay(st) }
 
 // runBulk sends to every customer in order in one goroutine, with the delay between messages.
-func (s *Server) runBulk(st map[string]string, cs []db.Customer, channel, from, subject, tpl string) {
+func (s *Handlers) runBulk(st map[string]string, cs []db.Customer, channel, from, subject, tpl string) {
 	defer bulk.finish()
 	n, err := notify.Load(context.Background(), s.Queries)
 	if err != nil {
@@ -100,21 +102,21 @@ func msgBulkFields(v, e map[string]string, routers []db.Router) []field {
 	}, "Bulk Message", "")
 }
 
-func (s *Server) msgBulkPage(w http.ResponseWriter, r *http.Request, code int, v, e map[string]string, errMsg string) {
+func (s *Handlers) msgBulkPage(w http.ResponseWriter, r *http.Request, code int, v, e map[string]string, errMsg string) {
 	routers, err := s.Queries.ListRouters(r.Context(), db.ListRoutersParams{Limit: 500})
 	if err != nil {
 		s.Fail(w, "bulk routers", err)
 		return
 	}
-	s.Render(w, r, code, "form", Page{Title: "Bulk Message", Error: errMsg,
+	s.Render(w, r, code, "form", core.Page{Title: "Bulk Message", Error: errMsg,
 		Data: formPage{Heading: "Bulk Message", Action: "/admin/message/bulk", Cancel: "/admin/message/bulk", Fields: msgBulkFields(v, e, routers)}})
 }
 
-func (s *Server) msgBulkForm(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) msgBulkForm(w http.ResponseWriter, r *http.Request) {
 	s.msgBulkPage(w, r, 200, map[string]string{"service": "all", "status": "all", "channel": "sms"}, nil, "")
 }
 
-func (s *Server) msgBulkStart(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) msgBulkStart(w http.ResponseWriter, r *http.Request) {
 	v := httpx.FormVals(r, "service", "router", "status", "channel", "subject", "message")
 	e := map[string]string{}
 	if !httpx.OneOf(v["service"], "all", "PPPoE", "Hotspot", "VPN") {
@@ -164,8 +166,8 @@ func (s *Server) msgBulkStart(w http.ResponseWriter, r *http.Request) {
 		s.msgBulkPage(w, r, 409, v, nil, "A bulk message is already running")
 		return
 	}
-	go s.runBulk(st, cs, v["channel"], adminFrom(r).Username, v["subject"], v["message"])
-	s.logActivity(r, "message.bulk", fmt.Sprintf("%s to %d customers", v["channel"], len(cs)))
+	go s.runBulk(st, cs, v["channel"], adminx.AdminFrom(r).Username, v["subject"], v["message"])
+	s.LogActivity(r, "message.bulk", fmt.Sprintf("%s to %d customers", v["channel"], len(cs)))
 	http.Redirect(w, r, "/admin/message/bulk/status", http.StatusSeeOther)
 }
 
@@ -181,7 +183,7 @@ func msgSelectedPage(v, e map[string]string) formPage {
 }
 
 // custMessageForm takes the ids ticked on the customer list and shows the compose form.
-func (s *Server) custMessageForm(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) custMessageForm(w http.ResponseWriter, r *http.Request) {
 	ids, ok := httpx.ParseIDs(r)
 	if !ok {
 		s.Sessions.Put(r.Context(), "error", s.T("Select at least one row"))
@@ -192,11 +194,11 @@ func (s *Server) custMessageForm(w http.ResponseWriter, r *http.Request) {
 	for i, id := range ids {
 		strs[i] = strconv.FormatInt(id, 10)
 	}
-	s.renderForm(w, r, 200, msgSelectedPage(map[string]string{"ids": strings.Join(strs, ","), "channel": "sms"}, nil))
+	s.RenderForm(w, r, 200, msgSelectedPage(map[string]string{"ids": strings.Join(strs, ","), "channel": "sms"}, nil))
 }
 
 // msgSelectedSend starts the one bulk job for the chosen customers, then shows its progress page.
-func (s *Server) msgSelectedSend(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) msgSelectedSend(w http.ResponseWriter, r *http.Request) {
 	v := httpx.FormVals(r, "ids", "channel", "subject", "message")
 	e := map[string]string{}
 	var ids []int64
@@ -220,7 +222,7 @@ func (s *Server) msgSelectedSend(w http.ResponseWriter, r *http.Request) {
 		e["message"] = "Message is required"
 	}
 	if len(e) > 0 {
-		s.renderForm(w, r, 422, msgSelectedPage(v, e))
+		s.RenderForm(w, r, 422, msgSelectedPage(v, e))
 		return
 	}
 	cs, err := s.Queries.ListCustomersByIDs(r.Context(), ids)
@@ -243,12 +245,12 @@ func (s *Server) msgSelectedSend(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/message/bulk/status", http.StatusSeeOther)
 		return
 	}
-	go s.runBulk(st, cs, v["channel"], adminFrom(r).Username, v["subject"], v["message"])
-	s.logActivity(r, "message.bulk", fmt.Sprintf("%s to %d selected customers", v["channel"], len(cs)))
+	go s.runBulk(st, cs, v["channel"], adminx.AdminFrom(r).Username, v["subject"], v["message"])
+	s.LogActivity(r, "message.bulk", fmt.Sprintf("%s to %d selected customers", v["channel"], len(cs)))
 	http.Redirect(w, r, "/admin/message/bulk/status", http.StatusSeeOther)
 }
 
-func (s *Server) msgBulkStatus(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) msgBulkStatus(w http.ResponseWriter, r *http.Request) {
 	lp := listPage{Heading: "Bulk Message Status", Base: "/admin/message/bulk/status", Cols: []string{"Customer", "Phone", "Status"},
 		Links: []option{{Value: "/admin/message/bulk/status", Label: "Refresh"}, {Value: "/admin/message/bulk", Label: "New Bulk Message"}}}
 	bulk.mu.Lock()
@@ -262,5 +264,5 @@ func (s *Server) msgBulkStatus(w http.ResponseWriter, r *http.Request) {
 		lp.Rows = append(lp.Rows, listRow{ID: 0, Cells: []string{row.name, row.phone, row.status}})
 	}
 	bulk.mu.Unlock()
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }

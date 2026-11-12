@@ -1,9 +1,10 @@
-package web
+package network
 
 // RADIUS live sessions: list and disconnect.
 
 import (
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/web/httpx"
@@ -11,23 +12,23 @@ import (
 	"github.com/frand-kod/gobill/internal/radius"
 )
 
-func (s *Server) radiusDisconnect(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) radiusDisconnect(w http.ResponseWriter, r *http.Request) {
 	sess, err := s.Queries.GetRadiusSession(r.Context(), httpx.PathID(r))
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 	if err := radius.Disconnect(r.Context(), s.Queries, s.SecretKey, s.CoAPort, sess); err != nil {
-		s.putFailure(r, s.T("Disconnect failed")+". "+s.T(routerErr(err, msgNASOther)), err)
+		s.PutFailure(r, s.T("Disconnect failed")+". "+s.T(routerErr(err, adminx.MsgNASOther)), err)
 		http.Redirect(w, r, "/admin/radius/sessions", http.StatusSeeOther)
 		return
 	}
-	s.done(w, r, "/admin/radius/sessions", "User disconnected", "radius.disconnect", sess.Username)
+	s.Done(w, r, "/admin/radius/sessions", "User disconnected", "radius.disconnect", sess.Username)
 }
 
 // radiusDisconnectMany drops the selected sessions one by one through the same CoA path and reports
 // "N disconnected, M failed". One activity log entry for the whole action.
-func (s *Server) radiusDisconnectMany(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) radiusDisconnectMany(w http.ResponseWriter, r *http.Request) {
 	const back = "/admin/radius/sessions"
 	ids, ok := httpx.ParseIDs(r)
 	if !ok {
@@ -56,10 +57,10 @@ func (s *Server) radiusDisconnectMany(w http.ResponseWriter, r *http.Request) {
 		}
 		okN++
 	}
-	s.logActivity(r, "radius.disconnect_many", fmt.Sprintf("%d ok, %d failed", okN, failN))
+	s.LogActivity(r, "radius.disconnect_many", fmt.Sprintf("%d ok, %d failed", okN, failN))
 	msg := fmt.Sprintf(s.T("%d disconnected, %d failed"), okN, failN)
 	if okN == 0 {
-		s.putFailure(r, msg, firstErr)
+		s.PutFailure(r, msg, firstErr)
 	} else {
 		s.Sessions.Put(r.Context(), "flash", msg)
 	}

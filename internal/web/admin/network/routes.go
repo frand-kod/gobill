@@ -31,4 +31,12 @@ func Register(mux *http.ServeMux, h *Handlers, m adminx.Mw) {
 	mux.Handle("GET /admin/maps/routers/data", m.Managers(http.HandlerFunc(h.mapRouterData)))
 	mux.Handle("GET /admin/maps/odp", m.Managers(h.mapPage("ODP Geo Location Information", "/admin/maps/odp/data")))
 	mux.Handle("GET /admin/maps/odp/data", m.Managers(http.HandlerFunc(h.mapODPData)))
+	mux.Handle("GET /admin/routers/{id}/reconcile", m.Managers(http.HandlerFunc(h.routerReconcile)))
+	mux.Handle("POST /admin/routers/{id}/reconcile", m.Managers(http.HandlerFunc(h.routerReconcile)))
+	mux.Handle("POST /admin/radius/sessions/disconnect-many", m.Managers(http.HandlerFunc(h.radiusDisconnectMany)))
+	mux.Handle("POST /admin/radius/sessions/{id}/disconnect", m.Managers(http.HandlerFunc(h.radiusDisconnect)))
+	mux.Handle("GET /admin/radius/ip-lookup", m.Managers(http.HandlerFunc(h.ipLookupForm)))
+	mux.Handle("POST /admin/radius/ip-lookup", m.Managers(http.HandlerFunc(h.ipLookupRun)))
+	mux.Handle("GET /admin/radius/test-login", m.Managers(http.HandlerFunc(h.testLoginForm)))
+	mux.Handle("POST /admin/radius/test-login", m.Managers(http.HandlerFunc(h.testLoginRun)))
 }

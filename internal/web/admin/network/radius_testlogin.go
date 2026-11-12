@@ -1,10 +1,11 @@
-package web
+package network
 
 // Test login: runs the RADIUS decision (Server.Authorize, no UDP, read-only) for a user and password.
 
 import (
 	"crypto/subtle"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -15,7 +16,7 @@ import (
 	"github.com/frand-kod/gobill/internal/radius"
 )
 
-func (s *Server) testLoginFields(r *http.Request, v, e map[string]string, result string) ([]field, error) {
+func (s *Handlers) testLoginFields(r *http.Request, v, e map[string]string, result string) ([]field, error) {
 	nas, err := s.Queries.ListNAS(r.Context())
 	if err != nil {
 		return nil, err
@@ -44,16 +45,16 @@ func (s *Server) testLoginFields(r *http.Request, v, e map[string]string, result
 	return out, nil
 }
 
-func (s *Server) testLoginForm(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) testLoginForm(w http.ResponseWriter, r *http.Request) {
 	fs, err := s.testLoginFields(r, nil, nil, "")
 	if err != nil {
 		s.Fail(w, "test login", err)
 		return
 	}
-	s.renderForm(w, r, 200, formPage{Heading: "Test login", Action: "/admin/radius/test-login", Cancel: "/admin/nas", Fields: fs})
+	s.RenderForm(w, r, 200, formPage{Heading: "Test login", Action: "/admin/radius/test-login", Cancel: "/admin/nas", Fields: fs})
 }
 
-func (s *Server) testLoginRun(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) testLoginRun(w http.ResponseWriter, r *http.Request) {
 	v := httpx.FormVals(r, "username", "password", "nas", "mac", "port_type", "port_id")
 	user, pw := strings.TrimSpace(v["username"]), v["password"]
 	e := map[string]string{}
@@ -67,7 +68,7 @@ func (s *Server) testLoginRun(w http.ResponseWriter, r *http.Request) {
 	}
 	var result, reject string
 	if len(e) == 0 {
-		d := s.radiusServer().Authorize(r.Context(), radius.AuthRequest{User: user, DryRun: true, NAS: v["nas"], MAC: strings.TrimSpace(v["mac"]), PortType: v["port_type"], PortID: strings.TrimSpace(v["port_id"]),
+		d := s.RadiusServer().Authorize(r.Context(), radius.AuthRequest{User: user, DryRun: true, NAS: v["nas"], MAC: strings.TrimSpace(v["mac"]), PortType: v["port_type"], PortID: strings.TrimSpace(v["port_id"]),
 			Check: func(stored []byte) (bool, string) { return subtle.ConstantTimeCompare([]byte(pw), stored) == 1, "" }})
 		if d.Reject != "" {
 			reject = d.Reject
@@ -77,7 +78,7 @@ func (s *Server) testLoginRun(w http.ResponseWriter, r *http.Request) {
 		} else {
 			result = fmt.Sprintf("%s\n%s: %s\n%s", s.T("Access-Accept"), s.T("Plan"), d.Plan.PlanName, strings.Join(d.Attrs(), "\n"))
 		}
-		s.logActivity(r, "radius.test_login", user)
+		s.LogActivity(r, "radius.test_login", user)
 	}
 	v["password"] = ""
 	fs, err := s.testLoginFields(r, v, e, result)
@@ -86,7 +87,7 @@ func (s *Server) testLoginRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// a reject is an error alert above the form (role=alert), the same as the validation errors
-	page := Page{Title: "Test login", Data: formPage{Heading: "Test login", Action: "/admin/radius/test-login", Cancel: "/admin/nas", Fields: fs}}
+	page := core.Page{Title: "Test login", Data: formPage{Heading: "Test login", Action: "/admin/radius/test-login", Cancel: "/admin/nas", Fields: fs}}
 	if reject != "" {
 		page.Error = s.T("Access-Reject") + ": " + reject
 	}

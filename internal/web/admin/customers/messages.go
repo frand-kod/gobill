@@ -1,9 +1,10 @@
-package web
+package customers
 
 // Message sending to a customer or channel, with templates.
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"net/http"
 
 	"github.com/frand-kod/gobill/internal/web/core"
@@ -36,7 +37,7 @@ func messageFor(n *notify.Notifier, c db.Customer, st map[string]string, tpl str
 }
 
 // deliver sends one message on one channel. Gateways that are not configured are an error, not a silent no-op.
-func (s *Server) deliver(ctx context.Context, n *notify.Notifier, st map[string]string, channel, from, subject, text string, c db.Customer) error {
+func (s *Handlers) deliver(ctx context.Context, n *notify.Notifier, st map[string]string, channel, from, subject, text string, c db.Customer) error {
 	if subject == "" {
 		subject = "Notification Message"
 	}
@@ -86,23 +87,23 @@ func msgSendFields(v, e map[string]string, customers []db.Customer) []field {
 	}, "Message", "")
 }
 
-func (s *Server) msgSendPage(w http.ResponseWriter, r *http.Request, code int, v, e map[string]string, flash, errMsg string) {
+func (s *Handlers) msgSendPage(w http.ResponseWriter, r *http.Request, code int, v, e map[string]string, flash, errMsg string) {
 	// ponytail: customer picker lists the newest 500 only; add a search box if the base grows past that.
 	customers, err := s.Queries.ListCustomers(r.Context(), db.ListCustomersParams{Limit: 500})
 	if err != nil {
 		s.Fail(w, "message customers", err)
 		return
 	}
-	s.Render(w, r, code, "form", Page{Title: "Send Message", Flash: flash, Error: errMsg,
+	s.Render(w, r, code, "form", core.Page{Title: "Send Message", Flash: flash, Error: errMsg,
 		Data: formPage{Heading: "Send Message", Action: "/admin/message/send", Cancel: "/admin/message/send", Fields: msgSendFields(v, e, customers)}})
 }
 
-func (s *Server) msgSendForm(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) msgSendForm(w http.ResponseWriter, r *http.Request) {
 	v := map[string]string{"channel": "sms", "customer_id": r.URL.Query().Get("customer")}
 	s.msgSendPage(w, r, 200, v, nil, "", "")
 }
 
-func (s *Server) msgSend(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) msgSend(w http.ResponseWriter, r *http.Request) {
 	v := httpx.FormVals(r, "customer_id", "channel", "subject", "message")
 	e := map[string]string{}
 	if _, ok := httpx.PosInt(v["customer_id"]); !ok {
@@ -137,8 +138,8 @@ func (s *Server) msgSend(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "message notifier", err)
 		return
 	}
-	err = s.deliver(r.Context(), n, st, v["channel"], adminFrom(r).Username, v["subject"], messageFor(n, c, st, v["message"]), c)
-	s.logActivity(r, "message.send", v["channel"]+" to "+c.Username)
+	err = s.deliver(r.Context(), n, st, v["channel"], adminx.AdminFrom(r).Username, v["subject"], messageFor(n, c, st, v["message"]), c)
+	s.LogActivity(r, "message.send", v["channel"]+" to "+c.Username)
 	if err != nil {
 		s.msgSendPage(w, r, 200, v, nil, "", "Failed to send message: "+err.Error())
 		return

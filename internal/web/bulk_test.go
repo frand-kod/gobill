@@ -2,6 +2,7 @@ package web
 
 import (
 	"database/sql"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -172,11 +173,11 @@ func TestListSortWhitelist(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if s, d, param := listSort(httptest.NewRequest("GET", "/x?sort=amount&dir=desc", nil), "date", "amount"); s != "amount" || d != "desc" || param != "amount_desc" {
+	if s, d, param := adminx.ListSort(httptest.NewRequest("GET", "/x?sort=amount&dir=desc", nil), "date", "amount"); s != "amount" || d != "desc" || param != "amount_desc" {
 		t.Fatalf("%q %q %q", s, d, param)
 	}
 	for _, bad := range []string{"/x?sort=id;DROP", "/x?sort=password_hash", "/x?sort=", "/x"} {
-		if s, d, param := listSort(httptest.NewRequest("GET", bad, nil), "date", "amount"); s != "" || param != "" || d != "asc" {
+		if s, d, param := adminx.ListSort(httptest.NewRequest("GET", bad, nil), "date", "amount"); s != "" || param != "" || d != "asc" {
 			t.Fatalf("%s accepted: %q %q %q", bad, s, d, param)
 		}
 	}
@@ -218,10 +219,7 @@ func TestCustomerSelectedMessage(t *testing.T) {
 	wantCode(t, do(e.h, "POST", "/admin/message/selected", map[string][]string{"ids": form["ids"], "channel": {"inbox"}}, e.c), 422, "no message")
 	wantCode(t, do(e.h, "POST", "/admin/message/selected", form, e.c), 303, "send")
 	for i := 0; i < 100; i++ {
-		bulk.mu.Lock()
-		done := !bulk.active
-		bulk.mu.Unlock()
-		if done {
+		if strings.Contains(do(e.h, "GET", "/admin/message/bulk/status", nil, e.c).Body.String(), "Finished") {
 			break
 		}
 		time.Sleep(20 * time.Millisecond)

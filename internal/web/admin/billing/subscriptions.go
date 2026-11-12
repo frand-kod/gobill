@@ -1,10 +1,11 @@
-package web
+package billing
 
 // Subscription list, edit, extend, deactivate and sync.
 
 import (
 	"database/sql"
 	"encoding/csv"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"log/slog"
 	"net/http"
 
@@ -37,12 +38,12 @@ func subQuery(r *http.Request) db.FilterSubscriptionsParams {
 	return p
 }
 
-func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) subList(w http.ResponseWriter, r *http.Request) {
 	_, pg := view.Paging(r)
 	p := subQuery(r)
 	p.PageLimit, p.PageOffset = pg.Limit(), pg.Offset()
 	g := r.URL.Query().Get
-	rts, err := s.ax.RouterNames(r)
+	rts, err := s.RouterNames(r)
 	if err != nil {
 		s.Fail(w, "list routers", err)
 		return
@@ -58,19 +59,19 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "list subscriptions", err)
 		return
 	}
-	planOpts, _, err := s.planOptions(r, false)
+	planOpts, _, err := s.PlanOptions(r, false)
 	if err != nil {
 		s.Fail(w, "list plans", err)
 		return
 	}
 	plans := append([]option{{Value: "", Label: "Plan"}}, planOpts...)
 	lp := listPage{Heading: "Subscriptions", Base: "/admin/subscriptions", Q: p.Q, Searchable: true,
-		CanEdit: httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin", "Agent", "Sales"), NoDelete: true,
-		DeleteOnly: !httpx.OneOf(adminFrom(r).Role, "SuperAdmin", "Admin"), // Agent/Sales get Extend only (PHP plan/extend has no role check)
+		CanEdit: httpx.OneOf(adminx.AdminFrom(r).Role, "SuperAdmin", "Admin", "Agent", "Sales"), NoDelete: true,
+		DeleteOnly: !httpx.OneOf(adminx.AdminFrom(r).Role, "SuperAdmin", "Admin"), // Agent/Sales get Extend only (PHP plan/extend has no role check)
 		Cols:       []string{"Username", "Plan Name", "Type", "Created On", "Expires On", "Method", "Location", "Status"},
 		SortKeys:   []string{"username", "plan", "", "created", "expires", "", "", ""}, Sort: sort, Dir: dir,
 		Filters: []filter{{Name: "status", Val: p.Status, Opts: []option{{Value: "", Label: "Status"}, {Value: "active", Label: "active"}, {Value: "expired", Label: "expired"}}, Label: "Status"},
-			{Name: "type", Val: p.Type, Opts: anyOpts("Type", "Hotspot", "PPPoE"), Label: "Type"}, {Name: "router", Val: g("router"), Opts: routers, Label: "Router"}, {Name: "plan", Val: g("plan"), Opts: plans, Label: "Plan"}},
+			{Name: "type", Val: p.Type, Opts: adminx.AnyOpts("Type", "Hotspot", "PPPoE"), Label: "Type"}, {Name: "router", Val: g("router"), Opts: routers, Label: "Router"}, {Name: "plan", Val: g("plan"), Opts: plans, Label: "Plan"}},
 		Actions: []rowAction{{Path: "extend", Label: "Extend", Field: "days", Confirm: true}, {Path: "deactivate", Label: "Deactivate", Field: "", Confirm: true}, {Path: "sync", Label: "Sync", Field: "", Confirm: false}}}
 	if lp.DeleteOnly {
 		lp.Actions = lp.Actions[:1]
@@ -88,11 +89,11 @@ func (s *Server) subList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp.Finish(pg, total)
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }
 
 // subExport streams the current filter (all pages) as CSV, like custExport.
-func (s *Server) subExport(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) subExport(w http.ResponseWriter, r *http.Request) {
 	p := subQuery(r)
 	p.PageLimit = -1
 	rows, err := s.Queries.FilterSubscriptions(r.Context(), p)
@@ -112,8 +113,8 @@ func (s *Server) subExport(w http.ResponseWriter, r *http.Request) {
 	cw.Flush()
 }
 
-func (s *Server) subFields(r *http.Request, v, e map[string]string) ([]field, error) {
-	opts, plans, err := s.planOptions(r, false)
+func (s *Handlers) subFields(r *http.Request, v, e map[string]string) ([]field, error) {
+	opts, plans, err := s.PlanOptions(r, false)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +128,7 @@ func (s *Server) subFields(r *http.Request, v, e map[string]string) ([]field, er
 	return section([]field{pl, text("expires_at", "Expires On", v, e).As("datetime-local").Req()}, "Subscription", ""), nil
 }
 
-func (s *Server) subGet(w http.ResponseWriter, r *http.Request) (sub db.Subscription, username string, ok bool) {
+func (s *Handlers) subGet(w http.ResponseWriter, r *http.Request) (sub db.Subscription, username string, ok bool) {
 	sub, err := s.Queries.GetSubscription(r.Context(), httpx.PathID(r))
 	if err == nil {
 		var c db.Customer
@@ -143,7 +144,7 @@ func (s *Server) subGet(w http.ResponseWriter, r *http.Request) (sub db.Subscrip
 	return sub, "", false
 }
 
-func (s *Server) subEdit(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) subEdit(w http.ResponseWriter, r *http.Request) {
 	sub, user, ok := s.subGet(w, r)
 	if !ok {
 		return
@@ -152,16 +153,16 @@ func (s *Server) subEdit(w http.ResponseWriter, r *http.Request) {
 	s.subForm(w, r, 200, sub.ID, user, v, nil)
 }
 
-func (s *Server) subForm(w http.ResponseWriter, r *http.Request, code int, id int64, user string, v, e map[string]string) {
+func (s *Handlers) subForm(w http.ResponseWriter, r *http.Request, code int, id int64, user string, v, e map[string]string) {
 	fs, err := s.subFields(r, v, e)
 	if err != nil {
 		s.Fail(w, "subscription form", err)
 		return
 	}
-	s.renderForm(w, r, code, formPage{Heading: "Edit Subscription: " + user, Action: fmt.Sprint("/admin/subscriptions/", id), Cancel: "/admin/subscriptions", Fields: fs})
+	s.RenderForm(w, r, code, formPage{Heading: "Edit Subscription: " + user, Action: fmt.Sprint("/admin/subscriptions/", id), Cancel: "/admin/subscriptions", Fields: fs})
 }
 
-func (s *Server) subSave(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) subSave(w http.ResponseWriter, r *http.Request) {
 	sub, user, ok := s.subGet(w, r)
 	if !ok {
 		return
@@ -182,7 +183,7 @@ func (s *Server) subSave(w http.ResponseWriter, r *http.Request) {
 			s.Fail(w, "edit subscription", errors.New("billing service not configured"))
 			return
 		}
-		if err = s.Billing.EditSubscription(r.Context(), sub.ID, planID, exp, adminFrom(r).ID); err != nil {
+		if err = s.Billing.EditSubscription(r.Context(), sub.ID, planID, exp, adminx.AdminFrom(r).ID); err != nil {
 			slog.Error("edit subscription", "id", sub.ID, "err", err)
 			e["expires_at"] = "Could not save, check the plan and the date"
 		} else {
@@ -196,7 +197,7 @@ func (s *Server) subSave(w http.ResponseWriter, r *http.Request) {
 
 // subAct runs a billing action on a subscription and flashes the outcome. The service writes
 // the activity log.
-func (s *Server) subAct(w http.ResponseWriter, r *http.Request, do func(id int64) error) {
+func (s *Handlers) subAct(w http.ResponseWriter, r *http.Request, do func(id int64) error) {
 	back := "/admin/subscriptions"
 	msg := "Data Updated Successfully"
 	if s.Billing == nil {
@@ -216,12 +217,12 @@ func (s *Server) subAct(w http.ResponseWriter, r *http.Request, do func(id int64
 }
 
 // canExtend applies the admin_extend setting: who may add free days from the subscriptions list.
-func (s *Server) canExtend(r *http.Request) bool {
+func (s *Handlers) canExtend(r *http.Request) bool {
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
 		return false
 	}
-	role := adminFrom(r).Role
+	role := adminx.AdminFrom(r).Role
 	switch st["admin_extend"] {
 	case "off":
 		return false
@@ -233,9 +234,9 @@ func (s *Server) canExtend(r *http.Request) bool {
 	return true // staff (default); the route already limits it to staff roles
 }
 
-func (s *Server) subExtend(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) subExtend(w http.ResponseWriter, r *http.Request) {
 	if !s.canExtend(r) {
-		s.deny(w, r, http.StatusForbidden)
+		s.Deny(w, r, http.StatusForbidden)
 		return
 	}
 	days, err := strconv.Atoi(r.PostFormValue("days"))
@@ -244,13 +245,15 @@ func (s *Server) subExtend(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/subscriptions", http.StatusSeeOther)
 		return
 	}
-	s.subAct(w, r, func(id int64) error { return s.Billing.ExtendSubscription(r.Context(), id, days, adminFrom(r).ID) })
+	s.subAct(w, r, func(id int64) error {
+		return s.Billing.ExtendSubscription(r.Context(), id, days, adminx.AdminFrom(r).ID)
+	})
 }
 
-func (s *Server) subDeactivate(w http.ResponseWriter, r *http.Request) {
-	s.subAct(w, r, func(id int64) error { return s.Billing.DeactivateSubscription(r.Context(), id, adminFrom(r).ID) })
+func (s *Handlers) subDeactivate(w http.ResponseWriter, r *http.Request) {
+	s.subAct(w, r, func(id int64) error { return s.Billing.DeactivateSubscription(r.Context(), id, adminx.AdminFrom(r).ID) })
 }
 
-func (s *Server) subSync(w http.ResponseWriter, r *http.Request) {
-	s.subAct(w, r, func(id int64) error { return s.Billing.SyncSubscription(r.Context(), id, adminFrom(r).ID) })
+func (s *Handlers) subSync(w http.ResponseWriter, r *http.Request) {
+	s.subAct(w, r, func(id int64) error { return s.Billing.SyncSubscription(r.Context(), id, adminx.AdminFrom(r).ID) })
 }

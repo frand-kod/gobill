@@ -1,4 +1,4 @@
-package web
+package network
 
 // Reconcile screen of an API-mode router: read it, compare with gobill, apply what the admin confirms.
 
@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"net/http"
 	"strings"
 
@@ -30,7 +31,7 @@ func reconChoices(kind string) []option {
 // routerReconcile shows the comparison (GET); on POST it checks the choices, shows the count summary
 // first and applies only when the summary was confirmed. The read happens on each request, the router
 // password never reaches the page. A RADIUS or unreachable router stops here with a message.
-func (s *Server) routerReconcile(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) routerReconcile(w http.ResponseWriter, r *http.Request) {
 	x, err := s.Queries.GetRouter(r.Context(), httpx.PathID(r))
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
@@ -51,7 +52,7 @@ func (s *Server) routerReconcile(w http.ResponseWriter, r *http.Request) {
 		back()
 		return
 	} else if err != nil {
-		s.putFailure(r, s.T("Could not read the router, nothing was changed")+": "+x.Name+". "+s.T(routerErr(err, msgRouterOther)), err)
+		s.PutFailure(r, s.T("Could not read the router, nothing was changed")+": "+x.Name+". "+s.T(routerErr(err, msgRouterOther)), err)
 		back()
 		return
 	}
@@ -72,12 +73,12 @@ func (s *Server) routerReconcile(w http.ResponseWriter, r *http.Request) {
 			b, err := bcrypt.GenerateFromPassword([]byte(pw), core.BcryptCost)
 			return string(b), err
 		}
-		res, err := s.Billing.ReconApply(r.Context(), x.ID, adminFrom(r).ID, choose, hash)
+		res, err := s.Billing.ReconApply(r.Context(), x.ID, adminx.AdminFrom(r).ID, choose, hash)
 		if err != nil {
 			s.Fail(w, "reconcile router", err)
 			return
 		}
-		s.logActivity(r, "router.reconcile", x.Name)
+		s.LogActivity(r, "router.reconcile", x.Name)
 		s.Sessions.Put(r.Context(), "flash", fmt.Sprintf("%s: %s %d, %s %d, %s %d, %s %d", x.Name, s.T("Pushed"), res.Pushed, s.T("Imported"), res.Imported,
 			s.T("Followed router"), res.Followed, s.T("Skipped"), res.Skipped))
 		if n := len(res.Failures); n > 0 {
@@ -115,5 +116,5 @@ func (s *Server) routerReconcile(w http.ResponseWriter, r *http.Request) {
 	if !post {
 		cancel = "/admin/routers"
 	}
-	s.renderForm(w, r, 200, formPage{Heading: "Reconcile router", Action: base, Cancel: cancel, Fields: append(head, fields...)})
+	s.RenderForm(w, r, 200, formPage{Heading: "Reconcile router", Action: base, Cancel: cancel, Fields: append(head, fields...)})
 }

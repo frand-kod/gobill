@@ -32,19 +32,6 @@ import (
 	"github.com/frand-kod/gobill/internal/service/setup"
 )
 
-// Register registers the wizard. Everything is SuperAdmin only.
-func Register(mux *http.ServeMux, s *Handlers, sa func(http.Handler) http.Handler) {
-	mux.Handle("GET /admin/setup", sa(http.HandlerFunc(s.setupIndex)))
-	mux.Handle("GET /admin/setup/live.json", sa(http.HandlerFunc(s.setupLive)))
-	mux.Handle("POST /admin/setup/start", sa(http.HandlerFunc(s.setupStart)))
-	mux.Handle("POST /admin/setup/dismiss", sa(http.HandlerFunc(s.setupDismiss)))
-	mux.Handle("POST /admin/setup/finish", sa(http.HandlerFunc(s.setupFinish)))
-	mux.Handle("GET /admin/setup/{step}", sa(http.HandlerFunc(s.setupShow)))
-	mux.Handle("POST /admin/setup/{step}", sa(s.setupAct(wizSave)))
-	mux.Handle("POST /admin/setup/{step}/test", sa(s.setupAct(wizTest)))
-	mux.Handle("POST /admin/setup/{step}/skip", sa(http.HandlerFunc(s.setupSkip)))
-}
-
 // setupIndex opens the first step that is not done yet.
 func (s *Handlers) setupIndex(w http.ResponseWriter, r *http.Request) {
 	ws, err := s.wizLoad(r.Context())

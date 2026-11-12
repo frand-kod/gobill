@@ -8,7 +8,7 @@ import (
 
 // Register adds the recharge, deposit, voucher, agent batch and coupon routes.
 func Register(mux *http.ServeMux, h *Handlers, m adminx.Mw) {
-	all, managers, staff, money := m.All, m.Managers, m.Staff, m.Money
+	all, managers, staff, money, noReport := m.All, m.Managers, m.Staff, m.Money, m.NoReport
 	// Old PHP plan.php: the voucher list is open to all admins, generate and redeem to staff, delete to managers.
 	// Agent consignment batches: managers write, an Agent reads its own.
 	agentRead := m.Require("SuperAdmin", "Admin", "Agent")
@@ -48,4 +48,13 @@ func Register(mux *http.ServeMux, h *Handlers, m adminx.Mw) {
 	mux.Handle("POST /admin/coupons/{id}/toggle", cpn(http.HandlerFunc(h.cpnToggle)))
 	mux.Handle("POST /admin/coupons/delete-many", cpn(http.HandlerFunc(h.cpnDeleteMany)))
 	mux.Handle("POST /admin/coupons/{id}/delete", cpn(http.HandlerFunc(h.cpnDelete)))
+	mux.Handle("GET /admin/subscriptions", all(http.HandlerFunc(h.subList)))
+	mux.Handle("GET /admin/subscriptions/export", noReport(http.HandlerFunc(h.subExport)))
+	mux.Handle("GET /admin/isolations", all(http.HandlerFunc(h.isoList)))
+	mux.Handle("GET /admin/isolations/export", noReport(http.HandlerFunc(h.isoExport)))
+	mux.Handle("GET /admin/subscriptions/{id}/edit", managers(http.HandlerFunc(h.subEdit)))
+	mux.Handle("POST /admin/subscriptions/{id}", managers(http.HandlerFunc(h.subSave)))
+	mux.Handle("POST /admin/subscriptions/{id}/extend", staff(http.HandlerFunc(h.subExtend)))
+	mux.Handle("POST /admin/subscriptions/{id}/deactivate", managers(http.HandlerFunc(h.subDeactivate)))
+	mux.Handle("POST /admin/subscriptions/{id}/sync", managers(http.HandlerFunc(h.subSync)))
 }

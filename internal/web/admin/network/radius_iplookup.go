@@ -1,4 +1,4 @@
-package web
+package network
 
 // Who had IP X at time T: Framed-IP and start/stop range over the session history.
 
@@ -15,7 +15,7 @@ import (
 
 const dtLocal = "2006-01-02T15:04"
 
-func (s *Server) ipLookupFields(v, e map[string]string, result string) []field {
+func (s *Handlers) ipLookupFields(v, e map[string]string, result string) []field {
 	out := section([]field{
 		text("ip", "IP address", v, e).Req(),
 		text("at", "At (date and time)", v, e).As("datetime-local").WithHint("Prefilled with now. Empty also means now. Session history is kept for the days set in Settings > Keep logs (days)."),
@@ -26,12 +26,12 @@ func (s *Server) ipLookupFields(v, e map[string]string, result string) []field {
 	return out
 }
 
-func (s *Server) ipLookupForm(w http.ResponseWriter, r *http.Request) {
-	s.renderForm(w, r, 200, formPage{Heading: "Who had this IP", Action: "/admin/radius/ip-lookup", Cancel: "/admin/radius/sessions",
+func (s *Handlers) ipLookupForm(w http.ResponseWriter, r *http.Request) {
+	s.RenderForm(w, r, 200, formPage{Heading: "Who had this IP", Action: "/admin/radius/ip-lookup", Cancel: "/admin/radius/sessions",
 		Fields: s.ipLookupFields(map[string]string{"at": time.Now().In(s.Location()).Format(dtLocal)}, nil, "")})
 }
 
-func (s *Server) ipLookupRun(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) ipLookupRun(w http.ResponseWriter, r *http.Request) {
 	v := httpx.FormVals(r, "ip", "at")
 	e := map[string]string{}
 	ip, err := netip.ParseAddr(strings.TrimSpace(v["ip"]))
@@ -45,7 +45,7 @@ func (s *Server) ipLookupRun(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(e) > 0 {
-		s.renderForm(w, r, 200, formPage{Heading: "Who had this IP", Action: "/admin/radius/ip-lookup", Cancel: "/admin/radius/sessions", Fields: s.ipLookupFields(v, e, "")})
+		s.RenderForm(w, r, 200, formPage{Heading: "Who had this IP", Action: "/admin/radius/ip-lookup", Cancel: "/admin/radius/sessions", Fields: s.ipLookupFields(v, e, "")})
 		return
 	}
 	rows, err := s.Queries.ListRadiusSessionsByIPAt(r.Context(), db.ListRadiusSessionsByIPAtParams{Ip: ip.String(), AtTs: at.Unix()})
@@ -68,5 +68,5 @@ func (s *Server) ipLookupRun(w http.ResponseWriter, r *http.Request) {
 		}
 		lp.Rows = append(lp.Rows, listRow{ID: x.ID, Cells: []string{x.Username, x.Mac, x.NasIp, s.TS(x.StartedAt), stop}})
 	}
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }

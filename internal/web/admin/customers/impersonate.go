@@ -1,8 +1,9 @@
-package web
+package customers
 
 // Login-as-customer impersonation and its end.
 
 import (
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"net/http"
 
 	"fmt"
@@ -10,8 +11,8 @@ import (
 
 // custLoginAs opens a portal session for the customer in this browser (old customers/login). The
 // admin keys of the session are not touched; "impersonator" marks it and drives the portal banner.
-func (s *Server) custLoginAs(w http.ResponseWriter, r *http.Request) {
-	c, ok := s.custGet(w, r)
+func (s *Handlers) custLoginAs(w http.ResponseWriter, r *http.Request) {
+	c, ok := s.CustGet(w, r)
 	if !ok {
 		return
 	}
@@ -22,13 +23,13 @@ func (s *Server) custLoginAs(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Sessions.Put(r.Context(), "customer_id", c.ID)
 	s.Sessions.Put(r.Context(), "csv", c.SessionVersion)
-	s.Sessions.Put(r.Context(), "impersonator", adminFrom(r).ID)
-	s.logActivity(r, "customer.impersonate", c.Username)
+	s.Sessions.Put(r.Context(), "impersonator", adminx.AdminFrom(r).ID)
+	s.LogActivity(r, "customer.impersonate", c.Username)
 	http.Redirect(w, r, "/portal", http.StatusSeeOther)
 }
 
 // pImpersonateEnd ends only the customer session and returns to that customer's admin page.
-func (s *Server) pImpersonateEnd(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pImpersonateEnd(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	to, cid := "/login", s.Sessions.GetInt64(ctx, "customer_id")
 	if s.Sessions.GetInt64(ctx, "impersonator") != 0 {
