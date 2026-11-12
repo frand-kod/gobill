@@ -3,6 +3,7 @@
 package adminx
 
 import (
+	"context"
 	"database/sql"
 	"net/http"
 	"time"
@@ -22,8 +23,11 @@ type Base struct {
 	Deny         func(w http.ResponseWriter, r *http.Request, code int) // styled 403/404/405 page
 	RadiusServer func() *radius.Server
 	Prov         func() *provision.Service
-	GobillAddr   func() (host, port string)
-	Now          func() time.Time
+	// ProxyWarning is the admin warning for a reverse proxy while Trust Proxy is off, empty when there is none.
+	ProxyWarning func(r *http.Request) string
+	// ReloadSessionSettings applies the session and proxy settings after an import changed them.
+	ReloadSessionSettings func(ctx context.Context)
+	Now                   func() time.Time
 }
 
 // Mw is the role middleware the web Server builds once per Handler call.
@@ -51,4 +55,22 @@ type Shared struct {
 	ListenAddr string
 	// WG is the built-in WireGuard tunnel; nil = none.
 	WG *wg.Manager
+	// BackupDir receives the database backup taken before a PHPNuxBill import or a restore.
+	BackupDir string
+	// Restart is called after a restore is staged; main shuts down and exits for systemd to start it again.
+	Restart func()
+	// SettingsChanged is called after settings are saved.
+	SettingsChanged func(ctx context.Context)
+	// ClockWarning, if set, returns a non-empty reason while the clock is untrusted.
+	ClockWarning func() string
+	// BackupMirror is the optional off-site backup folder (GOBILL_BACKUP_MIRROR), shown to SuperAdmin.
+	BackupMirror string
+}
+
+// SettingsSaved is called after settings were committed: it drops the settings cache and runs the SettingsChanged hook.
+func (s *Base) SettingsSaved(ctx context.Context) {
+	s.Settings.Invalidate()
+	if s.SettingsChanged != nil {
+		s.SettingsChanged(ctx)
+	}
 }

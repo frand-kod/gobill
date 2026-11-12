@@ -15,6 +15,7 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/service/promo"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 func promoForm(title string) url.Values {
@@ -135,7 +136,7 @@ func TestPromoImageLifecycle(t *testing.T) {
 	s, q := newTestApp(t)
 	h := s.Handler()
 	super := login(t, h, "alice")
-	dir, err := s.uploadDir()
+	dir, err := s.ax.UploadDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +145,7 @@ func TestPromoImageLifecycle(t *testing.T) {
 		t.Fatalf("create with image: %d %s", w.Code, w.Body.String())
 	}
 	p := mustOnePromo(t, q)
-	if !uploadName.MatchString(p.Image) {
+	if !core.UploadName.MatchString(p.Image) {
 		t.Fatalf("image name %q", p.Image)
 	}
 	file := filepath.Join(dir, p.Image)

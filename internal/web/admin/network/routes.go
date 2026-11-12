@@ -21,6 +21,8 @@ func Register(mux *http.ServeMux, h *Handlers, m adminx.Mw) {
 	mux.Handle("POST /admin/routers/{id}/wg/revoke", m.SuperAdmin(http.HandlerFunc(h.routerWGRevoke)))
 	mux.Handle("POST /admin/routers/{id}/wg/reset", m.SuperAdmin(http.HandlerFunc(h.routerWGReset)))
 	mux.Handle("POST /admin/routers/{id}/wg/check", m.SuperAdmin(http.HandlerFunc(h.routerWGCheck)))
+	mux.Handle("GET /admin/network/{kind}/{id}", m.Managers(http.HandlerFunc(h.networkDetail)))
+	mux.Handle("POST /admin/network/{kind}/{id}/check", m.Managers(http.HandlerFunc(h.networkCheck)))
 	m.Crud(mux, "/admin/nas", h.nasList, h.nasNew, h.nasEdit, h.NASSave, h.nasDelete)
 	mux.Handle("GET /admin/radius/sessions", m.Managers(http.HandlerFunc(h.radiusSessions)))
 	mux.Handle("GET /admin/radius/sessions.json", m.Managers(http.HandlerFunc(h.radiusSessionsJSON)))

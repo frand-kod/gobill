@@ -7,14 +7,7 @@ package web
 import (
 	"context"
 	"net/http"
-
-	"github.com/frand-kod/gobill/internal/web/admin/adminx"
-	"github.com/frand-kod/gobill/internal/web/httpx"
-
-	"github.com/frand-kod/gobill/internal/db"
 )
-
-func init() { settingsSuperField["role_access_mode"] = true }
 
 // strictAccess reports whether role_access_mode is strict (anything but "phpnuxbill").
 func (s *Server) strictAccess(ctx context.Context) bool { return s.ax.StrictAccess(ctx) }
@@ -31,13 +24,4 @@ func (s *Server) byMode(strict, php func(http.Handler) http.Handler) func(http.H
 			b.ServeHTTP(w, r)
 		})
 	}
-}
-
-// ctxIsManager: the admin on ctx (set by requireAdmin) is SuperAdmin or Admin.
-func ctxIsManager(ctx context.Context) bool { return adminx.CtxIsManager(ctx) }
-
-// canOpenInvoices matches the invoice route (noReport): strict mode keeps the Report role out.
-func (s *Server) canOpenInvoices(ctx context.Context) bool {
-	a, _ := ctx.Value(ctxKey{}).(*db.Admin)
-	return a != nil && (!s.strictAccess(ctx) || httpx.OneOf(a.Role, "SuperAdmin", "Admin", "Agent", "Sales"))
 }

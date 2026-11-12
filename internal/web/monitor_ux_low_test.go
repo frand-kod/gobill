@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"database/sql"
+	adminsettings "github.com/frand-kod/gobill/internal/web/admin/settings"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -87,10 +88,10 @@ func TestImportFallbackFormAsksStepUp(t *testing.T) {
 	// the render reads the session and the admin from the request, as the real handler chain sets them
 	h := s.Sessions.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r = r.WithContext(context.WithValue(r.Context(), ctxKey{}, &db.Admin{Role: "SuperAdmin", TotpEnabled: 1}))
-		s.renderImport(w, r, http.StatusOK, importView{Token: "0123456789abcdef0123456789abcdef", Filled: false}, "", "")
+		s.settings.RenderImport(w, r, http.StatusOK, adminsettings.ImportView{Token: "0123456789abcdef0123456789abcdef", Filled: false}, "", "")
 	}))
 	w := httptest.NewRecorder()
-	h.ServeHTTP(w, httptest.NewRequest("GET", importPage, nil))
+	h.ServeHTTP(w, httptest.NewRequest("GET", adminsettings.ImportPage, nil))
 	body := w.Body.String()
 	i := strings.Index(body, `action="/admin/settings/system/import/confirm"`)
 	if i < 0 {

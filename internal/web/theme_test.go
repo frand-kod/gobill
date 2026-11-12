@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 func TestThemeDefaultEndpoint(t *testing.T) {
@@ -121,7 +123,7 @@ func TestDarkLogoUploadAndFallback(t *testing.T) {
 	// with a dark logo both are rendered; the CSS picks by the .dark class
 	postLogos(t, h, c, "logo_dark")
 	dark := settingValues(t, q)["logo_dark"]
-	if !uploadName.MatchString(dark) || dark == light {
+	if !core.UploadName.MatchString(dark) || dark == light {
 		t.Fatalf("dark name %q", dark)
 	}
 	b = do(h, "GET", "/admin", nil, c).Body.String()

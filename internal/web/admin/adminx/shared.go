@@ -29,6 +29,12 @@ func CtxIsManager(ctx context.Context) bool {
 	return a != nil && httpx.OneOf(a.Role, "SuperAdmin", "Admin")
 }
 
+// CanOpenInvoices matches the invoice route (noReport): strict mode keeps the Report role out.
+func (s *Base) CanOpenInvoices(ctx context.Context) bool {
+	a, _ := ctx.Value(core.AdminKey{}).(*db.Admin)
+	return a != nil && (!s.StrictAccess(ctx) || httpx.OneOf(a.Role, "SuperAdmin", "Admin", "Agent", "Sales"))
+}
+
 func (s *Base) PlanOptions(r *http.Request, enabledOnly bool) ([]Option, map[int64]db.Plan, error) {
 	plans, err := s.Queries.ListPlans(r.Context(), db.ListPlansParams{Limit: 1000})
 	if err != nil {

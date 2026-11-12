@@ -4,6 +4,7 @@ package web
 
 import (
 	"fmt"
+	adminsettings "github.com/frand-kod/gobill/internal/web/admin/settings"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -44,7 +45,7 @@ func TestAuditSec4_TrustedProxiesCatchAll(t *testing.T) {
 	if _, ok := parseTrustedProxies("0.0.0.0/0"); ok {
 		t.Error("0.0.0.0/0 accepted: any client may spoof X-Forwarded-For and dodge per-IP throttles")
 	}
-	if !settingsSuperField["trusted_proxies"] || !settingsSuperField["trust_proxy"] {
+	if !adminsettings.SettingsSuperField["trusted_proxies"] || !adminsettings.SettingsSuperField["trust_proxy"] {
 		t.Error("trust_proxy/trusted_proxies are editable by the Admin role")
 	}
 }
@@ -72,7 +73,7 @@ func TestAuditSec5_2FAGuessesAcrossIPs(t *testing.T) {
 	for i := 0; i < n; i++ {
 		post("000000", fmt.Sprintf("198.51.100.%d", i%250+1))
 	}
-	w := post(totpCode(key, time.Now().Unix()/30+1), "198.51.100.251")
+	w := post(core.TotpCode(key, time.Now().Unix()/30+1), "198.51.100.251")
 	if w.Code == 303 && w.Header().Get("Location") == "/admin" {
 		t.Fatalf("pending 2FA session still accepted a code after %d wrong guesses from rotating IPs", n)
 	}
@@ -108,6 +109,6 @@ func TestAuditSec8_RestoreNoStepUp(t *testing.T) {
 	}
 	// import: same step-up
 	tok := preview(t, h, c)
-	wantCode(t, do(h, "POST", importPage+"/confirm", url.Values{"token": {tok}, "understand": {"1"}, "current": {"wrong"}}, c), 422, "import wrong password")
-	wantCode(t, do(h, "POST", importPage+"/confirm", url.Values{"token": {tok}, "understand": {"1"}, "current": {"secret123"}}, c), 303, "import right password")
+	wantCode(t, do(h, "POST", adminsettings.ImportPage+"/confirm", url.Values{"token": {tok}, "understand": {"1"}, "current": {"wrong"}}, c), 422, "import wrong password")
+	wantCode(t, do(h, "POST", adminsettings.ImportPage+"/confirm", url.Values{"token": {tok}, "understand": {"1"}, "current": {"secret123"}}, c), 303, "import right password")
 }

@@ -168,7 +168,7 @@ func TestRegisterWithWAOTP(t *testing.T) {
 func TestSettingCustomerPasswordMinValidation(t *testing.T) {
 	e := billApp(t)
 	for v, bad := range map[string]bool{"3": true, "4": false, "64": false, "65": true} {
-		if got := e.s.settingsErrors(map[string]string{"customer_password_min": v})["customer_password_min"] != ""; got != bad {
+		if got := e.s.settings.SettingsErrors(map[string]string{"customer_password_min": v})["customer_password_min"] != ""; got != bad {
 			t.Fatalf("customer_password_min %s: error=%v", v, got)
 		}
 	}

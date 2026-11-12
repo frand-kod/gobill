@@ -1,0 +1,348 @@
+package reports
+
+// Activity, RADIUS and message logs: views, CSV export and cleanup.
+
+import (
+	"context"
+	"encoding/csv"
+	"log/slog"
+	"net/http"
+
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/httpx"
+	"github.com/frand-kod/gobill/internal/web/view"
+
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/frand-kod/gobill/internal/db"
+)
+
+// ---- log cleanup ----
+
+var logPages = map[string]string{"activity": "/admin/logs", "radius": "/admin/logs/radius", "auth": "/admin/logs/auth", "messages": "/admin/logs/messages"}
+
+func (s *Handlers) logClean(w http.ResponseWriter, r *http.Request) {
+	kind := r.PathValue("kind")
+	back, ok := logPages[kind]
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	days, ok := httpx.PosInt(strings.TrimSpace(r.PostFormValue("keep")))
+	if !ok || days > 36500 || s.Billing == nil {
+		s.Sessions.Put(r.Context(), "error", s.T("Enter a number greater than 0"))
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	n, err := s.Billing.CleanLog(r.Context(), kind, int(days))
+	if err != nil {
+		s.Fail(w, "clean logs", err)
+		return
+	}
+	s.LogActivity(r, "logs.clean", fmt.Sprintf("%s older than %d days: %d deleted", kind, days, n))
+	s.Sessions.Put(r.Context(), "flash", fmt.Sprintf(s.T("%d logs deleted"), n))
+	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+// ActionLabels names the activity log actions (the key stored in activity_logs.action). Values are English
+// keys translated by T; an action not listed here is shown as its key.
+var ActionLabels = map[string]string{
+	"agent_batch.return":            "Agent batch returned",
+	"coupon.toggle":                 "Coupon switched",
+	"customer.delete":               "Customer deleted",
+	"customer.recharge":             "Customer recharged",
+	"customer.recharge.bulk":        "Bulk recharge",
+	"customer.impersonate":          "Signed in as customer",
+	"customer.delete_router_failed": "Customer removed, router removal failed",
+	"customer.sync_failed":          "Customer sync failed",
+	"daily_summary.send":            "Daily summary sent",
+	"integration.test":              "Integration test",
+	"logs.clean":                    "Logs cleaned",
+	"message.bulk":                  "Bulk message sent",
+	"message.send":                  "Message sent",
+	"metrics.token_new":             "Metrics token created",
+	"metrics.token_off":             "Metrics token turned off",
+	"page.update":                   "Page updated",
+	"plan.sync_failed":              "Plan sync failed",
+	"pool.sync_failed":              "Pool sync failed",
+	"promo.delete":                  "Promo deleted",
+	"radius.disconnect":             "Session disconnected",
+	"radius.disconnect_many":        "Sessions disconnected",
+	"radius.test_login":             "Test login",
+	"router.radius_disable_local":   "Router RADIUS disabled locally",
+	"router.radius_rollback":        "Router RADIUS rolled back",
+	"router.radius_switch":          "Router RADIUS switched",
+	"router.radius_test":            "Router RADIUS tested",
+	"router.reconcile":              "Router reconciled",
+	"router.sync":                   "Router synced",
+	"router.wg.provision":           "WireGuard provisioned",
+	"router.wg.reset":               "WireGuard reset",
+	"settings.key.download":         "Settings key downloaded",
+	"settings.key.saved":            "Settings key saved",
+	"settings.reset":                "Settings reset",
+	"settings.save":                 "Settings saved",
+	"theme.default":                 "Default theme changed",
+	"users.create":                  "User created",
+	"users.delete":                  "User deleted",
+	"users.password":                "Password changed",
+	"users.password.reset":          "Password reset",
+	"users.update":                  "User updated",
+	"voucher.generate":              "Vouchers generated",
+	"wa.test":                       "WhatsApp test",
+}
+
+// ActionLabel is the UI text of an activity log action key.
+func (s *Handlers) ActionLabel(action string) string {
+	if l, ok := ActionLabels[action]; ok {
+		return s.T(l)
+	}
+	return action
+}
+
+// ActorLabel names who did a logged action: the admin's username, or "type #id" when there is no such admin.
+func (s *Handlers) ActorLabel(ctx context.Context, typ string, id int64) string {
+	if typ == "admin" {
+		if a, err := s.Queries.GetAdmin(ctx, id); err == nil {
+			return a.Username
+		}
+	}
+	return fmt.Sprint(typ, " #", id)
+}
+
+func (s *Handlers) logList(w http.ResponseWriter, r *http.Request) {
+	q, pg := view.Paging(r)
+	rows, err := s.Queries.SearchActivityLogs(r.Context(), db.SearchActivityLogsParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
+	if err != nil {
+		s.Fail(w, "list logs", err)
+		return
+	}
+	lp := listPage{Heading: "Logs", Base: "/admin/logs", Q: q, Searchable: true,
+		Cols:  []string{"Date", "Actor", "Action", "Description", "IP"},
+		Clean: "/admin/logs/clean/activity", Links: []option{{Value: "/admin/logs/radius", Label: "Radius Logs"}, {Value: "/admin/logs/auth", Label: "Login attempts"}, {Value: "/admin/logs/messages", Label: "Message Logs"}}}
+	for _, l := range rows {
+		when := time.Unix(l.CreatedAt, 0).In(s.Location()).Format("2006-01-02 15:04:05")
+		lp.Rows = append(lp.Rows, listRow{ID: l.ID, Cells: []string{when, s.ActorLabel(r.Context(), l.ActorType, l.ActorID), s.ActionLabel(l.Action), l.Description, l.Ip}})
+	}
+	total, err := s.Queries.CountActivityLogs(r.Context(), q)
+	if err != nil {
+		s.Fail(w, "count logs", err)
+		return
+	}
+	lp.Finish(pg, total)
+	s.RenderList(w, r, lp)
+}
+
+// ExportChunk is how many log rows a CSV export reads at a time, so a long log is never held in memory whole.
+const ExportChunk = 1000
+
+// exportCSV streams a log export: page(off) returns the rows from off (at most ExportChunk). The first
+// page is read before the headers go out, so a failure there can still be an error response; later
+// failures can only be logged, and the file ends early.
+func (s *Handlers) exportCSV(w http.ResponseWriter, name string, head []string, page func(off int64) ([][]string, error)) error {
+	rows, err := page(0)
+	if err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`-`+time.Now().Format("20060102")+`.csv"`)
+	cw := csv.NewWriter(w)
+	cw.Write(head)
+	for off := int64(0); ; {
+		for _, rec := range rows {
+			httpx.CSVSafe(rec)
+			cw.Write(rec)
+		}
+		cw.Flush()
+		if len(rows) < ExportChunk {
+			return nil
+		}
+		off += ExportChunk
+		if rows, err = page(off); err != nil {
+			slog.Error("csv export stopped", "file", name, "err", err)
+			return nil
+		}
+	}
+}
+
+var radiusLogCols = []string{"User", "NAS", "IP", "MAC", "Start", "Stop", "Duration", "Upload", "Download", "End reason"}
+
+func (s *Handlers) radiusLogParams(r *http.Request) db.SearchRadiusLogsParams {
+	_, _, f, t := s.DateRange(r)
+	return db.SearchRadiusLogsParams{Q: strings.TrimSpace(r.URL.Query().Get("q")), FromTs: f, ToTs: t}
+}
+
+func (s *Handlers) radiusLogRows(ss []db.RadiusSession) [][]string {
+	now, out := time.Now().Unix(), [][]string{}
+	for _, x := range ss {
+		stop, end := "", now
+		if x.StoppedAt.Valid {
+			stop, end = s.TS(x.StoppedAt.Int64), x.StoppedAt.Int64
+		}
+		out = append(out, []string{x.Username, x.NasIp, x.FramedIp, x.Mac, s.TS(x.StartedAt), stop, view.HumanDur(end - x.StartedAt),
+			view.HumanBytes(x.InputOctets), view.HumanBytes(x.OutputOctets), x.TerminateCause})
+	}
+	return out
+}
+
+// radiusLog lists all RADIUS sessions, open and closed (old logs/radius).
+func (s *Handlers) radiusLog(w http.ResponseWriter, r *http.Request) {
+	q, pg := view.Paging(r)
+	p := s.radiusLogParams(r)
+	p.PageLimit, p.PageOffset = pg.Limit(), pg.Offset()
+	ss, err := s.Queries.SearchRadiusLogs(r.Context(), p)
+	if err != nil {
+		s.Fail(w, "radius log", err)
+		return
+	}
+	from, to, _, _ := s.DateRange(r)
+	lp := listPage{Heading: "Radius Logs", Base: "/admin/logs/radius", Q: q, Searchable: true, Dates: true, From: from, To: to, Cols: radiusLogCols, Clean: "/admin/logs/clean/radius"}
+	for i, c := range s.radiusLogRows(ss) {
+		lp.Rows = append(lp.Rows, listRow{ID: ss[i].ID, Cells: c})
+	}
+	lp.Links = []option{{Value: "/admin/logs/radius/export?" + lp.Query().Encode(), Label: "Export CSV"}, {Value: "/admin/logs/auth", Label: "Login attempts"}, {Value: "/admin/radius/ip-lookup", Label: "Who had this IP"}}
+	total, err := s.Queries.CountRadiusLogs(r.Context(), db.CountRadiusLogsParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
+	if err != nil {
+		s.Fail(w, "count radius logs", err)
+		return
+	}
+	lp.Finish(pg, total)
+	s.RenderList(w, r, lp)
+}
+
+func (s *Handlers) radiusLogExport(w http.ResponseWriter, r *http.Request) {
+	p := s.radiusLogParams(r)
+	err := s.exportCSV(w, "radius-logs", radiusLogCols, func(off int64) ([][]string, error) {
+		p.PageLimit, p.PageOffset = ExportChunk, off
+		ss, err := s.Queries.SearchRadiusLogs(r.Context(), p)
+		return s.radiusLogRows(ss), err
+	})
+	if err != nil {
+		s.Fail(w, "export radius log", err)
+	}
+}
+
+var msgLogCols = []string{"Date", "Type", "Recipient", "Subject", "Status", "Message"}
+
+func (s *Handlers) msgLogParams(r *http.Request) db.SearchMessageLogsParams {
+	_, _, f, t := s.DateRange(r)
+	return db.SearchMessageLogsParams{Q: strings.TrimSpace(r.URL.Query().Get("q")), FromTs: f, ToTs: t}
+}
+
+func (s *Handlers) msgLogRows(ms []db.MessageLog) [][]string {
+	out := [][]string{}
+	for _, m := range ms {
+		body := m.Body
+		if m.Error != "" {
+			body = m.Error + " | " + body
+		}
+		out = append(out, []string{s.TS(m.CreatedAt), m.Channel, m.Recipient, m.Subject, m.Status, body})
+	}
+	return out
+}
+
+// msgLog lists every send attempt of internal/notify (old logs/message).
+func (s *Handlers) msgLog(w http.ResponseWriter, r *http.Request) {
+	q, pg := view.Paging(r)
+	p := s.msgLogParams(r)
+	p.PageLimit, p.PageOffset = pg.Limit(), pg.Offset()
+	ms, err := s.Queries.SearchMessageLogs(r.Context(), p)
+	if err != nil {
+		s.Fail(w, "message log", err)
+		return
+	}
+	from, to, _, _ := s.DateRange(r)
+	lp := listPage{Heading: "Message Logs", Base: "/admin/logs/messages", Q: q, Searchable: true, Dates: true, From: from, To: to, Cols: msgLogCols, Clean: "/admin/logs/clean/messages"}
+	for i, c := range s.msgLogRows(ms) {
+		lp.Rows = append(lp.Rows, listRow{ID: ms[i].ID, Cells: c})
+	}
+	lp.Links = []option{{Value: "/admin/logs/messages/export?" + lp.Query().Encode(), Label: "Export CSV"}}
+	total, err := s.Queries.CountMessageLogs(r.Context(), db.CountMessageLogsParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
+	if err != nil {
+		s.Fail(w, "count message logs", err)
+		return
+	}
+	lp.Finish(pg, total)
+	s.RenderList(w, r, lp)
+}
+
+func (s *Handlers) msgLogExport(w http.ResponseWriter, r *http.Request) {
+	p := s.msgLogParams(r)
+	err := s.exportCSV(w, "message-logs", msgLogCols, func(off int64) ([][]string, error) {
+		p.PageLimit, p.PageOffset = ExportChunk, off
+		ms, err := s.Queries.SearchMessageLogs(r.Context(), p)
+		return s.msgLogRows(ms), err
+	})
+	if err != nil {
+		s.Fail(w, "export message log", err)
+	}
+}
+
+var authLogCols = []string{"Date", "User", "NAS", "MAC", "Result", "Reason"}
+
+// authLogListCols is the page header: the column named "Status" makes list.html draw the result as a badge.
+var authLogListCols = []string{"Date", "User", "NAS", "MAC", "Status", "Reason"}
+
+func (s *Handlers) authLogParams(r *http.Request) db.SearchRadiusAuthLogParams {
+	_, _, f, t := s.DateRange(r)
+	return db.SearchRadiusAuthLogParams{Q: strings.TrimSpace(r.URL.Query().Get("q")), FromTs: f, ToTs: t}
+}
+
+// authLogRows: the export gets translated results and raw reasons. The page (page=true) gets the English
+// result key, which list.html translates and badges, and the reason translated through adminx.RejectLabels.
+func (s *Handlers) authLogRows(rows []db.RadiusAuthLog, page bool) [][]string {
+	out := [][]string{}
+	for _, x := range rows {
+		res, reason := "Rejected", x.Message
+		if x.Accepted == 1 {
+			res = "Accepted"
+		}
+		if page {
+			if k, ok := adminx.RejectLabels[x.Message]; ok {
+				reason = s.T(k)
+			}
+		} else {
+			res = s.T(res)
+		}
+		out = append(out, []string{s.TS(x.At), x.Username, x.NasIp, x.Mac, res, reason})
+	}
+	return out
+}
+
+// radiusAuthLog lists every RADIUS login attempt (post-auth log): accepted or rejected, with the reason.
+func (s *Handlers) radiusAuthLog(w http.ResponseWriter, r *http.Request) {
+	q, pg := view.Paging(r)
+	p := s.authLogParams(r)
+	p.PageLimit, p.PageOffset = pg.Limit(), pg.Offset()
+	rows, err := s.Queries.SearchRadiusAuthLog(r.Context(), p)
+	if err != nil {
+		s.Fail(w, "auth log", err)
+		return
+	}
+	from, to, _, _ := s.DateRange(r)
+	lp := listPage{Heading: "Login attempts", Base: "/admin/logs/auth", Q: q, Searchable: true, Dates: true, From: from, To: to, Cols: authLogListCols, Clean: "/admin/logs/clean/auth"}
+	for i, c := range s.authLogRows(rows, true) {
+		lp.Rows = append(lp.Rows, listRow{ID: rows[i].ID, Cells: c})
+	}
+	lp.Links = []option{{Value: "/admin/logs/auth/export?" + lp.Query().Encode(), Label: "Export CSV"}, {Value: "/admin/logs/radius", Label: "Radius Logs"}}
+	total, err := s.Queries.CountRadiusAuthLog(r.Context(), db.CountRadiusAuthLogParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
+	if err != nil {
+		s.Fail(w, "count auth log", err)
+		return
+	}
+	lp.Finish(pg, total)
+	s.RenderList(w, r, lp)
+}
+
+func (s *Handlers) radiusAuthLogExport(w http.ResponseWriter, r *http.Request) {
+	p := s.authLogParams(r)
+	err := s.exportCSV(w, "login-attempts", authLogCols, func(off int64) ([][]string, error) {
+		p.PageLimit, p.PageOffset = ExportChunk, off
+		rows, err := s.Queries.SearchRadiusAuthLog(r.Context(), p)
+		return s.authLogRows(rows, false), err
+	})
+	if err != nil {
+		s.Fail(w, "export auth log", err)
+	}
+}

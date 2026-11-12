@@ -16,6 +16,8 @@ import (
 	"github.com/frand-kod/gobill/internal/web/admin/customers"
 	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"github.com/frand-kod/gobill/internal/web/admin/plans"
+	"github.com/frand-kod/gobill/internal/web/admin/reports"
+	adminsettings "github.com/frand-kod/gobill/internal/web/admin/settings"
 	"github.com/frand-kod/gobill/internal/web/api"
 	"github.com/frand-kod/gobill/internal/web/portal"
 	"github.com/frand-kod/gobill/internal/web/public"
@@ -61,7 +63,6 @@ func isPrefetch(r *http.Request) bool {
 
 func (s *Server) extraRoutes(mux *http.ServeMux, managers func(http.Handler) http.Handler) {
 	mux.Handle("POST /admin/customers/{id}/login", managers(http.HandlerFunc(s.custLoginAs)))
-	mux.Handle("POST /admin/logs/clean/{kind}", managers(http.HandlerFunc(s.logClean)))
 
 	mux.HandleFunc("POST /portal/impersonate/end", s.pImpersonateEnd)
 }
@@ -76,15 +77,6 @@ func (s *Server) messageRoutes(mux *http.ServeMux, staff func(http.Handler) http
 	mux.Handle("GET /admin/message/bulk/status", staff(http.HandlerFunc(s.msgBulkStatus)))
 }
 
-// ---- admin (A71-A73) ----
-
-func (s *Server) paymentAdminRoutes(mux *http.ServeMux, managers func(http.Handler) http.Handler) {
-	mux.Handle("GET /admin/payment-gateway", managers(http.HandlerFunc(s.pgList)))
-	mux.Handle("GET /admin/payment-gateway/audit", managers(http.HandlerFunc(s.pgAudit)))
-	mux.Handle("GET /admin/payment-gateway/audit/export", managers(http.HandlerFunc(s.pgAuditExport)))
-	mux.Handle("GET /admin/payment-gateway/audit/{id}", managers(http.HandlerFunc(s.pgAuditView)))
-}
-
 func (s *Server) portalRoutes(mux *http.ServeMux) {
 	portal.Register(mux, s.portal)
 }
@@ -93,15 +85,6 @@ func (s *Server) portalRoutes(mux *http.ServeMux) {
 func (s *Server) docsRoutes(mux *http.ServeMux, all func(http.Handler) http.Handler) {
 	mux.Handle("GET /admin/docs", all(http.HandlerFunc(s.docsIndex)))
 	mux.Handle("GET /admin/docs/{slug}", all(http.HandlerFunc(s.docsPage)))
-}
-
-func (s *Server) reportRoutes(mux *http.ServeMux, all, noReport, managers func(http.Handler) http.Handler) {
-	mux.Handle("GET /admin/reports", all(s.reportPage(false)))
-	mux.Handle("GET /admin/reports/period", all(s.reportPage(true)))
-	mux.Handle("GET /admin/reports/print", all(http.HandlerFunc(s.reportPrint)))
-	mux.Handle("GET /admin/reports/export", all(http.HandlerFunc(s.reportExport)))
-	mux.Handle("GET /admin/reports/usage.csv", managers(http.HandlerFunc(s.usageExport)))
-	mux.Handle("GET /admin/transactions/{id}/invoice", noReport(http.HandlerFunc(s.trxInvoice)))
 }
 
 // Handler returns the router wrapped in CSRF protection and session loading.
@@ -126,6 +109,8 @@ func (s *Server) Handler() http.Handler {
 	customers.Register(mux, s.customers, mw)
 	plans.Register(mux, s.plans, mw)
 	billing.Register(mux, s.billing, mw)
+	reports.Register(mux, s.reports, mw)
+	adminsettings.Register(mux, s.settings, mw)
 
 	// auth: root redirect, static files, uploads, admin login/logout, own password
 	mux.HandleFunc("GET /{$}", s.root)
@@ -134,22 +119,16 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /uploads/{name}", s.serveUpload)
 	mux.HandleFunc("POST /admin/login", s.loginSubmit)
 	mux.HandleFunc("POST /logout", s.logout)
-	mux.Handle("GET /admin/password", all(http.HandlerFunc(s.passwordForm)))
-	mux.Handle("POST /admin/password", all(http.HandlerFunc(s.passwordSave)))
-	s.totpRoutes(mux, all)
+	mux.HandleFunc("GET /admin/login/2fa", s.login2FAForm)
+	mux.HandleFunc("POST /admin/login/2fa", s.login2FASubmit)
 
 	// app manifests (public: the browser fetches them without cookies)
 	mux.HandleFunc("GET /admin/manifest.webmanifest", s.manifest(" Admin", "/admin", "/admin/"))
 	mux.HandleFunc("GET /portal/manifest.webmanifest", s.manifest("", "/portal", "/portal/"))
 
 	// dashboard
-	mux.Handle("GET /admin", all(http.HandlerFunc(s.dashboard)))
-	mux.Handle("GET /admin/status", managers(http.HandlerFunc(s.statusPage)))
-	mux.Handle("GET /admin/status.json", managers(http.HandlerFunc(s.statusJSON)))
 
 	// customers: search, list, detail, edit, delete, actions, custom fields, maps
-	mux.Handle("GET /admin/search", all(http.HandlerFunc(s.searchPage)))
-	mux.Handle("GET /admin/search.json", noReport(http.HandlerFunc(s.searchJSON)))
 	mux.Handle("POST /admin/customers/message", staff(http.HandlerFunc(s.custMessageForm)))
 	s.extraRoutes(mux, managers)
 	// Old customfield.php: custom fields CRUD (managers only).
@@ -165,8 +144,6 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/subscriptions/{id}/extend", staff(http.HandlerFunc(s.subExtend)))
 	mux.Handle("POST /admin/subscriptions/{id}/deactivate", managers(http.HandlerFunc(s.subDeactivate)))
 	mux.Handle("POST /admin/subscriptions/{id}/sync", managers(http.HandlerFunc(s.subSync)))
-	mux.Handle("GET /admin/transactions", noReport(http.HandlerFunc(s.trxList)))
-	s.paymentAdminRoutes(mux, managers)
 
 	// vouchers and coupons
 	// Old PHP plan.php: voucher list is open to all admins, generate/redeem to staff, delete to managers.
@@ -177,8 +154,6 @@ func (s *Server) Handler() http.Handler {
 	// plans and network: bandwidth, plans, pools, routers, NAS, online sessions, ODP and router/ODP maps
 	mux.Handle("GET /admin/routers/{id}/reconcile", managers(http.HandlerFunc(s.routerReconcile)))
 	mux.Handle("POST /admin/routers/{id}/reconcile", managers(http.HandlerFunc(s.routerReconcile)))
-	mux.Handle("GET /admin/network/{kind}/{id}", managers(http.HandlerFunc(s.networkDetail)))
-	mux.Handle("POST /admin/network/{kind}/{id}/check", managers(http.HandlerFunc(s.networkCheck)))
 	mux.Handle("POST /admin/radius/sessions/disconnect-many", managers(http.HandlerFunc(s.radiusDisconnectMany)))
 	mux.Handle("POST /admin/radius/sessions/{id}/disconnect", managers(http.HandlerFunc(s.radiusDisconnect)))
 	mux.Handle("GET /admin/radius/ip-lookup", managers(http.HandlerFunc(s.ipLookupForm)))
@@ -187,67 +162,11 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /admin/radius/test-login", managers(http.HandlerFunc(s.testLoginRun)))
 
 	// reports and logs
-	s.reportRoutes(mux, all, noReport, managers)
 	s.docsRoutes(mux, all)
-	mux.Handle("GET /admin/logs", managers(http.HandlerFunc(s.logList)))
-	mux.Handle("GET /admin/logs/radius", managers(http.HandlerFunc(s.radiusLog)))
-	mux.Handle("GET /admin/logs/radius/export", managers(http.HandlerFunc(s.radiusLogExport)))
-	mux.Handle("GET /admin/logs/auth", managers(http.HandlerFunc(s.radiusAuthLog)))
-	mux.Handle("GET /admin/logs/auth/export", managers(http.HandlerFunc(s.radiusAuthLogExport)))
-	mux.Handle("GET /admin/logs/messages", managers(http.HandlerFunc(s.msgLog)))
-	mux.Handle("GET /admin/logs/messages/export", managers(http.HandlerFunc(s.msgLogExport)))
 
-	// settings: app settings, theme default, admin users, static pages
-	mux.Handle("GET /admin/settings", managers(http.HandlerFunc(s.settingsForm)))
-	mux.Handle("GET /admin/settings/{tab}", managers(http.HandlerFunc(s.settingsForm)))
-	mux.Handle("POST /admin/settings/{tab}", managers(http.HandlerFunc(s.settingsSave)))
-	mux.Handle("POST /admin/theme/default", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.themeDefault)))
-	mux.Handle("POST /admin/settings/integrations/wa-test", managers(http.HandlerFunc(s.waTest)))
-	mux.Handle("POST /admin/settings/notifications/daily-summary", managers(http.HandlerFunc(s.dailySummaryNow)))
-	mux.Handle("POST /admin/settings/notifications/reset/{name}", managers(http.HandlerFunc(s.notifReset)))
-	mux.Handle("GET /admin/settings/system/backup", managers(http.HandlerFunc(s.dbBackup)))
-	// Promosi: SuperAdmin only
-	promoOnly := s.requireAdmin("SuperAdmin")
-	mux.Handle("GET /admin/settings/promo", promoOnly(http.HandlerFunc(s.promoList)))
-	mux.Handle("GET /admin/settings/promo/new", promoOnly(http.HandlerFunc(s.promoNew)))
-	mux.Handle("POST /admin/settings/promo/new", promoOnly(http.HandlerFunc(s.promoSave)))
-	mux.Handle("GET /admin/settings/promo/{id}/edit", promoOnly(http.HandlerFunc(s.promoEdit)))
-	mux.Handle("POST /admin/settings/promo/{id}", promoOnly(http.HandlerFunc(s.promoSave)))
-	mux.Handle("POST /admin/settings/promo/{id}/delete", promoOnly(http.HandlerFunc(s.promoDelete)))
-	mux.Handle("POST /admin/settings/promo/{id}/up", promoOnly(s.promoMove(-1)))
-	mux.Handle("POST /admin/settings/promo/{id}/down", promoOnly(s.promoMove(1)))
 	superAdmin := s.requireAdmin("SuperAdmin")
 	s.setupRoutes(mux, superAdmin)
-	mux.Handle("POST /admin/settings/integrations/test/{kind}", superAdmin(http.HandlerFunc(s.integrationTest)))
-	mux.Handle("POST /admin/settings/payment/tripay-test", superAdmin(http.HandlerFunc(s.tripayTest)))
-	mux.Handle("POST /admin/settings/payment/duitku-test", superAdmin(http.HandlerFunc(s.duitkuTest)))
-	mux.Handle("POST /admin/settings/integrations/metrics-token", superAdmin(http.HandlerFunc(s.metricsTokenNew)))
-	mux.Handle("POST /admin/settings/integrations/metrics-token/disable", superAdmin(http.HandlerFunc(s.metricsTokenOff)))
 	mux.Handle("GET /admin/settings/isolir/preview", superAdmin(http.HandlerFunc(s.public.IsolirPreview)))
-	mux.Handle("POST /admin/settings/isolir/reset/{section}", superAdmin(http.HandlerFunc(s.isolirReset)))
-	mux.Handle("GET /admin/settings/system/import", superAdmin(http.HandlerFunc(s.importForm)))
-	mux.Handle("POST /admin/settings/system/import", superAdmin(http.HandlerFunc(s.importPreview)))
-	mux.Handle("POST /admin/settings/system/import/confirm", superAdmin(http.HandlerFunc(s.importConfirm)))
-	mux.Handle("POST /admin/settings/system/import/cancel", superAdmin(http.HandlerFunc(s.importCancel)))
-	mux.Handle("GET "+keyPage, superAdmin(http.HandlerFunc(s.keyForm)))
-	mux.Handle("POST "+keyPage+"/saved", superAdmin(http.HandlerFunc(s.keySaved)))
-	mux.Handle("POST "+keyPage+"/download", superAdmin(http.HandlerFunc(s.keyDownload)))
-	mux.Handle("GET /admin/settings/system/restore", superAdmin(http.HandlerFunc(s.restoreForm)))
-	mux.Handle("POST /admin/settings/system/restore", superAdmin(http.HandlerFunc(s.restorePreview)))
-	mux.Handle("POST /admin/settings/system/restore/confirm", superAdmin(http.HandlerFunc(s.restoreConfirm)))
-	mux.Handle("POST /admin/settings/system/restore/cancel", superAdmin(http.HandlerFunc(s.restoreCancel)))
-	// Old settings.php users-*: list/add/edit for SuperAdmin, Admin and Agent (scoped in admins.go); delete only SuperAdmin and Admin.
-	userMgr := s.requireAdmin("SuperAdmin", "Admin", "Agent")
-	mux.Handle("GET /admin/users", userMgr(http.HandlerFunc(s.adminList)))
-	mux.Handle("GET /admin/users/new", userMgr(http.HandlerFunc(s.adminNew)))
-	mux.Handle("POST /admin/users", userMgr(http.HandlerFunc(s.adminSave)))
-	mux.Handle("GET /admin/users/{id}/edit", userMgr(http.HandlerFunc(s.adminEdit)))
-	mux.Handle("POST /admin/users/{id}", userMgr(http.HandlerFunc(s.adminSave)))
-	mux.Handle("POST /admin/users/{id}/delete", managers(http.HandlerFunc(s.adminDelete)))
-	mux.Handle("POST /admin/users/{id}/password/reset", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.adminPasswordReset)))
-	// Old pages.php: static page editor (managers only).
-	mux.Handle("GET /admin/pages/{slug}", managers(http.HandlerFunc(s.pageEdit)))
-	mux.Handle("POST /admin/pages/{slug}", managers(http.HandlerFunc(s.pageSave)))
 
 	// messages: send, bulk, selected customers
 	s.messageRoutes(mux, staff)
@@ -267,7 +186,7 @@ func (s *Server) Handler() http.Handler {
 	// /health sits outside the session and maintenance chain so monitors always get an answer
 	top := http.NewServeMux()
 	top.HandleFunc("GET /health", s.health)
-	top.HandleFunc("GET /metrics", s.metricsHandler)
+	top.HandleFunc("GET /metrics", s.reports.MetricsHandler)
 	top.HandleFunc("GET /licenses", licenses)
 	top.Handle("/", app)
 	return cacheDefaults(top)

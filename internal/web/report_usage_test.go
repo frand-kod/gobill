@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/frand-kod/gobill/internal/web/admin/reports"
 	"github.com/frand-kod/gobill/internal/web/view"
 )
 
@@ -36,14 +37,14 @@ func usageEnv(t *testing.T) (*billEnv, time.Time) {
 	return e, now
 }
 
-func statNum(w usageWin) string {
+func statNum(w reports.UsageWin) string {
 	return `class="stat-num">` + w.TotalNum + `<span class="ms-1 text-sm font-medium text-ink-2">` + w.TotalUnit + `</span>`
 }
 
 // The report usage over 30 days equals the dashboard 30 day card, ignores sessions, and stops at from and to.
 func TestReportUsageMatchesDashboard(t *testing.T) {
 	e, now := usageEnv(t)
-	d, err := e.srv.dashboardData(t.Context(), now)
+	d, err := e.srv.reports.DashboardData(t.Context(), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,11 +86,11 @@ func TestReportDefaultRangeIsDashboardPeriod(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		dash, err := e.srv.dashboardData(t.Context(), now)
+		dash, err := e.srv.reports.DashboardData(t.Context(), now)
 		if err != nil {
 			t.Fatal(err)
 		}
-		d, _, err := e.srv.reportLoad(httptest.NewRequest("GET", "/admin/reports/period", nil).WithContext(t.Context()), true)
+		d, _, err := e.srv.reports.ReportLoad(httptest.NewRequest("GET", "/admin/reports/period", nil).WithContext(t.Context()), true)
 		if err != nil {
 			t.Fatal(err)
 		}

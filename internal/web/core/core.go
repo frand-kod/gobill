@@ -45,9 +45,10 @@ type Core struct {
 
 	// Mu guards the in-memory limiter maps (and the web Server's own small maps).
 	// ponytail: in-memory limiter, resets on restart; persist if needed. Login locks per ip|username; per IP, 100 failures/15 min across usernames
-	Mu      sync.Mutex
-	OtpSent map[string][]time.Time // "ip:x" / "ph:y" -> OTP send times, see OtpAllow
-	Failed  map[string][]time.Time // client IP -> times of recent failed logins
+	Mu       sync.Mutex
+	OtpSent  map[string][]time.Time // "ip:x" / "ph:y" -> OTP send times, see OtpAllow
+	Failed   map[string][]time.Time // client IP -> times of recent failed logins
+	totpLast map[int64]int64        // admin id -> last accepted TOTP time step, see TotpVerify
 
 	// Live is the rate samples of the open RADIUS sessions, see LiveMonitor.
 	Live LiveMonitor
@@ -133,3 +134,9 @@ func ClientIP(r *http.Request) string {
 	}
 	return host
 }
+
+// SetupKey is the settings key of the setup wizard state: "" (not started), "started", "dismissed" or "done".
+const SetupKey = "setup_wizard"
+
+// SetupModeKey is the settings key of the wizard mode: "new", or "import" once a PHPNuxBill import finished.
+const SetupModeKey = "setup_mode"

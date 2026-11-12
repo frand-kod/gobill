@@ -44,7 +44,7 @@ func TestExpiringSoonWindow(t *testing.T) {
 	mk(now.AddDate(0, 0, -8), "expired")   // ended 8 days ago: neither list
 	mk(now.Add(-24*time.Hour), "active")   // past due, not yet marked expired: recently expired
 	mk(now.Add(-time.Minute*10), "active") // ended 10 minutes ago: recently expired
-	w, err := e.srv.widgetData(ctx, now)
+	w, err := e.srv.reports.WidgetData(ctx, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestNetworkCardOrderAndTint(t *testing.T) {
 	mkRouter(t, q, "on-router", 1, "api", sql.NullInt64{Int64: 1, Valid: true}, sql.NullInt64{})
 	mkRouter(t, q, "off-router", 1, "api", sql.NullInt64{Int64: 0, Valid: true}, sql.NullInt64{})
 	mkRouter(t, q, "parked-router", 0, "api", sql.NullInt64{}, sql.NullInt64{})
-	card, err := srv.networkCard(t.Context(), time.Now())
+	card, err := srv.net.NetworkCard(t.Context(), time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
