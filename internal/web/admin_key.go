@@ -72,11 +72,11 @@ func (s *Server) stepUp(r *http.Request) (string, error) {
 	}
 	ok := bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte(r.PostFormValue("current"))) == nil
 	if a.TotpEnabled == 1 {
-		k, err := s.totpOpen(a.TotpSecretEnc)
+		k, err := s.TotpOpen(a.TotpSecretEnc)
 		if err != nil {
 			return "", err
 		}
-		ok = s.totpVerify(a.ID, k, cleanCode(r.PostFormValue("code"))) && ok
+		ok = s.TotpVerify(a.ID, k, core.CleanCode(r.PostFormValue("code"))) && ok
 	}
 	if !ok {
 		s.RecordFailure(ip)

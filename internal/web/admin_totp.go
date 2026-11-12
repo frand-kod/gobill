@@ -44,22 +44,22 @@ func (s *Server) render2FA(w http.ResponseWriter, r *http.Request, status int, c
 	a := adminFrom(r)
 	p := totpPage{Enabled: a.TotpEnabled == 1, Codes: codes}
 	if !p.Enabled && a.TotpSecretEnc != "" {
-		key, err := s.totpOpen(a.TotpSecretEnc)
+		key, err := s.TotpOpen(a.TotpSecretEnc)
 		if err != nil {
 			s.Fail(w, "open totp secret", err)
 			return
 		}
-		company := s.brand(r.Context())["company_name"]
+		company := s.Brand(r.Context())["company_name"]
 		if company == "" {
 			company = "gobill"
 		}
-		png, err := qrcode.Encode(totpURI(company, a.Username, key), qrcode.Medium, 220)
+		png, err := qrcode.Encode(core.TotpURI(company, a.Username, key), qrcode.Medium, 220)
 		if err != nil {
 			s.Fail(w, "totp qr", err)
 			return
 		}
 		p.Pending = true
-		p.Secret = totpB32.EncodeToString(key)
+		p.Secret = core.TotpB32.EncodeToString(key)
 		p.QR = template.URL("data:image/png;base64," + base64.StdEncoding.EncodeToString(png))
 	}
 	s.Render(w, r, status, "admin_2fa", Page{Title: "Two-factor login", Data: p})
@@ -72,7 +72,7 @@ func (s *Server) admin2FASetup(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/2fa", http.StatusSeeOther)
 		return
 	}
-	enc, err := s.totpSeal(newTOTPSecret())
+	enc, err := s.TotpSeal(core.NewTOTPSecret())
 	if err != nil {
 		s.Fail(w, "seal totp secret", err)
 		return
@@ -96,17 +96,17 @@ func (s *Server) admin2FAConfirm(w http.ResponseWriter, r *http.Request) {
 		s.FlashTo(w, r, "/admin/2fa", "Too many failed attempts. Try again in 15 minutes.")
 		return
 	}
-	key, err := s.totpOpen(a.TotpSecretEnc)
+	key, err := s.TotpOpen(a.TotpSecretEnc)
 	if err != nil {
 		s.Fail(w, "open totp secret", err)
 		return
 	}
-	if !s.totpVerify(a.ID, key, cleanCode(r.PostFormValue("code"))) {
+	if !s.TotpVerify(a.ID, key, core.CleanCode(r.PostFormValue("code"))) {
 		s.RecordFailure(ip)
 		s.FlashTo(w, r, "/admin/2fa", "Invalid code")
 		return
 	}
-	codes := newRecoveryCodes()
+	codes := core.NewRecoveryCodes()
 	if err := s.Queries.DeleteRecoveryCodes(ctx, a.ID); err != nil {
 		s.Fail(w, "clear recovery codes", err)
 		return
@@ -143,13 +143,13 @@ func (s *Server) admin2FADisable(w http.ResponseWriter, r *http.Request) {
 		s.FlashTo(w, r, "/admin/2fa", "Too many failed attempts. Try again in 15 minutes.")
 		return
 	}
-	key, err := s.totpOpen(a.TotpSecretEnc)
+	key, err := s.TotpOpen(a.TotpSecretEnc)
 	if err != nil {
 		s.Fail(w, "open totp secret", err)
 		return
 	}
 	pwOK := bcrypt.CompareHashAndPassword([]byte(a.PasswordHash), []byte(r.PostFormValue("current"))) == nil
-	if !pwOK || !s.totpVerify(a.ID, key, cleanCode(r.PostFormValue("code"))) {
+	if !pwOK || !s.TotpVerify(a.ID, key, core.CleanCode(r.PostFormValue("code"))) {
 		s.RecordFailure(ip)
 		s.FlashTo(w, r, "/admin/2fa", "Incorrect password or code")
 		return

@@ -73,7 +73,6 @@ type Server struct {
 	// CoAPort is the NAS Disconnect-Request port; empty = 3799.
 	CoAPort string
 
-	totpLast map[int64]int64       // admin id -> last accepted TOTP time step, see totpVerify
 	testSent map[int64][]time.Time // admin id -> Integrations test times, see testAllow
 	// telegramAPI overrides the Telegram API root in tests (empty = the notify default)
 	telegramAPI string

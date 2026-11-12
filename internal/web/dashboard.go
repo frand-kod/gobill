@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -29,7 +30,7 @@ type dashData struct {
 	SalesTotal               int64  // Sales summed over the 12 months
 	MoneyPrefix, MoneySep    string // money's currency prefix and group separator, for the chart axis
 	ListLimit                int    // dashListLimit: the Customers tabs show "N+" at this many rows
-	Network                  netCard
+	Network                  network.NetCard
 	NetErr                   bool // the network card query failed: the tile shows "Data could not be loaded"
 	dashWidgets
 }
@@ -128,7 +129,7 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 	if d.dashWidgets, err = s.widgetData(ctx, now); err != nil {
 		return
 	}
-	if d.Network, err = s.networkCard(ctx, now); err != nil {
+	if d.Network, err = s.net.NetworkCard(ctx, now); err != nil {
 		slog.Error("dashboard network card", "err", err)
 		d.NetErr, err = true, nil
 	}
@@ -164,7 +165,7 @@ func (s *Server) noticeCounts(ctx context.Context, now time.Time) ([]attnItem, e
 	if err != nil {
 		return nil, err
 	}
-	net, err := s.networkCard(ctx, now)
+	net, err := s.net.NetworkCard(ctx, now)
 	if err != nil {
 		return nil, err
 	}

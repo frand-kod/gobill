@@ -13,6 +13,7 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/device"
 	"github.com/frand-kod/gobill/internal/secret"
+	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -79,11 +80,11 @@ func TestNetworkCardRowsAndStatus(t *testing.T) {
 	mkSession(t, s, "10.0.0.2", now.Unix()-3*3600, true)
 	q.CreateNAS(t.Context(), db.CreateNASParams{Name: "nas-none", Ip: "10.0.0.3", SecretEnc: []byte("x")})
 
-	card, err := s.networkCard(t.Context(), now)
+	card, err := s.net.NetworkCard(t.Context(), now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	byName := map[string]netRow{}
+	byName := map[string]network.NetRow{}
 	for _, r := range card.Rows {
 		byName[r.Name] = r
 	}
@@ -112,7 +113,7 @@ func TestNetworkCardRowsAndStatus(t *testing.T) {
 	if card.Online != 2 {
 		t.Fatalf("online %d, want 2 (core, nas-live)", card.Online)
 	}
-	if byName["nas-live"].Href != netHref("nas", n.ID) {
+	if byName["nas-live"].Href != network.NetHref("nas", n.ID) {
 		t.Fatalf("href %q", byName["nas-live"].Href)
 	}
 }
@@ -146,15 +147,15 @@ func TestNetworkDetailRoles(t *testing.T) {
 	s, h, q, c, _ := healthApp(t, nil)
 	r := mkRouter(t, q, "core", 1, "api", sql.NullInt64{}, sql.NullInt64{})
 	n, _ := q.CreateNAS(t.Context(), db.CreateNASParams{Name: "nas", Ip: "10.0.0.9", SecretEnc: []byte("x")})
-	wantCode(t, do(h, "GET", netHref("router", r.ID), nil, c), 200, "router detail")
-	wantCode(t, do(h, "GET", netHref("nas", n.ID), nil, c), 200, "nas detail")
+	wantCode(t, do(h, "GET", network.NetHref("router", r.ID), nil, c), 200, "router detail")
+	wantCode(t, do(h, "GET", network.NetHref("nas", n.ID), nil, c), 200, "nas detail")
 	wantCode(t, do(h, "GET", "/admin/network/bogus/1", nil, c), 404, "bad kind")
 	wantCode(t, do(h, "GET", "/admin/network/router/999", nil, c), 404, "missing router")
-	wantCode(t, do(h, "POST", netHref("nas", n.ID)+"/check", nil, c), 404, "check on NAS")
+	wantCode(t, do(h, "POST", network.NetHref("nas", n.ID)+"/check", nil, c), 404, "check on NAS")
 	for _, role := range []string{"Agent", "Report"} {
 		cookie := roleLogin(t, s, h, role)
-		wantCode(t, do(h, "GET", netHref("router", r.ID), nil, cookie), 403, role)
-		wantCode(t, do(h, "POST", netHref("router", r.ID)+"/check", nil, cookie), 403, role+" check")
+		wantCode(t, do(h, "GET", network.NetHref("router", r.ID), nil, cookie), 403, role)
+		wantCode(t, do(h, "POST", network.NetHref("router", r.ID)+"/check", nil, cookie), 403, role+" check")
 	}
 }
 
@@ -174,7 +175,7 @@ func TestNetworkLiveCheck(t *testing.T) {
 		return []map[string]string{{".id": "*1"}, {".id": "*2"}, {".id": "*3"}}, nil
 	})
 	r := mkRouter(t, q, "core", 1, "api", sql.NullInt64{}, sql.NullInt64{})
-	check := netHref("router", r.ID) + "/check"
+	check := network.NetHref("router", r.ID) + "/check"
 
 	w := do(h, "POST", check, nil, c)
 	wantCode(t, w, 200, "check")
@@ -208,11 +209,11 @@ func TestNetworkLiveCheck(t *testing.T) {
 	// no API user: no check button, and the check does not reach the router
 	*sent = nil
 	bare := mkRouter(t, q, "bare", 1, "", sql.NullInt64{}, sql.NullInt64{})
-	page := do(h, "GET", netHref("router", bare.ID), nil, c).Body.String()
-	if strings.Contains(page, `action="`+netHref("router", bare.ID)+`/check"`) {
+	page := do(h, "GET", network.NetHref("router", bare.ID), nil, c).Body.String()
+	if strings.Contains(page, `action="`+network.NetHref("router", bare.ID)+`/check"`) {
 		t.Fatal("check button shown without API user")
 	}
-	wantCode(t, do(h, "POST", netHref("router", bare.ID)+"/check", nil, c), 200, "bare check")
+	wantCode(t, do(h, "POST", network.NetHref("router", bare.ID)+"/check", nil, c), 200, "bare check")
 	if len(*sent) != 0 {
 		t.Fatalf("router contacted without credentials: %v", *sent)
 	}
@@ -224,11 +225,11 @@ func TestNASDetailSecretStrength(t *testing.T) {
 	strong, _ := secret.Seal(s.SecretKey, []byte("s3cretvalue-0123456789"))
 	wk, _ := q.CreateNAS(t.Context(), db.CreateNASParams{Name: "weak", Ip: "10.0.0.5", SecretEnc: weak})
 	st, _ := q.CreateNAS(t.Context(), db.CreateNASParams{Name: "strong", Ip: "10.0.0.6", SecretEnc: strong})
-	body := do(h, "GET", netHref("nas", wk.ID), nil, c).Body.String()
+	body := do(h, "GET", network.NetHref("nas", wk.ID), nil, c).Body.String()
 	if !strings.Contains(body, "Secret minimal 16 karakter") {
 		t.Fatalf("weak secret not flagged: %s", body)
 	}
-	body = do(h, "GET", netHref("nas", st.ID), nil, c).Body.String()
+	body = do(h, "GET", network.NetHref("nas", st.ID), nil, c).Body.String()
 	if !strings.Contains(body, "Cukup kuat") || strings.Contains(body, "s3cretvalue") {
 		t.Fatalf("strong secret wrong or leaked: %s", body)
 	}

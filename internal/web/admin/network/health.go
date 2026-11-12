@@ -1,4 +1,4 @@
-package web
+package network
 
 // Network health: the dashboard card listing every router and NAS, and the detail page of each.
 // The card reads the database only. The detail page calls a router only when the operator asks.
@@ -7,12 +7,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"log/slog"
 	"net/http"
 	"sort"
 	"time"
 
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -25,15 +25,15 @@ import (
 // stored. GOBILL_NAS_ONLINE_WINDOW overrides it at startup (see cmd/gobill).
 var NASFreshFor = 15 * time.Minute
 
-// netRow is one line of the dashboard card.
-type netRow struct {
+// NetRow is one line of the dashboard card.
+type NetRow struct {
 	Kind, Name, Type, Status, Dot, Metric, Href string
 	Tint                                        string // row background: offline = error tint, unknown = neutral
 }
 
-// netCard is the dashboard card: every device, sorted offline first, then unknown, then online.
-type netCard struct {
-	Rows            []netRow
+// NetCard is the dashboard card: every device, sorted offline first, then unknown, then online.
+type NetCard struct {
+	Rows            []NetRow
 	Online, Offline int
 	OfflineNames    []string // up to 3 offline device names, the tile shows them
 }
@@ -44,10 +44,10 @@ type netStat struct {
 	Active   int64
 }
 
-func netHref(kind string, id int64) string { return fmt.Sprintf("/admin/network/%s/%d", kind, id) }
+func NetHref(kind string, id int64) string { return fmt.Sprintf("/admin/network/%s/%d", kind, id) }
 
 // nasStats returns the RADIUS packet stats of every NAS address that ever sent a packet.
-func (s *Server) nasStats(ctx context.Context) (map[string]netStat, error) {
+func (s *Handlers) nasStats(ctx context.Context) (map[string]netStat, error) {
 	rows, err := s.Queries.ListNASPacketStats(ctx)
 	if err != nil {
 		return nil, err
@@ -59,9 +59,9 @@ func (s *Server) nasStats(ctx context.Context) (map[string]netStat, error) {
 	return m, nil
 }
 
-// networkCard lists the routers and NAS with their status. now decides whether a NAS is fresh.
-func (s *Server) networkCard(ctx context.Context, now time.Time) (netCard, error) {
-	var c netCard
+// NetworkCard lists the routers and NAS with their status. now decides whether a NAS is fresh.
+func (s *Handlers) NetworkCard(ctx context.Context, now time.Time) (NetCard, error) {
+	var c NetCard
 	routers, err := s.Queries.ListAllRouters(ctx)
 	if err != nil {
 		return c, err
@@ -121,9 +121,9 @@ func routerStatus(r db.Router) string {
 	return "Offline"
 }
 
-func (s *Server) routerRow(r db.Router) netRow {
+func (s *Handlers) routerRow(r db.Router) NetRow {
 	lang := s.Language()
-	row := netRow{Kind: "router", Name: r.Name, Type: "Router API", Href: netHref("router", r.ID), Status: routerStatus(r)}
+	row := NetRow{Kind: "router", Name: r.Name, Type: "Router API", Href: NetHref("router", r.ID), Status: routerStatus(r)}
 	switch {
 	case r.Enabled == 0:
 		row.Metric = s.Catalog.T(lang, "Disabled, not checked")
@@ -136,9 +136,9 @@ func (s *Server) routerRow(r db.Router) netRow {
 	return row
 }
 
-func (s *Server) nasRow(n db.Na, stats map[string]netStat, now time.Time) netRow {
+func (s *Handlers) nasRow(n db.Na, stats map[string]netStat, now time.Time) NetRow {
 	lang := s.Language()
-	row := netRow{Kind: "nas", Name: n.Name, Type: "NAS RADIUS", Href: netHref("nas", n.ID), Status: "Unknown"}
+	row := NetRow{Kind: "nas", Name: n.Name, Type: "NAS RADIUS", Href: NetHref("nas", n.ID), Status: "Unknown"}
 	st, ok := stats[n.Ip]
 	if !ok {
 		row.Metric = s.Catalog.T(lang, "No packet yet")
@@ -176,7 +176,7 @@ type netLive struct {
 // netPage is the detail page of one router or NAS.
 type netPage struct {
 	Kind, Name, TypeLabel, Address, Description string
-	Row                                         netRow
+	Row                                         NetRow
 	Enabled                                     bool
 	Edit                                        string
 	APIUser                                     string
@@ -191,7 +191,7 @@ type netPage struct {
 }
 
 // routerPage builds the router detail. A check is requested only by the POST handler.
-func (s *Server) routerPage(x db.Router) netPage {
+func (s *Handlers) routerPage(x db.Router) netPage {
 	return netPage{Kind: "router", Name: x.Name, TypeLabel: "Router API", Address: fmt.Sprintf("%s:%d", x.Host, x.Port),
 		Description: x.Description, Enabled: x.Enabled == 1, Edit: fmt.Sprint("/admin/routers/", x.ID, "/edit"),
 		APIUser: x.Username, CanCheck: x.Username != "" && len(x.PasswordEnc) > 0,
@@ -199,7 +199,7 @@ func (s *Server) routerPage(x db.Router) netPage {
 }
 
 // nasPage builds the NAS detail from its RADIUS-side data only.
-func (s *Server) nasPage(ctx context.Context, n db.Na, now time.Time) (netPage, error) {
+func (s *Handlers) nasPage(ctx context.Context, n db.Na, now time.Time) (netPage, error) {
 	lang := s.Language()
 	stats, err := s.nasStats(ctx)
 	if err != nil {
@@ -214,7 +214,7 @@ func (s *Server) nasPage(ctx context.Context, n db.Na, now time.Time) (netPage, 
 	}
 	if plain, err := secret.Open(s.SecretKey, n.SecretEnc); err != nil {
 		p.SecretMsg = s.Catalog.T(lang, "The secret could not be read. Set it again under NAS.")
-	} else if m := network.WeakSecret(string(plain)); m != "" {
+	} else if m := WeakSecret(string(plain)); m != "" {
 		p.SecretMsg = s.Catalog.T(lang, m)
 	} else {
 		p.SecretOK = true
@@ -223,7 +223,7 @@ func (s *Server) nasPage(ctx context.Context, n db.Na, now time.Time) (netPage, 
 }
 
 // liveView formats a router health reply for the page.
-func (s *Server) liveView(h device.Health) *netLive {
+func (s *Handlers) liveView(h device.Health) *netLive {
 	lang := s.Language()
 	const mb = 1 << 20
 	return &netLive{
@@ -239,7 +239,7 @@ func (s *Server) liveView(h device.Health) *netLive {
 }
 
 // networkPage serves the detail page; check runs the live router check first (POST).
-func (s *Server) networkPage(w http.ResponseWriter, r *http.Request, check bool) {
+func (s *Handlers) networkPage(w http.ResponseWriter, r *http.Request, check bool) {
 	kind, id, ctx := r.PathValue("kind"), httpx.PathID(r), r.Context()
 	var p netPage
 	switch kind {
@@ -287,11 +287,11 @@ func (s *Server) networkPage(w http.ResponseWriter, r *http.Request, check bool)
 		http.NotFound(w, r)
 		return
 	}
-	s.Render(w, r, http.StatusOK, "network", Page{Title: p.Name, Data: p})
+	s.Render(w, r, http.StatusOK, "network", core.Page{Title: p.Name, Data: p})
 }
 
 // liveCheck asks the router for its health with a short timeout. Errors are mapped to plain text.
-func (s *Server) liveCheck(ctx context.Context, x db.Router, p *netPage) bool {
+func (s *Handlers) liveCheck(ctx context.Context, x db.Router, p *netPage) bool {
 	lang := s.Language()
 	if s.Billing == nil {
 		p.LiveErr = s.Catalog.T(lang, "Router connection is not configured")
@@ -312,6 +312,6 @@ func (s *Server) liveCheck(ctx context.Context, x db.Router, p *netPage) bool {
 	return true
 }
 
-func (s *Server) networkDetail(w http.ResponseWriter, r *http.Request) { s.networkPage(w, r, false) }
+func (s *Handlers) networkDetail(w http.ResponseWriter, r *http.Request) { s.networkPage(w, r, false) }
 
-func (s *Server) networkCheck(w http.ResponseWriter, r *http.Request) { s.networkPage(w, r, true) }
+func (s *Handlers) networkCheck(w http.ResponseWriter, r *http.Request) { s.networkPage(w, r, true) }

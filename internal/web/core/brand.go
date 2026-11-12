@@ -1,4 +1,4 @@
-package web
+package core
 
 // Branding the layouts show.
 
@@ -8,13 +8,12 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/view"
 )
 
-// brand returns the branding the layouts show: logo, favicon and login page text, plus
+// Brand returns the branding the layouts show: logo, favicon and login page text, plus
 // disable_registration for the portal's register link.
-func (s *Server) brand(ctx context.Context) map[string]string {
+func (s *Core) Brand(ctx context.Context) map[string]string {
 	out := map[string]string{}
 	m, err := s.LoadSettings(ctx)
 	if err != nil {
@@ -41,12 +40,12 @@ func (s *Server) brand(ctx context.Context) map[string]string {
 	} else {
 		out["logo_l"], out["logo_l_dark"] = out["logo_a"], out["logo_a_dark"]
 	}
-	out["theme_mode"], out["theme_accent"], out["theme_density"] = themeDefaults(m)
-	out["theme_font"] = themeFont(m)
+	out["theme_mode"], out["theme_accent"], out["theme_density"] = ThemeDefaults(m)
+	out["theme_font"] = ThemeFont(m)
 	out["phone"], out["wa"] = m["phone"], view.WaLink(m["phone"], m["country_code_phone"]) // operator contact for the portal login
-	out["pass_min"] = strconv.Itoa(core.CustomerPasswordMin(m))                            // minlength of the portal password fields
-	out["theme_color"], _ = pwaColors(out["theme_accent"], out["theme_mode"])
-	if out["app_icon"] = pwaIcon(m); out["app_icon"] == "" {
+	out["pass_min"] = strconv.Itoa(CustomerPasswordMin(m))                                 // minlength of the portal password fields
+	out["theme_color"], _ = PwaColors(out["theme_accent"], out["theme_mode"])
+	if out["app_icon"] = PwaIcon(m); out["app_icon"] == "" {
 		out["app_icon"] = "/static/icons/app-192.png"
 	}
 	return out

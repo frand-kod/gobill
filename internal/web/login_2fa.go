@@ -62,13 +62,13 @@ func (s *Server) login2FASubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.UserDelay(uk)
-	ak, code := fmt.Sprint("2fa:", id), cleanCode(r.PostFormValue("code"))
+	ak, code := fmt.Sprint("2fa:", id), core.CleanCode(r.PostFormValue("code"))
 	s.Mu.Lock()
 	hardLocked := len(s.Recent(ak)) >= max2FAFailures
 	s.Mu.Unlock()
 	var ok bool
 	if hardLocked { // only a recovery code gets through while the account is locked
-		ok = s.useRecoveryCode(r, admin.ID, code)
+		ok = s.UseRecoveryCode(r, admin.ID, code)
 	} else {
 		ok = s.verify2FA(r, admin, code)
 	}
@@ -100,9 +100,9 @@ func (s *Server) login2FASubmit(w http.ResponseWriter, r *http.Request) {
 
 // verify2FA accepts the current TOTP code or an unused recovery code.
 func (s *Server) verify2FA(r *http.Request, admin db.Admin, code string) bool {
-	key, err := s.totpOpen(admin.TotpSecretEnc)
+	key, err := s.TotpOpen(admin.TotpSecretEnc)
 	if err != nil {
 		return false
 	}
-	return s.totpVerify(admin.ID, key, code) || s.useRecoveryCode(r, admin.ID, code)
+	return s.TotpVerify(admin.ID, key, code) || s.UseRecoveryCode(r, admin.ID, code)
 }

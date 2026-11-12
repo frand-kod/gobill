@@ -17,7 +17,7 @@ func (s *Server) decorate(r *http.Request, name string, p *Page) {
 		p.Intro = core.Intro(introFor(name, r.URL.Path))
 	}
 	p.Intro = core.Intro(s.translateIntro(intro(p.Intro)))
-	p.Brand = s.brand(ctx)
+	p.Brand = s.Brand(ctx)
 	if p.Admin != nil && p.Admin.Role == "SuperAdmin" && s.UpdateInfo != nil {
 		if tag, link := s.UpdateInfo(); update.Newer(tag, s.Version) {
 			p.UpdateTag, p.UpdateURL = tag, link

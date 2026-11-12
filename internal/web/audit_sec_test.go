@@ -72,7 +72,7 @@ func TestAuditSec5_2FAGuessesAcrossIPs(t *testing.T) {
 	for i := 0; i < n; i++ {
 		post("000000", fmt.Sprintf("198.51.100.%d", i%250+1))
 	}
-	w := post(totpCode(key, time.Now().Unix()/30+1), "198.51.100.251")
+	w := post(core.TotpCode(key, time.Now().Unix()/30+1), "198.51.100.251")
 	if w.Code == 303 && w.Header().Get("Location") == "/admin" {
 		t.Fatalf("pending 2FA session still accepted a code after %d wrong guesses from rotating IPs", n)
 	}

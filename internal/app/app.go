@@ -30,6 +30,7 @@ import (
 	"github.com/frand-kod/gobill/internal/secret"
 	"github.com/frand-kod/gobill/internal/selfupdate"
 	"github.com/frand-kod/gobill/internal/web"
+	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"github.com/frand-kod/gobill/internal/wg"
 )
 
@@ -295,7 +296,7 @@ func tuneWindows(cfg config.Config) {
 		slog.Info("RADIUS stale window overridden", "GOBILL_STALE_AFTER", d)
 	}
 	if d := cfg.NASOnlineWindow; d > 0 {
-		web.NASFreshFor = d
+		network.NASFreshFor = d
 		slog.Info("NAS online window overridden", "GOBILL_NAS_ONLINE_WINDOW", d)
 	}
 }

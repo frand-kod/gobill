@@ -78,7 +78,7 @@ func TestNetworkCardOrderAndTint(t *testing.T) {
 	mkRouter(t, q, "on-router", 1, "api", sql.NullInt64{Int64: 1, Valid: true}, sql.NullInt64{})
 	mkRouter(t, q, "off-router", 1, "api", sql.NullInt64{Int64: 0, Valid: true}, sql.NullInt64{})
 	mkRouter(t, q, "parked-router", 0, "api", sql.NullInt64{}, sql.NullInt64{})
-	card, err := srv.networkCard(t.Context(), time.Now())
+	card, err := srv.net.NetworkCard(t.Context(), time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

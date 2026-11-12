@@ -173,8 +173,6 @@ func (s *Server) Handler() http.Handler {
 	// plans and network: bandwidth, plans, pools, routers, NAS, online sessions, ODP and router/ODP maps
 	mux.Handle("GET /admin/routers/{id}/reconcile", managers(http.HandlerFunc(s.routerReconcile)))
 	mux.Handle("POST /admin/routers/{id}/reconcile", managers(http.HandlerFunc(s.routerReconcile)))
-	mux.Handle("GET /admin/network/{kind}/{id}", managers(http.HandlerFunc(s.networkDetail)))
-	mux.Handle("POST /admin/network/{kind}/{id}/check", managers(http.HandlerFunc(s.networkCheck)))
 	mux.Handle("POST /admin/radius/sessions/disconnect-many", managers(http.HandlerFunc(s.radiusDisconnectMany)))
 	mux.Handle("POST /admin/radius/sessions/{id}/disconnect", managers(http.HandlerFunc(s.radiusDisconnect)))
 	mux.Handle("GET /admin/radius/ip-lookup", managers(http.HandlerFunc(s.ipLookupForm)))
