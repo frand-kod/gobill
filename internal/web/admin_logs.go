@@ -119,17 +119,17 @@ func (s *Server) logList(w http.ResponseWriter, r *http.Request) {
 	}
 	lp := listPage{Heading: "Logs", Base: "/admin/logs", Q: q, Searchable: true,
 		Cols:  []string{"Date", "Actor", "Action", "Description", "IP"},
-		Clean: "/admin/logs/clean/activity", Links: []option{{"/admin/logs/radius", "Radius Logs"}, {"/admin/logs/auth", "Login attempts"}, {"/admin/logs/messages", "Message Logs"}}}
+		Clean: "/admin/logs/clean/activity", Links: []option{{Value: "/admin/logs/radius", Label: "Radius Logs"}, {Value: "/admin/logs/auth", Label: "Login attempts"}, {Value: "/admin/logs/messages", Label: "Message Logs"}}}
 	for _, l := range rows {
 		when := time.Unix(l.CreatedAt, 0).In(s.Location()).Format("2006-01-02 15:04:05")
-		lp.Rows = append(lp.Rows, listRow{l.ID, []string{when, s.actorLabel(r.Context(), l.ActorType, l.ActorID), s.actionLabel(l.Action), l.Description, l.Ip}})
+		lp.Rows = append(lp.Rows, listRow{ID: l.ID, Cells: []string{when, s.actorLabel(r.Context(), l.ActorType, l.ActorID), s.actionLabel(l.Action), l.Description, l.Ip}})
 	}
 	total, err := s.Queries.CountActivityLogs(r.Context(), q)
 	if err != nil {
 		s.Fail(w, "count logs", err)
 		return
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
@@ -226,15 +226,15 @@ func (s *Server) radiusLog(w http.ResponseWriter, r *http.Request) {
 	from, to, _, _ := s.dateRange(r)
 	lp := listPage{Heading: "Radius Logs", Base: "/admin/logs/radius", Q: q, Searchable: true, Dates: true, From: from, To: to, Cols: radiusLogCols, Clean: "/admin/logs/clean/radius"}
 	for i, c := range s.radiusLogRows(ss) {
-		lp.Rows = append(lp.Rows, listRow{ss[i].ID, c})
+		lp.Rows = append(lp.Rows, listRow{ID: ss[i].ID, Cells: c})
 	}
-	lp.Links = []option{{"/admin/logs/radius/export?" + lp.query().Encode(), "Export CSV"}, {"/admin/logs/auth", "Login attempts"}, {"/admin/radius/ip-lookup", "Who had this IP"}}
+	lp.Links = []option{{Value: "/admin/logs/radius/export?" + lp.Query().Encode(), Label: "Export CSV"}, {Value: "/admin/logs/auth", Label: "Login attempts"}, {Value: "/admin/radius/ip-lookup", Label: "Who had this IP"}}
 	total, err := s.Queries.CountRadiusLogs(r.Context(), db.CountRadiusLogsParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
 	if err != nil {
 		s.Fail(w, "count radius logs", err)
 		return
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
@@ -282,15 +282,15 @@ func (s *Server) msgLog(w http.ResponseWriter, r *http.Request) {
 	from, to, _, _ := s.dateRange(r)
 	lp := listPage{Heading: "Message Logs", Base: "/admin/logs/messages", Q: q, Searchable: true, Dates: true, From: from, To: to, Cols: msgLogCols, Clean: "/admin/logs/clean/messages"}
 	for i, c := range s.msgLogRows(ms) {
-		lp.Rows = append(lp.Rows, listRow{ms[i].ID, c})
+		lp.Rows = append(lp.Rows, listRow{ID: ms[i].ID, Cells: c})
 	}
-	lp.Links = []option{{"/admin/logs/messages/export?" + lp.query().Encode(), "Export CSV"}}
+	lp.Links = []option{{Value: "/admin/logs/messages/export?" + lp.Query().Encode(), Label: "Export CSV"}}
 	total, err := s.Queries.CountMessageLogs(r.Context(), db.CountMessageLogsParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
 	if err != nil {
 		s.Fail(w, "count message logs", err)
 		return
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
@@ -350,15 +350,15 @@ func (s *Server) radiusAuthLog(w http.ResponseWriter, r *http.Request) {
 	from, to, _, _ := s.dateRange(r)
 	lp := listPage{Heading: "Login attempts", Base: "/admin/logs/auth", Q: q, Searchable: true, Dates: true, From: from, To: to, Cols: authLogListCols, Clean: "/admin/logs/clean/auth"}
 	for i, c := range s.authLogRows(rows, true) {
-		lp.Rows = append(lp.Rows, listRow{rows[i].ID, c})
+		lp.Rows = append(lp.Rows, listRow{ID: rows[i].ID, Cells: c})
 	}
-	lp.Links = []option{{"/admin/logs/auth/export?" + lp.query().Encode(), "Export CSV"}, {"/admin/logs/radius", "Radius Logs"}}
+	lp.Links = []option{{Value: "/admin/logs/auth/export?" + lp.Query().Encode(), Label: "Export CSV"}, {Value: "/admin/logs/radius", Label: "Radius Logs"}}
 	total, err := s.Queries.CountRadiusAuthLog(r.Context(), db.CountRadiusAuthLogParams{Q: p.Q, FromTs: p.FromTs, ToTs: p.ToTs})
 	if err != nil {
 		s.Fail(w, "count auth log", err)
 		return
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }
 

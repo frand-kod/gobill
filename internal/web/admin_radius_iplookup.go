@@ -17,8 +17,8 @@ const dtLocal = "2006-01-02T15:04"
 
 func (s *Server) ipLookupFields(v, e map[string]string, result string) []field {
 	out := section([]field{
-		text("ip", "IP address", v, e).req(),
-		text("at", "At (date and time)", v, e).as("datetime-local").hint("Prefilled with now. Empty also means now. Session history is kept for the days set in Settings > Keep logs (days)."),
+		text("ip", "IP address", v, e).Req(),
+		text("at", "At (date and time)", v, e).As("datetime-local").WithHint("Prefilled with now. Empty also means now. Session history is kept for the days set in Settings > Keep logs (days)."),
 	}, "Who had this IP", "")
 	if result != "" {
 		out = append(section([]field{{Name: "result", Label: "Result", Type: "pre", Value: result}}, "Result", ""), out...)
@@ -27,8 +27,8 @@ func (s *Server) ipLookupFields(v, e map[string]string, result string) []field {
 }
 
 func (s *Server) ipLookupForm(w http.ResponseWriter, r *http.Request) {
-	s.renderForm(w, r, 200, formPage{"Who had this IP", "/admin/radius/ip-lookup", "/admin/radius/sessions",
-		s.ipLookupFields(map[string]string{"at": time.Now().In(s.Location()).Format(dtLocal)}, nil, "")})
+	s.renderForm(w, r, 200, formPage{Heading: "Who had this IP", Action: "/admin/radius/ip-lookup", Cancel: "/admin/radius/sessions",
+		Fields: s.ipLookupFields(map[string]string{"at": time.Now().In(s.Location()).Format(dtLocal)}, nil, "")})
 }
 
 func (s *Server) ipLookupRun(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +45,7 @@ func (s *Server) ipLookupRun(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(e) > 0 {
-		s.renderForm(w, r, 200, formPage{"Who had this IP", "/admin/radius/ip-lookup", "/admin/radius/sessions", s.ipLookupFields(v, e, "")})
+		s.renderForm(w, r, 200, formPage{Heading: "Who had this IP", Action: "/admin/radius/ip-lookup", Cancel: "/admin/radius/sessions", Fields: s.ipLookupFields(v, e, "")})
 		return
 	}
 	rows, err := s.Queries.ListRadiusSessionsByIPAt(r.Context(), db.ListRadiusSessionsByIPAtParams{Ip: ip.String(), AtTs: at.Unix()})
@@ -55,7 +55,7 @@ func (s *Server) ipLookupRun(w http.ResponseWriter, r *http.Request) {
 	}
 	// the result is a list page: one row per session, the table the generic form cannot draw
 	lp := listPage{Heading: "Who had this IP", Base: "/admin/radius/ip-lookup", Cols: []string{"User", "MAC", "NAS", "Start", "Stop"},
-		Links: []option{{"/admin/radius/ip-lookup", "Search again"}}}
+		Links: []option{{Value: "/admin/radius/ip-lookup", Label: "Search again"}}}
 	if len(rows) == 0 {
 		lp.Note = "No session had this IP at that time"
 	} else {
@@ -66,7 +66,7 @@ func (s *Server) ipLookupRun(w http.ResponseWriter, r *http.Request) {
 		if x.StoppedAt.Valid {
 			stop = s.TS(x.StoppedAt.Int64)
 		}
-		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Username, x.Mac, x.NasIp, s.TS(x.StartedAt), stop}})
+		lp.Rows = append(lp.Rows, listRow{ID: x.ID, Cells: []string{x.Username, x.Mac, x.NasIp, s.TS(x.StartedAt), stop}})
 	}
 	s.renderList(w, r, lp)
 }

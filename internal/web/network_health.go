@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -213,7 +214,7 @@ func (s *Server) nasPage(ctx context.Context, n db.Na, now time.Time) (netPage, 
 	}
 	if plain, err := secret.Open(s.SecretKey, n.SecretEnc); err != nil {
 		p.SecretMsg = s.Catalog.T(lang, "The secret could not be read. Set it again under NAS.")
-	} else if m := weakSecret(string(plain)); m != "" {
+	} else if m := network.WeakSecret(string(plain)); m != "" {
 		p.SecretMsg = s.Catalog.T(lang, m)
 	} else {
 		p.SecretOK = true

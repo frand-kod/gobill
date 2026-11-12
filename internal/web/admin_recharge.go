@@ -200,19 +200,19 @@ func (s *Server) rechargeMethods(ctx context.Context) []option {
 	for _, u := range strings.Split(st["payment_usings"], ",") {
 		if u = strings.TrimSpace(u); u != "" && !seen[strings.ToLower(u)] {
 			seen[strings.ToLower(u)] = true
-			out = append(out, option{u, u})
+			out = append(out, option{Value: u, Label: u})
 		}
 	}
 	if len(out) == 0 {
-		out = append(out, option{"Cash", "Cash"})
+		out = append(out, option{Value: "Cash", Label: "Cash"})
 	}
 	if st["enable_balance"] != "no" { // like billing: balance is on unless explicitly off
-		out = append(out, option{"Balance", "Balance"})
+		out = append(out, option{Value: "Balance", Label: "Balance"})
 	}
 	if s.strictAccess(ctx) && !ctxIsManager(ctx) { // strict: free recharge is for managers
 		return out
 	}
-	return append(out, option{methodZero, "Recharge Zero"})
+	return append(out, option{Value: methodZero, Label: "Recharge Zero"})
 }
 
 // rechargeMethod validates the posted method against rechargeMethods; label is its display name.

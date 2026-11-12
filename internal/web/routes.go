@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	gobill "github.com/frand-kod/gobill"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"github.com/frand-kod/gobill/internal/web/portal"
 	"github.com/frand-kod/gobill/internal/web/public"
 )
@@ -124,6 +126,9 @@ func (s *Server) Handler() http.Handler {
 		mux.Handle("POST "+base+"/{id}/delete", managers(del))
 	}
 
+	mw := adminx.Mw{All: all, Managers: managers, Staff: staff, NoReport: noReport, Money: money, SuperAdmin: s.requireAdmin("SuperAdmin"), Require: s.requireAdmin}
+	network.Register(mux, s.net, mw)
+
 	// auth: root redirect, static files, uploads, admin login/logout, own password
 	mux.HandleFunc("GET /{$}", s.root)
 	mux.Handle("GET /static/", staticHandler(static))
@@ -161,8 +166,6 @@ func (s *Server) Handler() http.Handler {
 	// Old customfield.php: custom fields CRUD (managers only).
 	crud("/admin/fields", s.cfList, s.cfNew, s.cfEdit, s.cfSave, s.cfDelete)
 	// F5 maps and ODP (maps.go, odp.go). Old PHP: customer map is open to all admins; router, ODP and their maps are managers only.
-	mux.Handle("GET /admin/maps/customers", all(s.mapPage("Customer Geo Location Information", "/admin/maps/customers/data")))
-	mux.Handle("GET /admin/maps/customers/data", all(http.HandlerFunc(s.mapCustomerData)))
 
 	// recharge and billing: recharge, deposit, customer plans, transactions, payment gateway admin
 	mux.Handle("POST /admin/customers/{id}/recharge/confirm", staff(http.HandlerFunc(s.custRechargeConfirm)))
@@ -224,34 +227,16 @@ func (s *Server) Handler() http.Handler {
 	crud("/admin/bandwidth", s.bwList, s.bwNew, s.bwEdit, s.bwSave, s.bwDelete)
 	crud("/admin/plans", s.planList, s.planNew, s.planEdit, s.planSave, s.planDelete)
 	crud("/admin/pool", s.poolList, s.poolNew, s.poolEdit, s.poolSave, s.poolDelete)
-	crud("/admin/routers", s.routerList, s.routerNew, s.routerEdit, s.routerSave, s.routerDelete)
-	mux.Handle("POST /admin/routers/{id}/test", managers(http.HandlerFunc(s.routerTest)))
-	mux.Handle("POST /admin/routers/{id}/sync", managers(http.HandlerFunc(s.routerSync)))
-	mux.Handle("GET /admin/routers/{id}/sync", managers(http.HandlerFunc(s.routerSyncStatus)))
 	mux.Handle("GET /admin/routers/{id}/reconcile", managers(http.HandlerFunc(s.routerReconcile)))
 	mux.Handle("POST /admin/routers/{id}/reconcile", managers(http.HandlerFunc(s.routerReconcile)))
-	mux.Handle("GET /admin/routers/{id}/migration", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.routerMigration)))
-	mux.Handle("POST /admin/routers/{id}/migration/{act}", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.routerMigrationAct)))
-	mux.Handle("POST /admin/routers/{id}/wg/provision", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.routerWGProvision)))
-	mux.Handle("POST /admin/routers/{id}/wg/revoke", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.routerWGRevoke)))
-	mux.Handle("POST /admin/routers/{id}/wg/reset", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.routerWGReset)))
-	mux.Handle("POST /admin/routers/{id}/wg/check", s.requireAdmin("SuperAdmin")(http.HandlerFunc(s.routerWGCheck)))
-	crud("/admin/nas", s.nasList, s.nasNew, s.nasEdit, s.nasSave, s.nasDelete)
 	mux.Handle("GET /admin/network/{kind}/{id}", managers(http.HandlerFunc(s.networkDetail)))
 	mux.Handle("POST /admin/network/{kind}/{id}/check", managers(http.HandlerFunc(s.networkCheck)))
-	mux.Handle("GET /admin/radius/sessions", managers(http.HandlerFunc(s.radiusSessions)))
-	mux.Handle("GET /admin/radius/sessions.json", managers(http.HandlerFunc(s.radiusSessionsJSON)))
 	mux.Handle("POST /admin/radius/sessions/disconnect-many", managers(http.HandlerFunc(s.radiusDisconnectMany)))
 	mux.Handle("POST /admin/radius/sessions/{id}/disconnect", managers(http.HandlerFunc(s.radiusDisconnect)))
 	mux.Handle("GET /admin/radius/ip-lookup", managers(http.HandlerFunc(s.ipLookupForm)))
 	mux.Handle("POST /admin/radius/ip-lookup", managers(http.HandlerFunc(s.ipLookupRun)))
 	mux.Handle("GET /admin/radius/test-login", managers(http.HandlerFunc(s.testLoginForm)))
 	mux.Handle("POST /admin/radius/test-login", managers(http.HandlerFunc(s.testLoginRun)))
-	crud("/admin/odp", s.odpList, s.odpNew, s.odpEdit, s.odpSave, s.odpDelete)
-	mux.Handle("GET /admin/maps/routers", managers(s.mapPage("Routers Geo Location Information", "/admin/maps/routers/data")))
-	mux.Handle("GET /admin/maps/routers/data", managers(http.HandlerFunc(s.mapRouterData)))
-	mux.Handle("GET /admin/maps/odp", managers(s.mapPage("ODP Geo Location Information", "/admin/maps/odp/data")))
-	mux.Handle("GET /admin/maps/odp/data", managers(http.HandlerFunc(s.mapODPData)))
 
 	// reports and logs
 	s.reportRoutes(mux, all, noReport, managers)

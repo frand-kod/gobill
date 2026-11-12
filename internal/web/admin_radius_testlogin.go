@@ -19,19 +19,19 @@ func (s *Server) testLoginFields(r *http.Request, v, e map[string]string, result
 	if err != nil {
 		return nil, err
 	}
-	sel := text("nas", "NAS", v, e).as("select")
+	sel := text("nas", "NAS", v, e).As("select")
 	for _, n := range nas {
 		if p, err := netip.ParsePrefix(n.Ip); err == nil {
-			sel.Options = append(sel.Options, option{p.Addr().String(), n.Name})
+			sel.Options = append(sel.Options, option{Value: p.Addr().String(), Label: n.Name})
 		} else {
-			sel.Options = append(sel.Options, option{n.Ip, n.Name})
+			sel.Options = append(sel.Options, option{Value: n.Ip, Label: n.Name})
 		}
 	}
-	pt := text("port_type", "NAS-Port-Type", v, e).as("select")
-	pt.Options = []option{{"", "Not sent"}, {"Wireless-802.11", "Wireless-802.11 (hotspot)"}, {"Ethernet", "Ethernet"}, {"Virtual", "Virtual (VPN / tunnel)"}}
+	pt := text("port_type", "NAS-Port-Type", v, e).As("select")
+	pt.Options = []option{{Value: "", Label: "Not sent"}, {Value: "Wireless-802.11", Label: "Wireless-802.11 (hotspot)"}, {Value: "Ethernet", Label: "Ethernet"}, {Value: "Virtual", Label: "Virtual (VPN / tunnel)"}}
 	out := section([]field{
-		text("username", "Username", v, e).req(),
-		text("password", "Password", v, e).as("password").req().hint("Checked against the customer's router password. The attempt is logged in the activity log; no session or customer data changes. A voucher-style login (password = username) is refused: it would redeem the voucher."),
+		text("username", "Username", v, e).Req(),
+		text("password", "Password", v, e).As("password").Req().WithHint("Checked against the customer's router password. The attempt is logged in the activity log; no session or customer data changes. A voucher-style login (password = username) is refused: it would redeem the voucher."),
 		sel,
 		text("mac", "MAC (Calling-Station-Id)", v, e),
 		pt,
@@ -59,7 +59,7 @@ func (s *Server) testLoginForm(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "test login", err)
 		return
 	}
-	s.renderForm(w, r, 200, formPage{"Test login", "/admin/radius/test-login", "/admin/nas", fs})
+	s.renderForm(w, r, 200, formPage{Heading: "Test login", Action: "/admin/radius/test-login", Cancel: "/admin/nas", Fields: fs})
 }
 
 func (s *Server) testLoginRun(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +95,7 @@ func (s *Server) testLoginRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// a reject is an error alert above the form (role=alert), the same as the validation errors
-	page := Page{Title: "Test login", Data: formPage{"Test login", "/admin/radius/test-login", "/admin/nas", fs}}
+	page := Page{Title: "Test login", Data: formPage{Heading: "Test login", Action: "/admin/radius/test-login", Cancel: "/admin/nas", Fields: fs}}
 	if reject != "" {
 		page.Error = s.T("Access-Reject") + ": " + reject
 	}

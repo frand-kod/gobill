@@ -1,4 +1,4 @@
-package web
+package network
 
 // ODP (distribution point) CRUD.
 
@@ -19,27 +19,27 @@ var odpNames = []string{"name", "coordinates", "address", "port_amount", "attenu
 
 // odpFields builds the ODP form; routers fills the optional router select.
 func odpFields(v, e map[string]string, routers []db.Router) []field {
-	ro := []option{{"", "-"}}
+	ro := []option{{Value: "", Label: "-"}}
 	for _, x := range routers {
-		ro = append(ro, option{fmt.Sprint(x.ID), x.Name})
+		ro = append(ro, option{Value: fmt.Sprint(x.ID), Label: x.Name})
 	}
 	rt := text("router_id", "Router", v, e)
 	rt.Type, rt.Options = "select", ro
 	out := section([]field{
-		text("name", "ODP Name", v, e).req(),
-		text("coordinates", "Coordinates", v, e).as("coords").hint("lat,lng, e.g. -6.2,106.8. Optional; shown on the ODP map."),
+		text("name", "ODP Name", v, e).Req(),
+		text("coordinates", "Coordinates", v, e).As("coords").WithHint("lat,lng, e.g. -6.2,106.8. Optional; shown on the ODP map."),
 		rt,
 	}, "Basic", "")
 	return append(out, section([]field{
-		text("port_amount", "Port Amount", v, e).as("number"),
+		text("port_amount", "Port Amount", v, e).As("number"),
 		text("attenuation", "Attenuation", v, e),
-		text("coverage", "Coverage (m)", v, e).as("number"),
+		text("coverage", "Coverage (m)", v, e).As("number"),
 		text("address", "Address", v, e),
 		text("description", "Description", v, e),
 	}, "Specification", "")...)
 }
 
-func (s *Server) odpList(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) odpList(w http.ResponseWriter, r *http.Request) {
 	q, pg := view.Paging(r)
 	rows, err := s.Queries.SearchODPs(r.Context(), db.SearchODPsParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
@@ -49,7 +49,7 @@ func (s *Server) odpList(w http.ResponseWriter, r *http.Request) {
 	lp := listPage{Heading: "ODP", Base: "/admin/odp", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
 		Cols: []string{"Name", "Port Amount", "Attenuation", "Address", "Coverage", "Coordinates"}}
 	for _, o := range rows {
-		lp.Rows = append(lp.Rows, listRow{o.ID, []string{o.Name, fmt.Sprint(o.PortAmount), o.Attenuation, o.Address,
+		lp.Rows = append(lp.Rows, listRow{ID: o.ID, Cells: []string{o.Name, fmt.Sprint(o.PortAmount), o.Attenuation, o.Address,
 			fmt.Sprint(o.Coverage), o.Coordinates}})
 	}
 	total, err := s.Queries.CountODPs(r.Context(), q)
@@ -57,11 +57,11 @@ func (s *Server) odpList(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "count odps", err)
 		return
 	}
-	lp.finish(pg, total)
-	s.renderList(w, r, lp)
+	lp.Finish(pg, total)
+	s.RenderList(w, r, lp)
 }
 
-func (s *Server) odpRouters(w http.ResponseWriter, r *http.Request) ([]db.Router, bool) {
+func (s *Handlers) odpRouters(w http.ResponseWriter, r *http.Request) ([]db.Router, bool) {
 	rs, err := s.Queries.ListRouters(r.Context(), db.ListRoutersParams{Limit: 500})
 	if err != nil {
 		s.Fail(w, "list routers", err)
@@ -70,15 +70,15 @@ func (s *Server) odpRouters(w http.ResponseWriter, r *http.Request) ([]db.Router
 	return rs, true
 }
 
-func (s *Server) odpNew(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) odpNew(w http.ResponseWriter, r *http.Request) {
 	rs, ok := s.odpRouters(w, r)
 	if !ok {
 		return
 	}
-	s.renderForm(w, r, 200, formPage{"Add ODP", "/admin/odp", "/admin/odp", odpFields(map[string]string{}, nil, rs)})
+	s.RenderForm(w, r, 200, formPage{Heading: "Add ODP", Action: "/admin/odp", Cancel: "/admin/odp", Fields: odpFields(map[string]string{}, nil, rs)})
 }
 
-func (s *Server) odpEdit(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) odpEdit(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	o, err := s.Queries.GetODP(r.Context(), id)
 	if err == sql.ErrNoRows {
@@ -97,11 +97,11 @@ func (s *Server) odpEdit(w http.ResponseWriter, r *http.Request) {
 	if o.RouterID.Valid {
 		v["router_id"] = fmt.Sprint(o.RouterID.Int64)
 	}
-	s.renderForm(w, r, 200, formPage{"Edit ODP", fmt.Sprint("/admin/odp/", id), "/admin/odp", odpFields(v, nil, rs)})
+	s.RenderForm(w, r, 200, formPage{Heading: "Edit ODP", Action: fmt.Sprint("/admin/odp/", id), Cancel: "/admin/odp", Fields: odpFields(v, nil, rs)})
 }
 
 // odpSave serves both create (no {id} in the path) and update.
-func (s *Server) odpSave(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) odpSave(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	v := httpx.FormVals(r, odpNames...)
 	e := map[string]string{}
@@ -150,7 +150,7 @@ func (s *Server) odpSave(w http.ResponseWriter, r *http.Request) {
 			if id != 0 {
 				act, msg = "odp.update", "Data Updated Successfully"
 			}
-			s.done(w, r, "/admin/odp", msg, act, v["name"])
+			s.Done(w, r, "/admin/odp", msg, act, v["name"])
 			return
 		}
 	}
@@ -162,15 +162,15 @@ func (s *Server) odpSave(w http.ResponseWriter, r *http.Request) {
 	if id != 0 {
 		action, head = fmt.Sprint("/admin/odp/", id), "Edit ODP"
 	}
-	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{head, action, "/admin/odp", odpFields(v, e, rs)})
+	s.RenderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/odp", Fields: odpFields(v, e, rs)})
 }
 
-func (s *Server) odpDelete(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) odpDelete(w http.ResponseWriter, r *http.Request) {
 	name := ""
 	if o, err := s.Queries.GetODP(r.Context(), httpx.PathID(r)); err == nil {
 		name = o.Name
 	}
-	s.remove(w, r, "/admin/odp", "odp", "ODP is in use", name, func(id int64) error {
+	s.Remove(w, r, "/admin/odp", "odp", "ODP is in use", name, func(id int64) error {
 		return s.Queries.DeleteODP(r.Context(), id)
 	})
 }

@@ -20,16 +20,16 @@ var cpnKeys = []string{"code", "type", "value", "description", "max_usage", "min
 
 func cpnFields(v, e map[string]string) []field {
 	return section([]field{
-		text("code", "Coupon Code", v, e).hint("Leave empty to generate a random code"),
-		text("type", "Type", v, e).opts("fixed", "percent"),
-		text("value", "Discount Value", v, e).as("number").req(),
-		text("description", "Description", v, e).as("textarea"),
-		text("max_usage", "Max Usage", v, e).as("number").hint("0 = unlimited"),
-		text("min_order", "Minimum Order Amount", v, e).as("number"),
-		text("max_discount", "Max Discount Amount", v, e).as("number").hint("Percent coupons only, 0 = no cap"),
-		text("start_date", "Start Date", v, e).as("date").req(),
-		text("end_date", "End Date", v, e).as("date").req(),
-		text("status", "Status", v, e).opts("active", "inactive"),
+		text("code", "Coupon Code", v, e).WithHint("Leave empty to generate a random code"),
+		text("type", "Type", v, e).Opts("fixed", "percent"),
+		text("value", "Discount Value", v, e).As("number").Req(),
+		text("description", "Description", v, e).As("textarea"),
+		text("max_usage", "Max Usage", v, e).As("number").WithHint("0 = unlimited"),
+		text("min_order", "Minimum Order Amount", v, e).As("number"),
+		text("max_discount", "Max Discount Amount", v, e).As("number").WithHint("Percent coupons only, 0 = no cap"),
+		text("start_date", "Start Date", v, e).As("date").Req(),
+		text("end_date", "End Date", v, e).As("date").Req(),
+		text("status", "Status", v, e).Opts("active", "inactive"),
 	}, "Coupon", "")
 }
 
@@ -41,11 +41,11 @@ func (s *Server) cpnList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp := listPage{Heading: "Coupons", Base: "/admin/coupons", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
-		Bulk:    []bulkAction{{"delete-many", "Delete selected", true, false, false}},
-		Actions: []rowAction{{"toggle", "Block/Unblock", "", true}},
+		Bulk:    []bulkAction{{Path: "delete-many", Label: "Delete selected", Danger: true, All: false, Page: false}},
+		Actions: []rowAction{{Path: "toggle", Label: "Block/Unblock", Field: "", Confirm: true}},
 		Cols:    []string{"Code", "Type", "Value", "Max Usage", "Used", "Min Order", "Start Date", "End Date", "Status"}}
 	for _, c := range rows {
-		lp.Rows = append(lp.Rows, listRow{c.ID, []string{c.Code, c.Type, fmt.Sprint(c.Value), fmt.Sprint(c.MaxUsage),
+		lp.Rows = append(lp.Rows, listRow{ID: c.ID, Cells: []string{c.Code, c.Type, fmt.Sprint(c.Value), fmt.Sprint(c.MaxUsage),
 			fmt.Sprint(c.Used), fmt.Sprint(c.MinOrder), c.StartDate, c.EndDate, c.Status}})
 	}
 	total, err := s.Queries.CountCoupons(r.Context(), q)
@@ -53,14 +53,14 @@ func (s *Server) cpnList(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "count coupons", err)
 		return
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
 func (s *Server) cpnNew(w http.ResponseWriter, r *http.Request) {
 	today := time.Now().Format("2006-01-02")
 	v := map[string]string{"type": "fixed", "status": "active", "start_date": today, "max_usage": "0", "min_order": "0", "max_discount": "0"}
-	s.renderForm(w, r, 200, formPage{"Add Coupon", "/admin/coupons", "/admin/coupons", cpnFields(v, nil)})
+	s.renderForm(w, r, 200, formPage{Heading: "Add Coupon", Action: "/admin/coupons", Cancel: "/admin/coupons", Fields: cpnFields(v, nil)})
 }
 
 func (s *Server) cpnEdit(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +76,7 @@ func (s *Server) cpnEdit(w http.ResponseWriter, r *http.Request) {
 	v := map[string]string{"code": c.Code, "type": c.Type, "value": fmt.Sprint(c.Value), "description": c.Description,
 		"max_usage": fmt.Sprint(c.MaxUsage), "min_order": fmt.Sprint(c.MinOrder), "max_discount": fmt.Sprint(c.MaxDiscount),
 		"start_date": c.StartDate, "end_date": c.EndDate, "status": c.Status}
-	s.renderForm(w, r, 200, formPage{"Edit Coupon", fmt.Sprint("/admin/coupons/", id), "/admin/coupons", cpnFields(v, nil)})
+	s.renderForm(w, r, 200, formPage{Heading: "Edit Coupon", Action: fmt.Sprint("/admin/coupons/", id), Cancel: "/admin/coupons", Fields: cpnFields(v, nil)})
 }
 
 func (s *Server) cpnSave(w http.ResponseWriter, r *http.Request) {
@@ -142,7 +142,7 @@ func (s *Server) cpnSave(w http.ResponseWriter, r *http.Request) {
 	if id != 0 {
 		action, head = fmt.Sprint("/admin/coupons/", id), "Edit Coupon"
 	}
-	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{head, action, "/admin/coupons", cpnFields(v, e)})
+	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/coupons", Fields: cpnFields(v, e)})
 }
 
 func (s *Server) cpnToggle(w http.ResponseWriter, r *http.Request) {

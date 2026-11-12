@@ -39,14 +39,14 @@ func cfOptions(s string) []string {
 }
 
 func cfFields(v, e map[string]string) []field {
-	req := text("required", "Required", v, e).as("checkbox")
+	req := text("required", "Required", v, e).As("checkbox")
 	req.Checked = v["required"] == "1"
 	return section([]field{
-		text("name", "Field Name", v, e).req(),
-		text("type", "Type", v, e).opts(cfTypes...).req(),
-		text("options", "Options", v, e).hint("For Select type: comma separated, e.g. Gold, Silver"),
+		text("name", "Field Name", v, e).Req(),
+		text("type", "Type", v, e).Opts(cfTypes...).Req(),
+		text("options", "Options", v, e).WithHint("For Select type: comma separated, e.g. Gold, Silver"),
 		req,
-		text("sort_order", "Order", v, e).as("number"),
+		text("sort_order", "Order", v, e).As("number"),
 	}, "Custom Field", "")
 }
 
@@ -57,20 +57,20 @@ func (s *Server) cfList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp := listPage{Heading: "Custom Fields", Base: "/admin/fields", CanCreate: true, CanEdit: true,
-		Cols: []string{"Name", "Type", "Options", "Required", "Order"}, Links: []option{{"/admin/pages/announcement", "Pages"}}}
+		Cols: []string{"Name", "Type", "Options", "Required", "Order"}, Links: []option{{Value: "/admin/pages/announcement", Label: "Pages"}}}
 	for _, f := range rows {
 		req := "No"
 		if f.Required == 1 {
 			req = "Yes"
 		}
-		lp.Rows = append(lp.Rows, listRow{f.ID, []string{f.Name, f.Type, f.Options, req, fmt.Sprint(f.SortOrder)}})
+		lp.Rows = append(lp.Rows, listRow{ID: f.ID, Cells: []string{f.Name, f.Type, f.Options, req, fmt.Sprint(f.SortOrder)}})
 	}
 	s.renderList(w, r, lp)
 }
 
 func (s *Server) cfNew(w http.ResponseWriter, r *http.Request) {
 	v := map[string]string{"type": "text", "sort_order": "0"}
-	s.renderForm(w, r, 200, formPage{"Add Custom Field", "/admin/fields", "/admin/fields", cfFields(v, nil)})
+	s.renderForm(w, r, 200, formPage{Heading: "Add Custom Field", Action: "/admin/fields", Cancel: "/admin/fields", Fields: cfFields(v, nil)})
 }
 
 func (s *Server) cfEdit(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +87,7 @@ func (s *Server) cfEdit(w http.ResponseWriter, r *http.Request) {
 	if f.Required == 1 {
 		v["required"] = "1"
 	}
-	s.renderForm(w, r, 200, formPage{"Edit Custom Field", fmt.Sprint("/admin/fields/", id), "/admin/fields", cfFields(v, nil)})
+	s.renderForm(w, r, 200, formPage{Heading: "Edit Custom Field", Action: fmt.Sprint("/admin/fields/", id), Cancel: "/admin/fields", Fields: cfFields(v, nil)})
 }
 
 // cfSave serves both create (no {id} in the path) and update.
@@ -144,7 +144,7 @@ func (s *Server) cfSave(w http.ResponseWriter, r *http.Request) {
 	if id != 0 {
 		action, head = fmt.Sprint("/admin/fields/", id), "Edit Custom Field"
 	}
-	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{head, action, "/admin/fields", cfFields(v, e)})
+	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/fields", Fields: cfFields(v, e)})
 }
 
 func (s *Server) cfDelete(w http.ResponseWriter, r *http.Request) {

@@ -1,4 +1,4 @@
-package web
+package network
 
 // Router CRUD and connection test.
 
@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"net/http"
 	"slices"
 	"strings"
@@ -24,35 +25,35 @@ import (
 )
 
 func routerFields(v, e map[string]string, editing bool) []field {
-	pw := text("password", "Password", v, e).as("password").req()
+	pw := text("password", "Password", v, e).As("password").Req()
 	if editing {
 		pw.Required = false
 		pw.Hint = "Leave empty to keep the current password (re-enter it if you change host or port)"
 	}
 	pw.Value = "" // never rendered back
-	host, port := text("host", "Host", v, e).req(), text("port", "Port", v, e).as("number").req()
+	host, port := text("host", "Host", v, e).Req(), text("port", "Port", v, e).As("number").Req()
 	if editing { // the stored password only fits the stored host and port
-		host, port = host.bind(), port.bind()
-		pw = pw.reqIf(fmt.Sprintf("host !== %s || port !== %s", jsonStr(v["orig_host"]), jsonStr(v["orig_port"])))
+		host, port = host.WithBind(), port.WithBind()
+		pw = pw.WithReqIf(fmt.Sprintf("host !== %s || port !== %s", jsonStr(v["orig_host"]), jsonStr(v["orig_port"])))
 	} else {
-		port = port.bind()
+		port = port.WithBind()
 	}
-	en := text("enabled", "Enabled", v, e).as("checkbox")
+	en := text("enabled", "Enabled", v, e).As("checkbox")
 	en.Checked = v["enabled"] == "1"
-	tlsField := text("tls", "API connection", v, e).as("select")
-	tlsField.Options = []option{{"0", "Plain API (usually port 8728)"}, {"1", "API-SSL, TLS (usually port 8729)"}}
+	tlsField := text("tls", "API connection", v, e).As("select")
+	tlsField.Options = []option{{Value: "0", Label: "Plain API (usually port 8728)"}, {Value: "1", Label: "API-SSL, TLS (usually port 8729)"}}
 	tlsField.Hint = "Plain API sends the password unencrypted: use it only on a LAN or VPN, and API-SSL across the internet."
 	tlsField.Bind = true
 	tlsField.Change = "if ($event.target.value === '1' && port === '8728') port = '8729'; else if ($event.target.value === '0' && port === '8729') port = '8728'"
 	out := section([]field{
-		text("name", "Router Name", v, e).req(),
+		text("name", "Router Name", v, e).Req(),
 		host,
 		port,
 		tlsField,
 	}, "Connection", "")
-	out = append(out, section([]field{text("username", "Username", v, e).req(), pw}, "Login", "")...)
+	out = append(out, section([]field{text("username", "Username", v, e).Req(), pw}, "Login", "")...)
 	if editing {
-		rp := text("reset_pin", "Reset certificate pin", v, e).as("checkbox").hint("Not pinned yet. The certificate is pinned on the first TLS connection (API-SSL). Tick to forget the pin after the router certificate was changed.")
+		rp := text("reset_pin", "Reset certificate pin", v, e).As("checkbox").WithHint("Not pinned yet. The certificate is pinned on the first TLS connection (API-SSL). Tick to forget the pin after the router certificate was changed.")
 		if v["cert_pin"] != "" {
 			rp.Hint = v["cert_pin"] // SHA-256 hex, needs no translation
 		}
@@ -61,13 +62,13 @@ func routerFields(v, e map[string]string, editing bool) []field {
 			Hint: "Read the PPPoE and hotspot accounts on the router and compare them with gobill. Nothing changes until you confirm."})
 	}
 	return append(out, section([]field{
-		text("coordinates", "Coordinates", v, e).as("coords").hint("lat,lng, e.g. -6.2,106.8. Optional; shown on the router map."),
-		text("coverage", "Coverage (m)", v, e).as("number"),
+		text("coordinates", "Coordinates", v, e).As("coords").WithHint("lat,lng, e.g. -6.2,106.8. Optional; shown on the router map."),
+		text("coverage", "Coverage (m)", v, e).As("number"),
 		text("description", "Description", v, e), en,
 	}, "Other", "")...)
 }
 
-func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) routerList(w http.ResponseWriter, r *http.Request) {
 	q, pg := view.Paging(r)
 	rows, err := s.Queries.SearchRouters(r.Context(), db.SearchRoutersParams{Q: q, PageLimit: pg.Limit(), PageOffset: pg.Offset()})
 	if err != nil {
@@ -76,7 +77,7 @@ func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
 	}
 	lp := listPage{Heading: "Routers", Base: "/admin/routers", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
 		Cols:    []string{"Name", "Host", "Username", "Enabled", "Status", "Last Seen"},
-		Actions: []rowAction{{"test", "Test connection", "", false}, {"sync", "Push all", "", true}}}
+		Actions: []rowAction{{Path: "test", Label: "Test connection", Field: "", Confirm: false}, {Path: "sync", Label: "Push all", Field: "", Confirm: true}}}
 	for _, x := range rows {
 		on := "No"
 		if x.Enabled == 1 {
@@ -89,7 +90,7 @@ func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
 		if x.LastSeenAt.Valid {
 			seen = s.TS(x.LastSeenAt.Int64)
 		}
-		lp.Rows = append(lp.Rows, listRow{x.ID, []string{x.Name, fmt.Sprint(x.Host, ":", x.Port), x.Username, on, status, seen}})
+		lp.Rows = append(lp.Rows, listRow{ID: x.ID, Cells: []string{x.Name, fmt.Sprint(x.Host, ":", x.Port), x.Username, on, status, seen}})
 	}
 	// a toolbar link to the latest "Push all" run of each router on this page; only the keys are copied under the lock
 	syncs.mu.Lock()
@@ -100,7 +101,7 @@ func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
 	syncs.mu.Unlock()
 	for _, x := range rows {
 		if ran[x.ID] {
-			lp.Links = append(lp.Links, option{fmt.Sprintf("/admin/routers/%d/sync", x.ID), s.T("Last push") + ": " + x.Name})
+			lp.Links = append(lp.Links, option{Value: fmt.Sprintf("/admin/routers/%d/sync", x.ID), Label: s.T("Last push") + ": " + x.Name})
 		}
 	}
 	slices.SortFunc(lp.Links, func(a, b option) int { return strings.Compare(a.Label, b.Label) })
@@ -109,16 +110,16 @@ func (s *Server) routerList(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "count routers", err)
 		return
 	}
-	lp.finish(pg, total)
-	s.renderList(w, r, lp)
+	lp.Finish(pg, total)
+	s.RenderList(w, r, lp)
 }
 
-func (s *Server) routerNew(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) routerNew(w http.ResponseWriter, r *http.Request) {
 	v := map[string]string{"port": "8728", "tls": "0", "enabled": "1"}
-	s.renderForm(w, r, 200, formPage{"Add Router", "/admin/routers", "/admin/routers", routerFields(v, nil, false)})
+	s.RenderForm(w, r, 200, formPage{Heading: "Add Router", Action: "/admin/routers", Cancel: "/admin/routers", Fields: routerFields(v, nil, false)})
 }
 
-func (s *Server) routerEdit(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) routerEdit(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	x, err := s.Queries.GetRouter(r.Context(), id)
 	if err == sql.ErrNoRows {
@@ -132,21 +133,21 @@ func (s *Server) routerEdit(w http.ResponseWriter, r *http.Request) {
 		"id": fmt.Sprint(x.ID), "description": x.Description, "enabled": fmt.Sprint(x.Enabled), "coordinates": x.Coordinates, "coverage": fmt.Sprint(x.Coverage), "cert_pin": x.CertPin,
 		"orig_host": x.Host, "orig_port": fmt.Sprint(x.Port)}
 	fields := routerFields(v, nil, true)
-	if adminFrom(r).Role == "SuperAdmin" {
+	if core.AdminFrom(r).Role == "SuperAdmin" {
 		fields = append(fields, field{Name: "migration", Label: "Move to RADIUS", Type: "link", Value: fmt.Sprint("/admin/routers/", id, "/migration"), Btn: "Migrate to RADIUS", Section: "RADIUS migration",
 			Hint: "Test a RADIUS login, turn on use-radius, then disable the local accounts. Can be rolled back."})
 	}
-	if wg.Built && s.WG != nil && adminFrom(r).Role == "SuperAdmin" {
+	if wg.Built && s.WG != nil && core.AdminFrom(r).Role == "SuperAdmin" {
 		st, _ := s.LoadSettings(r.Context())
 		n, _ := s.Queries.CountWgPeers(r.Context())
 		if once := s.Sessions.PopString(r.Context(), "wg_once"); st["wg_enabled"] == "yes" || n > 0 || once != "" {
-			fields = append(fields, s.routerWGFields(r.Context(), x, once, wgDefaults(st)["wg_port"])...)
+			fields = append(fields, s.routerWGFields(r.Context(), x, once, WGDefaults(st)["wg_port"])...)
 		}
 	}
-	s.renderForm(w, r, 200, formPage{"Edit Router", fmt.Sprint("/admin/routers/", id), "/admin/routers", fields})
+	s.RenderForm(w, r, 200, formPage{Heading: "Edit Router", Action: fmt.Sprint("/admin/routers/", id), Cancel: "/admin/routers", Fields: fields})
 }
 
-func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) RouterSave(w http.ResponseWriter, r *http.Request) {
 	id := httpx.PathID(r)
 	v := httpx.FormVals(r, "name", "host", "port", "tls", "username", "description", "enabled", "coordinates", "coverage", "reset_pin")
 	pass := r.PostFormValue("password")
@@ -233,7 +234,7 @@ func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 			if id != 0 {
 				act, msg = "router.update", "Data Updated Successfully"
 			}
-			s.done(w, r, "/admin/routers", msg, act, v["name"])
+			s.Done(w, r, "/admin/routers", msg, act, v["name"])
 			return
 		}
 	}
@@ -241,11 +242,11 @@ func (s *Server) routerSave(w http.ResponseWriter, r *http.Request) {
 	if id != 0 {
 		action, head = fmt.Sprint("/admin/routers/", id), "Edit Router"
 	}
-	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{head, action, "/admin/routers", routerFields(v, e, id != 0)})
+	s.RenderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/routers", Fields: routerFields(v, e, id != 0)})
 }
 
 // routerTest connects to the router and flashes the identity or the error.
-func (s *Server) routerTest(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) routerTest(w http.ResponseWriter, r *http.Request) {
 	x, err := s.Queries.GetRouter(r.Context(), httpx.PathID(r))
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
@@ -258,7 +259,7 @@ func (s *Server) routerTest(w http.ResponseWriter, r *http.Request) {
 	if s.Billing == nil {
 		s.Sessions.Put(r.Context(), "error", s.Catalog.T(lang, "Router connection is not configured"))
 	} else if id, err := s.Billing.Ping(r.Context(), x); err != nil {
-		s.putFailure(r, s.Catalog.T(lang, "Connection failed")+": "+x.Name+". "+s.Catalog.T(lang, routerErr(err, msgRouterOther)), err)
+		s.PutFailure(r, s.Catalog.T(lang, "Connection failed")+": "+x.Name+". "+s.Catalog.T(lang, routerErr(err, msgRouterOther)), err)
 	} else {
 		s.Sessions.Put(r.Context(), "flash", s.Catalog.T(lang, "Connection successful")+": "+x.Name+" ("+id+")")
 	}
@@ -299,7 +300,7 @@ func (j *syncJobs) update(id int64, f func(*syncRun)) {
 }
 
 // runSync pushes in its own goroutine with a background context: closing the page must not cancel it.
-func (s *Server) runSync(id, adminID int64) {
+func (s *Handlers) runSync(id, adminID int64) {
 	err := s.Billing.SyncRouter(context.Background(), id, adminID,
 		func(n int) { syncs.update(id, func(r *syncRun) { r.total = n }) },
 		func(what string, err error) {
@@ -324,7 +325,7 @@ func (s *Server) runSync(id, adminID int64) {
 // routerSync ("Push all") starts the background push of every plan and active subscription of an
 // API-mode router, then shows its status page. A RADIUS router is refused before a run exists, a
 // second click during a run is refused; the offline check happens inside the run.
-func (s *Server) routerSync(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) routerSync(w http.ResponseWriter, r *http.Request) {
 	x, err := s.Queries.GetRouter(r.Context(), httpx.PathID(r))
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
@@ -350,14 +351,14 @@ func (s *Server) routerSync(w http.ResponseWriter, r *http.Request) {
 	if !syncs.start(x.ID) {
 		s.Sessions.Put(r.Context(), "error", s.Catalog.T(lang, "A push is already running for this router")+": "+x.Name)
 	} else {
-		go s.runSync(x.ID, adminFrom(r).ID)
-		s.logActivity(r, "router.sync", x.Name)
+		go s.runSync(x.ID, core.AdminFrom(r).ID)
+		s.LogActivity(r, "router.sync", x.Name)
 	}
 	http.Redirect(w, r, fmt.Sprintf("/admin/routers/%d/sync", x.ID), http.StatusSeeOther)
 }
 
 // routerSyncStatus shows the latest "Push all" run of a router and reloads itself while it runs.
-func (s *Server) routerSyncStatus(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) routerSyncStatus(w http.ResponseWriter, r *http.Request) {
 	x, err := s.Queries.GetRouter(r.Context(), httpx.PathID(r))
 	if err == sql.ErrNoRows {
 		http.NotFound(w, r)
@@ -368,8 +369,8 @@ func (s *Server) routerSyncStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	base := fmt.Sprintf("/admin/routers/%d/sync", x.ID)
 	lp := listPage{Heading: "Push all", Note: x.Name, Base: base, Cols: []string{"Item", "Result"},
-		Links: []option{{base, "Refresh"}, {"/admin/routers", "Routers"}}}
-	row := func(k, v string) { lp.Rows = append(lp.Rows, listRow{0, []string{s.T(k), v}}) }
+		Links: []option{{Value: base, Label: "Refresh"}, {Value: "/admin/routers", Label: "Routers"}}}
+	row := func(k, v string) { lp.Rows = append(lp.Rows, listRow{ID: 0, Cells: []string{s.T(k), v}}) }
 	syncs.mu.Lock()
 	run := syncs.runs[x.ID]
 	if run == nil {
@@ -395,15 +396,15 @@ func (s *Server) routerSyncStatus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	syncs.mu.Unlock()
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }
 
-func (s *Server) routerDelete(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) routerDelete(w http.ResponseWriter, r *http.Request) {
 	name := ""
 	if x, err := s.Queries.GetRouter(r.Context(), httpx.PathID(r)); err == nil {
 		name = x.Name
 	}
-	s.remove(w, r, "/admin/routers", "router", "Router is used by a plan", name, func(id int64) error {
+	s.Remove(w, r, "/admin/routers", "router", "Router is used by a plan", name, func(id int64) error {
 		peer, perr := s.Queries.GetWgPeer(r.Context(), id)
 		if err := s.Queries.DeleteRouter(r.Context(), id); err != nil {
 			return err
@@ -413,4 +414,18 @@ func (s *Server) routerDelete(w http.ResponseWriter, r *http.Request) {
 		}
 		return nil
 	})
+}
+
+// ResetSyncs clears the push-all run state; tests use it between apps.
+func ResetSyncs() {
+	syncs.mu.Lock()
+	syncs.runs = map[int64]*syncRun{}
+	syncs.mu.Unlock()
+}
+
+// MarkSynced records a finished push-all run for a router; tests use it to show the "last push" link.
+func MarkSynced(id int64) {
+	syncs.mu.Lock()
+	syncs.runs[id] = &syncRun{}
+	syncs.mu.Unlock()
 }

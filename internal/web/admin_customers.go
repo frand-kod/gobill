@@ -32,37 +32,37 @@ var (
 )
 
 func custFields(v, e map[string]string, editing bool) []field {
-	pw := text("password", "Password", v, e).as("password")
+	pw := text("password", "Password", v, e).As("password")
 	pw.Gen = true
-	sec := text("secret", "Router Secret", v, e).as("password").hint("Hotspot/PPPoE password on the router. Leave empty to use the Password above (or keep the current one when no new password is entered).")
-	ar := text("auto_renewal", "Auto Renewal", v, e).as("checkbox")
+	sec := text("secret", "Router Secret", v, e).As("password").WithHint("Hotspot/PPPoE password on the router. Leave empty to use the Password above (or keep the current one when no new password is entered).")
+	ar := text("auto_renewal", "Auto Renewal", v, e).As("checkbox")
 	ar.Checked = v["auto_renewal"] == "1"
-	fs := []field{text("username", "Username", v, e).req()}
+	fs := []field{text("username", "Username", v, e).Req()}
 	if editing {
 		pw.Hint = "Leave empty to keep the current password"
 	} else {
 		pw.Required = true
 	}
-	acct := section(append(fs, pw, text("fullname", "Full Name", v, e).req(), text("status", "Status", v, e).opts(custStatuses...)), "Account", "")
+	acct := section(append(fs, pw, text("fullname", "Full Name", v, e).Req(), text("status", "Status", v, e).Opts(custStatuses...)), "Account", "")
 	contact := section([]field{
-		text("phone", "Phone Number", v, e).as("tel"),
-		text("email", "Email", v, e).as("email"),
+		text("phone", "Phone Number", v, e).As("tel"),
+		text("email", "Email", v, e).As("email"),
 		text("address", "Address", v, e),
-		text("coordinates", "Coordinates", v, e).as("coords").hint("lat,lng, e.g. -6.2,106.8. Optional; shown on the customer map."),
+		text("coordinates", "Coordinates", v, e).As("coords").WithHint("lat,lng, e.g. -6.2,106.8. Optional; shown on the customer map."),
 	}, "Contact", "")
 	svc := section([]field{
-		text("service_type", "Service Type", v, e).opts("Hotspot", "PPPoE", "Others"),
+		text("service_type", "Service Type", v, e).Opts("Hotspot", "PPPoE", "Others"),
 		text("pppoe_username", "PPPoE Username", v, e),
 		text("pppoe_ip", "PPPoE IP", v, e),
 		sec,
-		text("bind_mac", "Lock to MAC address", v, e).hint("RADIUS only. Optional: the customer can log in only from this device (Calling-Station-Id). Empty = any device."),
-		text("bind_port_id", "Lock to port (NAS-Port-Id)", v, e).hint("RADIUS only. Optional: the customer can log in only on this NAS port, e.g. ether3 or the PPPoE interface. Empty = any port."),
-		text("billing_day", "Billing Day", v, e).as("number").hint("Day of month, 1-31. Optional; overrides the plan."),
+		text("bind_mac", "Lock to MAC address", v, e).WithHint("RADIUS only. Optional: the customer can log in only from this device (Calling-Station-Id). Empty = any device."),
+		text("bind_port_id", "Lock to port (NAS-Port-Id)", v, e).WithHint("RADIUS only. Optional: the customer can log in only on this NAS port, e.g. ether3 or the PPPoE interface. Empty = any port."),
+		text("billing_day", "Billing Day", v, e).As("number").WithHint("Day of month, 1-31. Optional; overrides the plan."),
 		ar,
 	}, "Service & billing", "")
 	out := append(append(acct, contact...), svc...)
 	if !editing { // old form: Send Welcome Message + sms / wa / mail
-		chk := func(n, l string) field { f := text(n, l, v, e).as("checkbox"); f.Checked = v[n] == "1"; return f }
+		chk := func(n, l string) field { f := text(n, l, v, e).As("checkbox"); f.Checked = v[n] == "1"; return f }
 		out = append(out, section([]field{chk("send_welcome_message", "Send Welcome Message"), chk("notify_sms", "SMS"),
 			chk("notify_wa", "WhatsApp"), chk("notify_email", "Email")}, "Welcome Message", "")...)
 	}
@@ -105,8 +105,8 @@ func (s *Server) addCustomerForm(r *http.Request, v, e map[string]string) ([]fie
 	if err != nil || !canRecharge(adminFrom(r).Role) {
 		return fs, err
 	}
-	plan := text("plan", "Plan", v, e).as("select")
-	plan.Options = append([]option{{"", "-"}}, opts...)
+	plan := text("plan", "Plan", v, e).As("select")
+	plan.Options = append([]option{{Value: "", Label: "-"}}, opts...)
 	pay := field{Name: "payment_text", Label: "Payment method: Cash", Type: "note"}
 	return append(fs, section([]field{plan, pay}, "Activate the plan now", "")...), nil
 }
@@ -149,9 +149,9 @@ func custQuery(r *http.Request) (db.FilterCustomersParams, string, string) {
 }
 
 func anyOpts(label string, o ...string) []option {
-	out := []option{{"", label}}
+	out := []option{{Value: "", Label: label}}
 	for _, x := range o {
-		out = append(out, option{x, x})
+		out = append(out, option{Value: x, Label: x})
 	}
 	return out
 }
@@ -197,16 +197,16 @@ func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 		CanCreate:  httpx.OneOf(role, "SuperAdmin", "Admin", "Agent", "Sales"), CanEdit: httpx.OneOf(role, "SuperAdmin", "Admin"),
 		Cols:     []string{"Username", "Full Name", "Balance", "Package", "Service Type", "PPPoE Username", "Ends On", "Status"},
 		SortKeys: []string{"username", "fullname", "balance", "", "", "", "expires", "status"}, Sort: sort, Dir: dir,
-		Filters: []filter{{"service_type", p.ServiceType, anyOpts("Service Type", "Hotspot", "PPPoE", "Others"), "Service Type"},
-			{"status", p.Status, anyOpts("Status", custStatuses...), "Status"}}}
+		Filters: []filter{{Name: "service_type", Val: p.ServiceType, Opts: anyOpts("Service Type", "Hotspot", "PPPoE", "Others"), Label: "Service Type"},
+			{Name: "status", Val: p.Status, Opts: anyOpts("Status", custStatuses...), Label: "Status"}}}
 	if httpx.OneOf(role, "SuperAdmin", "Admin", "Agent", "Sales") {
-		lp.Bulk = []bulkAction{{"message", "Send message to selected", false, false, false},
-			{"recharge", "Recharge same plan", false, false, true}}
+		lp.Bulk = []bulkAction{{Path: "message", Label: "Send message to selected", Danger: false, All: false, Page: false},
+			{Path: "recharge", Label: "Recharge same plan", Danger: false, All: false, Page: true}}
 	}
 	for _, c := range rows {
-		lp.Rows = append(lp.Rows, listRow{c.ID, []string{c.Username, c.Fullname, view.Money(c.Balance), c.Packages, c.ServiceType, c.PppoeUsername, s.endsCell(c.NextExpires), c.Status}})
+		lp.Rows = append(lp.Rows, listRow{ID: c.ID, Cells: []string{c.Username, c.Fullname, view.Money(c.Balance), c.Packages, c.ServiceType, c.PppoeUsername, s.endsCell(c.NextExpires), c.Status}})
 	}
-	lp.Links = []option{{"/admin/customers/export?" + lp.query().Encode(), "Export CSV"}}
+	lp.Links = []option{{Value: "/admin/customers/export?" + lp.Query().Encode(), Label: "Export CSV"}}
 	var total int64
 	if p.Q == "" && p.ServiceType == "" && p.Status == "" {
 		total, err = s.Queries.CountCustomers(r.Context()) // no LIKE scan over every customer
@@ -217,7 +217,7 @@ func (s *Server) custList(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "count customers", err)
 		return
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
@@ -279,7 +279,7 @@ func (s *Server) custNew(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "custom fields", err)
 		return
 	}
-	s.renderForm(w, r, 200, formPage{"Add New Contact", "/admin/customers", "/admin/customers", fs})
+	s.renderForm(w, r, 200, formPage{Heading: "Add New Contact", Action: "/admin/customers", Cancel: "/admin/customers", Fields: fs})
 }
 
 func (s *Server) custGet(w http.ResponseWriter, r *http.Request) (db.Customer, bool) {
@@ -313,7 +313,7 @@ func (s *Server) custEdit(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "custom fields", err)
 		return
 	}
-	s.renderForm(w, r, 200, formPage{"Edit Contact: " + c.Username, fmt.Sprint("/admin/customers/", c.ID), "/admin/customers", fs})
+	s.renderForm(w, r, 200, formPage{Heading: "Edit Contact: " + c.Username, Action: fmt.Sprint("/admin/customers/", c.ID), Cancel: "/admin/customers", Fields: fs})
 }
 
 type subRow struct{ Plan, Router, Expires, Status string }
@@ -527,7 +527,7 @@ func (s *Server) custSave(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "custom fields", err)
 		return
 	}
-	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{head, action, "/admin/customers", fs})
+	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/customers", Fields: fs})
 }
 
 // activateNew charges the plan chosen on the add form with Cash, right after the customer was

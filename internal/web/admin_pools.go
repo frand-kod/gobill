@@ -22,14 +22,14 @@ func (s *Server) routerNames(r *http.Request) ([]db.Router, error) {
 }
 
 func poolFields(v, e map[string]string, routers []db.Router) []field {
-	sel := text("router_id", "Router", v, e).as("select").req()
+	sel := text("router_id", "Router", v, e).As("select").Req()
 	for _, x := range routers {
-		sel.Options = append(sel.Options, option{fmt.Sprint(x.ID), x.Name})
+		sel.Options = append(sel.Options, option{Value: fmt.Sprint(x.ID), Label: x.Name})
 	}
 	return append(section([]field{
-		text("name", "Pool Name", v, e).req(),
+		text("name", "Pool Name", v, e).Req(),
 		text("local_ip", "Local IP", v, e),
-		text("range_ip", "IP Range", v, e).req().hint("e.g. 10.10.10.2-10.10.10.254"),
+		text("range_ip", "IP Range", v, e).Req().WithHint("e.g. 10.10.10.2-10.10.10.254"),
 	}, "Pool", ""), section([]field{sel}, "Router", "")...)
 }
 
@@ -52,14 +52,14 @@ func (s *Server) poolList(w http.ResponseWriter, r *http.Request) {
 	lp := listPage{Heading: "Pool", Base: "/admin/pool", Q: q, Searchable: true, CanCreate: true, CanEdit: true,
 		Cols: []string{"Pool Name", "Local IP", "IP Range", "Router"}}
 	for _, p := range rows {
-		lp.Rows = append(lp.Rows, listRow{p.ID, []string{p.Name, p.LocalIp, p.RangeIp, names[p.RouterID]}})
+		lp.Rows = append(lp.Rows, listRow{ID: p.ID, Cells: []string{p.Name, p.LocalIp, p.RangeIp, names[p.RouterID]}})
 	}
 	total, err := s.Queries.CountPools(r.Context(), q)
 	if err != nil {
 		s.Fail(w, "count pools", err)
 		return
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
@@ -69,7 +69,7 @@ func (s *Server) poolNew(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "list routers", err)
 		return
 	}
-	s.renderForm(w, r, 200, formPage{"Add Pool", "/admin/pool", "/admin/pool", poolFields(nil, nil, routers)})
+	s.renderForm(w, r, 200, formPage{Heading: "Add Pool", Action: "/admin/pool", Cancel: "/admin/pool", Fields: poolFields(nil, nil, routers)})
 }
 
 func (s *Server) poolEdit(w http.ResponseWriter, r *http.Request) {
@@ -88,7 +88,7 @@ func (s *Server) poolEdit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := map[string]string{"name": p.Name, "local_ip": p.LocalIp, "range_ip": p.RangeIp, "router_id": fmt.Sprint(p.RouterID)}
-	s.renderForm(w, r, 200, formPage{"Edit Pool", fmt.Sprint("/admin/pool/", id), "/admin/pool", poolFields(v, nil, routers)})
+	s.renderForm(w, r, 200, formPage{Heading: "Edit Pool", Action: fmt.Sprint("/admin/pool/", id), Cancel: "/admin/pool", Fields: poolFields(v, nil, routers)})
 }
 
 func (s *Server) poolSave(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +138,7 @@ func (s *Server) poolSave(w http.ResponseWriter, r *http.Request) {
 	if id != 0 {
 		action, head = fmt.Sprint("/admin/pool/", id), "Edit Pool"
 	}
-	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{head, action, "/admin/pool", poolFields(v, e, routers)})
+	s.renderForm(w, r, http.StatusUnprocessableEntity, formPage{Heading: head, Action: action, Cancel: "/admin/pool", Fields: poolFields(v, e, routers)})
 }
 
 // syncPool tells the pool's router about a change; a failure keeps the DB change and warns.

@@ -4,7 +4,6 @@ package web
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -226,9 +225,4 @@ func attentionFor(items []attnItem, a *db.Admin) []attnItem {
 		}
 	}
 	return out
-}
-
-func jsonStr(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
 }

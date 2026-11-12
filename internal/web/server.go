@@ -12,6 +12,8 @@ import (
 	"github.com/frand-kod/gobill/internal/service/customer"
 	"github.com/frand-kod/gobill/internal/service/plan"
 	"github.com/frand-kod/gobill/internal/settings"
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/portal"
@@ -29,15 +31,17 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/i18n"
 	"github.com/frand-kod/gobill/internal/radius"
-	"github.com/frand-kod/gobill/internal/wg"
 	"golang.org/x/crypto/bcrypt"
 )
 
 // Server wires the database, sessions, translations and templates together.
 type Server struct {
 	core.Core
+	adminx.Shared
+	ax     *adminx.Base
 	portal *portal.Handlers
 	public *public.Handlers
+	net    *network.Handlers
 	conn   *sql.DB
 	guides map[string]*guideSet // rendered "Panduan" pages per language ("id", "en"), see docs.go
 
@@ -47,11 +51,6 @@ type Server struct {
 
 	payCheckMu sync.Mutex // guards payCheckAt: last gateway status call per payment id, see payCheckAllowed
 	payCheckAt map[int64]time.Time
-
-	// DBPath is the SQLite file: /health reports its disk space, restore stages uploads next to it.
-	DBPath string
-	// ListenAddr is GOBILL_HTTP, the address the MikroTik setup helper of the isolir tab names.
-	ListenAddr string
 
 	// ClockWarning, if set, returns a non-empty reason while the clock is untrusted.
 	ClockWarning func() string
@@ -64,9 +63,7 @@ type Server struct {
 	Restart func()
 	// BackupMirror is the optional off-site backup folder (GOBILL_BACKUP_MIRROR), shown to SuperAdmin.
 	BackupMirror string
-	// WG is the built-in WireGuard tunnel; nil = none.
-	WG    *wg.Manager
-	Plans *plan.Service
+	Plans        *plan.Service
 	// CoAPort is the NAS Disconnect-Request port; empty = 3799.
 	CoAPort string
 
@@ -99,8 +96,6 @@ type (
 )
 
 type ctxKey = core.AdminKey
-
-type option struct{ Value, Label string }
 
 // intro is core.Intro for the intro tables, whose literals are unkeyed.
 type intro struct{ Title, Text, Tip string }
@@ -141,9 +136,11 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	s.ReloadSessionSettings(context.Background())
 	s.Asset, s.Decorate = s.asset, s.decorate
 	s.portal = portal.New(&s.Core)
+	s.ax = &adminx.Base{Core: &s.Core, Shared: &s.Shared, Conn: conn, Deny: s.deny, RadiusServer: s.radiusServer, Prov: s.prov, GobillAddr: s.gobillAddr, Now: s.now}
+	s.net = network.New(s.ax)
 	s.public = public.New(&s.Core)
 	s.public.IsolirOn, s.public.RadiusServer, s.public.OriginalPeer = s.isolir.Load, s.radiusServer, originalPeer
-	s.public.WGUsable, s.public.WGEndpoint, s.public.Prov = s.wgUsable, func(st map[string]string) string { return wgDefaults(st)["wg_endpoint"] }, s.prov
+	s.public.WGUsable, s.public.WGEndpoint, s.public.Prov = s.net.WGUsable, func(st map[string]string) string { return network.WGDefaults(st)["wg_endpoint"] }, s.prov
 	s.public.Prender = s.portal.Prender
 	if err := s.parseTemplates(); err != nil {
 		return nil, err

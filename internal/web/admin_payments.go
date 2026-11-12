@@ -19,7 +19,7 @@ func (s *Server) pgList(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "payment gateways", err)
 		return
 	}
-	rows := []listRow{{1, []string{"Tripay", "Disabled"}}, {2, []string{"Duitku", "Disabled"}}}
+	rows := []listRow{{ID: 1, Cells: []string{"Tripay", "Disabled"}}, {ID: 2, Cells: []string{"Duitku", "Disabled"}}}
 	for i, g := range []string{"tripay", "duitku"} {
 		if st["payment_gateway"] == g {
 			rows[i].Cells[1] = "Enabled"
@@ -27,7 +27,7 @@ func (s *Server) pgList(w http.ResponseWriter, r *http.Request) {
 	}
 	lp := listPage{Heading: "Online payments", Base: "/admin/payment-gateway", Cols: []string{"Gateway", "Status"},
 		Rows:  rows,
-		Links: []option{{"/admin/settings/payment", "Settings"}, {"/admin/payment-gateway/audit", "Payment Audit"}}}
+		Links: []option{{Value: "/admin/settings/payment", Label: "Settings"}, {Value: "/admin/payment-gateway/audit", Label: "Payment Audit"}}}
 	s.renderList(w, r, lp)
 }
 
@@ -50,7 +50,7 @@ func (s *Server) pgAuditRows(rs []db.SearchPaymentRequestsRow) [][]string {
 	return out
 }
 
-var pgStatuses = []option{{"", "Status"}, {"pending", "pending"}, {"paid", "paid"}, {"failed", "failed"}, {"expired", "expired"}}
+var pgStatuses = []option{{Value: "", Label: "Status"}, {Value: "pending", Label: "pending"}, {Value: "paid", Label: "paid"}, {Value: "failed", Label: "failed"}, {Value: "expired", Label: "expired"}}
 
 func (s *Server) pgAudit(w http.ResponseWriter, r *http.Request) {
 	q, pg := view.Paging(r)
@@ -63,17 +63,17 @@ func (s *Server) pgAudit(w http.ResponseWriter, r *http.Request) {
 	}
 	from, to, _, _ := s.dateRange(r)
 	lp := listPage{Heading: "Payment Audit", Base: "/admin/payment-gateway/audit", Q: q, Searchable: true, Dates: true, From: from, To: to,
-		Cols: pgAuditCols, ViewLink: true, Filters: []filter{{"status", p.Status, pgStatuses, "Status"}}}
+		Cols: pgAuditCols, ViewLink: true, Filters: []filter{{Name: "status", Val: p.Status, Opts: pgStatuses, Label: "Status"}}}
 	for i, c := range s.pgAuditRows(rs) {
-		lp.Rows = append(lp.Rows, listRow{rs[i].ID, c})
+		lp.Rows = append(lp.Rows, listRow{ID: rs[i].ID, Cells: c})
 	}
-	lp.Links = []option{{"/admin/payment-gateway/audit/export?" + lp.query().Encode(), "Export CSV"}}
+	lp.Links = []option{{Value: "/admin/payment-gateway/audit/export?" + lp.Query().Encode(), Label: "Export CSV"}}
 	total, err := s.Queries.CountPaymentRequests(r.Context(), db.CountPaymentRequestsParams{Q: p.Q, Status: p.Status, FromTs: p.FromTs, ToTs: p.ToTs})
 	if err != nil {
 		s.Fail(w, "count payments", err)
 		return
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }
 

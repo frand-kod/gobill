@@ -67,7 +67,7 @@ func adminScope(a *db.Admin) string {
 func roleOptions(roles []string) []option {
 	var o []option
 	for _, r := range roles {
-		o = append(o, option{r, r})
+		o = append(o, option{Value: r, Label: r})
 	}
 	return o
 }
@@ -77,18 +77,18 @@ func (s *Server) adminFields(r *http.Request, target *db.Admin, v, e map[string]
 	actor := adminFrom(r)
 	self := target != nil && target.ID == actor.ID
 	out := section([]field{
-		text("username", "Username", v, e).req(),
-		text("fullname", "Full Name", v, e).req(),
-		text("email", "Email", v, e).as("email"),
+		text("username", "Username", v, e).Req(),
+		text("fullname", "Full Name", v, e).Req(),
+		text("email", "Email", v, e).As("email"),
 		text("phone", "Phone Number", v, e),
 		text("city", "City", v, e),
 	}, "Admin", "")
 	var acc []field
 	if !self {
-		pw := text("password", "Password", v, e).as("password")
+		pw := text("password", "Password", v, e).As("password")
 		pw.Value = "" // never rendered back
 		pw.Hint = "10 to 72 characters"
-		cp := text("cpassword", "Confirm Password", v, e).as("password")
+		cp := text("cpassword", "Confirm Password", v, e).As("password")
 		cp.Value = ""
 		if target == nil {
 			pw.Required = true
@@ -100,16 +100,16 @@ func (s *Server) adminFields(r *http.Request, target *db.Admin, v, e map[string]
 			acc = append(acc, field{Name: "role", Label: "User Type", Type: "select", Value: v["role"], Error: e["role"],
 				Options: roleOptions(assignable(actor)), Bind: true})
 			agents, _ := s.Queries.ListAgents(r.Context())
-			ro := []option{{"", "-"}}
+			ro := []option{{Value: "", Label: "-"}}
 			for _, a := range agents {
-				ro = append(ro, option{strconv.FormatInt(a.ID, 10), a.Username})
+				ro = append(ro, option{Value: strconv.FormatInt(a.ID, 10), Label: a.Username})
 			}
 			acc = append(acc, field{Name: "root", Label: "Agent", Type: "select", Value: v["root"], Error: e["root"],
 				Options: ro, Show: "role=='Sales'"})
 		}
 		if target != nil {
 			acc = append(acc, field{Name: "status", Label: "Status", Type: "select", Value: v["status"],
-				Options: []option{{"Active", "Active"}, {"Inactive", "Inactive"}}})
+				Options: []option{{Value: "Active", Label: "Active"}, {Value: "Inactive", Label: "Inactive"}}})
 			if actor.Role == "SuperAdmin" && !self {
 				acc = append(acc, field{Name: "resetpw", Label: "Password", Type: "formbtn", Hint: "Sets a new random password, shown once. The admin is signed out everywhere.",
 					Value: "/admin/users/" + strconv.FormatInt(target.ID, 10) + "/password/reset", Btn: "Reset password",
@@ -141,20 +141,20 @@ func (s *Server) adminList(w http.ResponseWriter, r *http.Request) {
 		if a.LastLoginAt.Valid {
 			last = s.TS(a.LastLoginAt.Int64)
 		}
-		lp.Rows = append(lp.Rows, listRow{a.ID, []string{a.Username, a.Fullname, a.Role, a.Status, last}})
+		lp.Rows = append(lp.Rows, listRow{ID: a.ID, Cells: []string{a.Username, a.Fullname, a.Role, a.Status, last}})
 	}
 	total, err := s.Queries.CountFilteredAdmins(r.Context(), db.CountFilteredAdminsParams{Q: sql.NullString{String: q, Valid: true}, Scope: adminScope(actor), Actor: actor.ID})
 	if err != nil {
 		s.Fail(w, "count admins", err)
 		return
 	}
-	lp.finish(pg, total)
+	lp.Finish(pg, total)
 	s.renderList(w, r, lp)
 }
 
 func (s *Server) adminNew(w http.ResponseWriter, r *http.Request) {
 	v := map[string]string{"role": assignable(adminFrom(r))[0]}
-	s.renderForm(w, r, 200, formPage{"Add User", "/admin/users", "/admin/users", s.adminFields(r, nil, v, nil)})
+	s.renderForm(w, r, 200, formPage{Heading: "Add User", Action: "/admin/users", Cancel: "/admin/users", Fields: s.adminFields(r, nil, v, nil)})
 }
 
 // loadManaged loads the target of {id}; 404 unless the actor may manage it.
@@ -180,7 +180,7 @@ func (s *Server) adminEdit(w http.ResponseWriter, r *http.Request) {
 	if t.RootID.Valid {
 		v["root"] = strconv.FormatInt(t.RootID.Int64, 10)
 	}
-	s.renderForm(w, r, 200, formPage{"Edit User", fmt.Sprint("/admin/users/", t.ID), "/admin/users", s.adminFields(r, &t, v, nil)})
+	s.renderForm(w, r, 200, formPage{Heading: "Edit User", Action: fmt.Sprint("/admin/users/", t.ID), Cancel: "/admin/users", Fields: s.adminFields(r, &t, v, nil)})
 }
 
 func (s *Server) adminSave(w http.ResponseWriter, r *http.Request) {
@@ -210,7 +210,7 @@ func (s *Server) adminSave(w http.ResponseWriter, r *http.Request) {
 		if t != nil {
 			heading, action = "Edit User", fmt.Sprint("/admin/users/", t.ID)
 		}
-		s.renderForm(w, r, 422, formPage{heading, action, "/admin/users", s.adminFields(r, t, v, res.Errs)})
+		s.renderForm(w, r, 422, formPage{Heading: heading, Action: action, Cancel: "/admin/users", Fields: s.adminFields(r, t, v, res.Errs)})
 		return
 	}
 	if t == nil {
@@ -251,15 +251,15 @@ func (s *Server) adminDelete(w http.ResponseWriter, r *http.Request) {
 // ---- change own password ----
 
 func pwFields(e map[string]string, forced bool) []field {
-	cur := text("current", "Current Password", nil, e).as("password").req()
+	cur := text("current", "Current Password", nil, e).As("password").Req()
 	cur.Cur = true
 	var top []field
 	if forced { // imported sha1 hash: auth.go sends every page here until the password is changed
 		top = []field{{Name: "legacy", Type: "alert", Label: "Your password is from the old system and is stored in a weak format. Choose a new one to continue. You cannot open other pages until you do."}}
 	}
 	return append(section(append(top, cur,
-		text("password", "New Password", nil, e).as("password").req().hint("10 to 72 characters"),
-		text("cpassword", "Confirm New Password", nil, e).as("password").req()), "", ""), section([]field{
+		text("password", "New Password", nil, e).As("password").Req().WithHint("10 to 72 characters"),
+		text("cpassword", "Confirm New Password", nil, e).As("password").Req()), "", ""), section([]field{
 		{Name: "2fa", Label: "Two-factor login", Type: "link", Value: "/admin/2fa", Btn: "Manage 2FA"},
 	}, "Two-factor login", "")...)
 }
@@ -271,7 +271,7 @@ func (s *Server) pwPage(a *db.Admin, e map[string]string) formPage {
 	if forced {
 		cancel = "/logout"
 	}
-	return formPage{"Change Password", "/admin/password", cancel, pwFields(e, forced)}
+	return formPage{Heading: "Change Password", Action: "/admin/password", Cancel: cancel, Fields: pwFields(e, forced)}
 }
 
 func (s *Server) passwordForm(w http.ResponseWriter, r *http.Request) {

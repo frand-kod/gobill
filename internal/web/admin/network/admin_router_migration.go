@@ -1,4 +1,4 @@
-package web
+package network
 
 // Gradual migration of a router from local accounts to RADIUS (SuperAdmin only): test a login,
 // turn use-radius on, disable the local accounts, or roll back. See internal/billing/migrate.go.
@@ -8,6 +8,7 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"net/http"
 	"strings"
 
@@ -22,7 +23,7 @@ import (
 func migTested(id int64) string { return fmt.Sprint("mig_tested_", id) }
 
 // migFail turns a migration error into a message on the migration page.
-func (s *Server) migFail(w http.ResponseWriter, r *http.Request, back string, err error) {
+func (s *Handlers) migFail(w http.ResponseWriter, r *http.Request, back string, err error) {
 	switch {
 	case errors.Is(err, billing.ErrRadiusRouter):
 		s.Sessions.Put(r.Context(), "error", s.T("Router is in RADIUS mode, nothing to migrate"))
@@ -31,14 +32,14 @@ func (s *Server) migFail(w http.ResponseWriter, r *http.Request, back string, er
 	case errors.Is(err, billing.ErrMigOrder):
 		s.Sessions.Put(r.Context(), "error", s.T("This step is not allowed now. Follow the steps in order"))
 	default:
-		s.putFailure(r, s.T("The router step failed, check the router before going on")+". "+s.T(routerErr(err, msgRouterOther)), err)
+		s.PutFailure(r, s.T("The router step failed, check the router before going on")+". "+s.T(routerErr(err, msgRouterOther)), err)
 	}
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
 // routerMigration is GET /admin/routers/{id}/migration: where the router is, the step 1 test, the
 // buttons that are allowed now and the hotspot walled garden block.
-func (s *Server) routerMigration(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) routerMigration(w http.ResponseWriter, r *http.Request) {
 	x, err := s.Queries.GetRouter(r.Context(), httpx.PathID(r))
 	if err != nil {
 		http.NotFound(w, r)
@@ -64,7 +65,7 @@ func (s *Server) routerMigration(w http.ResponseWriter, r *http.Request) {
 	_, accts, err := s.Billing.MigrationAccounts(r.Context(), x.ID)
 	var opts []option
 	for _, a := range accts {
-		opts = append(opts, option{a.Type + ":" + a.Name, a.Type + ": " + a.Name})
+		opts = append(opts, option{Value: a.Type + ":" + a.Name, Label: a.Type + ": " + a.Name})
 	}
 	form := base + "/test"
 	switch {
@@ -92,7 +93,7 @@ func (s *Server) routerMigration(w http.ResponseWriter, r *http.Request) {
 		out = append(out, btn("mig_rollback", "Roll back", "rollback", "Turn use-radius off and enable the local accounts again? Nothing is deleted."))
 	}
 	if sets, err := s.LoadSettings(r.Context()); err == nil {
-		host, port := s.gobillAddr()
+		host, port := s.GobillAddr()
 		var b strings.Builder
 		fmt.Fprintf(&b, "/ip hotspot walled-garden ip add dst-address=%s dst-port=%s action=accept", host, port)
 		for _, h := range isolir.HostLines(isolir.Value(sets, "isolir_allow_hosts")) {
@@ -101,30 +102,30 @@ func (s *Server) routerMigration(w http.ResponseWriter, r *http.Request) {
 		out = append(out, field{Name: "mig_walled", Label: "Hotspot walled garden for the payment and isolir pages", Type: "pre", Section: s.T("Hotspot only"), Value: b.String(),
 			Hint: "Paste this on the router yourself: gobill does not apply it. The payment page and the isolir page are served by gobill at the first line. If customers pay with a payment gateway, also allow the gateway hosts."})
 	}
-	s.renderForm(w, r, 200, formPage{"Migrate router to RADIUS", form, "/admin/routers", out})
+	s.RenderForm(w, r, 200, formPage{Heading: "Migrate router to RADIUS", Action: form, Cancel: "/admin/routers", Fields: out})
 }
 
 // routerMigrationAct is POST /admin/routers/{id}/migration/{act} for test, switch, disable and rollback.
 // switch and disable first show what will happen and apply only when that page was confirmed.
-func (s *Server) routerMigrationAct(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) routerMigrationAct(w http.ResponseWriter, r *http.Request) {
 	x, err := s.Queries.GetRouter(r.Context(), httpx.PathID(r))
 	if err != nil || s.Billing == nil {
 		http.NotFound(w, r)
 		return
 	}
-	ctx, admin := r.Context(), adminFrom(r)
+	ctx, admin := r.Context(), core.AdminFrom(r)
 	back := fmt.Sprint("/admin/routers/", x.ID, "/migration")
 	act := r.PathValue("act")
 	confirm := r.PostFormValue("confirm") == "1"
 	preview := func(lines ...field) {
-		s.renderForm(w, r, 200, formPage{"Migrate router to RADIUS", back + "/" + act, back,
-			append(lines, field{Name: "confirm", Type: "hidden", Value: "1"}, field{Name: "confirm_note", Type: "note", Label: "Press Save to apply this. Nothing is deleted and running sessions are not cut."})})
+		s.RenderForm(w, r, 200, formPage{Heading: "Migrate router to RADIUS", Action: back + "/" + act, Cancel: back,
+			Fields: append(lines, field{Name: "confirm", Type: "hidden", Value: "1"}, field{Name: "confirm_note", Type: "note", Label: "Press Save to apply this. Nothing is deleted and running sessions are not cut."})})
 	}
 	switch act {
 	case "test":
 		key := r.PostFormValue("account")
 		var d radius.Decision
-		rs := s.radiusServer()
+		rs := s.RadiusServer()
 		reject, err := s.Billing.MigrationTest(ctx, x.ID, key, func(user, pw string) string {
 			if pw == "" || pw == user { // a voucher-style login would redeem a voucher
 				return s.T("This account uses its username as password (voucher style), test another one")
@@ -143,7 +144,7 @@ func (s *Server) routerMigrationAct(w http.ResponseWriter, r *http.Request) {
 			s.Sessions.Put(ctx, migTested(x.ID), true)
 			res = fmt.Sprintf("%s: %s, %s %s, %s %s", s.T("Login test passed"), key, s.T("plan"), d.Plan.PlanName, s.T("rate limit"), d.Rate)
 		}
-		s.logActivity(r, "router.radius_test", x.Name+" "+key)
+		s.LogActivity(r, "router.radius_test", x.Name+" "+key)
 		s.Sessions.Put(ctx, "mig_result", res)
 	case "switch":
 		if !s.Sessions.GetBool(ctx, migTested(x.ID)) || s.Billing.Migration(ctx, x.ID).Step != 1 {
@@ -163,7 +164,7 @@ func (s *Server) routerMigrationAct(w http.ResponseWriter, r *http.Request) {
 			s.migFail(w, r, back, err)
 			return
 		}
-		s.done(w, r, back, "use-radius is on. Running sessions were not cut", "router.radius_switch", x.Name)
+		s.Done(w, r, back, "use-radius is on. Running sessions were not cut", "router.radius_switch", x.Name)
 		return
 	case "disable":
 		if s.Billing.Migration(ctx, x.ID).Step != 2 {
@@ -192,7 +193,7 @@ func (s *Server) routerMigrationAct(w http.ResponseWriter, r *http.Request) {
 			s.migFail(w, r, back, err)
 			return
 		}
-		s.logActivity(r, "router.radius_disable_local", x.Name)
+		s.LogActivity(r, "router.radius_disable_local", x.Name)
 		s.Sessions.Put(ctx, "flash", fmt.Sprintf("%s: %d", s.T("Local accounts disabled"), n))
 	case "rollback":
 		n, err := s.Billing.MigrationRollback(ctx, x.ID, admin.ID)
@@ -201,7 +202,7 @@ func (s *Server) routerMigrationAct(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.Sessions.Remove(ctx, migTested(x.ID))
-		s.logActivity(r, "router.radius_rollback", x.Name)
+		s.LogActivity(r, "router.radius_rollback", x.Name)
 		s.Sessions.Put(ctx, "flash", fmt.Sprintf("%s: %d", s.T("Rolled back. Local accounts enabled"), n))
 	default:
 		http.NotFound(w, r)
