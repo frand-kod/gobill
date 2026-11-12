@@ -1,0 +1,103 @@
+# Only depguard: it keeps the package layering of docs/internal/rencana/modularisasi.md.
+# internal/arch_test.go holds the same rules plus the web sub-package rules ("=web" means the web
+# package itself, which depguard's prefix match cannot say). Change both together.
+# Add a rule when a boundary becomes true; never loosen one to make a change pass.
+# Run: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 run ./...
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - depguard
+  settings:
+    depguard:
+      rules:
+        # Domain packages and services never reach up into the HTTP layer.
+        no-web:
+          files:
+            - "**/internal/billing/**"
+            - "**/internal/radius/**"
+            - "**/internal/notify/**"
+            - "**/internal/payment/**"
+            - "**/internal/isolir/**"
+            - "**/internal/importer/**"
+            - "**/internal/service/**"
+            - "**/internal/device/**"
+            - "**/internal/wg/**"
+            - "**/internal/job/**"
+            - "**/internal/api/dto/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/frand-kod/gobill/internal/web
+              desc: domain packages and services must not import the HTTP layer
+        # The cores meet billing only through small interfaces (billing.Notifier, radius.UsageRecorder).
+        radius-core:
+          files:
+            - "**/internal/radius/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/frand-kod/gobill/internal/billing
+              desc: radius meets billing through radius.UsageRecorder
+            - pkg: github.com/frand-kod/gobill/internal/notify
+              desc: radius must not send notifications
+        notify-core:
+          files:
+            - "**/internal/notify/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/frand-kod/gobill/internal/billing
+              desc: billing calls notify through billing.Notifier, not the other way
+            - pkg: github.com/frand-kod/gobill/internal/radius
+              desc: notify must not depend on the RADIUS server
+        # isolir owns the isolation rules; the others call it.
+        isolir-owner:
+          files:
+            - "**/internal/isolir/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/frand-kod/gobill/internal/billing
+              desc: billing calls isolir, not the other way
+            - pkg: github.com/frand-kod/gobill/internal/radius
+              desc: radius calls isolir, not the other way
+        # Device drivers and the WireGuard manager stand beside the RADIUS server, not on it.
+        drivers-not-radius:
+          files:
+            - "**/internal/device/**"
+            - "**/internal/wg/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/frand-kod/gobill/internal/radius
+              desc: use an interface (see wg.RadiusServer) instead of importing radius
+        # The scheduler is generic: update checks are registered from internal/app.
+        job-generic:
+          files:
+            - "**/internal/job/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/frand-kod/gobill/internal/update
+              desc: register the job from internal/app
+            - pkg: github.com/frand-kod/gobill/internal/selfupdate
+              desc: register the job from internal/app
+        # DTOs are the API contract and see only the db models.
+        dto-contract:
+          files:
+            - "**/internal/api/dto/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/frand-kod/gobill/internal/service
+              desc: DTOs map db models only
+            - pkg: github.com/frand-kod/gobill/internal/billing
+              desc: DTOs map db models only
+            - pkg: github.com/frand-kod/gobill/internal/radius
+              desc: DTOs map db models only
+        # Kernel packages import nothing internal, so any package can use them.
+        kernel:
+          files:
+            - "**/internal/money/**"
+            - "**/internal/clock/**"
+            - "**/internal/secret/**"
+            - "**/internal/payment/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/frand-kod/gobill/internal
+              desc: kernel packages must not import other internal packages
