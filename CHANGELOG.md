@@ -8,6 +8,11 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Keamanan
+
+- **Login voucher di satu NAS tidak bisa lagi dikunci oleh satu klien.** Percobaan gagal per NAS kini hanya memicu peringatan dan metrik `radius_voucher_nas_spray_total`. Batas per NAS dan MAC tetap berlaku.
+- **Login RADIUS non-voucher kini dibatasi percobaan salah password.** Setelah 10 kali salah dalam 15 menit, login ditolak dengan pesan yang sama seperti password salah. Kuncinya dicatat di log.
+
 ### Perubahan
 
 - **`gobill update` menolak file unduhan di atas 200 MiB.** Biner rilis hanya sekitar 20 MiB.
