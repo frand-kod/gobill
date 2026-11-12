@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/radius"
+	"github.com/frand-kod/gobill/internal/quota"
 )
 
 // DefaultDevices is the device driver an empty "device" field falls back to, by plan type.
@@ -160,7 +160,7 @@ func (s *Service) Save(ctx context.Context, in *SaveInput) (Result, error) {
 			p.IdleTimeout = optInt(v["idle_timeout"], e, "idle_timeout")
 			p.LoginWindow, p.BoostWindow = strings.TrimSpace(v["login_window"]), strings.TrimSpace(v["boost_window"])
 			for _, k := range []string{"login_window", "boost_window"} {
-				if _, err := radius.ParseWindow(v[k]); err != nil {
+				if _, err := quota.ParseWindow(v[k]); err != nil {
 					e[k] = ScheduleError(err)
 				}
 			}

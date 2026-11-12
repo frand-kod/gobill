@@ -3,6 +3,7 @@ package radius
 import (
 	"database/sql"
 	"fmt"
+	"github.com/frand-kod/gobill/internal/quota"
 	"strings"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -39,36 +40,10 @@ const (
 	msgBindPort = "Account locked to another port (NAS-Port-Id does not match)"
 )
 
-// NormMAC reads a MAC address in any usual notation (AA:BB:.., AA-BB-.., aabb.ccdd.eeff) and returns
-// AA:BB:CC:DD:EE:FF, or "" when it is not a MAC.
-func NormMAC(s string) string {
-	var h []byte
-	for _, c := range []byte(strings.ToUpper(s)) {
-		switch {
-		case c >= '0' && c <= '9', c >= 'A' && c <= 'F':
-			h = append(h, c)
-		case c == ':' || c == '-' || c == '.':
-		default:
-			return ""
-		}
-	}
-	if len(h) != 12 {
-		return ""
-	}
-	var b strings.Builder
-	for i := 0; i < 12; i += 2 {
-		if i > 0 {
-			b.WriteByte(':')
-		}
-		b.Write(h[i : i+2])
-	}
-	return b.String()
-}
-
 // bindingMismatch checks the customer's lock to a MAC and/or NAS-Port-Id. A locked value the NAS did
 // not send counts as a mismatch: the lock cannot be verified, so it fails closed.
 func bindingMismatch(mac, port string, rq AuthRequest) string {
-	if mac != "" && NormMAC(rq.MAC) != NormMAC(mac) || mac != "" && NormMAC(rq.MAC) == "" {
+	if mac != "" && quota.NormMAC(rq.MAC) != quota.NormMAC(mac) || mac != "" && quota.NormMAC(rq.MAC) == "" {
 		return msgBindMAC
 	}
 	if port != "" && !strings.EqualFold(strings.TrimSpace(rq.PortID), port) {

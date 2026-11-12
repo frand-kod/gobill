@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/qris"
 )
 
 func oneOf(v string, list ...string) bool { return slices.Contains(list, v) }
@@ -253,7 +253,7 @@ func Validate(v map[string]string, languages []string) map[string]string {
 	if x := v["payment_gateway"]; x != "" && x != "tripay" && x != "duitku" {
 		e["payment_gateway"] = "Choose one of the listed gateways"
 	}
-	if x := v["qris_payload"]; x != "" && payment.QRISValid(x) != nil {
+	if x := v["qris_payload"]; x != "" && qris.Valid(x) != nil {
 		e["qris_payload"] = "Paste the full static QRIS text, the CRC must match"
 	}
 	if x := v["tripay_mode"]; x != "" && !oneOf(x, "sandbox", "production") {

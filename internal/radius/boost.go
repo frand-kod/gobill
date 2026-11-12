@@ -2,6 +2,7 @@ package radius
 
 import (
 	"context"
+	"github.com/frand-kod/gobill/internal/quota"
 	"log/slog"
 	"time"
 
@@ -29,11 +30,11 @@ func BoostJob(q *db.Queries, key []byte, port string) func(context.Context) erro
 			if err != nil {
 				continue
 			}
-			on, was := boostOn(lr.BoostWindow, now), false
+			on, was := quota.BoostOn(lr.BoostWindow, now), false
 			if prev, ok := given[s.ID]; ok {
 				was = prev
 			} else {
-				was = boostOn(lr.BoostWindow, time.Unix(s.StartedAt, 0).In(appLoc()))
+				was = quota.BoostOn(lr.BoostWindow, time.Unix(s.StartedAt, 0).In(appLoc()))
 			}
 			if on == was {
 				given[s.ID] = on

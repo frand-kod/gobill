@@ -205,21 +205,22 @@ web ─► web/portal  web/public  web/setup  web/api  web/admin/{customers,plan
                      settings ─► db ─► secret
                             │
                             ▼
-              kernel: money  clock  metrics  i18n   (tanpa import internal)
+              kernel: money  clock  quota  qris  metrics  i18n   (tanpa import internal)
 
 web/api ─► api/dto ─► db      (DTO tidak membawa field rahasia)
 ```
 
 Batas yang sudah dijaga test:
 - Paket domain dan `service` tidak meng-import `web`.
+- `service` tidak meng-import `radius`. `settings` tidak meng-import `web`, `payment`, `radius`, dan `billing`.
 - `device` dan `wg` tidak meng-import `radius`. `radius` tidak meng-import `billing` dan `notify`.
 - `isolir` tidak meng-import `billing`, `radius`, dan `web`.
-- `payment`, `money`, `clock`, dan `secret` tidak meng-import paket internal.
+- `payment`, `money`, `clock`, `secret`, `quota`, dan `qris` tidak meng-import paket internal.
 - Sub-paket `web` tidak meng-import paket `web` induk. `portal`, `public`, dan `api` juga tidak meng-import paket admin. `setup`, `admin/reports`, dan `admin/settings` boleh memakai paket admin lain.
 
 Sisa kopling yang terlihat di peta:
-- `service/customer`, `service/plan`, dan `service/diagnose` masih meng-import `radius` untuk helper kuota dan MAC. Ini hilang kalau `internal/quota` dibuat.
-- `settings` meng-import `payment`. Validasi setting sebaiknya tidak tahu soal gateway.
+- Helper murni ada di `internal/quota` (jendela login, normalisasi MAC) dan `internal/qris` (cek dan baca QRIS). `radius` memakai `quota`. `settings` dan `web` memakai `qris`.
+- `diagnose` tidak lagi meng-import `radius`. Batas sesi basi (`radius.StaleFor`) diberikan oleh pemanggil lewat field `StaleFor`.
 - `web/admin/adminx` dan `web/core` masih meng-import banyak paket domain. Ini wajar untuk perakit, tapi bisa dikurangi lewat `Deps` per paket.
 
 ## Urutan dan ketergantungan

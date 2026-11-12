@@ -27,7 +27,8 @@ func TestImportRules(t *testing.T) {
 		{"isolir", []string{"web", "billing", "radius"}},
 		{"importer", []string{"web"}},
 		// services take plain inputs and never see HTTP
-		{"service", []string{"web"}},
+		{"service", []string{"web", "radius"}},
+		{"settings", []string{"web", "payment", "radius", "billing"}},
 		// device drivers and the WireGuard manager stand beside the RADIUS server, not on it
 		{"device", []string{"web", "radius"}},
 		{"wg", []string{"web", "radius"}},
@@ -50,6 +51,8 @@ func TestImportRules(t *testing.T) {
 		{"money", []string{""}},
 		{"clock", []string{""}},
 		{"secret", []string{""}},
+		{"quota", []string{""}},
+		{"qris", []string{""}},
 	}
 	for _, r := range rules {
 		out, err := exec.Command("go", "list", "-f", `{{.ImportPath}} {{join .Imports " "}}`, "./"+r.from+"/...").Output()

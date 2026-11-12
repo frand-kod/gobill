@@ -9,7 +9,7 @@ import (
 	"github.com/skip2/go-qrcode"
 
 	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/qris"
 )
 
 type wizLine struct {
@@ -125,18 +125,18 @@ func wizWhatsAppFields(v, e map[string]string, importing bool) []field {
 }
 
 func wizQRISFields(v, e map[string]string) []field {
-	qris := field{Name: "qris_payload", Label: "Static QRIS", Type: "qris", Value: v["qris_payload"], Error: e["qris_payload"],
+	qf := field{Name: "qris_payload", Label: "Static QRIS", Type: "qris", Value: v["qris_payload"], Error: e["qris_payload"],
 		Hint: "Upload the merchant's static QRIS photo (PNG/JPG). The system only stores its text"}
-	if m, n := payment.QRISInfo(v["qris_payload"]); m != "" {
-		qris.Hint = "Active: " + m
+	if m, n := qris.Info(v["qris_payload"]); m != "" {
+		qf.Hint = "Active: " + m
 		if n != "" {
-			qris.Hint += " (NMID " + n + ")"
+			qf.Hint += " (NMID " + n + ")"
 		}
 		if png, err := qrcode.Encode(v["qris_payload"], qrcode.Medium, 256); err == nil {
-			qris.Img = wizDataURI(png)
+			qf.Img = wizDataURI(png)
 		}
 	}
-	return section([]field{qris}, "QRIS", "")
+	return section([]field{qf}, "QRIS", "")
 }
 
 func wizTripayFields(v, e map[string]string, st map[string]string) []field {

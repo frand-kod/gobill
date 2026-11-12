@@ -90,6 +90,27 @@ linters:
               desc: DTOs map db models only
             - pkg: github.com/frand-kod/gobill/internal/radius
               desc: DTOs map db models only
+        # Services and settings stand beside the RADIUS server, payment and billing cores.
+        service-not-radius:
+          files:
+            - "**/internal/service/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/frand-kod/gobill/internal/radius
+              desc: services take plain values; the pure helpers live in internal/quota
+        settings-leaf:
+          files:
+            - "**/internal/settings/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/frand-kod/gobill/internal/web
+              desc: settings must not import the HTTP layer
+            - pkg: github.com/frand-kod/gobill/internal/payment
+              desc: QRIS checks live in internal/qris
+            - pkg: github.com/frand-kod/gobill/internal/radius
+              desc: settings must not import radius
+            - pkg: github.com/frand-kod/gobill/internal/billing
+              desc: settings must not import billing
         # Kernel packages import nothing internal, so any package can use them.
         kernel:
           files:
@@ -97,6 +118,8 @@ linters:
             - "**/internal/clock/**"
             - "**/internal/secret/**"
             - "**/internal/payment/**"
+            - "**/internal/quota/**"
+            - "**/internal/qris/**"
             - "!$test"
           deny:
             - pkg: github.com/frand-kod/gobill/internal

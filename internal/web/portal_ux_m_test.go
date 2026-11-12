@@ -10,7 +10,7 @@ import (
 	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/qris"
 )
 
 // A disabled account gets the specific message only after the right password; a wrong one stays generic.
@@ -53,7 +53,7 @@ func TestQRISPageNotPending(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		return isoReq(h, "GET", fmt.Sprintf("/qris/%d/%s", tr.ID, payment.QRISToken(s.SecretKey, tr.ID)), "198.51.100.9", nil).Body.String()
+		return isoReq(h, "GET", fmt.Sprintf("/qris/%d/%s", tr.ID, qris.Token(s.SecretKey, tr.ID)), "198.51.100.9", nil).Body.String()
 	}
 	if b := mk(time.Now().Add(-time.Hour).Unix()); !strings.Contains(b, "data:image/png") {
 		t.Error("overdue invoice lost its QR")

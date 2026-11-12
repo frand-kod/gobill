@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/frand-kod/gobill/internal/db"
-	"github.com/frand-kod/gobill/internal/radius"
+	"github.com/frand-kod/gobill/internal/quota"
 	"github.com/frand-kod/gobill/internal/secret"
 	"github.com/frand-kod/gobill/internal/settings"
 	"golang.org/x/crypto/bcrypt"
@@ -153,7 +153,7 @@ func (s *Service) Save(ctx context.Context, in *SaveInput) (Result, error) {
 		}
 	}
 	if v["bind_mac"] != "" {
-		if m := radius.NormMAC(v["bind_mac"]); m != "" {
+		if m := quota.NormMAC(v["bind_mac"]); m != "" {
 			v["bind_mac"] = m
 		} else {
 			e["bind_mac"] = "Enter a MAC address like AA:BB:CC:DD:EE:FF"
