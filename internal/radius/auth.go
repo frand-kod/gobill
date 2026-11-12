@@ -69,7 +69,7 @@ func (s *Server) Authorize(ctx context.Context, rq AuthRequest) Decision {
 	// ponytail: per-user throttle is in-memory, per process (see failLimiter). A retransmit never
 	// gets here: dupCache absorbs it, so retries cannot lock a user out.
 	now := s.now().Unix()
-	ukey := strings.ToLower(rq.User) // the customer lookup ignores case, so must the counter
+	ukey := strings.ToLower(rq.User) // one counter for every spelling of a name, so case changes do not reset it
 	if ukey != "" && s.userFails.blocked(ukey, now, voucherMaxFails) {
 		// same message as a wrong password, so a lockout does not reveal that the user exists
 		slog.Warn("radius: user locked after repeated bad passwords", "user", rq.User, "nas", rq.NAS)
