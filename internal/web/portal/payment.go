@@ -4,9 +4,7 @@ package portal
 
 import (
 	"context"
-	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"log/slog"
 	"net/http"
 
@@ -22,6 +20,7 @@ import (
 	"github.com/frand-kod/gobill/internal/billing"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/payment"
+	"github.com/frand-kod/gobill/internal/service/payorder"
 )
 
 // pPay is the gateway branch of the order: pending row, gateway transaction, redirect to pay_url.
@@ -133,35 +132,20 @@ func (s *Handlers) payOrder(w http.ResponseWriter, r *http.Request, g core.Gatew
 			return
 		}
 	}
-	raw := make([]byte, 8)
-	rand.Read(raw)
-	exp := time.Now().Add(core.PayExpiry)
-	pr, err := s.Queries.CreatePaymentRequest(r.Context(), db.CreatePaymentRequestParams{Ref: "NB" + strings.ToUpper(hex.EncodeToString(raw)),
-		Gateway: g.Name(), CustomerID: sql.NullInt64{Int64: c.ID, Valid: true}, Username: c.Username, PlanID: planID, Amount: amount, Coupon: code, Channel: channel, ExpiresAt: exp.Unix()})
-	if err != nil {
-		if code != "" {
-			s.Queries.ReleaseCoupon(r.Context(), code)
-		}
-		s.Fail(w, "portal pay", err)
-		return
-	}
 	base := core.BaseURL(r)
 	if st, err := s.LoadSettings(r.Context()); err == nil && st["app_url"] != "" {
 		base = strings.TrimRight(st["app_url"], "/")
 	}
-	cr, err := g.CreateTransaction(r.Context(), payment.Transaction{ID: pr.Ref, Amount: amount, PlanName: planName, Name: c.Fullname,
-		Email: c.Email, Phone: c.Phone, ReturnURL: core.BaseURL(r) + "/portal/payments/" + strconv.FormatInt(pr.ID, 10), CallbackURL: base + "/callback/" + g.Name(), Channel: channel, Expiry: exp})
-	if err != nil {
-		slog.Error("pay: create transaction", "ref", pr.Ref, "err", err)
-		s.Queries.ClosePaymentRequest(r.Context(), db.ClosePaymentRequestParams{Status: "failed", Ref: pr.Ref})
+	pr, err := payorder.Create(r.Context(), s.Queries, g, payorder.Order{Customer: *c, PlanID: planID, PlanName: planName,
+		Amount: amount, Coupon: code, Channel: channel, ReturnBase: core.BaseURL(r), CallbackBase: base})
+	if errors.Is(err, payorder.ErrGateway) {
 		s.plansPage(w, r, http.StatusBadGateway, "Payment gateway error, try again later")
 		return
-	}
-	if err := s.Queries.SetPaymentGatewayRef(r.Context(), db.SetPaymentGatewayRefParams{GatewayRef: cr.Reference, PayUrl: cr.PayURL, ID: pr.ID}); err != nil {
+	} else if err != nil {
 		s.Fail(w, "portal pay", err)
 		return
 	}
-	http.Redirect(w, r, cr.PayURL, http.StatusSeeOther)
+	http.Redirect(w, r, pr.PayUrl, http.StatusSeeOther)
 }
 
 // ownPayment loads the payment of the logged-in customer (404 for anyone else's).

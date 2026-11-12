@@ -31,7 +31,8 @@ func init() {
 		{Name: "tagihan", Aliases: []string{"bill", "invoice"}, Kind: KindCustomer, Run: (*Service).tagihan},
 		{Name: "kuota", Aliases: []string{"pemakaian", "quota"}, Kind: KindCustomer, Run: (*Service).kuota},
 		{Name: "paket", Aliases: []string{"harga", "plans"}, Kind: KindCustomer, Run: (*Service).paket},
-		{Name: "bayar", Aliases: []string{"pay"}, Kind: KindCustomer, Run: (*Service).bayar},
+		{Name: "bayar", Aliases: []string{"pay"}, Kind: KindCustomer, Run: (*Service).bayarGateway},
+		{Name: "gangguan", Aliases: []string{"lapor", "rusak", "mati", "offline"}, Kind: KindCustomer, Run: (*Service).gangguan},
 		{Name: "bantuan", Aliases: []string{"help", "menu", "?"}, Kind: KindCustomer, Run: (*Service).bantuan},
 
 		{Name: "cari", Aliases: []string{"search"}, Kind: KindAdmin, Roles: rolesCustomers, Run: (*Service).cari},
@@ -50,11 +51,42 @@ func (s *Service) bantuan(_ context.Context, c Caller, _ string) string {
 			names = append(names, t.Name)
 		}
 	}
+	if c.Kind == KindCustomer {
+		return s.menu()
+	}
 	out := s.t("Commands:") + " " + strings.Join(names, ", ")
 	if slices.Contains(names, "cari") {
 		out += "\n" + s.t("Search: cari <name, username or phone>")
 	}
+	if _, own := c.asCustomer(); own {
+		out += "\n\n" + s.t("Your own account:") + "\n" + s.menu()
+	}
 	return out
+}
+
+// menuItems are the customer commands a single digit picks, in menu order.
+var menuItems = []struct{ tool, label string }{
+	{"cek", "Check account"}, {"bayar", "Pay"}, {"gangguan", "Report a problem"},
+	{"kuota", "Data usage"}, {"tagihan", "Bill"}, {"paket", "Packages"},
+}
+
+// menu is the numbered customer menu. Commands also work as words, with or without a leading "/".
+func (s *Service) menu() string {
+	out := s.t("Reply with a number:")
+	for i, m := range menuItems {
+		out += fmt.Sprintf("\n%d. %s (%s)", i+1, s.t(m.label), m.tool)
+	}
+	return out
+}
+
+// menuPick turns a lone menu digit from a customer into the command it stands for. Admins keep
+// digits for confirmation codes, which are never one digit long.
+func menuPick(c Caller, text string) string {
+	t := strings.TrimSpace(text)
+	if c.Kind != KindCustomer || len(t) != 1 || t[0] < '1' || int(t[0]-'0') > len(menuItems) {
+		return text
+	}
+	return menuItems[t[0]-'1'].tool
 }
 
 func (s *Service) customer(ctx context.Context, c Caller) (db.Customer, bool) {
@@ -195,7 +227,11 @@ func (s *Service) cari(ctx context.Context, _ Caller, args string) string {
 	}
 	lines := make([]string, len(l))
 	for i, x := range l {
-		lines[i] = fmt.Sprintf("%s - %s - %s - %s", x.Username, x.Fullname, x.Phone, x.Status)
+		parts := []string{x.Username, x.Fullname, x.Phone, x.Status}
+		if x.Phone == "" {
+			parts = []string{x.Username, x.Fullname, x.Status}
+		}
+		lines[i] = strings.Join(parts, " - ")
 	}
 	return strings.Join(lines, "\n")
 }

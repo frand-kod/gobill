@@ -49,7 +49,7 @@ gobill sends `POST <alt_wga_server_url>/send/message` with the body `{"phone":"6
 
 ### Commands over WhatsApp (GOWA only)
 
-Customers and admins can send short commands to the WhatsApp number. gobill answers in the same chat. The commands only read data.
+Customers and admins can send short commands to the WhatsApp number. gobill answers in the same chat. Most commands only read data. A few admin commands change data and need a confirmation code.
 
 Set up GOWA with these environment values:
 
@@ -61,14 +61,23 @@ WHATSAPP_WEBHOOK_SECRET=<a secret of at least 16 characters>
 
 Then in **Settings > Integrations**, section "WhatsApp — GOWA", fill in "GOWA webhook secret" with the same secret and set "Answer WhatsApp commands" to Yes. It is off by default. Without the secret, `/wa/inbound` returns 404. A request with a wrong signature gets 401.
 
-gobill finds the sender by phone number. An active admin is matched on the phone in the admin profile. A customer is matched on the customer phone. If two customers share a number, gobill asks them to use the portal and shows no data. An unknown number gets a short generic reply. Each number may send 20 commands per 15 minutes. Group chats and your own messages are ignored. Every command is written to the activity log with the source `wa`.
+gobill finds the sender by phone number. `bayar` shows the open payment request or makes one for the current plan, at most 3 new ones per hour. The price always comes from the server. `gangguan` forwards at most one report per customer per 30 minutes. An active admin is matched on the phone in the admin profile. A customer is matched on the customer phone. If two customers share a number, gobill asks them to use the portal and shows no data. An unknown number gets a short generic reply. Each number may send 20 commands per 15 minutes. Group chats and your own messages are ignored. Every command is written to the activity log with the source `wa`.
 
 | Who | Commands |
 |---|---|
-| Customer | `cek` (status and days left), `tagihan` (balance and unpaid payment), `kuota` (usage), `paket` (plans for sale), `bayar` (portal link), `bantuan` |
+| Customer | `cek` (status and days left), `tagihan` (balance and unpaid payment), `kuota` (usage), `paket` (plans for sale), `gangguan` (checks the own account and tells the likely cause, or reports to the admins), `bayar` (payment link for the current plan, or the portal link without a gateway), `bantuan` |
 | Admin (SuperAdmin, Admin) | `cari <text>` (up to 5 customers), `isolir` (isolated now) |
+| Admin (SuperAdmin, Admin) | `info <username>` (one customer: status, phone, packages, isolated, online, data used), `jatuhtempo` (packages that end within 3 days), `router` (routers and NAS offline now) |
 | Admin (SuperAdmin, Admin, Report) | `ringkasan` (customers, active packages, isolated, income today) |
+| Admin (SuperAdmin, Admin, Agent, Sales) | `perpanjang <username> [plan]` (also `recharge`): cash recharge. Without a plan it uses the current or last plan. |
+| Admin (SuperAdmin, Admin) | `putus <username>` (also `kick`, `disconnect`): disconnect the online sessions of a customer |
+
+Commands may start with `/`, for example `/cek`. A customer who sends `bantuan` or `menu` gets a numbered menu. Replying with one digit is the same as sending its command.
+
+If an admin's phone is also used by exactly one customer, admin commands come first. Commands that exist only for customers, such as `cek` or `bayar`, work on that customer's own account.
 | Every admin | `bantuan` |
+
+Commands that change data never act on the first message. gobill replies with a preview and a 6-digit code. Send only the digits within 5 minutes to confirm. Each code works once, only from the same phone and admin, and an admin has one pending command at a time: a new command cancels the old one. Three wrong codes cancel it. Pending commands are kept in memory, so a restart cancels them. When you confirm, gobill checks the role, the customer and the price again. If the price changed, nothing is charged. Executed commands are written to the activity log with `source=wa`.
 
 ### Option 2: message gateway `wa_url`
 
