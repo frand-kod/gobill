@@ -181,6 +181,47 @@ Belum dikerjakan sekarang. Syaratnya:
 - Metrics per proses, atau diagregasi.
 - Frontend terpisah memakai `/api/v1` saja.
 
+## Peta modul
+
+Peta ini dibuat dari import nyata (`go list`) pada 2026-11-13. Panah berarti "meng-import". Aturan yang dijaga test ada di `internal/arch_test.go`.
+
+```
+cmd/gobill ─► app ─► config, selfupdate, job
+                └──► web (merakit Server dan route)
+
+web ─► web/portal  web/public  web/setup  web/api  web/admin/{customers,plans,billing,network,reports,settings,apiaccess}
+          │           │           │          │            │
+          └───────────┴─────┬─────┴──────────┘            ▼
+                            ▼                       web/admin/adminx
+                web/core ─► web/view, web/httpx            │
+                            │                              │
+                            ▼                              ▼
+                service/{customer,plan,provision,diagnose,restore,settingsave,promo,setup,admin,apitoken}
+                            │
+                            ▼
+        domain: billing  radius  isolir  notify  payment  device  wg  importer  job
+                            │
+                            ▼
+                     settings ─► db ─► secret
+                            │
+                            ▼
+              kernel: money  clock  metrics  i18n   (tanpa import internal)
+
+web/api ─► api/dto ─► db      (DTO tidak membawa field rahasia)
+```
+
+Batas yang sudah dijaga test:
+- Paket domain dan `service` tidak meng-import `web`.
+- `device` dan `wg` tidak meng-import `radius`. `radius` tidak meng-import `billing` dan `notify`.
+- `isolir` tidak meng-import `billing`, `radius`, dan `web`.
+- `payment`, `money`, `clock`, dan `secret` tidak meng-import paket internal.
+- Sub-paket `web` tidak meng-import paket `web` induk. `portal`, `public`, dan `api` juga tidak meng-import paket admin. `setup`, `admin/reports`, dan `admin/settings` boleh memakai paket admin lain.
+
+Sisa kopling yang terlihat di peta:
+- `service/customer`, `service/plan`, dan `service/diagnose` masih meng-import `radius` untuk helper kuota dan MAC. Ini hilang kalau `internal/quota` dibuat.
+- `settings` meng-import `payment`. Validasi setting sebaiknya tidak tahu soal gateway.
+- `web/admin/adminx` dan `web/core` masih meng-import banyak paket domain. Ini wajar untuk perakit, tapi bisa dikurangi lewat `Deps` per paket.
+
 ## Urutan dan ketergantungan
 
 ```
