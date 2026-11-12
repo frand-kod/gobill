@@ -9,10 +9,12 @@ import (
 	"net/netip"
 	"sync/atomic"
 
+	"github.com/frand-kod/gobill/internal/service/apitoken"
 	"github.com/frand-kod/gobill/internal/service/customer"
 	"github.com/frand-kod/gobill/internal/service/plan"
 	"github.com/frand-kod/gobill/internal/settings"
 	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/admin/apiaccess"
 	"github.com/frand-kod/gobill/internal/web/admin/billing"
 	"github.com/frand-kod/gobill/internal/web/admin/customers"
 	"github.com/frand-kod/gobill/internal/web/admin/network"
@@ -45,6 +47,7 @@ type Server struct {
 	portal    *portal.Handlers
 	public    *public.Handlers
 	net       *network.Handlers
+	apiPage   *apiaccess.Handlers
 	customers *customers.Handlers
 	billing   *billing.Handlers
 	plans     *plans.Handlers
@@ -144,6 +147,7 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	s.portal = portal.New(&s.Core)
 	s.ax = &adminx.Base{Core: &s.Core, Shared: &s.Shared, Conn: conn, Deny: s.deny, RadiusServer: s.radiusServer, Prov: s.prov, GobillAddr: s.gobillAddr, Now: s.now}
 	s.net = network.New(s.ax)
+	s.apiPage = apiaccess.New(s.ax, &apitoken.Service{Q: s.Queries})
 	s.customers = customers.New(s.ax)
 	s.billing = billing.New(s.ax)
 	s.plans = plans.New(s.ax, s.Plans)

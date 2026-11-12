@@ -13,6 +13,7 @@ import (
 
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/service/apitoken"
+	"github.com/frand-kod/gobill/internal/settings"
 )
 
 type env struct {
@@ -33,8 +34,11 @@ func setup(t *testing.T) *env {
 		t.Fatal(err)
 	}
 	q := db.New(conn)
+	if err := q.UpsertSetting(context.Background(), db.UpsertSettingParams{Key: "api_enabled", Value: "yes"}); err != nil {
+		t.Fatal(err)
+	}
 	svc := &apitoken.Service{Q: q}
-	h := New(q, svc)
+	h := New(q, svc, settings.New(q))
 	mux := http.NewServeMux()
 	Register(mux, h)
 	return &env{h, svc, conn, mux}
@@ -211,5 +215,31 @@ func TestRateLimit(t *testing.T) {
 	other, _ := e.token(t, "Admin", 0)
 	if w := e.get("/api/v1/me", other); w.Code != 200 {
 		t.Fatalf("other token: %d", w.Code)
+	}
+}
+
+func TestSwitchAndRoles(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	set := func(k, v string) {
+		if err := e.h.Q.UpsertSetting(ctx, db.UpsertSettingParams{Key: k, Value: v}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	agent, _ := e.token(t, "Agent", 0)
+	if w := e.get("/api/v1/customers", agent); w.Code != 200 {
+		t.Fatalf("default agent: %d", w.Code)
+	}
+	set("api_roles_customers", "Admin,Bogus")
+	if w := e.get("/api/v1/customers", agent); w.Code != 403 {
+		t.Fatalf("agent removed: %d", w.Code)
+	}
+	su, _ := e.token(t, "SuperAdmin", 0)
+	if w := e.get("/api/v1/customers", su); w.Code != 200 {
+		t.Fatalf("superadmin always allowed: %d", w.Code)
+	}
+	set("api_enabled", "no")
+	if w := e.get("/api/v1/me", su); w.Code != 403 {
+		t.Fatalf("disabled: %d", w.Code)
 	}
 }

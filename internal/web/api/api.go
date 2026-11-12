@@ -16,13 +16,47 @@ import (
 	"github.com/frand-kod/gobill/internal/api/dto"
 	"github.com/frand-kod/gobill/internal/db"
 	"github.com/frand-kod/gobill/internal/service/apitoken"
+	"github.com/frand-kod/gobill/internal/settings"
 )
 
-// Role sets, the same names as the web routes.
-var (
-	managers = []string{"SuperAdmin", "Admin"}
-	staff    = []string{"SuperAdmin", "Admin", "Agent", "Sales"}
-)
+// AllRoles are the admin roles, in the order the permission page lists them.
+var AllRoles = []string{"SuperAdmin", "Admin", "Agent", "Sales", "Report"}
+
+// Groups are the endpoint groups whose roles can be set. "me" is open to every admin and not listed.
+// The defaults match what the API allowed before the roles became a setting.
+var Groups = []struct {
+	Name    string
+	Default []string
+}{
+	{"customers", []string{"SuperAdmin", "Admin", "Agent", "Sales"}},
+	{"network", []string{"SuperAdmin", "Admin"}},
+}
+
+// Enabled reports the master switch. It is off until a SuperAdmin turns it on.
+func Enabled(st map[string]string) bool { return st["api_enabled"] == "yes" }
+
+// RolesKey is the setting that holds the roles of a group, as a comma list.
+func RolesKey(group string) string { return "api_roles_" + group }
+
+// RolesFor returns the roles allowed for a group. SuperAdmin is always in the list.
+func RolesFor(st map[string]string, group string) []string {
+	var out []string
+	if v, ok := st[RolesKey(group)]; ok {
+		out = []string{"SuperAdmin"}
+		for _, r := range strings.Split(v, ",") {
+			if r = strings.TrimSpace(r); r != "SuperAdmin" && contains(AllRoles, r) {
+				out = append(out, r)
+			}
+		}
+		return out
+	}
+	for _, g := range Groups {
+		if g.Name == group {
+			return g.Default
+		}
+	}
+	return []string{"SuperAdmin"}
+}
 
 const (
 	defaultPerPage = 25
@@ -33,6 +67,7 @@ const (
 type Handlers struct {
 	Q      *db.Queries
 	Tokens *apitoken.Service
+	Store  *settings.Store
 	now    func() time.Time
 
 	mu   sync.Mutex
@@ -45,21 +80,20 @@ type window struct {
 	n     int
 }
 
-func New(q *db.Queries, tokens *apitoken.Service) *Handlers {
-	return &Handlers{Q: q, Tokens: tokens, now: time.Now, hits: map[int64]*window{}}
+func New(q *db.Queries, tokens *apitoken.Service, st *settings.Store) *Handlers {
+	return &Handlers{Q: q, Tokens: tokens, Store: st, now: time.Now, hits: map[int64]*window{}}
 }
 
-// Register adds the /api/v1 routes. Customer data needs a staff role, everything else a manager,
-// like the equivalent admin pages.
+// Register adds the /api/v1 routes. The roles of each group come from the settings on every request.
 func Register(mux *http.ServeMux, h *Handlers) {
-	mux.Handle("GET /api/v1/me", h.auth(nil, h.me))
-	mux.Handle("GET /api/v1/customers", h.auth(staff, h.customers))
-	mux.Handle("GET /api/v1/customers/{id}", h.auth(staff, h.customer))
-	mux.Handle("GET /api/v1/subscriptions", h.auth(staff, h.subscriptions))
-	mux.Handle("GET /api/v1/plans", h.auth(managers, h.plans))
-	mux.Handle("GET /api/v1/routers", h.auth(managers, h.routers))
-	mux.Handle("GET /api/v1/nas", h.auth(managers, h.nas))
-	mux.Handle("GET /api/v1/radius/sessions", h.auth(managers, h.sessions))
+	mux.Handle("GET /api/v1/me", h.auth("", h.me))
+	mux.Handle("GET /api/v1/customers", h.auth("customers", h.customers))
+	mux.Handle("GET /api/v1/customers/{id}", h.auth("customers", h.customer))
+	mux.Handle("GET /api/v1/subscriptions", h.auth("customers", h.subscriptions))
+	mux.Handle("GET /api/v1/plans", h.auth("network", h.plans))
+	mux.Handle("GET /api/v1/routers", h.auth("network", h.routers))
+	mux.Handle("GET /api/v1/nas", h.auth("network", h.nas))
+	mux.Handle("GET /api/v1/radius/sessions", h.auth("network", h.sessions))
 }
 
 type ctxKey struct{}
@@ -86,9 +120,18 @@ func contains(l []string, s string) bool {
 	return false
 }
 
-// auth checks the bearer token, the rate limit and the role (roles nil = any admin).
-func (h *Handlers) auth(roles []string, next http.HandlerFunc) http.Handler {
+// auth checks the master switch, the bearer token, the rate limit and the role of the group ("" = any admin).
+func (h *Handlers) auth(group string, next http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		st, err := h.Store.View(r.Context())
+		if err != nil {
+			fail(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+		if !Enabled(st) {
+			fail(w, http.StatusForbidden, "API is disabled")
+			return
+		}
 		tok, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if !ok {
 			w.Header().Set("WWW-Authenticate", "Bearer")
@@ -110,7 +153,7 @@ func (h *Handlers) auth(roles []string, next http.HandlerFunc) http.Handler {
 			fail(w, http.StatusTooManyRequests, "rate limit exceeded")
 			return
 		}
-		if roles != nil && !contains(roles, a.Role) {
+		if group != "" && !contains(RolesFor(st, group), a.Role) {
 			fail(w, http.StatusForbidden, "role not allowed")
 			return
 		}

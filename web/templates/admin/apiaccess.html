@@ -1,0 +1,85 @@
+{{define "content"}}
+{{with .Data}}
+<div class="page-head"><h1 class="page-title">{{T "API"}}</h1></div>
+
+{{if .Plain}}
+<section class="card mb-4" x-data="{ done: false }"><div class="card-body space-y-3">
+  <h2 class="card-title">{{T "New token"}}: {{.Name}}</h2>
+  <p class="alert alert-warn text-sm">{{T "Copy this token now. It will not be shown again."}}</p>
+  <div class="flex flex-wrap items-center gap-2">
+    <code class="break-all rounded bg-surface-2 px-2 py-1 text-sm" id="api-token">{{.Plain}}</code>
+    <button type="button" class="btn btn-ghost" @click="navigator.clipboard.writeText(document.getElementById('api-token').textContent).then(() => { done = true })"><span x-show="!done">{{T "Copy"}}</span><span x-show="done" x-cloak>{{T "Copied"}}</span></button>
+  </div>
+</div></section>
+{{end}}
+
+<form class="card mb-4" method="post" action="/admin/api/settings">
+  <h2 class="card-title">{{T "Access"}}</h2>
+  <div class="card-body space-y-4">
+    <label class="flex items-center gap-2 text-sm font-medium"><input type="checkbox" class="size-4 rounded accent-brand-500" name="api_enabled" value="yes"{{if .Enabled}} checked{{end}}> {{T "Turn on the API"}}</label>
+    <p class="text-sm text-ink-2">{{T "When the API is off, every request to /api/v1 is refused. SuperAdmin is always allowed. The endpoint me is open to every admin with a token."}}</p>
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead><tr><th>{{T "Endpoints"}}</th>{{range $.Data.Roles}}<th>{{T .}}</th>{{end}}</tr></thead>
+        <tbody>
+        {{$roles := .Roles}}
+        {{range .Groups}}{{$g := .}}
+          <tr>
+            <td>{{if eq .Name "customers"}}{{T "Customers and subscriptions"}}{{else}}{{T "Plans, routers, NAS and live sessions"}}{{end}}</td>
+            {{range $roles}}<td><input type="checkbox" class="size-4 accent-brand-500" name="roles_{{$g.Name}}" value="{{.}}" aria-label="{{.}}"{{if index $g.Roles .}} checked{{end}}{{if eq . "SuperAdmin"}} disabled{{end}}></td>{{end}}
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    <div class="flex flex-wrap gap-2"><button class="btn btn-primary" type="submit">{{T "Save"}}</button></div>
+  </div>
+</form>
+
+<form class="card mb-4" method="post" action="/admin/api/tokens">
+  <h2 class="card-title">{{T "Create token"}}</h2>
+  <div class="card-body grid gap-4 sm:grid-cols-3">
+    <div>
+      <label class="label" for="tk-name">{{T "Name"}}</label>
+      <input class="input" id="tk-name" name="name" maxlength="100" required>
+    </div>
+    <div>
+      <label class="label" for="tk-admin">{{T "Admin"}}</label>
+      <select class="input" id="tk-admin" name="admin_id" required>
+        {{range .Admins}}<option value="{{.ID}}">{{.Username}} ({{.Role}})</option>{{end}}
+      </select>
+    </div>
+    <div>
+      <label class="label" for="tk-ttl">{{T "Valid for"}}</label>
+      <select class="input" id="tk-ttl" name="ttl">
+        <option value="30">{{T "30 days"}}</option>
+        <option value="90" selected>{{T "90 days"}}</option>
+        <option value="365">{{T "365 days"}}</option>
+        <option value="0">{{T "Never expires"}}</option>
+      </select>
+    </div>
+    <div class="sm:col-span-3"><button class="btn btn-primary" type="submit">{{T "Create token"}}</button></div>
+  </div>
+</form>
+
+<div class="card overflow-hidden">
+  <h2 class="card-title">{{T "Tokens"}}</h2>
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead><tr><th>{{T "Name"}}</th><th>{{T "Admin"}}</th><th>{{T "Created"}}</th><th>{{T "Last used"}}</th><th>{{T "Expires"}}</th><th>{{T "Status"}}</th><th></th></tr></thead>
+      <tbody>
+      {{range .Tokens}}
+        <tr>
+          <td>{{.Name}}</td><td>{{.Owner}}</td><td>{{.Created}}</td><td>{{.Used}}</td><td>{{.Expiry}}</td>
+          <td><span class="badge {{.Badge}}">{{T .Status}}</span></td>
+          <td>{{if .Live}}<form method="post" action="/admin/api/tokens/{{.ID}}/revoke" data-confirm="{{T "Revoke this token? Programs that use it stop working."}}"><button class="btn btn-ghost" type="submit">{{T "Revoke"}}</button></form>{{end}}</td>
+        </tr>
+      {{else}}
+        <tr><td class="py-8 text-center text-ink-2" colspan="7">{{T "No data"}}</td></tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}
+{{end}}

@@ -142,6 +142,7 @@ function gbNav(id) {
       {{if $mgr}}
       <div class="mt-4 border-t border-line pt-3">
         <a class="nav-item" href="/admin/pages/announcement" data-tip="{{T "Pages"}}"{{if or (eq $act "/admin/pages") (eq $act "/admin/fields")}} aria-current="page"{{end}}>{{icon "scroll-text"}}<span>{{T "Pages"}}</span></a>
+        {{if eq .Admin.Role "SuperAdmin"}}<a class="nav-item" href="/admin/api" data-tip="{{T "API"}}"{{if hasPrefix .Path "/admin/api"}} aria-current="page"{{end}}>{{icon "unplug"}}<span>{{T "API"}}</span></a>{{end}}
         <a class="nav-item" href="/admin/settings" data-tip="{{T "Settings"}}"{{if eq $act "/admin/settings"}} aria-current="page"{{end}}>{{icon "settings"}}<span>{{T "Settings"}}</span></a>
       </div>
       {{end}}

@@ -11,6 +11,7 @@ import (
 	gobill "github.com/frand-kod/gobill"
 	"github.com/frand-kod/gobill/internal/service/apitoken"
 	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/admin/apiaccess"
 	"github.com/frand-kod/gobill/internal/web/admin/billing"
 	"github.com/frand-kod/gobill/internal/web/admin/customers"
 	"github.com/frand-kod/gobill/internal/web/admin/network"
@@ -121,6 +122,7 @@ func (s *Server) Handler() http.Handler {
 	noReport := s.byMode(staff, all)
 	mw := adminx.Mw{All: all, Managers: managers, Staff: staff, NoReport: noReport, Money: money, SuperAdmin: s.requireAdmin("SuperAdmin"), Require: s.requireAdmin}
 	network.Register(mux, s.net, mw)
+	apiaccess.Register(mux, s.apiPage, mw)
 	customers.Register(mux, s.customers, mw)
 	plans.Register(mux, s.plans, mw)
 	billing.Register(mux, s.billing, mw)
@@ -252,7 +254,7 @@ func (s *Server) Handler() http.Handler {
 
 	// customer portal
 	s.portalRoutes(mux)
-	api.Register(mux, api.New(s.Queries, &apitoken.Service{Q: s.Queries}))
+	api.Register(mux, api.New(s.Queries, &apitoken.Service{Q: s.Queries}, s.Settings))
 	public.Register(mux, s.public)
 
 	// the Tripay server posts the callback without our origin; its HMAC signature authenticates it
