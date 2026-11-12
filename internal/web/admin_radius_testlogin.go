@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 
 	"github.com/frand-kod/gobill/internal/radius"
@@ -43,16 +44,6 @@ func (s *Server) testLoginFields(r *http.Request, v, e map[string]string, result
 	return out, nil
 }
 
-// rejectLabels maps the reject reasons of radius.Authorize to English keys (translated by T); other reasons are shown as they are.
-var rejectLabels = map[string]string{
-	"Login invalid......":                "Login refused",
-	"Too many attempts, try again later": "Too many attempts, try again later",
-	"Internet Plan Expired..":            "Internet plan expired",
-	"Voucher Expired...":                 "Voucher expired",
-	"You have exceeded your time limit.": "Time limit reached",
-	"You have exceeded your data limit.": "Data limit reached",
-}
-
 func (s *Server) testLoginForm(w http.ResponseWriter, r *http.Request) {
 	fs, err := s.testLoginFields(r, nil, nil, "")
 	if err != nil {
@@ -80,7 +71,7 @@ func (s *Server) testLoginRun(w http.ResponseWriter, r *http.Request) {
 			Check: func(stored []byte) (bool, string) { return subtle.ConstantTimeCompare([]byte(pw), stored) == 1, "" }})
 		if d.Reject != "" {
 			reject = d.Reject
-			if k, ok := rejectLabels[d.Reject]; ok {
+			if k, ok := adminx.RejectLabels[d.Reject]; ok {
 				reject = s.T(k)
 			}
 		} else {

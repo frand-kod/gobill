@@ -1,4 +1,4 @@
-package web
+package reports
 
 // Dashboard widgets: expiring-customer rows, the usage card and the activity cards.
 
@@ -29,11 +29,11 @@ type dashWidgets struct {
 
 // usageCard is the Usage card: the same data over the last 7 and the last 30 days.
 type usageCard struct {
-	Week, Month usageWin
+	Week, Month UsageWin
 }
 
-// usageWin is one window of the Usage card. Empty means no RADIUS usage in the window at all.
-type usageWin struct {
+// UsageWin is one window of the Usage card. Empty means no RADIUS usage in the window at all.
+type UsageWin struct {
 	Total, Down, Up     string
 	TotalNum, TotalUnit string // Total split for the big number
 	Bars                []core.DayBar
@@ -68,8 +68,8 @@ func dayIndex(t time.Time, loc *time.Location) int64 {
 	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC).Unix() / 86400
 }
 
-// widgetData gathers the dashboard cards.
-func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, err error) {
+// WidgetData gathers the dashboard cards.
+func (s *Handlers) WidgetData(ctx context.Context, now time.Time) (w dashWidgets, err error) {
 	settings, err := s.LoadSettings(ctx)
 	if err != nil {
 		return
@@ -83,7 +83,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	words := s.PTexts()
 	// each card's query is independent: a failure sets its Err flag and leaves its rows empty
 	soon, err := s.Queries.ListExpiringSubscriptions(ctx, db.ListExpiringSubscriptionsParams{
-		Since: now.Unix(), Until: nextWeek, PageLimit: dashListLimit})
+		Since: now.Unix(), Until: nextWeek, PageLimit: DashListLimit})
 	if err != nil {
 		slog.Error("dashboard expiring", "err", err)
 		w.ExpiringErr = true
@@ -95,7 +95,7 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 		w.Expiring = append(w.Expiring, x)
 	}
 	ended, err := s.Queries.ListRecentlyExpiredSubscriptions(ctx, db.ListRecentlyExpiredSubscriptionsParams{
-		Since: weekStart, Until: now.Unix(), PageLimit: dashListLimit})
+		Since: weekStart, Until: now.Unix(), PageLimit: DashListLimit})
 	if err != nil {
 		slog.Error("dashboard recent", "err", err)
 		w.RecentErr = true
@@ -121,14 +121,14 @@ func (s *Server) widgetData(ctx context.Context, now time.Time) (w dashWidgets, 
 	}
 	for _, r := range logs {
 		when := words.Span(now.Unix()-r.CreatedAt) + " " + s.T("ago")
-		w.Logs = append(w.Logs, logRow{Label: s.actionLabel(r.Action), Actor: s.actorLabel(ctx, r.ActorType, r.ActorID), Description: r.Description, When: when})
+		w.Logs = append(w.Logs, logRow{Label: s.ActionLabel(r.Action), Actor: s.ActorLabel(ctx, r.ActorType, r.ActorID), Description: r.Description, When: when})
 	}
 	// card errors are flagged above, not returned: only the settings read (before any card) fails the page
 	return w, nil
 }
 
-// dashListLimit caps the Expiring and Recent lists; the tab counts are the rows shown.
-const dashListLimit = 50
+// DashListLimit caps the Expiring and Recent lists; the tab counts are the rows shown.
+const DashListLimit = 50
 
 // dashLogLimit is how many activity log rows the dashboard card shows; the See all link opens the rest.
 const dashLogLimit = 5
@@ -142,22 +142,22 @@ type logRow struct {
 const usageTopN = 3
 
 // usageWindow reads the RADIUS octets of all users over the last n days (radius_usage_daily).
-func (s *Server) usageWindow(ctx context.Context, now time.Time, loc *time.Location, n int) (usageWin, error) {
+func (s *Handlers) usageWindow(ctx context.Context, now time.Time, loc *time.Location, n int) (UsageWin, error) {
 	today := core.DayStart(now.Unix(), loc)
 	return s.usageRange(ctx, today.AddDate(0, 0, -(n-1)), today, loc, usageTopN)
 }
 
 // usageRange reads the RADIUS octets of all users from the local day from to the local day to, both included
 // (radius_usage_daily only, never radius_sessions): the totals, a bar per day and the top heaviest users.
-func (s *Server) usageRange(ctx context.Context, from, to time.Time, loc *time.Location, top int) (usageWin, error) {
+func (s *Handlers) usageRange(ctx context.Context, from, to time.Time, loc *time.Location, top int) (UsageWin, error) {
 	since, until := from.Format("2006-01-02"), to.Format("2006-01-02")
 	n := int(dayIndex(to, loc)-dayIndex(from, loc)) + 1
 	sums, err := s.Queries.SumRadiusUsageDailyByDay(ctx, db.SumRadiusUsageDailyByDayParams{Since: since, Until: until})
 	if err != nil {
-		return usageWin{}, err
+		return UsageWin{}, err
 	}
 	if len(sums) == 0 {
-		return usageWin{Empty: true}, nil
+		return UsageWin{Empty: true}, nil
 	}
 	totals := make([]core.DayTotal, len(sums))
 	var down, up int64
@@ -167,11 +167,11 @@ func (s *Server) usageRange(ctx context.Context, from, to time.Time, loc *time.L
 		up += x.Input
 	}
 	num, unit := view.HumanBytesParts(down + up)
-	w := usageWin{Total: num + " " + unit, TotalNum: num, TotalUnit: unit, Down: view.HumanBytes(down), Up: view.HumanBytes(up),
+	w := UsageWin{Total: num + " " + unit, TotalNum: num, TotalUnit: unit, Down: view.HumanBytes(down), Up: view.HumanBytes(up),
 		Bars: core.ChartBars(core.DailyRange(totals, from, n))}
 	rows, err := s.Queries.TopRadiusUsageDaily(ctx, db.TopRadiusUsageDailyParams{Since: since, Until: until, RowLimit: int64(top)})
 	if err != nil {
-		return usageWin{}, err
+		return UsageWin{}, err
 	}
 	// the query orders by total, so the first row is the heaviest user and fills the thin bars
 	peak := int64(1)
@@ -186,7 +186,7 @@ func (s *Server) usageRange(ctx context.Context, from, to time.Time, loc *time.L
 		case err == nil:
 			u.Href = "/admin/customers/" + strconv.FormatInt(c.ID, 10)
 		case !errors.Is(err, sql.ErrNoRows):
-			return usageWin{}, err
+			return UsageWin{}, err
 		}
 		w.Top = append(w.Top, u)
 	}
@@ -194,7 +194,7 @@ func (s *Server) usageRange(ctx context.Context, from, to time.Time, loc *time.L
 }
 
 // expiringRow builds one dashboard row; the WhatsApp reminder link is set only when the phone number allows one.
-func (s *Server) expiringRow(settings map[string]string, customerID int64, username, fullname, phone, plan string, balance, lastSeen, expiresAt int64) expiringRow {
+func (s *Handlers) expiringRow(settings map[string]string, customerID int64, username, fullname, phone, plan string, balance, lastSeen, expiresAt int64) expiringRow {
 	x := expiringRow{CustomerID: customerID, Username: username, Fullname: fullname, Phone: phone, Plan: plan, Expires: s.TS(expiresAt),
 		Balance: view.Money(balance)}
 	if lastSeen > 0 {

@@ -1,4 +1,4 @@
-package web
+package reports
 
 // Header search palette: one box for data (customers, subscriptions, invoices, vouchers, plans, routers,
 // NAS), pages, quick actions and settings. GET /admin/search.json?q= returns the groups as JSON for the
@@ -14,6 +14,7 @@ import (
 
 	"github.com/frand-kod/gobill/internal/web/admin/adminx"
 	adminbilling "github.com/frand-kod/gobill/internal/web/admin/billing"
+	"github.com/frand-kod/gobill/internal/web/core"
 
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/view"
@@ -21,7 +22,7 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 )
 
-const searchMaxQ = 64 // longer queries are cut to this many characters
+const SearchMaxQ = 64 // longer queries are cut to this many characters
 
 // Role sets for the palette. A nil set means every admin role (the page is open to all).
 var (
@@ -45,7 +46,7 @@ type searchItem struct {
 	URL   string `json:"url"`
 }
 
-type searchGroup struct {
+type SearchGroup struct {
 	Title string       `json:"title"`
 	Items []searchItem `json:"items"`
 }
@@ -122,11 +123,11 @@ var searchFolder = strings.NewReplacer("á", "a", "à", "a", "â", "a", "ä", "a
 
 func searchFold(s string) string { return searchFolder.Replace(strings.ToLower(s)) }
 
-// searchQuery trims q and cuts it to searchMaxQ characters.
-func searchQuery(raw string) string {
+// SearchQuery trims q and cuts it to SearchMaxQ characters.
+func SearchQuery(raw string) string {
 	q := []rune(strings.TrimSpace(raw))
-	if len(q) > searchMaxQ {
-		q = q[:searchMaxQ]
+	if len(q) > SearchMaxQ {
+		q = q[:SearchMaxQ]
 	}
 	return string(q)
 }
@@ -147,7 +148,7 @@ func matchWords(words []string, text string) bool {
 
 // matchEntries returns up to limit items of es that role may open and that contain every word. Titles
 // are English keys and are translated here; Sub is already translated.
-func (s *Server) matchEntries(role string, es []searchEntry, words []string, limit int) []searchItem {
+func (s *Handlers) matchEntries(role string, es []searchEntry, words []string, limit int) []searchItem {
 	var out []searchItem
 	for _, e := range es {
 		if len(out) == limit {
@@ -161,16 +162,16 @@ func (s *Server) matchEntries(role string, es []searchEntry, words []string, lim
 }
 
 // addGroup appends a titled group, translating the title; empty groups are left out.
-func (s *Server) addGroup(gs []searchGroup, title string, items []searchItem) []searchGroup {
+func (s *Handlers) addGroup(gs []SearchGroup, title string, items []searchItem) []SearchGroup {
 	if len(items) == 0 {
 		return gs
 	}
-	return append(gs, searchGroup{Title: s.T(title), Items: items})
+	return append(gs, SearchGroup{Title: s.T(title), Items: items})
 }
 
 // settingsEntries lists every settings field of the sub-pages the role may open. The entries come from
 // settingsFields, so a new field is searchable without a change here.
-func (s *Server) settingsEntries(role string) []searchEntry {
+func (s *Handlers) settingsEntries(role string) []searchEntry {
 	var out []searchEntry
 	for _, tab := range adminx.SettingsTabs {
 		roles := roleMgr
@@ -180,9 +181,9 @@ func (s *Server) settingsEntries(role string) []searchEntry {
 		if !allowed(roles, role) {
 			continue
 		}
-		fs := s.settingsFields(tab.Slug, nil, nil, nil)
+		fs := s.SettingsFields(tab.Slug)
 		isSetting := map[string]bool{}
-		for _, n := range fieldNames(fs) {
+		for _, n := range adminx.FieldNames(fs) {
 			isSetting[n] = true
 		}
 		for _, f := range fs {
@@ -213,9 +214,9 @@ func joinNonEmpty(sep string, parts ...string) string {
 // searchData finds records by q (literal, case-insensitive; see search.sql). Each group is capped at 5.
 // Customers, subscriptions and invoices show to every admin role, as their list pages do; the rest follow
 // the role sets of their pages.
-func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searchGroup, error) {
+func (s *Handlers) searchData(ctx context.Context, a *db.Admin, q string) ([]SearchGroup, error) {
 	const n = 5
-	var out []searchGroup
+	var out []SearchGroup
 	cs, err := s.Queries.SearchCustomersContains(ctx, db.SearchCustomersContainsParams{Q: q, Limit: n})
 	if err != nil {
 		return nil, err
@@ -299,9 +300,9 @@ func (s *Server) searchData(ctx context.Context, a *db.Admin, q string) ([]searc
 
 // searchGroupsFor is the palette result for raw q. Data groups need q; quick actions and pages always
 // show (the first ones when q is empty); settings only with q.
-func (s *Server) searchGroupsFor(ctx context.Context, a *db.Admin, raw string) ([]searchGroup, error) {
-	q := searchQuery(raw)
-	out := []searchGroup{}
+func (s *Handlers) searchGroupsFor(ctx context.Context, a *db.Admin, raw string) ([]SearchGroup, error) {
+	q := SearchQuery(raw)
+	out := []SearchGroup{}
 	words := strings.Fields(searchFold(q))
 	if q != "" {
 		data, err := s.searchData(ctx, a, q)
@@ -320,8 +321,8 @@ func (s *Server) searchGroupsFor(ctx context.Context, a *db.Admin, raw string) (
 
 // searchJSON is GET /admin/search.json?q=. Every admin role may call it; each group is limited to the roles
 // that can open its pages.
-func (s *Server) searchJSON(w http.ResponseWriter, r *http.Request) {
-	groups, err := s.searchGroupsFor(r.Context(), adminFrom(r), r.URL.Query().Get("q"))
+func (s *Handlers) searchJSON(w http.ResponseWriter, r *http.Request) {
+	groups, err := s.searchGroupsFor(r.Context(), core.AdminFrom(r), r.URL.Query().Get("q"))
 	if err != nil {
 		s.Fail(w, "search", err)
 		return
@@ -332,17 +333,17 @@ func (s *Server) searchJSON(w http.ResponseWriter, r *http.Request) {
 }
 
 // searchPage is GET /admin/search?q=: the palette's results as a page, for the form without JS.
-func (s *Server) searchPage(w http.ResponseWriter, r *http.Request) {
-	q := searchQuery(r.URL.Query().Get("q"))
-	groups, err := s.searchGroupsFor(r.Context(), adminFrom(r), q)
+func (s *Handlers) searchPage(w http.ResponseWriter, r *http.Request) {
+	q := SearchQuery(r.URL.Query().Get("q"))
+	groups, err := s.searchGroupsFor(r.Context(), core.AdminFrom(r), q)
 	if err != nil {
 		s.Fail(w, "search", err)
 		return
 	}
-	s.Render(w, r, http.StatusOK, "search", Page{Title: "Search", Data: searchView{Q: q, Groups: groups}})
+	s.Render(w, r, http.StatusOK, "search", core.Page{Title: "Search", Data: searchView{Q: q, Groups: groups}})
 }
 
 type searchView struct {
 	Q      string
-	Groups []searchGroup
+	Groups []SearchGroup
 }

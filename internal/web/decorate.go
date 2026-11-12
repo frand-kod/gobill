@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/update"
+	"github.com/frand-kod/gobill/internal/web/admin/reports"
 	"github.com/frand-kod/gobill/internal/web/core"
 )
 
@@ -31,10 +32,10 @@ func (s *Server) decorate(r *http.Request, name string, p *Page) {
 		}
 	}
 	if p.Admin != nil {
-		if items, err := s.bellItems(ctx, time.Now()); err != nil {
+		if items, err := s.reports.BellItems(ctx, time.Now()); err != nil {
 			slog.Warn("admin bell", "err", err)
 		} else {
-			p.Notices = attentionFor(items, p.Admin)
+			p.Notices = reports.AttentionFor(items, p.Admin)
 			for _, it := range p.Notices {
 				p.NoticeTotal += it.Count
 				p.NoticeErr = p.NoticeErr || it.Err

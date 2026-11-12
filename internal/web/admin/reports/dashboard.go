@@ -1,4 +1,4 @@
-package web
+package reports
 
 // Admin dashboard page and its data, and the admin bell (notices shown on every admin page).
 
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/frand-kod/gobill/internal/web/admin/network"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
@@ -29,7 +30,7 @@ type dashData struct {
 	Labels, Regs, Sales      string // JSON arrays for the charts
 	SalesTotal               int64  // Sales summed over the 12 months
 	MoneyPrefix, MoneySep    string // money's currency prefix and group separator, for the chart axis
-	ListLimit                int    // dashListLimit: the Customers tabs show "N+" at this many rows
+	ListLimit                int    // DashListLimit: the Customers tabs show "N+" at this many rows
 	Network                  network.NetCard
 	NetErr                   bool // the network card query failed: the tile shows "Data could not be loaded"
 	dashWidgets
@@ -43,8 +44,8 @@ const (
 	noticeCacheFor = 30 * time.Second
 )
 
-func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
-	d, err := s.dashboardData(r.Context(), time.Now())
+func (s *Handlers) dashboard(w http.ResponseWriter, r *http.Request) {
+	d, err := s.DashboardData(r.Context(), time.Now())
 	if err != nil {
 		s.Fail(w, "dashboard", err)
 		return
@@ -52,7 +53,7 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 	if s.ClockWarning != nil {
 		d.Warn = s.ClockWarning()
 	}
-	s.Render(w, r, http.StatusOK, "dashboard", Page{
+	s.Render(w, r, http.StatusOK, "dashboard", core.Page{
 		Title: "Dashboard",
 		Data:  d,
 		Flash: s.Sessions.PopString(r.Context(), "flash"),
@@ -62,7 +63,7 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 // cycleStart is the first day of the income period containing now: the 1st of the month, or reset_day
 // (2 to 28) when set, as PHP dashboard.php:29-35. resetDay is 0 for the calendar month. The dashboard and the
 // Period Report both start here, so their numbers match.
-func (s *Server) cycleStart(ctx context.Context, now time.Time) (start time.Time, resetDay int) {
+func (s *Handlers) cycleStart(ctx context.Context, now time.Time) (start time.Time, resetDay int) {
 	loc := s.Location()
 	now = now.In(loc)
 	start = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
@@ -78,8 +79,8 @@ func (s *Server) cycleStart(ctx context.Context, now time.Time) (start time.Time
 	return
 }
 
-// dashboardData gathers the tiles and the per-month series of the last 12 months in the app location.
-func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, err error) {
+// DashboardData gathers the tiles and the per-month series of the last 12 months in the app location.
+func (s *Handlers) DashboardData(ctx context.Context, now time.Time) (d dashData, err error) {
 	loc := s.Location()
 	now = now.In(loc)
 	day := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
@@ -108,7 +109,7 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 		return
 	}
 	d.Year = now.Year()
-	d.ListLimit = dashListLimit
+	d.ListLimit = DashListLimit
 	d.MoneyPrefix, d.MoneySep = moneyfmt.Prefix, view.GroupSep()
 	labels, regs, sales := make([]string, 12), make([]int64, 12), make([]int64, 12)
 	// rolling window: the last 12 months, oldest first, ending with the current month
@@ -126,7 +127,7 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 	}
 	d.Labels, d.Regs, d.Sales = jsonStr(labels), jsonStr(regs), jsonStr(sales)
 	// a failing card is logged and blanked (its template shows "Data could not be loaded"); the page still renders
-	if d.dashWidgets, err = s.widgetData(ctx, now); err != nil {
+	if d.dashWidgets, err = s.WidgetData(ctx, now); err != nil {
 		return
 	}
 	if d.Network, err = s.net.NetworkCard(ctx, now); err != nil {
@@ -136,9 +137,9 @@ func (s *Server) dashboardData(ctx context.Context, now time.Time) (d dashData, 
 	return
 }
 
-// bellItems returns the bell notices before the role filter. The counts are cached on the Server for
+// BellItems returns the bell notices before the role filter. The counts are cached on the Server for
 // noticeCacheFor, so admin pages do not each rerun the queries.
-func (s *Server) bellItems(ctx context.Context, now time.Time) ([]attnItem, error) {
+func (s *Handlers) BellItems(ctx context.Context, now time.Time) ([]core.AttnItem, error) {
 	s.noticeMu.Lock()
 	defer s.noticeMu.Unlock()
 	if !s.noticeAt.IsZero() && now.Sub(s.noticeAt) < noticeCacheFor {
@@ -153,7 +154,7 @@ func (s *Server) bellItems(ctx context.Context, now time.Time) ([]attnItem, erro
 }
 
 // noticeCounts runs the queries behind the bell. An item appears only when its count is above zero.
-func (s *Server) noticeCounts(ctx context.Context, now time.Time) ([]attnItem, error) {
+func (s *Handlers) noticeCounts(ctx context.Context, now time.Time) ([]core.AttnItem, error) {
 	loc := s.Location()
 	now = now.In(loc)
 	y, m, d := now.Date()
@@ -169,12 +170,12 @@ func (s *Server) noticeCounts(ctx context.Context, now time.Time) ([]attnItem, e
 	if err != nil {
 		return nil, err
 	}
-	// ponytail: both lists are capped at dashListLimit rows by their queries, so the counts top out there; a COUNT query is the upgrade.
-	ending, err := s.Queries.ListExpiringSubscriptions(ctx, db.ListExpiringSubscriptionsParams{Since: now.Unix(), Until: endToday, PageLimit: dashListLimit})
+	// ponytail: both lists are capped at DashListLimit rows by their queries, so the counts top out there; a COUNT query is the upgrade.
+	ending, err := s.Queries.ListExpiringSubscriptions(ctx, db.ListExpiringSubscriptionsParams{Since: now.Unix(), Until: endToday, PageLimit: DashListLimit})
 	if err != nil {
 		return nil, err
 	}
-	ended, err := s.Queries.ListRecentlyExpiredSubscriptions(ctx, db.ListRecentlyExpiredSubscriptionsParams{Since: threeDaysAgo, Until: now.Unix(), PageLimit: dashListLimit})
+	ended, err := s.Queries.ListRecentlyExpiredSubscriptions(ctx, db.ListRecentlyExpiredSubscriptionsParams{Since: threeDaysAgo, Until: now.Unix(), PageLimit: DashListLimit})
 	if err != nil {
 		return nil, err
 	}
@@ -182,21 +183,21 @@ func (s *Server) noticeCounts(ctx context.Context, now time.Time) ([]attnItem, e
 	if err != nil {
 		return nil, err
 	}
-	var out []attnItem
+	var out []core.AttnItem
 	if net.Offline > 0 {
-		out = append(out, attnItem{Kind: "Router/NAS offline", Count: net.Offline, Href: "/admin/routers", Err: true, Mgr: true})
+		out = append(out, core.AttnItem{Kind: "Router/NAS offline", Count: net.Offline, Href: "/admin/routers", Err: true, Mgr: true})
 	}
 	if last := settings["expiry_last_run"]; last != "" {
 		if t, err := time.ParseInLocation(time.DateTime, last, loc); err == nil && (now.Before(t) || now.Sub(t) > expiryJobStale) {
-			out = append(out, attnItem{Kind: "Expiry job stalled", Count: 1, Href: "/admin/status", Err: true, Mgr: true})
+			out = append(out, core.AttnItem{Kind: "Expiry job stalled", Count: 1, Href: "/admin/status", Err: true, Mgr: true})
 		}
 	}
 	// the queries return only rows in these windows, so their lengths are the counts
 	if n := len(ending); n > 0 {
-		out = append(out, attnItem{Kind: "Plans ending today", Count: n, Href: "/admin#customers-expiring-0"})
+		out = append(out, core.AttnItem{Kind: "Plans ending today", Count: n, Href: "/admin#customers-expiring-0"})
 	}
 	if n := len(ended); n > 0 {
-		out = append(out, attnItem{Kind: "Expired in the last 3 days, not renewed", Count: n, Href: "/admin#customers-expired-3"})
+		out = append(out, core.AttnItem{Kind: "Expired in the last 3 days, not renewed", Count: n, Href: "/admin#customers-expired-3"})
 	}
 	var low int
 	var lowPlan int64
@@ -211,15 +212,15 @@ func (s *Server) noticeCounts(ctx context.Context, now time.Time) ([]attnItem, e
 		if low == 1 {
 			href = "/admin/vouchers?plan=" + strconv.FormatInt(lowPlan, 10)
 		}
-		out = append(out, attnItem{Kind: "Voucher stock low", Count: low, Href: href})
+		out = append(out, core.AttnItem{Kind: "Voucher stock low", Count: low, Href: href})
 	}
 	return out, nil
 }
 
-// attentionFor drops the manager-only items unless the admin is an Admin or SuperAdmin.
-func attentionFor(items []attnItem, a *db.Admin) []attnItem {
+// AttentionFor drops the manager-only items unless the admin is an Admin or SuperAdmin.
+func AttentionFor(items []core.AttnItem, a *db.Admin) []core.AttnItem {
 	mgr := a != nil && (a.Role == "SuperAdmin" || a.Role == "Admin")
-	var out []attnItem
+	var out []core.AttnItem
 	for _, it := range items {
 		if !it.Mgr || mgr {
 			out = append(out, it)

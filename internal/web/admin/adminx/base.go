@@ -23,6 +23,8 @@ type Base struct {
 	RadiusServer func() *radius.Server
 	Prov         func() *provision.Service
 	GobillAddr   func() (host, port string)
+	// ProxyWarning is the admin warning for a reverse proxy while Trust Proxy is off, empty when there is none.
+	ProxyWarning func(r *http.Request) string
 	Now          func() time.Time
 }
 
@@ -51,4 +53,8 @@ type Shared struct {
 	ListenAddr string
 	// WG is the built-in WireGuard tunnel; nil = none.
 	WG *wg.Manager
+	// ClockWarning, if set, returns a non-empty reason while the clock is untrusted.
+	ClockWarning func() string
+	// BackupMirror is the optional off-site backup folder (GOBILL_BACKUP_MIRROR), shown to SuperAdmin.
+	BackupMirror string
 }

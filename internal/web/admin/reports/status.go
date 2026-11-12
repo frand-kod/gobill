@@ -1,4 +1,4 @@
-package web
+package reports
 
 // Admin status page (GET /admin/status), its JSON twin (GET /admin/status.json) and the sparkline helper.
 
@@ -18,6 +18,7 @@ import (
 	"github.com/frand-kod/gobill/internal/notify"
 	"github.com/frand-kod/gobill/internal/radius"
 	"github.com/frand-kod/gobill/internal/service/restore"
+	"github.com/frand-kod/gobill/internal/web/core"
 )
 
 const sparkPoints = 96 // 24 h as 15-minute buckets
@@ -109,16 +110,16 @@ type backupRow struct {
 	at         time.Time
 }
 
-func (s *Server) statusPage(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) statusPage(w http.ResponseWriter, r *http.Request) {
 	d, err := s.statusData(r)
 	if err != nil {
 		s.Fail(w, "status", err)
 		return
 	}
-	s.Render(w, r, http.StatusOK, "status", Page{Title: "System Status", Data: d, Warn: strings.TrimSpace(s.proxyWarning(r) + " " + s.ax.KeyWarning(r))})
+	s.Render(w, r, http.StatusOK, "status", core.Page{Title: "System Status", Data: d, Warn: strings.TrimSpace(s.ProxyWarning(r) + " " + s.KeyWarning(r))})
 }
 
-func (s *Server) statusJSON(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) statusJSON(w http.ResponseWriter, r *http.Request) {
 	d, err := s.statusData(r)
 	if err != nil {
 		s.Fail(w, "status json", err)
@@ -131,7 +132,7 @@ func (s *Server) statusJSON(w http.ResponseWriter, r *http.Request) {
 
 // statusData gathers everything the status page shows. The metrics are in process memory, so
 // counts are since start unless the label says 24 h.
-func (s *Server) statusData(r *http.Request) (statusData, error) {
+func (s *Handlers) statusData(r *http.Request) (statusData, error) {
 	ctx := r.Context()
 	st, err := s.LoadSettings(ctx)
 	if err != nil {

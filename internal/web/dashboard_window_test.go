@@ -22,7 +22,7 @@ func TestDashboardRolling12Months(t *testing.T) {
 	add("Cash - A", 4000, time.Date(2026, 2, 1, 0, 30, 0, 0, loc))            // current month
 	add("Cash - A", 8000, time.Date(2025, 2, 20, 9, 0, 0, 0, loc))            // 13 months back: outside
 	add("Customer - Balance", 16000, time.Date(2025, 12, 5, 9, 0, 0, 0, loc)) // paid from balance: excluded
-	d, err := s.dashboardData(t.Context(), now)
+	d, err := s.reports.DashboardData(t.Context(), now)
 	if err != nil {
 		t.Fatal(err)
 	}

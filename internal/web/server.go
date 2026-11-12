@@ -17,6 +17,7 @@ import (
 	"github.com/frand-kod/gobill/internal/web/admin/customers"
 	"github.com/frand-kod/gobill/internal/web/admin/network"
 	"github.com/frand-kod/gobill/internal/web/admin/plans"
+	"github.com/frand-kod/gobill/internal/web/admin/reports"
 	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/portal"
@@ -48,6 +49,7 @@ type Server struct {
 	customers *customers.Handlers
 	billing   *billing.Handlers
 	plans     *plans.Handlers
+	reports   *reports.Handlers
 	conn      *sql.DB
 	guides    map[string]*guideSet // rendered "Panduan" pages per language ("id", "en"), see docs.go
 
@@ -58,8 +60,6 @@ type Server struct {
 	payCheckMu sync.Mutex // guards payCheckAt: last gateway status call per payment id, see payCheckAllowed
 	payCheckAt map[int64]time.Time
 
-	// ClockWarning, if set, returns a non-empty reason while the clock is untrusted.
-	ClockWarning func() string
 	// UpdateInfo returns the newest known release tag and its page, see job.UpdateCheck.
 	UpdateInfo      func() (tag, link string)
 	SettingsChanged func(ctx context.Context) // called after settings are saved
@@ -67,9 +67,7 @@ type Server struct {
 	BackupDir string
 	// Restart is called after a restore is staged; main shuts down and exits for systemd to start it again.
 	Restart func()
-	// BackupMirror is the optional off-site backup folder (GOBILL_BACKUP_MIRROR), shown to SuperAdmin.
-	BackupMirror string
-	Plans        *plan.Service
+	Plans   *plan.Service
 	// CoAPort is the NAS Disconnect-Request port; empty = 3799.
 	CoAPort string
 
@@ -141,11 +139,13 @@ func New(conn *sql.DB, secureCookie bool) (*Server, error) {
 	s.ReloadSessionSettings(context.Background())
 	s.Asset, s.Decorate = s.asset, s.decorate
 	s.portal = portal.New(&s.Core)
-	s.ax = &adminx.Base{Core: &s.Core, Shared: &s.Shared, Conn: conn, Deny: s.deny, RadiusServer: s.radiusServer, Prov: s.prov, GobillAddr: s.gobillAddr, Now: s.now}
+	s.ax = &adminx.Base{Core: &s.Core, Shared: &s.Shared, Conn: conn, Deny: s.deny, RadiusServer: s.radiusServer, Prov: s.prov, GobillAddr: s.gobillAddr, Now: s.now, ProxyWarning: s.proxyWarning}
 	s.net = network.New(s.ax)
 	s.customers = customers.New(s.ax)
 	s.billing = billing.New(s.ax)
 	s.plans = plans.New(s.ax, s.Plans)
+	s.reports = reports.New(s.ax, s.net)
+	s.reports.SettingsFields = func(tab string) []field { return s.settingsFields(tab, nil, nil, nil) }
 	s.public = public.New(&s.Core)
 	s.public.IsolirOn, s.public.RadiusServer, s.public.OriginalPeer = s.isolir.Load, s.radiusServer, originalPeer
 	s.public.WGUsable, s.public.WGEndpoint, s.public.Prov = s.net.WGUsable, func(st map[string]string) string { return network.WGDefaults(st)["wg_endpoint"] }, s.prov

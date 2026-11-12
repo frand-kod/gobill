@@ -28,7 +28,7 @@ func (s *Server) settingsSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fields := forRole(s.settingsFields(tab, nil, nil, nil), r)
-	keys := fieldNames(fields)
+	keys := adminx.FieldNames(fields)
 	// the body limit allows every image field of the tab at its 2 MB cap (each file is checked on its
 	// own when saved); only a bigger body fails the parse, shown on the file fields
 	files := int64(1)

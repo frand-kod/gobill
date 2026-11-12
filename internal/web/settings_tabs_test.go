@@ -29,7 +29,7 @@ func TestSettingsKeysOnOneTab(t *testing.T) {
 	s, _, _ := settingsSetup(t)
 	owner := map[string]string{}
 	for _, tab := range adminx.SettingsTabs {
-		for _, n := range fieldNames(s.settingsFields(tab.Slug, nil, nil, nil)) {
+		for _, n := range adminx.FieldNames(s.settingsFields(tab.Slug, nil, nil, nil)) {
 			if prev, ok := owner[n]; ok {
 				t.Errorf("%s is on tabs %s and %s", n, prev, tab.Slug)
 			}

@@ -1,10 +1,11 @@
-package web
+package reports
 
 // Payment request audit list, export and detail.
 
 import (
 	"net/http"
 
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/view"
 
@@ -13,7 +14,7 @@ import (
 	"github.com/frand-kod/gobill/internal/db"
 )
 
-func (s *Server) pgList(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pgList(w http.ResponseWriter, r *http.Request) {
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
 		s.Fail(w, "payment gateways", err)
@@ -28,17 +29,17 @@ func (s *Server) pgList(w http.ResponseWriter, r *http.Request) {
 	lp := listPage{Heading: "Online payments", Base: "/admin/payment-gateway", Cols: []string{"Gateway", "Status"},
 		Rows:  rows,
 		Links: []option{{Value: "/admin/settings/payment", Label: "Settings"}, {Value: "/admin/payment-gateway/audit", Label: "Payment Audit"}}}
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }
 
 var pgAuditCols = []string{"Transaction ID", "Gateway Ref", "Username", "Package Name", "Package Price", "Channel", "Status", "Created On", "Expires On", "Paid Date"}
 
-func (s *Server) pgAuditParams(r *http.Request) db.SearchPaymentRequestsParams {
-	_, _, f, t := s.ax.DateRange(r)
+func (s *Handlers) pgAuditParams(r *http.Request) db.SearchPaymentRequestsParams {
+	_, _, f, t := s.DateRange(r)
 	return db.SearchPaymentRequestsParams{Q: strings.TrimSpace(r.URL.Query().Get("q")), Status: r.URL.Query().Get("status"), FromTs: f, ToTs: t}
 }
 
-func (s *Server) pgAuditRows(rs []db.SearchPaymentRequestsRow) [][]string {
+func (s *Handlers) pgAuditRows(rs []db.SearchPaymentRequestsRow) [][]string {
 	out := [][]string{}
 	for _, x := range rs {
 		paid := ""
@@ -52,7 +53,7 @@ func (s *Server) pgAuditRows(rs []db.SearchPaymentRequestsRow) [][]string {
 
 var pgStatuses = []option{{Value: "", Label: "Status"}, {Value: "pending", Label: "pending"}, {Value: "paid", Label: "paid"}, {Value: "failed", Label: "failed"}, {Value: "expired", Label: "expired"}}
 
-func (s *Server) pgAudit(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pgAudit(w http.ResponseWriter, r *http.Request) {
 	q, pg := view.Paging(r)
 	p := s.pgAuditParams(r)
 	p.PageLimit, p.PageOffset = pg.Limit(), pg.Offset()
@@ -61,7 +62,7 @@ func (s *Server) pgAudit(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "payment audit", err)
 		return
 	}
-	from, to, _, _ := s.ax.DateRange(r)
+	from, to, _, _ := s.DateRange(r)
 	lp := listPage{Heading: "Payment Audit", Base: "/admin/payment-gateway/audit", Q: q, Searchable: true, Dates: true, From: from, To: to,
 		Cols: pgAuditCols, ViewLink: true, Filters: []filter{{Name: "status", Val: p.Status, Opts: pgStatuses, Label: "Status"}}}
 	for i, c := range s.pgAuditRows(rs) {
@@ -74,10 +75,10 @@ func (s *Server) pgAudit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp.Finish(pg, total)
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }
 
-func (s *Server) pgAuditExport(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pgAuditExport(w http.ResponseWriter, r *http.Request) {
 	p := s.pgAuditParams(r)
 	p.PageLimit = -1
 	rs, err := s.Queries.SearchPaymentRequests(r.Context(), p)
@@ -85,10 +86,10 @@ func (s *Server) pgAuditExport(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "export payment audit", err)
 		return
 	}
-	s.ax.WriteCSV(w, "payment-audit", pgAuditCols, s.pgAuditRows(rs))
+	s.WriteCSV(w, "payment-audit", pgAuditCols, s.pgAuditRows(rs))
 }
 
-func (s *Server) pgAuditView(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) pgAuditView(w http.ResponseWriter, r *http.Request) {
 	x, err := s.Queries.GetPaymentAudit(r.Context(), httpx.PathID(r))
 	if err != nil {
 		http.NotFound(w, r)
@@ -101,5 +102,5 @@ func (s *Server) pgAuditView(w http.ResponseWriter, r *http.Request) {
 	rows := [][2]string{{"Transaction ID", x.Ref}, {"Gateway Ref", x.GatewayRef}, {"Username", x.Username}, {"Package Name", x.PlanName},
 		{"Package Price", view.Money(x.Amount)}, {"Coupon Code", x.Coupon}, {"Channel", x.Channel}, {"Payment Link", x.PayUrl}, {"Status", x.Status},
 		{"Created On", s.TS(x.CreatedAt)}, {"Expires On", s.TS(x.ExpiresAt)}, {"Paid Date", paid}}
-	s.Render(w, r, 200, "pay_audit", Page{Title: "Payment Audit", Data: rows})
+	s.Render(w, r, 200, "pay_audit", core.Page{Title: "Payment Audit", Data: rows})
 }

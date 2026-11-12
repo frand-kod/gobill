@@ -1,4 +1,4 @@
-package web
+package reports
 
 // Income reports, print and export, invoices and transaction list.
 
@@ -14,19 +14,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/frand-kod/gobill/internal/web/admin/adminx"
+	"github.com/frand-kod/gobill/internal/web/core"
 	"github.com/frand-kod/gobill/internal/web/httpx"
 	"github.com/frand-kod/gobill/internal/web/view"
 
 	"github.com/frand-kod/gobill/internal/db"
 )
 
-type repTotal struct {
+type RepTotal struct {
 	Name  string
 	Count int
 	Sum   int64
 }
 
-type reportData struct {
+type ReportData struct {
 	Period                         bool
 	From, To, Type, Method, Router string
 	PlanID                         string
@@ -34,7 +36,7 @@ type reportData struct {
 	Rows                           []db.Transaction
 	Count, RowCount                int // RowCount: transaction rows (view.Pager); Count adds the agent deposits
 	Sum                            int64
-	ByType, ByMethod               []repTotal
+	ByType, ByMethod               []RepTotal
 	Company, Base                  string
 	Methods                        []option // method filter: distinct income methods
 	CanInvoice                     bool     // viewer may open invoices (the Report role may not)
@@ -45,10 +47,10 @@ type reportData struct {
 	// output, and html/template would otherwise escape its = and & so the links lose the filter.
 	Query     template.URL
 	Nav       view.PageNav // row table view.Pager
-	Truncated bool         // print: rows capped at reportPrintCap
+	Truncated bool         // print: rows capped at ReportPrintCap
 	// Usage section of the Period Report, managers only (like the dashboard Usage card)
 	ShowUsage, UsageErr bool
-	Usage               usageWin
+	Usage               UsageWin
 	UsageQuery          template.URL // from and to for the usage CSV link
 }
 
@@ -58,12 +60,12 @@ const reportUsageTop = 20
 const agentDepositMethod = "Agent - Deposit"
 
 // wantsDeposits: deposits have no type, router or plan, so those filters hide them.
-func wantsDeposits(d reportData, a db.ReportTransactionsParams) bool {
+func wantsDeposits(d ReportData, a db.ReportTransactionsParams) bool {
 	return d.Type == "" && d.Router == "" && a.PlanID == 0 && (d.Method == "" || d.Method == agentDepositMethod)
 }
 
-// reportPrintCap bounds the print view; the CSV export still has every row.
-const reportPrintCap = 5000
+// ReportPrintCap bounds the print view; the CSV export still has every row.
+const ReportPrintCap = 5000
 
 func parseDay(s string, loc *time.Location, def time.Time) time.Time {
 	if t, err := time.ParseInLocation("2006-01-02", s, loc); err == nil {
@@ -73,10 +75,10 @@ func parseDay(s string, loc *time.Location, def time.Time) time.Time {
 }
 
 // reportFilter reads the request filter. Day bounds are local midnights in the app zone; "to" is inclusive.
-func (s *Server) reportFilter(r *http.Request, period bool) (reportData, db.ReportTransactionsParams) {
+func (s *Handlers) reportFilter(r *http.Request, period bool) (ReportData, db.ReportTransactionsParams) {
 	q := r.URL.Query()
 	loc := s.Location()
-	now := s.now().In(loc)
+	now := s.Now().In(loc)
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 	from, to := parseDay(q.Get("date"), loc, today), time.Time{}
 	if period {
@@ -89,7 +91,7 @@ func (s *Server) reportFilter(r *http.Request, period bool) (reportData, db.Repo
 	} else {
 		to = from
 	}
-	d := reportData{Period: period, Type: q.Get("type"), Method: strings.TrimSpace(q.Get("method")),
+	d := ReportData{Period: period, Type: q.Get("type"), Method: strings.TrimSpace(q.Get("method")),
 		Router: q.Get("router"), PlanID: q.Get("plan"), Base: "/admin/reports"}
 	d.From, d.To = from.Format("2006-01-02"), to.Format("2006-01-02")
 	planID, _ := strconv.ParseInt(d.PlanID, 10, 64)
@@ -107,8 +109,8 @@ func (s *Server) reportFilter(r *http.Request, period bool) (reportData, db.Repo
 	return d, db.ReportTransactionsParams{FromTs: from.Unix(), ToTs: to.AddDate(0, 0, 1).Unix(), Type: d.Type, Method: d.Method, RouterName: d.Router, PlanID: planID}
 }
 
-// reportLoad fills the totals (count, sum, by type, by method) with SQL aggregates. Rows are left to the caller.
-func (s *Server) reportLoad(r *http.Request, period bool) (reportData, db.ReportTransactionsParams, error) {
+// ReportLoad fills the totals (count, sum, by type, by method) with SQL aggregates. Rows are left to the caller.
+func (s *Handlers) ReportLoad(r *http.Request, period bool) (ReportData, db.ReportTransactionsParams, error) {
 	d, a := s.reportFilter(r, period)
 	ctx := r.Context()
 	tot, err := s.Queries.ReportTotals(ctx, db.ReportTotalsParams(a))
@@ -121,14 +123,14 @@ func (s *Server) reportLoad(r *http.Request, period bool) (reportData, db.Report
 		return d, a, err
 	}
 	for _, x := range bt {
-		d.ByType = append(d.ByType, repTotal{Name: x.Name, Count: int(x.Cnt), Sum: x.Total})
+		d.ByType = append(d.ByType, RepTotal{Name: x.Name, Count: int(x.Cnt), Sum: x.Total})
 	}
 	bm, err := s.Queries.ReportTotalsByMethod(ctx, db.ReportTotalsByMethodParams(a))
 	if err != nil {
 		return d, a, err
 	}
 	for _, x := range bm {
-		d.ByMethod = append(d.ByMethod, repTotal{Name: x.Name, Count: int(x.Cnt), Sum: x.Total})
+		d.ByMethod = append(d.ByMethod, RepTotal{Name: x.Name, Count: int(x.Cnt), Sum: x.Total})
 	}
 	// Agent consignment deposits are income of their own (the codes they sold are excluded from the rows).
 	// They have no type, router or plan, so those filters hide them.
@@ -138,7 +140,7 @@ func (s *Server) reportLoad(r *http.Request, period bool) (reportData, db.Report
 			return d, a, err
 		}
 		if ap.Cnt > 0 {
-			x := repTotal{Name: agentDepositMethod, Count: int(ap.Cnt), Sum: ap.Total}
+			x := RepTotal{Name: agentDepositMethod, Count: int(ap.Cnt), Sum: ap.Total}
 			d.ByType, d.ByMethod = append(d.ByType, x), append(d.ByMethod, x)
 			d.Count, d.Sum = d.Count+x.Count, d.Sum+x.Sum
 		}
@@ -149,13 +151,13 @@ func (s *Server) reportLoad(r *http.Request, period bool) (reportData, db.Report
 	if set, err := s.LoadSettings(ctx); err == nil {
 		d.Company, d.Address = set["company_name"], set["address"]
 	}
-	d.CanInvoice = s.canOpenInvoices(ctx)
+	d.CanInvoice = s.CanOpenInvoices(ctx)
 	return d, a, nil
 }
 
 // reportMethodOpts fills the method filter: the methods seen in income, the deposit pseudo-method, and the
 // requested one even when it matches nothing (old ?method= links keep working).
-func (s *Server) reportMethodOpts(ctx context.Context, d *reportData) error {
+func (s *Handlers) reportMethodOpts(ctx context.Context, d *ReportData) error {
 	ms, err := s.Queries.ReportMethods(ctx)
 	if err != nil {
 		return err
@@ -164,12 +166,12 @@ func (s *Server) reportMethodOpts(ctx context.Context, d *reportData) error {
 	if d.Method != "" && !slices.Contains(ms, d.Method) {
 		ms = append(ms, d.Method)
 	}
-	d.Methods = anyOpts("Method", ms...)
+	d.Methods = adminx.AnyOpts("Method", ms...)
 	return nil
 }
 
-// reportRows reads rows of the filtered report in date order.
-func (s *Server) reportRows(ctx context.Context, a db.ReportTransactionsParams, limit, offset int64) ([]db.Transaction, error) {
+// ReportRows reads rows of the filtered report in date order.
+func (s *Handlers) ReportRows(ctx context.Context, a db.ReportTransactionsParams, limit, offset int64) ([]db.Transaction, error) {
 	rows, err := s.Queries.ReportTransactionsPage(ctx, db.ReportTransactionsPageParams{FromTs: a.FromTs, ToTs: a.ToTs, Type: a.Type,
 		Method: a.Method, RouterName: a.RouterName, PlanID: a.PlanID, PageLimit: limit, PageOffset: offset})
 	out := make([]db.Transaction, len(rows)) // the view's row type has the same fields
@@ -185,7 +187,7 @@ const maxUsageDays = 366
 
 // usageBounds is the first and last day of the usage section for the report range (d.From, d.To).
 // ok is false when the range is backwards.
-func (s *Server) usageBounds(d reportData) (from, to time.Time, ok bool) {
+func (s *Handlers) usageBounds(d ReportData) (from, to time.Time, ok bool) {
 	loc := s.Location()
 	from, to = parseDay(d.From, loc, time.Time{}), parseDay(d.To, loc, time.Time{})
 	if to.Before(from) {
@@ -201,15 +203,15 @@ func isPeriod(r *http.Request) bool {
 	return r.URL.Query().Has("from") || r.URL.Query().Has("to")
 }
 
-func (s *Server) reportPage(period bool) http.HandlerFunc {
+func (s *Handlers) reportPage(period bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		d, a, err := s.reportLoad(r, period)
+		d, a, err := s.ReportLoad(r, period)
 		if err != nil {
 			s.Fail(w, "report", err)
 			return
 		}
 		_, pg := view.Paging(r)
-		rows, err := s.reportRows(r.Context(), a, pg.Limit(), pg.Offset())
+		rows, err := s.ReportRows(r.Context(), a, pg.Limit(), pg.Offset())
 		if err != nil {
 			s.Fail(w, "report rows", err)
 			return
@@ -227,8 +229,8 @@ func (s *Server) reportPage(period bool) http.HandlerFunc {
 			return href
 		})
 		d.Rows = rows
-		d.Types = anyOpts("Type", "Hotspot", "PPPoE", "Balance")
-		d.Routers = append(anyOpts("Routers"), option{Value: "-radius", Label: "RADIUS (no router)"}, option{Value: "balance", Label: "Balance"})
+		d.Types = adminx.AnyOpts("Type", "Hotspot", "PPPoE", "Balance")
+		d.Routers = append(adminx.AnyOpts("Routers"), option{Value: "-radius", Label: "RADIUS (no router)"}, option{Value: "balance", Label: "Balance"})
 		rs, err := s.Queries.ListRouters(r.Context(), db.ListRoutersParams{Limit: 1000})
 		if err != nil {
 			s.Fail(w, "report routers", err)
@@ -237,7 +239,7 @@ func (s *Server) reportPage(period bool) http.HandlerFunc {
 		for _, x := range rs {
 			d.Routers = append(d.Routers, option{Value: x.Name, Label: x.Name})
 		}
-		opts, _, err := s.planOptions(r, false)
+		opts, _, err := s.PlanOptions(r, false)
 		if err != nil {
 			s.Fail(w, "report plans", err)
 			return
@@ -252,39 +254,39 @@ func (s *Server) reportPage(period bool) http.HandlerFunc {
 			title = "Period Report"
 			// RADIUS usage over the range, managers only like the dashboard Usage card. The router, plan,
 			// type and method filters do not apply: radius_usage_daily has no such columns.
-			if d.ShowUsage = ctxIsManager(r.Context()); d.ShowUsage {
+			if d.ShowUsage = adminx.CtxIsManager(r.Context()); d.ShowUsage {
 				if from, to, ok := s.usageBounds(d); !ok {
-					d.Usage = usageWin{Empty: true}
+					d.Usage = UsageWin{Empty: true}
 				} else if d.Usage, err = s.usageRange(r.Context(), from, to, s.Location(), reportUsageTop); err != nil {
 					slog.Error("report usage", "err", err)
 					d.UsageErr = true
 				}
 			}
 		}
-		s.Render(w, r, 200, "report", Page{Title: title, Data: d})
+		s.Render(w, r, 200, "report", core.Page{Title: title, Data: d})
 	}
 }
 
-func (s *Server) reportPrint(w http.ResponseWriter, r *http.Request) {
-	d, a, err := s.reportLoad(r, isPeriod(r))
+func (s *Handlers) reportPrint(w http.ResponseWriter, r *http.Request) {
+	d, a, err := s.ReportLoad(r, isPeriod(r))
 	if err != nil {
 		s.Fail(w, "report print", err)
 		return
 	}
-	rows, err := s.reportRows(r.Context(), a, reportPrintCap+1, 0)
+	rows, err := s.ReportRows(r.Context(), a, ReportPrintCap+1, 0)
 	if err != nil {
 		s.Fail(w, "report print rows", err)
 		return
 	}
-	if len(rows) > reportPrintCap {
-		rows = rows[:reportPrintCap]
+	if len(rows) > ReportPrintCap {
+		rows = rows[:ReportPrintCap]
 		d.Truncated = true
 	}
 	d.Rows = rows
 	loc := s.Location()
-	now := s.now().In(loc)
+	now := s.Now().In(loc)
 	d.PrintedAt = now.Format("02/01/2006 15:04")
-	if a := adminFrom(r); a != nil {
+	if a := core.AdminFrom(r); a != nil {
 		d.PrintedBy = a.Fullname
 		if d.PrintedBy == "" {
 			d.PrintedBy = a.Username
@@ -300,10 +302,10 @@ func (s *Server) reportPrint(w http.ResponseWriter, r *http.Request) {
 	if d.Period {
 		title = "Period Report"
 	}
-	s.Render(w, r, 200, "report_print", Page{Title: title, Data: d})
+	s.Render(w, r, 200, "report_print", core.Page{Title: title, Data: d})
 }
 
-func (s *Server) reportExport(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) ReportExport(w http.ResponseWriter, r *http.Request) {
 	d, a := s.reportFilter(r, isPeriod(r))
 	rows, err := s.Queries.ReportTransactions(r.Context(), db.ReportTransactionsParams(a))
 	if err != nil {
@@ -336,7 +338,7 @@ func (s *Server) reportExport(w http.ResponseWriter, r *http.Request) {
 
 // usageExport is the usage CSV: one row per user per day in the Period Report range (radius_usage_daily).
 // Managers only, like the dashboard Usage card.
-func (s *Server) usageExport(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) usageExport(w http.ResponseWriter, r *http.Request) {
 	d, _ := s.reportFilter(r, true)
 	from, to, ok := s.usageBounds(d)
 	var rows []db.ListRadiusUsageDailyRangeRow
@@ -359,7 +361,7 @@ func (s *Server) usageExport(w http.ResponseWriter, r *http.Request) {
 	cw.Flush()
 }
 
-func (s *Server) trxInvoice(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) trxInvoice(w http.ResponseWriter, r *http.Request) {
 	t, err := s.Queries.GetTransaction(r.Context(), httpx.PathID(r))
 	if err != nil {
 		http.NotFound(w, r)
@@ -368,7 +370,7 @@ func (s *Server) trxInvoice(w http.ResponseWriter, r *http.Request) {
 	s.Invoice(w, r, t)
 }
 
-func (s *Server) trxList(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) trxList(w http.ResponseWriter, r *http.Request) {
 	q, pg := view.Paging(r)
 	sort, dir, param := listSort(r, "date", "amount", "username")
 	// ?customer=ID limits the list to one customer (the customer detail page links here)
@@ -397,5 +399,5 @@ func (s *Server) trxList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lp.Finish(pg, total)
-	s.renderList(w, r, lp)
+	s.RenderList(w, r, lp)
 }

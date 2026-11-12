@@ -413,14 +413,3 @@ func (s *Server) settingsFields(tab string, v, e, st map[string]string) []field 
 	}
 	return nil
 }
-
-func fieldNames(fs []field) []string {
-	var out []string
-	for _, f := range fs {
-		if f.Type == "watest" || f.Type == "dsnow" || f.Type == "formbtn" || f.Type == "test" || f.Type == "note" || f.Type == "pre" {
-			continue // action button or text, not a setting
-		}
-		out = append(out, f.Name)
-	}
-	return out
-}

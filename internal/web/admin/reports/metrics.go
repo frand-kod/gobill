@@ -1,4 +1,4 @@
-package web
+package reports
 
 // GET /metrics: Prometheus text format, bearer token from settings metrics_token. Mounted outside
 // the session and maintenance chain, like /health. Disabled (404) while the token is empty.
@@ -20,7 +20,7 @@ import (
 	"github.com/frand-kod/gobill/internal/radius"
 )
 
-func (s *Server) metricsHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	st, err := s.LoadSettings(r.Context())
 	if err != nil {
 		http.Error(w, "unavailable", http.StatusServiceUnavailable)
@@ -49,7 +49,7 @@ func gauge(name, help string, v float64) metrics.Family {
 }
 
 // computedFamilies are the values read at scrape time: process, storage, sessions and locks.
-func (s *Server) computedFamilies(r *http.Request) []metrics.Family {
+func (s *Handlers) computedFamilies(r *http.Request) []metrics.Family {
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 	fams := []metrics.Family{
@@ -77,12 +77,12 @@ func (s *Server) computedFamilies(r *http.Request) []metrics.Family {
 }
 
 // openRadiusSessions counts sessions that are open and were updated within radius.StaleMax().
-func (s *Server) openRadiusSessions(r *http.Request) (int64, error) {
+func (s *Handlers) openRadiusSessions(r *http.Request) (int64, error) {
 	return s.Queries.CountLiveRadiusSessions(r.Context(), time.Now().Unix()-radius.StaleMax())
 }
 
 // metricsTokenNew makes a new random /metrics token (SuperAdmin). The settings page shows it once.
-func (s *Server) metricsTokenNew(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) metricsTokenNew(w http.ResponseWriter, r *http.Request) {
 	b := make([]byte, 32)
 	rand.Read(b) // never returns an error in Go 1.24+
 	tok := hex.EncodeToString(b)
@@ -90,18 +90,18 @@ func (s *Server) metricsTokenNew(w http.ResponseWriter, r *http.Request) {
 		s.Fail(w, "metrics token", err)
 		return
 	}
-	s.logActivity(r, "metrics.token_new", "")
+	s.LogActivity(r, "metrics.token_new", "")
 	s.Sessions.Put(r.Context(), "metrics_token_once", tok)
 	http.Redirect(w, r, "/admin/settings/integrations", http.StatusSeeOther)
 }
 
 // metricsTokenOff clears the token, so /metrics answers 404 (SuperAdmin).
-func (s *Server) metricsTokenOff(w http.ResponseWriter, r *http.Request) {
+func (s *Handlers) metricsTokenOff(w http.ResponseWriter, r *http.Request) {
 	if err := s.Queries.UpsertSetting(r.Context(), db.UpsertSettingParams{Key: "metrics_token", Value: ""}); err != nil {
 		s.Fail(w, "metrics token off", err)
 		return
 	}
-	s.logActivity(r, "metrics.token_off", "")
+	s.LogActivity(r, "metrics.token_off", "")
 	s.FlashTo(w, r, "/admin/settings/integrations", "Monitoring /metrics disabled")
 }
 
