@@ -55,14 +55,19 @@ Pelanggan dan admin bisa mengirim perintah singkat ke nomor WhatsApp. gobill men
 Atur GOWA dengan nilai environment ini:
 
 ```
-WHATSAPP_WEBHOOK=https://<alamat gobill>/wa/inbound
+WHATSAPP_WEBHOOK=http://127.0.0.1:<port GOBILL_HTTP>/wa/inbound
 WHATSAPP_WEBHOOK_EVENTS=message
 WHATSAPP_WEBHOOK_SECRET=<secret minimal 16 karakter>
 ```
 
 Lalu di **Pengaturan > Integrasi**, bagian "WhatsApp — GOWA", isi "Secret webhook GOWA" dengan secret yang sama dan set "Jawab perintah WhatsApp" ke Yes. Bawaannya mati. Tanpa secret, `/wa/inbound` menjawab 404. Request dengan tanda tangan salah menerima 401.
 
-gobill mengenali pengirim dari nomor telepon. `bayar` menampilkan permintaan bayar yang masih terbuka atau membuat satu untuk paket saat ini, paling banyak 3 baru per jam. Harga selalu dari server. `gangguan` meneruskan paling banyak satu laporan per pelanggan per 30 menit. Admin aktif dicocokkan dengan telepon di profil admin. Pelanggan dicocokkan dengan telepon pelanggan. Jika dua pelanggan memakai nomor yang sama, gobill meminta mereka memakai portal dan tidak menampilkan data. Nomor tak dikenal menerima balasan umum yang singkat. Tiap nomor boleh mengirim 20 perintah per 15 menit. Chat grup dan pesan dari nomor sendiri diabaikan. Setiap perintah dicatat di log aktivitas dengan sumber `wa`.
+gobill mengenali pengirim dari nomor telepon. `bayar` menampilkan permintaan bayar yang masih terbuka atau membuat satu untuk paket saat ini, paling banyak 3 baru per jam. Harga selalu dari server. `gangguan` meneruskan paling banyak satu laporan per pelanggan per 30 menit. Admin aktif dicocokkan dengan telepon di profil admin. Pelanggan dicocokkan dengan telepon pelanggan. Jika dua pelanggan memakai nomor yang sama, gobill meminta mereka memakai portal dan tidak menampilkan data. Nomor tak dikenal menerima balasan umum yang singkat. Tiap nomor boleh mengirim 20 perintah per 15 menit. Chat grup dan pesan dari nomor sendiri diabaikan.
+
+Catatan penting:
+
+- Pakai port `GOBILL_HTTP` dari `config.env`, bukan selalu 8080. Port 8080 bisa dipakai program lain, misalnya AdGuard Home. Program itu lalu menjawab 401 dan GOWA mencatat `webhook returned status 401`.
+- Nomor yang login di GOWA adalah nomor bot. Pesan yang Anda ketik dari nomor itu sendiri dianggap pesan bot dan tidak dijawab. Kirim perintah dari nomor lain. Sebaiknya bot memakai nomor khusus, dan telepon admin di profil diisi nomor pribadi admin. Setiap perintah dicatat di log aktivitas dengan sumber `wa`.
 
 | Siapa | Perintah |
 |---|---|

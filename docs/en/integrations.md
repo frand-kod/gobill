@@ -54,14 +54,19 @@ Customers and admins can send short commands to the WhatsApp number. gobill answ
 Set up GOWA with these environment values:
 
 ```
-WHATSAPP_WEBHOOK=https://<gobill address>/wa/inbound
+WHATSAPP_WEBHOOK=http://127.0.0.1:<GOBILL_HTTP port>/wa/inbound
 WHATSAPP_WEBHOOK_EVENTS=message
 WHATSAPP_WEBHOOK_SECRET=<a secret of at least 16 characters>
 ```
 
 Then in **Settings > Integrations**, section "WhatsApp — GOWA", fill in "GOWA webhook secret" with the same secret and set "Answer WhatsApp commands" to Yes. It is off by default. Without the secret, `/wa/inbound` returns 404. A request with a wrong signature gets 401.
 
-gobill finds the sender by phone number. `bayar` shows the open payment request or makes one for the current plan, at most 3 new ones per hour. The price always comes from the server. `gangguan` forwards at most one report per customer per 30 minutes. An active admin is matched on the phone in the admin profile. A customer is matched on the customer phone. If two customers share a number, gobill asks them to use the portal and shows no data. An unknown number gets a short generic reply. Each number may send 20 commands per 15 minutes. Group chats and your own messages are ignored. Every command is written to the activity log with the source `wa`.
+gobill finds the sender by phone number. `bayar` shows the open payment request or makes one for the current plan, at most 3 new ones per hour. The price always comes from the server. `gangguan` forwards at most one report per customer per 30 minutes. An active admin is matched on the phone in the admin profile. A customer is matched on the customer phone. If two customers share a number, gobill asks them to use the portal and shows no data. An unknown number gets a short generic reply. Each number may send 20 commands per 15 minutes. Group chats and your own messages are ignored.
+
+Important:
+
+- Use the `GOBILL_HTTP` port from `config.env`, not always 8080. Another program, such as AdGuard Home, may use 8080. It then answers 401 and GOWA logs `webhook returned status 401`.
+- The number logged in to GOWA is the bot number. Messages you type from that number count as the bot's own and get no answer. Send commands from another number. Give the bot its own number, and put the admin's personal number in the admin profile. Every command is written to the activity log with the source `wa`.
 
 | Who | Commands |
 |---|---|
