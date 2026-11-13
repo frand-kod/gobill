@@ -1,5 +1,10 @@
 name: ci
-on: [push, pull_request]
+# push only for main and tags: a branch with a PR is tested once, by pull_request.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
 
 jobs:
   # Tags skip checks, test and build: the tagged commit was already tested on main, and the
