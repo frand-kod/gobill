@@ -12,6 +12,7 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ### Keamanan
 
+- **Go 1.26.11**: memperbaiki GO-2026-6859 di `net/http` standard library.
 - **Tebakan voucher tidak lagi mengunci NAS.** Kegagalan voucher per NAS kini hanya memberi peringatan di log. Sebelumnya semua login di NAS itu ditolak.
 - **Kunci akun RADIUS tidak membuka siapa yang ada.** User yang terkunci karena password salah berkali-kali menerima pesan yang sama dengan password salah. Kejadiannya dicatat di log.
 - **Batas percobaan dipesan sebelum menebak.** Request paralel tidak bisa lagi melewati batas.
