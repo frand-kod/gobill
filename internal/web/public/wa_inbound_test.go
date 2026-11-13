@@ -189,3 +189,20 @@ func TestWAInboundIgnoresChat(t *testing.T) {
 		t.Fatalf("ordinary chat got replies: %v", r.sent)
 	}
 }
+
+func TestWAInboundSelfChat(t *testing.T) {
+	r := newWARig(t, true)
+	own := func(id, chat, body string) string {
+		b := strings.Replace(waBody(id, "628123456789:5@s.whatsapp.net", body), `"is_from_me":false`, `"is_from_me":true`, 1)
+		return strings.Replace(b, `"chat_id":"628123456789:5@s.whatsapp.net"`, `"chat_id":"`+chat+`"`, 1)
+	}
+	r.send(own("G1", "628555000111@s.whatsapp.net", "#cek")) // the owner writing to a customer
+	r.send(own("G2", "628123456789@s.whatsapp.net", "halo")) // a note to self
+	if len(r.sent) != 0 {
+		t.Fatalf("answered own messages: %v", r.sent)
+	}
+	r.send(own("G3", "628123456789@s.whatsapp.net", "#cek"))
+	if len(r.sent["628123456789"]) != 1 {
+		t.Fatalf("self chat command not answered: %v", r.sent)
+	}
+}

@@ -129,8 +129,11 @@ func (s *Handlers) waInbound(w http.ResponseWriter, r *http.Request) {
 	p := m.Payload
 	phone := waPhone(p.From)
 	text := strings.TrimSpace(p.Body)
+	// The bot's own messages are skipped, except in its "message yourself" chat: only the owner can
+	// type there, and replies never start with a command prefix, so the bot does not answer itself.
+	selfChat := p.FromMe && phone != "" && waPhone(p.ChatID) == phone
 	switch {
-	case m.Event != "message", p.FromMe, strings.HasSuffix(p.ChatID, "@g.us"), text == "":
+	case m.Event != "message", p.FromMe && !selfChat, strings.HasSuffix(p.ChatID, "@g.us"), text == "":
 	case phone == "":
 		slog.Debug("wa inbound: sender has no phone number", "id", p.ID)
 	case p.ID != "" && !s.waFirstSeen(p.ID):

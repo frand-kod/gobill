@@ -67,7 +67,7 @@ gobill mengenali pengirim dari nomor telepon. `bayar` menampilkan permintaan bay
 Catatan penting:
 
 - Pakai port `GOBILL_HTTP` dari `config.env`, bukan selalu 8080. Port 8080 bisa dipakai program lain, misalnya AdGuard Home. Program itu lalu menjawab 401 dan GOWA mencatat `webhook returned status 401`.
-- Nomor yang login di GOWA adalah nomor bot. Pesan yang Anda ketik dari nomor itu sendiri dianggap pesan bot dan tidak dijawab. Kirim perintah dari nomor lain. Sebaiknya bot memakai nomor khusus, dan telepon admin di profil diisi nomor pribadi admin. Setiap perintah dicatat di log aktivitas dengan sumber `wa`.
+- Nomor yang login di GOWA adalah nomor bot. Pesan yang Anda ketik dari nomor itu sendiri dianggap pesan bot dan tidak dijawab. Pengecualiannya chat "Pesan ke diri sendiri": perintah `#` di chat itu dijawab, jadi admin yang memakai nomor bot bisa mengecek dari nomor yang sama. Isi nomor itu di telepon profil admin. Sebaiknya bot memakai nomor khusus, dan telepon admin di profil diisi nomor pribadi admin. Setiap perintah dicatat di log aktivitas dengan sumber `wa`.
 
 | Siapa | Perintah |
 |---|---|

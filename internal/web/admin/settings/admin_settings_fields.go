@@ -222,7 +222,7 @@ func (s *Handlers) SettingsFields(tab string, v, e, st map[string]string) []fiel
 			text("alt_wga_username", "GOWA username", v, e),
 			sec("alt_wga_password", "GOWA password"),
 			sec("alt_wga_webhook_secret", "GOWA webhook secret"),
-			sel("wa_inbound", "Answer WhatsApp commands", settingsYesNo...).WithHint("Needs the webhook secret above, at least 16 characters, equal to WHATSAPP_WEBHOOK_SECRET of GOWA. Customers and admins can then send commands. Send bantuan to the number to see them. They only read data"),
+			sel("wa_inbound", "Answer WhatsApp commands", settingsYesNo...).WithHint("Needs the webhook secret above, at least 16 characters, equal to WHATSAPP_WEBHOOK_SECRET of GOWA. Customers and admins can then send commands that start with #, e.g. #bantuan. Other chat is ignored."),
 			{Name: "wa_test_phone", Label: "Send test message", Type: "watest", Error: e["wa_test_phone"], Value: v["wa_test_phone"],
 				Hint: "Type a phone number and press the button. Uses the values typed above, even if not saved yet. Devices and QR login are managed in the WA server's own page, not here"},
 		}, "WhatsApp — GOWA", "")...)

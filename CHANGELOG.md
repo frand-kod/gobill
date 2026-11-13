@@ -8,6 +8,11 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+### Changed
+
+- WhatsApp commands now work in the bot's own "message yourself" chat, so an admin who uses the bot number can check gobill from the same phone. Other own messages are still ignored.
+- The "Answer WhatsApp commands" hint now tells about the `#` prefix.
+
 ## [0.3.7] - 2026-11-13
 
 ### Changed

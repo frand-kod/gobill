@@ -66,7 +66,7 @@ gobill finds the sender by phone number. `bayar` shows the open payment request 
 Important:
 
 - Use the `GOBILL_HTTP` port from `config.env`, not always 8080. Another program, such as AdGuard Home, may use 8080. It then answers 401 and GOWA logs `webhook returned status 401`.
-- The number logged in to GOWA is the bot number. Messages you type from that number count as the bot's own and get no answer. Send commands from another number. Give the bot its own number, and put the admin's personal number in the admin profile. Every command is written to the activity log with the source `wa`.
+- The number logged in to GOWA is the bot number. Messages you type from that number count as the bot's own and get no answer. The exception is the "message yourself" chat: `#` commands there are answered, so an admin who uses the bot number can check from the same phone. Put that number in the admin profile. Give the bot its own number, and put the admin's personal number in the admin profile. Every command is written to the activity log with the source `wa`.
 
 | Who | Commands |
 |---|---|
