@@ -2997,7 +2997,6 @@
     "GOWA webhook secret": "Secret webhook GOWA",
     "Answer WhatsApp commands": "Jawab perintah WhatsApp",
     "Needs the webhook secret above, at least 16 characters, equal to WHATSAPP_WEBHOOK_SECRET of GOWA. Customers and admins can then send commands. Send bantuan to the number to see them. They only read data": "Butuh secret webhook di atas, minimal 16 karakter, sama dengan WHATSAPP_WEBHOOK_SECRET di GOWA. Pelanggan dan admin lalu bisa mengirim perintah. Kirim bantuan ke nomor itu untuk melihatnya. Perintah hanya membaca data",
-    "Command not known. Send bantuan to see the commands.": "Perintah tidak dikenal. Kirim bantuan untuk melihat daftar perintah.",
     "This number is used by more than one account. Please use the customer portal.": "Nomor ini dipakai lebih dari satu akun. Silakan pakai portal pelanggan.",
     "This number is not registered. Please contact your provider.": "Nomor ini belum terdaftar. Silakan hubungi penyedia layanan Anda.",
     "Commands:": "Perintah:",
@@ -3024,7 +3023,6 @@
     "Disconnect %s (%s), %d online session(s).": "Putuskan %s (%s), %d sesi online.",
     "Disconnect failed.": "Gagal memutuskan.",
     "Done. %s was disconnected.": "Selesai. %s diputus.",
-    "Search: cari <name, username or phone>": "Cari: cari <nama, username atau nomor>",
     "Something went wrong. Please try again later.": "Terjadi masalah. Coba lagi nanti.",
     "Hello %s. Account status: %s.": "Halo %s. Status akun: %s.",
     "Your service is isolated. Please pay to activate it again.": "Layanan Anda terisolir. Silakan bayar agar aktif kembali.",
@@ -3075,10 +3073,12 @@
     "Too many payment requests. Please try again later.": "Terlalu banyak permintaan bayar. Coba lagi nanti.",
     "Pay: %s %s": "Bayar: %s %s",
     "Valid until %s": "Berlaku sampai %s",
-    "Reply with a number:": "Balas dengan angka:",
     "Check account": "Cek akun",
     "Report a problem": "Lapor gangguan",
     "Data usage": "Pemakaian data",
     "Bill": "Tagihan",
-    "Your own account:": "Akun Anda sendiri:"
+    "Your own account:": "Akun Anda sendiri:",
+    "Command not known. Send #bantuan to see the commands.": "Perintah tidak dikenal. Kirim #bantuan untuk melihat daftar perintah.",
+    "Reply with # and a number, e.g. #1:": "Balas dengan # dan angka, misalnya #1:",
+    "Search: #cari <name, username or phone>": "Cari: #cari <nama, username atau nomor>"
 }

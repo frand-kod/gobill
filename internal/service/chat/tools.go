@@ -48,7 +48,7 @@ func (s *Service) bantuan(_ context.Context, c Caller, _ string) string {
 	var names []string
 	for _, t := range tools {
 		if allowed(t, c) && t.Name != "bantuan" {
-			names = append(names, t.Name)
+			names = append(names, "#"+t.Name)
 		}
 	}
 	if c.Kind == KindCustomer {
@@ -56,7 +56,7 @@ func (s *Service) bantuan(_ context.Context, c Caller, _ string) string {
 	}
 	out := s.t("Commands:") + " " + strings.Join(names, ", ")
 	if slices.Contains(names, "cari") {
-		out += "\n" + s.t("Search: cari <name, username or phone>")
+		out += "\n" + s.t("Search: #cari <name, username or phone>")
 	}
 	if _, own := c.asCustomer(); own {
 		out += "\n\n" + s.t("Your own account:") + "\n" + s.menu()
@@ -72,9 +72,9 @@ var menuItems = []struct{ tool, label string }{
 
 // menu is the numbered customer menu. Commands also work as words, with or without a leading "/".
 func (s *Service) menu() string {
-	out := s.t("Reply with a number:")
+	out := s.t("Reply with # and a number, e.g. #1:")
 	for i, m := range menuItems {
-		out += fmt.Sprintf("\n%d. %s (%s)", i+1, s.t(m.label), m.tool)
+		out += fmt.Sprintf("\n#%d %s (#%s)", i+1, s.t(m.label), m.tool)
 	}
 	return out
 }

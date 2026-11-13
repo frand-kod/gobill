@@ -67,20 +67,11 @@ func (n *Notifier) AltWA(ctx context.Context, phone, text string) error {
 	if len(num) < 10 || len(num) > 15 {
 		return &WAError{Detail: "invalid phone number"}
 	}
-	body, _ := json.Marshal(map[string]string{"phone": num + "@s.whatsapp.net", "message": text})
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(n.get("alt_wga_server_url"), "/")+"/send/message", bytes.NewReader(body))
+	req, err := n.altReq(ctx, "/send/message", map[string]string{"phone": num + "@s.whatsapp.net", "message": text})
 	if err != nil {
 		return &WAError{Detail: "invalid server URL"}
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	if d := n.get("alt_wga_device_id"); d != "" {
-		req.Header.Set("X-Device-Id", d)
-	}
-	if u, p := n.get("alt_wga_username"), n.get("alt_wga_password"); u != "" && p != "" {
-		req.SetBasicAuth(u, p)
 	}
 	resp, err := n.HTTP.Do(req)
 	if err != nil {
@@ -119,4 +110,40 @@ func (n *Notifier) phoneFormat(p string) string {
 		return cc + p[1:]
 	}
 	return p
+}
+
+// altReq builds a JSON POST to the GOWA server with its auth headers.
+func (n *Notifier) altReq(ctx context.Context, path string, v any) (*http.Request, error) {
+	body, _ := json.Marshal(v)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(n.get("alt_wga_server_url"), "/")+path, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	if d := n.get("alt_wga_device_id"); d != "" {
+		req.Header.Set("X-Device-Id", d)
+	}
+	if u, p := n.get("alt_wga_username"), n.get("alt_wga_password"); u != "" && p != "" {
+		req.SetBasicAuth(u, p)
+	}
+	return req, nil
+}
+
+// AltWATyping shows "typing..." in the chat through GOWA /send/chat-presence. Best effort:
+// sending the message ends it, so errors are ignored.
+func (n *Notifier) AltWATyping(ctx context.Context, phone string) {
+	num := n.phoneFormat(nonDigit.ReplaceAllString(phone, ""))
+	if n.get("alt_wga_server_url") == "" || len(num) < 10 || len(num) > 15 {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	req, err := n.altReq(ctx, "/send/chat-presence", map[string]string{"phone": num + "@s.whatsapp.net", "action": "start"})
+	if err != nil {
+		return
+	}
+	if resp, err := n.HTTP.Do(req); err == nil {
+		resp.Body.Close()
+	}
 }

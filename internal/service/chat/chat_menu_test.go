@@ -29,7 +29,7 @@ func TestAdminOwnCustomerFallback(t *testing.T) {
 	if _, tool := s.Reply(ctx, c, "1"); tool != "cek" {
 		t.Fatalf("menu digit for admin's own account = %q", tool)
 	}
-	if out, _ := s.Reply(ctx, c, "bantuan"); !strings.Contains(out, "cari") || !strings.Contains(out, "1. ") {
+	if out, _ := s.Reply(ctx, c, "bantuan"); !strings.Contains(out, "cari") || !strings.Contains(out, "#1 ") {
 		t.Fatalf("admin bantuan lacks admin or own menu: %q", out)
 	}
 
@@ -47,7 +47,7 @@ func TestCustomerMenuAndSlash(t *testing.T) {
 	s, _ := setup(t)
 	ctx := context.Background()
 	c, _ := s.Identify(ctx, "628123456789")
-	if out, _ := s.Reply(ctx, c, "menu"); !strings.Contains(out, "1. ") || !strings.Contains(out, "(gangguan)") {
+	if out, _ := s.Reply(ctx, c, "menu"); !strings.Contains(out, "#1 ") || !strings.Contains(out, "(#gangguan)") {
 		t.Fatalf("menu = %q", out)
 	}
 	for in, want := range map[string]string{"1": "cek", "/cek": "cek", "CEK": "cek", "6": "paket", "9": "", "12": ""} {

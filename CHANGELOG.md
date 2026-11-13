@@ -8,6 +8,12 @@ Versions 0.x mean pre-1.0: breaking changes may happen in minor versions.
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-11-13
+
+### Changed
+
+- WhatsApp commands must start with `#`, `/` or `!`, for example `#cek`. Other messages are ordinary chat and get no reply, also from unknown numbers. A bare confirmation code still works. Replies wait 1-8 seconds and show "typing..." first, so the number looks less like a bot to WhatsApp.
+
 ## [0.3.6] - 2026-11-13
 
 ### Keamanan

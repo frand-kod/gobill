@@ -94,3 +94,16 @@ func TestWAFallbackAndPHPPluginIgnored(t *testing.T) {
 		t.Fatal("WAConfigured")
 	}
 }
+
+func TestAltWATyping(t *testing.T) {
+	var path, got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		path, got = r.URL.Path, string(b)
+	}))
+	defer srv.Close()
+	nt(map[string]string{"alt_wga_server_url": srv.URL, "country_code_phone": "62"}).AltWATyping(context.Background(), "08123456789")
+	if path != "/send/chat-presence" || got != `{"action":"start","phone":"628123456789@s.whatsapp.net"}` {
+		t.Fatalf("bad request: %s %s", path, got)
+	}
+}

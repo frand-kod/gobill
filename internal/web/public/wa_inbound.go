@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"math/rand/v2"
 	"net/http"
 	"strings"
 	"time"
@@ -144,8 +145,35 @@ func (s *Handlers) waInbound(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// waCommand identifies the sender, runs the command and sends the reply.
+// waPrefixes mark a message as a command, e.g. #cek or /cek. Anything else is ordinary chat.
+const waPrefixes = "#/!"
+
+// waCommandText strips the command prefix. ok is false for ordinary chat, which gets no answer:
+// the bot number may also be someone's own number. A bare 4-6 digit code passes too, for confirming
+// an admin write; the chat service ignores it when nothing waits for a code.
+func waCommandText(text string) (string, bool) {
+	t := strings.TrimSpace(text)
+	if t != "" && strings.ContainsRune(waPrefixes, rune(t[0])) {
+		t = strings.TrimSpace(t[1:])
+		return t, t != ""
+	}
+	if len(t) < 4 || len(t) > 6 {
+		return t, false
+	}
+	for _, r := range t {
+		if r < '0' || r > '9' {
+			return t, false
+		}
+	}
+	return t, true
+}
+
+// waCommand identifies the sender, runs the command and sends the reply. Ordinary chat is left alone.
 func (s *Handlers) waCommand(phone, text string) {
+	text, ok := waCommandText(text)
+	if !ok {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	masked := phone[:min(3, len(phone))] + "***" + phone[max(len(phone)-3, 0):]
@@ -159,6 +187,7 @@ func (s *Handlers) waCommand(phone, text string) {
 		return
 	}
 	send := s.waSend
+	pause := func(context.Context, string, string) {} // tests answer at once
 	if send == nil {
 		n, err := notify.Load(ctx, s.Queries)
 		if err != nil {
@@ -166,6 +195,10 @@ func (s *Handlers) waCommand(phone, text string) {
 			return
 		}
 		send = n.WhatsApp
+		pause = func(ctx context.Context, phone, reply string) {
+			n.AltWATyping(ctx, phone)
+			waPause(ctx, reply)
+		}
 	}
 	svc := &chat.Service{Q: s.Queries, T: s.T, PortalURL: core.CustomerLoginURL(st), Loc: s.Location(),
 		NASFresh: nasFresh, StaleFor: radius.StaleFor, Notify: send, Pay: s.waPay(st),
@@ -178,14 +211,21 @@ func (s *Handlers) waCommand(phone, text string) {
 	switch err {
 	case nil:
 		reply, tool = svc.Reply(ctx, c, text)
+		if tool == "" && isDigits(text) {
+			return // a code with nothing waiting for it: not a command
+		}
 		s.waLog(ctx, c, tool)
 	case chat.ErrUnknown, chat.ErrAmbiguous:
+		if isDigits(text) {
+			return
+		}
 		reply = svc.ReplyUnknown(err)
 	default:
 		slog.Error("wa inbound: identify", "err", err)
 		return
 	}
 	slog.Info("wa inbound: command", "phone", masked, "tool", tool)
+	pause(ctx, phone, reply)
 	if err := send(ctx, phone, reply); err != nil {
 		slog.Warn("wa inbound: reply failed", "phone", masked, "err", err)
 	}
@@ -234,5 +274,26 @@ func (s *Handlers) waLog(ctx context.Context, c chat.Caller, tool string) {
 	}
 	if err := s.Queries.CreateActivityLog(ctx, db.CreateActivityLogParams{ActorType: typ, ActorID: id, Action: "wa." + tool, Description: "source=wa"}); err != nil {
 		slog.Error("wa inbound: activity log", "err", err)
+	}
+}
+
+func isDigits(t string) bool {
+	for _, r := range t {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return t != ""
+}
+
+// waPause waits like a person typing: 1-3 s plus 30 ms per character, at most 8 s. Instant bot
+// answers are one of the signals WhatsApp uses to ban numbers.
+func waPause(ctx context.Context, reply string) {
+	d := time.Second + rand.N(2*time.Second) + time.Duration(len([]rune(reply)))*30*time.Millisecond
+	t := time.NewTimer(min(d, 8*time.Second))
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+	case <-t.C:
 	}
 }

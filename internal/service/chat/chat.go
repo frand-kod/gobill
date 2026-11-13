@@ -169,7 +169,7 @@ func (s *Service) Reply(ctx context.Context, c Caller, text string) (string, str
 		if denied(c, text) {
 			return s.t("You are not allowed to use this command."), ""
 		}
-		return s.t("Command not known. Send bantuan to see the commands."), ""
+		return s.t("Command not known. Send #bantuan to see the commands."), ""
 	}
 	return t.Run(s, ctx, c, args), t.Name
 }

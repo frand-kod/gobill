@@ -78,7 +78,7 @@ Catatan penting:
 | Admin (SuperAdmin, Admin, Agent, Sales) | `perpanjang <username> [paket]` (juga `recharge`): perpanjang tunai. Tanpa paket, dipakai paket saat ini atau terakhir. |
 | Admin (SuperAdmin, Admin) | `putus <username>` (juga `kick`, `disconnect`): putuskan sesi online pelanggan |
 
-Perintah boleh diawali `/`, misalnya `/cek`. Pelanggan yang mengirim `bantuan` atau `menu` menerima menu bernomor. Membalas satu angka sama dengan mengirim perintahnya.
+Perintah harus diawali `#`, `/` atau `!`, misalnya `#cek`. Pesan tanpa tanda itu dianggap obrolan biasa dan tidak dijawab, juga dari nomor tak dikenal. Jadi nomor bot tetap bisa dipakai chat seperti biasa. Kode konfirmasi 6 digit boleh dikirim tanpa tanda. Pelanggan yang mengirim `#bantuan` atau `#menu` menerima menu bernomor. Membalas `#1` sama dengan mengirim `#cek`. Balasan muncul setelah 1–8 detik dengan status "sedang mengetik". Jeda ini membuat nomor tidak terlihat seperti bot dan mengurangi risiko diblokir WhatsApp.
 
 Jika nomor admin juga dipakai tepat satu pelanggan, perintah admin didahulukan. Perintah yang hanya ada untuk pelanggan, misalnya `cek` atau `bayar`, berlaku untuk akun pelanggan itu sendiri.
 | Semua admin | `bantuan` |

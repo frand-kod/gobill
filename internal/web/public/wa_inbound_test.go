@@ -91,7 +91,7 @@ func (r *waRig) send(body string) int { return r.post(body, sign(body)) }
 
 func TestWAInboundSignature(t *testing.T) {
 	r := newWARig(t, true)
-	b := waBody("A1", "628123456789@s.whatsapp.net", "cek")
+	b := waBody("A1", "628123456789@s.whatsapp.net", "#cek")
 	if c := r.post(b, ""); c != http.StatusUnauthorized {
 		t.Fatalf("missing signature: %d", c)
 	}
@@ -111,7 +111,7 @@ func TestWAInboundSignature(t *testing.T) {
 
 func TestWAInboundDisabledWithoutSecretOrSwitch(t *testing.T) {
 	r := newWARig(t, false)
-	b := waBody("A1", "628123456789@s.whatsapp.net", "cek")
+	b := waBody("A1", "628123456789@s.whatsapp.net", "#cek")
 	if c := r.send(b); c != http.StatusNotFound {
 		t.Fatalf("not configured: %d", c)
 	}
@@ -143,13 +143,13 @@ func TestWAInboundIgnores(t *testing.T) {
 
 func TestWAInboundUnknownAndOwnData(t *testing.T) {
 	r := newWARig(t, true)
-	r.send(waBody("C1", "628999000@s.whatsapp.net", "cek"))
+	r.send(waBody("C1", "628999000@s.whatsapp.net", "#cek"))
 	got := strings.Join(r.sent["628999000"], "")
 	if got == "" || strings.Contains(got, "Budi") || strings.Contains(got, "Ani") {
 		t.Fatalf("unknown sender reply: %q", got)
 	}
-	r.send(waBody("C2", "628123456789@s.whatsapp.net", "cek"))
-	r.send(waBody("C3", "628123456789@s.whatsapp.net", "cari ani"))
+	r.send(waBody("C2", "628123456789@s.whatsapp.net", "#cek"))
+	r.send(waBody("C3", "628123456789@s.whatsapp.net", "#cari ani"))
 	for _, x := range r.sent["628123456789"] {
 		if strings.Contains(x, "Ani") || strings.Contains(x, "628555000111") {
 			t.Fatalf("customer saw another customer: %q", x)
@@ -162,7 +162,7 @@ func TestWAInboundUnknownAndOwnData(t *testing.T) {
 
 func TestWAInboundDedupe(t *testing.T) {
 	r := newWARig(t, true)
-	b := waBody("D1", "628123456789@s.whatsapp.net", "cek")
+	b := waBody("D1", "628123456789@s.whatsapp.net", "#cek")
 	r.send(b)
 	r.send(b)
 	if n := len(r.sent["628123456789"]); n != 1 {
@@ -173,9 +173,19 @@ func TestWAInboundDedupe(t *testing.T) {
 func TestWAInboundRateLimit(t *testing.T) {
 	r := newWARig(t, true)
 	for i := 0; i < waRateLimit+5; i++ {
-		r.send(waBody("E"+string(rune('a'+i)), "628123456789@s.whatsapp.net", "cek"))
+		r.send(waBody("E"+string(rune('a'+i)), "628123456789@s.whatsapp.net", "#cek"))
 	}
 	if n := len(r.sent["628123456789"]); n != waRateLimit {
 		t.Fatalf("answered %d, want the limit %d", n, waRateLimit)
+	}
+}
+
+func TestWAInboundIgnoresChat(t *testing.T) {
+	r := newWARig(t, true)
+	r.send(waBody("F1", "628123456789@s.whatsapp.net", "halo, besok bisa ketemu?"))
+	r.send(waBody("F2", "628999000@s.whatsapp.net", "cek"))
+	r.send(waBody("F3", "628999000@s.whatsapp.net", "123456"))
+	if len(r.sent) != 0 {
+		t.Fatalf("ordinary chat got replies: %v", r.sent)
 	}
 }

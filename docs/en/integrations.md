@@ -77,7 +77,7 @@ Important:
 | Admin (SuperAdmin, Admin, Agent, Sales) | `perpanjang <username> [plan]` (also `recharge`): cash recharge. Without a plan it uses the current or last plan. |
 | Admin (SuperAdmin, Admin) | `putus <username>` (also `kick`, `disconnect`): disconnect the online sessions of a customer |
 
-Commands may start with `/`, for example `/cek`. A customer who sends `bantuan` or `menu` gets a numbered menu. Replying with one digit is the same as sending its command.
+A command must start with `#`, `/` or `!`, for example `#cek`. A message without that mark is ordinary chat and gets no reply, also from unknown numbers. So the bot number still works for normal chat. A 6-digit confirmation code may be sent without the mark. A customer who sends `#bantuan` or `#menu` gets a numbered menu. Replying `#1` is the same as sending `#cek`. The reply comes after 1–8 seconds and shows "typing..." first. The pause makes the number look less like a bot and lowers the risk of a WhatsApp ban.
 
 If an admin's phone is also used by exactly one customer, admin commands come first. Commands that exist only for customers, such as `cek` or `bayar`, work on that customer's own account.
 | Every admin | `bantuan` |
